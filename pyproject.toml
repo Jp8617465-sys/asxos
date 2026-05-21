@@ -59,13 +59,12 @@ all = [
 [project.scripts]
 asxos = "asxos.cli:app"
 
-[tool.setuptools]
-packages = ["asxos"]
-
-[tool.setuptools.package-dir]
-"asxos" = "asxos"
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests*", "jobs*", "scripts*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra --strict-markers"
