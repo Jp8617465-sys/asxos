@@ -1,6 +1,6 @@
 .PHONY: help install dev test lint type format check migrate shell logs deploy check-drift clean
 
-PY ?= python3.12
+PY ?= /usr/local/bin/python3.12
 VENV ?= .venv
 ACTIVATE = source $(VENV)/bin/activate
 
@@ -12,7 +12,10 @@ $(VENV)/bin/activate:
 	$(VENV)/bin/pip install --upgrade pip
 	$(VENV)/bin/pip install -e ".[dev]"
 
-install: $(VENV)/bin/activate  ## Create venv and install deps
+install: $(VENV)/bin/activate  ## Create venv and install core + dev deps (no ML)
+
+install-ml:  ## Add ML deps (lightgbm, shap, sklearn) — requires LLVM
+	$(VENV)/bin/pip install -e ".[ml]"
 
 dev:  ## Run the API at 127.0.0.1:8788 with reload
 	$(VENV)/bin/python -m uvicorn asxos.api.main:app --host 127.0.0.1 --port 8788 --reload
