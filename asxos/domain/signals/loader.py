@@ -25,6 +25,19 @@ import pandas as pd
 FUNDAMENTAL_LAG_DAYS = 45
 DEFAULT_LOOKBACK_DAYS = 450
 
+# Fundamental features (and their derived z-scores) are zero-filled when
+# missing — ml-conventions.md treats absent fundamentals as a neutral input
+# rather than a disqualifier. Technical features (momentum, vol, trend) still
+# require a fully-populated lookback window.
+FUNDAMENTAL_FEATURE_COLS: tuple[str, ...] = (
+    "pe_ratio",
+    "pb_ratio",
+    "eps",
+    "market_cap",
+    "pe_ratio_zscore",
+    "pb_ratio_zscore",
+)
+
 
 async def load_features_for_date(
     conn: asyncpg.Connection,
@@ -58,7 +71,16 @@ async def load_features_for_date(
         return snapshot
 
     snapshot = snapshot.set_index("symbol")
-    snapshot = snapshot.dropna(subset=MODEL_A_FEATURES)
+
+    # ml-conventions: zero-fill fundamental features and their z-scores. A
+    # sparse fundamentals table (e.g. early production days) would otherwise
+    # drop every row via the technical-feature dropna below.
+    for col in FUNDAMENTAL_FEATURE_COLS:
+        if col in snapshot.columns:
+            snapshot[col] = snapshot[col].fillna(0.0)
+
+    technical_features = [f for f in MODEL_A_FEATURES if f not in FUNDAMENTAL_FEATURE_COLS]
+    snapshot = snapshot.dropna(subset=technical_features)
     return snapshot
 
 

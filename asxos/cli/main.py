@@ -47,17 +47,19 @@ async def _run_predict(target_date: date, *, top: int, shap_n: int) -> None:
     try:
         async with acquire() as conn:
             features = await load_features_for_date(conn, target_date)
+
+        if features.empty:
+            console.print(
+                f"[yellow]No features computable for {target_date.isoformat()}.[/yellow] "
+                "Check that prices and fundamentals are ingested for the lookback window."
+            )
+            raise typer.Exit(code=1)
+
+        # predict_with_shap goes through the model cache, which queries
+        # model_versions — keep the pool open until predict returns.
+        preds, shap_df = await predict_with_shap(features)
     finally:
         await close_pool()
-
-    if features.empty:
-        console.print(
-            f"[yellow]No features computable for {target_date.isoformat()}.[/yellow] "
-            "Check that prices and fundamentals are ingested for the lookback window."
-        )
-        raise typer.Exit(code=1)
-
-    preds, shap_df = await predict_with_shap(features)
     head = preds.head(top)
 
     table = Table(

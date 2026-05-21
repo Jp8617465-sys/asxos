@@ -135,6 +135,32 @@ def test_load_features_uses_expected_lookback_and_lag() -> None:
     assert funds_call.args[1] == target - timedelta(days=FUNDAMENTAL_LAG_DAYS)
 
 
+def test_load_features_zero_fills_when_fundamentals_absent() -> None:
+    """No fundamentals → pe_ratio/eps/market_cap/z-scores all zero,
+    technical features still computed from prices alone."""
+    target = date(2026, 5, 15)
+    prices = _as_records(_price_rows(["AAA.AU", "BBB.AU"], target))
+    conn = MagicMock()
+    conn.fetch = AsyncMock(
+        side_effect=[
+            prices,
+            [],  # fundamentals empty
+            _as_records(_cap_rows(["AAA.AU", "BBB.AU"])),
+        ]
+    )
+
+    df = asyncio.run(load_features_for_date(conn, target))
+
+    assert not df.empty
+    # Fundamentals-sourced cols zero-filled rather than NaN.
+    # market_cap comes from universe (still populated), so it's exempt.
+    for col in ("pe_ratio", "pb_ratio", "eps", "pe_ratio_zscore", "pb_ratio_zscore"):
+        assert (df[col] == 0.0).all(), f"{col} should be zero-filled but isn't"
+    # All Model A features finite — no dropna firing
+    for col in MODEL_A_FEATURES:
+        assert np.isfinite(df[col]).all(), f"{col} should be finite"
+
+
 def test_load_features_dropped_when_panel_too_short() -> None:
     """A panel with only 30 days of prices can't fill rolling windows → empty result."""
     target = date(2026, 5, 15)
