@@ -1,12 +1,13 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.models.cache import get_cache
 
-REQUIRED_MIGRATIONS = 1  # bump each time a new migration is applied
+REQUIRED_MIGRATIONS = 3  # bump each time a new migration is applied
 
 
 async def _check_migration_drift() -> None:
@@ -33,6 +34,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await conn.fetchval("SELECT 1")
 
     await _check_migration_drift()
+
+    # Warm the model cache — hard-fail if the active artefact is missing.
+    await get_cache().get("model_a")
 
     yield
 

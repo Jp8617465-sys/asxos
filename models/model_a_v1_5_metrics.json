@@ -1,0 +1,33 @@
+{
+  "roc_auc_mean": 0.7097205559933155,
+  "roc_auc_std": 0.01431179251370716,
+  "rmse_mean": 82.49539785317546,
+  "rmse_std": 39.64977202584218,
+  "cv_folds": 5,
+  "n_features": 22,
+  "n_samples": 1052811,
+  "auc_per_fold": [
+    0.683,
+    0.7155,
+    0.7132,
+    0.711,
+    0.7259
+  ],
+  "rmse_per_fold": [
+    10.9919,
+    117.5534,
+    115.93553,
+    98.06842,
+    69.92773
+  ],
+  "v1_4_comparison": {
+    "v1_4_auc": 0.7006440607601879,
+    "v1_5_auc": 0.7097205559933155,
+    "delta_auc": 0.0091,
+    "degradation_pct": -1.3
+  },
+  "training_samples": 1052811,
+  "training_features": 22,
+  "training_duration_seconds": 42,
+  "feature_set_note": "Same 22 features as v1.4. New forward_estimates and macro features excluded due to <3% coverage in model_a_features_extended. Will be added in v1.6 after extended table backfill."
+}

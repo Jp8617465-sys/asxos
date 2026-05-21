@@ -27,6 +27,7 @@ dependencies = [
     # Jobs + utilities
     "tenacity==9.0.0",
     "typer==0.12.5",
+    "click<8.2",  # typer 0.12.5 is incompatible with click 8.2+ (make_metavar signature change)
     "rich==13.9.2",
     "jinja2==3.1.4",
     "resend==2.4.0",
@@ -57,7 +58,7 @@ all = [
 ]
 
 [project.scripts]
-asxos = "asxos.cli:app"
+asx = "asxos.cli.main:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
