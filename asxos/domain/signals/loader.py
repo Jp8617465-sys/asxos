@@ -39,31 +39,32 @@ FUNDAMENTAL_FEATURE_COLS: tuple[str, ...] = (
 )
 
 
-async def load_features_for_date(
+async def load_panel(
     conn: asyncpg.Connection,
     target_date: date,
     *,
     lookback_days: int = DEFAULT_LOOKBACK_DAYS,
 ) -> pd.DataFrame:
-    """
-    Returns the features DataFrame restricted to `target_date`, indexed by
-    symbol. Rows where any Model A feature is non-finite are dropped — the
-    caller decides whether an empty result is acceptable.
-    """
+    """Raw symbol-by-dt panel with prices, fundamentals (45-day lag), and caps.
+    Used by the regime detector (needs full history) and the feature loader."""
+    start_date = target_date - timedelta(days=lookback_days)
+    fundamentals_cutoff = target_date - timedelta(days=FUNDAMENTAL_LAG_DAYS)
+    return await _load_panel(conn, start_date, target_date, fundamentals_cutoff)
+
+
+def features_from_panel(panel: pd.DataFrame, target_date: date) -> pd.DataFrame:
+    """Run the FeatureEngine on a pre-loaded panel and return the target-date
+    snapshot, indexed by symbol, with zero-filled fundamentals."""
     from asxos.domain.signals.feature_engine import (
         MODEL_A_FEATURES,
         FeatureEngine,
     )
 
-    start_date = target_date - timedelta(days=lookback_days)
-    fundamentals_cutoff = target_date - timedelta(days=FUNDAMENTAL_LAG_DAYS)
-
-    raw = await _load_panel(conn, start_date, target_date, fundamentals_cutoff)
-    if raw.empty:
-        return raw
+    if panel.empty:
+        return panel
 
     engine = FeatureEngine()
-    enriched = engine.compute_all_features(raw)
+    enriched = engine.compute_all_features(panel)
 
     target_ts = pd.Timestamp(target_date)
     snapshot = enriched.loc[enriched["dt"] == target_ts].copy()
@@ -82,6 +83,21 @@ async def load_features_for_date(
     technical_features = [f for f in MODEL_A_FEATURES if f not in FUNDAMENTAL_FEATURE_COLS]
     snapshot = snapshot.dropna(subset=technical_features)
     return snapshot
+
+
+async def load_features_for_date(
+    conn: asyncpg.Connection,
+    target_date: date,
+    *,
+    lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+) -> pd.DataFrame:
+    """
+    Returns the features DataFrame restricted to `target_date`, indexed by
+    symbol. Rows where any Model A feature is non-finite are dropped — the
+    caller decides whether an empty result is acceptable.
+    """
+    panel = await load_panel(conn, target_date, lookback_days=lookback_days)
+    return features_from_panel(panel, target_date)
 
 
 async def _load_panel(
