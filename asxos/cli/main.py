@@ -139,5 +139,231 @@ async def _run_signal(symbol: str, *, shap_n: int) -> None:
         console.print(f"  drivers: {factor_str}")
 
 
+@app.command("import-holdings")
+def import_holdings(
+    csv_path: str = typer.Argument(..., help="Path to a holdings CSV (see asxos/domain/tax/import_csv.py)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Parse + validate without writing"),
+) -> None:
+    """Bulk-import lots from CSV into holding_lots. All-or-nothing per file."""
+    from pathlib import Path
+
+    from asxos.domain.tax.import_csv import parse_csv
+
+    rows = parse_csv(Path(csv_path))
+    console.print(f"Parsed {len(rows)} rows from {csv_path}")
+    if dry_run:
+        for r in rows[:5]:
+            console.print(f"  {r}")
+        console.print("[yellow]--dry-run: no rows written.[/yellow]")
+        return
+
+    asyncio.run(_run_import_holdings(rows))
+    console.print(f"[green]Inserted {len(rows)} lots.[/green]")
+
+
+async def _run_import_holdings(rows: list) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            async with conn.transaction():
+                for r in rows:
+                    await conn.execute(
+                        """
+                        INSERT INTO holding_lots
+                            (symbol, acquired_at, quantity, cost_base_normal,
+                             cost_base_div296, account_type, broker_ref, notes)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        """,
+                        r.symbol,
+                        r.acquired_at,
+                        r.quantity,
+                        r.cost_base_normal,
+                        r.cost_base_div296,
+                        r.account_type,
+                        r.broker_ref,
+                        r.notes,
+                    )
+    finally:
+        await close_pool()
+
+
+@app.command("tax-view")
+def tax_view(
+    account_type: str = typer.Option("individual", "--account", help="individual or smsf"),
+    marginal_rate: float = typer.Option(0.37, "--marginal", help="Individual marginal rate, e.g. 0.37"),
+    fund_pension_proportion: float = typer.Option(
+        0.0, "--pension-prop", help="SMSF fund_pension_proportion in [0, 1]"
+    ),
+    carried_forward_loss: float = typer.Option(0.0, "--cf-loss", help="Carried-forward capital loss (AUD)"),
+    tsb_ref: float = typer.Option(0.0, "--tsb-ref", help="SMSF total super balance ref (max open/close)"),
+) -> None:
+    """Print a tax-view summary from current_holdings."""
+    if account_type not in ("individual", "smsf"):
+        raise typer.BadParameter("account must be 'individual' or 'smsf'")
+    asyncio.run(
+        _run_tax_view(
+            account_type=account_type,
+            marginal_rate=marginal_rate,
+            fund_pension_proportion=fund_pension_proportion,
+            carried_forward_loss=carried_forward_loss,
+            tsb_ref=tsb_ref,
+        )
+    )
+
+
+async def _run_tax_view(
+    *,
+    account_type: str,
+    marginal_rate: float,
+    fund_pension_proportion: float,
+    carried_forward_loss: float,
+    tsb_ref: float,
+) -> None:
+    from decimal import Decimal
+
+    from asxos.domain.tax.positions import tax_view_individual, tax_view_smsf
+    from asxos.domain.tax.types import HoldingLot, IndividualConfig, SMSFConfig
+
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, symbol, acquired_at, quantity,
+                       cost_base_normal, cost_base_div296, account_type
+                FROM current_holdings
+                WHERE account_type = $1
+                ORDER BY symbol, acquired_at
+                """,
+                account_type,
+            )
+    finally:
+        await close_pool()
+
+    lots = [
+        HoldingLot(
+            lot_id=r["id"],
+            symbol=r["symbol"],
+            acquired_at=r["acquired_at"],
+            quantity=Decimal(str(r["quantity"])),
+            cost_base_normal=Decimal(str(r["cost_base_normal"])),
+            cost_base_div296=Decimal(str(r["cost_base_div296"])),
+            account_type=r["account_type"],
+        )
+        for r in rows
+    ]
+
+    if account_type == "individual":
+        cfg = IndividualConfig(
+            marginal_rate=Decimal(str(marginal_rate)),
+            carried_forward_capital_loss=Decimal(str(carried_forward_loss)),
+        )
+        view = tax_view_individual(lots=lots, realised_gains=[], dividends=[], config=cfg)
+    else:
+        cfg = SMSFConfig(
+            fund_pension_proportion=Decimal(str(fund_pension_proportion)),
+            carried_forward_capital_loss=Decimal(str(carried_forward_loss)),
+        )
+        view = tax_view_smsf(
+            lots=lots,
+            realised_gains=[],
+            dividends=[],
+            config=cfg,
+            tsb_ref=Decimal(str(tsb_ref)) if tsb_ref > 0 else None,
+        )
+
+    table = Table(title=f"Tax view — {account_type}  ({view.holdings_count} active lots)")
+    table.add_column("lot")
+    table.add_column("symbol")
+    table.add_column("acquired_at")
+    table.add_column("qty", justify="right")
+    table.add_column("cost_base_aud", justify="right")
+    table.add_column("days_to_discount", justify="right")
+
+    from asxos.domain.tax.cgt import days_to_eligibility
+
+    for lot in lots[:50]:
+        d = days_to_eligibility(lot.acquired_at)
+        table.add_row(
+            str(lot.lot_id),
+            lot.symbol,
+            lot.acquired_at.isoformat(),
+            str(lot.quantity),
+            str(lot.cost_base_normal),
+            "eligible" if d == 0 else str(d),
+        )
+
+    console.print(table)
+    if view.eligibility_alerts:
+        console.print("[yellow]Crossing 12-month boundary in next 30 days:[/yellow]")
+        for a in view.eligibility_alerts:
+            console.print(f"  - {a}")
+    if view.div296_outcome:
+        d = view.div296_outcome
+        console.print(
+            f"Div 296: tier1={d.tier_1:.2f}, tier2={d.tier_2:.2f}, total={d.total:.2f}"
+            + (" [yellow](provisional)[/yellow]" if d.is_provisional else "")
+        )
+
+
+@app.command("tax-action")
+def tax_action(
+    days_ahead: int = typer.Option(30, "--days", help="Window for crossing-boundary alerts"),
+) -> None:
+    """Surface tax actions: lots crossing the 12-month CGT boundary soon."""
+    asyncio.run(_run_tax_action(days_ahead))
+
+
+async def _run_tax_action(days_ahead: int) -> None:
+    from datetime import timedelta
+
+    from asxos.domain.tax.cgt import days_to_eligibility
+
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, symbol, acquired_at, quantity, account_type
+                FROM current_holdings
+                ORDER BY acquired_at
+                """
+            )
+    finally:
+        await close_pool()
+
+    soon = []
+    for r in rows:
+        d = days_to_eligibility(r["acquired_at"])
+        if 0 < d <= days_ahead:
+            soon.append((r, d))
+
+    if not soon:
+        console.print(f"[green]No lots crossing 12-month boundary in next {days_ahead} days.[/green]")
+        return
+
+    table = Table(title=f"Lots crossing 12-month CGT boundary in next {days_ahead} days")
+    table.add_column("lot")
+    table.add_column("symbol")
+    table.add_column("account")
+    table.add_column("qty", justify="right")
+    table.add_column("acquired_at")
+    table.add_column("eligible_at")
+    table.add_column("days", justify="right")
+
+    for r, d in soon:
+        eligible_at = r["acquired_at"] + timedelta(days=366)
+        table.add_row(
+            str(r["id"]),
+            r["symbol"],
+            r["account_type"],
+            str(r["quantity"]),
+            r["acquired_at"].isoformat(),
+            eligible_at.isoformat(),
+            str(d),
+        )
+    console.print(table)
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
