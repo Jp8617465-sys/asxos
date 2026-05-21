@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>asxos brief — {{ d.as_of }}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 640px; margin: 1em auto; color: #222; }
+    h1 { font-size: 1.2em; margin: 0 0 0.4em; }
+    h2 { font-size: 1em; margin: 1.2em 0 0.3em; text-transform: uppercase; letter-spacing: 0.04em; color: #555; }
+    .meta { color: #666; font-size: 0.9em; margin-bottom: 0.8em; }
+    .banner { background: #fee; border-left: 4px solid #c00; padding: 0.6em 0.8em; margin-bottom: 1em; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+    th, td { border-bottom: 1px solid #eee; padding: 0.35em 0.5em; text-align: left; }
+    th { background: #f7f7f7; }
+    .empty { color: #888; font-style: italic; }
+    .label-STRONG_BUY { color: #0a6; font-weight: 600; }
+    .label-BUY        { color: #0a6; }
+    .label-HOLD       { color: #888; }
+    .label-SELL       { color: #c50; }
+    .label-STRONG_SELL{ color: #c00; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>asxos brief — {{ d.as_of }}</h1>
+  <p class="meta">Regime: <strong>{{ d.regime }}</strong> · Holdings: {{ d.holdings_count }}</p>
+
+  {% if d.has_failures %}
+  <div class="banner">
+    <strong>Job failures in the last 24h.</strong>
+    <ul>
+      {% for f in d.job_failures %}
+      <li><code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <h2>Signal changes on holdings</h2>
+  {% if d.signal_changes %}
+  <table>
+    <tr><th>symbol</th><th>was</th><th>now</th><th>top driver</th></tr>
+    {% for c in d.signal_changes %}
+    <tr>
+      <td>{{ c.symbol }}</td>
+      <td class="label-{{ c.old_label }}">{{ c.old_label }}</td>
+      <td class="label-{{ c.new_label }}">{{ c.new_label }}</td>
+      <td><code>{{ c.top_factor }}</code></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No label changes overnight.</p>
+  {% endif %}
+
+  <h2>Tax actions (next 30 days)</h2>
+  {% if d.tax_actions %}
+  <table>
+    <tr><th>symbol</th><th>lot</th><th>days</th><th>eligible</th></tr>
+    {% for t in d.tax_actions %}
+    <tr>
+      <td>{{ t.symbol }}</td>
+      <td>{{ t.lot_id }}</td>
+      <td>{{ t.days }}</td>
+      <td>{{ t.eligible_at }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No lots crossing the 12-month CGT boundary in the next 30 days.</p>
+  {% endif %}
+
+  <h2>Regulatory hits on holdings (last 24h)</h2>
+  {% if d.regulatory_hits %}
+  <ul>
+    {% for r in d.regulatory_hits %}
+    <li><strong>{{ r.symbol }}</strong> · {{ r.source }} ({{ r.kind }}): {{ r.title }} — {{ r.published_at }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No regulatory hits on current holdings.</p>
+  {% endif %}
+</body>
+</html>
