@@ -1,0 +1,253 @@
+# asxos Render IaC manifest.
+#
+# This file is the source of truth for what Render runs.  Every change goes
+# through `render.yaml` + `git push` — never the Render dashboard.
+# `make check-drift` reconciles the live state against this file after every
+# deploy (CLAUDE.md non-negotiable #2).
+#
+# Layout:
+#   - 1 web service:   asxos-api
+#   - 8 cron services: sync-universe, sync-prices, sync-fundamentals,
+#                      generate-signals, ingest-regulatory, compose-brief,
+#                      retrain-model-a, backup-irreplaceable
+#
+# Healthchecks.io pings are emitted from inside each Python job via
+# JobMonitor (see asxos/jobs/utils/job_monitor.py); the cron service itself
+# does not need a separate ping wrapper.
+#
+# Cron schedules are UTC (Render requirement).  AEST = UTC+10, AEDT = UTC+11.
+# Schedule comments below use AEST anchors; DST shift is acceptable for
+# this workload — no schedule is tighter than 30 min from market events.
+
+services:
+  # ============================================================
+  # FastAPI web service
+  # ============================================================
+  - type: web
+    name: asxos-api
+    runtime: python
+    region: oregon  # closest free-tier region; latency to Supabase ap-southeast-2 ~250ms
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    startCommand: uvicorn asxos.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: DATABASE_URL
+        sync: false        # uploaded via mcp__render__update_environment_variables
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: EODHD_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: BRIEF_FROM_EMAIL
+        sync: false
+      - key: BRIEF_TO_EMAIL
+        sync: false
+      - key: ASXOS_API_TOKEN
+        sync: false        # bearer required on every request from the crons
+      - key: ASXOS_MODELS_DIR
+        value: /opt/render/project/src/models
+      - key: ASXOS_DATA_DIR
+        value: /opt/render/project/src/data
+      - key: ASXOS_TZ
+        value: Australia/Sydney
+
+  # ============================================================
+  # Cron services — one per job
+  # ============================================================
+
+  # Weekly universe refresh — Sunday 02:00 AEST (Sat 16:00 UTC)
+  - type: cron
+    name: asxos-sync-universe
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "0 16 * * 6"
+    command: python jobs/sync_universe.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - key: HEALTHCHECK_URL_SYNC_UNIVERSE
+        sync: false
+
+  # Daily price sync — 06:30 AEST weekdays (20:30 UTC prior day)
+  - type: cron
+    name: asxos-sync-prices
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "30 20 * * 0-4"  # Sun-Thu UTC = Mon-Fri AEST
+    command: python jobs/sync_prices.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - key: HEALTHCHECK_URL_SYNC_PRICES
+        sync: false
+
+  # Daily fundamentals sync — 04:00 AEST (18:00 UTC prior day)
+  - type: cron
+    name: asxos-sync-fundamentals
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "0 18 * * *"
+    command: python jobs/sync_fundamentals.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - key: HEALTHCHECK_URL_SYNC_FUNDAMENTALS
+        sync: false
+
+  # Signal generation — 06:50 AEST weekdays (20:50 UTC prior day)
+  - type: cron
+    name: asxos-generate-signals
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "50 20 * * 0-4"
+    command: python jobs/generate_signals.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_GENERATE_SIGNALS
+        sync: false
+
+  # Regulatory ingest — 06:55 AEST daily (20:55 UTC prior day)
+  - type: cron
+    name: asxos-ingest-regulatory
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "55 20 * * *"
+    command: python jobs/ingest_regulatory.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_INGEST_REGULATORY
+        sync: false
+
+  # Morning brief — 07:00 AEST weekdays (21:00 UTC prior day)
+  - type: cron
+    name: asxos-compose-brief
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "0 21 * * 0-4"
+    command: python jobs/compose_brief.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: RESEND_API_KEY
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_FROM_EMAIL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_TO_EMAIL
+      - key: HEALTHCHECK_URL_COMPOSE_BRIEF
+        sync: false
+
+  # Retraining — Sunday 02:00 AEST (Sat 16:00 UTC)
+  - type: cron
+    name: asxos-retrain-model-a
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "0 16 * * 6"
+    # Always uses next-numeric version suffix; operator activates via `asx model activate`
+    command: python jobs/retrain_model_a.py --version v_auto_$(date +%Y%m%d)
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_RETRAIN_MODEL_A
+        sync: false
+
+  # Daily backup of irreplaceable tables — 23:30 AEST (13:30 UTC)
+  - type: cron
+    name: asxos-backup-irreplaceable
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: apt-get update && apt-get install -y postgresql-client && pip install -e .
+    schedule: "30 13 * * *"
+    command: bash scripts/backup_irreplaceable.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: BACKUP_GITHUB_TOKEN
+        sync: false
+      - key: BACKUP_REPO
+        sync: false
+      - key: HEALTHCHECK_URL_BACKUP_IRREPLACEABLE
+        sync: false
