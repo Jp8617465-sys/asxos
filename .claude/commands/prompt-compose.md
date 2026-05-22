@@ -1,41 +1,48 @@
 # Compose a Structured Prompt
 
-Use this when you need to create a well-structured prompt for a task
-that doesn't fit an existing command.
+Use when no existing command fits — generate a self-contained prompt for
+the task.
 
-Follow the WHAT/WHERE/HOW/VERIFY pattern:
+Follow the WHAT / WHERE / HOW / VERIFY pattern:
 
 ```
-WHAT: [Describe the specific outcome you need]
-WHERE: [List exact files, modules, or systems affected]
-HOW: [Specify approach, patterns, libraries, or constraints]
-VERIFY: [Define measurable success criteria and edge cases to test]
+WHAT: [the specific outcome]
+WHERE: [exact files, modules, migrations affected]
+HOW: [approach, libraries, constraints, what NOT to do]
+VERIFY: [measurable success criteria, edge cases, tests]
 ```
 
-Guidelines:
-- Be specific: "Add rate limiting to POST /api/v2/alerts" not "add security"
-- Use semantic anchors: name exact patterns, algorithms, or standards
-- Specify what NOT to do (negative constraints prevent common mistakes)
-- Keep prompts under 500 words — if longer, break into subtasks
+## Guidelines
 
-For ML tasks, always include:
-- Data leakage prevention (T-1 rule)
-- Baseline metrics to compare against (MIN_ROC_AUC=0.65)
-- FeatureEngine requirement (no inline computation)
+- Be specific: "Add Pydantic validation to POST /tax-view" not "improve API"
+- Use semantic anchors: cite exact functions, file paths, spec section numbers
+- Include negative constraints ("don't add new tables", "don't bump REQUIRED_MIGRATIONS")
+- Keep under 500 words. If longer, split into subtasks
 
-For frontend tasks, always include:
-- TypeScript strict (no-explicit-any: error)
-- Types in frontend/contracts/ (never duplicate)
-- snake_case → camelCase at hook boundary only
-- Jest 80%+ coverage requirement
+## For ML / signal tasks, always include
 
-For backend tasks, always include:
-- Auth chain: rateLimiter → authenticate → authorize
-- Pydantic validation on all inputs
-- asyncpg for hot paths ($1 param syntax)
-- Event bus for cross-feature communication
+- T-1 rule (no lookahead)
+- `FeatureEngine` for any feature computation (`asxos/domain/signals/feature_engine.py`)
+- Baseline to beat: Model A v1_5 ROC-AUC 0.7097 on 5-fold TimeSeriesSplit
+- Validation thresholds: `MIN_ROC_AUC=0.65`, `MAX_DEGRADATION=5%`
 
-For Australian financial context, always include:
-- ATO/ASIC compliance notes where applicable
-- "General information only" disclaimers
-- Franking credit and CGT considerations
+## For API tasks, always include
+
+- Pydantic models for request + response
+- asyncpg via `asxos.db.acquire()`, `$1` parameter style
+- Single user — no auth chain, just `ASXOS_API_TOKEN` bearer
+- Hard-fail lifespan — any startup error stops the API, no warnings
+
+## For job tasks, always include
+
+- `JobMonitor` wrapper (`asxos/jobs/utils/job_monitor.py`)
+- Idempotent UPSERT writes (`ON CONFLICT DO UPDATE`)
+- Healthchecks.io ping URL from env (one per job)
+- Gate on upstream `job_runs.status='success'` row if dependent
+
+## For tax tasks, always include
+
+- Cite spec section: `docs/foundation/spec/tax-alpha.md` §<N>
+- `Decimal` throughout, never `float`
+- Calendar arithmetic via `dateutil.relativedelta` for the 12-month rule
+- Pure functions, no DB / network in `asxos/domain/tax/`

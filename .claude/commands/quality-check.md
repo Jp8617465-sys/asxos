@@ -1,30 +1,36 @@
 # Quality Check
 
-Run all quality gates in sequence. Stop on the first failure and report which gate failed.
+Run the asxos quality gates in sequence. Stop on the first failure and
+report which gate failed.
 
-## Frontend gates (run first)
+## Gates
 
-1. `cd frontend && npm run type-check`
-2. `cd frontend && npm run lint`
-3. `cd frontend && npm run format:check`
-4. `cd frontend && npm run test:ci`
+1. `ruff check asxos tests jobs` — lint
+2. `ruff format --check asxos tests jobs` — formatting
+3. `mypy asxos` — types
+4. `pytest tests/ -v` — full suite
 
-## Backend gates
-
-5. `black --check app/ jobs/`
-6. `isort --check app/ jobs/`
-7. `pytest tests/ -v`
+Equivalent shortcut: `make check` (runs ruff + mypy + pytest in that order).
 
 ## Rules
 
-- Run each command, capture output, report PASS or FAIL with any error summary
-- Stop immediately on first failure — do not continue to the next gate
-- If all 7 pass, output: **All quality gates passed. Ready for /harden.**
-- If any fail, output: **Gate N failed.** + the error, then stop
+- Run each command, capture output, report PASS or FAIL with the error summary
+- Stop immediately on first failure
+- If all 4 pass: **All quality gates passed. Ready for `/ship` or push to main.**
+- If any fail: **Gate N failed.** + first 20 lines of error, then stop
 
 ## Auto-fix option
 
-If $ARGUMENTS contains `--fix`:
-- Run `cd frontend && npm run lint -- --fix` and `cd frontend && npm run format` before the gate checks
-- Run `black app/ jobs/` and `isort app/ jobs/` before the gate checks
-- Then re-run all gates
+If `$ARGUMENTS` contains `--fix`:
+- Run `ruff check --fix asxos tests jobs`
+- Run `ruff format asxos tests jobs`
+- Then re-run all gates from gate 1
+
+## Known stale lints (not blocking)
+
+The following are pre-existing from M5 — track but don't fail on:
+- `asxos/domain/signals/feature_engine.py:48` — `Union[...]` UP007 nit
+- `asxos/domain/signals/feature_engine.py:60` — RUF002 ambiguous `×`
+- `asxos/domain/signals/feature_engine.py:68/74` — RUF012 ClassVar
+
+If $ARGUMENTS contains `--strict`, fail on these too.

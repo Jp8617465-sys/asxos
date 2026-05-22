@@ -1,65 +1,68 @@
 ---
 paths:
   - jobs/**
-  - scripts/cron_*
 ---
 
-# Job & Cron Pipeline Conventions
+# Job & Cron Conventions — asxos
 
 ## Job Structure
 
-- All jobs use `run_cron_job()` wrapper from `scripts/cron_wrapper.py` for Sentry integration
-- Critical jobs use `JobMonitor` context manager from `jobs/utils/job_monitor.py`
-- Record completions via `record_job_completion()` to `job_completions` table
-- Alert on failure via `ALERT_WEBHOOK_URL` (Discord/Slack) + `ALERT_EMAIL` (SMTP fallback)
+- Every cron job uses the `JobMonitor` async context manager from
+  `asxos/jobs/utils/job_monitor.py`. It writes lifecycle to `job_runs`
+  (status, duration_ms, rows_written, error_message) and pings the
+  Healthchecks.io URL on success.
+- No Sentry wrapper. No `record_job_completion` / `job_completions` table —
+  that was the old system.
+- No `ALERT_WEBHOOK_URL` / `ALERT_EMAIL` — alerting is "Healthchecks.io
+  notices a missed ping and emails me." Single user, single channel.
 
 ## Pipeline Guards
 
-- `pipeline_checks.is_asx_trading_day()` — skip weekends and ASX holidays
-- `pipeline_checks.check_data_freshness(table, max_stale_days)` — block if upstream stale
-- `pipeline_checks.validate_price_ingestion(min_ticker_count=1500)` — verify data quality
-- `pipeline_checks.should_skip_non_trading_day()` — guard for non-trading days
+- Generate-signals gates on `sync_prices` having a `status='success'` row
+  in `job_runs` for the target `as_of`. See `_upstream_ok` in
+  `jobs/generate_signals.py`. Warns and continues on manual runs (when the
+  guard fails, the operator is presumed to know what they're doing).
+- No `pipeline_checks.is_asx_trading_day` helper — schedules are
+  weekday-only in cron syntax (`0-4` day-of-week for the trading-day crons).
+  Public-holiday handling is acceptable noise for a single-user system.
 
-## Daily Signal Pipeline (critical path)
+## Daily Pipeline (UTC, per render.yaml)
 
 ```
-11:00 UTC — sync_live_prices_job.py → prices
-11:30 UTC — generate_signals.py → model_a_ml_signals (GATE: prices fresh ≤ 2 days)
-11:30+    — generate_signals_model_b.py → model_b_ml_signals (NON-FATAL)
-11:35+    — generate_ensemble_signals.py → ensemble_signals
-12:00     — sync_signals_to_holdings.py → user_holdings.current_signal
-12:15     — refresh_screen_matches.py → screen_matches
+13:30 daily          asxos-backup-irreplaceable   (pg_dump → asxos-backups repo)
+18:00 daily          asxos-sync-fundamentals      (per-symbol; ~3 min on free EODHD)
+20:30 Sun-Thu UTC    asxos-sync-prices            (bulk-by-date; one API call)
+20:50 Sun-Thu UTC    asxos-generate-signals       (GATE: sync_prices ok)
+20:55 daily          asxos-ingest-regulatory      (RSS pull)
+21:00 Sun-Thu UTC    asxos-compose-brief          (Resend email at 07:00 AEST)
+16:00 Sat            asxos-sync-universe          (weekly)
+16:00 Sat            asxos-retrain-model-a        (weekly walk-forward)
 ```
 
-## Model Weights (Ensemble)
-
-- A=50%, B=30%, C=12%, D=8%
-- If a model is missing, weights redistribute proportionally
-- Model B failure is non-fatal — ensemble falls back to Model A only
-
-## Feature Table
-
-- `model_a_features_extended` — wide format, 22 feature columns + date + symbol
-- Built by `build_extended_feature_set.py` with 760-day lookback
-- Uses `if_exists='replace'` — full rebuild each run
-- Index: `idx_feat_ext_symbol_date(symbol, date DESC)`
+Mon-Fri AEST anchors; UTC offset 10h. DST shift is acceptable noise.
 
 ## Idempotency
 
-- All jobs use UPSERT patterns — safe to re-run
-- DELETE operations use WHERE clauses with time bounds
-- Retraining writes versioned artifacts — does not overwrite
+- All writes are UPSERTs (`ON CONFLICT (...) DO UPDATE`). Safe to re-run.
+- The retraining job writes a versioned row to `model_versions` — does not
+  overwrite the active row.
 
-## NumPy Adapters
+## NumPy + asyncpg
 
-- Register numpy type adapters MUST be called before any psycopg2 insert of numpy types
-- Pattern: `psycopg2.extensions.register_adapter(np.int64, lambda x: AsIs(int(x)))`
-- Without this, psycopg2 throws "can't adapt type 'numpy.float64'"
+- asyncpg handles numpy types natively. No adapter registration needed
+  for the new jobs (`jobs/generate_signals.py`, `jobs/sync_prices.py`, etc.).
+- Legacy training scripts that use psycopg2 must register adapters before
+  any executemany — see `.claude/rules/ml-conventions.md`.
 
-## Environment Variables
+## Environment Variables (per job)
 
-- `DATABASE_URL` — all jobs
-- `EODHD_API_KEY` — prices, fundamentals, ETF, calendars
-- `VOYAGE_API_KEY` — embed_conversations.py
-- `SENTRY_DSN` — all jobs (via run_cron_job)
-- `ALERT_WEBHOOK_URL` + `ALERT_EMAIL` — JobMonitor alerts
+`DATABASE_URL` and `PYTHON_VERSION=3.12.13` everywhere; the rest are
+service-specific (see `render.yaml`):
+
+- `EODHD_API_KEY` — sync_universe, sync_prices, sync_fundamentals
+- `RESEND_API_KEY`, `BRIEF_FROM_EMAIL`, `BRIEF_TO_EMAIL` — compose_brief
+- `BACKUP_GITHUB_TOKEN`, `BACKUP_REPO` — backup_irreplaceable
+- `HEALTHCHECK_URL_<JOB>` — every job, one Healthchecks UUID per job
+
+The web service `asxos-api` owns the canonical copies. Crons created via
+MCP store local copies (drift documented; not blocking).

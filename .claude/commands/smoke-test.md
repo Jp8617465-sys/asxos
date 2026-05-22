@@ -1,50 +1,47 @@
 # Smoke Test
 
-Run a 5-point health check against $ARGUMENTS (the target URL).
+Single-point health check against $ARGUMENTS (target URL, default
+`https://asxos-api.onrender.com`).
 
-Retry logic: 3 attempts, 5 seconds apart (handles Render cold starts on free tier).
+Retry: 3 attempts × 5s apart (handles Render cold starts).
 
-## Checks
+## Check
 
-**Check 1 — Health endpoint**
-`GET $ARGUMENTS/health`
-Expected: HTTP 200
+```bash
+curl -fsS -w "\nHTTP_STATUS:%{http_code}\nTIME:%{time_total}s\n" \
+  $ARGUMENTS/health
+```
 
-**Check 2 — Auth login**
-`POST $ARGUMENTS/api/auth/login`
-Body: `{"email": "demo@tradesight.ai", "password": "demo123"}`
-Expected: HTTP 200 + JSON body containing `access_token`
-Save token as `$TOKEN` for Check 4.
+Expected: HTTP 200 with body `{"status":"ok"}`.
 
-**Check 3 — Auth required (no token)**
-`GET $ARGUMENTS/api/v1/portfolio`
-Expected: HTTP 401
+Hitting `/health` exercises:
+- Render reachability (DNS, TLS, port 10000)
+- FastAPI lifespan completed → DB pool open
+- Migration drift check passed (`supabase_migrations.schema_migrations`)
+- Model cache warmed (active `model_a` row + on-disk pickle present)
 
-**Check 4 — Authenticated route**
-`GET $ARGUMENTS/api/v2/agent/brief`
-Header: `Authorization: Bearer $TOKEN`
-Expected: HTTP 200
+If any of these failed during boot, the service would not be `live` and
+the curl would not return 200 — there's no degraded mode.
 
-**Check 5 — Public data route**
-`GET $ARGUMENTS/api/v2/macro/context`
-Expected: HTTP 200
-
-## Output
+## Output (pass)
 
 ```
-Smoke test: $ARGUMENTS
+Smoke test: $ARGUMENTS/health
 ──────────────────────────────
-Check 1  GET /health                ✓ 200
-Check 2  POST /api/auth/login       ✓ 200 + token
-Check 3  GET /api/v1/portfolio      ✓ 401
-Check 4  GET /api/v2/agent/brief    ✓ 200
-Check 5  GET /api/v2/macro/context  ✓ 200
+Status: 200 OK
+Body:   {"status":"ok"}
+Time:   0.8s
 ──────────────────────────────
-Result: PASS (5/5)
+Result: PASS
 ```
 
-If any check fails after 3 retries:
+## Output (fail)
+
 ```
-Check N  [endpoint]  ✗ [actual status] — [error detail]
-Result: FAIL — do not proceed to production.
+Smoke test: $ARGUMENTS/health
+──────────────────────────────
+Status: 502 / timeout / connection refused
+Result: FAIL after 3 retries — do not push further changes
 ```
+
+Next step on FAIL: `/error-triage`.

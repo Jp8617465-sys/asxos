@@ -1,36 +1,39 @@
 # Deploy Check — Pre-Production Checklist
 
-Verify every item before deploying to production. Report PASS/FAIL per item.
+Verify every item before pushing to `main` (Render auto-deploys on push).
+Report PASS/FAIL per item.
 
 ## Checklist
 
-**Build**
-- [ ] `cd frontend && npm run build` — must complete with 0 errors
-- [ ] No TypeScript errors: `cd frontend && npm run type-check`
+**Code**
+- [ ] `make check` — ruff + mypy + pytest all green
+- [ ] No uncommitted changes: `git status -s`
+- [ ] Local branch is rebased onto origin/main
 
 **Database**
-- [ ] All pending migration files applied via Supabase MCP
-  - List migrations on disk: `ls migrations/*.sql | sort`
-  - Confirm the latest has been applied (ask user if unsure)
-- [ ] TypeScript types regenerated after last migration: check `frontend/types/supabase.ts` mtime vs latest migration
+- [ ] All migrations on disk applied via Supabase MCP:
+  - `ls migrations/*.sql | sort | tail -1` (latest on disk)
+  - `mcp__3ec0fde8-58dc-483a-b873-6aebe5cbb341__list_migrations` →
+    confirm the latest is present
+- [ ] `REQUIRED_MIGRATIONS` in `asxos/api/main.py` matches the
+  count of `0NNN_*.sql` files in `migrations/`
 
-**Environment variables**
-- [ ] New env vars present in Render config (check service env via Render MCP)
-- [ ] New env vars present in Vercel config (check project env)
-- [ ] No `.env` file committed: `git log --all -- .env`
+**Env vars**
+- [ ] Any new `sync: false` keys added to `render.yaml` also uploaded
+  to the relevant service via `mcp__render__update_environment_variables`
+- [ ] No `.env*` files committed: `git log --all -- '.env*'` returns nothing
+- [ ] Production secrets still match `~/Projects/asxos-secrets/.env.production`
 
-**Health**
-- [ ] Backend `/health` returns 200 (hit staging URL)
-- [ ] No open CRITICAL harden findings for this sprint
-
-**CI**
-- [ ] PR is merged to `main`
-- [ ] All GitHub Actions checks green: `gh run list --branch main --limit 3`
+**IaC**
+- [ ] `render.yaml` parses cleanly: `python -c "import yaml; yaml.safe_load(open('render.yaml'))"`
+- [ ] If new cron added, its `HEALTHCHECK_URL_<JOB>` env var exists
 
 ## Output
 
-List each item with PASS ✓ or FAIL ✗.
-If all pass: **Ready to deploy. Run /deploy-production to go live.**
-If any fail: **Deploy blocked. Fix the items marked ✗ above.**
+For each item: PASS ✓ or FAIL ✗.
 
-Do NOT deploy if any item is FAIL.
+- All pass → **Ready. Push to `main` to trigger Render auto-deploy, then
+  run `/smoke-test https://asxos-api.onrender.com` and `/check-drift`.**
+- Any fail → **Blocked. Fix the items marked ✗ above.**
+
+Do NOT push if any item is FAIL.

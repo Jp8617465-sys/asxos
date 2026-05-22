@@ -1,58 +1,55 @@
 ---
 paths:
-  - app/**
+  - asxos/api/**
   - tests/**
 ---
 
-# FastAPI Conventions — ASX Portfolio OS
+# FastAPI Conventions — asxos
 
-## Route Structure
-- New routes go in `app/features/{domain}/routes/` — NOT in `app/routes/` (legacy)
-- Routes must be thin — delegate business logic to services
-- One router per feature domain; register in `app/main.py`
+## Hard-fail lifespan (CLAUDE.md non-negotiable #1)
 
-## Service Layer
-- Services extend `BaseService` from `app/core/service.py`
-- BaseService provides `event_bus` singleton and `publish_event()` method
-- Cross-feature communication goes through the event bus, not direct service imports
+- `asxos/api/main.py` lifespan opens the DB pool, asserts migration drift,
+  and warms `get_cache().get("model_a")`. Any of these failing raises and
+  the API does not start. Never wrap in `try/except` + `logger.warning(...)`.
+- `REQUIRED_MIGRATIONS` constant tracks the expected count in
+  `supabase_migrations.schema_migrations`. Bump it on every new migration.
 
-## Repository Layer
-- Sync repositories: extend `BaseRepo` from `app/core/repository.py` (psycopg2)
-- Async repositories: extend from `app/core/async_repository.py` (asyncpg)
-- asyncpg uses `$1, $2, ...` parameter syntax (not `%s`)
-- Hot paths (signals, portfolio): MUST use asyncpg with shared pool from `app/core/db.py`
-- Auth routes: sync psycopg2 is acceptable
+## Routes
 
-## Auth Chain (always in this order)
-`rateLimiter → authenticate → authorize`
-
-Missing any step is a security bug, not a style issue.
-
-## Serialisation Boundary
-- Backend produces snake_case exclusively
-- Frontend hooks in `frontend/hooks/` handle mapping to camelCase
-- Never use camelCase field names in FastAPI models, DB columns, or API responses
-
-## Input Validation
-- Pydantic models for ALL request and response bodies — no exceptions
-- Zod on the frontend side for all form inputs
-
-## Rate Limiting
-- All mutating endpoints (POST/PUT/DELETE) need `@limiter.limit("N/minute")`
-- The decorated function MUST have `request: Request` as its first non-self parameter
-- Import limiter from `app/middleware/rate_limit.py`
-
-## Event Bus
-- New event types must be added to `EventType` enum in `app/core/events/event_bus.py`
-- `emit()` transforms snake_case to dot.case: `"model_deployed"` → `"model.deployed"`
-- Events are non-fatal: errors in handlers are logged but don't propagate
-
-## Response Format
-- Use `ResponseBuilder` pattern — check `app/api/portfolio.py` for the standard shape
-- Error codes: 400 (validation), 401 (unauthed), 403 (unauthorised), 404 (not found), 429 (rate limited)
+- New routes live in `asxos/api/routes/` and are wired in `asxos/api/main.py`
+  via `app.include_router(...)`.
+- Routes stay thin — delegate logic to `asxos/domain/*` modules.
+- Pydantic models for every request and response body. No raw `dict`/`Any`.
 
 ## Database
-- Soft deletes: `deleted_at TIMESTAMPTZ` — never `DELETE FROM` on user data
-- Every new user-facing table needs RLS policies before first deploy
-- Migrations: numbered SQL files in `migrations/`; apply via Supabase MCP
-- After migration: run `cd frontend && npx supabase gen types typescript --project-id gxjqezqndltaelmyctnl > types/supabase.ts`
+
+- Async only via `asxos.db.acquire()` → asyncpg pool. Use `$1, $2, ...`
+  parameter syntax.
+- No psycopg2 in API code paths. (Jobs may use psycopg2 if needed; API does not.)
+- NUMERIC(18,6) on every monetary or statistical column from migration 0001
+  forward — single-user system, no RLS, no `user_id` anywhere (CLAUDE.md #4).
+
+## Auth
+
+- Single user. The API requires the `ASXOS_API_TOKEN` bearer on every request
+  from outside Render's network. No rateLimiter, no JWT, no auth chain.
+- The crons read Supabase directly — they never call the API.
+
+## Response shape
+
+- snake_case throughout. There is no frontend in v1 — no camelCase boundary.
+- Error codes: 400 (validation), 401 (no/bad token), 404 (not found), 500.
+
+## Migrations
+
+- Numbered SQL files in `migrations/`, applied via
+  `mcp__supabase__apply_migration` against project `gxjqezqndltaelmyctnl`.
+- No `make migrate` runner — `make migrate` only prints the reminder.
+- After applying: bump `REQUIRED_MIGRATIONS` in `asxos/api/main.py`.
+
+## Testing
+
+- Unit tests in `tests/test_*.py`. Avoid touching the live DB — mock
+  `asxos.db.acquire` and pass synthetic asyncpg `Record`-shaped dicts.
+- For ML tests, prefer the real Model A v1_5 artefacts in `models/` over
+  a synthetic LightGBM (catches sklearn/LightGBM version drift).

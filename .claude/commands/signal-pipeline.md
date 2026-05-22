@@ -1,19 +1,36 @@
 # Signal Pipeline Task
 
-You are working on the ASX Portfolio OS signal generation pipeline.
+You are working on the asxos signal generation pipeline.
 
 <context>
-- Model A v1_4: LightGBM classifier + regressor, 22 features (see models/model_a_v1_4_features.json)
-- Feature groups: momentum, volatility, liquidity, trend, cross_sectional, fundamental, macro, sentiment
-- Feature engine: app/features/ml/feature_engine.py (same code path for training + inference)
-- Signal thresholds (vectorized np.where in jobs/generate_signals.py):
-  STRONG_BUY: prob_up >= 0.65 AND expected_return > 0.05
-  BUY: prob_up >= 0.55 AND expected_return > 0
-  SELL: prob_up <= 0.45 AND expected_return < 0
+- Model A v1_5: LightGBM classifier + regressor, 22 features
+  (`models/model_a_v1_5_features.json`). ROC-AUC 0.7097 on 5-fold TimeSeriesSplit.
+- 5 feature groups: momentum, volatility, liquidity, trend, fundamental
+- Feature engine: `asxos/domain/signals/feature_engine.py` (same code path
+  for training and inference)
+- Loader: `asxos/domain/signals/loader.py` — 450-day lookback,
+  pd.merge_asof with a 45-day fundamentals lag, zero-fills the 6
+  fundamental columns when sparse
+- Cache: `asxos/domain/models/cache.py` — 60s TTL re-read of
+  model_versions.is_active
+- Job: `jobs/generate_signals.py` — wraps everything; gates on
+  `sync_prices` having a `status='success'` row in `job_runs`
+- Writer: `asxos/domain/signals/writer.py` — UPSERT into the signals table
+  (model, model_version, symbol, as_of)
+- Schedule: 20:50 UTC Sun-Thu (06:50 Mon-Fri AEST)
+- Regime: `asxos/domain/signals/regime.py` — top-10 most-traded ASX200 proxy,
+  200-day MA + 20-day slope, returns bull/bear/neutral
+- Thresholds: `asxos/domain/signals/thresholds.py` — canonical
+  `classify_batch` (vectorised np.where) + regime overrides
+
+Signal labels (regime=neutral; see thresholds.py for bear/bull):
+  STRONG_BUY:  prob_up >= 0.65 AND expected_return >  0.05
+  BUY:         prob_up >= 0.55 AND expected_return >  0
+  SELL:        prob_up <= 0.45 AND expected_return <  0
   STRONG_SELL: prob_up <= 0.35 AND expected_return < -0.05
-  HOLD: all other cases
-- Models B/C/D + ensemble: see jobs/generate_signals_model_b.py, _c.py, _d.py, generate_ensemble_signals.py
-- Backend: FastAPI on Render (port 8788) | DB: Supabase | Frontend: Next.js on Vercel
+  HOLD:        everything else
+
+Stack: FastAPI on Render (oregon, starter) | Supabase Postgres 16 | no frontend
 </context>
 
 <task>
@@ -21,20 +38,23 @@ $ARGUMENTS
 </task>
 
 <constraints>
-- NEVER compute features using future data — all features use T-1 data only
-- ALL feature computation goes through FeatureEngine — never compute inline
-- Use vectorized np.where() for signal classification — never .apply() row-by-row
-- Register numpy type adapters for psycopg2 BEFORE any DB writes
-- LightGBM model artifacts stay on Render, never deployed to Vercel
-- _safe_quintile() must guard every pd.qcut() call
-- Validate with TimeSeriesSplit or PurgedGroupKFold — never random splits
+- T-1 rule: never compute a feature using data after the prediction date
+- All feature computation through `FeatureEngine` — never inline
+- Vectorised `np.where()` / `np.select()` for label classification
+- `_safe_quintile()` guards every `pd.qcut()` call
+- TimeSeriesSplit (or PurgedGroupKFold) only — never random train/test split
+- asyncpg + `$1` parameter syntax. No psycopg2 in the API or new jobs.
+- Writer must `shap_df.reindex(preds.index)` before iterating — preds is
+  rank-sorted, shap_df keeps input order
+- Fundamental columns and their z-scores are zero-filled when missing;
+  technical features still require a fully-populated lookback window
 </constraints>
 
 <verify>
-Before completing, confirm:
-1. No feature uses data from after the prediction date (T-1 rule)
-2. Time series cross-validation folds respect temporal ordering
-3. Signal thresholds match the 5-level classification exactly
-4. numpy adapters registered before any psycopg2 writes
-5. Any new features added to feature_engine.py, not computed inline
+1. No feature reads from beyond the prediction date (T-1 rule)
+2. Time-series CV folds respect temporal ordering
+3. Signal label classification matches `classify_batch` exactly
+4. New features added to `MODEL_A_FEATURES` constant in feature_engine.py
+5. `pytest tests/ -k "signal or feature or thresholds or regime"` passes
+6. `make check` passes (ruff + mypy + pytest)
 </verify>

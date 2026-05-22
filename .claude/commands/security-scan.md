@@ -1,37 +1,40 @@
 # Security Scan
 
-Uses `security-engineer` agent. Audit changed/new code for security issues.
-Scope: files changed since last merge to main (use `git diff main...HEAD --name-only`).
+Scope is much smaller than a multi-tenant SaaS — asxos is single-user, no
+auth chain, no RLS, no frontend. The scan focuses on secret leakage,
+SQL/code injection, and bearer-token discipline.
+
+Uses the `security-engineer` agent. Files in scope:
+`git diff main...HEAD --name-only`
 
 ## Checklist
 
-### Authentication & Authorisation
-- [ ] Auth chain present on all new routes: `rateLimiter → authenticate → authorize` (in that order)
-- [ ] No route skips `authenticate` for user data
-- [ ] `token_version` revocation check present where JWT is validated
-- [ ] SSE endpoints accept token via `?token=` query param only (not cookie)
+### Secrets & hardcoded values
+- [ ] No API keys, tokens, or passwords in source or commit messages
+- [ ] `grep -rnE "sk-|eyJ[A-Za-z0-9_-]{20,}|EODHD_API_KEY=|github_pat_|hc-ping\.com/[a-f0-9-]{36}" asxos/ jobs/ tests/ migrations/ scripts/`
+  must return nothing
+- [ ] `.env*` not committed: `git log --all -- '.env*'`
 
-### Input Validation
-- [ ] Every new FastAPI route has Pydantic request body model — no raw `dict` or `Any`
-- [ ] Every new frontend form input is covered by a Zod schema
-- [ ] No `eval()`, `exec()`, or dynamic SQL string building
+### Input validation
+- [ ] Every new FastAPI route has a Pydantic request/response model
+- [ ] No `eval()`, `exec()`, no f-string SQL building
+- [ ] CSV import path (`asx import-holdings`) — rejects malformed rows
+  cleanly, no partial commit
 
-### Data Access & RLS
-- [ ] Every new user-facing table has RLS policies (check via Supabase MCP if needed)
-- [ ] No `DELETE FROM` on user data — only `UPDATE ... SET deleted_at = NOW()`
-- [ ] No raw `user_id` from request body trusted — always from JWT payload
+### Database
+- [ ] asyncpg `$1, $2` parameterised queries only — never f-string interp
+  for user-supplied values
+- [ ] No `DROP TABLE` outside migrations
+- [ ] Migrations are idempotent (`IF EXISTS` / `ON CONFLICT`)
 
-### Rate Limiting
-- [ ] All POST/PUT/DELETE endpoints have `@limiter.limit("N/minute")`
-- [ ] Rate-limited functions have `request: Request` as first param
+### Bearer-token discipline
+- [ ] The API requires `ASXOS_API_TOKEN` (see `asxos/config.py`)
+- [ ] Crons never call the API — they go direct to Supabase
+- [ ] No token logged in plaintext anywhere
 
-### Secrets & Hardcoded Values
-- [ ] No API keys, secrets, or credentials in source
-- [ ] No hardcoded user IDs, emails, or passwords
-- [ ] `grep -r "sk-\|EODHD\|supabase.*key\|jwt.*secret" app/ jobs/ frontend/` — must return nothing
-
-### CORS
-- [ ] No wildcard CORS (`"*"`) added — explicit domain list only
+### Pickle safety
+- [ ] `joblib.load` only against files in `models/` (no untrusted pickle paths)
+- [ ] Pickle files committed to git are reviewed (one-time per version bump)
 
 ## Output
 
@@ -41,4 +44,5 @@ For each finding:
 - **Issue**: one sentence
 - **Fix**: one sentence
 
-**Block criteria**: Any CRITICAL finding must be resolved before `/deploy-check`.
+**Block criteria**: Any CRITICAL finding (secret leakage, SQL injection,
+pickle from untrusted source) must be resolved before `/deploy-check`.

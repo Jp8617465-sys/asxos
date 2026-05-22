@@ -1,40 +1,50 @@
-# Harden — Sprint Security + Performance Audit
+# Harden — Security + Performance Audit
 
-Uses `security-engineer` and `performance-engineer` agents.
-Scope: $ARGUMENTS (sprint name or feature name). Produces `docs/harden/$ARGUMENTS.md`.
+Uses `security-engineer` and `performance-engineer` agents. Scope:
+$ARGUMENTS (feature or sprint name). Saves report to
+`docs/harden/$ARGUMENTS.md`.
 
-## Part 1 — Security (security-engineer)
+## Part 1 — Security
 
-Run `/security-scan` first. Include its full output in the report.
+Run `/security-scan` first. Include its output verbatim.
 
-Additional checks beyond security-scan:
-- [ ] JWT expiry checked (access token TTL reasonable, refresh token revocable)
-- [ ] OWASP A01-A10 walkthrough on new routes
-- [ ] No sensitive data logged (user emails, tokens, PII in log statements)
+Additional spot-checks beyond `/security-scan`:
+- [ ] No sensitive data in logs (DATABASE_URL, ASXOS_API_TOKEN,
+      RESEND_API_KEY, BACKUP_GITHUB_TOKEN appearing in any
+      `log.info/warning/error` call)
+- [ ] Bearer-token check on any non-`/health` route exposed by `asxos-api`
+- [ ] Pickle artefacts in `models/` reviewed before the commit that
+      adds a new version
 
-## Part 2 — Performance (performance-engineer)
+## Part 2 — Performance
 
 ### Query analysis
-- [ ] N+1 detection: check new routes for loops that query DB per-item — flag any
-- [ ] Hot paths use asyncpg (`$1` param syntax) not psycopg2 (`%s`) — check `app/features/*/routes/`
-- [ ] `SELECT *` usage — list any in new/changed routes
-- [ ] Missing indexes on new tables — check WHERE/JOIN columns
+- [ ] N+1 in new code: scan for `async for` loops that issue a query per
+      iteration — flag any
+- [ ] All DB code uses asyncpg + `$1, $2` parameter style. No psycopg2 in
+      API code paths (`asxos/api/`). Jobs may use psycopg2 only with
+      registered numpy adapters.
+- [ ] No `SELECT *` in new code
+- [ ] New tables have indexes on every column used in a WHERE / JOIN
 
 ### Caching
-- [ ] `/exposure`, `/brief`, `/signals` endpoints — Redis TTL set
-- [ ] New endpoints that serve repeated reads — flag if no cache layer
-- [ ] EODHD price data — never fetched raw in a hot API path
+- [ ] Model cache TTL still 60s (`asxos/domain/models/cache.py`) — don't
+      raise without thinking about the M9 retrain flip latency
+- [ ] EODHD calls are never inside an API request path. Only the daily
+      crons hit EODHD; the API reads from Supabase.
 
-### Frontend
-- [ ] Bundle size delta: `cd frontend && ANALYZE=true npm run build` — report any new large chunks
-- [ ] New components — check for unnecessary re-renders (missing `useMemo`/`useCallback` on heavy computations)
-- [ ] Target: <200KB gzipped total
+### Hot-path latencies
+- [ ] `/health`: target p95 < 100ms (current ~780ms cold, ~50ms warm)
+- [ ] `asx predict <date>` end-to-end: ~3-5 min on a full 1900-symbol
+      universe — that's feature-engine cost, not DB. Don't over-optimise.
 
-### Response times
-- [ ] Estimate p95 for new routes based on query plan + data size
-- [ ] Flag any route likely to exceed 200ms p95
+### Job duration budgets
+- [ ] sync_prices (bulk): < 10s per day
+- [ ] sync_fundamentals: < 5 min for ~1900 symbols
+- [ ] generate_signals: < 5 min end-to-end
+- [ ] compose_brief: < 30s
 
-## Output format
+## Output
 
 Save to `docs/harden/$ARGUMENTS.md`:
 
@@ -54,7 +64,7 @@ Date: YYYY-MM-DD
 - Total findings: N
 
 ## Verdict
-PASS (0 critical) or BLOCK (N critical findings — must fix before deploy)
+PASS (0 critical) or BLOCK (N critical findings)
 ```
 
-**Block criteria**: Any CRITICAL finding blocks progress to `/deploy-check`.
+**Block criteria**: any CRITICAL blocks `/deploy-check`.

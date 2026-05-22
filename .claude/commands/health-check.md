@@ -1,64 +1,90 @@
 # Health Check — Production Monitor
 
-Check current service health across Render and Supabase.
-Run this 24-48 hours after a production deploy, or any time something looks wrong.
+Check service health across Render and Supabase. Run after a deploy, or
+any time something looks off.
 
 ## Render (via Render MCP)
 
-1. Get service status: is the web service running, degraded, or down?
-2. List deploys: what was the last deploy and did it succeed?
-3. Check logs (last 100 lines): any ERROR or CRITICAL log entries in the last 24h?
-4. Get metrics: CPU usage, memory usage, p95 response time
+For each `asxos-*` service (1 web + 8 crons):
+1. `mcp__render__get_service` → service status, last update
+2. `mcp__render__list_deploys` → most recent deploy status (live / failed)
+3. `mcp__render__list_logs` (last 100 lines) → ERROR / Traceback lines in
+   the last 24h
+4. Web only: hit `/health` directly:
+   ```bash
+   curl -fsS https://asxos-api.onrender.com/health
+   ```
 
 Flag if:
-- Service is not in `running` state
-- Error rate in last 24h > 1%
-- p95 response time > 500ms
-- Memory > 80% of limit
+- Any asxos service is not `not_suspended`
+- Any recent deploy is `build_failed` / `update_failed` / `canceled`
+- The web service `/health` returns anything other than 200 + `{"status":"ok"}`
+- Logs show repeated `RuntimeError: active model artefact missing`
+  (lifespan would have hard-failed — meaning the service is in a restart loop)
 
-## Supabase (via Supabase MCP)
+## Supabase (via Supabase MCP, project `gxjqezqndltaelmyctnl`)
 
-1. Active DB connections — flag if > 80 (pool limit is 100)
-2. Check for slow queries: `SELECT query, mean_exec_time, calls FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10`
-3. Check job_completions for recent pipeline runs:
+1. Active DB connections via `pg_stat_activity`:
    ```sql
-   SELECT job_name, as_of, status, duration_seconds
-   FROM job_completions
-   ORDER BY as_of DESC
-   LIMIT 20
+   SELECT COUNT(*) FROM pg_stat_activity WHERE datname = 'postgres';
    ```
-   Flag any job with `status = 'failed'` in the last 48h
+   Flag if > 80 (pool limit ~100 on Supabase free tier)
 
-## Signal pipeline freshness
+2. Slow queries:
+   ```sql
+   SELECT query, mean_exec_time, calls
+   FROM pg_stat_statements
+   WHERE query NOT LIKE '%pg_stat_statements%'
+   ORDER BY mean_exec_time DESC LIMIT 10;
+   ```
+
+3. Job runs in last 48h:
+   ```sql
+   SELECT job_name, as_of, status, duration_ms, error_message
+   FROM job_runs
+   WHERE started_at > NOW() - INTERVAL '48 hours'
+   ORDER BY started_at DESC;
+   ```
+   Flag any `status='failure'`.
+
+## Data freshness
 
 ```sql
-SELECT MAX(as_of) as latest_signals FROM model_a_ml_signals;
-SELECT MAX(as_of) as latest_ensemble FROM ensemble_signals;
-SELECT MAX(updated_at) as latest_screen FROM screen_matches;
+SELECT 'prices'    AS tbl, MAX(dt)::date    AS latest FROM prices
+UNION ALL
+SELECT 'signals',          MAX(as_of)::date          FROM signals
+UNION ALL
+SELECT 'fundamentals',     MAX(as_of)::date          FROM fundamentals
+UNION ALL
+SELECT 'regulatory_events', MAX(event_date)::date    FROM regulatory_events;
 ```
-Flag if latest signals are more than 2 trading days old.
+
+Flag any > 3 calendar days old (excluding weekends — fundamentals + regulatory
+are daily, prices/signals weekdays only).
 
 ## Output
 
 ```
-Health Check — [timestamp]
-──────────────────────────
+Health Check — [timestamp UTC]
+──────────────────────────────
 Render
-  Service status:  [running/degraded/down]
-  Last deploy:     [date] [success/failed]
-  Error rate 24h:  [%]
-  p95 response:    [ms]
-  Memory:          [%]
+  asxos-api status:           [not_suspended/suspended]
+  Last deploy:                [date] [live/failed]
+  /health response:           [200 / error]
+
+  Crons (8): [N up / N suspended / N with failed last deploy]
+  Recent ERROR lines (24h):   [N]
 
 Supabase
-  Active connections:  [N] / 100
-  Slowest query:       [query] [ms]
-  Failed jobs (48h):   [list or none]
+  Active connections:         [N] / 100
+  Slowest query mean_ms:      [ms]
+  Failed job_runs (48h):      [list or none]
 
-Signals freshness
-  Model A:    [date] ([N days old])
-  Ensemble:   [date] ([N days old])
-  Screens:    [date] ([N days old])
-──────────────────────────
+Data freshness
+  prices:                     [date] ([N days old])
+  signals:                    [date] ([N days old])
+  fundamentals:               [date] ([N days old])
+  regulatory_events:          [date] ([N days old])
+──────────────────────────────
 Overall: HEALTHY / DEGRADED / CRITICAL
 ```
