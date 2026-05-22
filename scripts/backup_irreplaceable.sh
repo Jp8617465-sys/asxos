@@ -11,9 +11,11 @@
 #   - decisions        (journal)
 #   - screening_rules  (M-future screening rules)
 #   - model_versions   (active model registry; pickle artefacts ride in /models/)
+#   - profiles         (M13 investment profile — hand-edited, irreplaceable)
 #
-# Tables NOT backed up (re-derivable from EODHD + the model pickles):
+# Tables NOT backed up (re-derivable from EODHD + the model pickles + inputs):
 #   - prices, fundamentals, signals, universe, regulatory_events, job_runs
+#   - rebalance_runs, target_allocations, proposed_trades (re-derivable from profile + inputs)
 #
 # Required env vars:
 #   - DATABASE_URL                       postgres://...
@@ -43,6 +45,7 @@ pg_dump \
   --table=decisions \
   --table=screening_rules \
   --table=model_versions \
+  --table=profiles \
   "$DATABASE_URL" > "$DUMP"
 
 gzip -9 "$DUMP"
