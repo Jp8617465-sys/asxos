@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     healthcheck_url_sync_universe: str = ""
     healthcheck_url_backup_irreplaceable: str = ""
 
+    # M13.7 — portfolio cron healthcheck
+    healthcheck_url_build_portfolio: str = ""
+
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False
 

@@ -79,5 +79,41 @@
   {% else %}
   <p class="empty">No regulatory hits on current holdings.</p>
   {% endif %}
+
+  {% if d.portfolio_section %}
+  {% set p = d.portfolio_section %}
+  <h2>Portfolio adjustments (run #{{ p.run_id }} · {{ p.run_as_of }})</h2>
+  <p class="meta">
+    Turnover ${{ "%.0f"|format(p.turnover_aud) }} ·
+    Buys +${{ "%.0f"|format(p.total_buy_aud) }} ·
+    Sells ${{ "%.0f"|format(p.total_sell_aud) }}
+  </p>
+  {% if p.top_buys %}
+  <table>
+    <tr><th colspan="2">Top buys</th></tr>
+    {% for t in p.top_buys %}
+    <tr>
+      <td>{{ t.symbol }}</td>
+      <td style="text-align:right">+${{ "%.0f"|format(t.delta_aud) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  {% if p.top_sells %}
+  <table style="margin-top:0.4em">
+    <tr><th colspan="2">Top sells</th></tr>
+    {% for t in p.top_sells %}
+    <tr>
+      <td>{{ t.symbol }}</td>
+      <td style="text-align:right">${{ "%.0f"|format(t.delta_aud) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  <p style="font-size:0.8em;color:#888;">
+    For personal use only (s766B Corporations Act 2001).
+    Run <code>asx propose-trades --run-id {{ p.run_id }}</code> for full details.
+  </p>
+  {% endif %}
 </body>
 </html>

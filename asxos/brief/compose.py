@@ -11,21 +11,32 @@ Sections (in order):
   3. Signal label changes on current holdings (today vs yesterday)
   4. Tax actions: lots crossing the 12-month CGT boundary in next 30 days
   5. Regulatory hits on holdings in the last 24h
+  6. Portfolio adjustments (M13.7) — gated by BOTH:
+       ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
+       ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
+     Omitted entirely when either flag is unset, or when no successful
+     build_portfolio run exists with as_of >= today - 2 (plan I.7 freshness gate).
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import jinja2
 
-from asxos.db import acquire
 from asxos.domain.tax.cgt import days_to_eligibility
 
 if TYPE_CHECKING:
     import asyncpg
+
+# Deferred to avoid pulling pydantic_settings into test collection.
+# Tests patch asxos.brief.compose.acquire directly; production collect()
+# falls through to the lazy import below.
+acquire = None  # type: ignore[assignment]
 
 
 @dataclass(frozen=True)
@@ -61,6 +72,33 @@ class JobFailure:
 
 
 @dataclass(frozen=True)
+class PortfolioTradeSummary:
+    """Minimal trade row for the brief's portfolio section."""
+
+    symbol: str
+    side: str  # 'buy' or 'sell'
+    delta_aud: Decimal
+
+
+@dataclass(frozen=True)
+class PortfolioSection:
+    """Section 6 of the brief — portfolio adjustments (M13.7).
+
+    Populated only when both ASXOS_PERSONAL_USE=1 and
+    ASXOS_PORTFOLIO_BRIEF_ENABLED=1, and a fresh build_portfolio run
+    exists (as_of >= brief_date - 2, plan I.7).
+    """
+
+    run_id: int
+    run_as_of: date
+    top_buys: list[PortfolioTradeSummary]
+    top_sells: list[PortfolioTradeSummary]
+    total_buy_aud: Decimal
+    total_sell_aud: Decimal
+    turnover_aud: Decimal
+
+
+@dataclass(frozen=True)
 class BriefData:
     as_of: date
     regime: str
@@ -69,6 +107,7 @@ class BriefData:
     tax_actions: list[TaxAction] = field(default_factory=list)
     regulatory_hits: list[RegulatoryHit] = field(default_factory=list)
     job_failures: list[JobFailure] = field(default_factory=list)
+    portfolio_section: PortfolioSection | None = None
 
     @property
     def has_failures(self) -> bool:
@@ -76,8 +115,13 @@ class BriefData:
 
 
 async def collect(as_of: date) -> BriefData:
-    """Single async DB session, five queries."""
-    async with acquire() as conn:
+    """Single async DB session, five sections + optional portfolio section."""
+    # Use module-level `acquire` if set (e.g. by tests); otherwise lazy-import
+    # from asxos.db to avoid pulling pydantic_settings in at collection time.
+    _acquire = globals().get("acquire")
+    if _acquire is None:
+        from asxos.db import acquire as _acquire  # type: ignore[assignment]
+    async with _acquire() as conn:
         regime_row = await conn.fetchrow(
             "SELECT regime FROM signals WHERE as_of = $1 LIMIT 1",
             as_of,
@@ -92,6 +136,7 @@ async def collect(as_of: date) -> BriefData:
         tax_actions = await _tax_actions(conn, as_of)
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
+        portfolio_section = await _portfolio_section(conn, as_of)
 
     return BriefData(
         as_of=as_of,
@@ -101,6 +146,7 @@ async def collect(as_of: date) -> BriefData:
         tax_actions=tax_actions,
         regulatory_hits=regulatory_hits,
         job_failures=job_failures,
+        portfolio_section=portfolio_section,
     )
 
 
@@ -248,6 +294,102 @@ async def _job_failures(
         )
         for r in rows
     ]
+
+
+async def _portfolio_section(
+    conn: asyncpg.Connection, as_of: date
+) -> PortfolioSection | None:
+    """Return portfolio adjustments for section 6, or None if gated out.
+
+    Gating (plan I.7 + plan I.6 + Part 0 Q1):
+    - ASXOS_PERSONAL_USE must be "1" (regulatory firewall).
+    - ASXOS_PORTFOLIO_BRIEF_ENABLED must be "1" (paper-trade gate; stays 0
+      until 4 weeks of sign-off per M13.8).
+    - A successful ``build_portfolio`` job run must exist with
+      ``as_of >= as_of - 2`` (freshness gate; plan I.7 standardises on
+      24h lookback with a 2-day tolerance for the weekly cron cadence).
+
+    The section is omitted entirely when any gate fails — never partial or
+    stale (plan I.7: "If the cron failed: section 6 is omitted entirely").
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return None
+    if os.environ.get("ASXOS_PORTFOLIO_BRIEF_ENABLED") != "1":
+        return None
+
+    # Freshness gate: most recent successful build_portfolio run within 2 days.
+    # Uses as_of date arithmetic (plan H.2 QUICK-WIN-1: filter on as_of, not created_at).
+    cutoff = as_of - timedelta(days=2)
+    run_row = await conn.fetchrow(
+        """
+        SELECT r.run_id, r.as_of
+        FROM rebalance_runs r
+        JOIN job_runs j
+          ON j.job_name = 'build_portfolio'
+         AND j.as_of = r.as_of
+         AND j.status = 'success'
+        WHERE r.as_of >= $1
+        ORDER BY r.as_of DESC
+        LIMIT 1
+        """,
+        cutoff,
+    )
+    if run_row is None:
+        return None
+
+    run_id = run_row["run_id"]
+    run_as_of = run_row["as_of"]
+
+    # Top 3 buys and top 3 sells (by |delta_aud|).
+    trade_rows = await conn.fetch(
+        """
+        SELECT symbol, side, delta_aud
+        FROM proposed_trades
+        WHERE run_id = $1 AND side IN ('buy', 'sell')
+        ORDER BY ABS(delta_aud) DESC
+        """,
+        run_id,
+    )
+
+    top_buys = [
+        PortfolioTradeSummary(
+            symbol=r["symbol"],
+            side="buy",
+            delta_aud=Decimal(str(r["delta_aud"])),
+        )
+        for r in trade_rows
+        if r["side"] == "buy"
+    ][:3]
+
+    top_sells = [
+        PortfolioTradeSummary(
+            symbol=r["symbol"],
+            side="sell",
+            delta_aud=Decimal(str(r["delta_aud"])),
+        )
+        for r in trade_rows
+        if r["side"] == "sell"
+    ][:3]
+
+    # Aggregate AUD totals.
+    total_buy_aud = sum(
+        (Decimal(str(r["delta_aud"])) for r in trade_rows if r["side"] == "buy"),
+        Decimal("0"),
+    )
+    total_sell_aud = sum(
+        (abs(Decimal(str(r["delta_aud"]))) for r in trade_rows if r["side"] == "sell"),
+        Decimal("0"),
+    )
+
+    return PortfolioSection(
+        run_id=run_id,
+        run_as_of=run_as_of,
+        top_buys=top_buys,
+        top_sells=top_sells,
+        total_buy_aud=total_buy_aud,
+        total_sell_aud=total_sell_aud,
+        turnover_aud=total_buy_aud + total_sell_aud,
+    )
 
 
 def render_html(data: BriefData) -> str:
