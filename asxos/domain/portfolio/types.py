@@ -199,3 +199,55 @@ class AllocationTarget:
     prob_up: Decimal
     expected_return: Decimal
     constraint_log: dict  # populated by M13.4 constraints.apply_constraints()
+
+
+# ---------------------------------------------------------------------------
+# M13.5 — Tax overlay types
+# ---------------------------------------------------------------------------
+
+TradeSide = Literal["buy", "sell", "hold"]
+
+
+@dataclass(frozen=True)
+class HoldingSnapshot:
+    """Lot-level position snapshot used by the tax overlay and rebalance engine.
+
+    ``days_to_cgt_discount`` is computed at snapshot time using calendar
+    arithmetic per spec §5.1:
+        disposal_date >= acquired_at + relativedelta(years=1) + timedelta(days=1)
+    A value of 0 means the lot is already CGT-discount-eligible (≥12 months held).
+    account_type is derived from the active profile at snapshot time (plan H.1 CRITICAL-1
+    resolution: no account_type column on holding_lots; profile is single-user).
+    """
+
+    lot_id: int
+    symbol: str
+    acquired_at: date
+    quantity: Decimal
+    cost_base_normal: Decimal  # AUD total for the lot
+    cost_base_div296: Decimal
+    account_type: AccountType
+    current_price_aud: Decimal
+    days_to_cgt_discount: int  # 0 if already eligible (calendar arithmetic per §5.1)
+
+
+@dataclass(frozen=True)
+class ProposedTrade:
+    """A single proposed rebalance action.
+
+    ``side`` is "buy", "sell", or "hold" (drift below threshold).
+    ``delta_qty`` and ``delta_aud`` are signed: positive for buys, negative for sells.
+    ``lot_hints`` is populated by the tax overlay on sells; empty dict otherwise.
+    ``rationale_tags`` accumulates annotations from the constraint waterfall (M13.4)
+    and the tax overlay (M13.5 loss-harvest, M13.6 boundary-defer).
+    """
+
+    symbol: str
+    side: TradeSide
+    delta_qty: Decimal  # signed: + buy, - sell
+    delta_aud: Decimal  # signed
+    target_qty: Decimal
+    current_qty: Decimal
+    reference_price: Decimal
+    rationale_tags: dict
+    lot_hints: dict  # populated on sells only
