@@ -154,3 +154,48 @@ class Profile:
             for s in items:
                 if not isinstance(s, str) or not s.strip():
                     raise ValueError(f"{kind} must contain non-empty strings; got {s!r}")
+
+
+# ---------------------------------------------------------------------------
+# M13.3 — Allocator types
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AllocationCandidate:
+    """Signal row joined to universe + computed vol — input to the allocator.
+
+    Constructed by the orchestrator (M13.6 build.py) from signals × universe × vol.
+    daily_vol is annualised (misleading name retained from the plan).
+    """
+
+    symbol: str
+    sector: str | None
+    market_cap_aud: Decimal | None
+    signal_label: str  # STRONG_BUY | BUY | HOLD | SELL | STRONG_SELL
+    prob_up: Decimal
+    expected_return: Decimal
+    daily_vol: Decimal  # annualised volatility from volatility.annualised_vol_from_prices
+    confidence: int  # 0..3 ladder
+
+
+@dataclass(frozen=True)
+class AllocationTarget:
+    """Per-symbol target after inverse-vol weighting.
+
+    target_weight is a fraction of total capital. Weights sum to
+    (leverage_cap - cash_floor_pct) across the portfolio, e.g. 0.95
+    with leverage_cap=1.0 and cash_floor_pct=0.05.
+
+    constraint_log is populated by M13.4; the allocator always initialises
+    it to {}. M13.4 creates new instances via dataclasses.replace().
+    """
+
+    symbol: str
+    sector: str | None
+    target_weight: Decimal  # [0, leverage_cap]; sums to leverage_cap - cash_floor_pct
+    inv_vol_score: Decimal  # raw 1/sigma — explainability + waterfall redistribution
+    signal_label: str
+    prob_up: Decimal
+    expected_return: Decimal
+    constraint_log: dict  # populated by M13.4 constraints.apply_constraints()
