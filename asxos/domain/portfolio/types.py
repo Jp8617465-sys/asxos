@@ -251,3 +251,33 @@ class ProposedTrade:
     reference_price: Decimal
     rationale_tags: dict
     lot_hints: dict  # populated on sells only
+
+
+# ---------------------------------------------------------------------------
+# M13.6 — Rebalance result
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RebalanceResult:
+    """Output of one ``asx build-portfolio`` run.
+
+    ``run_id`` is None until persisted to the DB. Once persisted, the
+    CLI re-attaches it via ``dataclasses.replace(result, run_id=<id>)``.
+
+    ``summary`` keys (all Decimal or int):
+        total_buy_aud    — sum of delta_aud for buy trades
+        total_sell_aud   — sum of abs(delta_aud) for sell trades
+        n_buys           — count of buy trades
+        n_sells          — count of sell trades
+        n_holds          — hold trades that are NOT CGT deferrals
+        n_deferrals      — hold trades with near_boundary_lot_ids in rationale_tags
+    """
+
+    run_id: int | None  # None pre-persist
+    as_of: date
+    signals_as_of: date
+    profile: Profile
+    targets: list[AllocationTarget]
+    trades: list[ProposedTrade]
+    summary: dict  # {total_buy_aud, total_sell_aud, n_buys, n_sells, n_holds, n_deferrals}

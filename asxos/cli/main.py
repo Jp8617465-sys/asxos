@@ -902,5 +902,298 @@ async def _run_profile_list() -> None:
     console.print(table)
 
 
+# ---------------------------------------------------------------------------
+# M13.6 — build-portfolio, propose-trades, portfolio sub-typer
+# ---------------------------------------------------------------------------
+
+portfolio_app = typer.Typer(
+    help="Portfolio construction (M13). Requires ASXOS_PERSONAL_USE=1.",
+    no_args_is_help=True,
+    add_completion=False,
+)
+app.add_typer(portfolio_app, name="portfolio")
+
+
+@app.command("build-portfolio")
+def build_portfolio(
+    profile_name: str | None = typer.Option(None, "--profile", help="Profile name (default: active)"),
+    as_of: str | None = typer.Option(None, "--as-of", help="Build date YYYY-MM-DD (default: today)"),
+    signals_date: str | None = typer.Option(None, "--signals", help="Signals date YYYY-MM-DD (default: latest)"),
+    no_tax_overlay: bool = typer.Option(False, "--no-tax-overlay", help="Skip loss-harvest tagging"),
+    no_constraints: bool = typer.Option(False, "--no-constraints", help="Skip constraint waterfall"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print result without writing to DB"),
+    persist: bool = typer.Option(True, "--persist/--no-persist", help="Write run to DB"),
+) -> None:
+    """Construct a portfolio from the active profile + latest signals."""
+    _require_personal_use()
+    # --dry-run forces --no-persist (plan H.1 CRITICAL-6).
+    if dry_run:
+        persist = False
+
+    build_date = None
+    if as_of:
+        try:
+            build_date = date.fromisoformat(as_of)
+        except ValueError as e:
+            raise typer.BadParameter(f"--as-of must be YYYY-MM-DD: {e}") from e
+
+    sig_date = None
+    if signals_date:
+        try:
+            sig_date = date.fromisoformat(signals_date)
+        except ValueError as e:
+            raise typer.BadParameter(f"--signals must be YYYY-MM-DD: {e}") from e
+
+    asyncio.run(
+        _run_build_portfolio(
+            profile_name=profile_name,
+            as_of=build_date,
+            signals_date=sig_date,
+            apply_constraints=not no_constraints,
+            apply_tax_overlay=not no_tax_overlay,
+            do_persist=persist,
+        )
+    )
+
+
+async def _run_build_portfolio(
+    *,
+    profile_name: str | None,
+    as_of: date | None,
+    signals_date: date | None,
+    apply_constraints: bool,
+    apply_tax_overlay: bool,
+    do_persist: bool,
+) -> None:
+    from dataclasses import replace
+
+    from asxos.domain.portfolio.build import PortfolioService
+
+    svc = PortfolioService()
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            try:
+                result = await svc.build(
+                    conn,
+                    profile_name=profile_name,
+                    as_of=as_of,
+                    signals_date=signals_date,
+                    apply_constraints=apply_constraints,
+                    apply_tax_overlay=apply_tax_overlay,
+                )
+            except RuntimeError as e:
+                console.print(f"[red]build-portfolio failed:[/red] {e}")
+                raise typer.Exit(code=1) from e
+
+            run_id: int | None = None
+            if do_persist:
+                run_id = await svc.persist(conn, result)
+                result = replace(result, run_id=run_id)
+                console.print(f"[green]Wrote run {run_id}[/green] ({len(result.targets)} targets, {len(result.trades)} trades).")
+    finally:
+        await close_pool()
+
+    s = result.summary
+    console.print(
+        f"Profile: {result.profile.name} · as_of: {result.as_of} · signals: {result.signals_as_of} · "
+        f"model: {s.get('model_version', '?')}"
+    )
+    console.print(
+        f"Trades: {s['n_buys']} buys (+${s['total_buy_aud']:,.0f}) · "
+        f"{s['n_sells']} sells (${s['total_sell_aud']:,.0f}) · "
+        f"{s['n_holds']} holds · {s['n_deferrals']} deferred"
+    )
+
+    table = Table(title=f"Target allocations (run {run_id or 'dry-run'})")
+    table.add_column("symbol")
+    table.add_column("weight", justify="right")
+    table.add_column("target_aud", justify="right")
+    table.add_column("sector")
+    table.add_column("signal")
+    table.add_column("flags")
+
+    for t in sorted(result.targets, key=lambda x: -x.target_weight):
+        flags = ", ".join(sorted(t.constraint_log.keys())) if t.constraint_log else ""
+        table.add_row(
+            t.symbol,
+            f"{t.target_weight:.4f}",
+            f"${t.target_weight * result.profile.capital_aud:,.0f}",
+            t.sector or "—",
+            t.signal_label,
+            flags,
+        )
+    console.print(table)
+
+
+@app.command("propose-trades")
+def propose_trades(
+    run_id: int | None = typer.Option(None, "--run-id", help="Run ID (default: latest)"),
+    side: str | None = typer.Option(None, "--side", help="Filter: buy | sell | hold"),
+    csv_path: str | None = typer.Option(None, "--csv", help="Write trades to CSV file"),
+) -> None:
+    """Show proposed trades from a build-portfolio run."""
+    _require_personal_use()
+    if side and side not in ("buy", "sell", "hold"):
+        raise typer.BadParameter("--side must be buy, sell, or hold")
+    asyncio.run(_run_propose_trades(run_id=run_id, side=side, csv_path=csv_path))
+
+
+async def _run_propose_trades(
+    *, run_id: int | None, side: str | None, csv_path: str | None
+) -> None:
+    import csv as _csv
+    import io
+
+    from asxos.domain.portfolio.build import PortfolioService
+
+    svc = PortfolioService()
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            loaded = await svc.load_run(conn, run_id)
+    finally:
+        await close_pool()
+
+    if loaded is None:
+        console.print("[yellow]No runs found.[/yellow] Run `asx build-portfolio` first.")
+        raise typer.Exit(code=1)
+
+    run_hdr, _targets, trades = loaded
+    if side:
+        trades = [t for t in trades if t["side"] == side]
+
+    table = Table(title=f"Proposed trades — run {run_hdr['run_id']} ({run_hdr['as_of']})")
+    table.add_column("symbol")
+    table.add_column("side")
+    table.add_column("delta_qty", justify="right")
+    table.add_column("delta_aud", justify="right")
+    table.add_column("price", justify="right")
+    table.add_column("tags")
+
+    for t in trades:
+        tags_str = str(t.get("rationale_tags") or "")[:60]
+        table.add_row(
+            t["symbol"],
+            t["side"],
+            f"{t['delta_qty']:+.2f}",
+            f"${t['delta_aud']:+,.0f}",
+            f"${t['reference_price']:,.2f}",
+            tags_str,
+        )
+    console.print(table)
+
+    if csv_path:
+        buf = io.StringIO()
+        writer = _csv.DictWriter(
+            buf,
+            fieldnames=["symbol", "side", "delta_qty", "delta_aud",
+                        "target_qty", "current_qty", "reference_price",
+                        "rationale_tags", "lot_hints"],
+        )
+        writer.writeheader()
+        for t in trades:
+            writer.writerow({k: t.get(k, "") for k in writer.fieldnames})
+        with open(csv_path, "w") as f:
+            f.write(buf.getvalue())
+        console.print(f"[green]Wrote {len(trades)} trades to {csv_path}[/green]")
+
+
+@portfolio_app.command("show")
+def portfolio_show(
+    run_id: int | None = typer.Option(None, "--run-id", help="Run ID (default: latest)"),
+) -> None:
+    """Show the target allocation table for a build-portfolio run."""
+    _require_personal_use()
+    asyncio.run(_run_portfolio_show(run_id))
+
+
+async def _run_portfolio_show(run_id: int | None) -> None:
+    from asxos.domain.portfolio.build import PortfolioService
+
+    svc = PortfolioService()
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            loaded = await svc.load_run(conn, run_id)
+    finally:
+        await close_pool()
+
+    if loaded is None:
+        console.print("[yellow]No runs found.[/yellow] Run `asx build-portfolio` first.")
+        raise typer.Exit(code=1)
+
+    run_hdr, targets, _ = loaded
+    console.print(
+        f"Run {run_hdr['run_id']} — profile: {run_hdr['profile_name']} · "
+        f"as_of: {run_hdr['as_of']} · signals: {run_hdr['signals_as_of']} · "
+        f"model: {run_hdr['model_version']}"
+    )
+
+    table = Table(title="Target allocations")
+    table.add_column("symbol")
+    table.add_column("weight", justify="right")
+    table.add_column("target_aud", justify="right")
+    table.add_column("sector")
+    table.add_column("signal")
+    table.add_column("constraint_log")
+
+    for t in targets:
+        log = str(t.get("constraint_log") or "")[:40]
+        table.add_row(
+            t["symbol"],
+            f"{t['target_weight']:.4f}",
+            f"${t['target_aud']:,.0f}",
+            t.get("sector") or "—",
+            t.get("signal_label") or "",
+            log,
+        )
+    console.print(table)
+
+
+@portfolio_app.command("history")
+def portfolio_history(
+    days: int = typer.Option(30, "--days", help="Lookback window in days"),
+) -> None:
+    """List recent build-portfolio runs."""
+    _require_personal_use()
+    asyncio.run(_run_portfolio_history(days))
+
+
+async def _run_portfolio_history(days: int) -> None:
+    from asxos.domain.portfolio.build import PortfolioService
+
+    svc = PortfolioService()
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            runs = await svc.list_runs(conn, days=days)
+    finally:
+        await close_pool()
+
+    if not runs:
+        console.print(f"[yellow]No runs in the last {days} days.[/yellow]")
+        return
+
+    table = Table(title=f"Portfolio runs (last {days} days)")
+    table.add_column("run_id", justify="right")
+    table.add_column("as_of")
+    table.add_column("profile")
+    table.add_column("signals_as_of")
+    table.add_column("model")
+    table.add_column("created_at")
+
+    for r in runs:
+        table.add_row(
+            str(r["run_id"]),
+            str(r["as_of"]),
+            r["profile_name"],
+            str(r["signals_as_of"]),
+            r["model_version"],
+            str(r["created_at"])[:16],
+        )
+    console.print(table)
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
