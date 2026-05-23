@@ -1195,5 +1195,129 @@ async def _run_portfolio_history(days: int) -> None:
     console.print(table)
 
 
+@portfolio_app.command("paper-review")
+def portfolio_paper_review(
+    weeks: int = typer.Option(4, "--weeks", help="Minimum weeks of history required"),
+    today: str = typer.Option("", "--today", help="Override today's date YYYY-MM-DD (testing)"),
+) -> None:
+    """Evaluate all build-portfolio runs that are ≥ WEEKS old against current prices.
+
+    Prints a table of hypothetical P&L for each evaluable run.  Use this
+    weekly during the paper-trading window (plan Part 0 Q3 / M13.8).
+    """
+    _require_personal_use()
+    _today = date.fromisoformat(today) if today else date.today()
+    asyncio.run(_run_portfolio_paper_review(weeks=weeks, today=_today))
+
+
+async def _run_portfolio_paper_review(*, weeks: int, today: date) -> None:
+    from asxos.domain.portfolio.paper_trade import (
+        evaluate_run_from_db,
+        list_evaluable_runs,
+    )
+
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            runs = await list_evaluable_runs(conn, weeks=weeks, today=today)
+
+            if not runs:
+                console.print(
+                    f"[yellow]No evaluable runs found.[/yellow] "
+                    f"Runs need at least {weeks} weeks of history. "
+                    f"Run `asx build-portfolio` each week and check back."
+                )
+                return
+
+            table = Table(
+                title=f"Paper-trade review — {weeks}+ week outcomes (vs today {today})"
+            )
+            table.add_column("run_id", justify="right")
+            table.add_column("run date")
+            table.add_column("days held", justify="right")
+            table.add_column("traded $", justify="right")
+            table.add_column("P&L $", justify="right")
+            table.add_column("return %", justify="right")
+            table.add_column("missing prices")
+
+            for r in runs:
+                outcome = await evaluate_run_from_db(conn, r["run_id"], today)
+                if outcome is None:
+                    continue
+
+                pnl_style = "green" if outcome.total_hypothetical_pnl_aud >= 0 else "red"
+                table.add_row(
+                    str(outcome.run_id),
+                    str(outcome.run_as_of),
+                    str(outcome.outcome_days),
+                    f"${outcome.total_traded_aud:,.0f}",
+                    f"[{pnl_style}]${outcome.total_hypothetical_pnl_aud:,.0f}[/{pnl_style}]",
+                    f"[{pnl_style}]{outcome.hypothetical_return_pct:+.2f}%[/{pnl_style}]",
+                    ", ".join(outcome.symbols_missing_exit_price) or "—",
+                )
+
+            console.print(table)
+            console.print(
+                f"\n[dim]Showing {len(runs)} run(s) with ≥{weeks} weeks of price history. "
+                "Run [bold]asx portfolio signoff[/bold] once satisfied.[/dim]"
+            )
+    finally:
+        await close_pool()
+
+
+@portfolio_app.command("signoff")
+def portfolio_signoff(
+    note: str = typer.Option("", "--note", help="Optional free-text note to record"),
+    force: bool = typer.Option(False, "--force", help="Skip the 4-week gate check"),
+) -> None:
+    """Record paper-trade sign-off and prompt to enable section 6 in the brief.
+
+    Requires ≥4 evaluable runs (≥4 weeks of build-portfolio history) unless
+    --force is passed.  Inserts a decisions journal entry tagged
+    [m13_paper_signoff] and prints the Render MCP command to flip
+    ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (plan Part 0 Q3 / M13.8).
+    """
+    _require_personal_use()
+    asyncio.run(_run_portfolio_signoff(note=note, force=force))
+
+
+async def _run_portfolio_signoff(*, note: str, force: bool) -> None:
+    from asxos.domain.portfolio.paper_trade import has_enough_paper_weeks, record_signoff
+
+    today = date.today()
+
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            if not force:
+                ok = await has_enough_paper_weeks(conn, min_weeks=4, today=today)
+                if not ok:
+                    console.print(
+                        "[red]Insufficient paper-trade history.[/red] "
+                        "Need ≥4 evaluable runs (each ≥4 weeks old). "
+                        "Pass [bold]--force[/bold] to override."
+                    )
+                    raise typer.Exit(code=1)
+
+            decisions_id = await record_signoff(conn, note=note, as_of=today)
+    finally:
+        await close_pool()
+
+    console.print(f"[green]✓[/green] Sign-off recorded (decisions.id={decisions_id}).")
+    console.print()
+    console.print("[bold]Next step — flip the brief flag via Render MCP:[/bold]")
+    console.print(
+        "  mcp__render__update_environment_variables(\n"
+        "      serviceId='crn-d883biq8qa3s73eud08g',  # asxos-compose-brief\n"
+        "      envVars=[{'key': 'ASXOS_PORTFOLIO_BRIEF_ENABLED', 'value': '1'}]\n"
+        "  )"
+    )
+    console.print()
+    console.print(
+        "[dim]The next Monday brief will include section 6 "
+        "(Portfolio adjustments).[/dim]"
+    )
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
