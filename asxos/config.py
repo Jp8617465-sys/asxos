@@ -11,14 +11,17 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Required
+    # Required for all services
     database_url: PostgresDsn
-    supabase_url: str
-    supabase_anon_key: str
     eodhd_api_key: str
-    resend_api_key: str
-    brief_from_email: str
-    brief_to_email: str
+
+    # Required for API / compose_brief — optional with empty defaults so that
+    # job-only services (ingest_news, ingest_regulatory, etc.) don't need them.
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    resend_api_key: str = ""
+    brief_from_email: str = ""
+    brief_to_email: str = ""
 
     # Optional with defaults
     fred_api_key: str = ""
