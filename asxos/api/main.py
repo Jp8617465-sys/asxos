@@ -5,7 +5,10 @@ from fastapi import FastAPI
 
 from asxos.config import BriefSettings, settings
 
-_brief_settings = BriefSettings()  # hard-fail at startup if brief vars unset
+# Startup guard: validate brief env vars are present before the app boots.
+# BriefSettings() raises ValidationError immediately if any are missing.
+# Do NOT remove — this is intentional, not dead code.
+_brief_settings = BriefSettings()
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.models.cache import get_cache
 
