@@ -1,9 +1,8 @@
 """
 Morning-brief composer.
 
-Pulls five sections from Postgres and renders them through a Jinja
-template. Keep the prose under 200 words — this brief is consumed daily,
-so density matters.
+Pulls sections from Postgres and renders them through a Jinja template.
+Keep the prose under 200 words — this brief is consumed daily, so density matters.
 
 Sections (in order):
   1. Job failures banner (if any in the last 24h)
@@ -11,7 +10,12 @@ Sections (in order):
   3. Signal label changes on current holdings (today vs yesterday)
   4. Tax actions: lots crossing the 12-month CGT boundary in next 30 days
   5. Regulatory hits on holdings in the last 24h
-  6. Portfolio adjustments (M13.7) — gated by BOTH:
+  6. Market news on holdings (M14a) — gated by ALL of:
+       ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
+       ASXOS_NEWS_BRIEF_ENABLED=1 (paper-trade dark gate, plan M14a)
+       ingest_news job_runs success within 24h (freshness gate)
+     Section absent entirely when any gate fails.
+  7. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
      Omitted entirely when either flag is unset, or when no successful
@@ -65,6 +69,22 @@ class RegulatoryHit:
 
 
 @dataclass(frozen=True)
+class NewsItem:
+    """One news article relevant to a current holding (M14a).
+
+    ``symbols`` is the subset of the article's tagged symbols that match
+    current holdings (normalised to BHP.AU format).
+    ``sentiment`` is "positive" | "negative" | "neutral" | "".
+    """
+
+    symbols: list[str]
+    title: str
+    url: str
+    published_at: date
+    sentiment: str
+
+
+@dataclass(frozen=True)
 class JobFailure:
     job_name: str
     as_of: date
@@ -107,6 +127,7 @@ class BriefData:
     tax_actions: list[TaxAction] = field(default_factory=list)
     regulatory_hits: list[RegulatoryHit] = field(default_factory=list)
     job_failures: list[JobFailure] = field(default_factory=list)
+    news_items: list[NewsItem] = field(default_factory=list)
     portfolio_section: PortfolioSection | None = None
 
     @property
@@ -136,6 +157,7 @@ async def collect(as_of: date) -> BriefData:
         tax_actions = await _tax_actions(conn, as_of)
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
+        news_items = await _news_section(conn, as_of)
         portfolio_section = await _portfolio_section(conn, as_of)
 
     return BriefData(
@@ -146,6 +168,7 @@ async def collect(as_of: date) -> BriefData:
         tax_actions=tax_actions,
         regulatory_hits=regulatory_hits,
         job_failures=job_failures,
+        news_items=news_items,
         portfolio_section=portfolio_section,
     )
 
@@ -294,6 +317,84 @@ async def _job_failures(
         )
         for r in rows
     ]
+
+
+async def _news_section(
+    conn: asyncpg.Connection, as_of: date
+) -> list[NewsItem]:
+    """Return news items for section 6, or [] if gated out (M14a).
+
+    Three-layer gating (mirrors M13.7 Amendment C):
+      1. ASXOS_PERSONAL_USE=1  (regulatory firewall)
+      2. ASXOS_NEWS_BRIEF_ENABLED=1  (paper-trade dark gate; default 0)
+      3. ingest_news had a successful job_run within 24h  (freshness gate)
+
+    Section absent entirely when any gate fails.
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return []
+    if os.environ.get("ASXOS_NEWS_BRIEF_ENABLED") != "1":
+        return []
+    if not await _news_ingest_fresh(conn, as_of):
+        return []
+    return await _holding_news(conn, as_of)
+
+
+async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
+    """True when ingest_news has a successful job_run within the last 24 hours."""
+    cutoff = as_of - timedelta(days=1)
+    rows = await conn.fetch(
+        """
+        SELECT 1 FROM job_runs
+        WHERE job_name = 'ingest_news' AND as_of >= $1 AND status = 'success'
+        LIMIT 1
+        """,
+        cutoff,
+    )
+    return bool(rows)
+
+
+async def _holding_news(
+    conn: asyncpg.Connection, as_of: date, lookback_hours: int = 24
+) -> list[NewsItem]:
+    """Fetch holding_news rows from the last ``lookback_hours`` hours.
+
+    Filters the result to symbols that appear in current_holdings.
+    Returns at most 20 items, ordered most-recent first.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT url, title, published_at, symbols, sentiment
+        FROM holding_news
+        WHERE published_at >= $1::date - make_interval(hours => $2)
+        ORDER BY published_at DESC
+        LIMIT 20
+        """,
+        as_of,
+        lookback_hours,
+    )
+    holdings_rows = await conn.fetch("SELECT symbol FROM current_holdings")
+    holdings = {r["symbol"] for r in holdings_rows}
+
+    out: list[NewsItem] = []
+    for r in rows:
+        syms = r["symbols"] or []
+        if isinstance(syms, str):
+            import json
+            syms = json.loads(syms)
+        matched = [s for s in syms if s in holdings]
+        if not matched:
+            continue
+        out.append(
+            NewsItem(
+                symbols=matched,
+                title=r["title"],
+                url=r["url"],
+                published_at=r["published_at"],
+                sentiment=r["sentiment"] or "",
+            )
+        )
+    return out
 
 
 async def _portfolio_section(

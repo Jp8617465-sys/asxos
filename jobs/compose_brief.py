@@ -47,6 +47,7 @@ async def main(as_of: date, send: bool) -> None:
                 len(data.signal_changes)
                 + len(data.tax_actions)
                 + len(data.regulatory_hits)
+                + len(data.news_items)
             )
     finally:
         await close_pool()

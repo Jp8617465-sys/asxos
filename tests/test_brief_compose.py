@@ -4,10 +4,13 @@ Brief composition tests.
 `render_html` is pure over BriefData — we synthesize the dataclass
 directly. `collect` is exercised under a MagicMock conn that returns
 canned rows for each of the five queries.
+
+M14a additions: NewsItem dataclass, news section HTML, _news_section() gating.
 """
 from __future__ import annotations
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -15,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from asxos.brief.compose import (
     BriefData,
     JobFailure,
+    NewsItem,
     RegulatoryHit,
     SignalChange,
     TaxAction,
@@ -116,7 +120,23 @@ def test_render_html_shows_tax_actions() -> None:
 # collect — under a mocked DB
 # ---------------------------------------------------------------------------
 
-def _make_conn(*, regime_row, holdings_count, signal_rows, tax_rows, reg_rows, hold_syms, fail_rows):
+def _make_conn(
+    *,
+    regime_row,
+    holdings_count,
+    signal_rows,
+    tax_rows,
+    reg_rows,
+    hold_syms,
+    fail_rows,
+    news_rows=None,
+    news_job_rows=None,
+):
+    """Build a mock asyncpg connection that routes queries to canned rows.
+
+    news_rows:      rows for ``FROM holding_news`` queries (_holding_news)
+    news_job_rows:  rows for ``FROM job_runs … job_name = 'ingest_news'`` (_news_ingest_fresh)
+    """
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value=regime_row)
     conn.fetchval = AsyncMock(return_value=holdings_count)
@@ -129,10 +149,15 @@ def _make_conn(*, regime_row, holdings_count, signal_rows, tax_rows, reg_rows, h
             return tax_rows
         if "FROM regulatory_events" in q:
             return reg_rows
+        if "FROM holding_news" in q:
+            return news_rows or []
+        if "FROM job_runs" in q:
+            # Differentiate the freshness check from the failures query.
+            if "ingest_news" in q:
+                return news_job_rows or []
+            return fail_rows
         if "SELECT symbol FROM current_holdings" in q:
             return hold_syms
-        if "FROM job_runs" in q:
-            return fail_rows
         return []
 
     conn.fetch = AsyncMock(side_effect=_fetch)
@@ -217,3 +242,172 @@ def test_collect_handles_empty_db() -> None:
     assert data.holdings_count == 0
     assert data.signal_changes == []
     assert not data.has_failures
+
+
+# ---------------------------------------------------------------------------
+# M14a — news section render_html tests
+# ---------------------------------------------------------------------------
+
+
+def test_render_html_shows_news_section() -> None:
+    """When news_items are populated the section appears in the HTML."""
+    html = render_html(
+        _brief(
+            news_items=[
+                NewsItem(
+                    symbols=["BHP.AU"],
+                    title="BHP quarterly results",
+                    url="https://example.com/bhp",
+                    published_at=date(2026, 5, 23),
+                    sentiment="positive",
+                )
+            ]
+        )
+    )
+    assert "BHP.AU" in html
+    assert "BHP quarterly results" in html
+    assert "https://example.com/bhp" in html
+    assert "sentiment-positive" in html
+    assert "Market news on holdings" in html
+
+
+def test_render_html_news_section_absent_when_no_items() -> None:
+    """When news_items=[] the news section header is not rendered (no empty-state placeholder)."""
+    html = render_html(_brief(news_items=[]))
+    assert "Market news on holdings" not in html
+
+
+def test_render_html_news_section_escapes_title() -> None:
+    """Malicious title in news item is HTML-escaped (autoescape active)."""
+    html = render_html(
+        _brief(
+            news_items=[
+                NewsItem(
+                    symbols=["BHP.AU"],
+                    title="<script>alert(1)</script>",
+                    url="https://example.com/x",
+                    published_at=date(2026, 5, 23),
+                    sentiment="",
+                )
+            ]
+        )
+    )
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+# ---------------------------------------------------------------------------
+# M14a — collect() with news items (gating tests)
+# ---------------------------------------------------------------------------
+
+
+def test_collect_news_section_absent_when_flag_off() -> None:
+    """news_items=[] when ASXOS_NEWS_BRIEF_ENABLED is not '1'."""
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        regime_row={"regime": "neutral"},
+        holdings_count=1,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[{"symbol": "BHP.AU"}],
+        fail_rows=[],
+        news_rows=[{
+            "url": "https://example.com/bhp",
+            "title": "BHP news",
+            "published_at": today,
+            "symbols": ["BHP.AU"],
+            "sentiment": "positive",
+        }],
+        news_job_rows=[{"job_name": "ingest_news"}],  # fresh job run exists
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    # Flag is OFF → news_items should be []
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1", "ASXOS_NEWS_BRIEF_ENABLED": "0"}),
+    ):
+        data = asyncio.run(collect(today))
+
+    assert data.news_items == []
+
+
+def test_collect_assembles_news_items() -> None:
+    """When all three gates pass, collect() populates news_items."""
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        regime_row={"regime": "neutral"},
+        holdings_count=1,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[{"symbol": "BHP.AU"}],
+        fail_rows=[],
+        news_rows=[{
+            "url": "https://example.com/bhp",
+            "title": "BHP quarterly",
+            "published_at": today,
+            "symbols": ["BHP.AU"],
+            "sentiment": "positive",
+        }],
+        news_job_rows=[{"job_name": "ingest_news"}],  # non-empty → fresh
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        patch.dict(os.environ, {
+            "ASXOS_PERSONAL_USE": "1",
+            "ASXOS_NEWS_BRIEF_ENABLED": "1",
+        }),
+    ):
+        data = asyncio.run(collect(today))
+
+    assert len(data.news_items) == 1
+    assert data.news_items[0].symbols == ["BHP.AU"]
+    assert data.news_items[0].title == "BHP quarterly"
+    assert data.news_items[0].sentiment == "positive"
+
+
+def test_collect_news_absent_when_ingest_stale() -> None:
+    """news_items=[] when ingest_news has no recent successful job_run."""
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        regime_row={"regime": "neutral"},
+        holdings_count=1,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[{"symbol": "BHP.AU"}],
+        fail_rows=[],
+        news_rows=[{
+            "url": "https://example.com/bhp",
+            "title": "BHP news",
+            "published_at": today,
+            "symbols": ["BHP.AU"],
+            "sentiment": "",
+        }],
+        news_job_rows=[],   # no recent ingest_news success → stale
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        patch.dict(os.environ, {
+            "ASXOS_PERSONAL_USE": "1",
+            "ASXOS_NEWS_BRIEF_ENABLED": "1",
+        }),
+    ):
+        data = asyncio.run(collect(today))
+
+    assert data.news_items == []

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # M13.7 — portfolio cron healthcheck
     healthcheck_url_build_portfolio: str = ""
 
+    # M14a — news ingestion healthcheck
+    healthcheck_url_ingest_news: str = ""
+
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False
 

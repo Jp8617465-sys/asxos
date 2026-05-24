@@ -71,6 +71,44 @@ class EODHDClient:
     async def fundamentals(self, symbol: str) -> dict:
         return await self._get(f"/fundamentals/{symbol}")
 
+    async def news_for_symbol(
+        self,
+        symbol: str,
+        *,
+        limit: int = 10,
+        from_date: str | None = None,
+    ) -> list[dict]:
+        """Fetch recent news headlines for a single symbol from EODHD /news.
+
+        EODHD returns a list directly (unlike most endpoints that return a dict).
+        The isinstance guard converts a no-data ``{}`` response to ``[]``.
+        """
+        params: dict[str, Any] = {"s": symbol, "limit": limit}
+        if from_date:
+            params["from"] = from_date
+        result = await self._get("/news", **params)
+        return result if isinstance(result, list) else []
+
+    async def sentiments_for_symbol(
+        self,
+        symbol: str,
+        *,
+        from_date: str,
+        to_date: str,
+    ) -> list[dict]:
+        """Fetch daily aggregated sentiment from EODHD /sentiments (M14b).
+
+        Returns list of {date, count, normalized} dicts.
+        ``normalized`` ∈ [−1, +1] is the daily-aggregated sentiment score.
+        ``count`` is the number of news mentions that day (a volume signal).
+
+        Ref: https://eodhd.com/lp/fundamental-data-api
+        Same isinstance list guard as news_for_symbol().
+        """
+        params: dict[str, Any] = {"s": symbol, "from": from_date, "to": to_date}
+        result = await self._get("/sentiments", **params)
+        return result if isinstance(result, list) else []
+
 
 @lru_cache(maxsize=1)
 def get_client() -> EODHDClient:

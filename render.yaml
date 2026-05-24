@@ -175,6 +175,33 @@ services:
       - key: HEALTHCHECK_URL_INGEST_REGULATORY
         sync: false
 
+  # News ingest — 06:57 AEST weekdays (20:57 UTC prior day)
+  # Runs 3 min before compose_brief so news is ready when the brief assembles.
+  - type: cron
+    name: asxos-ingest-news
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "57 20 * * 0-4"
+    command: python jobs/ingest_news.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: ASXOS_PERSONAL_USE
+        value: "1"
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - key: HEALTHCHECK_URL_INGEST_NEWS
+        sync: false
+
   # Morning brief — 07:00 AEST weekdays (21:00 UTC prior day)
   - type: cron
     name: asxos-compose-brief
@@ -188,6 +215,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.13
+      - key: ASXOS_PERSONAL_USE
+        value: "1"
       - fromService:
           type: web
           name: asxos-api
@@ -206,6 +235,12 @@ services:
           envVarKey: BRIEF_TO_EMAIL
       - key: HEALTHCHECK_URL_COMPOSE_BRIEF
         sync: false
+      - key: ASXOS_PORTFOLIO_BRIEF_ENABLED
+        value: "0"        # flip to "1" via: asx portfolio signoff (M13.8)
+      - key: ASXOS_NEWS_BRIEF_ENABLED
+        value: "0"        # flip to "1" via: asx news signoff (M14a)
+      - key: ASXOS_NEWS_ALLOCATOR_ENABLED
+        value: "0"        # flip to "1" via: asx allocator-news signoff (M14c)
 
   # Retraining — Sunday 02:00 AEST (Sat 16:00 UTC)
   - type: cron
@@ -251,6 +286,8 @@ services:
         value: "1"
       - key: ASXOS_PORTFOLIO_BRIEF_ENABLED
         value: "0"        # flip to "1" after M13.8 paper-trade sign-off
+      - key: ASXOS_NEWS_ALLOCATOR_ENABLED
+        value: "0"        # flip to "1" via: asx allocator-news signoff (M14c)
       - key: HEALTHCHECK_URL_BUILD_PORTFOLIO
         sync: false
 

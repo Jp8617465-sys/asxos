@@ -13,11 +13,13 @@
     th, td { border-bottom: 1px solid #eee; padding: 0.35em 0.5em; text-align: left; }
     th { background: #f7f7f7; }
     .empty { color: #888; font-style: italic; }
-    .label-STRONG_BUY { color: #0a6; font-weight: 600; }
-    .label-BUY        { color: #0a6; }
-    .label-HOLD       { color: #888; }
-    .label-SELL       { color: #c50; }
-    .label-STRONG_SELL{ color: #c00; font-weight: 600; }
+    .label-STRONG_BUY    { color: #0a6; font-weight: 600; }
+    .label-BUY           { color: #0a6; }
+    .label-HOLD          { color: #888; }
+    .label-SELL          { color: #c50; }
+    .label-STRONG_SELL   { color: #c00; font-weight: 600; }
+    .sentiment-positive  { color: #0a6; }
+    .sentiment-negative  { color: #c00; }
   </style>
 </head>
 <body>
@@ -78,6 +80,20 @@
   </ul>
   {% else %}
   <p class="empty">No regulatory hits on current holdings.</p>
+  {% endif %}
+
+  {% if d.news_items %}
+  <h2>Market news on holdings (last 24h)</h2>
+  <ul>
+    {% for n in d.news_items %}
+    <li>
+      <strong>{{ n.symbols | join(", ") }}</strong> ·
+      <a href="{{ n.url }}">{{ n.title }}</a>
+      — {{ n.published_at }}
+      {% if n.sentiment %}<em class="sentiment-{{ n.sentiment }}">({{ n.sentiment }})</em>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
   {% endif %}
 
   {% if d.portfolio_section %}
