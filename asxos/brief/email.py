@@ -9,7 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from asxos.config import brief_settings as settings
+from asxos.config import BriefSettings
+
+settings = BriefSettings()  # hard-fails at import if brief vars absent
 
 
 @dataclass(frozen=True)

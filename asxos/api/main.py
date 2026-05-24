@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from asxos.config import brief_settings as _brief_settings  # noqa: F401 — hard-fail if brief vars unset
-from asxos.config import settings
+from asxos.config import BriefSettings, settings
+
+_brief_settings = BriefSettings()  # hard-fail at startup if brief vars unset
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.models.cache import get_cache
 

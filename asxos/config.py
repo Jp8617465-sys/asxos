@@ -83,7 +83,11 @@ class BriefSettings(BaseSettings):
 
 
 core_settings = CoreSettings()
-brief_settings = BriefSettings()
+
+# BriefSettings is NOT instantiated here — only asxos/brief/email.py and
+# asxos/api/main.py import and instantiate it. This means job-only services
+# (ingest_news, ingest_regulatory, etc.) that import asxos.config never
+# trigger BriefSettings validation, so they don't need the brief env vars.
 
 # Backwards-compat alias — all existing imports of `from asxos.config import settings`
 # continue to resolve to CoreSettings without touching every file.
