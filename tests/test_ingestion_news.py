@@ -25,8 +25,11 @@ from datetime import date
 
 import pytest
 
+from decimal import Decimal
+
 from asxos.ingestion.news import (
     NewsItem,
+    _extract_polarity,
     _normalise_symbol,
     _parse_sentiment,
     parse_news_response,
@@ -250,3 +253,103 @@ def test_normalise_leaves_suffixed_symbol_unchanged() -> None:
 def test_normalise_leaves_long_symbol_unchanged() -> None:
     # >5 chars without dot — not normalised (would be an unusual ticker anyway)
     assert _normalise_symbol("BHPBILLITON") == "BHPBILLITON"
+
+
+# ---------------------------------------------------------------------------
+# _extract_polarity — direct unit tests (REV-K: numeric polarity from /news)
+# ---------------------------------------------------------------------------
+
+
+def test_extract_polarity_from_numeric_dict() -> None:
+    """EODHD numeric dict → Decimal polarity value."""
+    item = {"sentiment": {"polarity": -0.953, "neg": 0.05, "neu": 0.942, "pos": 0.008}}
+    result = _extract_polarity(item)
+    assert result == Decimal("-0.953")
+    assert isinstance(result, Decimal)
+
+
+def test_extract_polarity_positive() -> None:
+    """Positive polarity stored correctly."""
+    item = {"sentiment": {"polarity": 0.5}}
+    result = _extract_polarity(item)
+    assert result == Decimal("0.5")
+
+
+def test_extract_polarity_absent_returns_none() -> None:
+    """No 'sentiment' key → None (structurally neutral, not zero)."""
+    assert _extract_polarity({}) is None
+
+
+def test_extract_polarity_plain_string_sentiment_returns_none() -> None:
+    """Top-level plain string sentiment (e.g. 'Positive') → None (not a dict)."""
+    item = {"sentiment": "Positive"}
+    assert _extract_polarity(item) is None
+
+
+def test_extract_polarity_string_label_in_dict_returns_none() -> None:
+    """String label inside dict (older plan tier: {'polarity': 'Positive'}) → None (non-numeric)."""
+    item = {"sentiment": {"polarity": "Positive"}}
+    assert _extract_polarity(item) is None
+
+
+def test_extract_polarity_dict_no_polarity_key_returns_none() -> None:
+    """Dict without 'polarity' key → None."""
+    item = {"sentiment": {"neg": 0.1, "neu": 0.9}}
+    assert _extract_polarity(item) is None
+
+
+def test_extract_polarity_out_of_range_raises() -> None:
+    """abs(polarity) > 1.5 → ValueError (hard-fail per rule #10)."""
+    item = {"sentiment": {"polarity": 2.0}}
+    with pytest.raises(ValueError, match="outside \\[-1.5, \\+1.5\\]"):
+        _extract_polarity(item)
+
+
+def test_extract_polarity_negative_out_of_range_raises() -> None:
+    """Negative extreme also hard-fails."""
+    item = {"sentiment": {"polarity": -1.51}}
+    with pytest.raises(ValueError):
+        _extract_polarity(item)
+
+
+def test_extract_polarity_at_limit_passes() -> None:
+    """Exactly ±1.5 is permitted (boundary inclusive)."""
+    assert _extract_polarity({"sentiment": {"polarity": 1.5}}) == Decimal("1.5")
+    assert _extract_polarity({"sentiment": {"polarity": -1.5}}) == Decimal("-1.5")
+
+
+# ---------------------------------------------------------------------------
+# parse_news_response — sentiment_polarity field (REV-K)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_news_populates_polarity_when_present() -> None:
+    """Numeric polarity dict → NewsItem.sentiment_polarity populated."""
+    items = [_item(sentiment={"polarity": -0.5, "neg": 0.3, "neu": 0.6, "pos": 0.1})]
+    result = parse_news_response(items, holdings=_HOLDINGS, as_of=_AS_OF)
+    assert result[0].sentiment_polarity == Decimal("-0.5")
+
+
+def test_parse_news_polarity_none_when_string_sentiment() -> None:
+    """String sentiment ('Positive') → sentiment_polarity is None."""
+    items = [_item(sentiment="Positive")]
+    result = parse_news_response(items, holdings=_HOLDINGS, as_of=_AS_OF)
+    assert result[0].sentiment_polarity is None
+
+
+def test_parse_news_polarity_none_when_absent() -> None:
+    """No sentiment field → sentiment_polarity is None."""
+    items = [_item()]  # _item() omits 'sentiment' when None
+    result = parse_news_response(items, holdings=_HOLDINGS, as_of=_AS_OF)
+    assert result[0].sentiment_polarity is None
+
+
+def test_parse_news_sentiment_label_derived_from_polarity() -> None:
+    """When sentiment is a numeric dict, text 'sentiment' field is derived from sign."""
+    pos_item = [_item(sentiment={"polarity": 0.8})]
+    neg_item = [_item(sentiment={"polarity": -0.3}, url="https://example.com/2")]
+    neutral_item = [_item(sentiment={"polarity": 0.02}, url="https://example.com/3")]
+
+    assert parse_news_response(pos_item, holdings=_HOLDINGS, as_of=_AS_OF)[0].sentiment == "positive"
+    assert parse_news_response(neg_item, holdings=_HOLDINGS, as_of=_AS_OF)[0].sentiment == "negative"
+    assert parse_news_response(neutral_item, holdings=_HOLDINGS, as_of=_AS_OF)[0].sentiment == "neutral"

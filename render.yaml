@@ -202,8 +202,10 @@ services:
       - key: HEALTHCHECK_URL_INGEST_NEWS
         sync: false
 
-  # Sentiment ingest — 06:57 AEST weekdays (20:57 UTC prior day)
-  # Runs 3 min before compose_brief alongside news ingest (separate failure domain).
+  # Sentiment aggregation — 07:02 AEST weekdays (21:02 UTC prior day)
+  # REV-K: aggregates daily mean polarity from holding_news → signal_sentiment (SQL only,
+  # no EODHD API call). Runs AFTER ingest_news (20:57 UTC) to ensure today's articles
+  # are available. Soft upstream guard checks ingest_news job_runs; logs WARNING on miss.
   - type: cron
     name: asxos-ingest-sentiment
     runtime: python
@@ -211,7 +213,7 @@ services:
     plan: starter
     branch: main
     buildCommand: pip install -e ".[ml]"
-    schedule: "57 20 * * 0-4"
+    schedule: "2 21 * * 0-4"
     command: python jobs/ingest_sentiment.py
     envVars:
       - key: PYTHON_VERSION
@@ -222,10 +224,6 @@ services:
           type: web
           name: asxos-api
           envVarKey: DATABASE_URL
-      - fromService:
-          type: web
-          name: asxos-api
-          envVarKey: EODHD_API_KEY
       - key: HEALTHCHECK_URL_INGEST_SENTIMENT
         sync: false
 

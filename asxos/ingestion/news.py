@@ -3,7 +3,7 @@ News ingestion from EODHD /news (M14a).
 
 Parse + upsert pattern mirrors asxos/ingestion/regulatory.py.
 
-Pure functions: parse_news_response(), _parse_sentiment(), _normalise_symbol().
+Pure functions: parse_news_response(), _parse_sentiment(), _normalise_symbol(), _extract_polarity().
 Async I/O:      upsert_news().
 
 EODHD /news response shape (per item):
@@ -12,23 +12,28 @@ EODHD /news response shape (per item):
     "title":    "BHP Q1 Results ...",
     "link":     "https://...",
     "symbols":  ["BHP.AU", "RIO.AU"],          # may lack .AU suffix
-    "sentiment": {"polarity": "Positive"}       # or a plain string, or absent
+    "sentiment": {"polarity": -0.953, "neg": 0.05, "neu": 0.942, "pos": 0.008}  # numeric dict
     "content":  "Full article text ...",
   }
 
 Gotchas:
   1. date is ISO datetime string → always slice [:10] before fromisoformat()
-  2. sentiment shape varies by plan tier — use _parse_sentiment() always
+  2. sentiment shape varies by plan tier — use _parse_sentiment() and _extract_polarity() always
   3. symbols may lack .AU suffix — normalise with _normalise_symbol()
   4. content may be absent — use content_snippet = (content or "")[:500]
+  5. sentiment_polarity: None means absent (structurally neutral — not zero-sentiment)
+     Hard-fail (rule #10) if abs(polarity) > 1.5
 """
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
+from decimal import Decimal
 
 import asyncpg
+
+_POLARITY_LIMIT = Decimal("1.5")
 
 
 @dataclass(frozen=True)
@@ -36,17 +41,63 @@ class NewsItem:
     url: str
     title: str
     published_at: date
-    symbols: list[str]   # normalised to BHP.AU format, intersection with holdings
-    sentiment: str       # "positive" | "negative" | "neutral" | ""
+    symbols: list[str]       # normalised to BHP.AU format, intersection with holdings
+    sentiment: str           # "positive" | "negative" | "neutral" | ""
     content_snippet: str
+    sentiment_polarity: Decimal | None = field(default=None)  # numeric ∈ [-1.5, +1.5]; None if absent
 
 
 def _parse_sentiment(raw_item: dict) -> str:
-    """EODHD sentiment is nested dict on some plan tiers, a plain string or absent on others."""
+    """Extract text sentiment label from EODHD sentiment field.
+
+    EODHD /news on current plan tiers returns a dict with numeric fields:
+      {"polarity": -0.953, "neg": 0.05, "neu": 0.942, "pos": 0.008}
+    Older or lower plan tiers return a string label in the dict: {"polarity": "Positive"}
+    or a plain string, or the field may be absent entirely.
+    """
     s = raw_item.get("sentiment")
     if isinstance(s, dict):
-        return (s.get("polarity") or "").lower()
+        pol = s.get("polarity")
+        if pol is None:
+            return ""
+        # Try numeric interpretation first (current plan tier shape).
+        try:
+            v = float(pol)
+            if v > 0.05:
+                return "positive"
+            if v < -0.05:
+                return "negative"
+            return "neutral"
+        except (TypeError, ValueError):
+            # Fallback: string label in dict (older plan tier shape).
+            return str(pol).lower()
     return (s or "").lower() if isinstance(s, str) else ""
+
+
+def _extract_polarity(raw_item: dict) -> Decimal | None:
+    """Extract numeric polarity from EODHD sentiment dict.
+
+    EODHD returns: {"polarity": -0.953, "neg": 0.05, "neu": 0.942, "pos": 0.008}
+    Returns None (not 0.0) when polarity is absent or non-numeric (e.g. "Positive").
+    Absence is structurally neutral — not zero-sentiment.
+    Hard-fails only if the value IS numeric but outside [-1.5, +1.5] (rule #10).
+    """
+    s = raw_item.get("sentiment")
+    if not isinstance(s, dict):
+        return None
+    v = s.get("polarity")
+    if v is None:
+        return None
+    try:
+        pol = Decimal(str(float(v)))
+    except (TypeError, ValueError, ArithmeticError):
+        # Non-numeric polarity label (e.g. "Positive") — no numeric signal available.
+        return None
+    if abs(pol) > _POLARITY_LIMIT:
+        raise ValueError(
+            f"polarity={pol} outside [-1.5, +1.5] — hard-fail per rule #10"
+        )
+    return pol
 
 
 def _normalise_symbol(sym: str) -> str:
@@ -123,6 +174,7 @@ def parse_news_response(
                 symbols=matched,
                 sentiment=_parse_sentiment(item),
                 content_snippet=content_snippet,
+                sentiment_polarity=_extract_polarity(item),
             )
         )
 
@@ -149,14 +201,16 @@ async def upsert_news(conn: asyncpg.Connection, items: list[NewsItem]) -> int:
             json.dumps(item.symbols),   # passed as JSON string, cast to JSONB via $4::jsonb
             item.sentiment,
             item.content_snippet,
+            str(item.sentiment_polarity) if item.sentiment_polarity is not None else None,
         )
         for item in items
     ]
 
     await conn.executemany(
         """
-        INSERT INTO holding_news (url, title, published_at, symbols, sentiment, content_snippet)
-        VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+        INSERT INTO holding_news
+            (url, title, published_at, symbols, sentiment, content_snippet, sentiment_polarity)
+        VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::numeric)
         ON CONFLICT (url) DO UPDATE SET
             symbols = (
                 SELECT jsonb_agg(DISTINCT sym ORDER BY sym)
@@ -166,8 +220,9 @@ async def upsert_news(conn: asyncpg.Connection, items: list[NewsItem]) -> int:
                     SELECT jsonb_array_elements_text(EXCLUDED.symbols)
                 ) merged
             ),
-            sentiment   = EXCLUDED.sentiment,
-            ingested_at = NOW()
+            sentiment          = EXCLUDED.sentiment,
+            sentiment_polarity = COALESCE(holding_news.sentiment_polarity, EXCLUDED.sentiment_polarity),
+            ingested_at        = NOW()
         """,
         payload,
     )
