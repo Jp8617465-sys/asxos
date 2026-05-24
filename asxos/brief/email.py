@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from asxos.config import settings
+from asxos.config import brief_settings as settings
 
 
 @dataclass(frozen=True)

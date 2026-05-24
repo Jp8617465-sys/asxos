@@ -3,27 +3,29 @@ from pathlib import Path
 from pydantic import PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_ENV_FILE = Path.home() / "Projects" / "asxos-secrets" / ".env.production"
+_MODEL_CONFIG = SettingsConfigDict(
+    env_file=_ENV_FILE,
+    env_file_encoding="utf-8",
+    extra="ignore",
+)
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=Path.home() / "Projects" / "asxos-secrets" / ".env.production",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
 
-    # Required for all services
+class CoreSettings(BaseSettings):
+    """Settings required by every Render service (API, cron jobs, workers).
+
+    Only ``database_url`` and ``eodhd_api_key`` are truly required. All other
+    fields have safe defaults so job-only services can run without unrelated
+    credentials (e.g. Resend, Supabase client keys).
+    """
+
+    model_config = _MODEL_CONFIG
+
+    # Required — present on every Render service
     database_url: PostgresDsn
     eodhd_api_key: str
 
-    # Required for API / compose_brief — optional with empty defaults so that
-    # job-only services (ingest_news, ingest_regulatory, etc.) don't need them.
-    supabase_url: str = ""
-    supabase_anon_key: str = ""
-    resend_api_key: str = ""
-    brief_from_email: str = ""
-    brief_to_email: str = ""
-
-    # Optional with defaults
+    # Optional operational fields
     fred_api_key: str = ""
     asxos_tz: str = "Australia/Sydney"
     asxos_api_host: str = "127.0.0.1"
@@ -46,12 +48,8 @@ class Settings(BaseSettings):
     healthcheck_url_retrain_model_a: str = ""
     healthcheck_url_sync_universe: str = ""
     healthcheck_url_backup_irreplaceable: str = ""
-
-    # M13.7 — portfolio cron healthcheck
-    healthcheck_url_build_portfolio: str = ""
-
-    # M14a — news ingestion healthcheck
-    healthcheck_url_ingest_news: str = ""
+    healthcheck_url_build_portfolio: str = ""  # M13.7
+    healthcheck_url_ingest_news: str = ""      # M14a
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False
@@ -64,4 +62,29 @@ class Settings(BaseSettings):
         return v
 
 
-settings = Settings()
+class BriefSettings(BaseSettings):
+    """Settings required by the API and compose_brief services only.
+
+    All fields are required — no defaults. Importing this class in a service
+    that lacks these env vars will raise a hard ValidationError at startup,
+    preserving the hard-fail guarantee for the API and email delivery path.
+    """
+
+    model_config = _MODEL_CONFIG
+
+    # Supabase client (API service)
+    supabase_url: str
+    supabase_anon_key: str
+
+    # Email delivery (compose_brief)
+    resend_api_key: str
+    brief_from_email: str
+    brief_to_email: str
+
+
+core_settings = CoreSettings()
+brief_settings = BriefSettings()
+
+# Backwards-compat alias — all existing imports of `from asxos.config import settings`
+# continue to resolve to CoreSettings without touching every file.
+settings = core_settings
