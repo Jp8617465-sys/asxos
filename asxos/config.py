@@ -14,16 +14,22 @@ _MODEL_CONFIG = SettingsConfigDict(
 class CoreSettings(BaseSettings):
     """Settings required by every Render service (API, cron jobs, workers).
 
-    Only ``database_url`` and ``eodhd_api_key`` are truly required. All other
-    fields have safe defaults so job-only services can run without unrelated
-    credentials (e.g. Resend, Supabase client keys).
+    Only ``database_url`` is unconditionally required. ``eodhd_api_key`` has a
+    safe default of ``""`` so that DB-only jobs (generate_signals, compose_brief,
+    ingest_regulatory, build_portfolio, retrain_model_a) can start without it.
+    EODHD ingest jobs validate the key at call time via ``get_client()``.
     """
 
     model_config = _MODEL_CONFIG
 
     # Required — present on every Render service
     database_url: PostgresDsn
-    eodhd_api_key: str
+
+    # Optional at CoreSettings level — only EODHD ingest jobs need this.
+    # generate_signals, compose_brief, ingest_regulatory etc. never call EODHD;
+    # they should not crash on startup if the key is absent on their service.
+    # get_client() in eodhd.py guards against an empty key before any API call.
+    eodhd_api_key: str = ""
 
     # Optional operational fields
     fred_api_key: str = ""

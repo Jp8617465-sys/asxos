@@ -112,4 +112,10 @@ class EODHDClient:
 
 @lru_cache(maxsize=1)
 def get_client() -> EODHDClient:
+    if not settings.eodhd_api_key:
+        raise RuntimeError(
+            "EODHD_API_KEY is not set — this job requires it. "
+            "Set it on the Render service (Environment tab) or via fromService "
+            "reference from asxos-api."
+        )
     return EODHDClient(api_key=settings.eodhd_api_key)
