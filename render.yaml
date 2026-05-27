@@ -152,6 +152,10 @@ services:
           type: web
           name: asxos-api
           envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
       - key: HEALTHCHECK_URL_GENERATE_SIGNALS
         sync: false
 
@@ -172,6 +176,10 @@ services:
           type: web
           name: asxos-api
           envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
       - key: HEALTHCHECK_URL_INGEST_REGULATORY
         sync: false
 
@@ -249,6 +257,10 @@ services:
       - fromService:
           type: web
           name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - fromService:
+          type: web
+          name: asxos-api
           envVarKey: RESEND_API_KEY
       - fromService:
           type: web
@@ -285,6 +297,10 @@ services:
           type: web
           name: asxos-api
           envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
       - key: HEALTHCHECK_URL_RETRAIN_MODEL_A
         sync: false
 
@@ -307,6 +323,10 @@ services:
           type: web
           name: asxos-api
           envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
       - key: ASXOS_PERSONAL_USE
         value: "1"
       - key: ASXOS_PORTFOLIO_BRIEF_ENABLED
