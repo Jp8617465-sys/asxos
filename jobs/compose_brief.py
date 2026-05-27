@@ -13,44 +13,104 @@ Usage:
 import argparse
 import asyncio
 import logging
+import traceback
 from datetime import date
 
+# asxos.brief.compose is pure (no config-loading deps) — safe at module level.
 from asxos.brief.compose import collect, render_html
-from asxos.brief.email import send_brief
-from asxos.config import settings
-from asxos.db import close_pool, init_pool
-from asxos.jobs.utils.job_monitor import JobMonitor
+
+# Module-level stubs — tests patch these at the jobs.compose_brief namespace.
+# Production main() lazy-imports the real implementations on first use.
+# This mirrors jobs/ingest_news.py and keeps the module importable in test
+# environments that lack the full prod dep tree (pydantic_settings, resend).
+init_pool = None  # type: ignore[assignment]
+close_pool = None  # type: ignore[assignment]
+JobMonitor = None  # type: ignore[assignment]
+send_brief = None  # type: ignore[assignment]
+send_fallback_email = None  # type: ignore[assignment]
+settings = None  # type: ignore[assignment]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 
 async def main(as_of: date, send: bool) -> None:
-    await init_pool()
+    # Resolve module-level stubs: tests inject mocks (non-None); production
+    # lazy-imports the real implementations here.
+    _init_pool = globals()["init_pool"]
+    _close_pool = globals()["close_pool"]
+    _JobMonitor = globals()["JobMonitor"]
+    _send_brief = globals()["send_brief"]
+    _send_fallback_email = globals()["send_fallback_email"]
+    _settings = globals()["settings"]
+
+    if _init_pool is None:
+        from asxos.db import close_pool as _close_pool  # type: ignore[assignment]
+        from asxos.db import init_pool as _init_pool  # type: ignore[assignment]
+    if _JobMonitor is None:
+        from asxos.jobs.utils.job_monitor import (
+            JobMonitor as _JobMonitor,  # type: ignore[assignment]
+        )
+    if _send_brief is None:
+        from asxos.brief.email import send_brief as _send_brief  # type: ignore[assignment]
+    if _send_fallback_email is None:
+        from asxos.jobs.utils.fallback_email import (  # type: ignore[assignment]
+            send_fallback_email as _send_fallback_email,
+        )
+    if _settings is None:
+        from asxos.config import settings as _settings  # type: ignore[assignment]
+
+    await _init_pool()
     try:
-        async with JobMonitor(
-            job_name="compose_brief",
-            as_of=as_of,
-            healthcheck_url=settings.healthcheck_url_compose_brief,
-        ) as monitor:
-            data = await collect(as_of)
-            html = render_html(data)
-            print(html)
+        # Outer try wraps the entire JobMonitor block so the fallback email
+        # fires whether the body OR JobMonitor's own DB writes raise.
+        # If we only wrapped the inner body, a failure in JobMonitor.__aexit__
+        # (e.g. DB unreachable when writing the failure row) would lose BOTH
+        # signals: no job_runs record AND no email.
+        try:
+            async with _JobMonitor(
+                job_name="compose_brief",
+                as_of=as_of,
+                healthcheck_url=_settings.healthcheck_url_compose_brief,
+            ) as monitor:
+                data = await collect(as_of)
+                html = render_html(data)
+                print(html)
 
+                if send:
+                    result = _send_brief(html, as_of=as_of)
+                    log.info(f"sent to {result.to}: subject={result.subject} id={result.message_id}")
+                else:
+                    log.info("--no-send: skipped Resend dispatch")
+
+                monitor.rows_written = (
+                    len(data.signal_changes)
+                    + len(data.tax_actions)
+                    + len(data.regulatory_hits)
+                    + len(data.news_items)
+                )
+        # asyncio.CancelledError is a BaseException in Py3.12; asyncpg pool
+        # timeouts in collect() propagate as CancelledError and would slip
+        # past a bare `except Exception:`.
+        except (Exception, asyncio.CancelledError) as exc:
+            log.exception("compose_brief failed; sending fallback notification")
             if send:
-                result = send_brief(html, as_of=as_of)
-                log.info(f"sent to {result.to}: subject={result.subject} id={result.message_id}")
-            else:
-                log.info("--no-send: skipped Resend dispatch")
-
-            monitor.rows_written = (
-                len(data.signal_changes)
-                + len(data.tax_actions)
-                + len(data.regulatory_hits)
-                + len(data.news_items)
-            )
+                # Tail of traceback — Render log retention is finite, so the
+                # email is the durable record. ~3.5KB keeps the total body
+                # under ~4KB once HTML-escaped + wrapped.
+                tb = traceback.format_exc()[-3500:]
+                _send_fallback_email(
+                    subject=f"[asxos] Brief composition FAILED — {as_of.isoformat()}",
+                    body_text=(
+                        f"The morning brief failed to compose for {as_of.isoformat()}.\n\n"
+                        f"Exception: {type(exc).__name__}: {exc}\n\n"
+                        f"Traceback (tail):\n{tb}\n\n"
+                        "Render log retention is finite; the traceback above is the full record."
+                    ),
+                )
+            raise  # JobMonitor (if it survived) records failure; cron exits non-zero
     finally:
-        await close_pool()
+        await _close_pool()
 
 
 if __name__ == "__main__":

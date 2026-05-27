@@ -12,7 +12,7 @@ _brief_settings = BriefSettings()
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.models.cache import get_cache
 
-REQUIRED_MIGRATIONS = 9  # bump each time a new migration is applied
+REQUIRED_MIGRATIONS = 10  # bump each time a new migration is applied
 
 
 async def _check_migration_drift() -> None:

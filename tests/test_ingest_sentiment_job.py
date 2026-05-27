@@ -37,8 +37,9 @@ def _make_stubs(symbols: list[str]):
         pass
 
     class FakeMonitor:
-        def __init__(self, *, job_name, as_of, healthcheck_url):
+        def __init__(self, *, job_name, as_of, healthcheck_url, override_reason=None):
             self.rows_written = 0
+            self.override_reason = override_reason
 
         async def __aenter__(self):
             return self
@@ -110,8 +111,9 @@ def test_rows_written_set_correctly() -> None:
     rows_written_captured = []
 
     class CapturingMonitor:
-        def __init__(self, *, job_name, as_of, healthcheck_url):
+        def __init__(self, *, job_name, as_of, healthcheck_url, override_reason=None):
             self.rows_written = 0
+            self.override_reason = override_reason
 
         async def __aenter__(self):
             return self
@@ -135,8 +137,15 @@ def test_rows_written_set_correctly() -> None:
     assert rows_written_captured == [14]
 
 
-def test_upstream_gate_logs_warning_not_raises() -> None:
-    """_upstream_ok=False → logs WARNING but aggregation still runs (7-day window degrades gracefully)."""
+def test_upstream_stale_no_flag_raises_upstream_blocked() -> None:
+    """P0-2: _upstream_ok=False without --allow-stale-upstream → UpstreamBlocked.
+
+    Previously this was a soft warn-and-proceed; we no longer want sentiment
+    aggregating on stale upstream because it then feeds tomorrow's
+    build_portfolio with incomplete data.
+    """
+    from asxos.jobs._helpers import UpstreamBlocked
+
     mock_aggregate = AsyncMock(return_value=5)
     stubs = _make_stubs(["BHP.AU"])
 
@@ -149,7 +158,42 @@ def test_upstream_gate_logs_warning_not_raises() -> None:
         patch("jobs.ingest_sentiment._upstream_ok", new=AsyncMock(return_value=False)),
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
     ):
-        asyncio.run(job_mod.main())  # must not raise
+        with pytest.raises(UpstreamBlocked, match="--allow-stale-upstream"):
+            asyncio.run(job_mod.main())
 
-    # Aggregation ran despite upstream gate miss
+    # Aggregation did NOT run — the guard fired first
+    mock_aggregate.assert_not_called()
+
+
+def test_upstream_stale_with_flag_proceeds_and_records_override() -> None:
+    """P0-2: --allow-stale-upstream → proceeds, override_reason recorded on JobMonitor."""
+    captured_monitor = {}
+
+    class CapturingMonitor:
+        def __init__(self, *, job_name, as_of, healthcheck_url, override_reason=None):
+            self.rows_written = 0
+            self.override_reason = override_reason
+            captured_monitor["m"] = self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+    mock_aggregate = AsyncMock(return_value=5)
+    stubs = _make_stubs(["BHP.AU"])
+
+    with (
+        patch.object(job_mod, "acquire", stubs["acquire"]),
+        patch.object(job_mod, "init_pool", stubs["init_pool"]),
+        patch.object(job_mod, "close_pool", stubs["close_pool"]),
+        patch.object(job_mod, "JobMonitor", CapturingMonitor),
+        patch("jobs.ingest_sentiment._aggregate_from_news", mock_aggregate),
+        patch("jobs.ingest_sentiment._upstream_ok", new=AsyncMock(return_value=False)),
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+    ):
+        asyncio.run(job_mod.main(allow_stale_upstream=True))  # must NOT raise
+
     mock_aggregate.assert_called_once()
+    assert captured_monitor["m"].override_reason == "operator: --allow-stale-upstream"

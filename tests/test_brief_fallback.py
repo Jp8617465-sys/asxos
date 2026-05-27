@@ -1,0 +1,325 @@
+"""
+Tests for asxos/jobs/utils/fallback_email.py and the compose_brief.main
+integration that uses it.
+
+Covers:
+  - send_fallback_email calls Resend with correct args
+  - HTML escaping of body text (no <script> injection through error messages)
+  - Resend failure → synthetic job_runs row written
+  - Resend + DB both fail → stderr, NO raise (last-resort path)
+  - compose_brief.main fires fallback when collect() raises
+  - compose_brief.main fires fallback when JobMonitor itself raises
+  - compose_brief.main catches asyncio.CancelledError
+  - compose_brief.main includes traceback in fallback body
+  - compose_brief.main does NOT fire fallback when --no-send
+  - compose_brief.main does NOT fire fallback on happy path
+  - Original exception always propagates through the fallback
+"""
+from __future__ import annotations
+
+import asyncio
+import io
+import sys
+from datetime import date
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from asxos.jobs.utils.fallback_email import send_fallback_email
+
+
+# ---------------------------------------------------------------------------
+# send_fallback_email — happy path
+# ---------------------------------------------------------------------------
+
+
+def _stub_settings() -> MagicMock:
+    s = MagicMock()
+    s.resend_api_key = "test_key"
+    s.brief_from_email = "from@example.com"
+    s.brief_to_email = "to@example.com"
+    return s
+
+
+def test_send_fallback_email_calls_resend_with_correct_args() -> None:
+    fake_send = MagicMock(return_value="msg_123")
+    with (
+        patch("asxos.brief.email._send_via_resend", new=fake_send),
+        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+    ):
+        send_fallback_email(subject="[asxos] FAIL", body_text="something broke")
+
+    fake_send.assert_called_once()
+    kwargs = fake_send.call_args.kwargs
+    assert kwargs["api_key"] == "test_key"
+    assert kwargs["from_address"] == "from@example.com"
+    assert kwargs["to_address"] == "to@example.com"
+    assert kwargs["subject"] == "[asxos] FAIL"
+    assert "something broke" in kwargs["html"]
+    # Wrapped in <pre> for monospace
+    assert "<pre" in kwargs["html"]
+
+
+def test_send_fallback_email_escapes_html_injection() -> None:
+    """Error messages may contain user-controlled strings; ensure escaping."""
+    fake_send = MagicMock(return_value="msg_1")
+    with (
+        patch("asxos.brief.email._send_via_resend", new=fake_send),
+        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+    ):
+        send_fallback_email(
+            subject="[asxos] FAIL",
+            body_text="<script>alert(1)</script>",
+        )
+    html_out = fake_send.call_args.kwargs["html"]
+    # The escaped form must appear; raw <script> must not
+    assert "&lt;script&gt;" in html_out
+    assert "<script>alert(1)</script>" not in html_out
+
+
+# ---------------------------------------------------------------------------
+# send_fallback_email — Resend failure path
+# ---------------------------------------------------------------------------
+
+
+def test_send_fallback_email_swallows_resend_failure_and_writes_job_runs() -> None:
+    """Resend down → fallback attempts synthetic job_runs row; never raises."""
+    fake_send = MagicMock(side_effect=RuntimeError("Resend 503"))
+    fake_record = AsyncMock()
+    with (
+        patch("asxos.brief.email._send_via_resend", new=fake_send),
+        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+        patch(
+            "asxos.jobs.utils.fallback_email._record_fallback_failure",
+            new=fake_record,
+        ),
+    ):
+        # MUST NOT raise
+        send_fallback_email(subject="[asxos] FAIL", body_text="body")
+
+    fake_record.assert_awaited_once()
+    kwargs = fake_record.await_args.kwargs
+    assert kwargs["subject"] == "[asxos] FAIL"
+    assert "Resend 503" in kwargs["error"]
+
+
+def test_send_fallback_email_swallows_settings_validation_error() -> None:
+    """Missing env vars → BriefSettings() raises → swallowed; never raises out."""
+    fake_record = AsyncMock()
+    with (
+        patch(
+            "asxos.config.BriefSettings",
+            side_effect=RuntimeError("BRIEF_TO_EMAIL missing"),
+        ),
+        patch(
+            "asxos.jobs.utils.fallback_email._record_fallback_failure",
+            new=fake_record,
+        ),
+    ):
+        send_fallback_email(subject="x", body_text="y")
+    fake_record.assert_awaited_once()
+
+
+def test_send_fallback_email_writes_stderr_when_resend_and_db_both_fail() -> None:
+    """Last-resort: both Resend and the job_runs write fail. stderr, no raise."""
+    fake_send = MagicMock(side_effect=RuntimeError("Resend down"))
+    fake_record = AsyncMock(side_effect=RuntimeError("DB down"))
+    captured = io.StringIO()
+    with (
+        patch("asxos.brief.email._send_via_resend", new=fake_send),
+        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+        patch(
+            "asxos.jobs.utils.fallback_email._record_fallback_failure",
+            new=fake_record,
+        ),
+        patch.object(sys, "stderr", captured),
+    ):
+        send_fallback_email(subject="x", body_text="y")  # must not raise
+
+    out = captured.getvalue()
+    assert "FATAL" in out
+    assert "Resend down" in out
+    assert "DB down" in out
+
+
+# ---------------------------------------------------------------------------
+# compose_brief.main — fallback integration
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_main_sends_fallback_when_collect_raises() -> None:
+    fake_fallback = MagicMock()
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+
+    with (
+        patch("jobs.compose_brief.init_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.close_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch(
+            "jobs.compose_brief.collect",
+            new=AsyncMock(side_effect=RuntimeError("collect blew up")),
+        ),
+        patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
+    ):
+        # Import inside the patch context
+        from jobs.compose_brief import main
+        with pytest.raises(RuntimeError, match="collect blew up"):
+            await main(date(2026, 5, 28), send=True)
+
+    fake_fallback.assert_called_once()
+    kwargs = fake_fallback.call_args.kwargs
+    assert "FAILED" in kwargs["subject"]
+    assert "2026-05-28" in kwargs["subject"]
+    assert "RuntimeError" in kwargs["body_text"]
+    assert "collect blew up" in kwargs["body_text"]
+    # Traceback tail included
+    assert "Traceback" in kwargs["body_text"]
+
+
+@pytest.mark.asyncio
+async def test_main_sends_fallback_when_job_monitor_aexit_raises() -> None:
+    """If JobMonitor's own __aexit__ fails (e.g. DB unreachable when writing
+    the failure row), the fallback STILL fires because we wrap the entire
+    JobMonitor block in an outer try/except."""
+    fake_fallback = MagicMock()
+
+    class FailingJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            raise RuntimeError("JobMonitor DB write failed")
+
+    with (
+        patch("jobs.compose_brief.init_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.close_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.JobMonitor", new=FailingJobMonitor),
+        patch(
+            "jobs.compose_brief.collect",
+            new=AsyncMock(return_value=_minimal_brief_data()),
+        ),
+        patch("jobs.compose_brief.render_html", return_value="<html/>"),
+        patch("jobs.compose_brief.send_brief", return_value=MagicMock(
+            to="a", subject="b", message_id="c",
+        )),
+        patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
+    ):
+        from jobs.compose_brief import main
+        with pytest.raises(RuntimeError, match="JobMonitor DB write failed"):
+            await main(date(2026, 5, 28), send=True)
+
+    fake_fallback.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_main_catches_asyncio_cancelled_error() -> None:
+    """CancelledError is BaseException in Py3.12; bare `except Exception` misses it.
+    The fallback must still fire on asyncpg pool timeout (which propagates as
+    CancelledError)."""
+    fake_fallback = MagicMock()
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+
+    with (
+        patch("jobs.compose_brief.init_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.close_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch(
+            "jobs.compose_brief.collect",
+            new=AsyncMock(side_effect=asyncio.CancelledError()),
+        ),
+        patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
+    ):
+        from jobs.compose_brief import main
+        with pytest.raises(asyncio.CancelledError):
+            await main(date(2026, 5, 28), send=True)
+
+    fake_fallback.assert_called_once()
+    assert "CancelledError" in fake_fallback.call_args.kwargs["body_text"]
+
+
+@pytest.mark.asyncio
+async def test_main_skips_fallback_when_no_send() -> None:
+    """Local dev path: --no-send → failure visible in stdout, no email noise."""
+    fake_fallback = MagicMock()
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+
+    with (
+        patch("jobs.compose_brief.init_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.close_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch(
+            "jobs.compose_brief.collect",
+            new=AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+        patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
+    ):
+        from jobs.compose_brief import main
+        with pytest.raises(RuntimeError):
+            await main(date(2026, 5, 28), send=False)
+
+    fake_fallback.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_main_no_fallback_on_happy_path() -> None:
+    fake_fallback = MagicMock()
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+
+    with (
+        patch("jobs.compose_brief.init_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.close_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch(
+            "jobs.compose_brief.collect",
+            new=AsyncMock(return_value=_minimal_brief_data()),
+        ),
+        patch("jobs.compose_brief.render_html", return_value="<html/>"),
+        patch("jobs.compose_brief.send_brief", return_value=MagicMock(
+            to="a", subject="b", message_id="c",
+        )),
+        patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
+    ):
+        from jobs.compose_brief import main
+        await main(date(2026, 5, 28), send=True)  # no raise
+
+    fake_fallback.assert_not_called()
+
+
+def _minimal_brief_data() -> MagicMock:
+    """Minimal BriefData-shape stub so render_html + rows_written work."""
+    data = MagicMock()
+    data.signal_changes = []
+    data.tax_actions = []
+    data.regulatory_hits = []
+    data.news_items = []
+    return data

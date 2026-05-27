@@ -17,10 +17,13 @@ Usage:
 Regulatory firewall: raises RuntimeError if ASXOS_PERSONAL_USE != "1"
 (Part 0 Q1 / s766B Corporations Act 2001).
 """
+import argparse
 import asyncio
 import logging
 import os
-from datetime import date, timedelta
+from datetime import date
+
+from asxos.jobs._helpers import UpstreamBlocked
 
 # ---------------------------------------------------------------------------
 # Module-level stubs — tests patch these at the jobs.ingest_sentiment namespace.
@@ -101,7 +104,7 @@ async def _aggregate_from_news(conn) -> int:
     return len(rows)
 
 
-async def main() -> None:
+async def main(allow_stale_upstream: bool = False) -> None:
     # Regulatory firewall — MUST be the very first check.
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         raise RuntimeError(
@@ -120,7 +123,11 @@ async def main() -> None:
     if _acquire is None:
         from asxos.db import (  # type: ignore[assignment]
             acquire as _acquire,
+        )
+        from asxos.db import (
             close_pool as _close_pool,
+        )
+        from asxos.db import (
             init_pool as _init_pool,
         )
 
@@ -138,19 +145,37 @@ async def main() -> None:
         # Resolve JobMonitor only when we know we need it (symbols > 0).
         _JobMonitor = globals()["JobMonitor"]
         if _JobMonitor is None:
-            from asxos.jobs.utils.job_monitor import JobMonitor as _JobMonitor  # type: ignore[assignment]
+            from asxos.jobs.utils.job_monitor import (
+                JobMonitor as _JobMonitor,  # type: ignore[assignment]
+            )
 
         async with _JobMonitor(
             job_name="ingest_sentiment",
             as_of=today,
             healthcheck_url=os.environ.get("HEALTHCHECK_URL_INGEST_SENTIMENT", ""),
+            override_reason=(
+                "operator: --allow-stale-upstream" if allow_stale_upstream else None
+            ),
         ) as monitor:
+            # Upstream check is inside JobMonitor so UpstreamBlocked records
+            # status='blocked' (P0-2). Split into two acquires — the previous
+            # code held one connection across the entire aggregation runtime.
             async with _acquire() as conn:
-                if not await _upstream_ok(conn, today):
-                    log.warning(
-                        "ingest_sentiment: ingest_news has no success run in last 24h — "
-                        "aggregating from existing holding_news (7-day window still valid)"
+                upstream_ok = await _upstream_ok(conn, today)
+
+            if not upstream_ok:
+                if not allow_stale_upstream:
+                    raise UpstreamBlocked(
+                        "ingest_news has no success run in last 24h; refusing "
+                        "to aggregate sentiment on stale upstream. Use "
+                        "--allow-stale-upstream for a one-off manual override."
                     )
+                log.warning(
+                    "Proceeding on stale upstream by explicit --allow-stale-upstream "
+                    "(recorded in job_runs.override_reason)."
+                )
+
+            async with _acquire() as conn:
                 written = await _aggregate_from_news(conn)
             monitor.rows_written = written
             log.info("ingest_sentiment done: %d rows written", written)
@@ -159,4 +184,15 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--allow-stale-upstream",
+        action="store_true",
+        help=(
+            "Proceed even if ingest_news has no success run in last 24h. "
+            "Manual operator override only — recorded in job_runs.override_reason. "
+            "Cron services must NEVER pass this flag."
+        ),
+    )
+    args = parser.parse_args()
+    asyncio.run(main(allow_stale_upstream=args.allow_stale_upstream))

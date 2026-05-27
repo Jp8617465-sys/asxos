@@ -151,13 +151,18 @@ async def test_rows_written_set_correctly() -> None:
 
 
 @pytest.mark.asyncio
-async def test_symbol_failure_does_not_abort() -> None:
-    """One symbol raising in _fetch_and_upsert doesn't abort others."""
+async def test_symbol_failures_above_threshold_proceed() -> None:
+    """Transient single-symbol failure within threshold (3/4 ≥ 0.75) proceeds.
+
+    P0-1 added an aggregate threshold of 0.75 — one bad symbol out of four
+    is still acceptable and the run succeeds.
+    """
     conn = AsyncMock()
     conn.fetch.return_value = [
         {"symbol": "BHP.AU"},
         {"symbol": "CBA.AU"},
         {"symbol": "WBC.AU"},
+        {"symbol": "ANZ.AU"},
     ]
 
     @asynccontextmanager
@@ -192,9 +197,56 @@ async def test_symbol_failure_does_not_abort() -> None:
         patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
         patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
     ):
-        await main()  # must not raise even though CBA failed
+        await main()  # 3/4 = 75% ≥ threshold; proceeds
 
-    # All 3 symbols attempted; CBA returned an exception (treated as 0 by gather)
-    assert call_count["n"] == 3
-    # rows_written = 2 (BHP) + 0 (CBA exception) + 2 (WBC) = 4
-    assert captured_monitor["monitor"].rows_written == 4
+    # All 4 symbols attempted
+    assert call_count["n"] == 4
+    # rows_written = 2 (BHP) + 0 (CBA exception) + 2 (WBC) + 2 (ANZ) = 6
+    assert captured_monitor["monitor"].rows_written == 6
+
+
+@pytest.mark.asyncio
+async def test_symbol_failures_below_threshold_hard_fail() -> None:
+    """P0-1: when symbol failure ratio breaches 0.75 threshold, hard-fail.
+
+    Previously this case silently swallowed the failures. The new behavior
+    raises RuntimeError with the failing identifiers listed so operators
+    don't have to grep stdout.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [
+        {"symbol": "BHP.AU"},
+        {"symbol": "CBA.AU"},
+        {"symbol": "WBC.AU"},
+    ]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
+        if symbol == "CBA.AU":
+            raise RuntimeError("API error for CBA")
+        return 2
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
+    ):
+        # 2/3 = 66.7% < 75% threshold → hard-fail
+        with pytest.raises(RuntimeError, match=r"ingest_news.*only 2/3"):
+            await main()

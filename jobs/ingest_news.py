@@ -19,6 +19,7 @@ from datetime import date, timedelta
 
 # asxos.ingestion.news is stdlib + asyncpg only — safe at module level.
 from asxos.ingestion.news import parse_news_response, upsert_news
+from asxos.jobs._helpers import assert_partial_success
 
 # ---------------------------------------------------------------------------
 # Module-level stubs — tests patch these at the jobs.ingest_news namespace.
@@ -37,7 +38,7 @@ JobMonitor = None  # type: ignore[assignment]
 try:
     from asxos.ingestion.eodhd import get_client  # type: ignore[assignment]
 except (ImportError, ModuleNotFoundError):  # test env missing tenacity / httpx
-    def get_client():  # type: ignore[assignment]  # noqa: E301
+    def get_client():  # type: ignore[assignment]
         """No-op stub used only when eodhd dependencies are unavailable."""
         return None
 
@@ -90,7 +91,11 @@ async def main() -> None:
     if _acquire is None:
         from asxos.db import (  # type: ignore[assignment]
             acquire as _acquire,
+        )
+        from asxos.db import (
             close_pool as _close_pool,
+        )
+        from asxos.db import (
             init_pool as _init_pool,
         )
 
@@ -108,7 +113,9 @@ async def main() -> None:
         # Resolve JobMonitor only when we know we need it (symbols > 0).
         _JobMonitor = globals()["JobMonitor"]
         if _JobMonitor is None:
-            from asxos.jobs.utils.job_monitor import JobMonitor as _JobMonitor  # type: ignore[assignment]
+            from asxos.jobs.utils.job_monitor import (
+                JobMonitor as _JobMonitor,  # type: ignore[assignment]
+            )
 
         client = _get_client()
         from_date = (today - timedelta(days=1)).isoformat()
@@ -137,13 +144,24 @@ async def main() -> None:
                     return_exceptions=True,
                 )
 
+            # Threshold 0.75 — each holding matters (N is small, typically
+            # 5-20). 25% symbol failure rate is a real outage worth a
+            # hard-fail rather than silently writing stale-for-most-symbols
+            # sentiment that feeds tomorrow's build_portfolio.
+            n_ok = assert_partial_success(
+                results,
+                is_ok=lambda r: isinstance(r, int) and r >= 0,
+                threshold=0.75,
+                label="ingest_news",
+                identifiers=symbols,
+                allow_empty=False,
+            )
             written = sum(r for r in results if isinstance(r, int))
             errors = sum(1 for r in results if isinstance(r, BaseException))
             monitor.rows_written = written
             log.info(
-                "ingest_news done: %d rows written, %d symbol errors",
-                written,
-                errors,
+                "ingest_news done: %d rows written, %d/%d symbols healthy, %d errors",
+                written, n_ok, len(symbols), errors,
             )
     finally:
         await _close_pool()

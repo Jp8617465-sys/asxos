@@ -19,6 +19,7 @@ from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.fundamentals import fetch_and_upsert_fundamentals
+from asxos.jobs._helpers import assert_partial_success
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -67,13 +68,27 @@ async def main(single_symbol: str | None) -> None:
                 return await sync_symbol(sym, today)
 
         results = await asyncio.gather(*[bounded(s) for s in symbols])
-        successes = sum(results)
-        failures = len(results) - successes
 
-        monitor.rows_written = successes
+        # Hard-fail if more than 50% of symbols failed. Threshold is 0.50
+        # (not 0.75) because fundamentals are zero-filled by FeatureEngine
+        # per ml-conventions.md — partial staleness doesn't corrupt signals,
+        # only outright failure cascades downstream are worth hard-failing on.
+        # First 10 failing symbols appear in the diagnostic so operators
+        # don't have to grep stdout.
+        n_ok = assert_partial_success(
+            results,
+            is_ok=lambda r: r is True,
+            threshold=0.50,
+            label="sync_fundamentals",
+            identifiers=symbols,
+            allow_empty=False,
+        )
+        failures = len(results) - n_ok
+
+        monitor.rows_written = n_ok
         log.info(
             f"sync_fundamentals done — "
-            f"ok={successes} failed={failures} total={len(symbols)}"
+            f"ok={n_ok} failed={failures} total={len(symbols)}"
         )
 
     await close_pool()
