@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+from decimal import Decimal
 
 import typer
 from rich.console import Console
@@ -186,7 +187,7 @@ async def _ensure_in_universe(conn, symbol: str) -> None:
     )
 
 
-async def _resolve_fx_rate(conn, acquired_at) -> "Decimal | None":
+async def _resolve_fx_rate(conn, acquired_at) -> Decimal | None:
     """Look up AUDUSD rate on acquired_at from fx_rates table.
 
     Returns None if no rate is available (e.g. fx_rates not yet populated).

@@ -62,7 +62,7 @@ async def _sync_us_prices(
         return_exceptions=True,
     )
     total = 0
-    for sym, res in zip(us_symbols, results):
+    for sym, res in zip(us_symbols, results, strict=False):
         if isinstance(res, Exception):
             log.warning("sync_prices US: %s failed: %s", sym, res)
         else:

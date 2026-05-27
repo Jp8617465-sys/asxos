@@ -23,14 +23,13 @@ from asxos.domain.portfolio.rebalance import (
     current_qty_by_symbol,
 )
 from asxos.domain.portfolio.types import (
+    DEFAULT_SCORE_WEIGHTS,
+    RISK_TOLERANCE_SCALARS,
     AllocationTarget,
     HoldingSnapshot,
     Profile,
     ProposedTrade,
-    RISK_TOLERANCE_SCALARS,
-    DEFAULT_SCORE_WEIGHTS,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -41,7 +40,7 @@ _PRICES = {"BHP": Decimal("40"), "CBA": Decimal("100"), "RIO": Decimal("80")}
 
 
 def make_profile(**kwargs) -> Profile:
-    defaults = dict(
+    defaults = dict(  # noqa: C408
         profile_id=1,
         name="test",
         is_active=True,
@@ -617,7 +616,7 @@ def test_end_to_end_pipeline_pathological_convergence() -> None:
     """
     from asxos.domain.portfolio import allocator as alloc
     from asxos.domain.portfolio import constraints as cons
-    from asxos.domain.portfolio.types import AllocationCandidate, DEFAULT_SCORE_WEIGHTS
+    from asxos.domain.portfolio.types import AllocationCandidate
 
     # Build 5 candidates: one ultra-low-vol (A, inv_vol=100), rest normal.
     def make_candidate(symbol: str, vol: str, rank: float) -> AllocationCandidate:

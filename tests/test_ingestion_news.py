@@ -22,13 +22,11 @@ Coverage:
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
-from decimal import Decimal
-
 from asxos.ingestion.news import (
-    NewsItem,
     _extract_polarity,
     _normalise_symbol,
     _parse_sentiment,
@@ -44,7 +42,7 @@ def _item(
     url: str = "https://example.com/news/1",
     title: str = "BHP Q1 results",
     date_str: str = "2026-05-23T04:30:00+00:00",
-    symbols: list = None,
+    symbols: list | None = None,
     sentiment=None,
     content: str = "Short content.",
 ) -> dict:

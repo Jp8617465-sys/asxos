@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import os
 from contextlib import asynccontextmanager
-from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

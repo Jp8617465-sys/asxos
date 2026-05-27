@@ -9,8 +9,8 @@ from asxos.config import BriefSettings, settings
 # BriefSettings() raises ValidationError immediately if any are missing.
 # Do NOT remove — this is intentional, not dead code.
 _brief_settings = BriefSettings()
-from asxos.db import acquire, close_pool, init_pool
-from asxos.domain.models.cache import get_cache
+from asxos.db import acquire, close_pool, init_pool  # noqa: E402
+from asxos.domain.models.cache import get_cache  # noqa: E402
 
 REQUIRED_MIGRATIONS = 10  # bump each time a new migration is applied
 

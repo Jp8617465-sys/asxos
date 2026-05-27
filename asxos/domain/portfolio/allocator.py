@@ -215,5 +215,5 @@ def allocate(
             expected_return=c.expected_return,
             constraint_log={},
         )
-        for c, w in zip(top_n, raw_weights)
+        for c, w in zip(top_n, raw_weights, strict=False)
     ]

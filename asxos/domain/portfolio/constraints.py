@@ -228,7 +228,7 @@ def apply_constraints(
     current = list(targets)
     all_frozen: set[str] = set()
 
-    for iteration in range(1, max_iterations + 1):
+    for _iteration in range(1, max_iterations + 1):
         # Step 1: per-name cap.
         current, newly_frozen = apply_per_name_cap(current, per_name_cap)
         all_frozen |= newly_frozen

@@ -26,13 +26,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-
-from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import jinja2
+from dateutil.relativedelta import relativedelta
 
 from asxos.domain.tax.cgt import days_to_eligibility
 

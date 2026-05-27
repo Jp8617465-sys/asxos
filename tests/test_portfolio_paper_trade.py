@@ -37,10 +37,10 @@ import pytest
 from asxos.domain.portfolio.paper_trade import (
     PaperTradeOutcome,
     evaluate,
+    evaluate_run_from_db,
     has_enough_paper_weeks,
     list_evaluable_runs,
     record_signoff,
-    evaluate_run_from_db,
 )
 from asxos.domain.portfolio.types import ProposedTrade
 
@@ -261,7 +261,7 @@ async def test_list_evaluable_runs_respects_cutoff():
         {"run_id": 11, "as_of": date(2026, 5, 20)},  # 3 days ago — NOT evaluable at 4w
     ]
     conn = _make_runs_conn(run_rows[:1])   # DB would return only evaluable row
-    runs = await list_evaluable_runs(conn, weeks=4, today=_TODAY)
+    await list_evaluable_runs(conn, weeks=4, today=_TODAY)
     assert conn.fetch.called
     # The SQL cutoff is applied by the DB; we verify the function passes correct arg
     call_args = conn.fetch.call_args

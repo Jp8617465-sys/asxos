@@ -10,7 +10,6 @@ import pytest
 
 from asxos.ingestion.fundamentals import parse_fundamentals
 
-
 # ---------------------------------------------------------------------------
 # parse_fundamentals — happy path
 # ---------------------------------------------------------------------------
@@ -94,8 +93,9 @@ async def test_symbol_failure_does_not_raise():
             mock_acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
             mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            from jobs.sync_fundamentals import sync_symbol
             from datetime import date
+
+            from jobs.sync_fundamentals import sync_symbol
             result = await sync_symbol("XYZ.AU", date.today())
 
     assert result is False

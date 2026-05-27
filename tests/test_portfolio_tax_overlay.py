@@ -12,15 +12,12 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-import pytest
-
 from asxos.domain.portfolio.tax_overlay import (
     near_boundary_lots,
     tag_loss_harvest,
     unrealised_losses,
 )
 from asxos.domain.portfolio.types import HoldingSnapshot, ProposedTrade
-
 
 # ---------------------------------------------------------------------------
 # Helpers

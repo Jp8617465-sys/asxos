@@ -1,7 +1,7 @@
 """Universe ingestion logic — separated from the job script."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import asyncpg
 
@@ -58,7 +58,7 @@ async def refresh_universe(client: EODHDClient, conn: asyncpg.Connection) -> dic
         else:
             counts["unchanged"] += 1
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for sym, is_active in existing.items():
         if sym not in incoming and is_active:
             await conn.execute(

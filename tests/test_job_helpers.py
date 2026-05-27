@@ -11,7 +11,6 @@ import pytest
 
 from asxos.jobs._helpers import UpstreamBlocked, assert_partial_success
 
-
 # ---------------------------------------------------------------------------
 # UpstreamBlocked
 # ---------------------------------------------------------------------------

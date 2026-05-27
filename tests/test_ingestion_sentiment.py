@@ -20,7 +20,6 @@ from asxos.ingestion.sentiment import (
     upsert_sentiment,
 )
 
-
 # ---------------------------------------------------------------------------
 # upsert_sentiment — with mocked asyncpg connection
 # ---------------------------------------------------------------------------

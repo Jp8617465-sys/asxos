@@ -17,7 +17,6 @@ All arithmetic is Decimal; no numpy (plan Part C).
 from __future__ import annotations
 
 from dataclasses import replace
-from decimal import Decimal
 
 from asxos.domain.portfolio.types import HoldingSnapshot, ProposedTrade
 

@@ -7,17 +7,14 @@ on the upstream-gate behaviour added by P0-2.
 """
 from __future__ import annotations
 
-import asyncio
-import os
 from contextlib import asynccontextmanager
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from asxos.jobs._helpers import UpstreamBlocked
-
 import jobs.generate_signals as job_mod
+from asxos.jobs._helpers import UpstreamBlocked
 
 
 def _make_conn(upstream_ok_status: str | None) -> MagicMock:

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -70,7 +70,7 @@ def _make_conn_with_run(
     for t in trades:
         r = MagicMock()
         r.__getitem__ = lambda self, k, t=t: t[k]
-        r.__iter__ = lambda self: iter(t)
+        r.__iter__ = lambda self, t=t: iter(t)
         trade_records.append(r)
     conn.fetch.return_value = trade_records
 

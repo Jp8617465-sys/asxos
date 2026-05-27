@@ -4,16 +4,14 @@ No network calls — httpx client is mocked throughout.
 """
 from __future__ import annotations
 
-import asyncio
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
 from asxos.ingestion.eodhd import EODHDClient, _is_retryable
 from asxos.ingestion.prices import to_fx_rows, to_price_rows, to_us_price_rows
-
 
 # ---------------------------------------------------------------------------
 # _is_retryable
@@ -167,7 +165,7 @@ def test_to_price_rows_preserves_code_with_existing_dot():
 
 _FX_RAW = [
     {"date": "2026-05-20", "open": 0.6350, "high": 0.6400, "low": 0.6300, "close": 0.6380, "volume": 0},
-    {"date": "2026-05-21", "date": "2026-05-21", "close": 0.6410, "open": 0.6380, "high": 0.6430, "low": 0.6370, "volume": 0},
+    {"date": "2026-05-21", "close": 0.6410, "open": 0.6380, "high": 0.6430, "low": 0.6370, "volume": 0},
     {"date": "2026-05-22", "close": None, "open": 0.6400},   # no close — should be skipped
     {"close": 0.6420, "open": 0.6400},                       # no date — should be skipped
 ]

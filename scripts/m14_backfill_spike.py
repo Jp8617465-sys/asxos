@@ -37,7 +37,6 @@ import logging
 import sys
 from collections import defaultdict
 from datetime import date, timedelta
-from decimal import Decimal
 from pathlib import Path
 
 try:
@@ -275,7 +274,7 @@ def write_report(results: list[dict], as_of: date, months: int) -> str:
         "",
         f"**Generated:** {as_of.isoformat()}  ",
         f"**Lookback:** {months} months  ",
-        f"**Signal source:** EODHD /news polarity (not /sentiments — no ASX coverage on plan tier)  ",
+        "**Signal source:** EODHD /news polarity (not /sentiments — no ASX coverage on plan tier)  ",
         f"**Symbols analysed:** {len(results)}  ",
         "",
         "## ⚠️  Architecture Finding",
@@ -444,7 +443,7 @@ async def _run(symbols_arg: str | None, months: int, dry_run: bool) -> None:
     nulls = sum(1 for r in ic_results if r.get("verdict") == "H1_NULL")
     insufficient = sum(1 for r in ic_results if "DATA" in r.get("verdict", ""))
 
-    print(f"\n=== M14b Backfill Spike Results ===")
+    print("\n=== M14b Backfill Spike Results ===")
     print(f"Symbols: {len(ic_results)}  |  PASS: {passes}  |  MARGINAL: {marginal}  |  NULL: {nulls}  |  NO_DATA: {insufficient}")
     ic_vals = [r[f"ic_{h}d"] for r in ic_results for h in HORIZONS if r.get(f"ic_{h}d") is not None]
     if ic_vals:
@@ -456,7 +455,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="M14b backfill spike — news polarity IC validation")
     parser.add_argument(
         "--symbols",
-        help=f"Comma-separated symbols (default: ASX30 large-caps)",
+        help="Comma-separated symbols (default: ASX30 large-caps)",
     )
     parser.add_argument("--months", type=int, default=24, help="Lookback in months (default: 24)")
     parser.add_argument("--dry-run", action="store_true", help="Skip EODHD fetch")

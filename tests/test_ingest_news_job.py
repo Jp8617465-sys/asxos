@@ -16,14 +16,12 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
-from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 # jobs/ is added to sys.path via tests/conftest.py
 from jobs.ingest_news import _fetch_and_upsert, main
-
 
 # ---------------------------------------------------------------------------
 # _fetch_and_upsert

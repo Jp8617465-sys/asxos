@@ -12,7 +12,7 @@ with a 45-day disclosure lag before calling compute_all_features().
 from __future__ import annotations
 
 import logging
-from typing import Union
+from typing import ClassVar
 
 import numpy as np
 import pandas as pd
@@ -45,7 +45,7 @@ MODEL_A_FEATURES: list[str] = [
 ]
 
 
-def _safe_quintile(x: Union[pd.Series, np.ndarray], q: int = 5) -> pd.Series:
+def _safe_quintile(x: pd.Series | np.ndarray, q: int = 5) -> pd.Series:
     """pd.qcut() with rank-based tie-breaking; returns all-NaN Series on failure."""
     s = x if isinstance(x, pd.Series) else pd.Series(x)
     work = s.rank(method="first")
@@ -65,13 +65,13 @@ class FeatureEngine:
     """
 
     # Window sizes in trading days — must match training configuration
-    _MOM_WINDOWS: dict[str, int] = {
+    _MOM_WINDOWS: ClassVar[dict[str, int]] = {
         "mom_1": 21,
         "mom_3": 63,
         "mom_6": 126,
         "mom_12_1": 231,  # 12 months minus 1 month (252 - 21)
     }
-    _VOL_WINDOWS: dict[str, int] = {"vol_30": 30, "vol_60": 60, "vol_90": 90}
+    _VOL_WINDOWS: ClassVar[dict[str, int]] = {"vol_30": 30, "vol_60": 60, "vol_90": 90}
     _SMA_SLOPE_WINDOW: int = 20
 
     def compute_all_features(self, df: pd.DataFrame) -> pd.DataFrame:

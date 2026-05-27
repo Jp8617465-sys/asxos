@@ -13,7 +13,10 @@ select = [
     "RUF",  # ruff-specific
 ]
 ignore = [
-    "E501",  # line length handled by formatter
+    "E501",   # line length handled by formatter
+    "RUF001", # ambiguous Unicode in strings — intentional math notation (×, −, ∪)
+    "RUF002", # ambiguous Unicode in docstrings — intentional math notation
+    "RUF003", # ambiguous Unicode in comments — intentional math notation
 ]
 
 [lint.isort]

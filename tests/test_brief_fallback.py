@@ -27,7 +27,6 @@ import pytest
 
 from asxos.jobs.utils.fallback_email import send_fallback_email
 
-
 # ---------------------------------------------------------------------------
 # send_fallback_email — happy path
 # ---------------------------------------------------------------------------
