@@ -8,8 +8,14 @@ import asyncpg
 from asxos.ingestion.eodhd import EODHDClient
 
 
-def _to_symbol(code: str) -> str:
-    return code if "." in code else f"{code}.AU"
+def _to_symbol(code: str, *, exchange: str = "AU") -> str:
+    """Append exchange suffix when the raw EODHD code has no dot.
+
+    EODHD bulk endpoints return bare codes (e.g. "BHP", "AAPL") without
+    an exchange suffix. For AU calls the default ".AU" is always correct;
+    US calls must pass exchange="US" so "AAPL" → "AAPL.US" not "AAPL.AU".
+    """
+    return code if "." in code else f"{code}.{exchange}"
 
 
 async def refresh_universe(client: EODHDClient, conn: asyncpg.Connection) -> dict[str, int]:

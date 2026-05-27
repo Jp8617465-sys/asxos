@@ -26,6 +26,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -249,7 +251,7 @@ async def _tax_actions(
                 TaxAction(
                     symbol=r["symbol"],
                     lot_id=r["id"],
-                    eligible_at=r["acquired_at"] + timedelta(days=366),
+                    eligible_at=r["acquired_at"] + relativedelta(years=1) + timedelta(days=1),
                     days=days,
                 )
             )

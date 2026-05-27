@@ -161,27 +161,85 @@ def import_holdings(
     console.print(f"[green]Inserted {len(rows)} lots.[/green]")
 
 
+def _infer_currency(symbol: str) -> str:
+    """Infer currency from exchange suffix (.US → USD, everything else → AUD)."""
+    if symbol.endswith(".US"):
+        return "USD"
+    return "AUD"
+
+
+async def _ensure_in_universe(conn, symbol: str) -> None:
+    """Demand-driven universe insert — idempotent.
+
+    Runs before every holding_lots INSERT so FK never fails on non-AU
+    symbols (e.g. AAPL.US from wife's ESPP).  The sync_universe job
+    owns AU records; this handles US and any future exchange suffixes.
+    """
+    await conn.execute(
+        """
+        INSERT INTO universe (symbol, currency, is_active)
+        VALUES ($1, $2, TRUE)
+        ON CONFLICT (symbol) DO NOTHING
+        """,
+        symbol,
+        _infer_currency(symbol),
+    )
+
+
+async def _resolve_fx_rate(conn, acquired_at) -> "Decimal | None":
+    """Look up AUDUSD rate on acquired_at from fx_rates table.
+
+    Returns None if no rate is available (e.g. fx_rates not yet populated).
+    Caller must decide how to handle None — import is blocked until rate exists.
+    """
+    from decimal import Decimal
+    row = await conn.fetchrow(
+        "SELECT rate FROM fx_rates WHERE pair = 'AUDUSD' AND dt = $1",
+        acquired_at,
+    )
+    return Decimal(str(row["rate"])) if row else None
+
+
 async def _run_import_holdings(rows: list) -> None:
     await init_pool()
     try:
         async with acquire() as conn:
             async with conn.transaction():
                 for r in rows:
+                    await _ensure_in_universe(conn, r.symbol)
+
+                    cost_base_normal = r.cost_base_normal
+                    acquisition_fx_rate = None
+
+                    if r.cost_base_usd is not None:
+                        # US lot: resolve AUD cost base from FX rate
+                        fx_rate = await _resolve_fx_rate(conn, r.acquired_at)
+                        if fx_rate is None:
+                            raise RuntimeError(
+                                f"No AUDUSD FX rate for {r.acquired_at} — "
+                                "run sync_prices.py first to populate fx_rates"
+                            )
+                        acquisition_fx_rate = fx_rate
+                        cost_base_normal = r.cost_base_usd / fx_rate
+
                     await conn.execute(
                         """
                         INSERT INTO holding_lots
                             (symbol, acquired_at, quantity, cost_base_normal,
-                             cost_base_div296, account_type, broker_ref, notes)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                             cost_base_div296, account_type, broker_ref, notes,
+                             cost_base_usd, acquisition_fx_rate)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                         """,
                         r.symbol,
                         r.acquired_at,
                         r.quantity,
-                        r.cost_base_normal,
-                        r.cost_base_div296,
+                        cost_base_normal,
+                        r.cost_base_div296 if r.cost_base_usd is None else cost_base_normal,
                         r.account_type,
                         r.broker_ref,
                         r.notes,
+                        r.cost_base_usd,
+                        acquisition_fx_rate,
                     )
     finally:
         await close_pool()

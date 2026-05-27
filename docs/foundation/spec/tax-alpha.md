@@ -250,13 +250,65 @@ The 2% rate is reduced or zero for individuals below specified income thresholds
 - **Division 293** (additional 15% on concessional super contributions for income > $250k). Income definition includes net capital gain. Not implemented.
 - **HELP/HECS repayment**. Repayment income includes net capital gain. Not implemented.
 
-## 8. Foreign holdings (reserved for v2)
+## 8. Foreign exchange gain/loss — US equities (Div 775, M15)
 
-V1 supports Australian-listed securities only. V2 will add foreign holdings with currency translation, treaty withholding credits, and forex gain/loss treatment.
+### 8.1 Statutory basis
 
-V1 data model requirements to accommodate v2: every position has a `currency` field (defaulting to "AUD"), every dividend has a `withholding_tax_aud` field (defaulting to 0) and a `tax_treaty_country` field (defaulting to "AU"). V1 ignores these fields; v2 will populate and use them. The migration that adds these columns lands in M5 or earlier so the schema is correct from the start. No retrofit migration.
+When an Australian resident disposes of a foreign-currency asset (e.g. a US-listed ESPP or stock holding), any gain or loss attributable solely to currency movement is a **forex realisation event** under Division 775 ITAA 1997. This is a separate CGT event from the equity disposal itself.
 
-When v2 lands: RBA Table F11.1 ingestion for daily exchange rates, treaty withholding rates per source country (US 15%, UK 0%, etc., sourced from ATO double-tax-agreement summaries), and the foreign income tax offset under s 770-10 ITAA 1997.
+Key sections:
+- **s 775-15** — forex realisation event (gain): forex amount brought to account as ordinary income or included in assessable income.
+- **s 775-20** — forex realisation event (loss): deductible under s 775-20(1) or (2).
+- **s 775-30 — $250 de minimis**: if the absolute value of the forex gain or loss is ≤ AUD 250 for the income year across all forex realisation events, the taxpayer may elect to disregard all forex gains and losses for that year. System implementation: compute forex gain/loss; if ≤ $250 flag for user attention; do not automatically apply the election (the election is irrevocable for the year and the user must decide).
+- **ATO TR 2019/1** — translation rules. The applicable exchange rate for translation is the **Reserve Bank of Australia (RBA) spot rate** on the date of the relevant event. EODHD AUDUSD.FOREX close prices are treated as equivalent to the RBA spot rate for system purposes (system rule, not ATO-mandated; user should verify with an accountant if values are material).
+
+### 8.2 FX gain/loss calculation formula
+
+For a disposed US lot:
+
+```
+acquisition_rate = AUDUSD rate on acquired_at (USD per 1 AUD)
+disposal_rate    = AUDUSD rate on disposed_at (USD per 1 AUD)
+
+cost_base_aud    = cost_base_usd / acquisition_rate
+proceeds_aud     = disposal_proceeds_usd / disposal_rate
+
+fx_gain_aud      = proceeds_aud - cost_base_aud
+                 (positive = forex gain = ordinary income under s 775-15)
+                 (negative = forex loss = deductible under s 775-20)
+```
+
+Note: `fx_gain_aud` is the FX component only, not the equity gain. The equity gain/loss (in AUD) is computed separately via the standard §5 CGT path using `cost_base_normal` and the AUD proceeds.
+
+The **equity CGT gain** and the **Div 775 forex gain** are independent:
+- Equity gain is subject to CGT discount (50% for individual held > 12 months; 33⅓% for SMSF).
+- Div 775 forex gain is ordinary income or loss — **not** subject to CGT discount.
+
+### 8.3 Implementation contract (M15-7)
+
+`asxos/domain/tax/fx_gain.py` — `fx_capital_gain(lot: HoldingLot) -> Decimal | None`:
+- Returns `None` for ASX lots (no `cost_base_usd` / FX fields).
+- Returns `None` if any required FX rate is missing (system cannot compute — flag for user).
+- Returns `Decimal` (may be positive or negative) for disposed US lots with complete FX data.
+- Hard-fails (raises `ValueError`) if `disposal_fx_rate` is zero or negative.
+- Hard-fails if `abs(result)` would be arithmetically impossible (sanity check only; no business threshold).
+
+The function does **not** apply the $250 de minimis election. That decision belongs to the user. The calling code in `asxos/domain/tax/positions.py` flags `forex_gain_aud` on each disposed US lot; the user sees the value and makes the election when filing.
+
+### 8.4 Div 775 vs s 104-10 (CGT event A1) — non-overlap
+
+The ATO treats Div 775 and CGT event A1 as distinct events with no double-count. The equity disposal (A1) uses the AUD amount at the time of disposal; the FX movement on the AUD principal is the Div 775 event. Implementation must not add them together — they are reported separately on the tax return.
+
+### 8.5 ESS/ESPP treatment
+
+For ESPP shares (Division 83A), the income inclusion on vesting is the assessable discount. The cost base for CGT and Div 775 purposes starts at the market value on vesting date (not the discounted grant price), per s 130-80 ITAA 1997. **v1 of the system does not implement Division 83A; ESPP lots are imported with the user-supplied cost base and the system treats them as ordinary purchase lots.** The user must verify cost base with an accountant before filing. See §9.
+
+### 8.6 Out of scope for M15
+
+- Treaty withholding credits (US 15% withholding on dividends) — not implemented. User must manually claim foreign income tax offset under s 770-10 ITAA 1997.
+- Currencies other than USD — not implemented. System only supports AUDUSD.
+- RBA Table F11.1 direct ingestion — EODHD AUDUSD.FOREX is used as the rate source.
+- Mid-year average rate election under s 775-45 — not implemented. System uses transaction-date rates only.
 
 ## 9. Division 83A — ESS (reserved for v2)
 
@@ -368,6 +420,14 @@ Each case below must be covered by a unit test referencing the spec section.
 Direct fetching of the ATO franking and CGT pages returned 403 during preparation of v1.0; v1.1 confirms via the AustLII statutory text, the audit's verification against the Parliamentary Library Bills Digest, and the cross-referencing of the practitioner sources above. Before implementation cuts code, the final step is a direct read of the compiled Acts on the Federal Register of Legislation.
 
 ## 13. Change log
+
+**v1.2, 2026-05-27.** M15 US equities extension — §8 rewritten from "reserved for v2" placeholder to full Div 775 specification:
+- Added §8.1: statutory basis (s 775-15, s 775-20, s 775-30, ATO TR 2019/1).
+- Added §8.2: FX gain/loss formula with cost_base_usd / disposal_proceeds_usd translation.
+- Added §8.3: `fx_capital_gain()` implementation contract (M15-7).
+- Added §8.4: Div 775 vs CGT event A1 non-overlap rule.
+- Added §8.5: ESPP/ESS cost-base note (v1 uses user-supplied cost base; user must verify with accountant).
+- Added §8.6: M15 out-of-scope items (treaty withholding, non-USD currencies, RBA direct ingest, mid-year average rate election).
 
 **v1.1, 2026-05-19.** Integrates the technical audit dated 2026-05-19 against the as-enacted Acts. Eight substantive changes:
 

@@ -99,7 +99,14 @@ class CapitalGain:
 
 @dataclass(frozen=True)
 class HoldingLot:
-    """Lot-level position. Mirrors the holding_lots schema (migration 0001)."""
+    """Lot-level position. Mirrors the holding_lots schema (migration 0001).
+
+    FX fields (all None for ASX lots, per spec §8):
+      cost_base_usd:         original USD cost (ESPP grant price × shares)
+      disposal_proceeds_usd: USD proceeds on disposal (filled at disposal time)
+      acquisition_fx_rate:   AUDUSD rate on acquired_at (USD per 1 AUD)
+      disposal_fx_rate:      AUDUSD rate on disposed_at (USD per 1 AUD)
+    """
 
     lot_id: int
     symbol: str
@@ -110,6 +117,11 @@ class HoldingLot:
     account_type: AccountType = "individual"
     disposed_at: date | None = None
     disposal_proceeds: Decimal | None = None
+    # FX fields — spec §8 (M15)
+    cost_base_usd: Decimal | None = None
+    disposal_proceeds_usd: Decimal | None = None
+    acquisition_fx_rate: Decimal | None = None
+    disposal_fx_rate: Decimal | None = None
 
 
 @dataclass(frozen=True)
