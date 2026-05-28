@@ -19,6 +19,8 @@ from asxos.cli.predict import predict
 from asxos.cli.profile import profile_app
 from asxos.cli.signal import signal
 from asxos.cli.tax import tax_action, tax_view
+from asxos.cli.theme import theme_app
+from asxos.cli.thesis import thesis_app
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
@@ -42,6 +44,8 @@ app.add_typer(journal_app, name="journal")
 app.add_typer(profile_app, name="profile")
 app.add_typer(news_app, name="news")
 app.add_typer(portfolio_app, name="portfolio")
+app.add_typer(thesis_app, name="thesis")
+app.add_typer(theme_app, name="theme")
 
 
 if __name__ == "__main__":  # pragma: no cover

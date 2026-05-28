@@ -7,14 +7,19 @@
 # named in $BACKUP_REPO.
 #
 # Tables backed up:
-#   - holding_lots     (lot-level positions; CGT history)
-#   - decisions        (journal)
-#   - screening_rules  (M-future screening rules)
-#   - model_versions   (active model registry; pickle artefacts ride in /models/)
-#   - profiles         (M13 investment profile — hand-edited, irreplaceable)
+#   - holding_lots       (lot-level positions; CGT history)
+#   - decisions          (journal)
+#   - screening_rules    (M-future screening rules)
+#   - model_versions     (active model registry; pickle artefacts ride in /models/)
+#   - profiles           (M13 investment profile — hand-edited, irreplaceable)
+#   - themes             (M-Thesis-1: theme definitions and adjacency — irreplaceable)
+#   - theses             (M-Thesis-1: investment thesis text and audit record — irreplaceable)
+#   - thesis_revisions   (M-Thesis-1: append-only discipline event log — irreplaceable)
+#   - theme_holdings     (M-Thesis-1: symbol-level theme exposure — irreplaceable)
 #
 # Tables NOT backed up (re-derivable from EODHD + the model pickles + inputs):
 #   - prices, fundamentals, signals, universe, regulatory_events, job_runs
+#   - portfolio_daily_snapshots (re-derivable from prices + holding_lots)
 #   - rebalance_runs, target_allocations, proposed_trades (re-derivable from profile + inputs)
 #
 # Required env vars:
@@ -46,6 +51,10 @@ pg_dump \
   --table=screening_rules \
   --table=model_versions \
   --table=profiles \
+  --table=themes \
+  --table=theses \
+  --table=thesis_revisions \
+  --table=theme_holdings \
   "$DATABASE_URL" > "$DUMP"
 
 gzip -9 "$DUMP"

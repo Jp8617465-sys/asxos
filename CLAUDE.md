@@ -34,7 +34,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-Eleven tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
+Fifteen tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
 - `prices` — (symbol, dt) PK, OHLCV
@@ -48,6 +48,10 @@ Eleven tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statist
 - `model_versions` — active model flag via `is_active` column
 - `screening_rules` — JSON rule definitions
 - `portfolio_daily_snapshots` — (as_of) PK, capital_aud, holdings_mv_aud, cash_aud, benchmark columns; re-derivable, NOT in backup_irreplaceable.sh
+- `themes` — (theme_id BIGSERIAL) PK; theme_code UNIQUE slug, stage/conviction/adjacency; irreplaceable
+- `theses` — (thesis_id BIGSERIAL) PK; per-symbol investment thesis with entry band, stop, target, timeline, audit trail; irreplaceable
+- `thesis_revisions` — (revision_id BIGSERIAL) PK; append-only event log for every discipline event; irreplaceable
+- `theme_holdings` — (theme_id, symbol) PK; symbol-level theme exposure strength; irreplaceable
 
 ## Common commands
 
