@@ -336,6 +336,31 @@ services:
       - key: HEALTHCHECK_URL_BUILD_PORTFOLIO
         sync: false
 
+  # Daily portfolio snapshot — 06:40 AEST weekdays (20:40 UTC prior day).
+  # Runs after sync_prices (20:30 UTC) so prices are fresh; before
+  # compose_brief (21:00 UTC) so the V2 brief's section 1 has today's row.
+  # Re-derivable from prices + holding_lots; NOT in backup_irreplaceable.sh.
+  - type: cron
+    name: asxos-snapshot-portfolio
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "40 20 * * 0-4"
+    command: ASXOS_PERSONAL_USE=1 python jobs/snapshot_portfolio.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: ASXOS_PERSONAL_USE
+        value: "1"
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_SNAPSHOT_PORTFOLIO
+        sync: false
+
   # Daily backup of irreplaceable tables — 23:30 AEST (13:30 UTC)
   - type: cron
     name: asxos-backup-irreplaceable
