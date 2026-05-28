@@ -20,6 +20,7 @@ import pytest
 from typer.testing import CliRunner
 
 from asxos.cli import main as cli_main
+from asxos.cli import predict as predict_mod
 from asxos.domain.models import cache as cache_mod
 from asxos.domain.models.cache import LoadedModel, get_cache
 
@@ -71,10 +72,10 @@ def test_predict_command_renders_top_table(loaded_model: LoadedModel) -> None:
     features = _features_frame(loaded_model, n=12)
 
     with (
-        patch.object(cli_main, "init_pool", new=AsyncMock(return_value=None)),
-        patch.object(cli_main, "close_pool", new=AsyncMock(return_value=None)),
-        patch.object(cli_main, "acquire") as acquire_patch,
-        patch.object(cli_main, "load_features_for_date", new=AsyncMock(return_value=features)),
+        patch.object(predict_mod, "init_pool", new=AsyncMock(return_value=None)),
+        patch.object(predict_mod, "close_pool", new=AsyncMock(return_value=None)),
+        patch.object(predict_mod, "acquire") as acquire_patch,
+        patch.object(predict_mod, "load_features_for_date", new=AsyncMock(return_value=features)),
     ):
         from contextlib import asynccontextmanager
 
@@ -98,10 +99,10 @@ def test_predict_command_empty_features_returns_nonzero(loaded_model: LoadedMode
     empty = pd.DataFrame(columns=loaded_model.features)
 
     with (
-        patch.object(cli_main, "init_pool", new=AsyncMock(return_value=None)),
-        patch.object(cli_main, "close_pool", new=AsyncMock(return_value=None)),
-        patch.object(cli_main, "acquire") as acquire_patch,
-        patch.object(cli_main, "load_features_for_date", new=AsyncMock(return_value=empty)),
+        patch.object(predict_mod, "init_pool", new=AsyncMock(return_value=None)),
+        patch.object(predict_mod, "close_pool", new=AsyncMock(return_value=None)),
+        patch.object(predict_mod, "acquire") as acquire_patch,
+        patch.object(predict_mod, "load_features_for_date", new=AsyncMock(return_value=empty)),
     ):
         from contextlib import asynccontextmanager
 
