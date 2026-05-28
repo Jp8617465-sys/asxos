@@ -32,9 +32,13 @@ paths:
 13:30 daily          asxos-backup-irreplaceable   (pg_dump → asxos-backups repo)
 18:00 daily          asxos-sync-fundamentals      (per-symbol; ~3 min on free EODHD)
 20:30 Sun-Thu UTC    asxos-sync-prices            (bulk-by-date; one API call)
+20:40 Sun-Thu UTC    asxos-snapshot-portfolio     (GATE: sync_prices ok; UPSERT portfolio_daily_snapshots)
 20:50 Sun-Thu UTC    asxos-generate-signals       (GATE: sync_prices ok)
 20:55 daily          asxos-ingest-regulatory      (RSS pull)
+20:57 Sun-Thu UTC    asxos-ingest-news            (news articles for holdings)
 21:00 Sun-Thu UTC    asxos-compose-brief          (Resend email at 07:00 AEST)
+21:02 Sun-Thu UTC    asxos-ingest-sentiment       (aggregates news → signal_sentiment)
+20:00 Sat            asxos-build-portfolio        (weekly; section 6 of brief)
 16:00 Sat            asxos-sync-universe          (weekly)
 16:00 Sat            asxos-retrain-model-a        (weekly walk-forward)
 ```

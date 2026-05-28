@@ -34,7 +34,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-Ten tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
+Eleven tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
 - `prices` — (symbol, dt) PK, OHLCV
@@ -47,6 +47,7 @@ Ten tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistica
 - `job_runs` — completion tracking
 - `model_versions` — active model flag via `is_active` column
 - `screening_rules` — JSON rule definitions
+- `portfolio_daily_snapshots` — (as_of) PK, capital_aud, holdings_mv_aud, cash_aud, benchmark columns; re-derivable, NOT in backup_irreplaceable.sh
 
 ## Common commands
 
