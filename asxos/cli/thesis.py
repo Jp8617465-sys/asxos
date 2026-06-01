@@ -363,16 +363,19 @@ def thesis_exit(
     stop: bool = typer.Option(False, "--stop", help="Stopped out"),
     hit_target: bool = typer.Option(False, "--target", help="Target hit"),
     reason: str = typer.Option("", "--reason", help="Exit reasoning"),
+    redeploy: bool = typer.Option(False, "--redeploy", help="Show CGT-adjusted redeployment candidates after exit"),
 ) -> None:
-    """Close a thesis position."""
+    """Close a thesis position. Use --redeploy to see CGT-adjusted redeployment ranking."""
     price = _parse_decimal(at, "exit price")
     if stop and hit_target:
         raise typer.BadParameter("Cannot use both --stop and --target")
     rev_type = "exited_by_stop" if stop else ("exited_by_target" if hit_target else "exited")
-    asyncio.run(_exit_thesis(symbol, price, rev_type, reason))
+    asyncio.run(_exit_thesis(symbol, price, rev_type, reason, show_redeploy=redeploy))
 
 
-async def _exit_thesis(symbol: str, price: Decimal, rev_type: str, reason: str) -> None:
+async def _exit_thesis(
+    symbol: str, price: Decimal, rev_type: str, reason: str, show_redeploy: bool = False
+) -> None:
     await init_pool()
     try:
         async with acquire() as conn:
@@ -381,14 +384,60 @@ async def _exit_thesis(symbol: str, price: Decimal, rev_type: str, reason: str) 
                 console.print(f"[red]No thesis found for {symbol}[/red]")
                 raise typer.Exit(1)
             t = await svc.exit_thesis(conn, t.thesis_id, price, revision_type=rev_type, reasoning=reason)
+
         console.print(
             f"[green]✓[/green] Exited thesis #{t.thesis_id} for {symbol} at {price} ({rev_type})"
         )
+
+        if show_redeploy:
+            await _show_redeploy_candidates(symbol, price)
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
     finally:
         await close_pool()
+
+
+async def _show_redeploy_candidates(symbol: str, exit_price: Decimal) -> None:
+    """Print CGT-adjusted redeployment candidates from opportunity_cost_scenarios."""
+    try:
+        async with acquire() as conn:
+            # Prefer pre-computed scenarios from the weekly job
+            rows = await conn.fetch(
+                """
+                SELECT oc.alternative_symbol, oc.alternative_source,
+                       oc.gross_expected_return, oc.estimated_cgt_friction,
+                       oc.net_expected_return
+                FROM opportunity_cost_scenarios oc
+                JOIN theses t ON t.thesis_id = oc.thesis_id
+                WHERE t.symbol = $1
+                ORDER BY oc.net_expected_return DESC
+                LIMIT 10
+                """,
+                symbol,
+            )
+
+        if not rows:
+            console.print("[yellow]No pre-computed redeployment scenarios found.[/yellow]")
+            console.print("[dim]Run compute_opportunity_cost.py (weekly Sat job) to populate.[/dim]")
+            return
+
+        console.print(f"\n[bold]Redeployment candidates (CGT-adjusted) for {symbol}:[/bold]")
+        tbl = Table(show_header=True, header_style="bold")
+        tbl.add_column("Candidate", style="cyan")
+        tbl.add_column("Source")
+        tbl.add_column("Gross return", justify="right")
+        tbl.add_column("CGT friction", justify="right")
+        tbl.add_column("Net return", justify="right")
+        for row in rows:
+            gross = f"{Decimal(str(row['gross_expected_return'])):+.1%}" if row["gross_expected_return"] else "—"
+            friction = f"{Decimal(str(row['estimated_cgt_friction'])):.1%}" if row["estimated_cgt_friction"] else "—"
+            net = f"{Decimal(str(row['net_expected_return'])):+.1%}" if row["net_expected_return"] else "—"
+            tbl.add_row(row["alternative_symbol"], row["alternative_source"], gross, friction, net)
+        console.print(tbl)
+        console.print("[dim]CGT friction is a flat 45% marginal rate approximation. See docs/foundation/spec/tax-alpha.md.[/dim]")
+    except Exception as exc:
+        console.print(f"[yellow]Could not load redeployment candidates: {exc}[/yellow]")
 
 
 @thesis_app.command("attach-underlying")

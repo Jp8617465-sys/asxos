@@ -7,11 +7,12 @@
 #
 # Layout:
 #   - 1 web service:    asxos-api
-#   - 14 cron services: sync-universe, sync-prices, sync-fundamentals,
+#   - 15 cron services: sync-universe, sync-prices, sync-fundamentals,
 #                       generate-signals, ingest-regulatory, ingest-news,
 #                       ingest-sentiment, compose-brief, retrain-model-a,
 #                       build-portfolio, snapshot-portfolio,
 #                       ingest-market-context, ingest-underlyings,
+#                       compute-opportunity-cost,
 #                       check-cron-health, backup-irreplaceable
 #
 # Healthchecks.io pings are emitted from inside each Python job via
@@ -417,6 +418,28 @@ services:
       - key: FRED_API_KEY
         sync: false
       - key: HEALTHCHECK_URL_INGEST_UNDERLYINGS
+        sync: false
+
+  # Opportunity cost computation — 20:05 UTC Saturday (after build_portfolio 20:00 Sat).
+  # CGT-adjusted ranking of redeployment candidates per active thesis.
+  # Populates opportunity_cost_scenarios for brief Section 10.
+  - type: cron
+    name: asxos-compute-opportunity-cost
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "5 20 * * 6"
+    command: python jobs/compute_opportunity_cost.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_COMPUTE_OPPORTUNITY_COST
         sync: false
 
   # Pipeline health check — 08:00 AEST (22:00 UTC). Runs after the full pipeline
