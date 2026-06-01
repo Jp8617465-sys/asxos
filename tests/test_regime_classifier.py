@@ -173,7 +173,7 @@ def test_absent_avix_raises() -> None:
 
 def test_conditions_always_returned() -> None:
     """Every call returns a non-empty conditions list."""
-    label, conds = classify(_base())
+    _label, conds = classify(_base())
     assert len(conds) > 0
     # All conditions have name strings
     assert all(isinstance(c.name, str) and c.name for c in conds)

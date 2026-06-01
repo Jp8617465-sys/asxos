@@ -7,10 +7,11 @@
 #
 # Layout:
 #   - 1 web service:    asxos-api
-#   - 13 cron services: sync-universe, sync-prices, sync-fundamentals,
+#   - 14 cron services: sync-universe, sync-prices, sync-fundamentals,
 #                       generate-signals, ingest-regulatory, ingest-news,
 #                       ingest-sentiment, compose-brief, retrain-model-a,
 #                       build-portfolio, snapshot-portfolio,
+#                       ingest-market-context, ingest-underlyings,
 #                       check-cron-health, backup-irreplaceable
 #
 # Healthchecks.io pings are emitted from inside each Python job via
@@ -388,6 +389,34 @@ services:
       - key: FRED_API_KEY
         sync: false
       - key: HEALTHCHECK_URL_INGEST_MARKET_CONTEXT
+        sync: false
+
+  # Underlying price ingest — 06:48 AEST weekdays (20:48 UTC prior day).
+  # Runs after ingest_market_context (20:45) and before generate_signals (20:50).
+  # Seeds catalog on first run; backfills from earliest holding_lot acquired_at.
+  - type: cron
+    name: asxos-ingest-underlyings
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "48 20 * * 0-4"
+    command: python jobs/ingest_underlyings.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - key: FRED_API_KEY
+        sync: false
+      - key: HEALTHCHECK_URL_INGEST_UNDERLYINGS
         sync: false
 
   # Pipeline health check — 08:00 AEST (22:00 UTC). Runs after the full pipeline

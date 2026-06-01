@@ -4,10 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
 
-class RegimeLabel(str, Enum):
+class RegimeLabel(StrEnum):
     risk_on_broadening = "risk_on_broadening"
     risk_on_narrowing = "risk_on_narrowing"
     neutral_mixed = "neutral_mixed"

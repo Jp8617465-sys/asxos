@@ -25,6 +25,7 @@ from asxos.cli._common import console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.theses import service as svc
 from asxos.domain.theses.types import REVISABLE_FIELDS, Thesis
+from asxos.domain.underlyings import service as underlying_svc
 
 thesis_app = typer.Typer(
     help="Trade thesis management.",
@@ -384,6 +385,51 @@ async def _exit_thesis(symbol: str, price: Decimal, rev_type: str, reason: str) 
             f"[green]✓[/green] Exited thesis #{t.thesis_id} for {symbol} at {price} ({rev_type})"
         )
     except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@thesis_app.command("attach-underlying")
+def thesis_attach_underlying(
+    symbol: str = typer.Argument(..., help="Symbol, e.g. MIN.AU"),
+    underlying: str = typer.Option(..., "--underlying", help="Underlying code, e.g. iron_ore_62fe"),
+    exposure: str = typer.Option(..., "--exposure", help="Exposure weight [0, 1], e.g. 0.65"),
+    direction: str = typer.Option(..., "--direction", help="positive|negative"),
+) -> None:
+    """Attach or update an underlying commodity/rate on a thesis.
+
+    The sum of all exposure weights per thesis must not exceed 1.0.
+    Run `asx underlying list` to see available underlying codes.
+    """
+    exposure_d = _parse_decimal(exposure, "exposure")
+    if direction not in ("positive", "negative"):
+        raise typer.BadParameter("--direction must be 'positive' or 'negative'")
+    asyncio.run(_attach_underlying(symbol, underlying, exposure_d, direction))
+
+
+async def _attach_underlying(
+    symbol: str,
+    underlying_code: str,
+    exposure: Decimal,
+    direction: str,
+) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.get_thesis_by_symbol(conn, symbol)
+            if t is None:
+                console.print(f"[red]No thesis found for {symbol}[/red]")
+                raise typer.Exit(1)
+            await underlying_svc.attach_underlying(
+                conn, t.thesis_id, underlying_code, exposure, direction
+            )
+        console.print(
+            f"[green]✓[/green] Attached {underlying_code} to thesis #{t.thesis_id} "
+            f"({symbol}) — exposure {exposure} {direction}"
+        )
+    except (ValueError, RuntimeError) as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
     finally:
