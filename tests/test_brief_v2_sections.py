@@ -241,8 +241,7 @@ class TestCollectThemeDashboard:
                 theme_code="lithium_miners",
                 stage="emerging",
                 stage_suggested="consensus",
-                conviction="high",
-                adjacency=None,
+                conviction_band="high",
                 holding_count=3,
                 thesis_count=2,
             )
@@ -265,8 +264,7 @@ class TestCollectThemeDashboard:
                 theme_code="copper_infrastructure",
                 stage="emerging",
                 stage_suggested="emerging",
-                conviction="medium",
-                adjacency=None,
+                conviction_band="medium",
                 holding_count=2,
                 thesis_count=1,
             )
