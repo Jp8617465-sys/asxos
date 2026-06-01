@@ -37,4 +37,4 @@ def test_underlyings_types_importable() -> None:
 def test_brief_domain_types_importable() -> None:
     from asxos.domain.brief import types
     assert dataclasses.is_dataclass(types.BriefRun)
-    assert "sections_enabled" in _field_names(types.BriefRun)
+    assert "sections_run" in _field_names(types.BriefRun)  # JSONB field in brief_runs

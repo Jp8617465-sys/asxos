@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>asxos brief — {{ brief.as_of }}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 680px; margin: 1em auto; color: #222; }
+    h1 { font-size: 1.2em; margin: 0 0 0.4em; }
+    h2 { font-size: 0.95em; margin: 1.2em 0 0.3em; text-transform: uppercase; letter-spacing: 0.05em; color: #555; border-bottom: 1px solid #eee; padding-bottom: 0.2em; }
+    .snapshot { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 0.8em 1em; margin-bottom: 1.2em; }
+    .snapshot .health { font-size: 1.05em; font-weight: 600; margin: 0 0 0.4em; }
+    .snapshot .meta { font-size: 0.88em; color: #555; }
+    .one-thing { background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.5em 0.8em; margin: 0.6em 0; font-size: 0.95em; }
+    .item { padding: 0.4em 0; border-bottom: 1px solid #f3f3f3; font-size: 0.92em; white-space: pre-wrap; }
+    .item:last-child { border-bottom: none; }
+    .item-red    { border-left: 3px solid #dc3545; padding-left: 0.6em; }
+    .item-yellow { border-left: 3px solid #ffc107; padding-left: 0.6em; }
+    .item-green  { border-left: 3px solid #28a745; padding-left: 0.6em; }
+    .section-status { font-size: 0.82em; color: #888; font-style: italic; }
+    .suppressed { color: #aaa; font-style: italic; font-size: 0.9em; }
+    .no-data { color: #aaa; font-style: italic; font-size: 0.9em; }
+    .footer { margin-top: 1.5em; padding-top: 0.8em; border-top: 1px solid #eee; font-size: 0.82em; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>asxos brief — {{ brief.as_of }}</h1>
+
+  {# ── Snapshot header ── #}
+  <div class="snapshot">
+    <div class="health">{{ brief.snapshot.health_line }}</div>
+    <div class="meta">
+      🔴 {{ brief.snapshot.red_count }} &nbsp;
+      🟡 {{ brief.snapshot.yellow_count }} &nbsp;
+      🟢 {{ brief.snapshot.green_count }} &nbsp;·&nbsp;
+      ~{{ brief.snapshot.time_estimate_min }} min review
+    </div>
+    {% if brief.snapshot.one_thing %}
+    <div class="one-thing"><strong>One thing today:</strong> {{ brief.snapshot.one_thing }}</div>
+    {% endif %}
+  </div>
+
+  {# ── Macro to render a section ── #}
+  {% macro render_section(name, label, sections_map) %}
+  {% set s = sections_map.get(name) %}
+  <h2>{{ label }}</h2>
+  {% if s is none %}
+    <p class="no-data">Section not collected.</p>
+  {% elif s.status == 'suppressed' %}
+    <p class="suppressed">Suppressed — {{ s.error }}</p>
+  {% elif s.status in ('no_data',) %}
+    <p class="no-data">{{ s.error or 'No data.' }}</p>
+  {% elif s.status in ('failed', 'timeout') %}
+    <p class="section-status">{{ s.status }}: {{ s.error }}</p>
+  {% else %}
+    {% for item in s.items %}
+    <div class="item item-{{ item.level }}">{{ item.message }}</div>
+    {% endfor %}
+  {% endif %}
+  {% endmacro %}
+
+  {# Build lookup map #}
+  {% set sections_map = {} %}
+  {% for s in brief.sections %}
+    {% if sections_map.update({s.name: s}) %}{% endif %}
+  {% endfor %}
+
+  {{ render_section('wealth_state',        '1 — Wealth state',        sections_map) }}
+  {{ render_section('market_context',      '2 — Market context',      sections_map) }}
+  {{ render_section('active_theses',       '3 — Active theses',       sections_map) }}
+  {{ render_section('watchlist',           '4 — Watchlist',           sections_map) }}
+  {{ render_section('underlying_drivers',  '5 — Underlying drivers',  sections_map) }}
+  {{ render_section('new_ideas',           '6 — New ideas',           sections_map) }}
+  {{ render_section('allocation_health',   '7 — Allocation health',   sections_map) }}
+  {{ render_section('theme_dashboard',     '8 — Theme dashboard',     sections_map) }}
+  {{ render_section('tax_operational',     '9 — Tax &amp; operational', sections_map) }}
+  {{ render_section('opportunity_cost',    '10 — Opportunity cost',   sections_map) }}
+
+  {# ── Section health footer ── #}
+  {% set sh = sections_map.get('section_health') %}
+  {% if sh and sh.items %}
+  <div class="footer">
+    <strong>Section health:</strong>
+    {% for item in sh.items %}
+    <span class="item-{{ item.level }}">{{ item.message }}</span>
+    {% if not loop.last %} · {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</body>
+</html>

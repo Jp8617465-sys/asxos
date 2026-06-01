@@ -1,53 +1,108 @@
 """
-Brief composer — M-Brief-Skeleton.
+Brief composer — M-Brief-V2-Sections.
 
 compose(as_of) → Brief
 
-Orchestrates all collectors via safe_collect(), builds snapshot, persists to
-brief_runs, and stores the V1-rendered HTML inside the returned Brief.
+Phase-1 serial collectors (timeout=60s, run sequentially, share regime context):
+  wealth_state, tax_operational, market_context, active_theses
 
-Phase 3 transition: V1 collect() is called for rendering backward compat.
-Phase 4 replaces V1 rendering with the new V2 template.
+Phase-2 parallel collectors (timeout=30s, asyncio.gather):
+  watchlist, underlying_drivers, new_ideas, theme_dashboard, opportunity_cost
+
+Footer: section_health (synchronous, pure)
+
+V2 rendering gated behind ASXOS_V2_BRIEF_ENABLED=1. When 0 (default),
+falls back to V1 collect() + render_html() for backward-compat email output.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 from datetime import date
 
 from asxos.db import acquire
 from asxos.domain.brief._runner import safe_collect
+from asxos.domain.brief.collectors.active_theses import collect_active_theses
+from asxos.domain.brief.collectors.market_context import collect_market_context
+from asxos.domain.brief.collectors.new_ideas import collect_new_ideas
+from asxos.domain.brief.collectors.opportunity_cost import collect_opportunity_cost
 from asxos.domain.brief.collectors.section_health import collect_section_health
 from asxos.domain.brief.collectors.tax_operational import collect_tax_operational
+from asxos.domain.brief.collectors.theme_dashboard import collect_theme_dashboard
+from asxos.domain.brief.collectors.underlying_drivers import collect_underlying_drivers
+from asxos.domain.brief.collectors.watchlist import collect_watchlist
 from asxos.domain.brief.collectors.wealth_state import collect_wealth_state
 from asxos.domain.brief.snapshot import build_snapshot
 from asxos.domain.brief.types import Brief, SectionResult
 
 
-async def compose(as_of: date) -> Brief:
-    """Run all collectors, build snapshot, persist to brief_runs, return Brief.
+def _regime_from_section(market_ctx: SectionResult) -> str | None:
+    """Extract regime label from market_context SectionResult items."""
+    for item in market_ctx.items:
+        msg = item.message
+        if msg.startswith("Regime: "):
+            return msg.removeprefix("Regime: ").strip()
+        # risk-off items have format "risk_off_* — ..."
+        for label in ("risk_off_disorderly", "risk_off_orderly", "risk_on_broadening",
+                      "risk_on_narrowing", "neutral_mixed"):
+            if label in msg:
+                return label
+    return None
 
-    V1 rendering path: collect() from asxos.brief.compose is called after the
-    V2 collectors so the email HTML is identical to the pre-refactor output.
-    The V2 snapshot data is persisted to brief_runs.snapshot_json.
-    """
-    # Phase-1: serial collectors (may block on DB, 60s timeout each)
+
+async def compose(as_of: date) -> Brief:
+    """Run all collectors, build snapshot, persist to brief_runs, return Brief."""
     v2_sections: list[SectionResult] = []
+
+    # Phase-1: serial collectors (60s each)
     async with acquire() as conn:
         ws = await safe_collect(collect_wealth_state(conn, as_of), "wealth_state", 60.0)
         to = await safe_collect(collect_tax_operational(conn, as_of), "tax_operational", 60.0)
     v2_sections.extend([ws, to])
 
-    # Footer (synchronous, no DB needed)
+    mc = await safe_collect(collect_market_context(as_of), "market_context", 60.0)
+    v2_sections.append(mc)
+
+    at = await safe_collect(collect_active_theses(as_of), "active_theses", 60.0)
+    v2_sections.append(at)
+
+    # Extract regime for downstream collectors that can skip their own DB fetch
+    regime_label = _regime_from_section(mc)
+
+    # Phase-2: parallel collectors (30s each)
+    parallel_results = await asyncio.gather(
+        safe_collect(collect_watchlist(as_of), "watchlist", 30.0),
+        safe_collect(
+            collect_underlying_drivers(as_of, regime_label=regime_label),
+            "underlying_drivers", 30.0
+        ),
+        safe_collect(
+            collect_new_ideas(as_of, regime_label=regime_label),
+            "new_ideas", 30.0
+        ),
+        safe_collect(collect_theme_dashboard(as_of), "theme_dashboard", 30.0),
+        safe_collect(collect_opportunity_cost(as_of), "opportunity_cost", 30.0),
+    )
+    v2_sections.extend(parallel_results)
+
+    # Footer (synchronous, pure)
     footer = collect_section_health(v2_sections)
     v2_sections.append(footer)
 
     snapshot = build_snapshot(v2_sections)
 
-    # V1 data collection + rendering (backward compat — replaced in Phase 4)
-    from asxos.brief.compose import collect as v1_collect
-    from asxos.brief.compose import render_html as v1_render_html
-    v1_data = await v1_collect(as_of)
-    rendered_html = v1_render_html(v1_data)
+    # Rendering: V2 template if gate is on, else V1 backward-compat path
+    if os.environ.get("ASXOS_V2_BRIEF_ENABLED") == "1":
+        from asxos.domain.brief.renderer import render_v2_html
+        rendered_html = render_v2_html(
+            Brief(as_of=as_of, sections=tuple(v2_sections), snapshot=snapshot)
+        )
+    else:
+        from asxos.brief.compose import collect as v1_collect
+        from asxos.brief.compose import render_html as v1_render_html
+        v1_data = await v1_collect(as_of)
+        rendered_html = v1_render_html(v1_data)
 
     brief = Brief(
         as_of=as_of,
@@ -61,7 +116,7 @@ async def compose(as_of: date) -> Brief:
 
 
 async def _persist_brief_run(brief: Brief) -> None:
-    """Insert a row into brief_runs. Non-raising — failure is logged, not surfaced."""
+    """Insert a row into brief_runs. Non-raising — failure never blocks email."""
     try:
         snapshot_json = {
             "red_count": brief.snapshot.red_count,
