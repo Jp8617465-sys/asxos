@@ -7,12 +7,12 @@
 #
 # Layout:
 #   - 1 web service:    asxos-api
-#   - 15 cron services: sync-universe, sync-prices, sync-fundamentals,
+#   - 16 cron services: sync-universe, sync-prices, sync-fundamentals,
 #                       generate-signals, ingest-regulatory, ingest-news,
 #                       ingest-sentiment, compose-brief, retrain-model-a,
 #                       build-portfolio, snapshot-portfolio,
 #                       ingest-market-context, ingest-underlyings,
-#                       compute-opportunity-cost,
+#                       compute-opportunity-cost, detect-theme-stages,
 #                       check-cron-health, backup-irreplaceable
 #
 # Healthchecks.io pings are emitted from inside each Python job via
@@ -440,6 +440,28 @@ services:
           name: asxos-api
           envVarKey: DATABASE_URL
       - key: HEALTHCHECK_URL_COMPUTE_OPPORTUNITY_COST
+        sync: false
+
+  # Theme stage detection — 20:55 UTC (Sun-Thu), same slot as ingest-regulatory.
+  # Classifies each active theme into lifecycle stage; updates stage_suggested
+  # and stage_metadata. Never writes themes.stage (user-confirmed field).
+  - type: cron
+    name: asxos-detect-theme-stages
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "55 20 * * 0-4"
+    command: python jobs/detect_theme_stages.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_DETECT_THEME_STAGES
         sync: false
 
   # Pipeline health check — 08:00 AEST (22:00 UTC). Runs after the full pipeline

@@ -29,7 +29,7 @@ async def collect_theme_dashboard(as_of: date) -> SectionResult:
         themes = await conn.fetch(
             """
             SELECT t.theme_id, t.theme_code, t.stage, t.stage_suggested,
-                   t.conviction, t.adjacency,
+                   t.conviction_band,
                    COUNT(DISTINCT th.symbol) AS holding_count,
                    COUNT(DISTINCT theses.thesis_id) AS thesis_count
             FROM themes t
@@ -37,7 +37,7 @@ async def collect_theme_dashboard(as_of: date) -> SectionResult:
             LEFT JOIN theses ON theses.symbol = th.symbol
                 AND theses.status IN ('active', 'watching', 'research')
             GROUP BY t.theme_id, t.theme_code, t.stage, t.stage_suggested,
-                     t.conviction, t.adjacency
+                     t.conviction_band
             ORDER BY t.theme_code
             """
         )
@@ -55,7 +55,7 @@ async def collect_theme_dashboard(as_of: date) -> SectionResult:
         theme_code = row["theme_code"]
         stage = row["stage"] or "—"
         stage_suggested = row["stage_suggested"]
-        conviction = row["conviction"] or "—"
+        conviction = row["conviction_band"] or "—"
         holding_count = row["holding_count"] or 0
         thesis_count = row["thesis_count"] or 0
 
