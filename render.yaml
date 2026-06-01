@@ -6,10 +6,12 @@
 # deploy (CLAUDE.md non-negotiable #2).
 #
 # Layout:
-#   - 1 web service:   asxos-api
-#   - 8 cron services: sync-universe, sync-prices, sync-fundamentals,
-#                      generate-signals, ingest-regulatory, compose-brief,
-#                      retrain-model-a, backup-irreplaceable
+#   - 1 web service:    asxos-api
+#   - 13 cron services: sync-universe, sync-prices, sync-fundamentals,
+#                       generate-signals, ingest-regulatory, ingest-news,
+#                       ingest-sentiment, compose-brief, retrain-model-a,
+#                       build-portfolio, snapshot-portfolio,
+#                       check-cron-health, backup-irreplaceable
 #
 # Healthchecks.io pings are emitted from inside each Python job via
 # JobMonitor (see asxos/jobs/utils/job_monitor.py); the cron service itself
@@ -359,6 +361,40 @@ services:
           name: asxos-api
           envVarKey: DATABASE_URL
       - key: HEALTHCHECK_URL_SNAPSHOT_PORTFOLIO
+        sync: false
+
+  # Pipeline health check — 08:00 AEST (22:00 UTC). Runs after the full pipeline
+  # completes; detects stuck jobs, missing daily successes, consecutive failures.
+  # Sends Resend alert on any finding; raises RuntimeError so Healthchecks.io fires.
+  - type: cron
+    name: asxos-check-cron-health
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "0 22 * * *"
+    command: python jobs/check_cron_health.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: RESEND_API_KEY
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_FROM_EMAIL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_TO_EMAIL
+      - key: HEALTHCHECK_URL_CHECK_CRON_HEALTH
         sync: false
 
   # Daily backup of irreplaceable tables — 23:30 AEST (13:30 UTC)

@@ -52,9 +52,9 @@ async def test_happy_path_records_success_and_pings_healthcheck() -> None:
         ) as monitor:
             monitor.rows_written = 5
 
-    # INSERT (running) + UPDATE (success) = 2 calls
-    assert conn.execute.await_count == 2
-    update_call = conn.execute.await_args_list[1]
+    # RESET (stale) + INSERT (running) + UPDATE (success) = 3 calls
+    assert conn.execute.await_count == 3
+    update_call = conn.execute.await_args_list[2]
     assert update_call.args[1] == "success"  # status
     assert update_call.args[3] == 5  # rows_written
 
@@ -77,7 +77,7 @@ async def test_upstream_blocked_records_blocked_status() -> None:
             ):
                 raise UpstreamBlocked("sync_prices stale")
 
-    update_call = conn.execute.await_args_list[1]
+    update_call = conn.execute.await_args_list[2]
     assert update_call.args[1] == "blocked"
     # Error message captured
     assert "sync_prices stale" in update_call.args[4]
@@ -136,7 +136,7 @@ async def test_real_failure_records_failure_status_and_no_ping() -> None:
             ):
                 raise ValueError("Postgres unreachable")
 
-    update_call = conn.execute.await_args_list[1]
+    update_call = conn.execute.await_args_list[2]
     assert update_call.args[1] == "failure"
     fake_get.assert_not_awaited()
 
@@ -166,8 +166,8 @@ async def test_override_reason_persisted_in_insert_and_update() -> None:
         ):
             pass
 
-    insert_call = conn.execute.await_args_list[0]
-    update_call = conn.execute.await_args_list[1]
+    insert_call = conn.execute.await_args_list[1]
+    update_call = conn.execute.await_args_list[2]
     # INSERT: $4 (4th arg) is override_reason
     assert insert_call.args[4] == "operator: --allow-stale-upstream"
     # UPDATE: $6 (6th arg) is override_reason
@@ -196,7 +196,7 @@ async def test_override_reason_defaults_to_none() -> None:
         ):
             pass
 
-    insert_call = conn.execute.await_args_list[0]
+    insert_call = conn.execute.await_args_list[1]
     assert insert_call.args[4] is None
 
 
@@ -224,5 +224,5 @@ async def test_healthcheck_ping_failure_does_not_break_success() -> None:
             pass
 
     # Status was still recorded as success
-    update_call = conn.execute.await_args_list[1]
+    update_call = conn.execute.await_args_list[2]
     assert update_call.args[1] == "success"

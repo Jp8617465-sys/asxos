@@ -18,7 +18,6 @@ import pytest
 import jobs.snapshot_portfolio as job_mod
 from asxos.jobs._helpers import UpstreamBlocked
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -56,7 +55,6 @@ async def _pool_ctx(conn):
 
 def _patch_acquire(conn):
     """Context manager that patches asxos.db.acquire and job_mod.acquire."""
-    cm = asynccontextmanager(lambda: (x for x in [conn]))
     return patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn))
 
 

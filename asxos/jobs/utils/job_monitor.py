@@ -42,6 +42,23 @@ class JobMonitor:
     async def __aenter__(self) -> "JobMonitor":
         self._started_at = datetime.utcnow()
         async with acquire() as conn:
+            # If a prior run of (job_name, as_of) is still 'running' after 2 hours
+            # the process crashed without executing __aexit__. Mark it failed so
+            # the dead row doesn't mask the fresh run.
+            await conn.execute(
+                """
+                UPDATE job_runs SET
+                    status        = 'failure',
+                    finished_at   = NOW(),
+                    error_message = 'prior run crashed (process never exited cleanly)'
+                WHERE job_name = $1
+                  AND as_of    = $2
+                  AND status   = 'running'
+                  AND started_at < NOW() - INTERVAL '2 hours'
+                """,
+                self.job_name,
+                self.as_of,
+            )
             await conn.execute(
                 """
                 INSERT INTO job_runs
