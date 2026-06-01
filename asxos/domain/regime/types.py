@@ -1,22 +1,33 @@
-"""Regime domain types — stub for M-Thesis-0.
-
-Full schema and business logic land in M-Market-Context.
-Column names mirror the `regime_snapshots` table per V2 spec Part 6.4.
-"""
+"""Regime domain types — M-Market-Context."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
+from enum import Enum
+
+
+class RegimeLabel(str, Enum):
+    risk_on_broadening = "risk_on_broadening"
+    risk_on_narrowing = "risk_on_narrowing"
+    neutral_mixed = "neutral_mixed"
+    risk_off_orderly = "risk_off_orderly"
+    risk_off_disorderly = "risk_off_disorderly"
+
+
+@dataclass(frozen=True)
+class Condition:
+    """One predicate evaluated during regime classification."""
+    name: str
+    fired: bool
+    value: Decimal | None   # actual observed value
+    threshold: Decimal | None  # threshold that was tested
 
 
 @dataclass(frozen=True)
 class RegimeSnapshot:
-    """Placeholder — full schema in M-Market-Context."""
-
-    snapshot_id: int
+    """Classified regime snapshot for a single as_of date."""
     as_of: date
-    label: str  # 'risk_on' | 'risk_off' | 'neutral'
-    confidence: Decimal
-    drivers: tuple[str, ...]
-    created_at: datetime
+    label: RegimeLabel
+    rationale: tuple[Condition, ...]       # which conditions fired
+    ingestion_warnings: tuple[dict, ...]   # partial-data flags from ingest

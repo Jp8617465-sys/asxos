@@ -363,6 +363,33 @@ services:
       - key: HEALTHCHECK_URL_SNAPSHOT_PORTFOLIO
         sync: false
 
+  # Market context ingest — 06:45 AEST weekdays (20:45 UTC prior day).
+  # Runs before generate_signals (20:50) so regime data is fresh for signal gate.
+  - type: cron
+    name: asxos-ingest-market-context
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "45 20 * * 0-4"
+    command: python jobs/ingest_market_context.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - key: FRED_API_KEY
+        sync: false
+      - key: HEALTHCHECK_URL_INGEST_MARKET_CONTEXT
+        sync: false
+
   # Pipeline health check — 08:00 AEST (22:00 UTC). Runs after the full pipeline
   # completes; detects stuck jobs, missing daily successes, consecutive failures.
   # Sends Resend alert on any finding; raises RuntimeError so Healthchecks.io fires.

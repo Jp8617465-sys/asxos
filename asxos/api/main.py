@@ -12,7 +12,7 @@ _brief_settings = BriefSettings()
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
 from asxos.domain.models.cache import get_cache  # noqa: E402
 
-REQUIRED_MIGRATIONS = 59  # bump each time a new migration is applied; 0012 applied 2026-05-28
+REQUIRED_MIGRATIONS = 60  # bump each time a new migration is applied; 0013 applied 2026-06-01
 
 
 async def _check_migration_drift() -> None:
