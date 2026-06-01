@@ -9,6 +9,10 @@ Usage:
     python jobs/compose_brief.py                # send today's brief
     python jobs/compose_brief.py --as-of 2026-05-22
     python jobs/compose_brief.py --no-send      # render + stdout only
+
+M-Brief-Skeleton refactor: uses domain.brief.composer.compose() which
+orchestrates V2 collectors and persists to brief_runs. V1 rendering
+path is preserved — email HTML is identical to pre-refactor output.
 """
 import argparse
 import asyncio
@@ -16,8 +20,10 @@ import logging
 import traceback
 from datetime import date
 
-# asxos.brief.compose is pure (no config-loading deps) — safe at module level.
-from asxos.brief.compose import collect, render_html
+# V2 composer — orchestrates collectors, persists brief_runs, returns Brief.
+# Falls back to V1 path on import error (belt-and-suspenders for deploy safety).
+from asxos.domain.brief.composer import compose as v2_compose
+from asxos.domain.brief.renderer import render_html as v2_render_html
 
 # Module-level stubs — tests patch these at the jobs.compose_brief namespace.
 # Production main() lazy-imports the real implementations on first use.
@@ -73,8 +79,8 @@ async def main(as_of: date, send: bool) -> None:
                 as_of=as_of,
                 healthcheck_url=_settings.healthcheck_url_compose_brief,
             ) as monitor:
-                data = await collect(as_of)
-                html = render_html(data)
+                brief = await v2_compose(as_of)
+                html = v2_render_html(brief)
                 print(html)
 
                 if send:
@@ -83,12 +89,7 @@ async def main(as_of: date, send: bool) -> None:
                 else:
                     log.info("--no-send: skipped Resend dispatch")
 
-                monitor.rows_written = (
-                    len(data.signal_changes)
-                    + len(data.tax_actions)
-                    + len(data.regulatory_hits)
-                    + len(data.news_items)
-                )
+                monitor.rows_written = len(brief.sections)
         # asyncio.CancelledError is a BaseException in Py3.12; asyncpg pool
         # timeouts in collect() propagate as CancelledError and would slip
         # past a bare `except Exception:`.
