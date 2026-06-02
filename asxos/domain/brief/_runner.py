@@ -9,6 +9,8 @@ Callers always get a SectionResult, never an exception.
 from __future__ import annotations
 
 import asyncio
+import sys
+import traceback
 from collections.abc import Coroutine
 from datetime import datetime
 from typing import Any
@@ -28,6 +30,10 @@ async def safe_collect(
         return result
     except TimeoutError:
         elapsed_ms = int((datetime.utcnow() - start).total_seconds() * 1000)
+        print(
+            f"[safe_collect] {section_name}: timed out after {timeout:.0f}s",
+            file=sys.stderr,
+        )
         return SectionResult(
             name=section_name,
             status=SectionStatus.timeout,
@@ -37,6 +43,11 @@ async def safe_collect(
         )
     except Exception as exc:
         elapsed_ms = int((datetime.utcnow() - start).total_seconds() * 1000)
+        print(
+            f"[safe_collect] {section_name}: collector raised {type(exc).__name__}: {exc}\n"
+            + traceback.format_exc(),
+            file=sys.stderr,
+        )
         return SectionResult(
             name=section_name,
             status=SectionStatus.failed,

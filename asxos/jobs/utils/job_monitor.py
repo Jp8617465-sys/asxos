@@ -42,41 +42,42 @@ class JobMonitor:
     async def __aenter__(self) -> "JobMonitor":
         self._started_at = datetime.utcnow()
         async with acquire() as conn:
-            # If a prior run of (job_name, as_of) is still 'running' after 2 hours
-            # the process crashed without executing __aexit__. Mark it failed so
-            # the dead row doesn't mask the fresh run.
-            await conn.execute(
-                """
-                UPDATE job_runs SET
-                    status        = 'failure',
-                    finished_at   = NOW(),
-                    error_message = 'prior run crashed (process never exited cleanly)'
-                WHERE job_name = $1
-                  AND as_of    = $2
-                  AND status   = 'running'
-                  AND started_at < NOW() - INTERVAL '2 hours'
-                """,
-                self.job_name,
-                self.as_of,
-            )
-            await conn.execute(
-                """
-                INSERT INTO job_runs
-                    (job_name, as_of, status, started_at, override_reason)
-                VALUES ($1, $2, 'running', $3, $4)
-                ON CONFLICT (job_name, as_of) DO UPDATE SET
-                    status          = 'running',
-                    started_at      = EXCLUDED.started_at,
-                    error_message   = NULL,
-                    finished_at     = NULL,
-                    rows_written    = NULL,
-                    override_reason = EXCLUDED.override_reason
-                """,
-                self.job_name,
-                self.as_of,
-                self._started_at,
-                self.override_reason,
-            )
+            # Stale-row reset + fresh INSERT are one atomic transaction so no
+            # concurrent job instance can see a partially-updated state.
+            async with conn.transaction():
+                # Mark any prior crashed run failed before starting fresh.
+                await conn.execute(
+                    """
+                    UPDATE job_runs SET
+                        status        = 'failure',
+                        finished_at   = NOW(),
+                        error_message = 'prior run crashed (process never exited cleanly)'
+                    WHERE job_name = $1
+                      AND as_of    = $2
+                      AND status   = 'running'
+                      AND started_at < NOW() - INTERVAL '2 hours'
+                    """,
+                    self.job_name,
+                    self.as_of,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO job_runs
+                        (job_name, as_of, status, started_at, override_reason)
+                    VALUES ($1, $2, 'running', $3, $4)
+                    ON CONFLICT (job_name, as_of) DO UPDATE SET
+                        status          = 'running',
+                        started_at      = EXCLUDED.started_at,
+                        error_message   = NULL,
+                        finished_at     = NULL,
+                        rows_written    = NULL,
+                        override_reason = EXCLUDED.override_reason
+                    """,
+                    self.job_name,
+                    self.as_of,
+                    self._started_at,
+                    self.override_reason,
+                )
         return self
 
     async def __aexit__(

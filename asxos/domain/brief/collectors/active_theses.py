@@ -19,7 +19,7 @@ from asxos.domain.brief.severity import thesis_revisit_overdue
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.divergence import detect_hidden_risk
-from asxos.domain.underlyings.service import get_5d_moves, list_thesis_underlyings
+from asxos.domain.underlyings.service import bulk_list_thesis_underlyings, get_5d_moves
 
 _SECTION = "active_theses"
 
@@ -47,16 +47,25 @@ async def collect_active_theses(as_of: date) -> SectionResult:
                 error="no active theses",
             )
 
+        # Batch-load all underlyings and moves in two queries (avoids N+1)
+        all_thesis_ids = [r["thesis_id"] for r in rows]
+        tu_by_thesis = await bulk_list_thesis_underlyings(conn, all_thesis_ids)
+        all_underlying_ids = list({
+            tu.underlying_id
+            for tus in tu_by_thesis.values()
+            for tu in tus
+        })
+        all_moves = await get_5d_moves(conn, all_underlying_ids, as_of) if all_underlying_ids else {}
+
         for row in rows:
             thesis_id = row["thesis_id"]
             symbol = row["symbol"]
             revisit_due = row["revisit_due_at"]
             opened = row["opened_at"]
 
-            # Underlying score
-            thesis_underlyings = await list_thesis_underlyings(conn, thesis_id)
-            underlying_ids = [tu.underlying_id for tu in thesis_underlyings]
-            moves = await get_5d_moves(conn, underlying_ids, as_of) if underlying_ids else {}
+            # Underlying score (uses pre-fetched data)
+            thesis_underlyings = tu_by_thesis.get(thesis_id, [])
+            moves = {uid: all_moves.get(uid) for uid in [tu.underlying_id for tu in thesis_underlyings]}
             score = score_thesis_underlying(thesis_underlyings, moves)
 
             # Overdue check

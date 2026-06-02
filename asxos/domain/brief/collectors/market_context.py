@@ -26,7 +26,12 @@ async def collect_market_context(as_of: date) -> SectionResult:
 
     async with acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT * FROM market_context_current WHERE as_of = $1",
+            """
+            SELECT regime_label, asx200_close, asx200_daily_change_pct,
+                   avix, aud_usd, ingestion_warnings
+            FROM market_context_current
+            WHERE as_of = $1
+            """,
             as_of,
         )
 
@@ -78,4 +83,5 @@ async def collect_market_context(as_of: date) -> SectionResult:
     return SectionResult(
         name=_SECTION, status=SectionStatus.ok,
         items=tuple(items), elapsed_ms=elapsed_ms,
+        metadata={"regime_label": label},
     )

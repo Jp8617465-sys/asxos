@@ -35,6 +35,7 @@ class SectionResult:
     items: tuple[SeverityItem, ...]
     elapsed_ms: int
     error: str | None = None
+    metadata: dict | None = None  # structured output from collector (e.g. regime_label)
 
 
 @dataclass(frozen=True)

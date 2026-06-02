@@ -18,7 +18,7 @@ from asxos.db import acquire
 from asxos.domain.brief.cross_layer import cross_layer_observations
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 from asxos.domain.underlyings.attribution import score_thesis_underlying
-from asxos.domain.underlyings.service import get_5d_moves, list_thesis_underlyings
+from asxos.domain.underlyings.service import bulk_list_thesis_underlyings, get_5d_moves
 
 _SECTION = "underlying_drivers"
 
@@ -52,17 +52,26 @@ async def collect_underlying_drivers(
                 error="no active/watching theses",
             )
 
+        # Batch-load all underlyings and moves in two queries (avoids N+1)
+        all_thesis_ids = [r["thesis_id"] for r in rows]
+        tu_by_thesis = await bulk_list_thesis_underlyings(conn, all_thesis_ids)
+        all_underlying_ids = list({
+            tu.underlying_id
+            for tus in tu_by_thesis.values()
+            for tu in tus
+        })
+        all_moves = await get_5d_moves(conn, all_underlying_ids, as_of) if all_underlying_ids else {}
+
         thesis_scores = []
         for row in rows:
             thesis_id = row["thesis_id"]
             symbol = row["symbol"]
 
-            thesis_underlyings = await list_thesis_underlyings(conn, thesis_id)
+            thesis_underlyings = tu_by_thesis.get(thesis_id, [])
             if not thesis_underlyings:
                 continue
 
-            underlying_ids = [tu.underlying_id for tu in thesis_underlyings]
-            moves = await get_5d_moves(conn, underlying_ids, as_of)
+            moves = {uid: all_moves.get(uid) for uid in [tu.underlying_id for tu in thesis_underlyings]}
             score = score_thesis_underlying(thesis_underlyings, moves)
 
             thesis_scores.append((symbol, row["status"], score))

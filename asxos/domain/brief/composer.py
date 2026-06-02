@@ -38,16 +38,9 @@ from asxos.domain.brief.types import Brief, SectionResult
 
 
 def _regime_from_section(market_ctx: SectionResult) -> str | None:
-    """Extract regime label from market_context SectionResult items."""
-    for item in market_ctx.items:
-        msg = item.message
-        if msg.startswith("Regime: "):
-            return msg.removeprefix("Regime: ").strip()
-        # risk-off items have format "risk_off_* — ..."
-        for label in ("risk_off_disorderly", "risk_off_orderly", "risk_on_broadening",
-                      "risk_on_narrowing", "neutral_mixed"):
-            if label in msg:
-                return label
+    """Extract regime label from market_context SectionResult metadata."""
+    if market_ctx.metadata:
+        return market_ctx.metadata.get("regime_label")
     return None
 
 

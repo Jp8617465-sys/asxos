@@ -13,7 +13,7 @@ async def init_pool() -> asyncpg.Pool:
     _pool = await asyncpg.create_pool(
         str(settings.database_url),
         min_size=2,
-        max_size=10,
+        max_size=15,   # Phase-2: 5 parallel collectors + Phase-1 slack + safety margin
         command_timeout=30,
         ssl="require",
     )

@@ -200,6 +200,44 @@ async def list_thesis_underlyings(conn: Any, thesis_id: int) -> list[ThesisUnder
     ]
 
 
+async def bulk_list_thesis_underlyings(
+    conn: Any,
+    thesis_ids: list[int],
+) -> dict[int, list[ThesisUnderlying]]:
+    """Batch-load thesis_underlyings for multiple theses in one query.
+
+    Returns {thesis_id: [ThesisUnderlying, ...]}. Theses with no underlyings
+    are absent from the dict (not an empty list entry).
+    """
+    if not thesis_ids:
+        return {}
+    rows = await conn.fetch(
+        """
+        SELECT tu.thesis_id, tu.underlying_id, u.code, tu.exposure,
+               tu.direction, tu.last_validated_at
+        FROM thesis_underlyings tu
+        JOIN underlyings u ON u.underlying_id = tu.underlying_id
+        WHERE tu.thesis_id = ANY($1)
+        ORDER BY tu.thesis_id, u.code
+        """,
+        thesis_ids,
+    )
+    result: dict[int, list[ThesisUnderlying]] = {}
+    for r in rows:
+        thesis_id = r["thesis_id"]
+        if thesis_id not in result:
+            result[thesis_id] = []
+        result[thesis_id].append(ThesisUnderlying(
+            thesis_id=r["thesis_id"],
+            underlying_id=r["underlying_id"],
+            code=r["code"],
+            exposure=Decimal(str(r["exposure"])),
+            direction=UnderlyingDirection(r["direction"]),
+            last_validated_at=r["last_validated_at"],
+        ))
+    return result
+
+
 async def get_5d_moves(
     conn: Any,
     underlying_ids: list[int],

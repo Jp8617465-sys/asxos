@@ -85,11 +85,16 @@ def rank_by_opportunity_cost(
     for c in candidates:
         gross = c.expected_return
         net = gross - cgt_friction
-        enriched.append(CandidateWithCGT(
-            candidate=c,
-            gross_expected_return=gross,
-            estimated_cgt_friction=cgt_friction,
-            net_expected_return=net,
-        ))
+        # Only surface candidates where redeployment improves after-CGT outcome.
+        # A negative net return means CGT cost exceeds expected upside — holding
+        # the current position is preferred. Exclude rather than rank at bottom
+        # to avoid misleading "best of bad" recommendations.
+        if net > Decimal("0"):
+            enriched.append(CandidateWithCGT(
+                candidate=c,
+                gross_expected_return=gross,
+                estimated_cgt_friction=cgt_friction,
+                net_expected_return=net,
+            ))
 
     return sorted(enriched, key=lambda x: x.net_expected_return, reverse=True)

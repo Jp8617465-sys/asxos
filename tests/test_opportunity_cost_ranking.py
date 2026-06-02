@@ -125,12 +125,18 @@ class TestRankByOpportunityCost:
         for r in ranked:
             assert r.net_expected_return == r.gross_expected_return - friction
 
-    def test_cgt_eligible_vs_non_eligible_ranking_inversion(self):
-        """A candidate with lower gross return beats one slightly higher when
-        CGT friction makes both negative — ranking can invert relative to
-        no-friction case only if candidates have different gross returns.
-        This tests that friction is correctly applied."""
-        # Non-eligible: friction higher → net return lower → still same ranking
+    def test_cgt_eligible_vs_non_eligible_friction_difference(self):
+        """CGT-eligible holding (50% discount) has lower friction than non-eligible.
+
+        With quantity=1000, cost_base=10000, current_price=15.00:
+          current_value = 15000, gain = 5000
+          non-eligible friction = 5000 * 0.45 / 15000 = 15%
+          eligible friction     = 5000 * 0.5 * 0.45 / 15000 = 7.5%
+
+        Candidates at 10% and 8% expected return:
+          non-eligible: both net < 0  → filtered → empty list
+          eligible:     both net > 0  → both included
+        """
         h_non_eligible = _holding(days_to_cgt=60, cost_base="10000", current_price="15.00")
         h_eligible = _holding(days_to_cgt=0, cost_base="10000", current_price="15.00")
 
@@ -139,10 +145,15 @@ class TestRankByOpportunityCost:
         ranked_ne = rank_by_opportunity_cost(candidates, h_non_eligible)
         ranked_e = rank_by_opportunity_cost(candidates, h_eligible)
 
-        # Ranking order is the same (friction is symmetric), but eligible friction is smaller
-        assert ranked_ne[0].candidate.symbol == ranked_e[0].candidate.symbol == "X.AU"
-        # net returns are higher when CGT-eligible (lower friction)
-        assert ranked_e[0].net_expected_return > ranked_ne[0].net_expected_return
+        # Non-eligible: CGT friction (15%) > both expected returns → no viable candidates
+        assert ranked_ne == [], "all candidates should be filtered when net return < 0"
+
+        # Eligible: CGT friction (7.5%) < both returns → both survive, X.AU ranks first
+        assert len(ranked_e) == 2
+        assert ranked_e[0].candidate.symbol == "X.AU"
+        assert ranked_e[1].candidate.symbol == "Y.AU"
+        # Both have positive net returns
+        assert all(r.net_expected_return > Decimal("0") for r in ranked_e)
 
     def test_empty_candidates_returns_empty(self):
         h = _holding()
