@@ -15,20 +15,17 @@ Disclaimer: This is modelling, not financial advice. Australian ESS rules
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
-from datetime import timedelta
 
 from asxos.domain.tax.cgt import (
-    cgt_discount_rate,
     days_to_eligibility,
     is_discountable,
     net_capital_gain,
 )
-from asxos.domain.tax.types import AccountType, CapitalGain
-
+from asxos.domain.tax.types import CapitalGain
 
 # ── Position constants ────────────────────────────────────────────────────────
 
@@ -73,7 +70,7 @@ SCENARIOS = [
     ("E — Hold to 12-month mark, price at 200d MA ($318)",
      Decimal("318"),
      CGT_DISCOUNT_DATE,
-     f"Best case: institutional confirmation + CGT discount. 200d MA crossover = re-rating to 'mainstream' stage."),
+     "Best case: institutional confirmation + CGT discount. 200d MA crossover = re-rating to 'mainstream' stage."),
 
     ("F — Blow-off / late-retail continuation to $350",
      Decimal("350"),
@@ -155,8 +152,8 @@ for label, price, disposal_date, note in SCENARIOS:
     print(f"  Equity gain AUD:  ${equity_gain_aud:>10.2f}")
     print(f"  Div 775 FX gain:  ${fx_gain_aud:>10.2f}  (separate line on tax return)")
     print()
-    print(f"  Tax at each marginal rate:")
-    for rate, rate_label in zip(MARGINAL_RATES, MARGINAL_LABELS):
+    print("  Tax at each marginal rate:")
+    for rate, rate_label in zip(MARGINAL_RATES, MARGINAL_LABELS, strict=True):
         tax, discountable, disc_note = tax_on_gain(equity_gain_aud, disposal_date, rate)
         net = equity_gain_aud - tax
         print(f"    {rate_label:<30}  tax=${tax:>8.2f}  net=${net:>8.2f}  [{disc_note}]")

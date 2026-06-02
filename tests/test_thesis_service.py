@@ -192,7 +192,7 @@ async def test_enter_thesis_already_active_raises() -> None:
     existing = _make_thesis_row(status="active")
     conn = _make_conn(fetchrow_returns=[existing])
 
-    with pytest.raises(ValueError, match="status is .active."):
+    with pytest.raises(ValueError, match=r"status is .active."):
         await svc.enter_thesis(conn, thesis_id=1, entry_price=Decimal("43"))
 
 
@@ -200,7 +200,7 @@ async def test_enter_thesis_exited_raises() -> None:
     existing = _make_thesis_row(status="exited")
     conn = _make_conn(fetchrow_returns=[existing])
 
-    with pytest.raises(ValueError, match="status is .exited."):
+    with pytest.raises(ValueError, match=r"status is .exited."):
         await svc.enter_thesis(conn, thesis_id=1, entry_price=Decimal("43"))
 
 
@@ -371,7 +371,7 @@ async def test_exit_thesis_already_exited_raises() -> None:
     existing = _make_thesis_row(status="exited")
     conn = _make_conn(fetchrow_returns=[existing])
 
-    with pytest.raises(ValueError, match="already .exited."):
+    with pytest.raises(ValueError, match=r"already .exited."):
         await svc.exit_thesis(conn, thesis_id=1, exit_price=Decimal("58"))
 
 
@@ -379,7 +379,7 @@ async def test_exit_thesis_already_expired_raises() -> None:
     existing = _make_thesis_row(status="expired")
     conn = _make_conn(fetchrow_returns=[existing])
 
-    with pytest.raises(ValueError, match="already .expired."):
+    with pytest.raises(ValueError, match=r"already .expired."):
         await svc.exit_thesis(conn, thesis_id=1, exit_price=Decimal("40"))
 
 

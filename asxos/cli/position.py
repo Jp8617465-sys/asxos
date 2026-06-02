@@ -13,7 +13,7 @@ from datetime import date
 
 import typer
 
-from asxos.cli._common import console
+from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.position_monitor.display import format_history, format_monitor
 from asxos.domain.position_monitor.fetcher import fetch_macro_data, fetch_price_data
@@ -62,6 +62,7 @@ def monitor(
       retail_ratio   — stocktwits.com/symbol/SYMBOL  (current / 90d avg)
       news_sentiment — stocktwits.com/symbol/SYMBOL  (bullish % ratio, 0–1)
     """
+    _require_personal_use()
     asyncio.run(_monitor_async(symbol, as_of or None, no_save, regime or None))
 
 
@@ -102,63 +103,59 @@ async def _monitor_async(
                 if thesis_id is not None
                 else None
             )
-    finally:
-        await close_pool()
 
-    # Sentiment prompts with last-run defaults
-    default_retail = float(last["retail_ratio"]) if last else 1.0
-    default_sentiment = float(last["news_sentiment"]) if last else 0.5
+        # Sentiment prompts with last-run defaults (pool stays open; connection released above)
+        default_retail = float(last["retail_ratio"]) if last else 1.0
+        default_sentiment = float(last["news_sentiment"]) if last else 0.5
 
-    console.print(
-        "\n[yellow]Manual inputs required[/yellow] "
-        "(Stocktwits: stocktwits.com/symbol/"
-        + symbol.split(".")[0]
-        + ")"
-    )
-    retail_ratio_f = typer.prompt(
-        "  Retail ratio (current mentions / 90d avg)",
-        default=default_retail,
-        type=float,
-    )
-    news_sentiment_f = typer.prompt(
-        "  News sentiment (bullish ratio, 0.0–1.0)",
-        default=default_sentiment,
-        type=float,
-    )
+        console.print(
+            "\n[yellow]Manual inputs required[/yellow] "
+            "(Stocktwits: stocktwits.com/symbol/"
+            + symbol.split(".")[0]
+            + ")"
+        )
+        retail_ratio_f = typer.prompt(
+            "  Retail ratio (current mentions / 90d avg)",
+            default=default_retail,
+            type=float,
+        )
+        news_sentiment_f = typer.prompt(
+            "  News sentiment (bullish ratio, 0.0–1.0)",
+            default=default_sentiment,
+            type=float,
+        )
 
-    from decimal import Decimal
+        from decimal import Decimal
 
-    inputs = MonitorInput(
-        symbol=symbol,
-        as_of=run_date,
-        current_price=price_data.current_price,
-        ma_50d=price_data.ma_50d,
-        ma_200d=price_data.ma_200d,
-        avg_weekly_move=price_data.avg_weekly_move,
-        vix_5d_move=macro_data.vix_5d_move,
-        hy_oas_5d_move=macro_data.hy_oas_5d_move,
-        retail_ratio=Decimal(str(retail_ratio_f)).quantize(Decimal("0.01")),
-        news_sentiment=Decimal(str(news_sentiment_f)).quantize(Decimal("0.01")),
-        stop_price=ctx.get("stop_price"),
-        cost_usd=ctx.get("cost_usd"),
-        shares=ctx.get("shares"),
-        acquired=ctx.get("acquired"),
-        cgt_date=ctx.get("cgt_date"),
-        regime_label=regime,
-    )
+        inputs = MonitorInput(
+            symbol=symbol,
+            as_of=run_date,
+            current_price=price_data.current_price,
+            ma_50d=price_data.ma_50d,
+            ma_200d=price_data.ma_200d,
+            avg_weekly_move=price_data.avg_weekly_move,
+            vix_5d_move=macro_data.vix_5d_move,
+            hy_oas_5d_move=macro_data.hy_oas_5d_move,
+            retail_ratio=Decimal(str(retail_ratio_f)).quantize(Decimal("0.01")),
+            news_sentiment=Decimal(str(news_sentiment_f)).quantize(Decimal("0.01")),
+            stop_price=ctx.get("stop_price"),
+            cost_usd=ctx.get("cost_usd"),
+            shares=ctx.get("shares"),
+            acquired=ctx.get("acquired"),
+            cgt_date=ctx.get("cgt_date"),
+            regime_label=regime,
+        )
 
-    result = build_monitor_result(inputs, thesis_underlyings=thesis_underlyings)
+        result = build_monitor_result(inputs, thesis_underlyings=thesis_underlyings)
 
-    console.print(format_monitor(result))
+        console.print(format_monitor(result))
 
-    if not no_save:
-        await init_pool()
-        try:
+        if not no_save:
             async with acquire() as conn:
                 run_id = await save_run(conn, result)
             console.print(f"[dim]Run saved (run_id={run_id})[/dim]")
-        finally:
-            await close_pool()
+    finally:
+        await close_pool()
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +168,7 @@ def history(
     limit: int = typer.Option(10, "--limit", "-n", help="Number of past runs to show"),
 ) -> None:
     """Show a table of past monitor runs for a symbol."""
+    _require_personal_use()
     asyncio.run(_history_async(symbol, limit))
 
 

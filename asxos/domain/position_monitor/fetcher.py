@@ -14,6 +14,7 @@ Symbol normalisation:
 """
 from __future__ import annotations
 
+import asyncio
 from decimal import ROUND_HALF_UP, Decimal
 from typing import NamedTuple
 
@@ -168,9 +169,9 @@ async def fetch_macro_data() -> MacroData:
     """
     fred = get_fred()
 
-    vix_obs, hy_obs = (
-        await fred.get_series(_SERIES_VIX, limit=10, sort_order="desc"),
-        await fred.get_series(_SERIES_HY_OAS, limit=10, sort_order="desc"),
+    vix_obs, hy_obs = await asyncio.gather(
+        fred.get_series(_SERIES_VIX, limit=10, sort_order="desc"),
+        fred.get_series(_SERIES_HY_OAS, limit=10, sort_order="desc"),
     )
 
     return MacroData(

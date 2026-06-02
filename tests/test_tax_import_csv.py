@@ -70,7 +70,7 @@ def test_invalid_date_raises_with_line_number(tmp_path: Path) -> None:
         ["symbol", "acquired_at", "quantity", "cost_base_normal", "account_type"],
         [["BHP.AU", "not-a-date", "100", "4500", "individual"]],
     )
-    with pytest.raises(ValueError, match="h.csv:2"):
+    with pytest.raises(ValueError, match=r"h\.csv:2"):
         parse_csv(csv_path)
 
 

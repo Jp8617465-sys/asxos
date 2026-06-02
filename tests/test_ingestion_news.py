@@ -299,7 +299,7 @@ def test_extract_polarity_dict_no_polarity_key_returns_none() -> None:
 def test_extract_polarity_out_of_range_raises() -> None:
     """abs(polarity) > 1.5 → ValueError (hard-fail per rule #10)."""
     item = {"sentiment": {"polarity": 2.0}}
-    with pytest.raises(ValueError, match="outside \\[-1.5, \\+1.5\\]"):
+    with pytest.raises(ValueError, match=r"outside \[-1\.5, \+1\.5\]"):
         _extract_polarity(item)
 
 

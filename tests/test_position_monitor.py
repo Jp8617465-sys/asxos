@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -32,7 +32,6 @@ from asxos.domain.position_monitor.fetcher import (
 )
 from asxos.domain.position_monitor.service import build_monitor_result, save_run
 from asxos.domain.position_monitor.types import MonitorInput
-
 
 # ---------------------------------------------------------------------------
 # Symbol normalisation
@@ -152,18 +151,18 @@ class TestPctChange5d:
 # ---------------------------------------------------------------------------
 
 def _make_inputs(**kwargs) -> MonitorInput:
-    defaults = dict(
-        symbol="HUBS.NYSE",
-        as_of=date(2026, 6, 2),
-        current_price=Decimal("252"),
-        ma_50d=Decimal("243.61"),
-        ma_200d=Decimal("317.94"),
-        avg_weekly_move=Decimal("0.08"),
-        vix_5d_move=Decimal("-8.0"),
-        hy_oas_5d_move=Decimal("-3.5"),
-        retail_ratio=Decimal("2.50"),
-        news_sentiment=Decimal("0.72"),
-    )
+    defaults: dict = {
+        "symbol": "HUBS.NYSE",
+        "as_of": date(2026, 6, 2),
+        "current_price": Decimal("252"),
+        "ma_50d": Decimal("243.61"),
+        "ma_200d": Decimal("317.94"),
+        "avg_weekly_move": Decimal("0.08"),
+        "vix_5d_move": Decimal("-8.0"),
+        "hy_oas_5d_move": Decimal("-3.5"),
+        "retail_ratio": Decimal("2.50"),
+        "news_sentiment": Decimal("0.72"),
+    }
     defaults.update(kwargs)
     return MonitorInput(**defaults)
 

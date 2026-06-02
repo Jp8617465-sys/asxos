@@ -18,35 +18,39 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from asxos.domain.brief.cross_layer import cross_layer_observations
+from asxos.domain.tax.cgt import days_to_eligibility
 from asxos.domain.themes.stage_classifier import (
-    ClassifierInput, StageThresholds, classify_stage, CLASSIFIER_VERSION
+    CLASSIFIER_VERSION,
+    ClassifierInput,
+    StageThresholds,
+    classify_stage,
 )
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.types import ThesisUnderlying, UnderlyingDirection
-from asxos.domain.brief.cross_layer import cross_layer_observations
-from asxos.domain.tax.cgt import days_to_eligibility, is_discountable
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INPUT BLOCK — update these each week
 # ─────────────────────────────────────────────────────────────────────────────
 
-AS_OF           = date(2026, 6, 2)     # today's date
+AS_OF           = date(2026, 6, 2)     # 2026-06-02 post BofA downgrade
 
-# Price levels
-CURRENT_PRICE   = Decimal("252")       # HUBS last close (USD)
-MA_50D          = Decimal("243.61")    # 50-day simple moving average
-MA_200D         = Decimal("317.94")    # 200-day simple moving average
+# Price levels — UPDATED: BofA double-downgrade Buy→Underperform ($300→$180 target)
+# 50d MA now broken: primary invalidation signal for the early-institutional thesis
+CURRENT_PRICE   = Decimal("232")       # HUBS intraday (prev close $262; -8% on BofA)
+MA_50D          = Decimal("243.61")    # 50-day SMA — PRICE BELOW THIS (invalidation)
+MA_200D         = Decimal("317.94")    # 200-day SMA
 
-# Sentiment / retail
-NEWS_SENTIMENT  = Decimal("0.72")      # 0–1 normalised (Stocktwits bullish ratio)
-RETAIL_RATIO    = Decimal("2.50")      # current mentions / 90d avg (1.0 = normal)
-AVG_WEEKLY_MOVE = Decimal("0.08")      # avg weekly price move magnitude (0.08 = 8%)
+# Sentiment / retail — UPDATED: panic selling; sentiment collapsed on downgrade
+NEWS_SENTIMENT  = Decimal("0.35")      # Stocktwits bullish ratio — collapsed (was 0.72)
+RETAIL_RATIO    = Decimal("3.50")      # panic spike in retail mentions (was 2.50)
+AVG_WEEKLY_MOVE = Decimal("0.12")      # elevated: 8% intraday alone (was 0.08)
 
-# Macro drivers (5d % change — negative = compressing/falling)
-VIX_5D_MOVE     = Decimal("-8.0")      # VIX 5d % change (neg = vol falling = good for HUBS)
-HY_OAS_5D_MOVE  = Decimal("-3.5")      # HY OAS 5d % change (neg = tightening = good)
+# Macro drivers — UPDATED: VIX rose ~5%; HY OAS stable (stock-specific catalyst)
+VIX_5D_MOVE     = Decimal("5.0")       # VIX 5d % change — RISING = bad for HUBS (was -8.0)
+HY_OAS_5D_MOVE  = Decimal("0.0")       # HY OAS unchanged — macro backdrop stable (was -3.5)
 
-# Regime (from market context — describe the US macro environment)
+# Regime — unchanged; BofA catalyst is stock-specific, not macro
 REGIME_LABEL    = "risk_on_narrowing"
 
 # Position constants — don't change
@@ -136,9 +140,9 @@ for comp in score.component_moves:
     print(f"  {'✅' if float(contrib or 0) > 0 else '❌'} {comp['code']:<12} 5d move: {move}%   contribution: {contrib}%   ({direction_note})")
 print()
 print("  What would flip to DIVERGING:")
-print(f"    → VIX spikes above ~22–25 (risk-off event)")
-print(f"    → US HY OAS widens above ~350bps (credit stress)")
-print(f"    → Either 5d move turns positive (vol rising / spreads widening)")
+print("    → VIX spikes above ~22–25 (risk-off event)")
+print("    → US HY OAS widens above ~350bps (credit stress)")
+print("    → Either 5d move turns positive (vol rising / spreads widening)")
 
 print()
 print("── CROSS-LAYER ──────────────────────────────────────────────────")
@@ -191,14 +195,14 @@ print(f"""
   To 200d MA: {pct_to_200d}% above current price
 
   ┌─────────────────────────────────────────────────────────┐
-  │  HOLD — Scenario D on track.                            │
-  │  Macro confirming. Stop intact. CGT clock ticking.      │
+  │  HOLD — but at the line. Stop $230 is $2 away.          │
+  │  50d MA broken. Underlying diverging. Watch closely.    │
   │                                                         │
   │  Watch this week:                                       │
-  │  · HUBS price vs 50d MA (${MA_50D}) — don't break below │
-  │  · VIX: stay below 20  (currently ~15.3)                │
-  │  · Retail ratio: watch for fade below 1.5×              │
-  │  · HY OAS: stay below 300bps  (currently ~272bps)       │
+  │  · $230 stop — if it breaks on volume, exit immediately │
+  │  · 50d MA recapture (${MA_50D}) — needed to de-risk     │
+  │  · VIX: any move above 20 = risk-off, tighten stop      │
+  │  · 26 analysts still Buy; BofA is the only UPerform     │
   └─────────────────────────────────────────────────────────┘
 
   Next milestone: ${TARGET_INST} (200d MA) → stage re-labels MAINSTREAM

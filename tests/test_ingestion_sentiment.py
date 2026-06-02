@@ -57,7 +57,7 @@ async def test_upsert_passes_decimal_as_string() -> None:
     entry = SentimentEntry("CBA.AU", date(2026, 5, 23), 3, Decimal("0.123456"))
     await upsert_sentiment(conn, [entry])
     _, call_args, _ = conn.executemany.mock_calls[0]
-    sql, payload = call_args
+    _sql, payload = call_args
     assert payload[0][3] == "0.123456"   # Decimal cast to str
 
 
