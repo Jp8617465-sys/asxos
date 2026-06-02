@@ -122,7 +122,7 @@ async def _load_panel(
         return pd.DataFrame()
 
     prices = pd.DataFrame(price_rows, columns=price_rows[0].keys())
-    prices["dt"] = pd.to_datetime(prices["dt"])
+    prices["dt"] = pd.to_datetime(prices["dt"]).astype("datetime64[us]")
     for col in ("open", "high", "low", "close", "volume"):
         prices[col] = pd.to_numeric(prices[col], errors="coerce")
     # merge_asof requires the left frame sorted globally by `on` (dt).
@@ -139,7 +139,7 @@ async def _load_panel(
     )
     if fund_rows:
         funds = pd.DataFrame(fund_rows, columns=fund_rows[0].keys())
-        funds["as_of"] = pd.to_datetime(funds["as_of"])
+        funds["as_of"] = pd.to_datetime(funds["as_of"]).astype("datetime64[us]")
         for col in ("pe_ratio", "pb_ratio", "eps"):
             funds[col] = pd.to_numeric(funds[col], errors="coerce")
         funds = funds.sort_values(["symbol", "as_of"]).reset_index(drop=True)

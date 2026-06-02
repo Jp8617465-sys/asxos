@@ -139,6 +139,7 @@ async def test_rows_written_set_correctly() -> None:
         patch("jobs.ingest_news.init_pool", new=AsyncMock()),
         patch("jobs.ingest_news.close_pool", new=AsyncMock()),
         patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
         patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
         # Each symbol upserts 3 rows
         patch("jobs.ingest_news._fetch_and_upsert", new=AsyncMock(return_value=3)),
@@ -192,6 +193,7 @@ async def test_symbol_failures_above_threshold_proceed() -> None:
         patch("jobs.ingest_news.init_pool", new=AsyncMock()),
         patch("jobs.ingest_news.close_pool", new=AsyncMock()),
         patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
         patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
         patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
     ):
@@ -242,6 +244,7 @@ async def test_symbol_failures_below_threshold_hard_fail() -> None:
         patch("jobs.ingest_news.init_pool", new=AsyncMock()),
         patch("jobs.ingest_news.close_pool", new=AsyncMock()),
         patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
         patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
         patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
     ):

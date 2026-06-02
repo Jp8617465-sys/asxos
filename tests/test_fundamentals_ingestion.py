@@ -85,10 +85,11 @@ def test_parse_malformed_shares():
 @pytest.mark.asyncio
 async def test_symbol_failure_does_not_raise():
     """sync_symbol catches all exceptions and returns False without propagating."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
 
-    with patch("jobs.sync_fundamentals.fetch_and_upsert_fundamentals", side_effect=Exception("API down")):
-        with patch("jobs.sync_fundamentals.acquire") as mock_acquire:
+    with patch("jobs.sync_fundamentals.get_client", return_value=MagicMock()):
+        with patch("jobs.sync_fundamentals.fetch_and_upsert_fundamentals", side_effect=Exception("API down")):
+         with patch("jobs.sync_fundamentals.acquire") as mock_acquire:
             mock_conn = AsyncMock()
             mock_acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
             mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
