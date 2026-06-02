@@ -15,6 +15,7 @@ from asxos.cli.journal import journal_app
 from asxos.cli.model import model_app
 from asxos.cli.news import news_app
 from asxos.cli.portfolio import build_portfolio, portfolio_app, propose_trades
+from asxos.cli.position import position_app
 from asxos.cli.predict import predict
 from asxos.cli.profile import profile_app
 from asxos.cli.signal import signal
@@ -44,6 +45,7 @@ app.add_typer(journal_app, name="journal")
 app.add_typer(profile_app, name="profile")
 app.add_typer(news_app, name="news")
 app.add_typer(portfolio_app, name="portfolio")
+app.add_typer(position_app, name="position")
 app.add_typer(thesis_app, name="thesis")
 app.add_typer(theme_app, name="theme")
 

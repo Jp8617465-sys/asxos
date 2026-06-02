@@ -1,0 +1,246 @@
+"""
+Terminal display for MonitorResult — M-Position-Monitor.
+
+format_monitor(result) → str   (plain text; matches hubs_monitor.py output style)
+format_history(runs)   → str   (rich-compatible table markup)
+
+No I/O; pure functions. The CLI layer calls console.print(format_monitor(result)).
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+
+from asxos.domain.position_monitor.types import MonitorResult
+from asxos.domain.themes.stage_classifier import StageThresholds
+
+_T = StageThresholds()
+
+_STAGE_EMOJI: dict[str, str] = {
+    "early": "🌱",
+    "early-institutional": "🔵",
+    "broad-institutional": "🔵🔵",
+    "mainstream": "📈",
+    "late-retail": "⚠️",
+    "mature": "🔴",
+    "insufficient_data": "❓",
+}
+_SCORE_EMOJI: dict[str, str] = {
+    "confirming": "✅",
+    "mixed": "⚡",
+    "diverging": "❌",
+}
+_STATUS_ICON: dict[str, str] = {
+    "confirmed": "✅",
+    "ON TRACK": "✅",
+    "ELIGIBLE NOW": "✅",
+    "AT TARGET": "🎯",
+    "active": "🟡",
+    "available": "🟡",
+    "pending": "⏳",
+    "in progress": "🔵",
+    "TRIGGERED": "🔴",
+    "risky": "⚠️",
+}
+
+
+def format_monitor(result: MonitorResult) -> str:
+    inp = result.inputs
+    lines: list[str] = []
+
+    # ── Header ─────────────────────────────────────────────────────────────
+    price = inp.current_price
+    lines.append("")
+    header_date = str(inp.as_of)
+    # Pad to fixed width
+    pad = 65 - len(header_date)
+    lines.append(f"╔{'═' * 66}╗")
+    lines.append(
+        f"║  {inp.symbol} — Weekly Monitor{' ' * (pad - 13)}{header_date}  ║"
+    )
+
+    if inp.cost_usd is not None and inp.shares is not None:
+        unrealised_pct = (
+            (price - inp.cost_usd) / inp.cost_usd * Decimal("100")
+        ).quantize(Decimal("0.1"))
+        sign = "+" if unrealised_pct >= 0 else ""
+        lines.append(
+            f"║  Position: {inp.shares}×  Cost: ${inp.cost_usd}  "
+            f"Current: ${price}  P&L: {sign}{unrealised_pct}%"
+        )
+        if inp.cgt_date:
+            days_to_cgt = (inp.cgt_date - inp.as_of).days
+            lines.append(
+                f"║  CGT discount in: {max(0, days_to_cgt)} days  ({inp.cgt_date})"
+            )
+
+    lines.append(f"╚{'═' * 66}╝")
+    lines.append("")
+
+    # ── Stage classifier ───────────────────────────────────────────────────
+    lines.append("── STAGE CLASSIFIER " + "─" * 47)
+    stage_ico = _STAGE_EMOJI.get(result.stage_label, "")
+    lines.append(f"  Stage: {stage_ico} {result.stage_label.upper()}")
+    lines.append("")
+    lines.append("  Signals status:")
+
+    above_50 = price > inp.ma_50d
+    above_200 = price > inp.ma_200d
+    retail_spike = inp.retail_ratio >= _T.retail_mention_spike_pct
+    sentiment_high = inp.news_sentiment >= _T.news_sentiment_high
+    momentum_slow = inp.avg_weekly_move < _T.momentum_slowdown_threshold
+
+    lines.append(
+        f"    {'✅' if above_50 else '❌'} Above 50d MA   "
+        f"${price} {'>' if above_50 else '<'} ${inp.ma_50d}  "
+        f"(need >${inp.ma_50d} to stay emerging)"
+    )
+    lines.append(
+        f"    {'✅' if above_200 else '❌'} Above 200d MA  "
+        f"${price} {'>' if above_200 else '<'} ${inp.ma_200d}  "
+        f"(need >${inp.ma_200d} for MAINSTREAM)"
+    )
+    retail_note = "⚠ high retail — watch for fade" if retail_spike else "normalising — good"
+    lines.append(
+        f"    {'✅' if retail_spike else '❌'} Retail spike   "
+        f"{inp.retail_ratio}× 90d avg  (threshold: {_T.retail_mention_spike_pct}×)  "
+        f"{retail_note}"
+    )
+    lines.append(
+        f"    {'✅' if sentiment_high else '❌'} Sentiment high  "
+        f"{inp.news_sentiment}  (threshold: {_T.news_sentiment_high})"
+    )
+    mom_icon = "⚠" if momentum_slow else "  "
+    lines.append(
+        f"    {mom_icon} Momentum slow  "
+        f"{inp.avg_weekly_move:.0%}/wk  "
+        f"(< {_T.momentum_slowdown_threshold:.0%} = mature signal"
+        + (" — firing" if momentum_slow else " — not firing")
+        + ")"
+    )
+
+    lines.append("")
+    lines.append("  What would change the stage:")
+    pct_to_200d = (
+        (inp.ma_200d - price) / price * Decimal("100")
+    ).quantize(Decimal("0.1"))
+    lines.append(
+        f"    → MAINSTREAM:   price crosses ${inp.ma_200d}  (you're {pct_to_200d}% away)"
+    )
+    lines.append(
+        f"    → EARLY-INST:   retail ratio falls below "
+        f"{_T.retail_mention_spike_pct}× AND sentiment stays high"
+    )
+    lines.append(
+        f"    → EARLY:        retail fades AND price breaks below 50d MA (${inp.ma_50d})"
+    )
+
+    # ── Underlying attribution ─────────────────────────────────────────────
+    lines.append("")
+    lines.append("── UNDERLYING ATTRIBUTION " + "─" * 41)
+    score_ico = _SCORE_EMOJI.get(result.underlying_label, "")
+    lines.append(
+        f"  Score: {score_ico} {result.underlying_label.upper()}  "
+        f"(weighted movement: {result.weighted_movement:+.2f}%)"
+    )
+    lines.append("")
+    for comp in result.component_moves:
+        direction_note = (
+            "falling = good" if comp["code"] == "vix" else "tightening = good"
+        )
+        move = comp.get("move_5d_pct", "n/a")
+        contrib = comp.get("contribution", "n/a")
+        contrib_f = float(contrib) if contrib not in (None, "n/a") else 0.0
+        lines.append(
+            f"  {'✅' if contrib_f > 0 else '❌'} {comp['code']:<12} "
+            f"5d move: {move}%   contribution: {contrib}%   ({direction_note})"
+        )
+    lines.append("")
+    lines.append("  What would flip to DIVERGING:")
+    lines.append("    → VIX spikes above ~22–25 (risk-off event)")
+    lines.append("    → US HY OAS widens above ~350bps (credit stress)")
+    lines.append("    → Either 5d move turns positive (vol rising / spreads widening)")
+
+    # ── Cross-layer ────────────────────────────────────────────────────────
+    lines.append("")
+    lines.append("── CROSS-LAYER " + "─" * 52)
+    if inp.regime_label:
+        lines.append(f"  Regime: {inp.regime_label}")
+    for obs in result.cross_layer_obs:
+        lines.append(f"  · {obs}")
+    if not result.cross_layer_obs:
+        lines.append("  (no cross-layer signals fired)")
+
+    # ── Scenarios ──────────────────────────────────────────────────────────
+    if result.scenarios:
+        lines.append("")
+        lines.append("── SCENARIO CONFIRMATION MATRIX " + "─" * 35)
+        for sc in result.scenarios:
+            ico = _STATUS_ICON.get(sc.status, "·")
+            lines.append(f"\n  {ico} Scenario {sc.code}: {sc.name}  [{sc.status}]")
+            lines.append(f"     Confirmation:  {sc.confirmation}")
+            lines.append(f"     Invalidation:  {sc.invalidation}")
+
+    # ── Decision ───────────────────────────────────────────────────────────
+    lines.append("")
+    lines.append("── WEEKLY DECISION " + "─" * 48)
+    lines.append("")
+    lines.append(f"  Stage:      {result.stage_label.upper()} {_STAGE_EMOJI.get(result.stage_label,'')}")
+    lines.append(
+        f"  Underlying: {result.underlying_label.upper()} "
+        f"{_SCORE_EMOJI.get(result.underlying_label,'')} "
+        f"({result.weighted_movement:+.2f}%)"
+    )
+    if inp.stop_price:
+        pct_to_stop = (
+            (price - inp.stop_price) / price * Decimal("100")
+        ).quantize(Decimal("0.1"))
+        lines.append(f"  Stop gap:   {pct_to_stop}% above ${inp.stop_price}")
+    lines.append(f"  To 200d MA: {pct_to_200d}% above current price")
+    lines.append("")
+
+    if inp.cgt_date:
+        days_to_cgt = (inp.cgt_date - inp.as_of).days
+        lines.append("  ┌─────────────────────────────────────────────────────────┐")
+        lines.append("  │  HOLD — CGT clock ticking. Macro confirming.            │")
+        lines.append("  │                                                         │")
+        lines.append("  │  Watch this week:                                       │")
+        lines.append(f"  │  · Price vs 50d MA (${inp.ma_50d}) — don't break below  │")
+        lines.append("  │  · VIX: stay below 20                                   │")
+        lines.append(f"  │  · Retail ratio: watch for fade below {_T.retail_mention_spike_pct}×           │")
+        lines.append("  │  · HY OAS: stay below 300bps                            │")
+        lines.append("  └─────────────────────────────────────────────────────────┘")
+        lines.append("")
+        lines.append(f"  CGT discount: {max(0, days_to_cgt)} days to {inp.cgt_date}")
+    else:
+        lines.append("  No active thesis context — showing classifier outputs only.")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def format_history(runs: list[dict]) -> str:
+    """Plain-text table of historical runs."""
+    if not runs:
+        return "No monitor runs found for this symbol."
+
+    header = (
+        f"{'DATE':<12}  {'PRICE':>8}  {'STAGE':<22}  {'UNDERLYING':<12}  "
+        f"{'WTDMOV':>8}  {'RETAIL':>8}  {'SENTMT':>8}"
+    )
+    sep = "─" * len(header)
+    lines = [sep, header, sep]
+    for r in runs:
+        stage = (r.get("stage_label") or "")[:22]
+        underlying = (r.get("underlying_label") or "")[:12]
+        wm = float(r.get("weighted_movement") or 0)
+        lines.append(
+            f"{r['as_of']!s:<12}  "
+            f"${float(r['current_price']):>7.2f}  "
+            f"{stage:<22}  "
+            f"{underlying:<12}  "
+            f"{wm:>+7.2f}%  "
+            f"{float(r['retail_ratio']):>7.2f}×  "
+            f"{float(r['news_sentiment']):>7.2f}"
+        )
+    lines.append(sep)
+    return "\n".join(lines)
