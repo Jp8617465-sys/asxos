@@ -16,8 +16,8 @@ from decimal import Decimal
 
 from asxos.domain.brief.opportunity_cost import (
     CandidateWithCGT,
-    rank_by_opportunity_cost,
     _position_cgt_friction,
+    rank_by_opportunity_cost,
 )
 from asxos.domain.portfolio.types import AllocationCandidate, HoldingSnapshot
 from asxos.domain.tax.types import AccountType

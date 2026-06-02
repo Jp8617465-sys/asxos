@@ -17,8 +17,11 @@ Data sources (fetched 2026-06-02):
 """
 from __future__ import annotations
 
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+
+# ── Cross-layer observations ──────────────────────────────────────────────────
+from asxos.domain.brief.cross_layer import cross_layer_observations
 
 # ── Stage classifier ─────────────────────────────────────────────────────────
 from asxos.domain.themes.stage_classifier import (
@@ -31,11 +34,6 @@ from asxos.domain.themes.stage_classifier import (
 # ── Underlying attribution ────────────────────────────────────────────────────
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.types import ThesisUnderlying, UnderlyingDirection
-
-# ── Cross-layer observations ──────────────────────────────────────────────────
-from asxos.domain.brief.cross_layer import cross_layer_observations
-from asxos.domain.underlyings.attribution import UnderlyingScore
-
 
 AS_OF = date(2026, 6, 2)
 
@@ -51,13 +49,13 @@ print(f"as_of: {AS_OF}  |  classifier: {CLASSIFIER_VERSION}")
 print("=" * 60)
 
 print("\n── Inputs ──")
-print(f"  price:            ~$255  (50d MA $243.61 | 200d MA $317.94)")
-print(f"  vs 50d MA:        ABOVE  →  pct_above_50d = 1.0")
-print(f"  vs 200d MA:       BELOW  →  pct_above_200d = 0.0")
-print(f"  avg weekly move:  ~8%    (V-recovery momentum, volatile)")
-print(f"  news_sentiment:   0.72   (Stocktwits: extremely bullish)")
-print(f"  retail ratio:     2.5    (message vol: extremely high = 250% of 90d avg)")
-print(f"  RSI(14):          54.94  (neutral)")
+print("  price:            ~$255  (50d MA $243.61 | 200d MA $317.94)")
+print("  vs 50d MA:        ABOVE  →  pct_above_50d = 1.0")
+print("  vs 200d MA:       BELOW  →  pct_above_200d = 0.0")
+print("  avg weekly move:  ~8%    (V-recovery momentum, volatile)")
+print("  news_sentiment:   0.72   (Stocktwits: extremely bullish)")
+print("  retail ratio:     2.5    (message vol: extremely high = 250% of 90d avg)")
+print("  RSI(14):          54.94  (neutral)")
 
 inputs = ClassifierInput(
     price_history_days=252,
@@ -76,7 +74,7 @@ if result is None:
 else:
     label, conditions = result
     print(f"  STAGE:      {label.upper()}")
-    print(f"  CONDITIONS:")
+    print("  CONDITIONS:")
     for c in conditions:
         print(f"    · {c}")
 
@@ -128,7 +126,7 @@ score = score_thesis_underlying(hubs_underlyings, moves)
 print("\n── Attribution Output ──")
 print(f"  SCORE:             {score.label.upper()}")
 print(f"  WEIGHTED MOVEMENT: {score.weighted_movement:+.2f}%")
-print(f"  COMPONENTS:")
+print("  COMPONENTS:")
 for comp in score.component_moves:
     move = comp.get("move_5d_pct") or "n/a"
     contrib = comp.get("contribution") or "n/a"

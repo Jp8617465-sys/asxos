@@ -143,7 +143,7 @@ def _make_conn(
 
     async def _fetch(query, *args, **kwargs):
         q = " ".join(query.split())
-        if "signals s\nJOIN current_holdings" in query or "FROM signals" in q and "old_label" in q:
+        if "signals s\nJOIN current_holdings" in query or ("FROM signals" in q and "old_label" in q):
             return signal_rows
         if "FROM current_holdings\nORDER BY acquired_at" in query:
             return tax_rows
