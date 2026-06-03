@@ -11,6 +11,7 @@ Labels:
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 from asxos.domain.underlyings.types import ThesisUnderlying, UnderlyingScore
 
@@ -35,7 +36,7 @@ def score_thesis_underlying(
         )
 
     weighted_sum = Decimal("0")
-    components: list[dict] = []
+    components: list[dict[str, Any]] = []
 
     for tu in thesis_underlyings:
         move = underlying_5d_moves.get(tu.underlying_id)

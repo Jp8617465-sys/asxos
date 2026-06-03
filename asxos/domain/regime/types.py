@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 
 class RegimeLabel(StrEnum):
@@ -30,4 +31,4 @@ class RegimeSnapshot:
     as_of: date
     label: RegimeLabel
     rationale: tuple[Condition, ...]       # which conditions fired
-    ingestion_warnings: tuple[dict, ...]   # partial-data flags from ingest
+    ingestion_warnings: tuple[dict[str, Any], ...]   # partial-data flags from ingest

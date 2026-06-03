@@ -12,7 +12,7 @@ with a 45-day disclosure lag before calling compute_all_features().
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 import pandas as pd
@@ -45,7 +45,7 @@ MODEL_A_FEATURES: list[str] = [
 ]
 
 
-def _safe_quintile(x: pd.Series | np.ndarray, q: int = 5) -> pd.Series:
+def _safe_quintile(x: pd.Series | np.ndarray[Any, Any], q: int = 5) -> pd.Series:
     """pd.qcut() with rank-based tie-breaking; returns all-NaN Series on failure."""
     s = x if isinstance(x, pd.Series) else pd.Series(x)
     work = s.rank(method="first")

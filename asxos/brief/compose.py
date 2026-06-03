@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import jinja2
 from dateutil.relativedelta import relativedelta
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 # Deferred to avoid pulling pydantic_settings into test collection.
 # Tests patch asxos.brief.compose.acquire directly; production collect()
 # falls through to the lazy import below.
-acquire = None  # type: ignore[assignment]
+acquire: Any = None
 
 
 @dataclass(frozen=True)
@@ -140,9 +140,9 @@ async def collect(as_of: date) -> BriefData:
     """Single async DB session, five sections + optional portfolio section."""
     # Use module-level `acquire` if set (e.g. by tests); otherwise lazy-import
     # from asxos.db to avoid pulling pydantic_settings in at collection time.
-    _acquire = globals().get("acquire")
+    _acquire: Any = globals().get("acquire")
     if _acquire is None:
-        from asxos.db import acquire as _acquire  # type: ignore[assignment]
+        from asxos.db import acquire as _acquire
     async with _acquire() as conn:
         regime_row = await conn.fetchrow(
             "SELECT regime FROM signals WHERE as_of = $1 LIMIT 1",

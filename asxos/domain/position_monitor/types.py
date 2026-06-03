@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -71,6 +71,6 @@ class MonitorResult:
     conditions_fired: list[str]
     underlying_label: str
     weighted_movement: Decimal
-    component_moves: tuple[dict, ...]
+    component_moves: tuple[dict[str, Any], ...]
     cross_layer_obs: tuple[str, ...]
     scenarios: tuple[ScenarioState, ...] = field(default_factory=tuple)

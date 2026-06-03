@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from typing import Any
 
 import asyncpg
 import numpy as np
@@ -44,7 +45,7 @@ async def persist_signals(
     labels = classify_batch(prob_up, expected_return, regime=regime)
     confidence = confidence_from_prob_up(prob_up)
 
-    rows: list[tuple] = []
+    rows: list[tuple[Any, ...]] = []
     for i, symbol in enumerate(preds.index):
         shap_row = {
             k: (None if not np.isfinite(v) else float(v))

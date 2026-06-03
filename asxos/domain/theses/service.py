@@ -135,7 +135,7 @@ async def _insert_revision(
     thesis_id: int,
     revised_at: datetime,
     revision_type: str,
-    diff: dict,
+    diff: dict[str, Any],
     reasoning: str,
 ) -> None:
     await conn.execute(
@@ -168,7 +168,7 @@ async def open_thesis(
     target_price: Decimal | None = None,
     timeline_days: int | None = None,
     themes: list[str] | None = None,
-    invalidation_conditions: list[dict] | None = None,
+    invalidation_conditions: list[dict[str, Any]] | None = None,
     reasoning: str = "Initial thesis",
 ) -> Thesis:
     """Open a new investment thesis.

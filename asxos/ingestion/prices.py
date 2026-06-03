@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 import asyncpg
 
@@ -18,7 +19,7 @@ def _to_symbol(code: str, *, exchange: str = "AU") -> str:
     return code if "." in code else f"{code}.{exchange}"
 
 
-def to_price_rows(raw: list[dict], universe: set[str], *, exchange: str = "AU") -> list[tuple]:
+def to_price_rows(raw: list[dict[str, Any]], universe: set[str], *, exchange: str = "AU") -> list[tuple[Any, ...]]:
     """Filter bulk API response to universe symbols with valid close prices."""
     rows = []
     for item in raw:
@@ -41,7 +42,7 @@ def to_price_rows(raw: list[dict], universe: set[str], *, exchange: str = "AU") 
     return rows
 
 
-async def upsert_prices(conn: asyncpg.Connection, rows: list[tuple]) -> int:
+async def upsert_prices(conn: asyncpg.Connection, rows: list[tuple[Any, ...]]) -> int:
     if not rows:
         return 0
     await conn.executemany(
@@ -76,7 +77,7 @@ async def fetch_and_upsert_bulk(
 # FX rates — M15
 # ---------------------------------------------------------------------------
 
-def to_fx_rows(raw: list[dict], *, pair: str) -> list[tuple]:
+def to_fx_rows(raw: list[dict[str, Any]], *, pair: str) -> list[tuple[Any, ...]]:
     """Convert EODHD per-symbol price response to fx_rates rows.
 
     EODHD AUDUSD.FOREX returns the same shape as equity per-symbol prices:
@@ -97,7 +98,7 @@ def to_fx_rows(raw: list[dict], *, pair: str) -> list[tuple]:
     return rows
 
 
-async def upsert_fx_rates(conn: asyncpg.Connection, rows: list[tuple]) -> int:
+async def upsert_fx_rates(conn: asyncpg.Connection, rows: list[tuple[Any, ...]]) -> int:
     """UPSERT fx_rates rows.  ON CONFLICT updates the rate (idempotent rerun)."""
     if not rows:
         return 0
@@ -117,7 +118,7 @@ async def upsert_fx_rates(conn: asyncpg.Connection, rows: list[tuple]) -> int:
 # US per-symbol prices — M15
 # ---------------------------------------------------------------------------
 
-def to_us_price_rows(raw: list[dict], *, symbol: str) -> list[tuple]:
+def to_us_price_rows(raw: list[dict[str, Any]], *, symbol: str) -> list[tuple[Any, ...]]:
     """Convert EODHD per-symbol response to price rows for a US holding.
 
     Unlike the bulk AU endpoint, per-symbol responses have no 'code' field —

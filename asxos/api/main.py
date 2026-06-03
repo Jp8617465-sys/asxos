@@ -8,7 +8,7 @@ from asxos.config import BriefSettings, settings
 # Startup guard: validate brief env vars are present before the app boots.
 # BriefSettings() raises ValidationError immediately if any are missing.
 # Do NOT remove — this is intentional, not dead code.
-_brief_settings = BriefSettings()
+_brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
 from asxos.domain.models.cache import get_cache  # noqa: E402
 

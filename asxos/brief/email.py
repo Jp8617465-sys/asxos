@@ -11,7 +11,7 @@ from datetime import date
 
 from asxos.config import BriefSettings
 
-settings = BriefSettings()  # hard-fails at import if brief vars absent
+settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars; hard-fails if absent
 
 
 @dataclass(frozen=True)

@@ -33,7 +33,7 @@ def risk_tolerance_scalar(label: str) -> Decimal:
         raise ValueError(
             f"unknown risk_tolerance {label!r}; valid: {list(RISK_TOLERANCE_SCALARS)}"
         )
-    return RISK_TOLERANCE_SCALARS[label]
+    return RISK_TOLERANCE_SCALARS[label]  # type: ignore[index]  # validated above
 
 
 def _normalise_score_weights(raw: dict[str, Any]) -> dict[str, Decimal]:
@@ -217,7 +217,7 @@ async def save(
         defer_near_boundary_sells,
         json.dumps({k: str(v) for k, v in weights.items()}),
     )
-    return profile_id
+    return int(profile_id)  # asyncpg fetchval returns Any
 
 
 async def activate(conn: asyncpg.Connection, name: str) -> int:
@@ -228,4 +228,4 @@ async def activate(conn: asyncpg.Connection, name: str) -> int:
     partial unique index would catch it too; this is belt-and-braces.
     """
     profile_id = await conn.fetchval("SELECT set_active_profile($1)", name)
-    return profile_id
+    return int(profile_id)  # asyncpg fetchval returns Any

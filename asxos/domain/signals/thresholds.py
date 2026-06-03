@@ -15,6 +15,8 @@ use `.apply()` row-by-row in the pipeline (ml-conventions.md).
 """
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 LABELS = ("STRONG_BUY", "BUY", "HOLD", "SELL", "STRONG_SELL")
@@ -48,21 +50,21 @@ def apply_regime_thresholds(prob_up: float, expected_return: float, regime: str)
     return classify(prob_up, expected_return)
 
 
-def confidence_from_prob_up(prob_up: np.ndarray | float) -> np.ndarray:
+def confidence_from_prob_up(prob_up: np.ndarray[Any, Any] | float) -> np.ndarray[Any, Any]:
     """0..100 integer scale (ml-conventions.md).
 
     Uses np.round to dodge the float-precision case `(0.6-0.5)*200 == 19.999...`
     which would truncate to 19 under a naive `.astype(int)`.
     """
     arr = np.abs(np.asarray(prob_up, dtype=float) - 0.5) * 200.0
-    return np.clip(np.round(arr), 0, 100).astype(int)
+    return np.clip(np.round(arr), 0, 100).astype(int)  # type: ignore[no-any-return]
 
 
 def classify_batch(
-    prob_up: np.ndarray,
-    expected_return: np.ndarray,
+    prob_up: np.ndarray[Any, Any],
+    expected_return: np.ndarray[Any, Any],
     regime: str = "neutral",
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Vectorised classifier — row-equivalent to apply_regime_thresholds.
 

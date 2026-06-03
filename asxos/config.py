@@ -94,7 +94,7 @@ class BriefSettings(BaseSettings):
     brief_to_email: str
 
 
-core_settings = CoreSettings()
+core_settings = CoreSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
 
 # BriefSettings is NOT instantiated here — only asxos/brief/email.py and
 # asxos/api/main.py import and instantiate it. This means job-only services

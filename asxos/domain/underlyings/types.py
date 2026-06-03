@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 
 class UnderlyingCategory(StrEnum):
@@ -13,7 +14,7 @@ class UnderlyingCategory(StrEnum):
     commodity_agriculture = "commodity_agriculture"
     currency = "currency"
     rate = "rate"
-    index = "index"
+    index = "index"  # type: ignore[assignment]
 
 
 class UnderlyingDirection(StrEnum):
@@ -55,4 +56,4 @@ class UnderlyingScore:
     """Attribution score for a single thesis's underlying basket."""
     label: str              # 'confirming' | 'mixed' | 'diverging'
     weighted_movement: Decimal   # exposure-weighted, direction-signed 5d move
-    component_moves: tuple[dict, ...]  # per-underlying breakdown for display
+    component_moves: tuple[dict[str, Any], ...]  # per-underlying breakdown for display

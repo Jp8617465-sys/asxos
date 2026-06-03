@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 RiskTolerance = Literal["conservative", "balanced", "growth", "aggressive"]
 AccountType = Literal["individual", "smsf"]
@@ -198,7 +198,7 @@ class AllocationTarget:
     signal_label: str
     prob_up: Decimal
     expected_return: Decimal
-    constraint_log: dict  # populated by M13.4 constraints.apply_constraints()
+    constraint_log: dict[str, Any]  # populated by M13.4 constraints.apply_constraints()
 
 
 # ---------------------------------------------------------------------------
@@ -249,8 +249,8 @@ class ProposedTrade:
     target_qty: Decimal
     current_qty: Decimal
     reference_price: Decimal
-    rationale_tags: dict
-    lot_hints: dict  # populated on sells only
+    rationale_tags: dict[str, Any]
+    lot_hints: dict[str, Any]  # populated on sells only
 
 
 # ---------------------------------------------------------------------------
@@ -280,4 +280,4 @@ class RebalanceResult:
     profile: Profile
     targets: list[AllocationTarget]
     trades: list[ProposedTrade]
-    summary: dict  # {total_buy_aud, total_sell_aud, n_buys, n_sells, n_holds, n_deferrals}
+    summary: dict[str, Any]  # {total_buy_aud, total_sell_aud, n_buys, n_sells, n_holds, n_deferrals}

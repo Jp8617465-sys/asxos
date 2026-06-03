@@ -28,7 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import asyncpg
@@ -237,7 +237,7 @@ async def list_evaluable_runs(
     *,
     weeks: int = 4,
     today: date | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Return runs old enough to have ``weeks`` of subsequent price history.
 
     A run is evaluable when ``run.as_of + weeks * 7 <= today``.  The returned

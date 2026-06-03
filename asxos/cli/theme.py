@@ -20,6 +20,7 @@ from rich.table import Table
 from asxos.cli._common import console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.themes import service as svc
+from asxos.domain.themes.types import Theme
 
 theme_app = typer.Typer(
     help="Theme stewardship.",
@@ -295,7 +296,7 @@ async def _attach_thesis(
 # Display helpers
 # ---------------------------------------------------------------------------
 
-def _print_theme_detail(theme: svc.Theme) -> None:
+def _print_theme_detail(theme: Theme) -> None:
     rows = [
         ("ID", str(theme.theme_id)),
         ("Code", theme.theme_code),

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from functools import lru_cache
+from typing import Any
 
 import httpx
 from tenacity import (
@@ -59,7 +60,7 @@ class FREDClient:
         retry=retry_if_exception(_is_retryable),
         reraise=True,
     )
-    async def _get(self, path: str, **params: str | int) -> dict:
+    async def _get(self, path: str, **params: str | int) -> dict[str, Any]:
         async with self._sem:
             r = await self._client.get(
                 f"{self.BASE}{path}",

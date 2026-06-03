@@ -27,7 +27,7 @@ from asxos.domain.underlyings.types import (
 # Default underlying catalog — seeded once on first deploy
 # ---------------------------------------------------------------------------
 
-_DEFAULTS: list[dict] = [
+_DEFAULTS: list[dict[str, Any]] = [
     {"code": "iron_ore_62fe", "name": "Iron Ore 62% Fe CFR China", "category": "commodity_resources", "unit": "USD/t", "data_source": "eodhd:IRON.COMM"},
     {"code": "copper", "name": "Copper Grade A LME", "category": "commodity_resources", "unit": "USD/t", "data_source": "eodhd:COPPER.COMM"},
     {"code": "lithium_carbonate", "name": "Lithium Carbonate 99.5% China", "category": "commodity_resources", "unit": "CNY/t", "data_source": "manual"},

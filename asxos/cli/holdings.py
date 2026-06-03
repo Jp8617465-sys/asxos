@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from decimal import Decimal
+from typing import Any
 
 import typer
 
@@ -37,7 +38,7 @@ def _infer_currency(symbol: str) -> str:
     return "AUD"
 
 
-async def _ensure_in_universe(conn, symbol: str) -> None:
+async def _ensure_in_universe(conn: Any, symbol: str) -> None:
     """Demand-driven universe insert — idempotent.
 
     Runs before every holding_lots INSERT so FK never fails on non-AU
@@ -55,7 +56,7 @@ async def _ensure_in_universe(conn, symbol: str) -> None:
     )
 
 
-async def _resolve_fx_rate(conn, acquired_at) -> Decimal | None:
+async def _resolve_fx_rate(conn: Any, acquired_at: Any) -> Decimal | None:
     """Look up AUDUSD rate on acquired_at from fx_rates table.
 
     Returns None if no rate is available (e.g. fx_rates not yet populated).
@@ -68,7 +69,7 @@ async def _resolve_fx_rate(conn, acquired_at) -> Decimal | None:
     return Decimal(str(row["rate"])) if row else None
 
 
-async def _run_import_holdings(rows: list) -> None:
+async def _run_import_holdings(rows: list[Any]) -> None:
     await init_pool()
     try:
         async with acquire() as conn:

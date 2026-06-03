@@ -30,7 +30,7 @@ def _int(val: Any) -> int | None:
         return None
 
 
-def parse_fundamentals(raw: dict) -> dict:
+def parse_fundamentals(raw: dict[str, Any]) -> dict[str, Any]:
     """
     Flatten EODHD /fundamentals/{symbol} response into a flat dict.
     Any missing or unparseable field returns None — never raises.

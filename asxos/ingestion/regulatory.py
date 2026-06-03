@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 from xml.etree import ElementTree as ET
 
 import asyncpg
@@ -69,7 +70,7 @@ def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> 
     return out
 
 
-def parse_json_announcements(payload: list[dict], *, source: str = "ASX") -> list[RegulatoryEvent]:
+def parse_json_announcements(payload: list[dict[str, Any]], *, source: str = "ASX") -> list[RegulatoryEvent]:
     """ASX announcements JSON — one object per announcement.
 
     Each item is expected to carry: symbol, headline, url, pdfUrl, releasedOn.

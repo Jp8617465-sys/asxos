@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
+from typing import Any
 
 
 class SectionStatus(StrEnum):
@@ -35,7 +36,7 @@ class SectionResult:
     items: tuple[SeverityItem, ...]
     elapsed_ms: int
     error: str | None = None
-    metadata: dict | None = None  # structured output from collector (e.g. regime_label)
+    metadata: dict[str, Any] | None = None  # structured output from collector (e.g. regime_label)
 
 
 @dataclass(frozen=True)
@@ -64,5 +65,5 @@ class BriefRun:
     """Row persisted to brief_runs after composition."""
     brief_id: int
     as_of: date
-    sections_run: dict = field(default_factory=dict)
+    sections_run: dict[str, Any] = field(default_factory=dict)
     resend_message_id: str | None = None

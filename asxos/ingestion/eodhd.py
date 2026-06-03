@@ -53,23 +53,23 @@ class EODHDClient:
             r.raise_for_status()
             return r.json()
 
-    async def exchange_symbols(self, exchange: str = "AU") -> list[dict]:
-        return await self._get(f"/exchange-symbol-list/{exchange}")
+    async def exchange_symbols(self, exchange: str = "AU") -> list[dict[str, Any]]:
+        return await self._get(f"/exchange-symbol-list/{exchange}")  # type: ignore[no-any-return]
 
-    async def daily_prices(self, symbol: str, *, from_date: str | None = None) -> list[dict]:
+    async def daily_prices(self, symbol: str, *, from_date: str | None = None) -> list[dict[str, Any]]:
         params: dict[str, Any] = {}
         if from_date:
             params["from"] = from_date
-        return await self._get(f"/eod/{symbol}", **params)
+        return await self._get(f"/eod/{symbol}", **params)  # type: ignore[no-any-return]
 
-    async def daily_prices_bulk(self, exchange: str = "AU", *, date: str | None = None) -> list[dict]:
+    async def daily_prices_bulk(self, exchange: str = "AU", *, date: str | None = None) -> list[dict[str, Any]]:
         params: dict[str, Any] = {}
         if date:
             params["date"] = date
-        return await self._get(f"/eod-bulk-last-day/{exchange}", **params)
+        return await self._get(f"/eod-bulk-last-day/{exchange}", **params)  # type: ignore[no-any-return]
 
-    async def fundamentals(self, symbol: str) -> dict:
-        return await self._get(f"/fundamentals/{symbol}")
+    async def fundamentals(self, symbol: str) -> dict[str, Any]:
+        return await self._get(f"/fundamentals/{symbol}")  # type: ignore[no-any-return]
 
     async def news_for_symbol(
         self,
@@ -77,7 +77,7 @@ class EODHDClient:
         *,
         limit: int = 10,
         from_date: str | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Fetch recent news headlines for a single symbol from EODHD /news.
 
         EODHD returns a list directly (unlike most endpoints that return a dict).
@@ -95,7 +95,7 @@ class EODHDClient:
         *,
         from_date: str,
         to_date: str,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Fetch daily aggregated sentiment from EODHD /sentiments (M14b).
 
         Returns list of {date, count, normalized} dicts.

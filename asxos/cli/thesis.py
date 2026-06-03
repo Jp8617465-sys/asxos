@@ -17,6 +17,7 @@ import asyncio
 import re
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 import typer
 from rich.table import Table
@@ -78,7 +79,7 @@ def _parse_decimal(value: str, label: str) -> Decimal:
         raise typer.BadParameter(f"Invalid {label}: {value!r}") from exc
 
 
-def _thesis_summary_row(t: Thesis) -> tuple:
+def _thesis_summary_row(t: Thesis) -> tuple[str, ...]:
     """Return (symbol, status, thesis_id, entry_band, stop, target, days_since, overdue)."""
     days_since = (date.today() - t.opened_at.date()).days
     overdue = date.today() > t.revisit_due_at.date()
@@ -111,10 +112,6 @@ async def _run(coro):  # type: ignore[no-untyped-def]
     finally:
         await close_pool()
 
-
-async def _get_open_thesis(symbol: str) -> tuple[svc.asyncpg.Connection, Thesis]:
-    """Used by enter/revise/review/exit — gets most recent thesis by symbol."""
-    raise NotImplementedError("caller must use acquire() context")
 
 
 # ---------------------------------------------------------------------------
@@ -295,7 +292,7 @@ def thesis_revise(
     asyncio.run(_revise_thesis(symbol, changes, reason))
 
 
-async def _revise_thesis(symbol: str, changes: dict, reason: str) -> None:
+async def _revise_thesis(symbol: str, changes: dict[str, Any], reason: str) -> None:
     await init_pool()
     try:
         async with acquire() as conn:
@@ -681,8 +678,8 @@ def _print_thesis_detail(t: Thesis) -> None:
         ("Target", str(t.target_price or "—")),
         ("Timeline", deadline_str),
         ("Themes", ", ".join(t.themes) or "—"),
-        ("Actual entry", f"{t.actual_entry_price} on {t.actual_entry_at.date()}" if t.actual_entry_price else "—"),
-        ("Actual exit", f"{t.actual_exit_price} on {t.actual_exit_at.date()}" if t.actual_exit_price else "—"),
+        ("Actual entry", f"{t.actual_entry_price} on {t.actual_entry_at.date()}" if t.actual_entry_price and t.actual_entry_at else "—"),
+        ("Actual exit", f"{t.actual_exit_price} on {t.actual_exit_at.date()}" if t.actual_exit_price and t.actual_exit_at else "—"),
         ("Opened", str(t.opened_at.date())),
         ("Last revisited", str(t.last_revisited_at.date())),
         ("Next revisit due", revisit_str),

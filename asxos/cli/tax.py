@@ -82,7 +82,7 @@ async def _run_tax_view(
         )
         view = tax_view_individual(lots=lots, realised_gains=[], dividends=[], config=cfg)
     else:
-        cfg = SMSFConfig(
+        smsf_cfg = SMSFConfig(
             fund_pension_proportion=Decimal(str(fund_pension_proportion)),
             carried_forward_capital_loss=Decimal(str(carried_forward_loss)),
         )
@@ -90,7 +90,7 @@ async def _run_tax_view(
             lots=lots,
             realised_gains=[],
             dividends=[],
-            config=cfg,
+            config=smsf_cfg,
             tsb_ref=Decimal(str(tsb_ref)) if tsb_ref > 0 else None,
         )
 
@@ -119,10 +119,10 @@ async def _run_tax_view(
         for a in view.eligibility_alerts:
             console.print(f"  - {a}")
     if view.div296_outcome:
-        d = view.div296_outcome
+        div296 = view.div296_outcome
         console.print(
-            f"Div 296: tier1={d.tier_1:.2f}, tier2={d.tier_2:.2f}, total={d.total:.2f}"
-            + (" [yellow](provisional)[/yellow]" if d.is_provisional else "")
+            f"Div 296: tier1={div296.tier_1:.2f}, tier2={div296.tier_2:.2f}, total={div296.total:.2f}"
+            + (" [yellow](provisional)[/yellow]" if div296.is_provisional else "")
         )
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from asxos.domain.portfolio.tax_overlay import near_boundary_lots
 from asxos.domain.portfolio.types import (
@@ -20,6 +21,7 @@ from asxos.domain.portfolio.types import (
     Profile,
     ProposedTrade,
     RebalanceResult,
+    TradeSide,
 )
 
 # §5.1: sell is deferred if a lot is within this many days of CGT eligibility.
@@ -130,13 +132,13 @@ def compute_deltas(
         delta_qty = target_qty - curr_qty
         delta_aud = delta_qty * ref_price
 
-        tags: dict = {}
-        hints: dict = {}
+        tags: dict[str, Any] = {}
+        hints: dict[str, Any] = {}
 
         # Universe-inactive forced-sell: override delta, ignore drift.
         is_universe_inactive = symbol in inactive and curr_qty > Decimal("0")
         if is_universe_inactive:
-            side: str = "sell"
+            side: TradeSide = "sell"
             tags["reason"] = "universe_inactive"
             # Full sell: sell the entire held position.
             delta_qty = -curr_qty

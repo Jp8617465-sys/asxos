@@ -11,7 +11,7 @@ Walk-forward, default 5 folds, last fold's metrics are reported.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 FORWARD_RETURN_DAYS = 5
 DEFAULT_N_SPLITS = 5
-DEFAULT_CLF_PARAMS: dict = {
+DEFAULT_CLF_PARAMS: dict[str, Any] = {
     "n_estimators": 800,
     "learning_rate": 0.03,
     "num_leaves": 64,
@@ -32,7 +32,7 @@ DEFAULT_CLF_PARAMS: dict = {
     "random_state": 42,
     "verbose": -1,
 }
-DEFAULT_REG_PARAMS: dict = {
+DEFAULT_REG_PARAMS: dict[str, Any] = {
     "n_estimators": 600,
     "learning_rate": 0.05,
     "num_leaves": 48,
@@ -87,7 +87,7 @@ def walk_forward_split(
     chronological order. We sort by `dt` then by `symbol` to keep panel rows
     grouped by time-step.
     """
-    from sklearn.model_selection import TimeSeriesSplit
+    from sklearn.model_selection import TimeSeriesSplit  # type: ignore[import-not-found]
 
     if "dt" not in panel.columns:
         raise ValueError("panel must contain a `dt` column for time-aware splitting")
@@ -110,7 +110,7 @@ def train_model_a(
     Final classifier/regressor: trained on the entire dataset.
     """
     from lightgbm import LGBMClassifier, LGBMRegressor
-    from sklearn.metrics import mean_squared_error, roc_auc_score
+    from sklearn.metrics import mean_squared_error, roc_auc_score  # type: ignore[import-not-found]
 
     if not features:
         raise ValueError("features must be a non-empty list")

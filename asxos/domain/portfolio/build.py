@@ -19,6 +19,7 @@ import json
 from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 
 from asxos.domain.portfolio import allocator as _allocator
 from asxos.domain.portfolio import constraints as _constraints
@@ -48,7 +49,7 @@ class PortfolioService:
 
     async def build(
         self,
-        conn,
+        conn: Any,
         *,
         profile_name: str | None = None,
         as_of: date | None = None,
@@ -268,7 +269,7 @@ class PortfolioService:
     # persist
     # ------------------------------------------------------------------
 
-    async def persist(self, conn, result: RebalanceResult) -> int:
+    async def persist(self, conn: Any, result: RebalanceResult) -> int:
         """Write a RebalanceResult to the DB atomically. Returns run_id.
 
         Idempotent on same-day re-run: DELETE WHERE (profile_id, as_of)
@@ -359,9 +360,9 @@ class PortfolioService:
 
     async def load_run(
         self,
-        conn,
+        conn: Any,
         run_id: int | None = None,
-    ) -> tuple[dict, list[dict], list[dict]] | None:
+    ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]] | None:
         """Load a run's header, targets, and trades.
 
         If ``run_id`` is None, returns the most recent run. Returns None
@@ -403,7 +404,7 @@ class PortfolioService:
         )
         return dict(run), [dict(r) for r in targets], [dict(r) for r in trades]
 
-    async def list_runs(self, conn, days: int = 30) -> list[dict]:
+    async def list_runs(self, conn: Any, days: int = 30) -> list[dict[str, Any]]:
         """List rebalance runs from the last ``days`` days, newest first."""
         cutoff = date.today() - timedelta(days=days)
         rows = await conn.fetch(

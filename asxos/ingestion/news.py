@@ -30,6 +30,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 
 import asyncpg
 
@@ -47,7 +48,7 @@ class NewsItem:
     sentiment_polarity: Decimal | None = field(default=None)  # numeric ∈ [-1.5, +1.5]; None if absent
 
 
-def _parse_sentiment(raw_item: dict) -> str:
+def _parse_sentiment(raw_item: dict[str, Any]) -> str:
     """Extract text sentiment label from EODHD sentiment field.
 
     EODHD /news on current plan tiers returns a dict with numeric fields:
@@ -74,7 +75,7 @@ def _parse_sentiment(raw_item: dict) -> str:
     return (s or "").lower() if isinstance(s, str) else ""
 
 
-def _extract_polarity(raw_item: dict) -> Decimal | None:
+def _extract_polarity(raw_item: dict[str, Any]) -> Decimal | None:
     """Extract numeric polarity from EODHD sentiment dict.
 
     EODHD returns: {"polarity": -0.953, "neg": 0.05, "neu": 0.942, "pos": 0.008}
@@ -108,7 +109,7 @@ def _normalise_symbol(sym: str) -> str:
 
 
 def parse_news_response(
-    raw: list[dict],
+    raw: list[dict[str, Any]],
     *,
     holdings: set[str],
     as_of: date,

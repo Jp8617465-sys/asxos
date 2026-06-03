@@ -175,7 +175,7 @@ def build_monitor_result(
 # DB helpers
 # ---------------------------------------------------------------------------
 
-async def load_position_context(conn: Any, symbol: str) -> dict:
+async def load_position_context(conn: Any, symbol: str) -> dict[str, Any]:
     """Load thesis stop/target + lot cost/shares/acquired for a symbol.
 
     Returns an empty dict if no active thesis is found.
@@ -234,7 +234,7 @@ async def load_position_context(conn: Any, symbol: str) -> dict:
     }
 
 
-async def get_last_sentiment_inputs(conn: Any, symbol: str) -> dict | None:
+async def get_last_sentiment_inputs(conn: Any, symbol: str) -> dict[str, Any] | None:
     """Return the most recent manual inputs for CLI defaults."""
     row = await conn.fetchrow(
         """
@@ -273,7 +273,7 @@ async def save_run(conn: Any, result: MonitorResult) -> int:
     return int(run_id)
 
 
-async def list_runs(conn: Any, symbol: str, limit: int = 10) -> list[dict]:
+async def list_runs(conn: Any, symbol: str, limit: int = 10) -> list[dict[str, Any]]:
     """Return recent runs for a symbol, newest-first."""
     rows = await conn.fetch(
         """

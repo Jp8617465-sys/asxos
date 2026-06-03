@@ -9,6 +9,7 @@ No I/O; pure functions. The CLI layer calls console.print(format_monitor(result)
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 from asxos.domain.position_monitor.types import MonitorResult
 from asxos.domain.tax.cgt import cgt_break_even_price
@@ -260,7 +261,7 @@ def format_monitor(result: MonitorResult) -> str:
     return "\n".join(lines)
 
 
-def format_history(runs: list[dict]) -> str:
+def format_history(runs: list[dict[str, Any]]) -> str:
     """Plain-text table of historical runs."""
     if not runs:
         return "No monitor runs found for this symbol."
