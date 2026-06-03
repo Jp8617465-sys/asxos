@@ -60,6 +60,19 @@ Fifteen tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statis
 - `make migrate` — reminder only; actual apply via Supabase MCP
 - `make check-drift` — reconcile `render.yaml` against Render dashboard via MCP
 
+## Known test environment gaps (do not chase)
+
+Four tests are permanently collection-errors in the remote Claude Code sandbox because
+`joblib` / `lightgbm` / `sklearn` are not installed in the sandbox Python env:
+
+- `tests/test_cli_predict.py`
+- `tests/test_generate_signals_job.py`
+- `tests/test_model_a_predict.py`
+- `tests/test_model_cache.py`
+
+These pass in the production Render environment where `pip install -e ".[ml]"` is run.
+Do not add workarounds or skip markers — the tests themselves are correct.
+
 ## Auto-activating rules
 
 `.claude/rules/` files attach automatically when working in matching paths:
