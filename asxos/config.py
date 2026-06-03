@@ -61,6 +61,7 @@ class CoreSettings(BaseSettings):
     healthcheck_url_check_cron_health: str = ""      # Phase-0
     healthcheck_url_ingest_market_context: str = ""  # M-Market-Context
     healthcheck_url_ingest_underlyings: str = ""     # M-Underlyings
+    healthcheck_url_check_us_positions: str = ""     # M-Position-Monitor
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False

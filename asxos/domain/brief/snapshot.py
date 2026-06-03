@@ -28,10 +28,11 @@ _PRIORITY: dict[tuple[str, str], int] = {
     # (section, fragment in message) → priority
     ("active_theses", "overdue"): 1,
     ("active_theses", "stop"): 2,
-    ("allocation_health", ""): 3,
-    ("market_context", ""): 4,
-    ("opportunity_cost", ""): 5,
-    ("new_ideas", ""): 6,
+    ("active_theses", "earnings"): 3,
+    ("allocation_health", ""): 4,
+    ("market_context", ""): 5,
+    ("opportunity_cost", ""): 6,
+    ("new_ideas", ""): 7,
 }
 
 

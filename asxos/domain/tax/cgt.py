@@ -11,7 +11,7 @@ All Decimal in/out. No I/O.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 
 from dateutil.relativedelta import relativedelta
@@ -105,3 +105,36 @@ def net_capital_gain(
         net_capital_gain=net_gain,
         net_capital_loss_cf=net_loss_cf,
     )
+
+
+def cgt_break_even_price(
+    current_price: Decimal,
+    cost_usd: Decimal,
+    account_type: str,
+    acquired: date,
+    as_of: date,
+    marginal_rate: Decimal = Decimal("0.45"),
+) -> Decimal | None:
+    """
+    Minimum sale price to break even after CGT vs waiting for the 50% discount.
+
+    Formula (spec §2 + §5.1):
+        P_sell = [P * (1 - r*d) - cost * r*d] / (1 - r)
+
+    where d = CGT discount fraction (0.5 individual, 1/3 SMSF), r = marginal rate.
+
+    Returns None if: already CGT-eligible, no unrealised gain, or formula
+    produces a result below cost (degenerate: tiny gain, very high rate).
+    spec §5.1 calendar arithmetic via days_to_eligibility().
+    """
+    if days_to_eligibility(acquired, as_of) == 0:
+        return None
+    if current_price <= cost_usd:
+        return None
+    discount = cgt_discount_rate(account_type)  # type: ignore[arg-type]  # str narrows to AccountType at runtime
+    denominator = Decimal("1") - marginal_rate
+    if denominator <= 0:
+        return None
+    numerator = current_price * (Decimal("1") - marginal_rate * discount) - cost_usd * marginal_rate * discount
+    result = (numerator / denominator).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return result if result > cost_usd else None

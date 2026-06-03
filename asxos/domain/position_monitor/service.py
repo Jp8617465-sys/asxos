@@ -185,9 +185,14 @@ async def load_position_context(conn: Any, symbol: str) -> dict:
         SELECT t.thesis_id,
                t.stop_price,
                t.target_price,
+               t.analyst_buy_count,
+               t.analyst_neutral_count,
+               t.analyst_sell_count,
+               t.analyst_consensus_target,
                hl.cost_base_normal,
                hl.quantity,
-               hl.acquired_at AS lot_acquired_at
+               hl.acquired_at   AS lot_acquired_at,
+               hl.account_type  AS lot_account_type
         FROM   theses t
         LEFT   JOIN holding_lots hl
                ON  hl.symbol = t.symbol
@@ -221,14 +226,19 @@ async def load_position_context(conn: Any, symbol: str) -> dict:
         "shares": row["quantity"],
         "acquired": acquired,
         "cgt_date": cgt_date,
+        "account_type": row["lot_account_type"] or "individual",
+        "analyst_buy_count": row["analyst_buy_count"],
+        "analyst_neutral_count": row["analyst_neutral_count"],
+        "analyst_sell_count": row["analyst_sell_count"],
+        "analyst_consensus_target": row["analyst_consensus_target"],
     }
 
 
 async def get_last_sentiment_inputs(conn: Any, symbol: str) -> dict | None:
-    """Return the most recent retail_ratio + news_sentiment for CLI defaults."""
+    """Return the most recent manual inputs for CLI defaults."""
     row = await conn.fetchrow(
         """
-        SELECT retail_ratio, news_sentiment
+        SELECT retail_ratio, news_sentiment, volume_vs_avg_pct, short_interest_pct
         FROM   position_monitor_runs
         WHERE  symbol = $1
         ORDER  BY as_of DESC, created_at DESC
@@ -248,9 +258,9 @@ async def save_run(conn: Any, result: MonitorResult) -> int:
             symbol, as_of, current_price, ma_50d, ma_200d, avg_weekly_move,
             vix_5d_move, hy_oas_5d_move, retail_ratio, news_sentiment,
             stop_price, stage_label, underlying_label, weighted_movement,
-            regime_label
+            regime_label, price_type, volume_vs_avg_pct, short_interest_pct
         ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
         )
         RETURNING run_id
         """,
@@ -258,7 +268,7 @@ async def save_run(conn: Any, result: MonitorResult) -> int:
         i.avg_weekly_move, i.vix_5d_move, i.hy_oas_5d_move,
         i.retail_ratio, i.news_sentiment, i.stop_price,
         result.stage_label, result.underlying_label, result.weighted_movement,
-        i.regime_label,
+        i.regime_label, i.price_type, i.volume_vs_avg_pct, i.short_interest_pct,
     )
     return int(run_id)
 

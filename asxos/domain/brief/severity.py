@@ -76,6 +76,41 @@ def cgt_boundary_approaching(
     return None
 
 
+def earnings_risk(
+    symbol: str,
+    next_earnings_date: date | None,
+    cgt_date: date | None,
+    as_of: date,
+    section: str = "active_theses",
+) -> SeverityItem | None:
+    """
+    Red: earnings within 14d of CGT discount date (double-risk window).
+    Yellow: earnings within 30d of as_of.
+    None: no earnings date, earnings already passed, or > 30d away.
+    """
+    if next_earnings_date is None:
+        return None
+    days_to_earnings = (next_earnings_date - as_of).days
+    if days_to_earnings < 0:
+        return None
+    if cgt_date is not None and abs((next_earnings_date - cgt_date).days) <= 14:
+        return SeverityItem(
+            level=SeverityLevel.red,
+            message=(
+                f"{symbol}: earnings {next_earnings_date} within 14d of CGT discount"
+                f" date {cgt_date} — double-risk window"
+            ),
+            section=section,
+        )
+    if days_to_earnings <= 30:
+        return SeverityItem(
+            level=SeverityLevel.yellow,
+            message=f"{symbol}: earnings in {days_to_earnings}d ({next_earnings_date})",
+            section=section,
+        )
+    return None
+
+
 def regime_warning(
     label: str,
     section: str = "market_context",

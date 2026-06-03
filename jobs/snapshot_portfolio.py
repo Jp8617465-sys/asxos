@@ -75,12 +75,14 @@ async def _fetch_active_profile(conn) -> dict:
     }
 
 
-async def _compute_holdings_mv(conn, as_of: date) -> tuple[Decimal, int]:
+async def _compute_holdings_mv(
+    conn, as_of: date
+) -> tuple[Decimal, int, Decimal | None, Decimal | None, Decimal | None]:
     """Compute total market value of current_holdings on as_of.
 
     AU symbols: price in AUD, no FX conversion needed.
     US symbols: price in USD, converted to AUD via most recent AUDUSD rate.
-    Returns (holdings_mv_aud, holdings_count).
+    Returns (holdings_mv_aud, holdings_count, us_mv_aud, us_cost_aud, fx_rate_audusd).
     """
     # Fetch the most recent AUDUSD rate on or before as_of (monthly data)
     fx_row = await conn.fetchrow(
@@ -104,9 +106,10 @@ async def _compute_holdings_mv(conn, as_of: date) -> tuple[Decimal, int]:
     )
 
     if not rows:
-        return Decimal("0"), 0
+        return Decimal("0"), 0, None, None, audusd_rate
 
     total_mv = Decimal("0")
+    us_mv_aud: Decimal | None = None
     for r in rows:
         qty = Decimal(str(r["quantity"]))
         close = Decimal(str(r["close"]))
@@ -119,11 +122,29 @@ async def _compute_holdings_mv(conn, as_of: date) -> tuple[Decimal, int]:
                 )
             # AUDUSD rate = USD per 1 AUD; USD → AUD = price / rate
             price_aud = close / audusd_rate
+            us_mv_aud = (us_mv_aud or Decimal("0")) + qty * price_aud
         else:
             price_aud = close
         total_mv += qty * price_aud
 
-    return total_mv.quantize(Decimal("0.000001")), len(rows)
+    # US cost_base_normal is stored in AUD; joining holding_lots directly
+    # because the current_holdings VIEW does not include cost_base_normal.
+    us_cost_aud: Decimal | None = None
+    if us_mv_aud is not None:
+        us_cost_rows = await conn.fetch(
+            """
+            SELECT SUM(hl.cost_base_normal) AS total_cost_aud
+            FROM holding_lots hl
+            WHERE hl.disposed_at IS NULL AND hl.symbol LIKE '%.US'
+            """
+        )
+        if us_cost_rows and us_cost_rows[0]["total_cost_aud"] is not None:
+            us_cost_aud = Decimal(str(us_cost_rows[0]["total_cost_aud"]))
+
+    if us_mv_aud is not None:
+        us_mv_aud = us_mv_aud.quantize(Decimal("0.000001"))
+
+    return total_mv.quantize(Decimal("0.000001")), len(rows), us_mv_aud, us_cost_aud, audusd_rate
 
 
 async def _fetch_xjo_close(conn, as_of: date) -> Decimal | None:
@@ -157,7 +178,9 @@ async def _snapshot_one_day(as_of: date, monitor: JobMonitor) -> None:
 
     async with acquire() as conn:
         profile = await _fetch_active_profile(conn)
-        holdings_mv_aud, holdings_count = await _compute_holdings_mv(conn, as_of)
+        holdings_mv_aud, holdings_count, us_mv_aud, us_cost_aud, fx_rate = (
+            await _compute_holdings_mv(conn, as_of)
+        )
         xjo_close = await _fetch_xjo_close(conn, as_of)
 
     trailing_yield = _fetch_trailing_div_yield()
@@ -178,14 +201,20 @@ async def _snapshot_one_day(as_of: date, monitor: JobMonitor) -> None:
             as_of,
         )
 
+    unrealised_fx_pnl: Decimal | None = None
+    if us_mv_aud is not None and us_cost_aud is not None:
+        unrealised_fx_pnl = (us_mv_aud - us_cost_aud).quantize(Decimal("0.000001"))
+
     async with acquire() as conn:
         await conn.execute(
             """
             INSERT INTO portfolio_daily_snapshots
                 (as_of, capital_aud, holdings_mv_aud, cash_aud,
                  benchmark_xjo_close, benchmark_tr_level,
-                 trailing_div_yield_pct, holdings_count, ingested_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                 trailing_div_yield_pct, holdings_count,
+                 us_holdings_mv_aud, us_holdings_cost_aud,
+                 fx_rate_audusd, unrealised_fx_pnl_aud, ingested_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
             ON CONFLICT (as_of) DO UPDATE SET
                 capital_aud            = EXCLUDED.capital_aud,
                 holdings_mv_aud        = EXCLUDED.holdings_mv_aud,
@@ -194,6 +223,10 @@ async def _snapshot_one_day(as_of: date, monitor: JobMonitor) -> None:
                 benchmark_tr_level     = EXCLUDED.benchmark_tr_level,
                 trailing_div_yield_pct = EXCLUDED.trailing_div_yield_pct,
                 holdings_count         = EXCLUDED.holdings_count,
+                us_holdings_mv_aud     = EXCLUDED.us_holdings_mv_aud,
+                us_holdings_cost_aud   = EXCLUDED.us_holdings_cost_aud,
+                fx_rate_audusd         = EXCLUDED.fx_rate_audusd,
+                unrealised_fx_pnl_aud  = EXCLUDED.unrealised_fx_pnl_aud,
                 ingested_at            = NOW()
             """,
             as_of,
@@ -204,17 +237,22 @@ async def _snapshot_one_day(as_of: date, monitor: JobMonitor) -> None:
             benchmark_tr_level,
             trailing_yield,
             holdings_count,
+            us_mv_aud,
+            us_cost_aud,
+            fx_rate,
+            unrealised_fx_pnl,
         )
 
     monitor.rows_written = 1
     log.info(
-        "snapshot %s: capital=%.2f mv=%.2f cash=%.2f holdings=%d xjo=%s",
+        "snapshot %s: capital=%.2f mv=%.2f cash=%.2f holdings=%d xjo=%s us_fx_pnl=%s",
         as_of,
         capital_aud,
         holdings_mv_aud,
         cash_aud,
         holdings_count,
         xjo_close or "NULL",
+        unrealised_fx_pnl or "NULL",
     )
 
 

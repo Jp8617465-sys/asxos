@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,22 @@ class MonitorInput:
     acquired: date | None = None
     cgt_date: date | None = None
     regime_label: str | None = None
+
+    # Account type (from holding_lots; used for CGT break-even calc)
+    account_type: str = "individual"
+
+    # Price type flag — intraday vs confirmed close
+    price_type: Literal["intraday", "close"] = "close"
+
+    # Optional context: volume + short interest (manual prompts)
+    volume_vs_avg_pct: Decimal | None = None    # today's vol / 30d avg × 100
+    short_interest_pct: Decimal | None = None   # % of float sold short
+
+    # Analyst consensus (loaded from thesis DB row if populated)
+    analyst_buy_count: int | None = None
+    analyst_neutral_count: int | None = None
+    analyst_sell_count: int | None = None
+    analyst_consensus_target: Decimal | None = None
 
 
 @dataclass(frozen=True)

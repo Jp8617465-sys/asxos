@@ -85,6 +85,15 @@ class Thesis:
     revisit_due_at: datetime
     opened_at: datetime
     closed_at: datetime | None
+    # Analyst consensus fields (migration 0021)
+    analyst_buy_count: int | None = None
+    analyst_neutral_count: int | None = None
+    analyst_sell_count: int | None = None
+    analyst_consensus_target: Decimal | None = None
+    analyst_updated_at: datetime | None = None
+    # Earnings fields (migration 0021)
+    next_earnings_date: datetime | None = None
+    earnings_notes: str = ""
 
 
 @dataclass(frozen=True)

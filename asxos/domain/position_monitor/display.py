@@ -11,6 +11,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from asxos.domain.position_monitor.types import MonitorResult
+from asxos.domain.tax.cgt import cgt_break_even_price
 from asxos.domain.themes.stage_classifier import StageThresholds
 
 _T = StageThresholds()
@@ -51,11 +52,12 @@ def format_monitor(result: MonitorResult) -> str:
     price = inp.current_price
     lines.append("")
     header_date = str(inp.as_of)
-    # Pad to fixed width
-    pad = 65 - len(header_date)
+    intraday_flag = " [INTRADAY]" if inp.price_type == "intraday" else ""
+    # Pad to fixed width — account for intraday flag in the title
+    pad = max(0, 65 - len(header_date) - len(intraday_flag))
     lines.append(f"╔{'═' * 66}╗")
     lines.append(
-        f"║  {inp.symbol} — Weekly Monitor{' ' * (pad - 13)}{header_date}  ║"
+        f"║  {inp.symbol}{intraday_flag} — Weekly Monitor{' ' * (pad - 13)}{header_date}  ║"
     )
 
     if inp.cost_usd is not None and inp.shares is not None:
@@ -118,6 +120,21 @@ def format_monitor(result: MonitorResult) -> str:
         + ")"
     )
 
+    # Volume and short interest (optional — only shown when provided)
+    if inp.volume_vs_avg_pct is not None:
+        vol_note = (
+            "elevated — confirms move" if inp.volume_vs_avg_pct > Decimal("150")
+            else "below avg — shake-out likely"
+        )
+        lines.append(
+            f"    📊 Volume:      {inp.volume_vs_avg_pct:.0f}% of 30d avg  ({vol_note})"
+        )
+    if inp.short_interest_pct is not None:
+        si_note = "elevated" if inp.short_interest_pct > Decimal("5") else "normal"
+        lines.append(
+            f"    📉 Short int:   {inp.short_interest_pct:.1f}% of float  ({si_note})"
+        )
+
     lines.append("")
     lines.append("  What would change the stage:")
     pct_to_200d = (
@@ -165,6 +182,11 @@ def format_monitor(result: MonitorResult) -> str:
     lines.append("── CROSS-LAYER " + "─" * 52)
     if inp.regime_label:
         lines.append(f"  Regime: {inp.regime_label}")
+    if inp.analyst_consensus_target is not None:
+        b = inp.analyst_buy_count or 0
+        n = inp.analyst_neutral_count or 0
+        s = inp.analyst_sell_count or 0
+        lines.append(f"  Consensus: {b}B/{n}N/{s}S  target: ${inp.analyst_consensus_target}")
     for obs in result.cross_layer_obs:
         lines.append(f"  · {obs}")
     if not result.cross_layer_obs:
@@ -196,6 +218,26 @@ def format_monitor(result: MonitorResult) -> str:
         ).quantize(Decimal("0.1"))
         lines.append(f"  Stop gap:   {pct_to_stop}% above ${inp.stop_price}")
     lines.append(f"  To 200d MA: {pct_to_200d}% above current price")
+    if inp.cost_usd is not None and inp.acquired is not None and inp.cgt_date is not None:
+        be = cgt_break_even_price(
+            inp.current_price, inp.cost_usd,
+            inp.account_type, inp.acquired, inp.as_of,
+        )
+        if be is not None:
+            days = max(0, (inp.cgt_date - inp.as_of).days)
+            lines.append(
+                f"  CGT break-even: ${be} — selling below this today loses vs"
+                f" holding to {inp.cgt_date} ({days}d)"
+            )
+    if inp.price_type == "intraday" and inp.stop_price is not None:
+        pct_to_stop_intraday = (
+            (price - inp.stop_price) / price * Decimal("100")
+        ).quantize(Decimal("0.1"))
+        if pct_to_stop_intraday < Decimal("2"):
+            lines.append(
+                f"  ⚠ INTRADAY — within {pct_to_stop_intraday}% of stop ${inp.stop_price}."
+                " Confirm on close before acting."
+            )
     lines.append("")
 
     if inp.cgt_date:

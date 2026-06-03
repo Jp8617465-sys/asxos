@@ -21,7 +21,7 @@ from decimal import Decimal, InvalidOperation
 import typer
 from rich.table import Table
 
-from asxos.cli._common import console
+from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.theses import service as svc
 from asxos.domain.theses.types import REVISABLE_FIELDS, Thesis
@@ -515,6 +515,141 @@ async def _thesis_history(symbol: str) -> None:
                 rev.reasoning[:80] + ("…" if len(rev.reasoning) > 80 else ""),
             )
         console.print(table)
+    finally:
+        await close_pool()
+
+
+# ---------------------------------------------------------------------------
+# update-consensus
+# ---------------------------------------------------------------------------
+
+@thesis_app.command("update-consensus")
+def thesis_update_consensus(
+    symbol: str = typer.Argument(..., help="Symbol, e.g. HUBS.NYSE"),
+    buy: int = typer.Option(..., "--buy", help="Number of buy ratings"),
+    neutral: int = typer.Option(0, "--neutral", help="Number of neutral ratings"),
+    sell: int = typer.Option(0, "--sell", help="Number of sell ratings"),
+    target: str = typer.Option("", "--target", help="Consensus price target"),
+) -> None:
+    """Record analyst consensus snapshot for a thesis."""
+    _require_personal_use()
+    target_d = _parse_decimal(target, "target") if target else None
+    asyncio.run(_update_consensus(symbol, buy, neutral, sell, target_d))
+
+
+async def _update_consensus(
+    symbol: str, buy: int, neutral: int, sell: int, target: Decimal | None
+) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.get_thesis_by_symbol(conn, symbol)
+            if t is None:
+                console.print(f"[red]No thesis found for {symbol}[/red]")
+                raise typer.Exit(1)
+            await svc.update_analyst_consensus(
+                conn, t.thesis_id,
+                buy=buy, neutral=neutral, sell=sell,
+                target=target, updated_at=date.today(),
+            )
+        console.print(
+            f"[green]✓[/green] Updated consensus for {symbol}: "
+            f"{buy}B/{neutral}N/{sell}S"
+            + (f"  target ${target}" if target else "")
+        )
+    finally:
+        await close_pool()
+
+
+# ---------------------------------------------------------------------------
+# log-analyst
+# ---------------------------------------------------------------------------
+
+@thesis_app.command("log-analyst")
+def thesis_log_analyst(
+    symbol: str = typer.Argument(..., help="Symbol, e.g. HUBS.NYSE"),
+    analyst: str = typer.Option(..., "--analyst", help="Analyst firm or name"),
+    action: str = typer.Option(..., "--action", help="upgrade|downgrade|initiate|reiterate"),
+    from_rating: str = typer.Option("", "--from-rating", help="Previous rating"),
+    to_rating: str = typer.Option(..., "--to-rating", help="New rating"),
+    from_target: str = typer.Option("", "--from-target", help="Previous price target"),
+    to_target: str = typer.Option("", "--to-target", help="New price target"),
+    event_date: str = typer.Option("", "--date", help="YYYY-MM-DD (default: today)"),
+) -> None:
+    """Log an analyst rating change as a thesis revision event."""
+    _require_personal_use()
+    if action not in ("upgrade", "downgrade", "initiate", "reiterate"):
+        raise typer.BadParameter("--action must be upgrade|downgrade|initiate|reiterate")
+    ft = _parse_decimal(from_target, "from-target") if from_target else None
+    tt = _parse_decimal(to_target, "to-target") if to_target else None
+    ed = date.fromisoformat(event_date) if event_date else date.today()
+    asyncio.run(_log_analyst(symbol, analyst, action, from_rating, to_rating, ft, tt, ed))
+
+
+async def _log_analyst(
+    symbol: str,
+    analyst: str,
+    action: str,
+    from_rating: str,
+    to_rating: str,
+    from_target: Decimal | None,
+    to_target: Decimal | None,
+    event_date: date,
+) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.get_thesis_by_symbol(conn, symbol)
+            if t is None:
+                console.print(f"[red]No thesis found for {symbol}[/red]")
+                raise typer.Exit(1)
+            await svc.log_analyst_action(
+                conn, t.thesis_id,
+                analyst=analyst, action=action,
+                from_rating=from_rating, to_rating=to_rating,
+                from_target=from_target, to_target=to_target,
+                event_date=event_date,
+            )
+        console.print(
+            f"[green]✓[/green] Logged analyst action for {symbol}: "
+            f"{analyst} {action} → {to_rating}"
+        )
+    finally:
+        await close_pool()
+
+
+# ---------------------------------------------------------------------------
+# set-earnings
+# ---------------------------------------------------------------------------
+
+@thesis_app.command("set-earnings")
+def thesis_set_earnings(
+    symbol: str = typer.Argument(..., help="Symbol, e.g. HUBS.NYSE"),
+    date_str: str = typer.Option(..., "--date", help="YYYY-MM-DD next earnings date"),
+    notes: str = typer.Option("", "--notes", help="Earnings notes"),
+) -> None:
+    """Record the next earnings date for a thesis position."""
+    _require_personal_use()
+    try:
+        ed = date.fromisoformat(date_str)
+    except ValueError as exc:
+        raise typer.BadParameter(f"Invalid date {date_str!r}: use YYYY-MM-DD") from exc
+    asyncio.run(_set_earnings(symbol, ed, notes))
+
+
+async def _set_earnings(symbol: str, next_earnings_date: date, notes: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.get_thesis_by_symbol(conn, symbol)
+            if t is None:
+                console.print(f"[red]No thesis found for {symbol}[/red]")
+                raise typer.Exit(1)
+            await svc.set_earnings(conn, t.thesis_id, next_earnings_date, notes)
+        console.print(
+            f"[green]✓[/green] Set next earnings date for {symbol}: {next_earnings_date}"
+            + (f" — {notes}" if notes else "")
+        )
     finally:
         await close_pool()
 

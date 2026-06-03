@@ -50,6 +50,9 @@ def monitor(
     regime: str = typer.Option(
         "", "--regime", help="Regime label override (e.g. risk_on_narrowing)"
     ),
+    intraday: bool = typer.Option(
+        False, "--intraday", help="Mark price as intraday (not a confirmed close)"
+    ),
 ) -> None:
     """Run a weekly monitor for a position.
 
@@ -63,7 +66,7 @@ def monitor(
       news_sentiment — stocktwits.com/symbol/SYMBOL  (bullish % ratio, 0–1)
     """
     _require_personal_use()
-    asyncio.run(_monitor_async(symbol, as_of or None, no_save, regime or None))
+    asyncio.run(_monitor_async(symbol, as_of or None, no_save, regime or None, intraday))
 
 
 async def _monitor_async(
@@ -71,6 +74,7 @@ async def _monitor_async(
     as_of_str: str | None,
     no_save: bool,
     regime: str | None,
+    intraday: bool = False,
 ) -> None:
     run_date = date.fromisoformat(as_of_str) if as_of_str else date.today()
 
@@ -125,7 +129,31 @@ async def _monitor_async(
             type=float,
         )
 
+        # Optional volume + short interest prompts (Enter to skip)
+        last_vol = last.get("volume_vs_avg_pct") if last else None
+        last_si = last.get("short_interest_pct") if last else None
+        vol_default = str(float(last_vol)) if last_vol is not None else ""
+        si_default = str(float(last_si)) if last_si is not None else ""
+
+        vol_input = typer.prompt(
+            "  Volume vs 30d avg % [Enter to skip]", default=vol_default
+        )
+        si_input = typer.prompt(
+            "  Short interest % of float [Enter to skip]", default=si_default
+        )
+
         from decimal import Decimal
+
+        volume_vs_avg_pct = (
+            Decimal(vol_input.strip()).quantize(Decimal("0.1"))
+            if vol_input.strip()
+            else None
+        )
+        short_interest_pct = (
+            Decimal(si_input.strip()).quantize(Decimal("0.01"))
+            if si_input.strip()
+            else None
+        )
 
         inputs = MonitorInput(
             symbol=symbol,
@@ -144,6 +172,14 @@ async def _monitor_async(
             acquired=ctx.get("acquired"),
             cgt_date=ctx.get("cgt_date"),
             regime_label=regime,
+            account_type=ctx.get("account_type") or "individual",
+            price_type="intraday" if intraday else "close",
+            volume_vs_avg_pct=volume_vs_avg_pct,
+            short_interest_pct=short_interest_pct,
+            analyst_buy_count=ctx.get("analyst_buy_count"),
+            analyst_neutral_count=ctx.get("analyst_neutral_count"),
+            analyst_sell_count=ctx.get("analyst_sell_count"),
+            analyst_consensus_target=ctx.get("analyst_consensus_target"),
         )
 
         result = build_monitor_result(inputs, thesis_underlyings=thesis_underlyings)

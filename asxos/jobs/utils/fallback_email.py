@@ -42,7 +42,7 @@ def send_fallback_email(*, subject: str, body_text: str) -> None:
         from asxos.brief.email import _send_via_resend
         from asxos.config import BriefSettings
 
-        settings = BriefSettings()  # fresh per call; cost is trivial
+        settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
         body_html = (
             "<html><body>"
             '<pre style="font-family: monospace; white-space: pre-wrap;">'

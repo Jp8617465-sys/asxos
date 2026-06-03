@@ -18,7 +18,7 @@ References:
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -104,6 +104,14 @@ def _row_to_thesis(row: asyncpg.Record) -> Thesis:
         revisit_due_at=row["revisit_due_at"],
         opened_at=row["opened_at"],
         closed_at=row["closed_at"],
+        # migration 0021 fields — .get() works for both asyncpg Record and plain dict
+        analyst_buy_count=row.get("analyst_buy_count"),
+        analyst_neutral_count=row.get("analyst_neutral_count"),
+        analyst_sell_count=row.get("analyst_sell_count"),
+        analyst_consensus_target=row.get("analyst_consensus_target"),
+        analyst_updated_at=row.get("analyst_updated_at"),
+        next_earnings_date=row.get("next_earnings_date"),
+        earnings_notes=row.get("earnings_notes") or "",
     )
 
 
@@ -546,6 +554,137 @@ async def enter_thesis(
         )
 
         return _row_to_thesis(row)
+
+
+async def update_analyst_consensus(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    *,
+    buy: int | None,
+    neutral: int | None,
+    sell: int | None,
+    target: Decimal | None,
+    updated_at: date,
+) -> None:
+    """Update analyst consensus snapshot and record an assumption_change revision.
+
+    Does not touch last_revisited_at / revisit_due_at — consensus data is
+    external context, not a deliberate thesis review by the investor.
+    """
+    now = _now_utc()
+
+    existing = await conn.fetchrow(
+        "SELECT analyst_consensus_target FROM theses WHERE thesis_id = $1", thesis_id
+    )
+    if existing is None:
+        raise ValueError(f"Thesis {thesis_id} not found")
+
+    old_target = existing.get("analyst_consensus_target")
+    diff: dict[str, Any] = {
+        "analyst_consensus_target": {
+            "old": _serialise(old_target),
+            "new": _serialise(target),
+        },
+        "analyst_updated_at": {"old": "null", "new": str(updated_at)},
+    }
+
+    async with conn.transaction():
+        await conn.execute(
+            """
+            UPDATE theses
+            SET analyst_buy_count        = $1,
+                analyst_neutral_count    = $2,
+                analyst_sell_count       = $3,
+                analyst_consensus_target = $4,
+                analyst_updated_at       = $5
+            WHERE thesis_id = $6
+            """,
+            buy, neutral, sell, target, updated_at, thesis_id,
+        )
+        await _insert_revision(
+            conn,
+            thesis_id=thesis_id,
+            revised_at=now,
+            revision_type="assumption_change",
+            diff=diff,
+            reasoning=f"Analyst consensus updated: {buy}B/{neutral}N/{sell}S, target {target}",
+        )
+
+
+async def log_analyst_action(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    *,
+    analyst: str,
+    action: str,
+    from_rating: str,
+    to_rating: str,
+    from_target: Decimal | None,
+    to_target: Decimal | None,
+    event_date: date,
+) -> None:
+    """Log an analyst rating change as an analyst_action revision event.
+
+    Does not modify thesis fields — purely an audit log entry.
+    Use update_analyst_consensus() separately to update consensus counts.
+    """
+    now = _now_utc()
+    diff = {
+        "analyst": analyst,
+        "action": action,
+        "from_rating": from_rating,
+        "to_rating": to_rating,
+        "from_target": _serialise(from_target),
+        "to_target": _serialise(to_target),
+        "event_date": str(event_date),
+    }
+    reasoning = f"{analyst} {action}: {from_rating}→{to_rating}"
+    if from_target and to_target:
+        reasoning += f" target {from_target}→{to_target}"
+
+    existing = await conn.fetchrow(
+        "SELECT thesis_id FROM theses WHERE thesis_id = $1", thesis_id
+    )
+    if existing is None:
+        raise ValueError(f"Thesis {thesis_id} not found")
+
+    await _insert_revision(
+        conn,
+        thesis_id=thesis_id,
+        revised_at=now,
+        revision_type="analyst_action",
+        diff=diff,
+        reasoning=reasoning,
+    )
+
+
+async def set_earnings(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    next_earnings_date: date | None,
+    notes: str = "",
+) -> None:
+    """Set next earnings date and optional notes on a thesis.
+
+    Operational metadata — no revision event written (not a discipline event).
+    """
+    existing = await conn.fetchrow(
+        "SELECT thesis_id FROM theses WHERE thesis_id = $1", thesis_id
+    )
+    if existing is None:
+        raise ValueError(f"Thesis {thesis_id} not found")
+
+    await conn.execute(
+        """
+        UPDATE theses
+        SET next_earnings_date = $1,
+            earnings_notes     = $2
+        WHERE thesis_id = $3
+        """,
+        next_earnings_date,
+        notes,
+        thesis_id,
+    )
 
 
 async def exit_thesis(

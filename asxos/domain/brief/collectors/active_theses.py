@@ -15,7 +15,7 @@ import time
 from datetime import date
 
 from asxos.db import acquire
-from asxos.domain.brief.severity import thesis_revisit_overdue
+from asxos.domain.brief.severity import earnings_risk, thesis_revisit_overdue
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.divergence import detect_hidden_risk
@@ -32,7 +32,9 @@ async def collect_active_theses(as_of: date) -> SectionResult:
         rows = await conn.fetch(
             """
             SELECT thesis_id, symbol, status, opened_at, stop_price, target_price,
-                   timeline_days, entry_band_lower, entry_band_upper, revisit_due_at
+                   timeline_days, entry_band_lower, entry_band_upper, revisit_due_at,
+                   analyst_buy_count, analyst_neutral_count, analyst_sell_count,
+                   analyst_consensus_target, next_earnings_date, earnings_notes
             FROM theses
             WHERE status = 'active'
             ORDER BY opened_at DESC
@@ -101,6 +103,18 @@ async def collect_active_theses(as_of: date) -> SectionResult:
                 items.append(SeverityItem(
                     level=SeverityLevel.green, message=msg, section=_SECTION
                 ))
+
+            # Earnings risk
+            next_ed = row.get("next_earnings_date")
+            earnings_item = earnings_risk(
+                symbol,
+                next_ed.date() if next_ed is not None else None,
+                cgt_date=None,
+                as_of=as_of,
+                section=_SECTION,
+            )
+            if earnings_item:
+                items.append(earnings_item)
 
             # Hidden risk alert
             hidden = detect_hidden_risk(row["status"], score)
