@@ -7,14 +7,16 @@
 #
 # Layout:
 #   - 1 web service:    asxos-api
-#   - 16 cron services: sync-universe, sync-prices, sync-fundamentals,
+#   - 19 cron services: sync-universe, sync-prices, sync-fundamentals,
 #                       generate-signals, ingest-regulatory, ingest-news,
 #                       ingest-sentiment, compose-brief, retrain-model-a,
 #                       build-portfolio, snapshot-portfolio,
 #                       ingest-market-context, ingest-underlyings,
 #                       compute-opportunity-cost, detect-theme-stages,
 #                       check-cron-health, backup-irreplaceable,
-#                       check-au-positions, check-thesis-invalidations
+#                       check-au-positions, check-thesis-invalidations,
+#                       validate-price-data, check-model-staleness,
+#                       track-signal-outcomes
 #
 # Healthchecks.io pings are emitted from inside each Python job via
 # JobMonitor (see asxos/jobs/utils/job_monitor.py); the cron service itself
@@ -599,6 +601,90 @@ services:
           name: asxos-api
           envVarKey: BRIEF_TO_EMAIL
       - key: HEALTHCHECK_URL_CHECK_THESIS_INVALIDATIONS
+        sync: false
+
+  # Price quality gate — 20:33 UTC Sun-Thu (after sync_prices 20:30, before snapshot 20:40)
+  - type: cron
+    name: asxos-validate-price-data
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "33 20 * * 0-4"
+    command: python jobs/validate_price_data.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: RESEND_API_KEY
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_FROM_EMAIL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_TO_EMAIL
+      - key: HEALTHCHECK_URL_VALIDATE_PRICE_DATA
+        sync: false
+
+  # ML model staleness monitor — 21:05 UTC daily (after full pipeline at 21:00)
+  - type: cron
+    name: asxos-check-model-staleness
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "5 21 * * *"
+    command: python jobs/check_model_staleness.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: RESEND_API_KEY
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_FROM_EMAIL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: BRIEF_TO_EMAIL
+      - key: HEALTHCHECK_URL_CHECK_MODEL_STALENESS
+        sync: false
+
+  # Signal outcome feedback loop — Sunday 03:00 UTC (Sun 13:00 AEST)
+  - type: cron
+    name: asxos-track-signal-outcomes
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "0 3 * * 0"
+    command: python jobs/track_signal_outcomes.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_TRACK_SIGNAL_OUTCOMES
         sync: false
 
   # Daily backup of irreplaceable tables — 23:30 AEST (13:30 UTC)

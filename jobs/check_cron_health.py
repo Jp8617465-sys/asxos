@@ -34,6 +34,8 @@ _EXPECTED_DAILY = [
     "check_us_positions",
     "check_au_positions",
     "check_thesis_invalidations",
+    "validate_price_data",
+    "check_model_staleness",
 ]
 
 

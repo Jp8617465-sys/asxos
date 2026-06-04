@@ -64,6 +64,9 @@ class CoreSettings(BaseSettings):
     healthcheck_url_check_us_positions: str = ""        # M-Position-Monitor
     healthcheck_url_check_au_positions: str = ""        # M-Position-Monitor AU
     healthcheck_url_check_thesis_invalidations: str = ""  # thesis invalidation checker
+    healthcheck_url_validate_price_data: str = ""          # price data quality check
+    healthcheck_url_check_model_staleness: str = ""        # ML model staleness monitor
+    healthcheck_url_track_signal_outcomes: str = ""        # weekly signal outcome tracking
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False

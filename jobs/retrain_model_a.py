@@ -26,6 +26,7 @@ from datetime import date
 from pathlib import Path
 
 import joblib
+import pandas as pd
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
@@ -40,6 +41,13 @@ from asxos.jobs.utils.job_monitor import JobMonitor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
+
+# Batch 300 symbols at a time so peak memory stays within the 512MB Render free-tier.
+# Unlike generate_signals (which keeps only target-date rows), retraining needs ALL dates
+# per symbol (build_target uses groupby("symbol")["close"].shift(-5)). We compensate by
+# slimming each batch to only the columns needed before concatenating.
+_TRAIN_BATCH_SIZE = 300
+_KEEP_COLS_BASE = {"symbol", "dt", "close"}
 
 
 async def _baseline_auc(model: str) -> float | None:
@@ -93,15 +101,47 @@ async def main(version: str, as_of: date) -> None:
             healthcheck_url=settings.healthcheck_url_retrain_model_a,
         ) as monitor:
             async with acquire() as conn:
-                panel = await load_panel(conn, as_of)
-            if panel.empty:
-                raise RuntimeError(f"empty price panel for {as_of}")
+                sym_rows = await conn.fetch(
+                    "SELECT symbol FROM universe WHERE is_active = TRUE ORDER BY symbol"
+                )
+            all_symbols = [r["symbol"] for r in sym_rows]
+            if not all_symbols:
+                raise RuntimeError(f"no active symbols found for {as_of}")
 
             engine = FeatureEngine()
-            enriched = engine.compute_all_features(panel)
-            for col in FUNDAMENTAL_FEATURE_COLS:
-                if col in enriched.columns:
-                    enriched[col] = enriched[col].fillna(0.0)
+            keep_cols = list(set(MODEL_A_FEATURES) | _KEEP_COLS_BASE)
+            enriched_batches: list[pd.DataFrame] = []
+            n_batches = (len(all_symbols) - 1) // _TRAIN_BATCH_SIZE + 1
+            for batch_start in range(0, len(all_symbols), _TRAIN_BATCH_SIZE):
+                batch = all_symbols[batch_start : batch_start + _TRAIN_BATCH_SIZE]
+                async with acquire() as conn:
+                    batch_panel = await load_panel(conn, as_of, symbols=batch)
+                if batch_panel.empty:
+                    log.warning(
+                        "batch %d/%d: empty panel, skipping",
+                        batch_start // _TRAIN_BATCH_SIZE + 1,
+                        n_batches,
+                    )
+                    continue
+                batch_enriched = engine.compute_all_features(batch_panel)
+                del batch_panel
+                for col in FUNDAMENTAL_FEATURE_COLS:
+                    if col in batch_enriched.columns:
+                        batch_enriched[col] = batch_enriched[col].fillna(0.0)
+                enriched_batches.append(
+                    batch_enriched[[c for c in keep_cols if c in batch_enriched.columns]]
+                )
+                del batch_enriched
+                log.info(
+                    "retrain batch %d/%d done",
+                    batch_start // _TRAIN_BATCH_SIZE + 1,
+                    n_batches,
+                )
+
+            if not enriched_batches:
+                raise RuntimeError(f"all batches empty — no enriched features for {as_of}")
+            enriched = pd.concat(enriched_batches, ignore_index=True)
+            del enriched_batches
             log.info(f"panel: {len(enriched)} rows, {enriched['symbol'].nunique()} symbols")
 
             result = train_model_a(enriched, MODEL_A_FEATURES)
