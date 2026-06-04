@@ -163,7 +163,7 @@ async def test_main_sends_fallback_when_collect_raises() -> None:
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
         patch(
-            "jobs.compose_brief.collect",
+            "jobs.compose_brief.v2_compose",
             new=AsyncMock(side_effect=RuntimeError("collect blew up")),
         ),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
@@ -203,10 +203,10 @@ async def test_main_sends_fallback_when_job_monitor_aexit_raises() -> None:
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FailingJobMonitor),
         patch(
-            "jobs.compose_brief.collect",
-            new=AsyncMock(return_value=_minimal_brief_data()),
+            "jobs.compose_brief.v2_compose",
+            new=AsyncMock(return_value=_minimal_brief()),
         ),
-        patch("jobs.compose_brief.render_html", return_value="<html/>"),
+        patch("jobs.compose_brief.v2_render_html", return_value="<html/>"),
         patch("jobs.compose_brief.send_brief", return_value=MagicMock(
             to="a", subject="b", message_id="c",
         )),
@@ -239,7 +239,7 @@ async def test_main_catches_asyncio_cancelled_error() -> None:
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
         patch(
-            "jobs.compose_brief.collect",
+            "jobs.compose_brief.v2_compose",
             new=AsyncMock(side_effect=asyncio.CancelledError()),
         ),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
@@ -270,7 +270,7 @@ async def test_main_skips_fallback_when_no_send() -> None:
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
         patch(
-            "jobs.compose_brief.collect",
+            "jobs.compose_brief.v2_compose",
             new=AsyncMock(side_effect=RuntimeError("boom")),
         ),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
@@ -299,10 +299,10 @@ async def test_main_no_fallback_on_happy_path() -> None:
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
         patch(
-            "jobs.compose_brief.collect",
-            new=AsyncMock(return_value=_minimal_brief_data()),
+            "jobs.compose_brief.v2_compose",
+            new=AsyncMock(return_value=_minimal_brief()),
         ),
-        patch("jobs.compose_brief.render_html", return_value="<html/>"),
+        patch("jobs.compose_brief.v2_render_html", return_value="<html/>"),
         patch("jobs.compose_brief.send_brief", return_value=MagicMock(
             to="a", subject="b", message_id="c",
         )),
@@ -314,11 +314,8 @@ async def test_main_no_fallback_on_happy_path() -> None:
     fake_fallback.assert_not_called()
 
 
-def _minimal_brief_data() -> MagicMock:
-    """Minimal BriefData-shape stub so render_html + rows_written work."""
-    data = MagicMock()
-    data.signal_changes = []
-    data.tax_actions = []
-    data.regulatory_hits = []
-    data.news_items = []
-    return data
+def _minimal_brief() -> MagicMock:
+    """Minimal Brief-shape stub for v2_compose return value."""
+    brief = MagicMock()
+    brief.sections = ()
+    return brief

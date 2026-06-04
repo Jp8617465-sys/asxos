@@ -11,8 +11,6 @@ from datetime import date
 
 from asxos.config import BriefSettings
 
-settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars; hard-fails if absent
-
 
 @dataclass(frozen=True)
 class SendResult:
@@ -22,6 +20,7 @@ class SendResult:
 
 
 def send_brief(html: str, *, as_of: date) -> SendResult:
+    settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
     subject = f"asxos brief — {as_of.isoformat()}"
     to = settings.brief_to_email
     sender = settings.brief_from_email
