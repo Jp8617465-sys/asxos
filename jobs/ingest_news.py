@@ -131,8 +131,11 @@ async def main() -> None:
             # Prune stale rows before the ingest
             async with _acquire() as conn:
                 deleted = await conn.fetchval(
-                    "DELETE FROM holding_news WHERE published_at < NOW() - INTERVAL '7 days' "
-                    "RETURNING COUNT(*)"
+                    "WITH deleted AS ("
+                    "  DELETE FROM holding_news"
+                    "  WHERE published_at < (NOW() - INTERVAL '7 days')::DATE"
+                    "  RETURNING id"
+                    ") SELECT COUNT(*) FROM deleted"
                 )
                 if deleted:
                     log.info("ingest_news: pruned %d stale rows", deleted)

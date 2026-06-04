@@ -6,6 +6,7 @@ from typing import Any
 
 import asyncpg
 
+from asxos.domain.position_monitor.fetcher import eodhd_symbol
 from asxos.ingestion.eodhd import EODHDClient
 
 
@@ -152,7 +153,13 @@ async def fetch_and_upsert_us_symbol(
     client: EODHDClient,
     conn: asyncpg.Connection,
 ) -> int:
-    """Fetch + upsert prices for a single US holding.  Returns rows written."""
-    raw = await client.daily_prices(symbol, from_date=from_date.isoformat())
+    """Fetch + upsert prices for a single US holding.  Returns rows written.
+
+    Remaps stored exchange suffix (e.g. HUBS.NYSE) → EODHD format (HUBS.US)
+    for the API call; inserts prices under the original symbol so the FK to
+    universe(symbol) holds.
+    """
+    api_sym = eodhd_symbol(symbol)
+    raw = await client.daily_prices(api_sym, from_date=from_date.isoformat())
     rows = to_us_price_rows(raw, symbol=symbol)
     return await upsert_prices(conn, rows)

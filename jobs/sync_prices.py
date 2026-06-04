@@ -114,10 +114,15 @@ async def main(from_date: date | None) -> None:
             log.info(f"backfill done: {total} rows total")
 
         # Phase 2 + 3 — US prices and FX rates (only when US holdings exist)
+        _NON_AU_SUFFIXES = (".US", ".NYSE", ".NASDAQ", ".AMEX")
         async with acquire() as conn:
-            us_symbols = [s for s in universe if s.endswith(".US")]
+            us_symbols = [s for s in universe if any(s.endswith(sfx) for sfx in _NON_AU_SUFFIXES)]
             us_acquired_start: date | None = await conn.fetchval(
-                "SELECT MIN(acquired_at) FROM holding_lots WHERE symbol LIKE '%.US'"
+                "SELECT MIN(acquired_at) FROM holding_lots"
+                " WHERE symbol LIKE '%.US'"
+                "    OR symbol LIKE '%.NYSE'"
+                "    OR symbol LIKE '%.NASDAQ'"
+                "    OR symbol LIKE '%.AMEX'"
             )
 
         if us_symbols:

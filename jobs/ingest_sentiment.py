@@ -91,7 +91,7 @@ async def _aggregate_from_news(conn) -> int:
         FROM holding_news hn
         CROSS JOIN LATERAL jsonb_array_elements_text(hn.symbols) AS sym(value)
         WHERE hn.sentiment_polarity IS NOT NULL
-          AND hn.published_at >= CURRENT_DATE - INTERVAL '7 days'
+          AND hn.published_at >= (NOW() - INTERVAL '7 days')::DATE
         GROUP BY sym.value, hn.published_at
         ON CONFLICT (symbol, as_of) DO UPDATE SET
             mention_count        = EXCLUDED.mention_count,
