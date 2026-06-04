@@ -15,7 +15,7 @@ import time
 from datetime import date
 
 from asxos.db import acquire
-from asxos.domain.brief.severity import earnings_risk, thesis_revisit_overdue
+from asxos.domain.brief.severity import earnings_risk, thesis_revisit_overdue, thesis_timeline_expired
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.divergence import detect_hidden_risk
@@ -75,6 +75,11 @@ async def collect_active_theses(as_of: date) -> SectionResult:
                 symbol, revisit_due.date(), as_of, section=_SECTION
             )
 
+            # Timeline expiry check
+            expiry_item = thesis_timeline_expired(
+                symbol, opened.date(), row["timeline_days"], as_of, section=_SECTION
+            )
+
             days_since = (as_of - opened.date()).days
             days_to_revisit = (revisit_due.date() - as_of).days
 
@@ -92,9 +97,13 @@ async def collect_active_theses(as_of: date) -> SectionResult:
                 f"Revisit: {'overdue' if days_to_revisit < 0 else f'due in {days_to_revisit}d'}"
             )
 
-            # Determine severity
-            if overdue_item:
+            # Determine severity — expiry and overdue both red; expiry takes priority
+            if expiry_item and expiry_item.level == SeverityLevel.red:
+                items.append(expiry_item)
+            elif overdue_item:
                 items.append(overdue_item)
+            elif expiry_item:
+                items.append(expiry_item)
             elif score.label == "diverging" or days_to_revisit <= 7:
                 items.append(SeverityItem(
                     level=SeverityLevel.yellow, message=msg, section=_SECTION

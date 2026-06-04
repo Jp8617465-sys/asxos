@@ -14,6 +14,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from asxos.domain.brief.severity import portfolio_drawdown, position_concentration
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 
 _SECTION = "wealth_state"
@@ -31,6 +32,21 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
                fx_rate_audusd, unrealised_fx_pnl_aud
         FROM portfolio_daily_snapshots
         WHERE as_of = $1
+        """,
+        as_of,
+    )
+
+    peak_row = await conn.fetchrow(
+        "SELECT MAX(capital_aud) AS peak FROM portfolio_daily_snapshots WHERE as_of <= $1",
+        as_of,
+    )
+
+    holdings_rows = await conn.fetch(
+        """
+        SELECT ch.symbol, (ch.quantity * p.close)::numeric AS mv_local
+        FROM current_holdings ch
+        JOIN prices p ON p.symbol = ch.symbol AND p.dt = $1
+        ORDER BY mv_local DESC
         """,
         as_of,
     )
@@ -70,6 +86,30 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
                 message=f"Portfolio AUD {capital:,.0f} · MV {mv:,.0f} · Cash {cash:,.0f} ({cash_ratio:.1f}%)",
                 section=_SECTION,
             ))
+
+    # Drawdown from high-water mark
+    if peak_row and peak_row["peak"] is not None:
+        peak_capital = Decimal(str(peak_row["peak"]))
+        dd_item = portfolio_drawdown(capital, peak_capital, section=_SECTION)
+        if dd_item:
+            items.append(dd_item)
+
+    # Per-holding concentration (only when we have per-symbol price data)
+    if holdings_rows and mv > 0:
+        fx = Decimal(str(fx_rate)) if fx_rate is not None else None
+        _NON_AU = (".US", ".NYSE", ".NASDAQ", ".AMEX")
+        for hr in holdings_rows:
+            mv_local = Decimal(str(hr["mv_local"]))
+            sym = hr["symbol"]
+            if any(sym.endswith(sfx) for sfx in _NON_AU):
+                if fx is None:
+                    continue
+                mv_aud = mv_local / fx
+            else:
+                mv_aud = mv_local
+            conc_item = position_concentration(sym, mv_aud, mv, section=_SECTION)
+            if conc_item:
+                items.append(conc_item)
 
     # FX P&L (US holdings only; positive = AUD depreciation benefit)
     if fx_pnl is not None and fx_rate is not None:

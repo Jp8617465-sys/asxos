@@ -28,10 +28,13 @@ _EXPECTED_DAILY = [
     "generate_signals",
     "ingest_regulatory",
     "compose_brief",
+    "snapshot_portfolio",
+    "ingest_market_context",
+    "ingest_underlyings",
+    "check_us_positions",
+    "check_au_positions",
+    "check_thesis_invalidations",
 ]
-
-# After these milestones land, add:
-#   "ingest_market_context", "ingest_underlyings", "detect_theme_stages"
 
 
 async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]

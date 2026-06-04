@@ -111,6 +111,89 @@ def earnings_risk(
     return None
 
 
+def thesis_timeline_expired(
+    symbol: str,
+    opened_at: date,
+    timeline_days: int | None,
+    as_of: date,
+    section: str = "active_theses",
+) -> SeverityItem | None:
+    """Red if timeline has elapsed; yellow if within 14 days of expiry."""
+    from datetime import timedelta
+    if timeline_days is None:
+        return None
+    deadline = opened_at + timedelta(days=timeline_days)
+    days_remaining = (deadline - as_of).days
+    if days_remaining < 0:
+        return SeverityItem(
+            level=SeverityLevel.red,
+            message=(
+                f"{symbol}: thesis expired {-days_remaining}d ago"
+                f" (deadline {deadline}) — review or close"
+            ),
+            section=section,
+        )
+    if days_remaining <= 14:
+        return SeverityItem(
+            level=SeverityLevel.yellow,
+            message=f"{symbol}: thesis expires in {days_remaining}d ({deadline})",
+            section=section,
+        )
+    return None
+
+
+def portfolio_drawdown(
+    capital: Decimal,
+    peak_capital: Decimal,
+    section: str = "wealth_state",
+) -> SeverityItem | None:
+    """Yellow if drawdown from high-water mark > 3%; red if > 5%."""
+    if peak_capital <= 0 or capital >= peak_capital:
+        return None
+    drawdown_pct = (peak_capital - capital) / peak_capital * 100
+    if drawdown_pct >= Decimal("5"):
+        return SeverityItem(
+            level=SeverityLevel.red,
+            message=(
+                f"Portfolio down {drawdown_pct:.1f}% from peak"
+                f" (A${peak_capital:,.0f} → A${capital:,.0f})"
+            ),
+            section=section,
+        )
+    if drawdown_pct >= Decimal("3"):
+        return SeverityItem(
+            level=SeverityLevel.yellow,
+            message=f"Portfolio drawdown {drawdown_pct:.1f}% from high-water mark",
+            section=section,
+        )
+    return None
+
+
+def position_concentration(
+    symbol: str,
+    holding_mv_aud: Decimal,
+    total_mv_aud: Decimal,
+    section: str = "wealth_state",
+) -> SeverityItem | None:
+    """Red if a single holding is ≥ 20% of total holdings MV; yellow if ≥ 10%."""
+    if total_mv_aud <= 0:
+        return None
+    pct = holding_mv_aud / total_mv_aud * 100
+    if pct >= Decimal("20"):
+        return SeverityItem(
+            level=SeverityLevel.red,
+            message=f"{symbol}: {pct:.1f}% of portfolio — concentrated position",
+            section=section,
+        )
+    if pct >= Decimal("10"):
+        return SeverityItem(
+            level=SeverityLevel.yellow,
+            message=f"{symbol}: {pct:.1f}% of portfolio",
+            section=section,
+        )
+    return None
+
+
 def regime_warning(
     label: str,
     section: str = "market_context",
