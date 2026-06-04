@@ -73,6 +73,12 @@ Four tests are permanently collection-errors in the remote Claude Code sandbox b
 These pass in the production Render environment where `pip install -e ".[ml]"` is run.
 Do not add workarounds or skip markers — the tests themselves are correct.
 
+One additional runtime gap (not a collection-error, fails during execution):
+
+- `tests/test_train_walk_forward.py::test_train_model_a_returns_valid_result` — requires
+  `lightgbm` in the venv. The system Python has it; the sandbox venv does not. Passes
+  on Render.
+
 ## Auto-activating rules
 
 `.claude/rules/` files attach automatically when working in matching paths:

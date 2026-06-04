@@ -9,7 +9,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from asxos.config import BriefSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class _EmailSettings(BaseSettings):
+    """Email-only settings for compose_brief. Excludes Supabase fields so that
+    the compose_brief Render service doesn't need SUPABASE_URL/SUPABASE_ANON_KEY."""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    resend_api_key: str
+    brief_from_email: str
+    brief_to_email: str
 
 
 @dataclass(frozen=True)
@@ -20,7 +31,7 @@ class SendResult:
 
 
 def send_brief(html: str, *, as_of: date) -> SendResult:
-    settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
+    settings = _EmailSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
     subject = f"asxos brief — {as_of.isoformat()}"
     to = settings.brief_to_email
     sender = settings.brief_from_email

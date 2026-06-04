@@ -16,7 +16,10 @@ Usage:
 import argparse
 import asyncio
 import logging
-from datetime import date
+from datetime import date, timedelta
+
+import asyncpg
+import pandas as pd
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
@@ -32,8 +35,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 
+# Batch 300 symbols at a time so peak memory stays ~100MB per batch
+# (300 symbols × 450 days × 33 cols × 8B ≈ 36MB base; 3× with intermediates).
+# Render free tier: 512MB. Full 1872-symbol panel in one shot: ~450MB → OOM.
+_FEATURE_BATCH_SIZE = 300
+_REGIME_TOP_N = 20  # top-N liquid symbols used to build the market-regime proxy
 
-async def _upstream_ok(conn, as_of: date) -> bool:
+
+async def _upstream_ok(conn: "asyncpg.Connection", as_of: date) -> bool:
     row = await conn.fetchrow(
         """
         SELECT status FROM job_runs
@@ -42,6 +51,26 @@ async def _upstream_ok(conn, as_of: date) -> bool:
         as_of,
     )
     return row is not None and row["status"] == "success"
+
+
+async def _top_liquid_symbols(conn: "asyncpg.Connection", as_of: date, n: int = _REGIME_TOP_N) -> list[str]:
+    """Top-N symbols by recent average dollar volume — used for regime proxy panel."""
+    rows = await conn.fetch(
+        """
+        SELECT p.symbol
+        FROM prices p
+        JOIN universe u ON u.symbol = p.symbol
+        WHERE p.dt BETWEEN $1 AND $2
+          AND u.is_active = TRUE
+        GROUP BY p.symbol
+        ORDER BY AVG(p.close * p.volume) DESC
+        LIMIT $3
+        """,
+        as_of - timedelta(days=30),
+        as_of,
+        n,
+    )
+    return [r["symbol"] for r in rows]
 
 
 async def main(as_of_arg: date | None, allow_stale_upstream: bool = False) -> None:
@@ -76,21 +105,46 @@ async def main(as_of_arg: date | None, allow_stale_upstream: bool = False) -> No
                     "(recorded in job_runs.override_reason)."
                 )
 
+            # Step 1: regime from a tiny proxy panel (top-20 most liquid symbols).
+            # Avoids loading the full 1872-symbol panel just for regime detection.
             async with acquire() as conn:
-                panel = await load_panel(conn, as_of)
-
-            if panel.empty:
-                raise RuntimeError(f"empty price panel for {as_of}")
-
-            regime = classify_regime(panel)
+                regime_syms = await _top_liquid_symbols(conn, as_of)
+                regime_panel = await load_panel(conn, as_of, symbols=regime_syms)
+            if regime_panel.empty:
+                raise RuntimeError(f"empty price panel for regime detection on {as_of}")
+            regime = classify_regime(regime_panel)
+            del regime_panel
             log.info(f"regime: {regime}")
 
-            features = features_from_panel(panel, as_of)
-            if features.empty:
+            # Step 2: load all active symbols in batches, compute features per batch,
+            # then concatenate. Keeps peak memory ~100MB vs ~450MB for a single pass.
+            async with acquire() as conn:
+                sym_rows = await conn.fetch(
+                    "SELECT symbol FROM universe WHERE is_active = TRUE ORDER BY symbol"
+                )
+            all_symbols = [r["symbol"] for r in sym_rows]
+
+            feature_batches: list[pd.DataFrame] = []
+            for batch_start in range(0, len(all_symbols), _FEATURE_BATCH_SIZE):
+                batch = all_symbols[batch_start : batch_start + _FEATURE_BATCH_SIZE]
+                async with acquire() as conn:
+                    batch_panel = await load_panel(conn, as_of, symbols=batch)
+                batch_features = features_from_panel(batch_panel, as_of)
+                del batch_panel
+                if not batch_features.empty:
+                    feature_batches.append(batch_features)
+                log.info(
+                    f"batch {batch_start // _FEATURE_BATCH_SIZE + 1}/"
+                    f"{(len(all_symbols) - 1) // _FEATURE_BATCH_SIZE + 1}: "
+                    f"{len(batch_features)} symbols"
+                )
+
+            if not feature_batches:
                 raise RuntimeError(
                     f"feature engine produced 0 rows for {as_of} — "
                     "check that the lookback window is fully populated"
                 )
+            features = pd.concat(feature_batches)
             log.info(f"features: {len(features)} symbols ready for predict")
 
             model = await get_cache().get("model_a")

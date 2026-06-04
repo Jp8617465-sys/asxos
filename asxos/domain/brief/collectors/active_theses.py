@@ -15,7 +15,11 @@ import time
 from datetime import date
 
 from asxos.db import acquire
-from asxos.domain.brief.severity import earnings_risk, thesis_revisit_overdue, thesis_timeline_expired
+from asxos.domain.brief.severity import (
+    earnings_risk,
+    thesis_revisit_overdue,
+    thesis_timeline_expired,
+)
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.divergence import detect_hidden_risk

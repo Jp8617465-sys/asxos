@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from asxos.db import acquire, close_pool, init_pool

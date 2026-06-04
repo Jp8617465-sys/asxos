@@ -44,12 +44,17 @@ async def load_panel(
     target_date: date,
     *,
     lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+    symbols: list[str] | None = None,
 ) -> pd.DataFrame:
     """Raw symbol-by-dt panel with prices, fundamentals (45-day lag), and caps.
-    Used by the regime detector (needs full history) and the feature loader."""
+    Used by the regime detector (needs full history) and the feature loader.
+
+    Pass `symbols` to load only a subset — used by generate_signals for batched
+    feature computation to keep peak memory within Render free-tier limits.
+    """
     start_date = target_date - timedelta(days=lookback_days)
     fundamentals_cutoff = target_date - timedelta(days=FUNDAMENTAL_LAG_DAYS)
-    return await _load_panel(conn, start_date, target_date, fundamentals_cutoff)
+    return await _load_panel(conn, start_date, target_date, fundamentals_cutoff, symbols=symbols)
 
 
 def features_from_panel(panel: pd.DataFrame, target_date: date) -> pd.DataFrame:
@@ -105,19 +110,37 @@ async def _load_panel(
     start_date: date,
     target_date: date,
     fundamentals_cutoff: date,
+    *,
+    symbols: list[str] | None = None,
 ) -> pd.DataFrame:
-    price_rows = await conn.fetch(
-        """
-        SELECT p.symbol, p.dt, p.open, p.high, p.low, p.close, p.volume
-        FROM prices p
-        JOIN universe u ON u.symbol = p.symbol
-        WHERE p.dt BETWEEN $1 AND $2
-          AND u.is_active = TRUE
-        ORDER BY p.symbol, p.dt
-        """,
-        start_date,
-        target_date,
-    )
+    if symbols is not None:
+        price_rows = await conn.fetch(
+            """
+            SELECT p.symbol, p.dt, p.open, p.high, p.low, p.close, p.volume
+            FROM prices p
+            JOIN universe u ON u.symbol = p.symbol
+            WHERE p.dt BETWEEN $1 AND $2
+              AND u.is_active = TRUE
+              AND p.symbol = ANY($3)
+            ORDER BY p.symbol, p.dt
+            """,
+            start_date,
+            target_date,
+            symbols,
+        )
+    else:
+        price_rows = await conn.fetch(
+            """
+            SELECT p.symbol, p.dt, p.open, p.high, p.low, p.close, p.volume
+            FROM prices p
+            JOIN universe u ON u.symbol = p.symbol
+            WHERE p.dt BETWEEN $1 AND $2
+              AND u.is_active = TRUE
+            ORDER BY p.symbol, p.dt
+            """,
+            start_date,
+            target_date,
+        )
     if not price_rows:
         return pd.DataFrame()
 
@@ -128,15 +151,28 @@ async def _load_panel(
     # merge_asof requires the left frame sorted globally by `on` (dt).
     prices = prices.sort_values(["dt", "symbol"]).reset_index(drop=True)
 
-    fund_rows = await conn.fetch(
-        """
-        SELECT symbol, as_of, pe_ratio, pb_ratio, eps
-        FROM fundamentals
-        WHERE as_of <= $1
-        ORDER BY symbol, as_of
-        """,
-        fundamentals_cutoff,
-    )
+    if symbols is not None:
+        fund_rows = await conn.fetch(
+            """
+            SELECT symbol, as_of, pe_ratio, pb_ratio, eps
+            FROM fundamentals
+            WHERE as_of <= $1
+              AND symbol = ANY($2)
+            ORDER BY symbol, as_of
+            """,
+            fundamentals_cutoff,
+            symbols,
+        )
+    else:
+        fund_rows = await conn.fetch(
+            """
+            SELECT symbol, as_of, pe_ratio, pb_ratio, eps
+            FROM fundamentals
+            WHERE as_of <= $1
+            ORDER BY symbol, as_of
+            """,
+            fundamentals_cutoff,
+        )
     if fund_rows:
         funds = pd.DataFrame(fund_rows, columns=fund_rows[0].keys())
         funds["as_of"] = pd.to_datetime(funds["as_of"]).astype("datetime64[us]")
@@ -147,7 +183,7 @@ async def _load_panel(
         # Apply the 45-day disclosure lag by shifting the as_of forward, then
         # do a backward as-of join: each (symbol, dt) gets the most recent
         # fundamentals snapshot whose effective date <= dt.
-        funds["effective_dt"] = funds["as_of"] + pd.Timedelta(days=FUNDAMENTAL_LAG_DAYS)
+        funds["effective_dt"] = (funds["as_of"] + pd.Timedelta(days=FUNDAMENTAL_LAG_DAYS)).astype("datetime64[us]")
         funds = funds.drop(columns=["as_of"]).sort_values(["effective_dt", "symbol"]).reset_index(
             drop=True
         )
@@ -168,9 +204,15 @@ async def _load_panel(
         for col in ("pe_ratio", "pb_ratio", "eps"):
             panel[col] = np.nan
 
-    cap_rows = await conn.fetch(
-        "SELECT symbol, market_cap FROM universe WHERE is_active = TRUE"
-    )
+    if symbols is not None:
+        cap_rows = await conn.fetch(
+            "SELECT symbol, market_cap FROM universe WHERE is_active = TRUE AND symbol = ANY($1)",
+            symbols,
+        )
+    else:
+        cap_rows = await conn.fetch(
+            "SELECT symbol, market_cap FROM universe WHERE is_active = TRUE"
+        )
     if cap_rows:
         caps = pd.DataFrame(cap_rows, columns=cap_rows[0].keys())
         caps["market_cap"] = pd.to_numeric(caps["market_cap"], errors="coerce")
