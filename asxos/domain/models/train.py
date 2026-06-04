@@ -83,17 +83,23 @@ def walk_forward_split(
     TimeSeriesSplit by `dt` — each fold's test set comes strictly AFTER its
     train set. Returns a list of (train_idx, test_idx) tuples.
 
-    Implementation note: sklearn's TimeSeriesSplit assumes rows are sorted in
-    chronological order. We sort by `dt` then by `symbol` to keep panel rows
-    grouped by time-step.
+    Expanding window: fold i uses all rows up to (i+1)*fold_size as training,
+    and the next fold_size rows as test. Last fold's test extends to end of data.
+    Equivalent to sklearn's TimeSeriesSplit without the sklearn dependency.
     """
-    from sklearn.model_selection import TimeSeriesSplit  # type: ignore[import-not-found]
-
     if "dt" not in panel.columns:
         raise ValueError("panel must contain a `dt` column for time-aware splitting")
     ordered = panel.sort_values(["dt", "symbol"]).reset_index(drop=True)
-    splitter = TimeSeriesSplit(n_splits=n_splits)
-    return [(ordered.index[train], ordered.index[test]) for train, test in splitter.split(ordered)]
+    n = len(ordered)
+    test_size = n // (n_splits + 1)
+    result = []
+    for i in range(n_splits):
+        train_end = (i + 1) * test_size
+        test_start = train_end
+        test_end = test_start + test_size if i < n_splits - 1 else n
+        if test_end > test_start and train_end > 0:
+            result.append((ordered.index[:train_end], ordered.index[test_start:test_end]))
+    return result
 
 
 def train_model_a(
@@ -109,9 +115,6 @@ def train_model_a(
       - fit on train, score on test (ROC AUC for classifier, RMSE for regressor)
     Final classifier/regressor: trained on the entire dataset.
     """
-    from lightgbm import LGBMClassifier, LGBMRegressor
-    from sklearn.metrics import mean_squared_error, roc_auc_score  # type: ignore[import-not-found]
-
     if not features:
         raise ValueError("features must be a non-empty list")
 
@@ -121,6 +124,9 @@ def train_model_a(
     df = df.dropna(subset=features)
     if df.empty:
         raise ValueError("no rows remained after feature dropna")
+
+    from lightgbm import LGBMClassifier, LGBMRegressor
+    from sklearn.metrics import mean_squared_error, roc_auc_score  # type: ignore[import-not-found]
 
     df = df.sort_values(["dt", "symbol"]).reset_index(drop=True)
     X = df[features].to_numpy(dtype=float)
