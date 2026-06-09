@@ -102,7 +102,7 @@ services:
     plan: starter
     branch: main
     buildCommand: pip install -e ".[ml]"
-    schedule: "30 20 * * 0-4"  # Sun-Thu UTC = Mon-Fri AEST
+    schedule: "30 20 * * 2-6"  # Tue-Sat UTC = Mon-Fri AEST (target = yesterday)
     command: python jobs/sync_prices.py
     envVars:
       - key: PYTHON_VERSION

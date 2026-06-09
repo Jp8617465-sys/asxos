@@ -11,19 +11,23 @@ from contextlib import asynccontextmanager
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pandas as pd
 import pytest
 
 import jobs.generate_signals as job_mod
 from asxos.jobs._helpers import UpstreamBlocked
 
 
-def _make_conn(upstream_ok_status: str | None) -> MagicMock:
-    """conn.fetchrow returns the row that _upstream_ok would read."""
+def _make_conn(upstream_ok_status: str | None, last_price_date: date | None = date(2026, 5, 28)) -> MagicMock:
+    """Mock connection: fetchval returns last_price_date; fetchrow returns upstream_ok row."""
     conn = MagicMock()
+    conn.fetchval = AsyncMock(return_value=last_price_date)
     if upstream_ok_status is None:
         conn.fetchrow = AsyncMock(return_value=None)
     else:
         conn.fetchrow = AsyncMock(return_value={"status": upstream_ok_status})
+    # fetch is used by _top_liquid_symbols and the symbol list query
+    conn.fetch = AsyncMock(return_value=[{"symbol": "CBA.AU"}])
     return conn
 
 
@@ -73,8 +77,7 @@ async def test_upstream_stale_with_flag_proceeds_and_records_override() -> None:
     # Stub the heavy bits so main() can complete past the upstream check
     fake_panel = MagicMock()
     fake_panel.empty = False
-    fake_features = MagicMock()
-    fake_features.empty = False
+    fake_features = pd.DataFrame({"symbol": ["CBA.AU"]})
 
     captured_monitor = {}
 
@@ -121,8 +124,7 @@ async def test_upstream_ok_proceeds_without_override_reason() -> None:
     conn = _make_conn(upstream_ok_status="success")
     fake_panel = MagicMock()
     fake_panel.empty = False
-    fake_features = MagicMock()
-    fake_features.empty = False
+    fake_features = pd.DataFrame({"symbol": ["CBA.AU"]})
 
     captured_monitor = {}
 

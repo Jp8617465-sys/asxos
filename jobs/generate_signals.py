@@ -43,14 +43,31 @@ _REGIME_TOP_N = 20  # top-N liquid symbols used to build the market-regime proxy
 
 
 async def _upstream_ok(conn: "asyncpg.Connection", as_of: date) -> bool:
+    # Allow up to 5 calendar days lag — covers weekends + public holidays.
+    # sync_prices records as_of = the run date (not the target data date), so
+    # we can't do an exact match against the price date.
     row = await conn.fetchrow(
         """
-        SELECT status FROM job_runs
-        WHERE job_name = 'sync_prices' AND as_of = $1
+        SELECT 1 FROM job_runs
+        WHERE job_name = 'sync_prices'
+          AND status    = 'success'
+          AND as_of    >= $1 - 5
         """,
         as_of,
     )
-    return row is not None and row["status"] == "success"
+    return row is not None
+
+
+async def _last_price_date(conn: "asyncpg.Connection") -> date | None:
+    """Return the most recent dt in the prices table across active symbols."""
+    return await conn.fetchval(
+        """
+        SELECT MAX(p.dt)
+        FROM prices p
+        JOIN universe u ON u.symbol = p.symbol
+        WHERE u.is_active = TRUE
+        """
+    )
 
 
 async def _top_liquid_symbols(conn: "asyncpg.Connection", as_of: date, n: int = _REGIME_TOP_N) -> list[str]:
@@ -74,10 +91,20 @@ async def _top_liquid_symbols(conn: "asyncpg.Connection", as_of: date, n: int = 
 
 
 async def main(as_of_arg: date | None, allow_stale_upstream: bool = False) -> None:
-    as_of = as_of_arg or date.today()
     await init_pool()
 
     try:
+        # Determine as_of from the last available price date in the DB.
+        # Using date.today() would filter panel["dt"] == today, but sync_prices
+        # only writes target = yesterday, so today's rows never exist → 0 features.
+        # Using the actual last price date makes the job robust to holidays and
+        # weekend gaps where sync_prices writes 0 AU rows.
+        async with acquire() as conn:
+            last_dt = await _last_price_date(conn)
+        if last_dt is None:
+            raise RuntimeError("no prices in DB — run sync_prices first")
+        as_of = as_of_arg or last_dt
+
         # Upstream check is INSIDE the JobMonitor block so a UpstreamBlocked
         # raise gets recorded to job_runs as status='blocked'. The previous
         # placement (outside JobMonitor) silently emitted a warning and
