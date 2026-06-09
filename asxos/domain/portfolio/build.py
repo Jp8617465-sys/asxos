@@ -145,7 +145,7 @@ class PortfolioService:
 
         # Step 3: universe.
         universe_rows = await conn.fetch(
-            "SELECT symbol, sector, market_cap_aud, is_active FROM universe ORDER BY symbol"
+            "SELECT symbol, sector, market_cap, is_active FROM universe ORDER BY symbol"
         )
         universe_by_symbol = {r["symbol"]: r for r in universe_rows}
         inactive_symbols: frozenset[str] = frozenset(
@@ -169,8 +169,8 @@ class PortfolioService:
                     symbol=sym,
                     sector=u["sector"],
                     market_cap_aud=(
-                        Decimal(str(u["market_cap_aud"]))
-                        if u["market_cap_aud"] is not None
+                        Decimal(str(u["market_cap"]))
+                        if u["market_cap"] is not None
                         else None
                     ),
                     signal_label=r["signal_label"],
