@@ -24,7 +24,21 @@
 </head>
 <body>
   <h1>asxos brief — {{ d.as_of }}</h1>
+  {% if d.signals_stale %}
+  <p class="meta">Regime: <strong style="color:#c00">unavailable</strong> — latest signal: {{ d.latest_signal_date or "none" }} · Holdings: {{ d.holdings_count }}</p>
+  {% else %}
   <p class="meta">Regime: <strong>{{ d.regime }}</strong> · Holdings: {{ d.holdings_count }}</p>
+  {% endif %}
+
+  {% if d.prices_stale or d.signals_stale %}
+  <div class="banner">
+    <strong>Data freshness warning.</strong>
+    <ul>
+      {% if d.prices_stale %}<li>Prices stale — latest price date: {{ d.latest_price_date or "no data" }}</li>{% endif %}
+      {% if d.signals_stale %}<li>Signals stale — latest signal run: {{ d.latest_signal_date or "no data" }}</li>{% endif %}
+    </ul>
+  </div>
+  {% endif %}
 
   {% if d.has_failures %}
   <div class="banner">

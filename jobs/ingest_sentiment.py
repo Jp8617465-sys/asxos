@@ -53,7 +53,7 @@ async def _upstream_ok(conn, today: date) -> bool:
         SELECT 1 FROM job_runs
         WHERE job_name = 'ingest_news'
           AND status = 'success'
-          AND as_of >= $1 - INTERVAL '1 day'
+          AND as_of >= $1::date - 1
         """,
         today,
     )

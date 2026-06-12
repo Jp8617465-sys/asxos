@@ -51,7 +51,7 @@ async def _upstream_ok(conn: "asyncpg.Connection", as_of: date) -> bool:
         SELECT 1 FROM job_runs
         WHERE job_name = 'sync_prices'
           AND status    = 'success'
-          AND as_of    >= $1 - 5
+          AND as_of    >= $1::date - 5
         """,
         as_of,
     )

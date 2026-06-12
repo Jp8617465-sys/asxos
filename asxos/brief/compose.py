@@ -122,7 +122,7 @@ class PortfolioSection:
 @dataclass(frozen=True)
 class BriefData:
     as_of: date
-    regime: str
+    regime: str | None          # None when no signal row exists for as_of
     holdings_count: int
     signal_changes: list[SignalChange] = field(default_factory=list)
     tax_actions: list[TaxAction] = field(default_factory=list)
@@ -130,10 +130,22 @@ class BriefData:
     job_failures: list[JobFailure] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
     portfolio_section: PortfolioSection | None = None
+    latest_signal_date: date | None = None
+    latest_price_date: date | None = None
 
     @property
     def has_failures(self) -> bool:
         return bool(self.job_failures)
+
+    @property
+    def signals_stale(self) -> bool:
+        return self.regime is None
+
+    @property
+    def prices_stale(self) -> bool:
+        if self.latest_price_date is None:
+            return True
+        return (self.as_of - self.latest_price_date).days > 5
 
 
 async def collect(as_of: date) -> BriefData:
@@ -148,11 +160,23 @@ async def collect(as_of: date) -> BriefData:
             "SELECT regime FROM signals WHERE as_of = $1 LIMIT 1",
             as_of,
         )
-        regime = regime_row["regime"] if regime_row else "neutral"
+        regime: str | None = regime_row["regime"] if regime_row else None
 
         holdings_count = await conn.fetchval(
             "SELECT COUNT(*) FROM current_holdings"
         ) or 0
+
+        latest_signal_date: date | None = await conn.fetchval(
+            "SELECT MAX(as_of) FROM signals"
+        )
+        latest_price_date: date | None = await conn.fetchval(
+            """
+            SELECT MAX(p.dt)
+            FROM prices p
+            JOIN universe u ON u.symbol = p.symbol
+            WHERE u.is_active = TRUE
+            """
+        )
 
         signal_changes = await _signal_changes(conn, as_of)
         tax_actions = await _tax_actions(conn, as_of)
@@ -171,6 +195,8 @@ async def collect(as_of: date) -> BriefData:
         job_failures=job_failures,
         news_items=news_items,
         portfolio_section=portfolio_section,
+        latest_signal_date=latest_signal_date,
+        latest_price_date=latest_price_date,
     )
 
 
@@ -191,6 +217,7 @@ async def _signal_changes(conn: asyncpg.Connection, as_of: date) -> list[SignalC
             FROM signals s
             JOIN current_holdings h ON h.symbol = s.symbol
             WHERE s.as_of < $1
+              AND s.as_of >= $1::date - 7
             ORDER BY s.symbol, s.as_of DESC
         )
         SELECT

@@ -34,6 +34,8 @@ def _brief(**overrides) -> BriefData:
     defaults = {
         "as_of": date(2026, 5, 22),
         "regime": "bear",
+        "latest_signal_date": date(2026, 5, 22),
+        "latest_price_date": date(2026, 5, 22),
         "holdings_count": 3,
         "signal_changes": [],
         "tax_actions": [],
@@ -48,6 +50,27 @@ def test_render_html_contains_title_and_regime() -> None:
     html = render_html(_brief())
     assert "asxos brief — 2026-05-22" in html
     assert "Regime: <strong>bear</strong>" in html
+
+
+def test_render_html_shows_stale_regime_warning() -> None:
+    """When regime is None, shows unavailable + latest signal date instead of regime label."""
+    html = render_html(_brief(regime=None, latest_signal_date=date(2026, 5, 20)))
+    assert "unavailable" in html
+    assert "2026-05-20" in html
+    assert "Regime: <strong>bear</strong>" not in html
+
+
+def test_render_html_shows_freshness_banner_when_prices_stale() -> None:
+    """Freshness banner appears when latest_price_date is >5 days before as_of."""
+    html = render_html(_brief(latest_price_date=date(2026, 5, 10)))
+    assert "Prices stale" in html
+    assert "2026-05-10" in html
+
+
+def test_render_html_freshness_banner_absent_when_fresh() -> None:
+    """No freshness banner when prices and signals are current."""
+    html = render_html(_brief())
+    assert "Data freshness warning" not in html
 
 
 def test_render_html_shows_signal_changes() -> None:
@@ -131,15 +154,33 @@ def _make_conn(
     fail_rows,
     news_rows=None,
     news_job_rows=None,
+    latest_signal_date=None,
+    latest_price_date=None,
 ):
     """Build a mock asyncpg connection that routes queries to canned rows.
 
-    news_rows:      rows for ``FROM holding_news`` queries (_holding_news)
-    news_job_rows:  rows for ``FROM job_runs … job_name = 'ingest_news'`` (_news_ingest_fresh)
+    news_rows:          rows for ``FROM holding_news`` queries (_holding_news)
+    news_job_rows:      rows for ``FROM job_runs … job_name = 'ingest_news'`` (_news_ingest_fresh)
+    latest_signal_date: return value for ``SELECT MAX(as_of) FROM signals``
+    latest_price_date:  return value for ``SELECT MAX(p.dt) FROM prices ...``
     """
+    _latest_signal_date = latest_signal_date
+    _latest_price_date = latest_price_date
+
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value=regime_row)
-    conn.fetchval = AsyncMock(return_value=holdings_count)
+
+    async def _fetchval(query, *args, **kwargs):
+        q = " ".join(query.split())
+        if "COUNT(*)" in q:
+            return holdings_count
+        if "MAX(as_of)" in q:
+            return _latest_signal_date
+        if "MAX(p.dt)" in q:
+            return _latest_price_date
+        return None
+
+    conn.fetchval = AsyncMock(side_effect=_fetchval)
 
     async def _fetch(query, *args, **kwargs):
         q = " ".join(query.split())
@@ -238,7 +279,8 @@ def test_collect_handles_empty_db() -> None:
     with patch("asxos.brief.compose.acquire", fake_acquire):
         data = asyncio.run(collect(today))
 
-    assert data.regime == "neutral"  # default
+    assert data.regime is None
+    assert data.signals_stale is True
     assert data.holdings_count == 0
     assert data.signal_changes == []
     assert not data.has_failures

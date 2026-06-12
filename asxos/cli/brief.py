@@ -5,7 +5,7 @@ from datetime import date
 
 import typer
 
-from asxos.cli._common import console
+from asxos.cli._common import _require_personal_use, console
 from asxos.db import close_pool, init_pool
 
 
@@ -14,6 +14,7 @@ def brief(
     send: bool = typer.Option(False, "--send", help="Dispatch via Resend (default: stdout-only)"),
 ) -> None:
     """Render the morning brief; pass --send to dispatch via Resend."""
+    _require_personal_use()
     target = date.fromisoformat(as_of) if as_of else date.today()
     asyncio.run(_run_brief(target, send=send))
 

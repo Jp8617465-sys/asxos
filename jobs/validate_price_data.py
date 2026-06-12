@@ -112,7 +112,7 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
         JOIN universe u ON u.symbol = p.symbol
         WHERE u.is_active = TRUE
           AND p.close <= 0
-          AND p.dt >= $1 - INTERVAL '7 days'
+          AND p.dt >= $1::date - INTERVAL '7 days'
         ORDER BY p.dt DESC, p.symbol
         LIMIT 50
         """,
