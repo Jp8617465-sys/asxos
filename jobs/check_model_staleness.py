@@ -134,9 +134,9 @@ async def _query_issues(conn, as_of: date) -> list[tuple[str, str]]:  # type: ig
 
 async def _run(as_of: date) -> None:
     healthcheck_url = settings.healthcheck_url_check_model_staleness
-    async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
-        await init_pool()
-        try:
+    await init_pool()
+    try:
+        async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
             async with acquire() as conn:
                 issues = await _query_issues(conn, as_of)
 
@@ -155,8 +155,8 @@ async def _run(as_of: date) -> None:
             )
             summary = textwrap.indent("\n".join(subj for subj, _ in issues), "  ")
             raise RuntimeError(f"ML health issues detected:\n{summary}")
-        finally:
-            await close_pool()
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

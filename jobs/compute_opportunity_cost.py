@@ -22,7 +22,7 @@ import sys
 from datetime import date
 from decimal import Decimal
 
-from asxos.db import acquire
+from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.brief.opportunity_cost import rank_by_opportunity_cost
 from asxos.domain.portfolio.types import AllocationCandidate, HoldingSnapshot
 from asxos.domain.tax.cgt import days_to_eligibility
@@ -169,33 +169,37 @@ async def main() -> None:
     as_of = date.today()
     total_scenarios = 0
 
-    async with JobMonitor(_JOB, as_of) as monitor:
-        async with acquire() as conn:
-            active_theses = await conn.fetch(
-                "SELECT thesis_id, symbol FROM theses WHERE status = 'active' ORDER BY symbol"
-            )
+    await init_pool()
+    try:
+        async with JobMonitor(_JOB, as_of) as monitor:
+            async with acquire() as conn:
+                active_theses = await conn.fetch(
+                    "SELECT thesis_id, symbol FROM theses WHERE status = 'active' ORDER BY symbol"
+                )
 
-            if not active_theses:
-                print("No active theses — nothing to compute.", file=sys.stderr)
-                monitor.rows_written = 0
-                return
+                if not active_theses:
+                    print("No active theses — nothing to compute.", file=sys.stderr)
+                    monitor.rows_written = 0
+                    return
 
-            candidates = await _build_candidates(conn, as_of)
-            print(f"Built {len(candidates)} candidates ({len(candidates)-1} watchlist + 1 cash)")
+                candidates = await _build_candidates(conn, as_of)
+                print(f"Built {len(candidates)} candidates ({len(candidates)-1} watchlist + 1 cash)")
 
-            for row in active_theses:
-                thesis_id = row["thesis_id"]
-                symbol = row["symbol"]
-                try:
-                    n = await _process_thesis(conn, thesis_id, symbol, as_of, candidates)
-                    total_scenarios += n
-                    print(f"  {symbol}: {n} scenarios inserted")
-                except Exception as exc:
-                    # Soft-degrade: one thesis failure does not abort the job
-                    print(f"  {symbol}: ERROR — {exc}", file=sys.stderr)
+                for row in active_theses:
+                    thesis_id = row["thesis_id"]
+                    symbol = row["symbol"]
+                    try:
+                        n = await _process_thesis(conn, thesis_id, symbol, as_of, candidates)
+                        total_scenarios += n
+                        print(f"  {symbol}: {n} scenarios inserted")
+                    except Exception as exc:
+                        # Soft-degrade: one thesis failure does not abort the job
+                        print(f"  {symbol}: ERROR — {exc}", file=sys.stderr)
 
-        monitor.rows_written = total_scenarios
-        print(f"compute_opportunity_cost complete: {total_scenarios} scenarios for {len(active_theses)} theses")
+            monitor.rows_written = total_scenarios
+            print(f"compute_opportunity_cost complete: {total_scenarios} scenarios for {len(active_theses)} theses")
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from asxos.clients.fred import get_client as get_fred_client
-from asxos.db import acquire
+from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.regime.classifier import CLASSIFIER_VERSION, classify
 from asxos.ingestion.eodhd import get_client as get_eodhd_client
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -239,92 +239,96 @@ async def _fetch_fred_indicators(as_of: date) -> tuple[dict[str, Decimal | None]
 async def _run(as_of: date) -> None:
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_INGEST_MARKET_CONTEXT", "")
 
-    async with JobMonitor("ingest_market_context", as_of, healthcheck_url) as monitor:
-        async with acquire() as conn:
-            # Compute breadth from local prices
-            breadth = await _compute_breadth(conn, as_of)
+    await init_pool()
+    try:
+        async with JobMonitor("ingest_market_context", as_of, healthcheck_url) as monitor:
+            async with acquire() as conn:
+                # Compute breadth from local prices
+                breadth = await _compute_breadth(conn, as_of)
 
-        # Fetch external data concurrently
-        (eodhd_indicators, eodhd_warnings), (fred_indicators, fred_warnings) = await asyncio.gather(
-            _fetch_eodhd_indicators(as_of),
-            _fetch_fred_indicators(as_of),
-        )
-
-        all_warnings = eodhd_warnings + fred_warnings
-
-        # Hard-fail on missing critical indicators
-        asx200_close = eodhd_indicators["asx200_close"]
-        avix = eodhd_indicators["avix"]
-        us_hy_oas = fred_indicators["us_hy_oas"]
-
-        if asx200_close is None:
-            raise RuntimeError(
-                f"ingest_market_context: asx200_close is None for {as_of}. "
-                "Cannot proceed without ASX200 close."
-            )
-        if avix is None:
-            raise RuntimeError(
-                f"ingest_market_context: avix is None for {as_of}. "
-                "Cannot proceed without AVIX."
-            )
-        if us_hy_oas is None:
-            raise RuntimeError(
-                f"ingest_market_context: us_hy_oas is None for {as_of}. "
-                "Cannot proceed without US HY OAS credit indicator."
+            # Fetch external data concurrently
+            (eodhd_indicators, eodhd_warnings), (fred_indicators, fred_warnings) = await asyncio.gather(
+                _fetch_eodhd_indicators(as_of),
+                _fetch_fred_indicators(as_of),
             )
 
-        # Classify regime
-        indicators = {**breadth, **eodhd_indicators, **fred_indicators}
-        label, conditions = classify(indicators)
-        rationale = [
-            {
-                "name": c.name,
-                "fired": c.fired,
-                "value": str(c.value) if c.value is not None else None,
-                "threshold": str(c.threshold) if c.threshold is not None else None,
-                "classifier_version": CLASSIFIER_VERSION,
-            }
-            for c in conditions
-        ]
+            all_warnings = eodhd_warnings + fred_warnings
 
-        # INSERT (append-only)
-        async with acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO market_context (
-                    as_of,
-                    asx200_close, asx200_daily_change_pct,
-                    pct_above_50d_ma, pct_above_200d_ma, net_new_highs_lows_10d,
-                    avix, avix_5d_change_pct, avix_30d_band_pos,
-                    rba_cash_rate, aud_usd, aus_10y_yield, iron_ore_62fe,
-                    us_hy_oas, us_10y_2y_spread, vix,
-                    regime_label, regime_rationale, ingestion_warnings
-                ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9,
-                    $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+            # Hard-fail on missing critical indicators
+            asx200_close = eodhd_indicators["asx200_close"]
+            avix = eodhd_indicators["avix"]
+            us_hy_oas = fred_indicators["us_hy_oas"]
+
+            if asx200_close is None:
+                raise RuntimeError(
+                    f"ingest_market_context: asx200_close is None for {as_of}. "
+                    "Cannot proceed without ASX200 close."
                 )
-                """,
-                as_of,
-                asx200_close,
-                eodhd_indicators["asx200_daily_change_pct"],
-                breadth["pct_above_50d_ma"],
-                breadth["pct_above_200d_ma"],
-                breadth["net_new_highs_lows_10d"],
-                avix,
-                eodhd_indicators["avix_5d_change_pct"],
-                eodhd_indicators["avix_30d_band_pos"],
-                fred_indicators["rba_cash_rate"],
-                eodhd_indicators["aud_usd"],
-                fred_indicators["aus_10y_yield"],
-                eodhd_indicators["iron_ore_62fe"],
-                us_hy_oas,
-                fred_indicators["us_10y_2y_spread"],
-                eodhd_indicators["vix"],
-                label.value,
-                json.dumps(rationale),
-                json.dumps(all_warnings),
-            )
-            monitor.rows_written = 1
+            if avix is None:
+                raise RuntimeError(
+                    f"ingest_market_context: avix is None for {as_of}. "
+                    "Cannot proceed without AVIX."
+                )
+            if us_hy_oas is None:
+                raise RuntimeError(
+                    f"ingest_market_context: us_hy_oas is None for {as_of}. "
+                    "Cannot proceed without US HY OAS credit indicator."
+                )
+
+            # Classify regime
+            indicators = {**breadth, **eodhd_indicators, **fred_indicators}
+            label, conditions = classify(indicators)
+            rationale = [
+                {
+                    "name": c.name,
+                    "fired": c.fired,
+                    "value": str(c.value) if c.value is not None else None,
+                    "threshold": str(c.threshold) if c.threshold is not None else None,
+                    "classifier_version": CLASSIFIER_VERSION,
+                }
+                for c in conditions
+            ]
+
+            # INSERT (append-only)
+            async with acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO market_context (
+                        as_of,
+                        asx200_close, asx200_daily_change_pct,
+                        pct_above_50d_ma, pct_above_200d_ma, net_new_highs_lows_10d,
+                        avix, avix_5d_change_pct, avix_30d_band_pos,
+                        rba_cash_rate, aud_usd, aus_10y_yield, iron_ore_62fe,
+                        us_hy_oas, us_10y_2y_spread, vix,
+                        regime_label, regime_rationale, ingestion_warnings
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9,
+                        $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+                    )
+                    """,
+                    as_of,
+                    asx200_close,
+                    eodhd_indicators["asx200_daily_change_pct"],
+                    breadth["pct_above_50d_ma"],
+                    breadth["pct_above_200d_ma"],
+                    breadth["net_new_highs_lows_10d"],
+                    avix,
+                    eodhd_indicators["avix_5d_change_pct"],
+                    eodhd_indicators["avix_30d_band_pos"],
+                    fred_indicators["rba_cash_rate"],
+                    eodhd_indicators["aud_usd"],
+                    fred_indicators["aus_10y_yield"],
+                    eodhd_indicators["iron_ore_62fe"],
+                    us_hy_oas,
+                    fred_indicators["us_10y_2y_spread"],
+                    eodhd_indicators["vix"],
+                    label.value,
+                    json.dumps(rationale),
+                    json.dumps(all_warnings),
+                )
+                monitor.rows_written = 1
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

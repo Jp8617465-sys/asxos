@@ -100,9 +100,9 @@ def _send_alert(subject: str, body: str) -> None:
 
 async def _run(as_of: date) -> None:
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_CHECK_THESIS_INVALIDATIONS", "")
-    async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
-        await init_pool()
-        try:
+    await init_pool()
+    try:
+        async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
             async with acquire() as conn:
                 theses = await _fetch_active_theses_with_conditions(conn)
 
@@ -160,8 +160,8 @@ async def _run(as_of: date) -> None:
                     triggered_count += 1
 
             monitor.rows_written = triggered_count
-        finally:
-            await close_pool()
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

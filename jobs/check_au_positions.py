@@ -148,9 +148,9 @@ def _send_alert(subject: str, body: str) -> None:
 
 async def _run(as_of: date) -> None:
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_CHECK_AU_POSITIONS", "")
-    async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
-        await init_pool()
-        try:
+    await init_pool()
+    try:
+        async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
             async with acquire() as conn:
                 theses = await _fetch_au_theses(conn)
 
@@ -177,8 +177,8 @@ async def _run(as_of: date) -> None:
                 _send_alert(f"asxos {subject} — {as_of}", body)
 
             monitor.rows_written = len(all_alerts)
-        finally:
-            await close_pool()
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

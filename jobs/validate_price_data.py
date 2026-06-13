@@ -112,7 +112,7 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
         JOIN universe u ON u.symbol = p.symbol
         WHERE u.is_active = TRUE
           AND p.close <= 0
-          AND p.dt >= $1::date - INTERVAL '7 days'
+          AND p.dt >= $1::date - 7
         ORDER BY p.dt DESC, p.symbol
         LIMIT 50
         """,
@@ -128,9 +128,9 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
 
 async def _run(as_of: date) -> None:
     healthcheck_url = settings.healthcheck_url_validate_price_data
-    async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
-        await init_pool()
-        try:
+    await init_pool()
+    try:
+        async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
             async with acquire() as conn:
                 issues = await _query_anomalies(conn, as_of)
 
@@ -154,8 +154,8 @@ async def _run(as_of: date) -> None:
                 raise RuntimeError(
                     f"price validation failed: {len(issues)} anomalies on {as_of}"
                 )
-        finally:
-            await close_pool()
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

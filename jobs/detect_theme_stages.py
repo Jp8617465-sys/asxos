@@ -25,7 +25,7 @@ import json
 import sys
 from datetime import UTC, date, datetime
 
-from asxos.db import acquire
+from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.themes.stage_classifier import (
     CLASSIFIER_VERSION,
     THRESHOLDS,
@@ -177,39 +177,43 @@ async def main() -> None:
     as_of = date.today()
     updated = 0
 
-    async with JobMonitor(_JOB, as_of) as monitor:
-        async with acquire() as conn:
-            themes = await conn.fetch(
-                """
-                SELECT theme_id, theme_code, stage_suggested
-                FROM themes
-                WHERE retired_at IS NULL
-                ORDER BY theme_code
-                """
-            )
+    await init_pool()
+    try:
+        async with JobMonitor(_JOB, as_of) as monitor:
+            async with acquire() as conn:
+                themes = await conn.fetch(
+                    """
+                    SELECT theme_id, theme_code, stage_suggested
+                    FROM themes
+                    WHERE retired_at IS NULL
+                    ORDER BY theme_code
+                    """
+                )
 
-            if not themes:
-                print("No active themes — nothing to classify.", file=sys.stderr)
-                monitor.rows_written = 0
-                return
+                if not themes:
+                    print("No active themes — nothing to classify.", file=sys.stderr)
+                    monitor.rows_written = 0
+                    return
 
-            print(f"Classifying {len(themes)} active themes as of {as_of}")
-            for row in themes:
-                try:
-                    changed = await _process_theme(
-                        conn,
-                        row["theme_id"],
-                        row["theme_code"],
-                        row["stage_suggested"],
-                        as_of,
-                    )
-                    if changed:
-                        updated += 1
-                except Exception as exc:
-                    print(f"  {row['theme_code']}: ERROR — {exc}", file=sys.stderr)
+                print(f"Classifying {len(themes)} active themes as of {as_of}")
+                for row in themes:
+                    try:
+                        changed = await _process_theme(
+                            conn,
+                            row["theme_id"],
+                            row["theme_code"],
+                            row["stage_suggested"],
+                            as_of,
+                        )
+                        if changed:
+                            updated += 1
+                    except Exception as exc:
+                        print(f"  {row['theme_code']}: ERROR — {exc}", file=sys.stderr)
 
-        monitor.rows_written = updated
-        print(f"detect_theme_stages complete: {updated} theme(s) updated of {len(themes)} classified")
+            monitor.rows_written = updated
+            print(f"detect_theme_stages complete: {updated} theme(s) updated of {len(themes)} classified")
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

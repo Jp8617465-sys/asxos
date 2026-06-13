@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from asxos.clients.fred import get_client as get_fred_client
-from asxos.db import acquire
+from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.underlyings.service import list_underlyings, seed_defaults, upsert_price
 from asxos.ingestion.eodhd import get_client as get_eodhd_client
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -110,54 +110,58 @@ async def _run(as_of: date) -> None:
     rows_written = 0
     soft_warnings: list[str] = []
 
-    async with JobMonitor("ingest_underlyings", as_of, healthcheck_url) as monitor:
-        async with acquire() as conn:
-            await seed_defaults(conn)
-            underlyings = await list_underlyings(conn, include_inactive=False)
+    await init_pool()
+    try:
+        async with JobMonitor("ingest_underlyings", as_of, healthcheck_url) as monitor:
+            async with acquire() as conn:
+                await seed_defaults(conn)
+                underlyings = await list_underlyings(conn, include_inactive=False)
 
-            fetch_plan: list[tuple] = []
-            for u in underlyings:
-                source = u.data_source or ""
-                if not source or source == "manual":
-                    print(f"[skip] {u.code}: data_source={source!r} (manual — no fetch)", file=sys.stderr)
-                    continue
-                start = await _get_fetch_start(conn, u.underlying_id, as_of)
-                if start > as_of:
-                    print(f"[skip] {u.code}: prices already current (last >= {as_of})", file=sys.stderr)
-                    continue
-                fetch_plan.append((u, start))
-
-        eodhd = get_eodhd_client()
-        fred = get_fred_client()
-
-        async with acquire() as conn:
-            for u, start in fetch_plan:
-                source = u.data_source or ""
-                prices: list[tuple[date, Decimal]] = []
-
-                try:
-                    if source.startswith("eodhd:"):
-                        eodhd_symbol = source[len("eodhd:"):]
-                        prices = await _fetch_eodhd_prices(eodhd, eodhd_symbol, start, as_of)
-                    elif source.startswith("fred:"):
-                        fred_series = source[len("fred:"):]
-                        prices = await _fetch_fred_prices(fred, fred_series, start, as_of)
-                    else:
-                        soft_warnings.append(f"{u.code}: unknown data_source {source!r}")
+                fetch_plan: list[tuple] = []
+                for u in underlyings:
+                    source = u.data_source or ""
+                    if not source or source == "manual":
+                        print(f"[skip] {u.code}: data_source={source!r} (manual — no fetch)", file=sys.stderr)
                         continue
-                except Exception as exc:
-                    soft_warnings.append(f"{u.code}: fetch failed — {exc}")
-                    continue
+                    start = await _get_fetch_start(conn, u.underlying_id, as_of)
+                    if start > as_of:
+                        print(f"[skip] {u.code}: prices already current (last >= {as_of})", file=sys.stderr)
+                        continue
+                    fetch_plan.append((u, start))
 
-                for dt, spot in prices:
-                    await upsert_price(conn, u.code, dt, spot)
-                    rows_written += 1
+            eodhd = get_eodhd_client()
+            fred = get_fred_client()
 
-        monitor.rows_written = rows_written
+            async with acquire() as conn:
+                for u, start in fetch_plan:
+                    source = u.data_source or ""
+                    prices: list[tuple[date, Decimal]] = []
 
-        if soft_warnings:
-            for w in soft_warnings:
-                print(f"[warn] {w}", file=sys.stderr)
+                    try:
+                        if source.startswith("eodhd:"):
+                            eodhd_symbol = source[len("eodhd:"):]
+                            prices = await _fetch_eodhd_prices(eodhd, eodhd_symbol, start, as_of)
+                        elif source.startswith("fred:"):
+                            fred_series = source[len("fred:"):]
+                            prices = await _fetch_fred_prices(fred, fred_series, start, as_of)
+                        else:
+                            soft_warnings.append(f"{u.code}: unknown data_source {source!r}")
+                            continue
+                    except Exception as exc:
+                        soft_warnings.append(f"{u.code}: fetch failed — {exc}")
+                        continue
+
+                    for dt, spot in prices:
+                        await upsert_price(conn, u.code, dt, spot)
+                        rows_written += 1
+
+            monitor.rows_written = rows_written
+
+            if soft_warnings:
+                for w in soft_warnings:
+                    print(f"[warn] {w}", file=sys.stderr)
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

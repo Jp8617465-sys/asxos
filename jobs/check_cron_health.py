@@ -18,7 +18,7 @@ import os
 import textwrap
 from datetime import UTC, date, datetime
 
-from asxos.db import acquire
+from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 # Jobs that must have a 'success' row within the last 36 hours on weekdays.
@@ -134,14 +134,18 @@ def _send_alert(issues: list[str]) -> None:
 
 async def _run(as_of: date) -> None:
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_CHECK_CRON_HEALTH", "")
-    async with JobMonitor("check_cron_health", as_of, healthcheck_url):
-        async with acquire() as conn:
-            issues = await _query_issues(conn)
+    await init_pool()
+    try:
+        async with JobMonitor("check_cron_health", as_of, healthcheck_url):
+            async with acquire() as conn:
+                issues = await _query_issues(conn)
 
-        if issues:
-            _send_alert(issues)
-            summary = textwrap.indent("\n".join(issues), "  ")
-            raise RuntimeError(f"Pipeline issues detected:\n{summary}")
+            if issues:
+                _send_alert(issues)
+                summary = textwrap.indent("\n".join(issues), "  ")
+                raise RuntimeError(f"Pipeline issues detected:\n{summary}")
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":
