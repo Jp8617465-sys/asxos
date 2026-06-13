@@ -694,7 +694,12 @@ services:
     region: oregon
     plan: starter
     branch: main
-    buildCommand: apt-get update && apt-get install -y postgresql-client && pip install -e .
+    # Render's native runtime build env mounts /var/lib/apt read-only, so
+    # `apt-get install postgresql-client` fails. pg_dump ships on the native
+    # image; `pg_dump --version` asserts its presence loudly at build time
+    # rather than letting the cron fail silently at runtime (the script calls
+    # pg_dump at scripts/backup_irreplaceable.sh).
+    buildCommand: pip install -e . && pg_dump --version
     schedule: "30 13 * * *"
     command: bash scripts/backup_irreplaceable.sh
     envVars:
