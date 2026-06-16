@@ -21,9 +21,11 @@ from asxos.domain.prices.coverage import (
     DEFAULT_MAX_STALE_DAYS,
     MIN_COMPLETE_ROWS,
     PriceDateStatus,
+    SyncCompleteness,
     assess_completeness,
     classify_coverage,
     classify_row_count,
+    classify_sync_completeness,
     complete_threshold,
     is_stale,
     latest_complete_trading_day,
@@ -217,3 +219,58 @@ def test_fetch_recent_coverage_passes_lookback() -> None:
     conn = _conn_with_coverage([(date(2026, 6, 10), 1852)])
     asyncio.run(latest_complete_trading_day(conn, lookback_days=14))
     assert conn.fetch.await_args.args[1] == 14
+
+
+# --- classify_sync_completeness (sync_prices adapter) -------------------------
+#
+# Verdict is ASX-equity-only (Phase-1 au_rows); US/FX phase counts are carried
+# for context but must never make a non-trading day look ASX-complete. These map
+# to the 2026-06-14 residue incident (0 AU equity rows, 12/14 US/FX residue).
+
+_SYNC_TARGET = date(2026, 6, 14)
+
+
+def test_classify_sync_full_asx_day_is_complete() -> None:
+    v = classify_sync_completeness(date(2026, 6, 10), au_rows=1852, us_rows=3, fx_rows=1)
+    assert isinstance(v, SyncCompleteness)
+    assert v.status is PriceDateStatus.COMPLETE
+    assert v.is_complete is True
+
+
+def test_classify_sync_twelve_row_residue_is_no_equity_data() -> None:
+    # The exact incident: 0 ASX equity rows, 12 US/FX residue rows.
+    v = classify_sync_completeness(_SYNC_TARGET, au_rows=0, us_rows=12, fx_rows=0)
+    assert v.status is PriceDateStatus.NO_EQUITY_DATA
+    assert v.is_complete is False
+
+
+def test_classify_sync_fourteen_row_residue_is_no_equity_data() -> None:
+    v = classify_sync_completeness(_SYNC_TARGET, au_rows=0, us_rows=8, fx_rows=6)
+    assert v.status is PriceDateStatus.NO_EQUITY_DATA
+
+
+def test_classify_sync_fx_only_does_not_count_as_asx() -> None:
+    # A large FX count must NOT make the day look like ASX coverage.
+    v = classify_sync_completeness(_SYNC_TARGET, au_rows=0, us_rows=0, fx_rows=2000)
+    assert v.status is PriceDateStatus.NO_EQUITY_DATA
+    assert v.is_complete is False
+
+
+def test_classify_sync_us_only_does_not_count_as_asx() -> None:
+    # Thousands of US rows with no ASX session is still no_equity_data.
+    v = classify_sync_completeness(_SYNC_TARGET, au_rows=0, us_rows=5000, fx_rows=0)
+    assert v.status is PriceDateStatus.NO_EQUITY_DATA
+    assert v.is_complete is False
+
+
+def test_classify_sync_partial_asx_day_is_partial() -> None:
+    # Above the residue band but below the ~1800-symbol full-session floor.
+    v = classify_sync_completeness(date(2026, 6, 12), au_rows=900, us_rows=3, fx_rows=1)
+    assert v.status is PriceDateStatus.PARTIAL
+    assert v.is_complete is False
+
+
+def test_classify_sync_carries_phase_counts_and_target() -> None:
+    v = classify_sync_completeness(date(2026, 6, 10), au_rows=1800, us_rows=5, fx_rows=2)
+    assert (v.au_rows, v.us_rows, v.fx_rows) == (1800, 5, 2)
+    assert v.target == date(2026, 6, 10)

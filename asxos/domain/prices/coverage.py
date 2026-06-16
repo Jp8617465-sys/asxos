@@ -8,9 +8,13 @@ a tiny non-trading-day residue (e.g. the 12/14-row weekend ``sync_prices``
 results observed 2026-06-14 / 2026-06-15, where the rows were FX/US residue,
 not an ASX equity session).
 
-NOT WIRED into any job. ``sync_prices``, ``snapshot_portfolio``,
-``generate_signals`` and ``compose_brief`` are unchanged by this module — it
-only adds the vocabulary. Wiring is a deliberate later batch.
+Wiring status. The date-anchor readers (``latest_complete_trading_day``,
+``assess_completeness`` and the other DB helpers) remain advisory and unwired.
+The only consumer is ``classify_sync_completeness`` at the foot of this module,
+which ``sync_prices`` uses for NON-gating completeness logging (Batch 1 Step 2):
+it changes no job status, no ``rows_written`` semantics and no downstream gate.
+``snapshot_portfolio``, ``generate_signals`` and ``compose_brief`` are unchanged.
+Status-gating wiring is a deliberate later batch.
 
 Design
 ------
@@ -285,4 +289,56 @@ async def assess_completeness(
         latest_observed=coverage[0].dt if coverage else None,
         latest_complete=select_latest_complete(coverage),
         coverage=tuple(coverage),
+    )
+
+
+# --- sync_prices completeness adapter (Batch 1 Step 2) ------------------------
+
+
+@dataclass(frozen=True)
+class SyncCompleteness:
+    """ASX-equity completeness verdict for a single sync_prices run.
+
+    The verdict is derived ONLY from Phase-1 AU bulk equity rows (``au_rows``).
+    Phase-2 US (``us_rows``) and Phase-3 FX (``fx_rows``) writes are carried for
+    context but DELIBERATELY excluded from the classification: a non-trading ASX
+    day can still produce US/FX residue — the 2026-06-14 incident wrote 12/14
+    residue rows on a day with no ASX session — and that residue must never read
+    as ASX equity coverage.
+
+    v1 limitation: the verdict counts the AU bulk rows returned for the run; it
+    does not yet assert those rows carry ``dt == target`` (an EODHD holiday
+    response can echo the prior trading day's closes). Target-date assertion via
+    the DB coverage readers above is a deliberate later step.
+    """
+
+    target: date
+    status: PriceDateStatus
+    au_rows: int
+    us_rows: int
+    fx_rows: int
+
+    @property
+    def is_complete(self) -> bool:
+        return self.status is PriceDateStatus.COMPLETE
+
+
+def classify_sync_completeness(
+    target: date, *, au_rows: int, us_rows: int, fx_rows: int
+) -> SyncCompleteness:
+    """Classify a sync_prices run's ASX-equity completeness from phase counts.
+
+    Reuses the canonical floor-only threshold: ``classify_row_count(au_rows, 0)``
+    falls back to ``MIN_COMPLETE_ROWS`` (no trailing median needed, so no DB
+    round-trip). The active ASX universe is ~1,800 symbols, so the 1,500-row
+    floor cleanly separates a full session from residue. US and FX counts never
+    enter the classification, so FX-only or US-only runs can never look
+    ASX-complete.
+    """
+    return SyncCompleteness(
+        target=target,
+        status=classify_row_count(au_rows, 0),
+        au_rows=au_rows,
+        us_rows=us_rows,
+        fx_rows=fx_rows,
     )

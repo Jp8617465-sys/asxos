@@ -21,9 +21,9 @@ from datetime import date, timedelta
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.coverage import classify_sync_completeness
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
-    classify_sync_completeness,
     fetch_and_upsert_bulk,
     fetch_and_upsert_us_symbol,
     to_fx_rows,
