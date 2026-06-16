@@ -7,7 +7,8 @@ on the upstream-gate behaviour added by P0-2.
 """
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import logging
+from contextlib import ExitStack, asynccontextmanager
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -162,3 +163,194 @@ async def test_upstream_ok_proceeds_without_override_reason() -> None:
 
     assert captured_monitor["m"].override_reason is None
     assert captured_monitor["m"].rows_written == 10
+
+
+# ---------------------------------------------------------------------------
+# Complete-trading-day anchor (Batch 2 Stage 0): generate_signals anchors on
+# latest_complete_trading_day, NOT raw MAX(prices.dt), when no --as-of is given.
+# ---------------------------------------------------------------------------
+
+
+class _FakeMonitor:
+    """Minimal JobMonitor stand-in capturing as_of / override_reason / rows."""
+
+    last: _FakeMonitor | None = None
+
+    def __init__(self, **kw: object) -> None:
+        self.job_name = kw.get("job_name")
+        self.as_of = kw.get("as_of")
+        self.override_reason = kw.get("override_reason")
+        self.rows_written = 0
+        _FakeMonitor.last = self
+
+    async def __aenter__(self) -> _FakeMonitor:
+        return self
+
+    async def __aexit__(self, *a: object) -> bool:
+        return False
+
+
+def _nonempty_panel() -> MagicMock:
+    p = MagicMock()
+    p.empty = False
+    return p
+
+
+def _cache_returning(version: str) -> MagicMock:
+    model = MagicMock()
+    model.version = version
+    cache = MagicMock()
+    cache.get = AsyncMock(return_value=model)
+    return cache
+
+
+def _happy_pipeline_patches(
+    *,
+    conn: MagicMock,
+    complete_dt: date | None,
+    coverage_mock: AsyncMock,
+    persist_mock: AsyncMock,
+    load_panel_mock: AsyncMock,
+) -> list:
+    """Patch list for the heavy downstream pipeline + the coverage helper.
+
+    `coverage_mock` stands in for ``latest_complete_trading_day``; the caller owns
+    it so it can assert call/no-call. The pipeline stubs let ``main`` run past the
+    upstream gate without touching the real model / DB.
+    """
+    coverage_mock.return_value = complete_dt
+    load_panel_mock.return_value = _nonempty_panel()
+    return [
+        patch.object(job_mod, "acquire", new=lambda: _ctx(conn)),
+        patch.object(job_mod, "init_pool", new=AsyncMock()),
+        patch.object(job_mod, "close_pool", new=AsyncMock()),
+        patch.object(job_mod, "JobMonitor", new=_FakeMonitor),
+        patch.object(job_mod, "latest_complete_trading_day", new=coverage_mock),
+        patch.object(job_mod, "load_panel", new=load_panel_mock),
+        patch.object(job_mod, "classify_regime", return_value="bull"),
+        patch.object(
+            job_mod, "features_from_panel",
+            return_value=pd.DataFrame({"symbol": ["CBA.AU"]}),
+        ),
+        patch.object(job_mod, "get_cache", return_value=_cache_returning("v1_5")),
+        patch.object(
+            job_mod, "predict_with_shap",
+            new=AsyncMock(return_value=(MagicMock(), MagicMock())),
+        ),
+        patch.object(job_mod, "persist_signals", new=persist_mock),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_anchors_on_latest_complete_trading_day() -> None:
+    """No --as-of: as_of comes from latest_complete_trading_day, not MAX(prices.dt).
+
+    Observed price date and complete trading day coincide here (normal case) —
+    no warning, signals persisted for the complete date.
+    """
+    conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 10))
+    persist_mock = AsyncMock(return_value=7)
+    load_panel_mock = AsyncMock()
+    coverage_mock = AsyncMock()
+
+    with ExitStack() as stack:
+        for p in _happy_pipeline_patches(
+            conn=conn,
+            complete_dt=date(2026, 6, 10),
+            coverage_mock=coverage_mock,
+            persist_mock=persist_mock,
+            load_panel_mock=load_panel_mock,
+        ):
+            stack.enter_context(p)
+        await job_mod.main(None, allow_stale_upstream=False)
+
+    # Signals persisted under the complete trading day...
+    assert persist_mock.call_args.kwargs["as_of"] == date(2026, 6, 10)
+    # ...feature loading was anchored on the same date...
+    assert load_panel_mock.await_args_list[0].args[1] == date(2026, 6, 10)
+    # ...and the run is recorded under the same as_of (job_runs.as_of == signals.as_of).
+    assert _FakeMonitor.last is not None
+    assert _FakeMonitor.last.as_of == date(2026, 6, 10)
+    coverage_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_residue_observed_date_anchors_on_complete_and_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Observed MAX(prices.dt) is a residue/non-trading date later than the last
+    complete day: generation must anchor on the EARLIER complete day and warn."""
+    # Observed freshest price date is a Sunday residue; last complete day is Wed.
+    conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 15))
+    persist_mock = AsyncMock(return_value=5)
+    load_panel_mock = AsyncMock()
+    coverage_mock = AsyncMock()
+
+    with ExitStack() as stack:
+        for p in _happy_pipeline_patches(
+            conn=conn,
+            complete_dt=date(2026, 6, 10),
+            coverage_mock=coverage_mock,
+            persist_mock=persist_mock,
+            load_panel_mock=load_panel_mock,
+        ):
+            stack.enter_context(p)
+        with caplog.at_level(logging.WARNING, logger=job_mod.log.name):
+            await job_mod.main(None, allow_stale_upstream=False)
+
+    # Anchored on the EARLIER complete date (06-10), NOT the residue date (06-15).
+    assert persist_mock.call_args.kwargs["as_of"] == date(2026, 6, 10)
+    assert load_panel_mock.await_args_list[0].args[1] == date(2026, 6, 10)
+    assert "anchoring signal generation on latest complete trading day" in caplog.text
+    assert "2026-06-15" in caplog.text  # observed residue date named in the warning
+    assert "2026-06-10" in caplog.text  # complete date named in the warning
+
+
+@pytest.mark.asyncio
+async def test_no_complete_day_raises_upstream_blocked() -> None:
+    """No complete trading day anywhere in the coverage window → UpstreamBlocked,
+    no signals written, recorded as 'blocked' (via the existing pattern)."""
+    # Prices exist (so the empty-DB hard-fail does not fire) but none are complete.
+    conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 15))
+    persist_mock = AsyncMock(return_value=0)
+    load_panel_mock = AsyncMock()
+    coverage_mock = AsyncMock()
+
+    with ExitStack() as stack:
+        for p in _happy_pipeline_patches(
+            conn=conn,
+            complete_dt=None,
+            coverage_mock=coverage_mock,
+            persist_mock=persist_mock,
+            load_panel_mock=load_panel_mock,
+        ):
+            stack.enter_context(p)
+        with pytest.raises(UpstreamBlocked, match="no complete trading day"):
+            await job_mod.main(None, allow_stale_upstream=False)
+
+    persist_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_explicit_as_of_bypasses_coverage_lookup() -> None:
+    """Explicit --as-of wins verbatim and does NOT consult latest_complete_trading_day
+    (even if no complete day exists), preserving the operator-override path."""
+    conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 15))
+    persist_mock = AsyncMock(return_value=3)
+    load_panel_mock = AsyncMock()
+    coverage_mock = AsyncMock(return_value=None)
+
+    with ExitStack() as stack:
+        for p in _happy_pipeline_patches(
+            conn=conn,
+            complete_dt=None,
+            coverage_mock=coverage_mock,
+            persist_mock=persist_mock,
+            load_panel_mock=load_panel_mock,
+        ):
+            stack.enter_context(p)
+        await job_mod.main(date(2026, 5, 20), allow_stale_upstream=False)
+
+    # Operator-pinned date used verbatim; coverage helper never consulted.
+    assert persist_mock.call_args.kwargs["as_of"] == date(2026, 5, 20)
+    coverage_mock.assert_not_called()

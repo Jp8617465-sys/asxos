@@ -25,6 +25,7 @@ from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.models.cache import get_cache
 from asxos.domain.models.model_a import predict_with_shap
+from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.signals.loader import features_from_panel, load_panel
 from asxos.domain.signals.regime import classify_regime
 from asxos.domain.signals.writer import persist_signals
@@ -94,16 +95,40 @@ async def main(as_of_arg: date | None, allow_stale_upstream: bool = False) -> No
     await init_pool()
 
     try:
-        # Determine as_of from the last available price date in the DB.
-        # Using date.today() would filter panel["dt"] == today, but sync_prices
-        # only writes target = yesterday, so today's rows never exist → 0 features.
-        # Using the actual last price date makes the job robust to holidays and
-        # weekend gaps where sync_prices writes 0 AU rows.
+        # Anchor selection. We need a trustworthy *data date* to drive the
+        # feature window and the signal as_of. Raw MAX(prices.dt) is unsafe: a
+        # weekend/holiday provider residue (the 2026-06-14 incident wrote a
+        # 12/14-row non-trading-day residue) can surface as the freshest price
+        # date and silently anchor signal generation on a non-trading day.
+        #
+        # So when no explicit --as-of is given, anchor on the latest COMPLETE
+        # trading day (asxos.domain.prices.coverage.latest_complete_trading_day),
+        # guarded by the no-complete-day check inside the monitor below. An
+        # explicit --as-of is an operator override and still wins verbatim — it
+        # skips the coverage lookup entirely (the operator has pinned the date).
+        #
+        # last_dt (raw MAX(prices.dt)) is still read: it powers the empty-DB
+        # hard-fail and the observed-vs-complete diagnostic warning. Anchoring on
+        # the complete day keeps job_runs.as_of == signals.as_of (one threaded
+        # value), so no downstream gate semantics change.
         async with acquire() as conn:
             last_dt = await _last_price_date(conn)
         if last_dt is None:
             raise RuntimeError("no prices in DB — run sync_prices first")
-        as_of = as_of_arg or last_dt
+
+        complete_dt: date | None
+        if as_of_arg is not None:
+            as_of = as_of_arg
+            complete_dt = None  # operator pinned the date; coverage not consulted
+        else:
+            async with acquire() as conn:
+                complete_dt = await latest_complete_trading_day(conn)
+            # `as_of` keys the JobMonitor row and the signals we write. When no
+            # complete day exists we still key the (blocked) run on last_dt so
+            # JobMonitor records it; the UpstreamBlocked raise happens below,
+            # after the liveness gate, so the no-complete-day case is recorded
+            # as status='blocked' rather than crashing before the monitor opens.
+            as_of = complete_dt or last_dt
 
         # Upstream check is INSIDE the JobMonitor block so a UpstreamBlocked
         # raise gets recorded to job_runs as status='blocked'. The previous
@@ -130,6 +155,32 @@ async def main(as_of_arg: date | None, allow_stale_upstream: bool = False) -> No
                 log.warning(
                     "Proceeding on stale upstream by explicit --allow-stale-upstream "
                     "(recorded in job_runs.override_reason)."
+                )
+
+            # No complete trading day in the coverage window → refuse to
+            # generate signals: the freshest data is residue/partial, not a real
+            # ASX session. Placed AFTER the liveness gate so a dead upstream
+            # surfaces first; recorded as status='blocked' (not 'failure').
+            if as_of_arg is None and complete_dt is None:
+                log.error(
+                    "generate_signals: no complete trading day found in price "
+                    "coverage window"
+                )
+                raise UpstreamBlocked(
+                    "generate_signals: no complete trading day found in price "
+                    "coverage window"
+                )
+
+            # Observed freshest price date is NOT a complete trading day (e.g.
+            # weekend/holiday residue): anchor on the complete date instead and
+            # say so loudly. No-op in the normal case where the two coincide.
+            if as_of_arg is None and complete_dt is not None and complete_dt != last_dt:
+                log.warning(
+                    "generate_signals: latest observed price date %s is not a "
+                    "complete trading day; anchoring signal generation on latest "
+                    "complete trading day %s instead.",
+                    last_dt,
+                    complete_dt,
                 )
 
             # Step 1: regime from a tiny proxy panel (top-20 most liquid symbols).
