@@ -246,7 +246,8 @@ async def test_anchors_on_latest_complete_trading_day() -> None:
     """No --as-of: as_of comes from latest_complete_trading_day, not MAX(prices.dt).
 
     Observed price date and complete trading day coincide here (normal case) —
-    no warning, signals persisted for the complete date.
+    no warning, signals persisted for the complete date. run_date is pinned one
+    day after the complete day so the recency gate sees a fresh anchor.
     """
     conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 10))
     persist_mock = AsyncMock(return_value=7)
@@ -262,7 +263,7 @@ async def test_anchors_on_latest_complete_trading_day() -> None:
             load_panel_mock=load_panel_mock,
         ):
             stack.enter_context(p)
-        await job_mod.main(None, allow_stale_upstream=False)
+        await job_mod.main(None, allow_stale_upstream=False, run_date=date(2026, 6, 11))
 
     # Signals persisted under the complete trading day...
     assert persist_mock.call_args.kwargs["as_of"] == date(2026, 6, 10)
@@ -281,6 +282,9 @@ async def test_residue_observed_date_anchors_on_complete_and_warns(
     """Observed MAX(prices.dt) is a residue/non-trading date later than the last
     complete day: generation must anchor on the EARLIER complete day and warn."""
     # Observed freshest price date is a Sunday residue; last complete day is Wed.
+    # run_date is the Monday run (06-15) — the complete day (06-10) is 5 calendar
+    # days back, i.e. still fresh (the recency boundary is > 5), so generation
+    # proceeds and the anchor-mismatch warning fires.
     conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 15))
     persist_mock = AsyncMock(return_value=5)
     load_panel_mock = AsyncMock()
@@ -296,7 +300,7 @@ async def test_residue_observed_date_anchors_on_complete_and_warns(
         ):
             stack.enter_context(p)
         with caplog.at_level(logging.WARNING, logger=job_mod.log.name):
-            await job_mod.main(None, allow_stale_upstream=False)
+            await job_mod.main(None, allow_stale_upstream=False, run_date=date(2026, 6, 15))
 
     # Anchored on the EARLIER complete date (06-10), NOT the residue date (06-15).
     assert persist_mock.call_args.kwargs["as_of"] == date(2026, 6, 10)
@@ -353,4 +357,95 @@ async def test_explicit_as_of_bypasses_coverage_lookup() -> None:
 
     # Operator-pinned date used verbatim; coverage helper never consulted.
     assert persist_mock.call_args.kwargs["as_of"] == date(2026, 5, 20)
+    coverage_mock.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Recency gate (Batch 2 Stage 0, follow-up): block when the latest COMPLETE
+# trading day is too stale (calendar-day) relative to the run date, so a stalled
+# price feed cannot keep producing "successful" signals on old complete data.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stale_complete_day_blocks_and_does_not_persist() -> None:
+    """Complete day older than DEFAULT_MAX_STALE_DAYS (5) calendar days vs run date,
+    no override → UpstreamBlocked, no signals persisted."""
+    # complete day 06-10, run date 06-16 → 6 calendar days > 5 → stale.
+    conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 10))
+    persist_mock = AsyncMock(return_value=0)
+    load_panel_mock = AsyncMock()
+    coverage_mock = AsyncMock()
+
+    with ExitStack() as stack:
+        for p in _happy_pipeline_patches(
+            conn=conn,
+            complete_dt=date(2026, 6, 10),
+            coverage_mock=coverage_mock,
+            persist_mock=persist_mock,
+            load_panel_mock=load_panel_mock,
+        ):
+            stack.enter_context(p)
+        with pytest.raises(UpstreamBlocked, match="stale relative to run date"):
+            await job_mod.main(None, allow_stale_upstream=False, run_date=date(2026, 6, 16))
+
+    persist_mock.assert_not_called()
+    # Recorded under the complete day (job_runs.as_of == the blocked anchor).
+    assert _FakeMonitor.last is not None
+    assert _FakeMonitor.last.as_of == date(2026, 6, 10)
+
+
+@pytest.mark.asyncio
+async def test_stale_complete_day_allow_stale_proceeds_and_records_override(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """--allow-stale-upstream bypasses the recency gate: generation proceeds on the
+    stale complete day, warns, and records override_reason."""
+    conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 10))
+    persist_mock = AsyncMock(return_value=9)
+    load_panel_mock = AsyncMock()
+    coverage_mock = AsyncMock()
+
+    with ExitStack() as stack:
+        for p in _happy_pipeline_patches(
+            conn=conn,
+            complete_dt=date(2026, 6, 10),
+            coverage_mock=coverage_mock,
+            persist_mock=persist_mock,
+            load_panel_mock=load_panel_mock,
+        ):
+            stack.enter_context(p)
+        with caplog.at_level(logging.WARNING, logger=job_mod.log.name):
+            await job_mod.main(None, allow_stale_upstream=True, run_date=date(2026, 6, 16))
+
+    # Proceeded on the stale complete day; override recorded.
+    assert persist_mock.call_args.kwargs["as_of"] == date(2026, 6, 10)
+    assert _FakeMonitor.last is not None
+    assert _FakeMonitor.last.override_reason == "operator: --allow-stale-upstream"
+    assert "Proceeding on stale complete trading day" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_explicit_as_of_bypasses_recency_gate() -> None:
+    """Explicit --as-of is an operator override: it skips the coverage lookup AND the
+    recency gate, even for a date far older than the freshness window."""
+    conn = _make_conn(upstream_ok_status="success", last_price_date=date(2026, 6, 15))
+    persist_mock = AsyncMock(return_value=4)
+    load_panel_mock = AsyncMock()
+    coverage_mock = AsyncMock(return_value=None)
+
+    with ExitStack() as stack:
+        for p in _happy_pipeline_patches(
+            conn=conn,
+            complete_dt=None,
+            coverage_mock=coverage_mock,
+            persist_mock=persist_mock,
+            load_panel_mock=load_panel_mock,
+        ):
+            stack.enter_context(p)
+        # as_of pinned far in the past; run_date today → would be stale IF gated.
+        await job_mod.main(date(2026, 1, 5), allow_stale_upstream=False, run_date=date(2026, 6, 16))
+
+    # Pinned date used verbatim; gate never consulted (no raise, signals persisted).
+    assert persist_mock.call_args.kwargs["as_of"] == date(2026, 1, 5)
     coverage_mock.assert_not_called()

@@ -25,7 +25,11 @@ from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.models.cache import get_cache
 from asxos.domain.models.model_a import predict_with_shap
-from asxos.domain.prices.coverage import latest_complete_trading_day
+from asxos.domain.prices.coverage import (
+    DEFAULT_MAX_STALE_DAYS,
+    is_stale,
+    latest_complete_trading_day,
+)
 from asxos.domain.signals.loader import features_from_panel, load_panel
 from asxos.domain.signals.regime import classify_regime
 from asxos.domain.signals.writer import persist_signals
@@ -91,7 +95,15 @@ async def _top_liquid_symbols(conn: "asyncpg.Connection", as_of: date, n: int = 
     return [r["symbol"] for r in rows]
 
 
-async def main(as_of_arg: date | None, allow_stale_upstream: bool = False) -> None:
+async def main(
+    as_of_arg: date | None,
+    allow_stale_upstream: bool = False,
+    run_date: date | None = None,
+) -> None:
+    # run_date is the wall-clock reference for the recency gate below. Injectable
+    # (defaults to today) purely so tests can pin "now" deterministically; the CLI
+    # never passes it.
+    run_date = run_date or date.today()
     await init_pool()
 
     try:
@@ -169,6 +181,43 @@ async def main(as_of_arg: date | None, allow_stale_upstream: bool = False) -> No
                 raise UpstreamBlocked(
                     "generate_signals: no complete trading day found in price "
                     "coverage window"
+                )
+
+            # Recency gate (v1, calendar-day). The latest COMPLETE trading day can
+            # still be too OLD: if the EODHD feed stalls (prices frozen at an
+            # earlier complete session) the anchor stays "complete" indefinitely and
+            # the job would keep succeeding on stale data under a fresh as_of. Block
+            # when the complete day is older than DEFAULT_MAX_STALE_DAYS calendar
+            # days from the run date — reusing the canonical is_stale / 5-day floor,
+            # which is the same boundary as compose_brief's prices_stale check.
+            # An explicit --as-of pins a date and never reaches here;
+            # --allow-stale-upstream is the single operator override (same flag as
+            # the liveness gate above), and is recorded in job_runs.override_reason.
+            if (
+                as_of_arg is None
+                and complete_dt is not None
+                and is_stale(complete_dt, run_date)
+            ):
+                if not allow_stale_upstream:
+                    log.error(
+                        "generate_signals: latest complete trading day %s is stale "
+                        "relative to run date %s (> %d days); refusing to generate "
+                        "signals on stale data. Use --as-of to pin a date or "
+                        "--allow-stale-upstream for a one-off manual override.",
+                        complete_dt,
+                        run_date,
+                        DEFAULT_MAX_STALE_DAYS,
+                    )
+                    raise UpstreamBlocked(
+                        f"generate_signals: latest complete trading day {complete_dt} "
+                        f"is stale relative to run date {run_date}"
+                    )
+                log.warning(
+                    "Proceeding on stale complete trading day %s (run date %s) by "
+                    "explicit --allow-stale-upstream (recorded in "
+                    "job_runs.override_reason).",
+                    complete_dt,
+                    run_date,
                 )
 
             # Observed freshest price date is NOT a complete trading day (e.g.
