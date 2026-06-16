@@ -23,6 +23,7 @@ from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
+    classify_sync_completeness,
     fetch_and_upsert_bulk,
     fetch_and_upsert_us_symbol,
     to_fx_rows,
@@ -93,14 +94,18 @@ async def main(from_date: date | None) -> None:
         as_of=today,
         healthcheck_url=settings.healthcheck_url_sync_prices,
     ) as monitor:
-        total = 0
+        # Per-phase counters kept distinct so the ASX equity count (au_rows) can
+        # be classified on its own. rows_written below preserves the previous
+        # combined-total semantics exactly (au + us + fx).
+        au_rows = 0
+        us_rows = 0
+        fx_rows = 0
 
         # Phase 1 — AU bulk (unchanged behaviour)
         if from_date is None:
             async with acquire() as conn:
-                n = await fetch_and_upsert_bulk(target, client, conn, universe)
-            log.info(f"sync_prices AU bulk: {n} rows for {target}")
-            total += n
+                au_rows = await fetch_and_upsert_bulk(target, client, conn, universe)
+            log.info(f"sync_prices AU bulk: {au_rows} rows for {target}")
         else:
             current = from_date
             while current <= today:
@@ -108,10 +113,10 @@ async def main(from_date: date | None) -> None:
                     async with acquire() as conn:
                         n = await fetch_and_upsert_bulk(current, client, conn, universe)
                     log.info(f"  {current}: {n} rows")
-                    total += n
+                    au_rows += n
                     await asyncio.sleep(0.25)
                 current += timedelta(days=1)
-            log.info(f"backfill done: {total} rows total")
+            log.info(f"backfill done: {au_rows} AU rows total")
 
         # Phase 2 + 3 — US prices and FX rates (only when US holdings exist)
         _NON_AU_SUFFIXES = (".US", ".NYSE", ".NASDAQ", ".AMEX")
@@ -128,20 +133,47 @@ async def main(from_date: date | None) -> None:
         if us_symbols:
             log.info("sync_prices US: %d symbols", len(us_symbols))
             async with acquire() as conn:
-                n = await _sync_us_prices(us_symbols, target, client, conn)
-            log.info("sync_prices US: %d rows", n)
-            total += n
+                us_rows = await _sync_us_prices(us_symbols, target, client, conn)
+            log.info("sync_prices US: %d rows", us_rows)
 
         if us_acquired_start is not None:
             # Fetch FX history from earliest US acquisition so all lots have a rate
             fx_from = min(us_acquired_start, target)
             async with acquire() as conn:
-                n = await _sync_fx_rates(fx_from, client, conn)
-            total += n
+                fx_rows = await _sync_fx_rates(fx_from, client, conn)
         else:
             log.info("sync_prices FX: no US lots — skipping AUDUSD fetch")
 
-        monitor.rows_written = total
+        # Price-completeness classification (Batch 1 Step 2 — additive, NON-gating).
+        # Classifies ASX-equity coverage from the Phase-1 AU bulk count alone, so
+        # US/FX residue can never read as a full ASX session (the 2026-06-14
+        # incident wrote 12/14 US/FX residue rows on a non-trading day). This is
+        # OBSERVATIONAL ONLY this pass: job_runs.status stays exception-driven and
+        # rows_written keeps its combined-total value, so no downstream gate
+        # (generate_signals / snapshot_portfolio / compose_brief) changes. Skipped
+        # for backfill, where au_rows is a multi-day sum and the verdict is moot.
+        if from_date is None:
+            verdict = classify_sync_completeness(
+                target, au_rows=au_rows, us_rows=us_rows, fx_rows=fx_rows
+            )
+            if verdict.is_complete:
+                log.info(
+                    "sync_prices completeness: %s COMPLETE (%d ASX equity rows)",
+                    target,
+                    au_rows,
+                )
+            else:
+                log.warning(
+                    "sync_prices completeness: %s %s — ASX=%d US=%d FX=%d; "
+                    "US/FX rows are NOT ASX equity coverage.",
+                    target,
+                    verdict.status.value.upper(),
+                    au_rows,
+                    us_rows,
+                    fx_rows,
+                )
+
+        monitor.rows_written = au_rows + us_rows + fx_rows
 
     await close_pool()
 
