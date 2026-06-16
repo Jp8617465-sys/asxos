@@ -1,0 +1,219 @@
+"""
+Tests for asxos.domain.prices.coverage.
+
+Pure classification logic is tested directly; the async DB readers are tested
+with a mocked asyncpg connection (no live Postgres), mirroring
+tests/test_signals_loader.py.
+
+The scenarios map to the real recovery observations:
+  - full trading day      → 2026-06-10 (1852 rows)  → COMPLETE
+  - 12/14-row residue day → 2026-06-14/06-15 weekend → NO_EQUITY_DATA
+  - gap after latest full → latest_complete stays 2026-06-10
+"""
+from __future__ import annotations
+
+import asyncio
+from datetime import date
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
+from asxos.domain.prices.coverage import (
+    DEFAULT_MAX_STALE_DAYS,
+    MIN_COMPLETE_ROWS,
+    PriceDateStatus,
+    assess_completeness,
+    classify_coverage,
+    classify_row_count,
+    complete_threshold,
+    is_stale,
+    latest_complete_trading_day,
+    latest_observed_price_date,
+    select_latest_complete,
+    trailing_median_row_count,
+)
+
+# --- complete_threshold -------------------------------------------------------
+
+
+def test_threshold_floor_dominates_at_asx_scale() -> None:
+    # 0.8 * 1850 = 1480 < 1500 floor → floor wins
+    assert complete_threshold(1850) == MIN_COMPLETE_ROWS
+
+
+def test_threshold_scales_above_floor_for_larger_universe() -> None:
+    # 0.8 * 2400 = 1920 > 1500 floor → scaled value wins
+    assert complete_threshold(2400) == 1920
+
+
+def test_threshold_zero_or_negative_median_falls_back_to_floor() -> None:
+    assert complete_threshold(0) == MIN_COMPLETE_ROWS
+    assert complete_threshold(-5) == MIN_COMPLETE_ROWS
+
+
+# --- classify_row_count -------------------------------------------------------
+
+
+def test_full_trading_day_is_complete() -> None:
+    assert classify_row_count(1852, 1850) is PriceDateStatus.COMPLETE
+
+
+def test_zero_row_weekend_is_no_equity_data() -> None:
+    assert classify_row_count(0, 1850) is PriceDateStatus.NO_EQUITY_DATA
+
+
+def test_twelve_row_residue_is_no_equity_data() -> None:
+    # The 12/14-row weekend sync_prices residue must NOT look like a partial day.
+    assert classify_row_count(12, 1850) is PriceDateStatus.NO_EQUITY_DATA
+    assert classify_row_count(14, 1850) is PriceDateStatus.NO_EQUITY_DATA
+
+
+def test_partial_provider_response_is_partial() -> None:
+    # Above residue band but below the completeness threshold.
+    assert classify_row_count(1000, 1850) is PriceDateStatus.PARTIAL
+
+
+def test_completeness_boundary() -> None:
+    # threshold is 1500 when median is 1850 (floor dominates)
+    assert classify_row_count(1499, 1850) is PriceDateStatus.PARTIAL
+    assert classify_row_count(1500, 1850) is PriceDateStatus.COMPLETE
+
+
+def test_universe_size_change_shifts_classification() -> None:
+    # A 1900-row day is COMPLETE at ASX scale (median 1850, threshold 1500)...
+    assert classify_row_count(1900, 1850) is PriceDateStatus.COMPLETE
+    # ...but only PARTIAL after the universe grows (median 2400 → threshold 1920).
+    assert classify_row_count(1900, 2400) is PriceDateStatus.PARTIAL
+    assert classify_row_count(2000, 2400) is PriceDateStatus.COMPLETE
+
+
+# --- trailing_median_row_count ------------------------------------------------
+
+
+def test_trailing_median_excludes_residue_and_zero() -> None:
+    # 12 (residue) and 0 (weekend) excluded → median of [1845, 1848, 1850]
+    assert trailing_median_row_count([1850, 1848, 12, 0, 1845]) == 1848
+
+
+def test_trailing_median_empty_or_all_residue_is_zero() -> None:
+    assert trailing_median_row_count([]) == 0
+    assert trailing_median_row_count([0, 5, 12, 14]) == 0
+
+
+# --- classify_coverage / select_latest_complete -------------------------------
+
+
+def test_select_latest_complete_skips_gap_after_full_day() -> None:
+    # Mirrors reality: newest dates are residue/weekend; last full day is 06-10.
+    rows = [
+        (date(2026, 6, 15), 14),  # Mon run, Sat target → residue
+        (date(2026, 6, 14), 0),  # weekend
+        (date(2026, 6, 10), 1852),  # last complete day
+        (date(2026, 6, 9), 1848),
+    ]
+    coverage = classify_coverage(rows)
+    # newest-first ordering
+    assert [c.dt for c in coverage] == [
+        date(2026, 6, 15),
+        date(2026, 6, 14),
+        date(2026, 6, 10),
+        date(2026, 6, 9),
+    ]
+    statuses = {c.dt: c.status for c in coverage}
+    assert statuses[date(2026, 6, 15)] is PriceDateStatus.NO_EQUITY_DATA
+    assert statuses[date(2026, 6, 14)] is PriceDateStatus.NO_EQUITY_DATA
+    assert statuses[date(2026, 6, 10)] is PriceDateStatus.COMPLETE
+    # The latest *complete* day is 06-10, not the 14-row residue date.
+    assert select_latest_complete(coverage) == date(2026, 6, 10)
+
+
+def test_select_latest_complete_none_when_no_complete_days() -> None:
+    rows = [(date(2026, 6, 15), 14), (date(2026, 6, 14), 0)]
+    assert select_latest_complete(classify_coverage(rows)) is None
+
+
+def test_classify_coverage_empty() -> None:
+    assert classify_coverage([]) == []
+    assert select_latest_complete([]) is None
+
+
+# --- is_stale -----------------------------------------------------------------
+
+
+def test_is_stale_none_is_stale() -> None:
+    assert is_stale(None, date(2026, 6, 16)) is True
+
+
+def test_is_stale_within_window() -> None:
+    # 06-16 vs 06-12 = 4 calendar days <= 5 → fresh
+    assert is_stale(date(2026, 6, 12), date(2026, 6, 16)) is False
+
+
+def test_is_stale_beyond_window() -> None:
+    # 06-16 vs 06-10 = 6 calendar days > 5 → stale
+    assert is_stale(date(2026, 6, 10), date(2026, 6, 16)) is True
+    # explicit ceiling honoured
+    assert is_stale(date(2026, 6, 10), date(2026, 6, 16), max_calendar_days=10) is False
+
+
+def test_default_stale_days_constant() -> None:
+    assert DEFAULT_MAX_STALE_DAYS == 5
+
+
+# --- async readers (mocked conn) ----------------------------------------------
+
+
+class _Rec(dict):
+    """asyncpg.Record-like dict."""
+
+
+def _conn_with_coverage(pairs: list[tuple[date, int]]) -> Any:
+    """Mock conn whose .fetch returns coverage rows (dt, row_count), newest first."""
+    conn = MagicMock()
+    conn.fetch = AsyncMock(return_value=[_Rec(dt=d, row_count=c) for d, c in pairs])
+    return conn
+
+
+def test_latest_complete_trading_day_async_returns_last_full_day() -> None:
+    conn = _conn_with_coverage(
+        [
+            (date(2026, 6, 15), 14),
+            (date(2026, 6, 14), 0),
+            (date(2026, 6, 10), 1852),
+            (date(2026, 6, 9), 1848),
+        ]
+    )
+    result = asyncio.run(latest_complete_trading_day(conn))
+    assert result == date(2026, 6, 10)
+    assert conn.fetch.await_count == 1
+
+
+def test_latest_complete_trading_day_async_none_when_all_residue() -> None:
+    conn = _conn_with_coverage([(date(2026, 6, 15), 14), (date(2026, 6, 14), 0)])
+    assert asyncio.run(latest_complete_trading_day(conn)) is None
+
+
+def test_assess_completeness_report() -> None:
+    conn = _conn_with_coverage(
+        [
+            (date(2026, 6, 15), 14),
+            (date(2026, 6, 10), 1852),
+            (date(2026, 6, 9), 1848),
+        ]
+    )
+    report = asyncio.run(assess_completeness(conn))
+    assert report.latest_observed == date(2026, 6, 15)
+    assert report.latest_complete == date(2026, 6, 10)
+    assert len(report.coverage) == 3
+
+
+def test_latest_observed_price_date_async() -> None:
+    conn = MagicMock()
+    conn.fetchval = AsyncMock(return_value=date(2026, 6, 15))
+    assert asyncio.run(latest_observed_price_date(conn)) == date(2026, 6, 15)
+
+
+def test_fetch_recent_coverage_passes_lookback() -> None:
+    # latest_complete_trading_day should forward lookback_days into the query.
+    conn = _conn_with_coverage([(date(2026, 6, 10), 1852)])
+    asyncio.run(latest_complete_trading_day(conn, lookback_days=14))
+    assert conn.fetch.await_args.args[1] == 14
