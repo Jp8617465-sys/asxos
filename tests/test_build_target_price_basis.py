@@ -1,10 +1,11 @@
 """
 model_a v1_6 — behavioural price-basis contract for build_target.
 
-CI-ONLY: build_target operates on a pandas DataFrame, so this module needs
-pandas/numpy. It is skipped cleanly (pytest.importorskip) in environments that
-lack them, and runs on the ML-enabled CI image. Keeps the sandbox suite green
-while still giving behavioural coverage where the deps exist.
+CI-ONLY: build_target operates on a pandas DataFrame, so this module imports
+pandas/numpy at the top. In environments without them (the lint-only sandbox)
+it is a collection gap, consistent with the other ML test modules
+(test_feature_engine, test_signals_loader, test_train_walk_forward); it runs on
+the ML-enabled CI image (the targeted-ml-tests workflow).
 
   * Passing CHARACTERIZATION: current build_target yields a fractional
     forward_return computed from raw close.
@@ -15,22 +16,17 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+import pandas as pd
 import pytest
 
-pytest.importorskip("pandas")
-pytest.importorskip("numpy")
-
-import pandas as pd  # imported after importorskip (deps optional in sandbox)
-
-from asxos.domain.models.train import build_target  # imported after importorskip
+from asxos.domain.models.train import build_target
 
 
 def _panel(closes: list[float], adj_closes: list[float] | None = None) -> pd.DataFrame:
     """Single-symbol panel; adj_close optional (ignored by current build_target)."""
-    n = len(closes)
     rows = []
-    for i in range(n):
-        row = {"symbol": "TEST.AU", "dt": date(2026, 1, 1) + timedelta(days=i), "close": closes[i]}
+    for i, close in enumerate(closes):
+        row = {"symbol": "TEST.AU", "dt": date(2026, 1, 1) + timedelta(days=i), "close": close}
         if adj_closes is not None:
             row["adj_close"] = adj_closes[i]
         rows.append(row)
