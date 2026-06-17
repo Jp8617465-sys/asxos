@@ -1,9 +1,12 @@
 """
 model_a v1_6 — behavioural price-basis contracts for build_target + FeatureEngine.
 
-CI-ONLY: these operate on pandas DataFrames, so the module is skipped cleanly
-(pytest.importorskip) where pandas/numpy are absent, and runs on the ML-enabled
-CI image. It carries the *behavioural* proof of the v1_6 shadow path:
+CI-ONLY: these operate on pandas DataFrames, so the module imports pandas at the
+top. In environments without pandas/numpy (the lint-only sandbox) it is a
+collection gap, consistent with the other ML test modules (test_feature_engine,
+test_signals_loader, test_train_walk_forward); it runs on the ML-enabled CI
+image (the targeted-ml-tests workflow). It carries the *behavioural* proof of
+the v1_6 shadow path:
   * v1_5 default behaviour is preserved (default == explicit "close").
   * v1_6 (price_basis="adj_close") uses the adjusted series for returns/target.
   * liquidity dollar-volume stays raw close * volume even under the adj basis.
@@ -12,12 +15,8 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-import pytest
-
-pytest.importorskip("pandas")
-pytest.importorskip("numpy")
-
 import pandas as pd
+import pytest
 
 from asxos.domain.models.train import build_target
 from asxos.domain.signals.feature_engine import FeatureEngine
