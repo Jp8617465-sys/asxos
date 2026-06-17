@@ -69,3 +69,10 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra --strict-markers --continue-on-collection-errors"
+
+[tool.ruff.lint.per-file-ignores]
+# This test guards heavy ML imports behind pytest.importorskip() so the module
+# is cleanly skipped where pandas/numpy are absent; the importorskip() calls
+# must run before the imports, so module-level imports legitimately follow code.
+"tests/test_build_target_price_basis.py" = ["E402"]
+
