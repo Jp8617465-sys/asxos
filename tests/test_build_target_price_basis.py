@@ -1,15 +1,12 @@
 """
-model_a v1_6 — behavioural price-basis contract for build_target.
+model_a v1_6 — behavioural price-basis contracts for build_target + FeatureEngine.
 
-CI-ONLY: build_target operates on a pandas DataFrame, so this module needs
-pandas/numpy. It is skipped cleanly (pytest.importorskip) in environments that
-lack them, and runs on the ML-enabled CI image. Keeps the sandbox suite green
-while still giving behavioural coverage where the deps exist.
-
-  * Passing CHARACTERIZATION: current build_target yields a fractional
-    forward_return computed from raw close.
-  * Strict-xfail DESIRED v1_6: build_target should compute forward_return from
-    adj_close so corporate-action jumps in raw close do not contaminate it.
+CI-ONLY: these operate on pandas DataFrames, so the module is skipped cleanly
+(pytest.importorskip) where pandas/numpy are absent, and runs on the ML-enabled
+CI image. It carries the *behavioural* proof of the v1_6 shadow path:
+  * v1_5 default behaviour is preserved (default == explicit "close").
+  * v1_6 (price_basis="adj_close") uses the adjusted series for returns/target.
+  * liquidity dollar-volume stays raw close * volume even under the adj basis.
 """
 from __future__ import annotations
 
@@ -20,28 +17,42 @@ import pytest
 pytest.importorskip("pandas")
 pytest.importorskip("numpy")
 
-import pandas as pd  # imported after importorskip (deps optional in sandbox)
+import pandas as pd
 
-from asxos.domain.models.train import build_target  # imported after importorskip
+from asxos.domain.models.train import build_target
+from asxos.domain.signals.feature_engine import FeatureEngine
 
 
 def _panel(closes: list[float], adj_closes: list[float] | None = None) -> pd.DataFrame:
-    """Single-symbol panel; adj_close optional (ignored by current build_target)."""
-    n = len(closes)
+    """Single-symbol target panel; adj_close optional."""
     rows = []
-    for i in range(n):
-        row = {"symbol": "TEST.AU", "dt": date(2026, 1, 1) + timedelta(days=i), "close": closes[i]}
+    for i, c in enumerate(closes):
+        row = {"symbol": "TEST.AU", "dt": date(2026, 1, 1) + timedelta(days=i), "close": c}
         if adj_closes is not None:
             row["adj_close"] = adj_closes[i]
         rows.append(row)
     return pd.DataFrame(rows)
 
 
+def _feature_panel(closes: list[float], adj_closes: list[float], volumes: list[float] | None = None) -> pd.DataFrame:
+    n = len(closes)
+    vols = volumes if volumes is not None else [1_000_000.0] * n
+    return pd.DataFrame(
+        {
+            "symbol": ["T.AU"] * n,
+            "dt": [date(2026, 1, 1) + timedelta(days=i) for i in range(n)],
+            "close": closes,
+            "adj_close": adj_closes,
+            "volume": vols,
+        }
+    )
+
+
+# --- build_target -------------------------------------------------------------
+
 def test_v1_5_build_target_forward_return_is_fractional() -> None:
     """CHARACTERIZATION: a +1% move over 5 days yields forward_return ~= 0.01
-    (a fraction), not 100 (bps). The bps scaling is applied later, inside
-    train_model_a (y_reg = forward_return * 10_000)."""
-    # close[5]/close[0] = 101/100 -> +1% ; close[6]/close[1] = 102/100 -> +2%
+    (fraction). The bps scaling is applied later, in train_model_a."""
     panel = _panel([100, 100, 100, 100, 100, 101, 102])
     out = build_target(panel).sort_values("dt").reset_index(drop=True)
     assert out.loc[0, "forward_return"] == pytest.approx(0.01, abs=1e-9)
@@ -49,16 +60,50 @@ def test_v1_5_build_target_forward_return_is_fractional() -> None:
     assert out.loc[0, "y_class"] == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="model_a_v1_6 build_target will compute forward_return from adj_close, "
-    "so a corporate-action jump in raw close no longer contaminates the target.",
-)
+def test_build_target_default_matches_explicit_close() -> None:
+    """v1_5 PRESERVED: the default build_target equals price_basis='close'."""
+    panel = _panel([100, 100, 100, 100, 100, 101, 102])
+    default = build_target(panel).sort_values("dt").reset_index(drop=True)
+    close = build_target(panel, price_basis="close").sort_values("dt").reset_index(drop=True)
+    assert default["forward_return"].equals(close["forward_return"])
+
+
 def test_v1_6_build_target_uses_adj_close() -> None:
-    """A 10x raw-close jump at t=5 (consolidation-like) with a smooth adj_close.
-    Desired v1_6: forward_return follows adj_close (~0), not raw close (~+9.0)."""
+    """IMPLEMENTED: with price_basis='adj_close', a 10x raw-close jump (smooth
+    adj_close) yields forward_return ~= 0 — corporate-action contamination gone."""
     closes = [10, 10, 10, 10, 10, 100, 100]        # spurious 10x jump
     adj = [100, 100, 100, 100, 100, 100, 100]      # smooth adjusted series
-    out = build_target(_panel(closes, adj)).sort_values("dt").reset_index(drop=True)
-    # Under the v1_6 contract this is ~0; current code uses raw close -> 9.0.
+    out = build_target(_panel(closes, adj), price_basis="adj_close").sort_values("dt").reset_index(drop=True)
     assert out.loc[0, "forward_return"] == pytest.approx(0.0, abs=1e-6)
+    # And the raw-close basis would still be contaminated (~+9.0):
+    raw = build_target(_panel(closes, adj), price_basis="close").sort_values("dt").reset_index(drop=True)
+    assert raw.loc[0, "forward_return"] == pytest.approx(9.0, abs=1e-6)
+
+
+# --- FeatureEngine ------------------------------------------------------------
+
+def test_feature_engine_default_equals_close_basis() -> None:
+    """v1_5 PRESERVED: FeatureEngine() == FeatureEngine(price_basis='close')."""
+    panel = _feature_panel([100, 101, 102, 103, 104], [100, 101, 102, 103, 104])
+    a = FeatureEngine().compute_all_features(panel.copy())
+    b = FeatureEngine(price_basis="close").compute_all_features(panel.copy())
+    assert a["ret_1d"].equals(b["ret_1d"])
+    assert a["trend_200"].equals(b["trend_200"])
+
+
+def test_feature_engine_adj_basis_returns_use_adj_close() -> None:
+    """IMPLEMENTED: under adj basis, ret_1d follows adj_close, not raw close."""
+    panel = _feature_panel([10, 10, 100, 100], [100, 100, 100, 100])
+    eng = FeatureEngine(price_basis="adj_close").compute_all_features(panel.copy())
+    # adj_close 100->100 at t=2 -> 0.0, not the raw close 10->100 (+900%).
+    assert eng["ret_1d"].iloc[2] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_feature_engine_liquidity_stays_raw_close_under_adj_basis() -> None:
+    """CONTRACT: dollar-volume liquidity uses RAW close * volume even when the
+    return basis is adj_close (real tradeable dollars)."""
+    n = 12
+    panel = _feature_panel([10.0] * n, [100.0] * n, [5.0] * n)  # raw close 10, adj 100
+    eng = FeatureEngine(price_basis="adj_close").compute_all_features(panel.copy())
+    # dollar_vol = raw close(10) * vol(5) = 50 (NOT adj 100*5 = 500).
+    assert eng["adv_20_median"].iloc[-1] == pytest.approx(50.0, abs=1e-9)

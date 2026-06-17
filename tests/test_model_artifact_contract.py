@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from asxos.domain.models.metadata import REQUIRED_V1_6_FIELDS, build_artifact_metadata
+
 _MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
 
 
@@ -89,7 +91,34 @@ def test_v1_6_metadata_validator_accepts_a_complete_dict() -> None:
     assert _missing_v1_6_fields(complete) == set()
 
 
-# --- Strict-xfail desired v1_6 contract --------------------------------------
+def test_v1_6_metadata_builder_produces_required_fields() -> None:
+    """IMPLEMENTED (Stage 3): the v1_6 metadata builder emits a self-describing
+    blob with every required field, units, and the raw-close liquidity basis."""
+    meta = build_artifact_metadata(
+        model_version="v1_6",
+        target_unit="fraction",
+        price_basis="adj_close",
+        train_start="2025-01-02",
+        train_end="2026-06-15",
+    )
+    assert _missing_v1_6_fields(meta) == set()
+    assert set(REQUIRED_V1_6_FIELDS).issubset(meta)
+    assert meta["target_unit"] == "fraction"
+    assert meta["price_basis"] == "adj_close"
+    assert meta["feature_price_basis"] == "adj_close"   # returns/trend/ATR adjusted
+    assert meta["liquidity_price_basis"] == "close"     # liquidity stays raw
+    assert meta["label_horizon_days"] == 5
+
+
+def test_v1_6_metadata_builder_rejects_bad_units() -> None:
+    with pytest.raises(ValueError):
+        build_artifact_metadata(
+            model_version="v1_6", target_unit="bananas", price_basis="adj_close",
+            train_start="2025-01-02", train_end="2026-06-15",
+        )
+
+
+# --- Strict-xfail desired v1_6 contract (real v1_5 artefact, unchanged) -------
 
 @pytest.mark.xfail(
     strict=True,

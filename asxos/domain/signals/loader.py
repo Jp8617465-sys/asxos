@@ -45,21 +45,35 @@ async def load_panel(
     *,
     lookback_days: int = DEFAULT_LOOKBACK_DAYS,
     symbols: list[str] | None = None,
+    include_adj_close: bool = False,
 ) -> pd.DataFrame:
     """Raw symbol-by-dt panel with prices, fundamentals (45-day lag), and caps.
     Used by the regime detector (needs full history) and the feature loader.
 
     Pass `symbols` to load only a subset — used by generate_signals for batched
     feature computation to keep peak memory within Render free-tier limits.
+
+    `include_adj_close` (v1_6 shadow path) additionally selects the adjusted
+    close column. Default False keeps the v1_5 panel (and its SQL) unchanged.
     """
     start_date = target_date - timedelta(days=lookback_days)
     fundamentals_cutoff = target_date - timedelta(days=FUNDAMENTAL_LAG_DAYS)
-    return await _load_panel(conn, start_date, target_date, fundamentals_cutoff, symbols=symbols)
+    return await _load_panel(
+        conn, start_date, target_date, fundamentals_cutoff,
+        symbols=symbols, include_adj_close=include_adj_close,
+    )
 
 
-def features_from_panel(panel: pd.DataFrame, target_date: date) -> pd.DataFrame:
+def features_from_panel(
+    panel: pd.DataFrame, target_date: date, *, price_basis: str = "close"
+) -> pd.DataFrame:
     """Run the FeatureEngine on a pre-loaded panel and return the target-date
-    snapshot, indexed by symbol, with zero-filled fundamentals."""
+    snapshot, indexed by symbol, with zero-filled fundamentals.
+
+    `price_basis` is forwarded to the FeatureEngine. Default "close" reproduces
+    v1_5 exactly; "adj_close" (v1_6 shadow) requires the panel to carry an
+    adj_close column (load via load_panel(..., include_adj_close=True)).
+    """
     from asxos.domain.signals.feature_engine import (
         MODEL_A_FEATURES,
         FeatureEngine,
@@ -68,7 +82,7 @@ def features_from_panel(panel: pd.DataFrame, target_date: date) -> pd.DataFrame:
     if panel.empty:
         return panel
 
-    engine = FeatureEngine()
+    engine = FeatureEngine(price_basis=price_basis)
     enriched = engine.compute_all_features(panel)
 
     target_ts = pd.Timestamp(target_date)
@@ -112,11 +126,17 @@ async def _load_panel(
     fundamentals_cutoff: date,
     *,
     symbols: list[str] | None = None,
+    include_adj_close: bool = False,
 ) -> pd.DataFrame:
+    # Column list is a code constant (no user input) — safe to interpolate.
+    # Default keeps the exact v1_5 column set; v1_6 appends adj_close.
+    _price_cols = "p.symbol, p.dt, p.open, p.high, p.low, p.close, p.volume"
+    if include_adj_close:
+        _price_cols += ", p.adj_close"
     if symbols is not None:
         price_rows = await conn.fetch(
-            """
-            SELECT p.symbol, p.dt, p.open, p.high, p.low, p.close, p.volume
+            f"""
+            SELECT {_price_cols}
             FROM prices p
             JOIN universe u ON u.symbol = p.symbol
             WHERE p.dt BETWEEN $1 AND $2
@@ -130,8 +150,8 @@ async def _load_panel(
         )
     else:
         price_rows = await conn.fetch(
-            """
-            SELECT p.symbol, p.dt, p.open, p.high, p.low, p.close, p.volume
+            f"""
+            SELECT {_price_cols}
             FROM prices p
             JOIN universe u ON u.symbol = p.symbol
             WHERE p.dt BETWEEN $1 AND $2
@@ -146,7 +166,10 @@ async def _load_panel(
 
     prices = pd.DataFrame(price_rows, columns=price_rows[0].keys())
     prices["dt"] = pd.to_datetime(prices["dt"]).astype("datetime64[us]")
-    for col in ("open", "high", "low", "close", "volume"):
+    _numeric_cols = ["open", "high", "low", "close", "volume"]
+    if include_adj_close:
+        _numeric_cols.append("adj_close")
+    for col in _numeric_cols:
         prices[col] = pd.to_numeric(prices[col], errors="coerce")
     # merge_asof requires the left frame sorted globally by `on` (dt).
     prices = prices.sort_values(["dt", "symbol"]).reset_index(drop=True)

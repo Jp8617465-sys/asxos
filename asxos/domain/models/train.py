@@ -55,22 +55,31 @@ class TrainingResult:
     n_samples: int
 
 
-def build_target(panel: pd.DataFrame) -> pd.DataFrame:
+def build_target(panel: pd.DataFrame, *, price_basis: str = "close") -> pd.DataFrame:
     """
-    Adds `forward_return` (% over the next FORWARD_RETURN_DAYS trading days
-    per symbol) and `y_class` (1 if positive, else 0). Rows where the target
-    is non-finite (the trailing edge of every symbol's history) are dropped.
+    Adds `forward_return` (fractional return over the next FORWARD_RETURN_DAYS
+    trading days per symbol) and `y_class` (1 if positive, else 0). Rows where
+    the target is non-finite (the trailing edge of every symbol's history) are
+    dropped.
 
-    Input panel must have columns: symbol, dt, close.
+    `price_basis` selects the price column for the target:
+    - "close"     (default, v1_5): raw close — byte-identical legacy behaviour.
+    - "adj_close" (v1_6 shadow): corporate-action-adjusted close, so ex-date /
+      split / consolidation jumps do not contaminate the forward return.
+
+    Input panel must have columns: symbol, dt, and the chosen price column.
     """
-    required = {"symbol", "dt", "close"}
+    if price_basis not in ("close", "adj_close"):
+        raise ValueError(f"price_basis must be 'close' or 'adj_close', got {price_basis!r}")
+    price_col = "adj_close" if price_basis == "adj_close" else "close"
+    required = {"symbol", "dt", price_col}
     missing = required - set(panel.columns)
     if missing:
         raise ValueError(f"panel missing required columns for target: {missing}")
 
     df = panel.sort_values(["symbol", "dt"]).copy()
-    df["forward_close"] = df.groupby("symbol")["close"].shift(-FORWARD_RETURN_DAYS)
-    df["forward_return"] = (df["forward_close"] - df["close"]) / df["close"]
+    df["forward_close"] = df.groupby("symbol")[price_col].shift(-FORWARD_RETURN_DAYS)
+    df["forward_return"] = (df["forward_close"] - df[price_col]) / df[price_col]
     df["y_class"] = (df["forward_return"] > 0).astype(int)
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     return df.dropna(subset=["forward_return"])
@@ -107,6 +116,8 @@ def train_model_a(
     features: list[str],
     *,
     n_splits: int = DEFAULT_N_SPLITS,
+    target_unit: str = "basis_points",
+    price_basis: str = "close",
 ) -> TrainingResult:
     """
     Walk-forward train + final fit on the full set.
@@ -114,11 +125,21 @@ def train_model_a(
     Per-fold:
       - fit on train, score on test (ROC AUC for classifier, RMSE for regressor)
     Final classifier/regressor: trained on the entire dataset.
+
+    `target_unit` controls the regression target scale:
+    - "basis_points" (default, v1_5): forward_return * 10_000 — byte-identical
+      legacy behaviour (RMSE reported in bps).
+    - "fraction" (v1_6 shadow): forward_return left as a fraction, so the stored
+      expected_return is fractional and the documented thresholds mean what they
+      say. NOTE: v1_6 thresholds are re-derived later, NOT in this stage.
+    `price_basis` is forwarded to build_target (see that function).
     """
     if not features:
         raise ValueError("features must be a non-empty list")
+    if target_unit not in ("basis_points", "fraction"):
+        raise ValueError(f"target_unit must be 'basis_points' or 'fraction', got {target_unit!r}")
 
-    df = build_target(panel)
+    df = build_target(panel, price_basis=price_basis)
     if df.empty:
         raise ValueError("no rows remained after target construction")
     df = df.dropna(subset=features)
@@ -131,7 +152,9 @@ def train_model_a(
     df = df.sort_values(["dt", "symbol"]).reset_index(drop=True)
     X = df[features].to_numpy(dtype=float)
     y_class = df["y_class"].to_numpy()
-    y_reg = df["forward_return"].to_numpy() * 10_000.0  # in basis points
+    # v1_5 default: basis points (scale 10_000.0). v1_6: fraction (scale 1.0).
+    reg_scale = 10_000.0 if target_unit == "basis_points" else 1.0
+    y_reg = df["forward_return"].to_numpy() * reg_scale
 
     aucs: list[float] = []
     rmses: list[float] = []
