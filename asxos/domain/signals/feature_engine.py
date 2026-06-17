@@ -74,6 +74,23 @@ class FeatureEngine:
     _VOL_WINDOWS: ClassVar[dict[str, int]] = {"vol_30": 30, "vol_60": 60, "vol_90": 90}
     _SMA_SLOPE_WINDOW: int = 20
 
+    def __init__(self, price_basis: str = "close") -> None:
+        """price_basis selects the price column for return/trend/ATR features.
+
+        - "close"     (default, v1_5): byte-for-byte the legacy behaviour — all
+          price-return features and ATR use raw ``close``.
+        - "adj_close" (v1_6 shadow): returns / momentum / trend / ATR use
+          ``adj_close`` (corporate-action adjusted); the liquidity dollar-volume
+          ALWAYS uses raw ``close`` * raw ``volume`` (real tradeable dollars).
+
+        Nothing else changes: the 22-feature output contract is identical.
+        """
+        if price_basis not in ("close", "adj_close"):
+            raise ValueError(f"price_basis must be 'close' or 'adj_close', got {price_basis!r}")
+        self.price_basis = price_basis
+        # Column used for return/trend/ATR. Liquidity always uses raw "close".
+        self._price_col = "adj_close" if price_basis == "adj_close" else "close"
+
     def compute_all_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Compute all 22 Model A features and return an augmented copy.
@@ -81,7 +98,10 @@ class FeatureEngine:
         Raises ValueError if required columns are missing.
         All inf values are replaced with NaN on return.
         """
-        required = {"symbol", "dt", "close", "volume"}
+        # Always need raw close (liquidity) + volume; the adj_close basis also
+        # needs adj_close (returns/trend/ATR). For the default close basis this
+        # set is exactly {"symbol", "dt", "close", "volume"} as before.
+        required = {"symbol", "dt", "close", "volume", self._price_col}
         missing = required - set(df.columns)
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
@@ -100,9 +120,10 @@ class FeatureEngine:
     # ------------------------------------------------------------------
 
     def _momentum(self, df: pd.DataFrame) -> pd.DataFrame:
+        col = self._price_col
         for name, window in self._MOM_WINDOWS.items():
-            df[name] = df.groupby("symbol")["close"].pct_change(window)
-        df["ret_1d"] = df.groupby("symbol")["close"].pct_change()
+            df[name] = df.groupby("symbol")[col].pct_change(window)
+        df["ret_1d"] = df.groupby("symbol")[col].pct_change()
         return df
 
     def _volatility(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -128,10 +149,11 @@ class FeatureEngine:
         return df
 
     def _trend(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["sma_200"] = df.groupby("symbol")["close"].transform(
+        col = self._price_col
+        df["sma_200"] = df.groupby("symbol")[col].transform(
             lambda x: x.rolling(200, min_periods=100).mean()
         )
-        df["trend_200"] = (df["close"] > df["sma_200"]).astype(int)
+        df["trend_200"] = (df[col] > df["sma_200"]).astype(int)
 
         def _slope(s: pd.Series) -> float:
             if s.isna().any() or len(s) < 2:
@@ -144,8 +166,10 @@ class FeatureEngine:
         )
         df["sma200_slope_pos"] = (df["sma200_slope"] > 0).astype(int)
 
-        # True range: use OHLC if available, else proxy with |ret_1d| * close
-        if "high" in df.columns and "low" in df.columns:
+        # True range. v1_5 (close basis) uses raw OHLC when present — unchanged.
+        # The adj_close basis has no adjusted high/low, so it uses the adjusted
+        # |ret_1d| * adj_close proxy to avoid mixing raw OHLC with adjusted close.
+        if self.price_basis == "close" and "high" in df.columns and "low" in df.columns:
             prev_close = df.groupby("symbol")["close"].shift(1)
             tr = pd.concat(
                 [
@@ -156,12 +180,12 @@ class FeatureEngine:
                 axis=1,
             ).max(axis=1)
         else:
-            tr = df["ret_1d"].abs() * df["close"]
+            tr = df["ret_1d"].abs() * df[col]
 
         atr_14 = tr.groupby(df["symbol"]).transform(
             lambda x: x.rolling(14, min_periods=7).mean()
         )
-        df["atr_pct"] = atr_14 / df["close"]
+        df["atr_pct"] = atr_14 / df[col]
         return df
 
     def _fundamental(self, df: pd.DataFrame) -> pd.DataFrame:
