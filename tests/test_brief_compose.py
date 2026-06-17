@@ -88,6 +88,39 @@ def test_render_html_shows_signal_changes() -> None:
     assert "CSL.AU" in html
 
 
+# ---------------------------------------------------------------------------
+# Signal caveat (Brief QA Step 1) — labels experimental, not trade instructions
+# ---------------------------------------------------------------------------
+
+_CAVEAT_MARKER = "Signal caveat:"
+
+
+def test_render_html_contains_signal_caveat() -> None:
+    html = render_html(_brief())
+    assert _CAVEAT_MARKER in html
+    assert "experimental model-derived rankings" in html
+    assert "decision-support context only" in html
+    assert "not trade instructions" in html
+
+
+def test_render_html_caveat_present_when_signals_stale() -> None:
+    """Caveat still appears when regime is unavailable (signals stale) — and the
+    existing stale behaviour is preserved."""
+    html = render_html(_brief(regime=None, latest_signal_date=date(2026, 5, 20)))
+    assert _CAVEAT_MARKER in html
+    assert "unavailable" in html  # existing stale-regime behaviour intact
+
+
+def test_render_html_caveat_near_signal_section_not_buried() -> None:
+    """Caveat sits in the regime/signal area: after the regime line and before
+    the 'Signal changes on holdings' section — not buried at the bottom."""
+    html = render_html(_brief())
+    caveat_pos = html.index(_CAVEAT_MARKER)
+    regime_pos = html.index("Regime:")
+    signal_section_pos = html.index("Signal changes on holdings")
+    assert regime_pos < caveat_pos < signal_section_pos
+
+
 def test_render_html_renders_empty_states() -> None:
     html = render_html(_brief())
     assert "No label changes overnight" in html

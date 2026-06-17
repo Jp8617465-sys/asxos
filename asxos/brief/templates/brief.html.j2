@@ -9,6 +9,7 @@
     h2 { font-size: 1em; margin: 1.2em 0 0.3em; text-transform: uppercase; letter-spacing: 0.04em; color: #555; }
     .meta { color: #666; font-size: 0.9em; margin-bottom: 0.8em; }
     .banner { background: #fee; border-left: 4px solid #c00; padding: 0.6em 0.8em; margin-bottom: 1em; }
+    .caveat { background: #eef3fb; border-left: 4px solid #36c; padding: 0.5em 0.8em; margin: 0.6em 0; font-size: 0.85em; color: #334; }
     table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
     th, td { border-bottom: 1px solid #eee; padding: 0.35em 0.5em; text-align: left; }
     th { background: #f7f7f7; }
@@ -29,6 +30,12 @@
   {% else %}
   <p class="meta">Regime: <strong>{{ d.regime }}</strong> · Holdings: {{ d.holdings_count }}</p>
   {% endif %}
+
+  <p class="caveat">
+    <strong>Signal caveat:</strong> labels are experimental model-derived rankings.
+    Expected-return calibration and adjusted-price basis are under review.
+    Treat signals as decision-support context only, not trade instructions.
+  </p>
 
   {% if d.prices_stale or d.signals_stale %}
   <div class="banner">

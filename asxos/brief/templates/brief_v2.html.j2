@@ -11,6 +11,7 @@
     .snapshot .health { font-size: 1.05em; font-weight: 600; margin: 0 0 0.4em; }
     .snapshot .meta { font-size: 0.88em; color: #555; }
     .one-thing { background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.5em 0.8em; margin: 0.6em 0; font-size: 0.95em; }
+    .caveat { background: #eef3fb; border-left: 4px solid #36c; padding: 0.5em 0.8em; margin: 0.6em 0 1.2em; font-size: 0.85em; color: #334; }
     .item { padding: 0.4em 0; border-bottom: 1px solid #f3f3f3; font-size: 0.92em; white-space: pre-wrap; }
     .item:last-child { border-bottom: none; }
     .item-red    { border-left: 3px solid #dc3545; padding-left: 0.6em; }
@@ -38,6 +39,13 @@
     <div class="one-thing"><strong>One thing today:</strong> {{ brief.snapshot.one_thing }}</div>
     {% endif %}
   </div>
+
+  {# ── Signal caveat (applies to all model-derived signal/regime content) ── #}
+  <p class="caveat">
+    <strong>Signal caveat:</strong> labels are experimental model-derived rankings.
+    Expected-return calibration and adjusted-price basis are under review.
+    Treat signals as decision-support context only, not trade instructions.
+  </p>
 
   {# ── Macro to render a section ── #}
   {% macro render_section(name, label, sections_map) %}
