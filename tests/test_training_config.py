@@ -22,6 +22,8 @@ from asxos.domain.models.training_config import (
     MODEL_A_V1_5_CONFIG,
     MODEL_A_V1_6_CONFIG,
     ModelTrainingConfig,
+    select_training_config,
+    training_panel_columns,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -135,3 +137,42 @@ def test_activation_lives_only_in_explicit_cli_command() -> None:
     """The only is_active=TRUE flip is the explicit `asx model activate`."""
     cli_src = (_REPO_ROOT / "asxos" / "cli" / "model.py").read_text().replace(" ", "").lower()
     assert "is_active=true" in cli_src  # activation exists, but only here
+
+
+# --- select_training_config ---------------------------------------------------
+
+def test_select_training_config_maps_known_versions() -> None:
+    assert select_training_config("model_a_v1_5") is MODEL_A_V1_5_CONFIG
+    assert select_training_config("model_a_v1_6") is MODEL_A_V1_6_CONFIG
+
+
+def test_select_training_config_unknown_falls_back_to_v1_5() -> None:
+    """Any non-v1_6 version resolves to the v1_5 baseline recipe (identity)."""
+    assert select_training_config("model_a_v1_7") is MODEL_A_V1_5_CONFIG
+    assert select_training_config("model_a_v9_9") is MODEL_A_V1_5_CONFIG
+    assert select_training_config("") is MODEL_A_V1_5_CONFIG
+
+
+# --- training_panel_columns ---------------------------------------------------
+
+_FEATS = ["ret_1d", "vol_30", "pe_ratio"]
+
+
+def test_panel_columns_v1_5_excludes_adj_close() -> None:
+    cols = training_panel_columns(MODEL_A_V1_5_CONFIG, _FEATS)
+    assert "adj_close" not in cols
+    assert {"symbol", "dt", "close"} <= set(cols)
+    assert set(_FEATS) <= set(cols)
+
+
+def test_panel_columns_v1_6_includes_adj_close() -> None:
+    cols = training_panel_columns(MODEL_A_V1_6_CONFIG, _FEATS)
+    assert "adj_close" in cols
+    # raw close is still kept (build_target grouping + raw-close liquidity)
+    assert {"symbol", "dt", "close"} <= set(cols)
+    assert set(_FEATS) <= set(cols)
+
+
+def test_panel_columns_is_deterministic_sorted() -> None:
+    cols = training_panel_columns(MODEL_A_V1_6_CONFIG, _FEATS)
+    assert cols == sorted(cols)

@@ -115,3 +115,41 @@ MODEL_A_V1_6_CONFIG = ModelTrainingConfig(
     liquidity_price_basis="close",
     include_adj_close=True,
 )
+
+
+# Version → config registry. Unknown versions fall back to the v1_5 baseline
+# recipe so any non-v1_6 retrain stays byte-identical to the legacy path.
+_CONFIGS_BY_VERSION: dict[str, ModelTrainingConfig] = {
+    MODEL_A_V1_5_CONFIG.model_version: MODEL_A_V1_5_CONFIG,
+    MODEL_A_V1_6_CONFIG.model_version: MODEL_A_V1_6_CONFIG,
+}
+
+
+def select_training_config(model_version: str) -> ModelTrainingConfig:
+    """Map a full model version (e.g. "model_a_v1_6") to its training config.
+
+    Returns the exact ``MODEL_A_V1_5_CONFIG`` singleton for any unrecognised
+    version, so a caller may use identity (``is MODEL_A_V1_5_CONFIG``) to decide
+    whether a version carries the v1_6 self-describing contract. Pure lookup —
+    no side effects, no DB, no activation.
+    """
+    return _CONFIGS_BY_VERSION.get(model_version, MODEL_A_V1_5_CONFIG)
+
+
+def training_panel_columns(
+    config: ModelTrainingConfig,
+    feature_cols: list[str],
+    *,
+    base_cols: tuple[str, ...] = ("symbol", "dt", "close"),
+) -> list[str]:
+    """Columns to retain per batch before concatenating the training panel.
+
+    Always keeps symbol/dt/raw-close (build_target's per-symbol grouping and the
+    raw-close liquidity dollar-volume) plus the model features. Under an
+    adj_close basis the adjusted column is additionally retained so build_target
+    and the FeatureEngine can read it. Returned sorted for determinism.
+    """
+    cols = set(base_cols) | set(feature_cols)
+    if config.include_adj_close:
+        cols.add("adj_close")
+    return sorted(cols)
