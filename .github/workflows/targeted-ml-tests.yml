@@ -52,7 +52,8 @@ jobs:
             tests/test_train_walk_forward.py \
             tests/test_training_config.py \
             tests/test_retrain_wiring.py \
-            tests/test_retrain_dry_run_guard.py
+            tests/test_retrain_dry_run_guard.py \
+            tests/test_brief_compose.py
 
       - name: Targeted ML tests (v1_5/v1_6 parity + data-trust + contracts)
         run: |
@@ -66,4 +67,5 @@ jobs:
             tests/test_train_walk_forward.py \
             tests/test_training_config.py \
             tests/test_retrain_wiring.py \
-            tests/test_retrain_dry_run_guard.py
+            tests/test_retrain_dry_run_guard.py \
+            tests/test_brief_compose.py

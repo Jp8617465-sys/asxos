@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.tax.cgt import days_to_eligibility
 
 if TYPE_CHECKING:
@@ -132,6 +133,9 @@ class BriefData:
     portfolio_section: PortfolioSection | None = None
     latest_signal_date: date | None = None
     latest_price_date: date | None = None
+    # Latest *complete* trading day the regime/signal queries were anchored to
+    # (not the calendar as_of). None only when no complete day exists at all.
+    data_as_of: date | None = None
 
     @property
     def has_failures(self) -> bool:
@@ -139,7 +143,21 @@ class BriefData:
 
     @property
     def signals_stale(self) -> bool:
-        return self.regime is None
+        """True only when signals genuinely lag the latest complete trading day.
+
+        The brief is titled with the calendar ``as_of`` but anchors its regime
+        and signal queries on ``data_as_of`` = latest_complete_trading_day (the
+        same anchor generate_signals uses), because EOD data lands ~1 day late.
+        Stale when there are no signals at all, or the freshest signal is
+        *behind* that anchor (e.g. generate_signals was blocked) — not merely
+        because no row exists for today's calendar date. This preserves the
+        anti-fabrication intent (genuinely-missing signals still warn) without
+        the daily false alarm.
+        """
+        if self.latest_signal_date is None:
+            return True
+        anchor = self.data_as_of or self.as_of
+        return self.latest_signal_date < anchor
 
     @property
     def prices_stale(self) -> bool:
@@ -156,9 +174,16 @@ async def collect(as_of: date) -> BriefData:
     if _acquire is None:
         from asxos.db import acquire as _acquire
     async with _acquire() as conn:
+        # Anchor signal/regime queries on the latest *complete* trading day
+        # (the anchor generate_signals uses), not the calendar as_of — EOD data
+        # lands ~1 day late, so "today" usually has no signal row yet. The
+        # calendar as_of is still the brief's title/delivery date.
+        data_as_of = await latest_complete_trading_day(conn)
+        signals_as_of = data_as_of or as_of
+
         regime_row = await conn.fetchrow(
             "SELECT regime FROM signals WHERE as_of = $1 LIMIT 1",
-            as_of,
+            signals_as_of,
         )
         regime: str | None = regime_row["regime"] if regime_row else None
 
@@ -178,7 +203,7 @@ async def collect(as_of: date) -> BriefData:
             """
         )
 
-        signal_changes = await _signal_changes(conn, as_of)
+        signal_changes = await _signal_changes(conn, signals_as_of)
         tax_actions = await _tax_actions(conn, as_of)
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
@@ -197,6 +222,7 @@ async def collect(as_of: date) -> BriefData:
         portfolio_section=portfolio_section,
         latest_signal_date=latest_signal_date,
         latest_price_date=latest_price_date,
+        data_as_of=data_as_of,
     )
 
 

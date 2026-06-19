@@ -60,6 +60,43 @@ def test_render_html_shows_stale_regime_warning() -> None:
     assert "Regime: <strong>bear</strong>" not in html
 
 
+def test_signals_not_stale_when_anchored_to_complete_day() -> None:
+    """The reported scenario: brief dated 2026-06-18, but signals are anchored to
+    the latest complete trading day 2026-06-17 (the ~1-day EOD lag) → NOT stale,
+    regime is shown, no freshness banner."""
+    html = render_html(_brief(
+        as_of=date(2026, 6, 18),
+        regime="neutral",
+        latest_signal_date=date(2026, 6, 17),
+        latest_price_date=date(2026, 6, 17),
+        data_as_of=date(2026, 6, 17),
+    ))
+    assert "Regime: <strong>neutral</strong>" in html
+    assert "Data freshness warning" not in html
+    assert "unavailable" not in html
+
+
+def test_signals_stale_when_behind_complete_day() -> None:
+    """Genuinely stale: the freshest signal is *behind* the latest complete
+    trading day (e.g. generate_signals was blocked) → unavailable + banner."""
+    b = _brief(
+        as_of=date(2026, 6, 18),
+        regime=None,
+        latest_signal_date=date(2026, 6, 17),
+        latest_price_date=date(2026, 6, 18),
+        data_as_of=date(2026, 6, 18),
+    )
+    assert b.signals_stale is True
+    html = render_html(b)
+    assert "unavailable" in html
+    assert "Signals stale — latest signal run: 2026-06-17" in html
+
+
+def test_signals_stale_when_no_signals_at_all() -> None:
+    b = _brief(regime=None, latest_signal_date=None, data_as_of=None)
+    assert b.signals_stale is True
+
+
 def test_render_html_shows_freshness_banner_when_prices_stale() -> None:
     """Freshness banner appears when latest_price_date is >5 days before as_of."""
     html = render_html(_brief(latest_price_date=date(2026, 5, 10)))
@@ -317,6 +354,42 @@ def test_collect_handles_empty_db() -> None:
     assert data.holdings_count == 0
     assert data.signal_changes == []
     assert not data.has_failures
+
+
+def test_collect_anchors_on_complete_trading_day() -> None:
+    """collect() queries regime/signals on the latest *complete* trading day,
+    not the calendar as_of, and records it as data_as_of → not stale."""
+    calendar_today = date(2026, 6, 18)
+    complete_day = date(2026, 6, 17)
+    conn = _make_conn(
+        regime_row={"regime": "neutral"},
+        holdings_count=1,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[],
+        fail_rows=[],
+        latest_signal_date=complete_day,
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        patch(
+            "asxos.brief.compose.latest_complete_trading_day",
+            AsyncMock(return_value=complete_day),
+        ),
+    ):
+        data = asyncio.run(collect(calendar_today))
+
+    assert data.data_as_of == complete_day
+    assert data.regime == "neutral"
+    assert data.signals_stale is False
+    # The regime query used the complete-day anchor, not the calendar date.
+    assert conn.fetchrow.await_args.args[1] == complete_day
 
 
 # ---------------------------------------------------------------------------
