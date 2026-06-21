@@ -30,6 +30,14 @@ def _int(val: Any) -> int | None:
         return None
 
 
+def _str(val: Any) -> str | None:
+    """Trimmed string, or None for missing/blank. Never raises."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    return s or None
+
+
 def parse_fundamentals(raw: dict[str, Any]) -> dict[str, Any]:
     """
     Flatten EODHD /fundamentals/{symbol} response into a flat dict.
@@ -38,6 +46,7 @@ def parse_fundamentals(raw: dict[str, Any]) -> dict[str, Any]:
     highlights = raw.get("Highlights") or {}
     valuation  = raw.get("Valuation")  or {}
     shares     = raw.get("SharesStats") or {}
+    general    = raw.get("General")     or {}
 
     return {
         "pe_ratio":           _dec(highlights.get("PERatio")),
@@ -46,6 +55,10 @@ def parse_fundamentals(raw: dict[str, Any]) -> dict[str, Any]:
         "market_cap":         _dec(highlights.get("MarketCapitalization")),
         "shares_outstanding": _int(shares.get("SharesOutstanding")),
         "dividend_yield":     _dec(highlights.get("DividendYield")),
+        # EODHD exposes the Morningstar-style sector under General.Sector
+        # (GICSSector is null on the current plan). It feeds universe.sector
+        # via propagate_sector_to_universe().
+        "sector":             _str(general.get("Sector")),
     }
 
 
@@ -61,19 +74,22 @@ async def fetch_and_upsert_fundamentals(
         """
         INSERT INTO fundamentals (
             symbol, as_of,
-            pe_ratio, pb_ratio, eps, market_cap, shares_outstanding, dividend_yield
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            pe_ratio, pb_ratio, eps, market_cap, shares_outstanding,
+            dividend_yield, sector
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (symbol, as_of) DO UPDATE SET
             pe_ratio           = EXCLUDED.pe_ratio,
             pb_ratio           = EXCLUDED.pb_ratio,
             eps                = EXCLUDED.eps,
             market_cap         = EXCLUDED.market_cap,
             shares_outstanding = EXCLUDED.shares_outstanding,
-            dividend_yield     = EXCLUDED.dividend_yield
+            dividend_yield     = EXCLUDED.dividend_yield,
+            sector             = EXCLUDED.sector
         """,
         symbol, as_of,
         f["pe_ratio"], f["pb_ratio"], f["eps"],
         f["market_cap"], f["shares_outstanding"], f["dividend_yield"],
+        f["sector"],
     )
 
 
@@ -104,6 +120,41 @@ async def propagate_market_cap_to_universe(conn: asyncpg.Connection) -> int:
         ) lf
         WHERE u.symbol = lf.symbol
           AND u.market_cap IS DISTINCT FROM lf.market_cap
+        """
+    )
+    # asyncpg returns a command tag like "UPDATE 1843".
+    return int(status.split()[-1]) if status else 0
+
+
+async def propagate_sector_to_universe(conn: asyncpg.Connection) -> int:
+    """Copy each symbol's latest non-blank ``fundamentals.sector`` into
+    ``universe.sector``.
+
+    ``universe.sector`` is the cache the portfolio allocator's sector cap
+    groups on (``domain/portfolio/constraints.py`` → ``apply_sector_cap`` via
+    ``build.py``). The EODHD exchange-symbol-list used by ``sync_universe``
+    does not return a sector for ASX names, so without this propagation every
+    row carries ``sector=''`` and the constraint waterfall cannot converge
+    (all weight collapses into one un-cappable bucket).
+
+    Mirror of :func:`propagate_market_cap_to_universe` — the single sector
+    propagation path, called by ``sync_fundamentals`` after the per-symbol
+    upserts and reused for the one-time backfill. Idempotent (``IS DISTINCT
+    FROM``); blank fundamentals sectors are ignored so a stale '' never
+    overwrites a real value. Returns the number of universe rows updated.
+    """
+    status = await conn.execute(
+        """
+        UPDATE universe u
+        SET sector = lf.sector
+        FROM (
+            SELECT DISTINCT ON (symbol) symbol, sector
+            FROM fundamentals
+            WHERE sector IS NOT NULL AND sector <> ''
+            ORDER BY symbol, as_of DESC
+        ) lf
+        WHERE u.symbol = lf.symbol
+          AND u.sector IS DISTINCT FROM lf.sector
         """
     )
     # asyncpg returns a command tag like "UPDATE 1843".

@@ -15,6 +15,9 @@ from asxos.ingestion.fundamentals import parse_fundamentals
 # ---------------------------------------------------------------------------
 
 _FULL_RESPONSE = {
+    "General": {
+        "Sector": "Financial Services",
+    },
     "Highlights": {
         "PERatio": "12.5",
         "EarningsShare": "3.20",
@@ -38,6 +41,7 @@ def test_parse_full_response():
     assert f["dividend_yield"] == Decimal("0.045")
     assert f["market_cap"] == Decimal("150000000000")
     assert f["shares_outstanding"] == 5_000_000_000
+    assert f["sector"] == "Financial Services"
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +56,15 @@ def test_parse_empty_response():
     assert f["market_cap"] is None
     assert f["shares_outstanding"] is None
     assert f["dividend_yield"] is None
+    assert f["sector"] is None
+
+
+def test_parse_blank_sector():
+    """Whitespace-only or empty General.Sector parses to None, not ''."""
+    raw = {**_FULL_RESPONSE, "General": {"Sector": "   "}}
+    assert parse_fundamentals(raw)["sector"] is None
+    raw = {**_FULL_RESPONSE, "General": {"Sector": ""}}
+    assert parse_fundamentals(raw)["sector"] is None
 
 
 def test_parse_null_pe_ratio():
@@ -139,3 +152,43 @@ async def test_propagate_market_cap_zero_when_no_change():
     conn.execute = AsyncMock(return_value="UPDATE 0")
 
     assert await propagate_market_cap_to_universe(conn) == 0
+
+
+# ---------------------------------------------------------------------------
+# propagate_sector_to_universe — copies latest fundamentals.sector → universe
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_propagate_sector_returns_rowcount():
+    """Returns the rows-updated count parsed from the asyncpg command tag."""
+    from unittest.mock import AsyncMock
+
+    from asxos.ingestion.fundamentals import propagate_sector_to_universe
+
+    conn = AsyncMock()
+    conn.execute = AsyncMock(return_value="UPDATE 1843")
+
+    n = await propagate_sector_to_universe(conn)
+
+    assert n == 1843
+    # Direction + idempotency contract: writes universe.sector from
+    # fundamentals, ignores blank sectors, only where the value changes.
+    sql = conn.execute.call_args[0][0]
+    assert "UPDATE universe" in sql
+    assert "fundamentals" in sql
+    assert "sector" in sql
+    assert "sector <> ''" in sql
+    assert "IS DISTINCT FROM" in sql
+
+
+@pytest.mark.asyncio
+async def test_propagate_sector_zero_when_no_change():
+    """Idempotent re-run updates nothing → returns 0."""
+    from unittest.mock import AsyncMock
+
+    from asxos.ingestion.fundamentals import propagate_sector_to_universe
+
+    conn = AsyncMock()
+    conn.execute = AsyncMock(return_value="UPDATE 0")
+
+    assert await propagate_sector_to_universe(conn) == 0

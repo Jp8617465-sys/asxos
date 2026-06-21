@@ -21,6 +21,7 @@ from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.fundamentals import (
     fetch_and_upsert_fundamentals,
     propagate_market_cap_to_universe,
+    propagate_sector_to_universe,
 )
 from asxos.jobs._helpers import assert_partial_success
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -94,14 +95,18 @@ async def main(single_symbol: str | None) -> None:
             f"ok={n_ok} failed={failures} total={len(symbols)}"
         )
 
-        # Refresh the denormalised universe.market_cap cache from the fresh
-        # fundamentals just written. This is the only path that maintains it;
-        # the portfolio allocator (build.py) reads it and hard-fails on an
-        # all-NULL universe. No try/except — a propagation failure must fail
-        # the job loudly (CLAUDE.md non-negotiable #10).
+        # Refresh the denormalised universe caches (market_cap, sector) from
+        # the fresh fundamentals just written. These are the only paths that
+        # maintain them; the portfolio allocator reads market_cap (build.py)
+        # and groups its sector cap on sector (constraints.py), and hard-fails
+        # when they are unpopulated. No try/except — a propagation failure must
+        # fail the job loudly (CLAUDE.md non-negotiable #10).
         async with acquire() as conn:
             n_caps = await propagate_market_cap_to_universe(conn)
-        log.info(f"propagated market_cap to universe: {n_caps} rows updated")
+            n_sectors = await propagate_sector_to_universe(conn)
+        log.info(
+            f"propagated to universe: market_cap={n_caps} sector={n_sectors} rows updated"
+        )
 
     await close_pool()
 
