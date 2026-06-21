@@ -18,7 +18,10 @@ from datetime import date
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.eodhd import get_client
-from asxos.ingestion.fundamentals import fetch_and_upsert_fundamentals
+from asxos.ingestion.fundamentals import (
+    fetch_and_upsert_fundamentals,
+    propagate_market_cap_to_universe,
+)
 from asxos.jobs._helpers import assert_partial_success
 from asxos.jobs.utils.job_monitor import JobMonitor
 
@@ -90,6 +93,15 @@ async def main(single_symbol: str | None) -> None:
             f"sync_fundamentals done — "
             f"ok={n_ok} failed={failures} total={len(symbols)}"
         )
+
+        # Refresh the denormalised universe.market_cap cache from the fresh
+        # fundamentals just written. This is the only path that maintains it;
+        # the portfolio allocator (build.py) reads it and hard-fails on an
+        # all-NULL universe. No try/except — a propagation failure must fail
+        # the job loudly (CLAUDE.md non-negotiable #10).
+        async with acquire() as conn:
+            n_caps = await propagate_market_cap_to_universe(conn)
+        log.info(f"propagated market_cap to universe: {n_caps} rows updated")
 
     await close_pool()
 

@@ -75,3 +75,36 @@ async def fetch_and_upsert_fundamentals(
         f["pe_ratio"], f["pb_ratio"], f["eps"],
         f["market_cap"], f["shares_outstanding"], f["dividend_yield"],
     )
+
+
+async def propagate_market_cap_to_universe(conn: asyncpg.Connection) -> int:
+    """Copy each symbol's latest non-null ``fundamentals.market_cap`` into
+    ``universe.market_cap``.
+
+    ``universe.market_cap`` is a denormalised cache read by the portfolio
+    allocator (``domain/portfolio/build.py`` → ``allocator.filter_buy_universe``)
+    and by the signal feature engine (``domain/signals/loader.py``); no other
+    step maintains it, so without this propagation it stays NULL and the
+    allocator filters every candidate out via the market-cap floor.
+
+    This is the single propagation path: the daily ``sync_fundamentals`` job
+    calls it after the per-symbol upserts, and the one-time backfill uses the
+    same query. Idempotent — only rows whose value actually changes are
+    written (``IS DISTINCT FROM``). Returns the number of universe rows updated.
+    """
+    status = await conn.execute(
+        """
+        UPDATE universe u
+        SET market_cap = lf.market_cap
+        FROM (
+            SELECT DISTINCT ON (symbol) symbol, market_cap
+            FROM fundamentals
+            WHERE market_cap IS NOT NULL
+            ORDER BY symbol, as_of DESC
+        ) lf
+        WHERE u.symbol = lf.symbol
+          AND u.market_cap IS DISTINCT FROM lf.market_cap
+        """
+    )
+    # asyncpg returns a command tag like "UPDATE 1843".
+    return int(status.split()[-1]) if status else 0

@@ -100,3 +100,42 @@ async def test_symbol_failure_does_not_raise():
             result = await sync_symbol("XYZ.AU", date.today())
 
     assert result is False
+
+
+# ---------------------------------------------------------------------------
+# propagate_market_cap_to_universe — copies latest fundamentals → universe cache
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_propagate_market_cap_returns_rowcount():
+    """Returns the rows-updated count parsed from the asyncpg command tag."""
+    from unittest.mock import AsyncMock
+
+    from asxos.ingestion.fundamentals import propagate_market_cap_to_universe
+
+    conn = AsyncMock()
+    conn.execute = AsyncMock(return_value="UPDATE 1843")
+
+    n = await propagate_market_cap_to_universe(conn)
+
+    assert n == 1843
+    # Direction + idempotency contract: writes universe.market_cap from
+    # fundamentals, only where the value actually changes.
+    sql = conn.execute.call_args[0][0]
+    assert "UPDATE universe" in sql
+    assert "fundamentals" in sql
+    assert "market_cap" in sql
+    assert "IS DISTINCT FROM" in sql
+
+
+@pytest.mark.asyncio
+async def test_propagate_market_cap_zero_when_no_change():
+    """Idempotent re-run updates nothing → returns 0."""
+    from unittest.mock import AsyncMock
+
+    from asxos.ingestion.fundamentals import propagate_market_cap_to_universe
+
+    conn = AsyncMock()
+    conn.execute = AsyncMock(return_value="UPDATE 0")
+
+    assert await propagate_market_cap_to_universe(conn) == 0
