@@ -4,12 +4,13 @@ No network calls — httpx client is mocked throughout.
 """
 from __future__ import annotations
 
-from datetime import date
-from unittest.mock import MagicMock, patch
+from datetime import date, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
+import jobs.sync_prices as sync_prices_job
 from asxos.ingestion.eodhd import EODHDClient, _is_retryable
 from asxos.ingestion.prices import to_fx_rows, to_price_rows, to_us_price_rows
 
@@ -241,3 +242,85 @@ def test_to_us_price_rows_correct_column_order():
 
 def test_to_us_price_rows_empty_input_returns_empty():
     assert to_us_price_rows([], symbol="AAPL.US") == []
+
+
+# ---------------------------------------------------------------------------
+# sync_prices self-heal helpers — cadence-bug fix
+# ---------------------------------------------------------------------------
+
+
+def test_weekdays_in_range_incident_window_includes_thu_fri():
+    """The 06-18→06-22 gap must yield missing Thu 06-18 + Fri 06-19, no weekend.
+
+    This is the exact incident: prices frozen at Wed 06-17; the self-heal must
+    fetch the dropped Thursday and Friday ASX sessions and skip Sat/Sun.
+    """
+    days = sync_prices_job._weekdays_in_range(date(2026, 6, 18), date(2026, 6, 22))
+    assert days == [date(2026, 6, 18), date(2026, 6, 19), date(2026, 6, 22)]
+    assert date(2026, 6, 20) not in days  # Sat
+    assert date(2026, 6, 21) not in days  # Sun
+
+
+def test_weekdays_in_range_single_weekday():
+    assert sync_prices_job._weekdays_in_range(
+        date(2026, 6, 18), date(2026, 6, 18)
+    ) == [date(2026, 6, 18)]
+
+
+def test_weekdays_in_range_single_weekend_day_is_empty():
+    assert sync_prices_job._weekdays_in_range(date(2026, 6, 20), date(2026, 6, 20)) == []
+
+
+def test_weekdays_in_range_start_after_end_is_empty():
+    # Already current (latest >= today) → nothing to fetch.
+    assert sync_prices_job._weekdays_in_range(date(2026, 6, 23), date(2026, 6, 22)) == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_start_explicit_from_passthrough():
+    """--from wins verbatim; the DB anchor is never consulted (unbounded backfill)."""
+    anchor = AsyncMock(return_value=date(2020, 1, 1))
+    with patch.object(sync_prices_job, "latest_observed_price_date", new=anchor):
+        start = await sync_prices_job._resolve_start(
+            date(2024, 3, 1), date(2026, 6, 22), MagicMock()
+        )
+    assert start == date(2024, 3, 1)
+    anchor.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_resolve_start_self_heals_from_day_after_latest():
+    """Default mode resumes from MAX(prices.dt)+1 — Wed 06-17 → Thu 06-18."""
+    with patch.object(
+        sync_prices_job,
+        "latest_observed_price_date",
+        new=AsyncMock(return_value=date(2026, 6, 17)),
+    ):
+        start = await sync_prices_job._resolve_start(None, date(2026, 6, 22), MagicMock())
+    assert start == date(2026, 6, 18)
+
+
+@pytest.mark.asyncio
+async def test_resolve_start_no_prices_bootstraps_to_floor():
+    with patch.object(
+        sync_prices_job,
+        "latest_observed_price_date",
+        new=AsyncMock(return_value=None),
+    ):
+        start = await sync_prices_job._resolve_start(None, date(2026, 6, 22), MagicMock())
+    assert start == date(2026, 6, 22) - timedelta(
+        days=sync_prices_job._MAX_AUTO_BACKFILL_DAYS
+    )
+
+
+@pytest.mark.asyncio
+async def test_resolve_start_stale_gap_clamps_to_floor_and_warns(caplog):
+    today = date(2026, 6, 22)
+    with patch.object(
+        sync_prices_job,
+        "latest_observed_price_date",
+        new=AsyncMock(return_value=date(2026, 1, 1)),
+    ), caplog.at_level("WARNING"):
+        start = await sync_prices_job._resolve_start(None, today, MagicMock())
+    assert start == today - timedelta(days=sync_prices_job._MAX_AUTO_BACKFILL_DAYS)
+    assert "full backfill" in caplog.text

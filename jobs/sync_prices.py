@@ -7,8 +7,12 @@ Phase 2 (US):       Per-symbol targeted fetch for US holdings in current_holding
 Phase 3 (FX):       AUDUSD.FOREX daily rate — fetched from earliest US acquisition
                     date so all historical lots have a rate for Div 775 calculations.
 
-Default: yesterday for all phases.
-Backfill: --from YYYY-MM-DD loops each weekday at 4 req/s (AU bulk only).
+Default (self-healing): fetch every weekday from the day after the latest
+observed price date through today (UTC), skipping weekends, idempotent UPSERT.
+This auto-fills any gap (missed cron, holiday, EODHD latency) and corrects the
+prior "yesterday-only" cadence bug that never ingested Thursday/Friday ASX
+sessions. Auto-heal is capped at _MAX_AUTO_BACKFILL_DAYS; deeper gaps need --from.
+Backfill: --from YYYY-MM-DD loops each weekday (unbounded; AU bulk + US/FX).
 
 Usage:
     python jobs/sync_prices.py
@@ -21,7 +25,10 @@ from datetime import date, timedelta
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
-from asxos.domain.prices.coverage import classify_sync_completeness
+from asxos.domain.prices.coverage import (
+    classify_sync_completeness,
+    latest_observed_price_date,
+)
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
     fetch_and_upsert_bulk,
@@ -34,6 +41,52 @@ from asxos.jobs.utils.job_monitor import JobMonitor
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
+
+# Auto-heal lookback cap (calendar days). A gap older than this is almost
+# certainly a deeper outage; healing it silently could fire hundreds of bulk
+# calls against the free-tier EODHD quota, so we clamp and tell the operator to
+# run an explicit --from backfill instead.
+_MAX_AUTO_BACKFILL_DAYS = 10
+
+
+def _weekdays_in_range(start: date, end: date) -> list[date]:
+    """Weekdays (Mon-Fri) in ``[start, end]`` inclusive. Empty when start > end."""
+    out: list[date] = []
+    current = start
+    while current <= end:
+        if current.weekday() < 5:
+            out.append(current)
+        current += timedelta(days=1)
+    return out
+
+
+async def _resolve_start(from_date: date | None, today: date, conn) -> date:
+    """First date to attempt in default self-heal mode.
+
+    - Explicit ``--from`` → use it verbatim (unbounded; deep manual backfills).
+    - Else self-heal from the day after ``MAX(prices.dt)`` over the active universe.
+    - No prices at all → bootstrap from ``today - _MAX_AUTO_BACKFILL_DAYS``.
+    - Gap older than the cap → clamp to the floor and WARN to run ``--from`` for a
+      full historical backfill.
+    """
+    if from_date is not None:
+        return from_date
+    floor = today - timedelta(days=_MAX_AUTO_BACKFILL_DAYS)
+    last = await latest_observed_price_date(conn)
+    if last is None:
+        return floor
+    start = last + timedelta(days=1)
+    if start < floor:
+        log.warning(
+            "sync_prices: latest price date %s is >%d days stale; auto-healing only "
+            "from %s. Run --from %s for a full backfill.",
+            last,
+            _MAX_AUTO_BACKFILL_DAYS,
+            floor,
+            start,
+        )
+        return floor
+    return start
 
 
 async def get_active_universe() -> set[str]:
@@ -82,7 +135,6 @@ async def _sync_fx_rates(from_date: date, client, conn) -> int:
 
 async def main(from_date: date | None) -> None:
     today = date.today()
-    target = from_date or today - timedelta(days=1)
 
     await init_pool()
     client = get_client()
@@ -101,24 +153,35 @@ async def main(from_date: date | None) -> None:
         us_rows = 0
         fx_rows = 0
 
-        # Phase 1 — AU bulk (unchanged behaviour)
-        if from_date is None:
+        # Phase 1 — AU bulk, self-healing. One unified weekday loop from `start`
+        # (day after the latest observed price date, or an explicit --from)
+        # through today (UTC), idempotent UPSERT per day. This corrects the prior
+        # "yesterday-only" cadence bug that never ingested Thursday/Friday ASX
+        # sessions and auto-fills any gap (missed cron, holiday, EODHD latency).
+        async with acquire() as conn:
+            start = await _resolve_start(from_date, today, conn)
+        days = _weekdays_in_range(start, today)
+        day_counts: dict[date, int] = {}
+        if not days:
+            log.info("sync_prices AU: already current through %s — nothing to fetch", today)
+        for current in days:
             async with acquire() as conn:
-                au_rows = await fetch_and_upsert_bulk(target, client, conn, universe)
-            log.info(f"sync_prices AU bulk: {au_rows} rows for {target}")
-        else:
-            current = from_date
-            while current <= today:
-                if current.weekday() < 5:
-                    async with acquire() as conn:
-                        n = await fetch_and_upsert_bulk(current, client, conn, universe)
-                    log.info(f"  {current}: {n} rows")
-                    au_rows += n
-                    await asyncio.sleep(0.25)
-                current += timedelta(days=1)
-            log.info(f"backfill done: {au_rows} AU rows total")
+                n = await fetch_and_upsert_bulk(current, client, conn, universe)
+            log.info("  %s: %d rows", current, n)
+            day_counts[current] = n
+            au_rows += n
+            await asyncio.sleep(0.25)
+        if days:
+            log.info(
+                "sync_prices AU: %d rows across %d weekday(s) %s..%s",
+                au_rows,
+                len(days),
+                days[0],
+                days[-1],
+            )
 
-        # Phase 2 + 3 — US prices and FX rates (only when US holdings exist)
+        # Phase 2 + 3 — US prices and FX rates (only when US holdings exist).
+        # Both self-heal over the same window by fetching from `start`.
         _NON_AU_SUFFIXES = (".US", ".NYSE", ".NASDAQ", ".AMEX")
         async with acquire() as conn:
             us_symbols = [s for s in universe if any(s.endswith(sfx) for sfx in _NON_AU_SUFFIXES)]
@@ -133,42 +196,44 @@ async def main(from_date: date | None) -> None:
         if us_symbols:
             log.info("sync_prices US: %d symbols", len(us_symbols))
             async with acquire() as conn:
-                us_rows = await _sync_us_prices(us_symbols, target, client, conn)
+                us_rows = await _sync_us_prices(us_symbols, start, client, conn)
             log.info("sync_prices US: %d rows", us_rows)
 
         if us_acquired_start is not None:
             # Fetch FX history from earliest US acquisition so all lots have a rate
-            fx_from = min(us_acquired_start, target)
+            fx_from = min(us_acquired_start, start)
             async with acquire() as conn:
                 fx_rows = await _sync_fx_rates(fx_from, client, conn)
         else:
             log.info("sync_prices FX: no US lots — skipping AUDUSD fetch")
 
         # Price-completeness classification (Batch 1 Step 2 — additive, NON-gating).
-        # Classifies ASX-equity coverage from the Phase-1 AU bulk count alone, so
-        # US/FX residue can never read as a full ASX session (the 2026-06-14
-        # incident wrote 12/14 US/FX residue rows on a non-trading day). This is
-        # OBSERVATIONAL ONLY this pass: job_runs.status stays exception-driven and
-        # rows_written keeps its combined-total value, so no downstream gate
-        # (generate_signals / snapshot_portfolio / compose_brief) changes. Skipped
-        # for backfill, where au_rows is a multi-day sum and the verdict is moot.
-        if from_date is None:
+        # Classifies ASX-equity coverage from the Phase-1 AU bulk count of the
+        # *freshest weekday fetched* alone, so US/FX residue can never read as a
+        # full ASX session (the 2026-06-14 incident wrote 12/14 US/FX residue rows
+        # on a non-trading day). OBSERVATIONAL ONLY: job_runs.status stays
+        # exception-driven and rows_written keeps its combined-total value, so no
+        # downstream gate (generate_signals / snapshot_portfolio / compose_brief)
+        # changes. Skipped when nothing was fetched (already current).
+        if day_counts:
+            latest_day = max(day_counts)
+            latest_au = day_counts[latest_day]
             verdict = classify_sync_completeness(
-                target, au_rows=au_rows, us_rows=us_rows, fx_rows=fx_rows
+                latest_day, au_rows=latest_au, us_rows=us_rows, fx_rows=fx_rows
             )
             if verdict.is_complete:
                 log.info(
                     "sync_prices completeness: %s COMPLETE (%d ASX equity rows)",
-                    target,
-                    au_rows,
+                    latest_day,
+                    latest_au,
                 )
             else:
                 log.warning(
                     "sync_prices completeness: %s %s — ASX=%d US=%d FX=%d; "
                     "US/FX rows are NOT ASX equity coverage.",
-                    target,
+                    latest_day,
                     verdict.status.value.upper(),
-                    au_rows,
+                    latest_au,
                     us_rows,
                     fx_rows,
                 )

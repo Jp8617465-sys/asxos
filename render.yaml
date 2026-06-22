@@ -102,7 +102,7 @@ services:
     plan: starter
     branch: main
     buildCommand: pip install -e ".[ml]"
-    schedule: "30 20 * * 0-4"  # Sun-Thu UTC = Mon-Fri AEST (target = yesterday)
+    schedule: "30 20 * * 0-4"  # Sun-Thu UTC = Mon-Fri AEST; job self-heals from MAX(prices.dt)+1 through today (UTC)
     command: python jobs/sync_prices.py
     envVars:
       - key: PYTHON_VERSION
