@@ -67,6 +67,7 @@ class CoreSettings(BaseSettings):
     healthcheck_url_validate_price_data: str = ""          # price data quality check
     healthcheck_url_check_model_staleness: str = ""        # ML model staleness monitor
     healthcheck_url_track_signal_outcomes: str = ""        # weekly signal outcome tracking
+    healthcheck_url_monitor_paper_portfolio: str = ""      # M13.8 paper-portfolio scoreboard
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False
