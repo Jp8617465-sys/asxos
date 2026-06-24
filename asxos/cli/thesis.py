@@ -128,11 +128,15 @@ def thesis_open(
     target: str = typer.Option("", "--target", help="Target price"),
     timeline: str = typer.Option("", "--timeline", help="Timeline: 18m or 90d"),
     themes: str = typer.Option("", "--themes", help="Comma-separated theme codes"),
+    conviction: int = typer.Option(0, "--conviction", help="PM conviction 1-5 (0 = unset)"),
+    tax_notes: str = typer.Option("", "--tax-notes", help="CGT / franking / holding-period notes"),
     reason: str = typer.Option("Initial thesis", "--reason", help="Opening rationale"),
 ) -> None:
     """Open a new investment thesis (research or watching status)."""
     if status not in ("research", "watching"):
         raise typer.BadParameter("--status must be 'research' or 'watching'")
+    if conviction and not (1 <= conviction <= 5):
+        raise typer.BadParameter("--conviction must be between 1 and 5")
 
     entry_lo: Decimal | None = None
     entry_hi: Decimal | None = None
@@ -147,7 +151,8 @@ def thesis_open(
 
     asyncio.run(_open_thesis(
         symbol, status, thesis_text, entry_lo, entry_hi,
-        stop_d, target_d, timeline_days, theme_list, reason,
+        stop_d, target_d, timeline_days, theme_list,
+        (conviction or None), (tax_notes.strip() or None), reason,
     ))
 
 
@@ -155,7 +160,8 @@ async def _open_thesis(
     symbol: str, status: str, thesis_text: str | None,
     entry_lo: Decimal | None, entry_hi: Decimal | None,
     stop_d: Decimal | None, target_d: Decimal | None,
-    timeline_days: int | None, theme_list: list[str], reason: str,
+    timeline_days: int | None, theme_list: list[str],
+    conviction: int | None, tax_notes: str | None, reason: str,
 ) -> None:
     await init_pool()
     try:
@@ -170,6 +176,8 @@ async def _open_thesis(
                 target_price=target_d,
                 timeline_days=timeline_days,
                 themes=theme_list,
+                conviction_level=conviction,
+                tax_notes=tax_notes,
                 reasoning=reason,
             )
         console.print(f"[green]✓[/green] Opened thesis #{t.thesis_id} for {t.symbol} ({t.status})")
@@ -264,6 +272,8 @@ def thesis_revise(
     entry: str = typer.Option("", "--entry", help="New entry band: '60-65'"),
     timeline: str = typer.Option("", "--timeline", help="New timeline: 18m or 90d"),
     new_status: str = typer.Option("", "--status", help="New status"),
+    conviction: int = typer.Option(0, "--conviction", help="New PM conviction 1-5"),
+    tax_notes: str = typer.Option("", "--tax-notes", help="New CGT / franking notes"),
 ) -> None:
     """Revise one field on the most recent thesis for a symbol.
 
@@ -272,6 +282,12 @@ def thesis_revise(
     changes: dict[str, object] = {}
     if thesis:
         changes["thesis_text"] = thesis.strip()
+    if conviction:
+        if not (1 <= conviction <= 5):
+            raise typer.BadParameter("--conviction must be between 1 and 5")
+        changes["conviction_level"] = conviction
+    if tax_notes:
+        changes["tax_notes"] = tax_notes.strip()
     if stop:
         changes["stop_price"] = _parse_decimal(stop, "stop")
     if target:
@@ -286,7 +302,7 @@ def thesis_revise(
         changes["entry_band_upper"] = hi
 
     if not changes:
-        console.print("[red]Specify at least one field to revise (--thesis, --stop, --target, --entry, --timeline, --status)[/red]")
+        console.print("[red]Specify at least one field to revise (--thesis, --stop, --target, --entry, --timeline, --status, --conviction, --tax-notes)[/red]")
         raise typer.Exit(1)
 
     asyncio.run(_revise_thesis(symbol, changes, reason))
@@ -677,6 +693,8 @@ def _print_thesis_detail(t: Thesis) -> None:
         ("Stop", str(t.stop_price or "—")),
         ("Target", str(t.target_price or "—")),
         ("Timeline", deadline_str),
+        ("Conviction", f"{t.conviction_level}/5" if t.conviction_level else "—"),
+        ("Tax notes", t.tax_notes or "—"),
         ("Themes", ", ".join(t.themes) or "—"),
         ("Actual entry", f"{t.actual_entry_price} on {t.actual_entry_at.date()}" if t.actual_entry_price and t.actual_entry_at else "—"),
         ("Actual exit", f"{t.actual_exit_price} on {t.actual_exit_at.date()}" if t.actual_exit_price and t.actual_exit_at else "—"),

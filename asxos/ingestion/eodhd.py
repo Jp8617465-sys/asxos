@@ -56,6 +56,12 @@ class EODHDClient:
     async def exchange_symbols(self, exchange: str = "AU") -> list[dict[str, Any]]:
         return await self._get(f"/exchange-symbol-list/{exchange}")  # type: ignore[no-any-return]
 
+    async def exchange_symbols_delisted(self, exchange: str = "AU") -> list[dict[str, Any]]:
+        # `delisted=1` returns securities no longer trading (survivorship-free
+        # research store). Probe 2026-06-24: AU returns 1,986 rows. The payload
+        # carries no delisted-date field — callers must set delisted_date = NULL.
+        return await self._get(f"/exchange-symbol-list/{exchange}", delisted=1)  # type: ignore[no-any-return]
+
     async def daily_prices(self, symbol: str, *, from_date: str | None = None) -> list[dict[str, Any]]:
         params: dict[str, Any] = {}
         if from_date:
@@ -70,6 +76,17 @@ class EODHDClient:
 
     async def fundamentals(self, symbol: str) -> dict[str, Any]:
         return await self._get(f"/fundamentals/{symbol}")  # type: ignore[no-any-return]
+
+    async def dividends(self, symbol: str) -> list[dict[str, Any]]:
+        # Per-share dividend history. Each object: date (ex-date), value,
+        # unadjustedValue, paymentDate, recordDate, period, currency, and (AU only)
+        # franking as a "<float>%" string. No-dividend names return []. Probe 2026-06-24.
+        return await self._get(f"/div/{symbol}")  # type: ignore[no-any-return]
+
+    async def splits(self, symbol: str) -> list[dict[str, Any]]:
+        # Split history. Each object: date (ex-date), split = "new/old" string
+        # (e.g. "4.000000/1.000000" = 4:1). No-split names return []. Probe 2026-06-24.
+        return await self._get(f"/splits/{symbol}")  # type: ignore[no-any-return]
 
     async def news_for_symbol(
         self,

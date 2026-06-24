@@ -94,6 +94,9 @@ class Thesis:
     # Earnings fields (migration 0021)
     next_earnings_date: datetime | None = None
     earnings_notes: str = ""
+    # PM conviction + tax fields (migration 0026)
+    conviction_level: int | None = None  # 1..5 PM conviction scale; None = unset
+    tax_notes: str = ""                  # CGT / franking / holding-period notes
 
 
 @dataclass(frozen=True)
@@ -132,6 +135,8 @@ REVISABLE_FIELDS: dict[str, str] = {
     "timeline_days": "timeline_days",
     "status": "status",
     "invalidation_conditions": "invalidation_conditions",
+    "conviction_level": "conviction_level",
+    "tax_notes": "tax_notes",
 }
 
 # Maps Python attribute name → revision_type to record in thesis_revisions.
@@ -145,4 +150,6 @@ _REVISION_TYPE_FOR_FIELD: dict[str, str] = {
     "timeline_days": "timeline_extended",
     "status": "status_change",
     "invalidation_conditions": "assumption_change",
+    "conviction_level": "assumption_change",
+    "tax_notes": "assumption_change",
 }
