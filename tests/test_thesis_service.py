@@ -394,3 +394,39 @@ async def test_exit_thesis_invalid_revision_type_raises() -> None:
             conn, thesis_id=1, exit_price=Decimal("58"),
             revision_type="wrong_type",
         )
+
+
+# ---------------------------------------------------------------------------
+# Migration 0026 — conviction_level + tax_notes
+# ---------------------------------------------------------------------------
+
+
+def test_conviction_and_tax_fields_revisable_and_in_sync():
+    """conviction_level + tax_notes (0026) must be revisable and the two
+    revision maps must stay in sync (revise_thesis indexes both)."""
+    from asxos.domain.theses.types import (
+        _REVISION_TYPE_FOR_FIELD,
+        REVISABLE_FIELDS,
+    )
+
+    for f in ("conviction_level", "tax_notes"):
+        assert f in REVISABLE_FIELDS
+        assert f in _REVISION_TYPE_FOR_FIELD
+    # every revisable field must have a revision type, else revise_thesis KeyErrors
+    assert set(REVISABLE_FIELDS) == set(_REVISION_TYPE_FOR_FIELD)
+
+
+def test_row_to_thesis_maps_conviction_and_tax():
+    """The new columns round-trip from a Record-shaped row into the dataclass,
+    and default cleanly when absent (older rows)."""
+    row = _make_thesis_row()
+    row["conviction_level"] = 4
+    row["tax_notes"] = "CGT-discount-eligible after 2027-06; fully franked"
+    t = svc._row_to_thesis(row)
+    assert t.conviction_level == 4
+    assert "franked" in t.tax_notes
+
+    # absent columns (pre-0026 row) default to None / "" without error
+    t2 = svc._row_to_thesis(_make_thesis_row())
+    assert t2.conviction_level is None
+    assert t2.tax_notes == ""

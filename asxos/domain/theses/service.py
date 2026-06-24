@@ -112,6 +112,9 @@ def _row_to_thesis(row: asyncpg.Record) -> Thesis:
         analyst_updated_at=row.get("analyst_updated_at"),
         next_earnings_date=row.get("next_earnings_date"),
         earnings_notes=row.get("earnings_notes") or "",
+        # migration 0026 fields
+        conviction_level=row.get("conviction_level"),
+        tax_notes=row.get("tax_notes") or "",
     )
 
 
@@ -169,6 +172,8 @@ async def open_thesis(
     timeline_days: int | None = None,
     themes: list[str] | None = None,
     invalidation_conditions: list[dict[str, Any]] | None = None,
+    conviction_level: int | None = None,
+    tax_notes: str | None = None,
     reasoning: str = "Initial thesis",
 ) -> Thesis:
     """Open a new investment thesis.
@@ -199,13 +204,15 @@ async def open_thesis(
                 entry_band_lower, entry_band_upper,
                 stop_price, target_price, timeline_days,
                 invalidation_conditions, themes,
-                last_revisited_at, revisit_due_at, opened_at
+                last_revisited_at, revisit_due_at, opened_at,
+                conviction_level, tax_notes
             ) VALUES (
                 $1, $2, $3,
                 $4, $5,
                 $6, $7, $8,
                 $9::jsonb, $10,
-                $11, $12, $11
+                $11, $12, $11,
+                $13, $14
             )
             RETURNING *
             """,
@@ -221,6 +228,8 @@ async def open_thesis(
             themes,
             now,
             due,
+            conviction_level,
+            tax_notes,
         )
         thesis_id: int = row["thesis_id"]
 
