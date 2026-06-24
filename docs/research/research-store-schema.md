@@ -71,7 +71,7 @@ EODHD provides only **current** index membership (`AXJO.INDX` → 199 components
 
 1. ~~Apply the migration (review first).~~ **Done — applied 2026-06-22; tables empty, not yet data-validated.**
 2. `sync_security_master` — **approved next build** (source-closure probe done 2026-06-24: no delisted-date field → `delisted_date = NULL`; `Type` set enumerated; 0 code collisions). See `sync-security-master-scope.md`. Touches no production table; validates the schema on real rows (B2).
-3. ~~Franking coverage probe~~ — **done 2026-06-24** (string `"<float>%"`, partials common, NULL≠0%). `sync_corporate_actions` can proceed on the documented parse.
+3. ~~Franking coverage probe~~ — **done 2026-06-24**. `sync_corporate_actions` — **BUILT** (dividends + splits → `rs_corporate_actions`; franking `"<float>%"`, NULL≠0; see `sync-corporate-actions-scope.md`). Not yet scheduled/populated.
 4. ~~`reportDate` semantics probe~~ — **done 2026-06-24**; guarded `knowledge_date` rule defined above.
 5. `sync_financial_statements` — **unblocked** (apply the guarded `knowledge_date` rule; populate `report_date` + `filing_date` raw).
 6. Derive `rs_fundamentals_pit` from statements + the *validated* disclosure date (the leak-critical transform).

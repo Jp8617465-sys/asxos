@@ -119,6 +119,32 @@ services:
       - key: HEALTHCHECK_URL_SYNC_SECURITY_MASTER
         sync: false
 
+  # Weekly research-store corporate actions — Sunday 02:30 AEST (Sat 16:30 UTC).
+  # Dividends (+ AU franking) and splits for rs_security_master. Runs AFTER
+  # sync-security-master (16:10) which populates the symbol list it iterates.
+  - type: cron
+    name: asxos-sync-corporate-actions
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "30 16 * * 6"
+    command: python jobs/sync_corporate_actions.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: EODHD_API_KEY
+      - key: HEALTHCHECK_URL_SYNC_CORPORATE_ACTIONS
+        sync: false
+
   # Daily price sync — 06:30 AEST weekdays (20:30 UTC prior day)
   - type: cron
     name: asxos-sync-prices
