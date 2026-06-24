@@ -70,6 +70,7 @@ class CoreSettings(BaseSettings):
     healthcheck_url_monitor_paper_portfolio: str = ""      # M13.8 paper-portfolio scoreboard
     healthcheck_url_sync_security_master: str = ""         # research store rs_security_master
     healthcheck_url_sync_corporate_actions: str = ""       # research store rs_corporate_actions
+    healthcheck_url_sync_financial_statements: str = ""    # research store rs_financial_statements
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False

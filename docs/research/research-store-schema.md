@@ -73,7 +73,7 @@ EODHD provides only **current** index membership (`AXJO.INDX` → 199 components
 2. `sync_security_master` — **approved next build** (source-closure probe done 2026-06-24: no delisted-date field → `delisted_date = NULL`; `Type` set enumerated; 0 code collisions). See `sync-security-master-scope.md`. Touches no production table; validates the schema on real rows (B2).
 3. ~~Franking coverage probe~~ — **done 2026-06-24**. `sync_corporate_actions` — **BUILT** (dividends + splits → `rs_corporate_actions`; franking `"<float>%"`, NULL≠0; see `sync-corporate-actions-scope.md`). Not yet scheduled/populated.
 4. ~~`reportDate` semantics probe~~ — **done 2026-06-24**; guarded `knowledge_date` rule defined above.
-5. `sync_financial_statements` — **unblocked** (apply the guarded `knowledge_date` rule; populate `report_date` + `filing_date` raw).
+5. `sync_financial_statements` — **BUILT** (raw BS/IS/CF + `report_date`/`filing_date` raw; the leak-critical `derive_knowledge_date()` guard implemented + tested here; see `sync-financial-statements-scope.md`). Not yet scheduled/populated.
 6. Derive `rs_fundamentals_pit` from statements + the *validated* disclosure date (the leak-critical transform).
 7. Compute `rs_factor_scores` (sector-neutral z-scores) — the Layer-1 input. Pick and **label** the index/universe choice (true history / forward-snapshot / cap-rank proxy / broad ASX tradable) before any index-relative claim.
 8. Wire `alpha_eval` to load `rs_factor_scores` and test value/quality/momentum/low-vol at 63/126/252d — **only now** does the value×quality **candidate** get tested. It is not an approved production replacement.
