@@ -1,9 +1,9 @@
--- 0027_research_store_PROPOSAL.sql
+-- 0027_research_store.sql
 -- =====================================================================
--- PROPOSAL — NOT APPLIED. Do NOT run via mcp__supabase__apply_migration
--- until reviewed and the EODHD ingestion design is agreed. No ingestion
--- code exists for these tables yet. This file is the reviewable DDL that
--- accompanies docs/research/research-store-schema.md.
+-- APPLIED 2026-06-22 (approved). The point-in-time, survivorship-free research
+-- store. Tables start EMPTY — no ingestion code runs until each source job is
+-- reviewed. Accompanies docs/research/research-store-schema.md.
+-- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py.
 -- =====================================================================
 --
 -- The research store is the point-in-time, survivorship-free foundation for
@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS rs_financial_statements (
     period_end      DATE NOT NULL,              -- statement period end (e.g. 2025-06-30)
     period_type     TEXT NOT NULL,              -- 'yearly' | 'quarterly'
     statement_type  TEXT NOT NULL,              -- 'balance_sheet' | 'income' | 'cash_flow'
-    filing_date     DATE,                       -- disclosure date (PIT key); fallback = period_end + lag
+    filing_date     DATE,                       -- EODHD filing_date (often defaults to period_end)
+    report_date     DATE,                       -- EODHD Earnings.History.reportDate — PREFERRED PIT anchor
     currency        TEXT,
     -- promoted line items for fast factor calc; full payload in line_items
     total_revenue   NUMERIC(18,6),
