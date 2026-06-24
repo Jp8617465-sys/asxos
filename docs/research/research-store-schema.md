@@ -74,7 +74,7 @@ EODHD provides only **current** index membership (`AXJO.INDX` → 199 components
 3. ~~Franking coverage probe~~ — **done 2026-06-24**. `sync_corporate_actions` — **BUILT** (dividends + splits → `rs_corporate_actions`; franking `"<float>%"`, NULL≠0; see `sync-corporate-actions-scope.md`). Not yet scheduled/populated.
 4. ~~`reportDate` semantics probe~~ — **done 2026-06-24**; guarded `knowledge_date` rule defined above.
 5. `sync_financial_statements` — **BUILT** (raw BS/IS/CF + `report_date`/`filing_date` raw; the leak-critical `derive_knowledge_date()` guard implemented + tested here; see `sync-financial-statements-scope.md`). Not yet scheduled/populated.
-6. Derive `rs_fundamentals_pit` from statements + the *validated* disclosure date (the leak-critical transform).
+6. ~~Derive `rs_fundamentals_pit`~~ — **BUILT** (`derive_fundamentals_pit`; `compute_pit_factors` applies the `derive_knowledge_date()` guard; ROE/margins/book value/franking from statements + dividends; see `derive-fundamentals-pit-scope.md`). Validated end-to-end on real data (CBA/BHP/WTC/CSL/GMG): sane factors, real disclosure lags (43–58d, no leakage), bank-sized values via NUMERIC(24,6) (migration 0028).
 7. Compute `rs_factor_scores` (sector-neutral z-scores) — the Layer-1 input. Pick and **label** the index/universe choice (true history / forward-snapshot / cap-rank proxy / broad ASX tradable) before any index-relative claim.
 8. Wire `alpha_eval` to load `rs_factor_scores` and test value/quality/momentum/low-vol at 63/126/252d — **only now** does the value×quality **candidate** get tested. It is not an approved production replacement.
 
