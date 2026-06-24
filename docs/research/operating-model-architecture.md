@@ -137,7 +137,7 @@ chasing a 5-day signal.
         │
         ▼
  LAYER 1 — ALPHA (quant)      factor library + alpha_eval OOS gate
-   sleeves: value · quality · momentum(6–12m) · [5d ML → paper-only/retired]
+   sleeves: value · quality · momentum(6–12m) · [5d ML → paper-only / quarantined, NOT retired]
    → per-name expected-return scores, by horizon, decorrelated
         │
         ▼
@@ -176,9 +176,11 @@ paper-only sleeve.**
    fundamentals/history + index membership via EODHD → the research store.
    *Everything else is building on sand until this exists.*
 2. **B — Layer 1/2:** sector-neutral, liquidity-filtered **value × quality** factor
-   score, validated at 126/252d with `alpha_eval`, feeding the allocator
-   (replacing the broken composite). Weights from **external priors** until
-   internal validation has power.
+   score as a **candidate sleeve, not an approved replacement** — validated at
+   126/252d with `alpha_eval` *before* it earns any allocator weight. If it clears
+   an OOS gate it may *eventually* relieve the quarantined composite; until then the
+   composite is not replaced. Weights from **external priors** until internal
+   validation has power.
 3. **C — Layer 3:** build out the `theses` workflow so conviction has a home
    *today*, independent of the data backfill.
 4. **Blend + risk:** combine sleeves, add aggregate-beta / sector / factor limits,

@@ -13,12 +13,18 @@
 -- (`as_of`) AND the date it became publicly usable (`knowledge_date`). Research
 -- queries filter on `knowledge_date <= test_date` — never on `as_of`.
 --
--- EODHD availability VERIFIED 2026-06-22 (read-only probe): Financials 35yr,
--- ROE/margins/revenue in Highlights, delisted-symbol list (1,986), dividends,
--- splits, shares-outstanding history. GAPS to resolve before ingestion:
---   * index-membership history — source unknown (NOT in the fundamentals API)
---   * franking_pct in EODHD AU dividends — field presence unverified
---   * statement filing_date — must exist for PIT lag; verify per-statement
+-- EODHD availability (read-only probe 2026-06-24): Financials 35yr, ROE/margins/
+-- revenue in Highlights, delisted-symbol list (1,986), dividends, splits,
+-- shares-outstanding history. UNRESOLVED before ingestion (do NOT treat as done):
+--   * index-membership HISTORY — source unknown (AXJO.INDX is current-only, 199 names)
+--   * franking — `/div` carries a `franking` field on one sample ("100%" string);
+--       coverage + string->numeric + null/partial semantics UNVALIDATED
+--   * statement disclosure date — `filing_date` often defaults to period_end;
+--       `Earnings.History.reportDate` can be a FUTURE/SCHEDULED date (CBA period
+--       2026-06-30 -> reportDate 2026-08-11, both future as of the probe). PIT
+--       statement ingestion is BLOCKED until a fresh historical-period probe
+--       confirms reportDate <= disclosure and ingestion guards report_date <= as_of.
+-- Tables are APPLIED but EMPTY — constraints/idempotency/identity not yet data-validated.
 -- NUMERIC(18,6) on every monetary/statistical column (house convention).
 
 -- 1. Security master — one row per security EVER listed (survivorship-free).
@@ -54,14 +60,17 @@ CREATE TABLE IF NOT EXISTS rs_corporate_actions (
 );
 
 -- 3. Raw historical financial statements (the source for PIT factors).
---    `filing_date` is the POINT-IN-TIME key — when the statement was disclosed.
+--    PIT key is UNRESOLVED: filing_date often = period_end; report_date may be
+--    a future/scheduled date. Validate before treating either as knowledge_date.
 CREATE TABLE IF NOT EXISTS rs_financial_statements (
     symbol          TEXT NOT NULL,
     period_end      DATE NOT NULL,              -- statement period end (e.g. 2025-06-30)
     period_type     TEXT NOT NULL,              -- 'yearly' | 'quarterly'
     statement_type  TEXT NOT NULL,              -- 'balance_sheet' | 'income' | 'cash_flow'
     filing_date     DATE,                       -- EODHD filing_date (often defaults to period_end)
-    report_date     DATE,                       -- EODHD Earnings.History.reportDate — PREFERRED PIT anchor
+    report_date     DATE,                       -- EODHD Earnings.History.reportDate — CANDIDATE PIT anchor;
+                                                 -- MAY be a scheduled/future date. Guard report_date <= knowledge
+                                                 -- cutoff and validate vs historical disclosure before trusting.
     currency        TEXT,
     -- promoted line items for fast factor calc; full payload in line_items
     total_revenue   NUMERIC(18,6),

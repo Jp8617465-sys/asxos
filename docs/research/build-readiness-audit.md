@@ -48,7 +48,7 @@ Architecture direction is right; inputs are incomplete. Approved *now* (all read
 | Historical financial statements | ✗ | ✓ (BS/IS/CF yearly 35yr, quarterly ~125) | yes | **critical** |
 | Sector/industry history | sector (current) | ✓ (current); history unclear | likely current-only | med |
 | Benchmark/index membership history | ✗ | **MISSING / unverified in this API** | — | med (needed for survivorship + benchmark) |
-| Dividends + franking | `dividend_yield` partial | divs ✓; **franking field unverified** | yes | med (AU tax edge) |
+| Dividends + franking | `dividend_yield` partial | divs ✓; franking field **available in probe (1 sample, "100%" string) — coverage/semantics validation required** | yes | med (AU tax edge) |
 | Analyst estimates / target | ✗ | `WallStreetTargetPrice` ✓ (current); detailed ratings sparse for AU | snapshot-only | low |
 
 **The critical nuance:** EODHD's `Highlights` ratios (ROE, PE) are a *single current snapshot*. True point-in-time factors must be **computed from the 35-year historical statements, lagged to the disclosure/filing date** — not ingested from Highlights. That is the real design of the backfill, and it's where look-ahead risk lives.
@@ -93,12 +93,18 @@ Render env-var read (authorized, key never printed) → EODHD read-only probes (
 ## 12. Checks run
 `alpha_eval` engine: 9/9 pure tests pass; monitor 16/16; `paper_trade` 21/21; ruff clean on new files. (3.11 sandbox; `make check` is the 3.12 CI gate.)
 
-## 13. Open questions (MISSING — to verify before building)
-1. **Index-membership history** (ASX200/300) — source unknown; needed for survivorship + benchmark. Probe S&P/EODHD/other.
-2. **Franking** field availability in EODHD AU dividends — verify the `/div` object fields.
-3. **EODHD statement filing dates** — do the financial-statement objects carry a `filing_date` (for PIT lag) or only period-end? Verify before computing PIT factors.
+## 13. Open questions (MISSING/UNRESOLVED — to verify before building)
+
+> **Update (probe 2026-06-24, after this audit's 2026-06-22 date):** a later read-only
+> probe partially addressed #2/#3 but did **not** close them — and surfaced a PIT hazard.
+> See `evidence-log.md` and `research-store-schema.md` for the authoritative status.
+
+1. **Index-membership history** (ASX200/300) — still **unavailable** from EODHD (`AXJO.INDX` is current-only, 199 names). Needed for survivorship + benchmark. v1 must use a **labeled proxy universe**, never "historical ASX 200".
+2. **Franking** — `/div` carries a `franking` field, but only one sample observed (`"100%"`, a string). **Available-in-probe; coverage + string→numeric + null/partial semantics UNVALIDATED.** Run a representative-sample probe before `sync_corporate_actions`.
+3. **EODHD statement disclosure date** — `filing_date` often **defaults to period_end**; `Earnings.History.reportDate` was floated as a better anchor but the probe returned a **future/scheduled** date (CBA period 2026-06-30 → reportDate 2026-08-11, both future). **PIT statement ingestion is BLOCKED** until a fresh historical-period probe confirms `reportDate ≤ disclosure` and ingestion guards `report_date ≤ as_of`.
 4. **Backfill cost/rate** — ~1,885 symbols × historical fundamentals = many API calls; confirm plan limits (probe showed 100k/day, so feasible, but confirm).
 5. **Is the 21d reversal real or sample noise?** Only the signal backfill resolves it.
+6. **Schema populated-data validation** — `0027` is applied but all `rs_*` tables are **empty**; constraints, idempotent UPSERTs, identity keys, and sample inserts are unexercised. Validate on real rows before declaring any table done.
 
 ---
 

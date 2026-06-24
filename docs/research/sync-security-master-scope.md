@@ -1,8 +1,10 @@
 # `sync_security_master` — ingestion job scope (design only)
 
-**Date:** 2026-06-22 · **Status:** SCOPE. No code written. This is the reviewable design for the **first** research-store ingestion job. It populates `rs_security_master` (migration 0027, applied). Review this before any code lands.
+**Scope date:** 2026-06-22 · **Status:** SCOPE — **conditionally next**. No code written. This is the reviewable design for the **first** research-store ingestion job. It populates `rs_security_master` (migration 0027, applied-empty: 0 rows). Review this before any code lands.
 
-Security master is deliberately first because it is the **only** research-store source the read-only probe verified as *fully* available with no open question: `exchange-symbol-list/AU` returns active names and `?delisted=1` returns the historical/delisted set (1,986 symbols). Every later job (`sync_corporate_actions`, `sync_financial_statements`) iterates over this table's `symbol` list, so it is the dependency root and the cheapest place to prove the ingestion pattern (idempotent UPSERT + `JobMonitor` + resumability) before spending the EODHD call budget on 35-year financials.
+Security master is first because it is the research-store source with the **strongest** core availability and **zero production blast radius**: `exchange-symbol-list/AU` returns active names and `?delisted=1` returns the delisted set (1,986 symbols), and it touches no production table. Every later job (`sync_corporate_actions`, `sync_financial_statements`) iterates over this table's `symbol` list, so it is the dependency root and the cheapest place to prove the ingestion pattern (idempotent UPSERT + `JobMonitor` + resumability) before spending the EODHD call budget on 35-year financials.
+
+**Gate (not "no open questions"):** the *core* (active + delisted lists) is verified, but the **enrichment fields are not closed** — the `?delisted=1` delisted-date field name and the `security_type` value set are unconfirmed (§6). Proceed only after a tiny read-only **source-closure probe** confirms them, **or** explicitly accept the v1 fallback (ingest delisted symbols with `delisted_date = NULL`). This job is **unblocked**; `sync_financial_statements` is **not** (the `reportDate` PIT hazard — see `research-store-schema.md` Blockers).
 
 ---
 
@@ -81,15 +83,50 @@ A symbol that appears in the active list but was previously delisted (re-listing
 
 ---
 
-## 5. Open questions to resolve at build time (not now)
+## 5. Acceptance criteria (must ALL pass before the job is "done")
 
-1. **Delisted-date field name & granularity.** The `?delisted=1` list confirms *which* symbols delisted (1,986), but the per-symbol `delisted_date` field name/availability in that payload is unconfirmed. If absent, fetching a date per delisted symbol would be ~1,986 extra calls — defer: ingest delisted symbols with `delisted_date = NULL` in v1 and backfill dates only if a research query needs them.
+These are the gate. Code that doesn't satisfy every line is not merged.
+
+1. **Active + delisted coverage.** Active symbols → `is_active = TRUE`, `delisted_date = NULL`; delisted symbols → `is_active = FALSE` (with `delisted_date` where supplied, else NULL per the v1 fallback).
+2. **Stable security identity key.** `symbol` PK; the `.AU` suffix mapping (`_to_symbol`) is documented and **spot-checked for collisions** on the delisted set (two distinct securities must not map onto one PK).
+3. **Idempotent UPSERT.** A second consecutive run writes 0 net changes (`rows_written` may report touched rows, but no column value changes). Proven by a rerun diff.
+4. **Does NOT mutate production `universe`.** The job reads nothing from and writes nothing to `universe`. Asserted in a test (no `universe` in the job's SQL).
+5. **Source + timestamp recorded.** Every row carries `source='eodhd'` and a fresh `updated_at`.
+6. **Delisted status recorded.** `is_active` + `delisted_date` populated per §2; re-listing flips `is_active` back to TRUE while **preserving** the prior `delisted_date` via COALESCE (§4), and is flagged in the return dict, not silently overwritten.
+7. **Symbol/name changes handled if the payload supports them.** If EODHD exposes a prior-ticker/identifier, record it; if not, a changed `name` updates in place and the change is flagged — **never** silently drop history.
+8. **Sample-insert / dry-run validation.** Before the first live run, a dry-run inserts a handful of known symbols (e.g. CBA.AU active, a known delisted name) and the rows are inspected against EODHD by hand.
+9. **Safe-rerun / rollback.** Re-running after a partial failure converges (UPSERT, no duplicates); the job is resumable and leaves no half-state. Document how to revert (e.g. `DELETE FROM rs_security_master WHERE source='eodhd'` is safe because the table is research-only and re-derivable).
+10. **Tests for duplicate symbols and missing identifiers.** Unit tests cover: a symbol appearing in both active and delisted lists (precedence rule), a row with a missing/blank `Code`, and a duplicate `Code` within one payload.
+
+---
+
+## 6. Source-closure questions (resolve with a read-only probe BEFORE coding)
+
+These are the gate referenced in the header. The job is **conditionally next** until #1–#2 are closed or the v1 fallback is accepted.
+
+1. **Delisted-date field name & granularity.** The `?delisted=1` list confirms *which* symbols delisted (1,986), but the per-symbol `delisted_date` field name/availability in that payload is unconfirmed. If absent, fetching a date per delisted symbol would be ~1,986 extra calls — **v1 fallback: ingest delisted symbols with `delisted_date = NULL`** and backfill dates only if a research query needs them.
 2. **`security_type` taxonomy.** Confirm the exact `Type` values EODHD emits for AU so downstream filters (e.g. exclude ETFs/funds from single-name factor work) key off real strings, not guesses.
 3. **Duplicate / suffix collisions.** Some EODHD AU codes carry class suffixes; confirm the `.AU` mapping doesn't collide two distinct securities onto one PK. `_to_symbol` is proven for the active set; spot-check it on the delisted set.
 
 ---
 
-## 6. Cadence & wiring (after code review)
+## 7. Forward note — tradability filter (NOT this job; specified so it isn't reinvented)
+
+A later **investability filter** (used to decide which `rs_security_master` names are actually tradable for the long book, and to replace the crude `price≥$0.20 & $vol≥100k` shell filter used to seed theses) MUST use, at minimum:
+
+- **Rolling 20d / 60d ADV** (average daily volume) — window function over `prices.volume`.
+- **Median dollar volume** over the window — robust to single-day spikes (mean is not).
+- **Minimum price** floor (penny-stock / sub-tick exclusion).
+- **Market cap** where available (shares-outstanding × price from the research store).
+- **Spread / slippage estimate** where available.
+- **Max participation rate** (target trade size vs ADV) — caps position size by liquidity.
+- **Suspension / stale-price checks** — exclude names with stale or gapped recent prices.
+
+**Reuse, do not reinvent:** `asxos/domain/research/alpha_eval.py:226` `liquidity_split()` already buckets by `price` and `dollar_volume`; `alpha_loader.py:38` already computes `dollar_volume = close*volume`; `jobs/validate_price_data.py` already has stale/anomalous-price detection. The `prices` table (`close, volume, adj_close, dt`) supplies everything needed for ADV/dollar-volume. The filter should be a shared utility, not a per-job copy.
+
+---
+
+## 8. Cadence & wiring (after code review)
 
 - **Schedule:** weekly, alongside `sync_universe` (Sat 16:00 UTC). Security master changes slowly; daily is wasteful.
 - **render.yaml:** add `asxos-sync-security-master` cron + `HEALTHCHECK_URL_SYNC_SECURITY_MASTER`. Change via `render.yaml` + push + `make check-drift` — never the dashboard (CLAUDE.md #2).
@@ -98,6 +135,6 @@ A symbol that appears in the active list but was previously delisted (re-listing
 
 ---
 
-## 7. What this is NOT
+## 9. What this is NOT
 
-Not written. Not scheduled. Not a commitment to the rest of the backfill — each subsequent job (`sync_corporate_actions`, `sync_financial_statements`, the leak-critical `rs_fundamentals_pit` derivation) gets its own scope doc and review. This job exists to prove the pattern cheaply on the one source with zero open availability questions, and to give the later jobs a `symbol` list to iterate.
+Not written. Not scheduled. Not a commitment to the rest of the backfill — each subsequent job (`sync_corporate_actions`, `sync_financial_statements`, the leak-critical `rs_fundamentals_pit` derivation) gets its own scope doc and review. This job exists to prove the ingestion pattern cheaply on the source with the strongest core availability and zero production blast radius — **after** its source-closure questions (§6) are settled — and to give the later jobs a `symbol` list to iterate.
