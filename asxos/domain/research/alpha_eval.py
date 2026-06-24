@@ -213,11 +213,11 @@ def calibration(
     for _, g in valid.groupby("_bk"):
         pred = float(g[prob_col].mean())
         realised = float(g["_up"].mean())
-        rows.append({"pred": round(pred, 3), "realised_up_rate": round(realised, 3), "n": int(len(g))})
+        rows.append({"pred": round(pred, 3), "realised_up_rate": round(realised, 3), "n": len(g)})
         miscal_num += abs(pred - realised) * len(g)
     brier = float(((valid[prob_col] - valid["_up"]) ** 2).mean())
     return CalibrationResult(
-        n=int(len(valid)), brier=round(brier, 4),
+        n=len(valid), brier=round(brier, 4),
         buckets=sorted(rows, key=lambda r: r["pred"]),
         miscalibration=round(miscal_num / len(valid), 4),
     )
