@@ -1,10 +1,14 @@
 # `sync_security_master` — ingestion job scope (design only)
 
-**Scope date:** 2026-06-22 · **Status:** SCOPE — **conditionally next**. No code written. This is the reviewable design for the **first** research-store ingestion job. It populates `rs_security_master` (migration 0027, applied-empty: 0 rows). Review this before any code lands.
+**Scope date:** 2026-06-22 · **Status:** SCOPE — **APPROVED next build** (source-closure probe done 2026-06-24). No code written yet. This is the reviewable design for the **first** research-store ingestion job. It populates `rs_security_master` (migration 0027, applied-empty: 0 rows).
 
-Security master is first because it is the research-store source with the **strongest** core availability and **zero production blast radius**: `exchange-symbol-list/AU` returns active names and `?delisted=1` returns the delisted set (1,986 symbols), and it touches no production table. Every later job (`sync_corporate_actions`, `sync_financial_statements`) iterates over this table's `symbol` list, so it is the dependency root and the cheapest place to prove the ingestion pattern (idempotent UPSERT + `JobMonitor` + resumability) before spending the EODHD call budget on 35-year financials.
+Security master is first because it is the research-store source with the **strongest** core availability and **zero production blast radius**: `exchange-symbol-list/AU` returns active names (2,382) and `?delisted=1` returns the delisted set (1,986), and it touches no production table. Every later job (`sync_corporate_actions`, `sync_financial_statements`) iterates over this table's `symbol` list, so it is the dependency root and the cheapest place to prove the ingestion pattern (idempotent UPSERT + `JobMonitor` + resumability) and to validate the schema on real rows (closes B2).
 
-**Gate (not "no open questions"):** the *core* (active + delisted lists) is verified, but the **enrichment fields are not closed** — the `?delisted=1` delisted-date field name and the `security_type` value set are unconfirmed (§6). Proceed only after a tiny read-only **source-closure probe** confirms them, **or** explicitly accept the v1 fallback (ingest delisted symbols with `delisted_date = NULL`). This job is **unblocked**; `sync_financial_statements` is **not** (the `reportDate` PIT hazard — see `research-store-schema.md` Blockers).
+**Source-closure: CLOSED (probe `probes/2026-06-24-eodhd-gate-closure.md`).** The `?delisted=1`
+payload has **no delisted-date field** → ingest delisted symbols with `delisted_date = NULL`
+(documented fallback, now the confirmed path). `Type` taxonomy enumerated
+(`{Common Stock, ETF, Preferred Stock, FUND, Notes, BOND}`). **0 duplicate `Code`s** across
+active + delisted → `_to_symbol` PK-collision risk empirically nil. Nothing left to probe.
 
 ---
 
@@ -30,9 +34,9 @@ Done when:
 | `name` | `Name` | |
 | `exchange` | const `'AU'` | |
 | `currency` | `Currency` | |
-| `security_type` | `Type` | 'Common Stock', 'FUND', 'ETF', 'PREFERRED' … — **store all types**, unlike `universe` which filters to Common Stock |
-| `isin` | `Isin` | sparse on AU |
-| `delisted_date` | from `?delisted=1` listing | EODHD field name to confirm at build (`Delisted`? per-symbol date may need a second call — see §5) |
+| `security_type` | `Type` | **verified set** = `{Common Stock, ETF, Preferred Stock, FUND, Notes, BOND}` — **store all types**, unlike `universe` which filters to Common Stock |
+| `isin` | `Isin` | sparse on AU (NULL on funds) |
+| `delisted_date` | — | **not in the payload** (verified 2026-06-24) → `NULL` in v1; the `?delisted=1` list only tells us *which* symbols delisted, not when |
 | `is_active` | derived: active list → TRUE, delisted list → FALSE | |
 | `listed_date` | **not in the symbol-list payload** | leave NULL in v1; backfill later from `/fundamentals` `General.IPODate` if needed |
 | `gics_sector` / `gics_industry` | **not in the symbol-list payload** | leave NULL in v1; the symbol list carries a coarse `Sector`/`Industry` but not GICS — backfill from `/fundamentals` later |
@@ -100,13 +104,17 @@ These are the gate. Code that doesn't satisfy every line is not merged.
 
 ---
 
-## 6. Source-closure questions (resolve with a read-only probe BEFORE coding)
+## 6. Source-closure questions — CLOSED (probe 2026-06-24)
 
-These are the gate referenced in the header. The job is **conditionally next** until #1–#2 are closed or the v1 fallback is accepted.
+All three resolved by `probes/2026-06-24-eodhd-gate-closure.md`:
 
-1. **Delisted-date field name & granularity.** The `?delisted=1` list confirms *which* symbols delisted (1,986), but the per-symbol `delisted_date` field name/availability in that payload is unconfirmed. If absent, fetching a date per delisted symbol would be ~1,986 extra calls — **v1 fallback: ingest delisted symbols with `delisted_date = NULL`** and backfill dates only if a research query needs them.
-2. **`security_type` taxonomy.** Confirm the exact `Type` values EODHD emits for AU so downstream filters (e.g. exclude ETFs/funds from single-name factor work) key off real strings, not guesses.
-3. **Duplicate / suffix collisions.** Some EODHD AU codes carry class suffixes; confirm the `.AU` mapping doesn't collide two distinct securities onto one PK. `_to_symbol` is proven for the active set; spot-check it on the delisted set.
+1. ~~Delisted-date field name & granularity~~ — **no date field in the `?delisted=1` payload**
+   (keys: `Code, Country, Currency, Exchange, Isin, Name, Type`). **v1: `delisted_date = NULL`**;
+   backfill dates per-symbol only if a research query needs them.
+2. ~~`security_type` taxonomy~~ — **enumerated:** `{Common Stock, ETF, Preferred Stock, FUND,
+   Notes, BOND}` (active + delisted union). Downstream filters key off these real strings.
+3. ~~Duplicate / suffix collisions~~ — **0 duplicate `Code`s** across active (2,382) + delisted
+   (1,986). `_to_symbol` is collision-free on the full lists; still assert it in a test (§5.2).
 
 ---
 

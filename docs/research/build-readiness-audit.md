@@ -95,13 +95,13 @@ Render env-var read (authorized, key never printed) → EODHD read-only probes (
 
 ## 13. Open questions (MISSING/UNRESOLVED — to verify before building)
 
-> **Update (probe 2026-06-24, after this audit's 2026-06-22 date):** a later read-only
-> probe partially addressed #2/#3 but did **not** close them — and surfaced a PIT hazard.
-> See `evidence-log.md` and `research-store-schema.md` for the authoritative status.
+> **Update (gate-closure probe 2026-06-24, after this audit's 2026-06-22 date):** #2 and #3
+> are now **RESOLVED**; #1 remains the one open gap. Authoritative status:
+> `evidence-log.md` + `probes/2026-06-24-eodhd-gate-closure.md`.
 
-1. **Index-membership history** (ASX200/300) — still **unavailable** from EODHD (`AXJO.INDX` is current-only, 199 names). Needed for survivorship + benchmark. v1 must use a **labeled proxy universe**, never "historical ASX 200".
-2. **Franking** — `/div` carries a `franking` field, but only one sample observed (`"100%"`, a string). **Available-in-probe; coverage + string→numeric + null/partial semantics UNVALIDATED.** Run a representative-sample probe before `sync_corporate_actions`.
-3. **EODHD statement disclosure date** — `filing_date` often **defaults to period_end**; `Earnings.History.reportDate` was floated as a better anchor but the probe returned a **future/scheduled** date (CBA period 2026-06-30 → reportDate 2026-08-11, both future). **PIT statement ingestion is BLOCKED** until a fresh historical-period probe confirms `reportDate ≤ disclosure` and ingestion guards `report_date ≤ as_of`.
+1. **Index-membership history** (ASX200/300) — still **unavailable** from EODHD (`AXJO.INDX` is current-only, 199 names). Needed for survivorship + benchmark. v1 must use a **labeled proxy universe**, never "historical ASX 200". **The one remaining open gap.**
+2. ~~Franking~~ — **RESOLVED 2026-06-24** (7 names, >400 divs): `franking` is a string `"<float>%"` (partials common, incl. `25.03%`/`90.47%`), rare NULLs on undeclared/sparse → **store NULL≠0%**; parse `Decimal(s.rstrip('%'))`. `sync_corporate_actions` unblocked.
+3. ~~Statement disclosure date~~ — **RESOLVED 2026-06-24**: the future date is one scheduled entry/symbol, dropped by `d ≤ as_of`; both `reportDate` and `filing_date` default to period_end on some periods, so use a **guarded `knowledge_date`** = `max(d for d in (reportDate,filing_date) if period_end < d ≤ as_of) else period_end + lag`. `sync_financial_statements` **unblocked**.
 4. **Backfill cost/rate** — ~1,885 symbols × historical fundamentals = many API calls; confirm plan limits (probe showed 100k/day, so feasible, but confirm).
 5. **Is the 21d reversal real or sample noise?** Only the signal backfill resolves it.
 6. **Schema populated-data validation** — `0027` is applied but all `rs_*` tables are **empty**; constraints, idempotent UPSERTs, identity keys, and sample inserts are unexercised. Validate on real rows before declaring any table done.

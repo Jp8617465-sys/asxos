@@ -5,12 +5,10 @@ probe, so status claims in the research-store docs can be traced to evidence rat
 to optimism. Every row is labeled **verified** (observed directly), **inferred** (one
 observation generalised), or **unresolved** (probed but not settled / a hazard found).
 
-**⚠ Provenance & incompleteness.** This log is **reconstructed from the session
-transcript**, not from a persisted probe artifact. The raw probe JSON was **not** saved
-to the scratchpad. Where a value could not be confirmed from the transcript it is marked
-`INCOMPLETE` rather than invented. A finding labeled *inferred* or *unresolved* must be
-re-probed (read-only) and promoted to *verified* — with the raw output saved here — before
-any ingestion code relies on it. Do not upgrade a row's label without a fresh probe.
+**Provenance.** The gating questions were re-probed read-only on **2026-06-24** and the
+raw API JSON saved. The reproducible evidence is **`docs/research/probes/2026-06-24-eodhd-gate-closure.md`**
+(raw dumps in the session scratchpad). Rows below are promoted to *verified* where that
+probe backs them. Earlier-session rows not re-probed stay labeled by their original basis.
 
 **Key never printed.** All EODHD probes read `EODHD_API_KEY` via an authorized Render
 env-var read; the key value was never echoed. All probes were read-only `GET`s.
@@ -22,10 +20,10 @@ env-var read; the key value was never echoed. All probes were read-only `GET`s.
 | # | Probe date | Current date at probe | Endpoint | Symbols | Periods/dates tested | Fields observed | Sample count | Null / missing behavior | Caveats | Label |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 2026-06-22/24 | same | `exchange-symbol-list/AU` | all AU | current listing | `Code, Name, Type, Currency, Isin, Sector` | full list | n/a | — | **verified** (active list present) |
-| 2 | 2026-06-22/24 | same | `exchange-symbol-list/AU?delisted=1` | all delisted AU | current | symbol list | **1,986** symbols | per-symbol `delisted_date` field name **not confirmed** | survivorship set exists; delisted-date granularity open | **verified** (set) / **unresolved** (delisted-date field) |
-| 3 | 2026-06-24 | 2026-06-24 | `/div/CBA.AU` | CBA.AU | recent dividends | `franking` present | **1 dividend object** | unfranked/partial/null behavior **not observed** | value was the **string** `"100%"`, not numeric; one symbol only | **inferred** (field exists; coverage/semantics unproven) |
-| 4 | 2026-06-24 | 2026-06-24 | `/fundamentals/CBA.AU` → `Earnings.History[0]` | CBA.AU | period `2026-06-30` | `reportDate=2026-08-11, date=2026-06-30, epsActual/Estimate…` | 1 (most-recent) entry | historical entries **not examined** | **both dates FUTURE vs probe date** → scheduled/forecast, not a disclosure lag | **unresolved (HAZARD)** |
-| 5 | 2026-06-24 | 2026-06-24 | `/fundamentals/CBA.AU` → financial statements | CBA.AU | yearly/quarterly | `filing_date` present | inspected | `filing_date` **defaults to period_end** in the cases seen | one symbol; not generalised across the universe | **inferred** (filing_date ≈ period_end, not a real lag) |
+| 2 | 2026-06-24 | 2026-06-24 | `exchange-symbol-list/AU` (+`?delisted=1`) | all AU | current | row keys, `Type` | active **2,382** / delisted **1,986** | delisted payload has **NO date field** | `Type` set = {Common Stock, ETF, Preferred Stock, FUND, Notes, BOND}; 0 dup Codes | **verified** (set + no delisted-date field → use NULL) |
+| 3 | 2026-06-24 | 2026-06-24 | `/div/{CBA,GMG,QBE,SUN,TLS,WBC,FMG}.AU` | 7 names | full history (to 1988) | `franking` + 8 other keys | **>400 dividends** | NULL on recent-undeclared / sparse pre-2003; else present | string `"<float>%"` (incl. `25.03%`,`90.47%`); partials common; store NULL≠0% | **verified** |
+| 4 | 2026-06-24 | 2026-06-24 | `/fundamentals/{CBA,BHP,WTC,GMG,TPW}.AU` → `Earnings.History[]` | 5 names | full history | `reportDate`, period `date`, `filing_date` | **197 history entries** | exactly 1 future (scheduled) entry/symbol; BHP defaults many to period_end | guarded anchor needed: drop `d>as_of`, require `d>period_end`, else `period_end+lag` | **verified (guard defined)** |
+| 5 | 2026-06-24 | 2026-06-24 | `/fundamentals/{5 names}` → financial statements | 5 names | yearly | `filing_date` present | inspected | **inconsistent**: real lag on some periods (BHP 2022/23 ~Sept), defaults to period_end on others | complementary to `reportDate`; neither alone is reliable | **verified** (filing_date alone insufficient; used inside the guarded anchor) |
 | 6 | 2026-06-24 | 2026-06-24 | `AXJO.INDX` | AXJO.INDX | current | `Components` | **199** names | n/a | **current snapshot only**; no historical reconstitutions | **verified** (current) / **unresolved** (history unavailable) |
 | 7 | prior session | — | `/fundamentals/*` (Financials, Highlights, outstandingShares) | sampled AU | up to 35yr | BS/IS/CF yearly 35yr, ROE/margins/revenue in Highlights (current snapshot), shares 36yr | sampled | quality/growth columns **NULL in our DB today** (ingestion gap, not source gap) | Highlights ratios are a single current snapshot — not PIT | **verified** (depth available) |
 
@@ -33,36 +31,37 @@ env-var read; the key value was never echoed. All probes were read-only `GET`s.
 
 ---
 
-## The one finding that gates the build (row 4)
+## The gating finding — now RESOLVED (row 4, probe 2026-06-24)
 
-**Classification: API returned an expected/scheduled FUTURE report date → genuine
-point-in-time leakage risk.** Not a typo, not a stale copied sample. CBA's FY ends
-2026-06-30 (which had **not occurred** on the 2026-06-24 probe date); its result is
-*scheduled* for ~2026-08-11. `Earnings.History` therefore mixes **forward-scheduled**
-earnings dates with historical disclosures. Using `reportDate` as `knowledge_date`
-without a guard would let the research store "know" an announcement before it happens.
+**Was:** a future/scheduled `reportDate` (CBA period 2026-06-30 → reportDate 2026-08-11)
+is a genuine look-ahead leakage risk. **Now:** the historical-period probe confirms the
+hazard is **one scheduled entry per symbol** (the upcoming FY result), cleanly removed by
+the guard `reportDate ≤ as_of`. Historical `reportDate`s are real disclosure dates
+(median lag 41–55 days) — **except** they sometimes default to `period_end` (BHP), as does
+`filing_date` on other periods.
 
-**Required before `sync_financial_statements`:** a fresh read-only probe of **historical**
-`Earnings.History` entries (several past periods, several symbols) confirming
-(a) past `reportDate ≤ today` and ≈ actual disclosure, (b) restatement behavior,
-(c) same-day-availability cases, (d) how forecast/future entries are flagged. Ingestion
-must hard-filter `report_date <= as_of/test_date` and fall back to `period_end + lag`
-when `reportDate` is future or missing. **PIT statement ingestion is BLOCKED** until then.
+**Resolution — guarded PIT anchor (closes B1; `sync_financial_statements` UNBLOCKED):**
+```
+knowledge_date = max(d for d in (reportDate, filing_date) if d and period_end < d <= as_of)
+                 else  period_end + LAG_DAYS   # ≥75d annual / ≥60d quarterly, conservative
+```
+`d <= as_of` drops forecasts; `period_end < d` drops defaulted rows; fallback covers the
+both-defaulted case. Full detail: `probes/2026-06-24-eodhd-gate-closure.md` §A.
 
 ---
 
-## Promotion checklist (to move a row to *verified*)
+## Promotion checklist
 
-- [ ] Franking (row 3): probe ≥1 large, ≥1 mid, ≥1 small-cap, ≥1 unfranked, ≥1
-      partially-franked name; record the `franking` type/format and null/absent behavior;
-      define the string→`NUMERIC(18,6)` parse. Then *verified*.
-- [ ] reportDate (row 4): historical-period probe per above; define the future-date guard
-      and fallback. Then *verified* (or *use filing_date+lag* if reportDate proves unsafe).
-- [ ] Delisted-date field (row 2): confirm the field name in the `?delisted=1` payload, or
-      accept the `delisted_date = NULL` v1 fallback. Then *verified* / *accepted-fallback*.
-- [ ] security_type taxonomy: enumerate the exact `Type` values EODHD emits for AU.
-- [ ] Index history (row 6): obtain a true historical-membership source, or **label** the
-      v1 universe a cap-rank / broad-tradable **proxy** — never "historical ASX 200".
+- [x] Franking (row 3): probed 7 names incl. unfranked (GMG 0%) + partials (QBE/TLS) +
+      nulls. Format `"<float>%"`; parse `Decimal(s.rstrip('%'))`; store NULL≠0%. **verified.**
+- [x] reportDate (row 4): historical probe of 5 names; guard + fallback defined. **verified.**
+- [x] Delisted-date field (row 2): `?delisted=1` payload has **no** date field → accept
+      `delisted_date = NULL` v1 fallback. **verified / accepted-fallback.**
+- [x] security_type taxonomy: `{Common Stock, ETF, Preferred Stock, FUND, Notes, BOND}`.
+- [ ] Index history (row 6): **still open** — obtain a true historical-membership source, or
+      **label** the v1 universe a cap-rank / broad-tradable **proxy** — never "historical ASX 200".
+- [ ] B2 schema populated-data validation: exercised during `sync_security_master` (its
+      acceptance criteria), not yet done.
 
 ---
 

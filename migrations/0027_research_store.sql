@@ -13,18 +13,21 @@
 -- (`as_of`) AND the date it became publicly usable (`knowledge_date`). Research
 -- queries filter on `knowledge_date <= test_date` — never on `as_of`.
 --
--- EODHD availability (read-only probe 2026-06-24): Financials 35yr, ROE/margins/
--- revenue in Highlights, delisted-symbol list (1,986), dividends, splits,
--- shares-outstanding history. UNRESOLVED before ingestion (do NOT treat as done):
---   * index-membership HISTORY — source unknown (AXJO.INDX is current-only, 199 names)
---   * franking — `/div` carries a `franking` field on one sample ("100%" string);
---       coverage + string->numeric + null/partial semantics UNVALIDATED
---   * statement disclosure date — `filing_date` often defaults to period_end;
---       `Earnings.History.reportDate` can be a FUTURE/SCHEDULED date (CBA period
---       2026-06-30 -> reportDate 2026-08-11, both future as of the probe). PIT
---       statement ingestion is BLOCKED until a fresh historical-period probe
---       confirms reportDate <= disclosure and ingestion guards report_date <= as_of.
--- Tables are APPLIED but EMPTY — constraints/idempotency/identity not yet data-validated.
+-- EODHD availability (read-only gate-closure probe 2026-06-24; see
+-- docs/research/probes/2026-06-24-eodhd-gate-closure.md):
+--   * franking — RESOLVED: `/div` `franking` is a string "<float>%" (partials common);
+--       rare NULLs on undeclared/sparse -> store NULL (NOT 0). franking_pct holds the
+--       parsed Decimal.
+--   * statement disclosure date — RESOLVED: derive knowledge_date by GUARD, not one field.
+--       reportDate AND filing_date each default to period_end on some periods, and each
+--       carries one scheduled FUTURE entry/symbol. Rule:
+--         knowledge_date = max(d for d in (report_date, filing_date) if period_end < d <= as_of)
+--                          else period_end + conservative_lag
+--       (drops future/scheduled dates -> no look-ahead).
+--   * index-membership HISTORY — STILL UNRESOLVED (AXJO.INDX is current-only, 199 names);
+--       v1 must use a LABELED proxy universe, never "historical ASX 200".
+-- Tables are APPLIED but EMPTY — constraints/idempotency/identity validated when
+-- sync_security_master first populates rs_security_master.
 -- NUMERIC(18,6) on every monetary/statistical column (house convention).
 
 -- 1. Security master — one row per security EVER listed (survivorship-free).
@@ -52,7 +55,7 @@ CREATE TABLE IF NOT EXISTS rs_corporate_actions (
     action_type     TEXT NOT NULL,              -- 'split' | 'dividend'
     split_ratio     NUMERIC(18,6),              -- e.g. 2.0 for 2:1 (split only)
     dividend_amount NUMERIC(18,6),              -- per-share (dividend only)
-    franking_pct    NUMERIC(18,6),              -- AU: 0..100 if available
+    franking_pct    NUMERIC(18,6),              -- AU: parsed from "<float>%" (0..100); NULL = undeclared (NOT 0)
     pay_date        DATE,
     record_date     DATE,
     source          TEXT NOT NULL DEFAULT 'eodhd',
@@ -68,9 +71,9 @@ CREATE TABLE IF NOT EXISTS rs_financial_statements (
     period_type     TEXT NOT NULL,              -- 'yearly' | 'quarterly'
     statement_type  TEXT NOT NULL,              -- 'balance_sheet' | 'income' | 'cash_flow'
     filing_date     DATE,                       -- EODHD filing_date (often defaults to period_end)
-    report_date     DATE,                       -- EODHD Earnings.History.reportDate — CANDIDATE PIT anchor;
-                                                 -- MAY be a scheduled/future date. Guard report_date <= knowledge
-                                                 -- cutoff and validate vs historical disclosure before trusting.
+    report_date     DATE,                       -- EODHD Earnings.History.reportDate (raw). MAY be future/scheduled
+                                                 -- or default to period_end. Do NOT use alone — feed into the
+                                                 -- guarded knowledge_date rule (see header) alongside filing_date.
     currency        TEXT,
     -- promoted line items for fast factor calc; full payload in line_items
     total_revenue   NUMERIC(18,6),
