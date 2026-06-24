@@ -56,6 +56,12 @@ class EODHDClient:
     async def exchange_symbols(self, exchange: str = "AU") -> list[dict[str, Any]]:
         return await self._get(f"/exchange-symbol-list/{exchange}")  # type: ignore[no-any-return]
 
+    async def exchange_symbols_delisted(self, exchange: str = "AU") -> list[dict[str, Any]]:
+        # `delisted=1` returns securities no longer trading (survivorship-free
+        # research store). Probe 2026-06-24: AU returns 1,986 rows. The payload
+        # carries no delisted-date field — callers must set delisted_date = NULL.
+        return await self._get(f"/exchange-symbol-list/{exchange}", delisted=1)  # type: ignore[no-any-return]
+
     async def daily_prices(self, symbol: str, *, from_date: str | None = None) -> list[dict[str, Any]]:
         params: dict[str, Any] = {}
         if from_date:
