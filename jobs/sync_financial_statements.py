@@ -80,7 +80,8 @@ async def main() -> None:
         log.info(
             "sync_financial_statements done — "
             f"symbols={counts['symbols']} with_statements={counts['symbols_with_statements']} "
-            f"statements={counts['statements']} failed={counts['failed']}"
+            f"statements={counts['statements']} sectors_enriched={counts['sectors_enriched']} "
+            f"failed={counts['failed']}"
         )
 
     await close_pool()

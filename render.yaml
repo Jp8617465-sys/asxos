@@ -130,7 +130,9 @@ services:
     branch: main
     buildCommand: pip install -e ".[ml]"
     schedule: "30 16 * * 6"
-    command: python jobs/sync_corporate_actions.py
+    # --active-only: v1 factor research needs the current tradable cross-section, not
+    # the ~1,986 delisted names (survivorship backtesting is a labeled out-of-v1 gap).
+    command: python jobs/sync_corporate_actions.py --active-only
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.13
@@ -156,7 +158,10 @@ services:
     branch: main
     buildCommand: pip install -e ".[ml]"
     schedule: "50 16 * * 6"
-    command: python jobs/sync_financial_statements.py
+    # --active-only: ~2,382 active names (not ~4,368 incl. delisted) — halves the
+    # /fundamentals spend and avoids ~1,986 likely-404 calls on delisted tickers. This
+    # job ALSO enriches rs_security_master.gics_sector from the same payload.
+    command: python jobs/sync_financial_statements.py --active-only
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.13
@@ -191,6 +196,29 @@ services:
           name: asxos-api
           envVarKey: DATABASE_URL
       - key: HEALTHCHECK_URL_DERIVE_FUNDAMENTALS_PIT
+        sync: false
+
+  # Weekly research-store factor scores — Sunday 03:30 AEST (Sat 17:30 UTC).
+  # Pure DB-to-DB: rs_fundamentals_pit (PIT) + prices + rs_security_master.gics_sector
+  # -> rs_factor_scores (sector-neutral z-scores, the Layer-1 alpha input). Runs AFTER
+  # derive-fundamentals-pit (17:10). No EODHD.
+  - type: cron
+    name: asxos-compute-factor-scores
+    runtime: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -e ".[ml]"
+    schedule: "30 17 * * 6"
+    command: python jobs/compute_factor_scores.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - fromService:
+          type: web
+          name: asxos-api
+          envVarKey: DATABASE_URL
+      - key: HEALTHCHECK_URL_COMPUTE_FACTOR_SCORES
         sync: false
 
   # Daily price sync — 06:30 AEST weekdays (20:30 UTC prior day)

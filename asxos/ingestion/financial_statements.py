@@ -20,6 +20,13 @@ Why the guard, not a single field (probe 2026-06-24):
   future/scheduled date. Neither is safe alone.
 
 Decimal for promoted numerics; the full raw statement is kept in `line_items` JSONB.
+
+Sector enrichment: the same `/fundamentals` payload carries `General.Sector` /
+`General.Industry`, so this job ALSO back-fills `rs_security_master.gics_sector` /
+`gics_industry` — the "later enrichment pass" that `security_master.py` deliberately
+left unwritten so it would not clobber. (EODHD exposes the Morningstar-style `Sector`;
+`GicSector` is NULL on the current plan — same source as production `universe.sector`.)
+This is what makes the downstream sector-neutral `rs_factor_scores` possible.
 """
 from __future__ import annotations
 
@@ -157,6 +164,29 @@ def to_statement_rows(fund: Any, symbol: str, *, as_of: date) -> list[tuple]:
     return rows
 
 
+def _sector_industry(fund: Any) -> tuple[str | None, str | None]:
+    """(sector, industry) from the EODHD General block. Prefer GicSector when present
+    (NULL on the current plan), else the Morningstar-style Sector. Blank → None."""
+    if not isinstance(fund, dict):
+        return None, None
+    general = fund.get("General") or {}
+    sector = general.get("GicSector") or general.get("Sector") or None
+    industry = general.get("GicIndustry") or general.get("Industry") or None
+    return (sector or None), (industry or None)
+
+
+# Enrichment-only UPDATE: touches gics_sector/gics_industry on an EXISTING row (the
+# security master always runs first). COALESCE preserves a previously-learned value
+# when a later sparse payload omits the field; never inserts (no row → no-op).
+_SECTOR_UPDATE = """
+UPDATE rs_security_master SET
+    gics_sector   = COALESCE($2, gics_sector),
+    gics_industry = COALESCE($3, gics_industry),
+    updated_at    = now()
+WHERE symbol = $1
+"""
+
+
 _UPSERT = """
 INSERT INTO rs_financial_statements
     (symbol, period_end, period_type, statement_type, filing_date, report_date, currency,
@@ -191,7 +221,8 @@ async def refresh_financial_statements(
     One `/fundamentals` call per symbol, fetched with bounded concurrency, written
     serially through the single connection. Idempotent UPSERT on
     (symbol, period_end, period_type, statement_type); resumable. A symbol whose
-    fetch errors is counted failed and skipped, never aborting the run.
+    fetch errors is counted failed and skipped, never aborting the run. The same
+    payload back-fills rs_security_master.gics_sector/gics_industry (enrichment pass).
     """
     sem = asyncio.Semaphore(concurrency)
 
@@ -202,13 +233,20 @@ async def refresh_financial_statements(
             except Exception:
                 return sym, None
 
-    counts = {"symbols": len(symbols), "statements": 0, "symbols_with_statements": 0, "failed": 0}
+    counts = {
+        "symbols": len(symbols), "statements": 0, "symbols_with_statements": 0,
+        "failed": 0, "sectors_enriched": 0,
+    }
     tasks = [asyncio.ensure_future(fetch(s)) for s in symbols]
     for coro in asyncio.as_completed(tasks):
         sym, fund = await coro
         if fund is None:
             counts["failed"] += 1
             continue
+        sector, industry = _sector_industry(fund)
+        if sector or industry:
+            await conn.execute(_SECTOR_UPDATE, sym, sector, industry)
+            counts["sectors_enriched"] += 1
         rows = to_statement_rows(fund, sym, as_of=as_of)
         if rows:
             counts["symbols_with_statements"] += 1
