@@ -18,6 +18,7 @@ from datetime import date
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.research.factor_scores import FACTOR_SET_VERSION, refresh_factor_scores
 from asxos.jobs.utils.job_monitor import JobMonitor
 
@@ -32,10 +33,27 @@ async def main() -> None:
     parser.add_argument("--factor-set-version", type=str, default=FACTOR_SET_VERSION)
     args = parser.parse_args()
 
-    as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
     symbols = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
 
     await init_pool()
+
+    # Anchor as_of on the latest COMPLETE trading day (a real prices.dt) so the
+    # cross-section date aligns with a price bar. This cron fires Saturday UTC, so
+    # date.today() would be a non-trading day: refresh_factor_scores would still write
+    # rows (it reads prices dt<=as_of), but load_factor_panel() later joins
+    # prices.dt = rs_factor_scores.as_of and would find NOTHING — an empty eval panel.
+    # An explicit --as-of is an operator override and wins verbatim.
+    if args.as_of:
+        as_of = date.fromisoformat(args.as_of)
+    else:
+        async with acquire() as conn:
+            anchor = await latest_complete_trading_day(conn)
+        if anchor is None:
+            raise RuntimeError(
+                "no complete trading day in prices to anchor as_of — sync_prices has not "
+                "produced a complete day. Pass --as-of to override."
+            )
+        as_of = anchor
 
     async with JobMonitor(
         job_name="compute_factor_scores",

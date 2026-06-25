@@ -75,11 +75,15 @@ async def main() -> None:
     await close_pool()
 
     if df.empty:
-        log.error(
-            "factor panel is EMPTY — run compute_factor_scores first, and confirm the "
-            "factor as_of dates align to trading days present in `prices`."
+        # Fail loudly (CLAUDE.md #10) — an empty panel is a real failure, not a no-op.
+        # Most likely cause: rs_factor_scores.as_of is not a trading day present in
+        # `prices` (load_factor_panel joins prices.dt = rs_factor_scores.as_of), or
+        # compute_factor_scores has not run for this factor_set_version.
+        raise RuntimeError(
+            f"factor panel is EMPTY for factor_set_version={args.factor_set_version!r} — "
+            "run compute_factor_scores first, and confirm its as_of is a trading day "
+            "present in `prices`."
         )
-        return
 
     report = evaluate(
         df,
