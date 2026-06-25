@@ -75,8 +75,17 @@ EODHD provides only **current** index membership (`AXJO.INDX` → 199 components
 4. ~~`reportDate` semantics probe~~ — **done 2026-06-24**; guarded `knowledge_date` rule defined above.
 5. `sync_financial_statements` — **BUILT** (raw BS/IS/CF + `report_date`/`filing_date` raw; the leak-critical `derive_knowledge_date()` guard implemented + tested here; see `sync-financial-statements-scope.md`). Not yet scheduled/populated.
 6. ~~Derive `rs_fundamentals_pit`~~ — **BUILT** (`derive_fundamentals_pit`; `compute_pit_factors` applies the `derive_knowledge_date()` guard; ROE/margins/book value/franking from statements + dividends; see `derive-fundamentals-pit-scope.md`). Validated end-to-end on real data (CBA/BHP/WTC/CSL/GMG): sane factors, real disclosure lags (43–58d, no leakage), bank-sized values via NUMERIC(24,6) (migration 0028).
-7. Compute `rs_factor_scores` (sector-neutral z-scores) — the Layer-1 input. Pick and **label** the index/universe choice (true history / forward-snapshot / cap-rank proxy / broad ASX tradable) before any index-relative claim.
-8. Wire `alpha_eval` to load `rs_factor_scores` and test value/quality/momentum/low-vol at 63/126/252d — **only now** does the value×quality **candidate** get tested. It is not an approved production replacement.
+7. ~~Compute `rs_factor_scores` (sector-neutral z-scores)~~ — **BUILT** (`compute_factor_scores`
+   job + `domain/research/factor_scores.py`; leak-safe `knowledge_date<=as_of`/`dt<=as_of`,
+   value/quality/momentum/low-vol/yield categories, composite=value×quality, sector from
+   the `gics_sector` enrichment pass). Universe is the **active tradable cross-section**
+   (`--active-only`), a labeled cap-rank/broad-tradable **proxy** — NOT "historical ASX 200"
+   (index history remains the open gap). Not yet populated at scale (awaiting the run).
+8. ~~Wire `alpha_eval`~~ — **BUILT** (`alpha_loader.load_factor_panel` + `jobs/eval_alpha_factors.py`;
+   tests value/quality/momentum/low-vol/composite at 21/63/126/252d). The value×quality
+   **candidate** is now testable — **not** an approved replacement. With ~18mo of prices the
+   long horizons are underpowered; the effective-sample guard surfaces this. Run after the
+   store is populated.
 
 ## Blockers — status after the 2026-06-24 probe
 
