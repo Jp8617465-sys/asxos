@@ -1,0 +1,29 @@
+name: PR Review Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  review:
+    name: Comment-only automated review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.2' }}
+      REVIEW_MAX_DIFF_CHARS: "60000"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run comment-only review
+        run: python3 scripts/pr_review_agent.py
