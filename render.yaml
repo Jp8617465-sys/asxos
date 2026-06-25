@@ -7,16 +7,19 @@
 #
 # Layout:
 #   - 1 web service:    asxos-api
-#   - 19 cron services: sync-universe, sync-prices, sync-fundamentals,
+#   - 28 cron services: sync-universe, sync-prices, sync-fundamentals,
 #                       generate-signals, ingest-regulatory, ingest-news,
 #                       ingest-sentiment, compose-brief, retrain-model-a,
 #                       build-portfolio, snapshot-portfolio,
 #                       ingest-market-context, ingest-underlyings,
 #                       compute-opportunity-cost, detect-theme-stages,
 #                       check-cron-health, backup-irreplaceable,
-#                       check-au-positions, check-thesis-invalidations,
-#                       validate-price-data, check-model-staleness,
-#                       track-signal-outcomes
+#                       check-us-positions, check-au-positions,
+#                       check-thesis-invalidations, validate-price-data,
+#                       check-model-staleness, track-signal-outcomes,
+#                       sync-security-master, sync-corporate-actions,
+#                       sync-financial-statements, derive-fundamentals-pit,
+#                       compute-factor-scores
 #
 # Healthchecks.io pings are emitted from inside each Python job via
 # JobMonitor (see asxos/jobs/utils/job_monitor.py); the cron service itself

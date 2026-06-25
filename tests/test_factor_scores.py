@@ -123,6 +123,30 @@ def test_null_sector_bucketed_together_not_dropped():
     assert b.quality_score == pytest.approx(1.0)
 
 
+def test_winsor_clamps_extreme_z():
+    # 19 identical peers + 1 outlier → outlier raw z = ±sqrt(19) ≈ ±4.36, clamped to ±3.
+    vals = {f"s{i}": 4.0 for i in range(19)}
+    vals["out"] = 0.0
+    z = _zscores(vals)
+    assert z["out"] == -3.0
+    assert all(abs(zi) < 3.0 for k, zi in z.items() if k != "out")
+
+
+def test_composite_uses_only_value_and_quality():
+    # All five categories present; composite must be mean(value, quality) ONLY —
+    # momentum / low_vol / yield are computed and stored but EXCLUDED from the composite.
+    a = SymbolScore("A.AU", "X", 1.0, raw={
+        "earnings_yield": 0.05, "roe": 0.1, "mom_12_1": 0.2, "neg_vol": -0.1, "gross_yield": 0.03})
+    b = SymbolScore("B.AU", "X", 1.0, raw={
+        "earnings_yield": 0.10, "roe": 0.3, "mom_12_1": 0.5, "neg_vol": -0.2, "gross_yield": 0.06})
+    sector_neutral_scores([a, b])
+    assert a.n_factors_present == 5
+    assert a.composite_score == pytest.approx((a.value_score + a.quality_score) / 2)
+    all_five = (a.value_score + a.quality_score + a.momentum_score
+                + a.low_vol_score + a.yield_score) / 5
+    assert a.composite_score != pytest.approx(all_five)  # proves non-value/quality excluded
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator — leak-safety + idempotent UPSERT (FakeConn)
 # ---------------------------------------------------------------------------
@@ -195,8 +219,9 @@ async def test_orchestrator_is_leak_safe():
 
 @pytest.mark.asyncio
 async def test_orchestrator_skips_symbol_with_no_usable_data():
-    # No price → no market cap; single-name sector → all z=0 but categories present.
-    # A row with neither fundamentals-derived factors NOR market cap is skipped.
+    # No price → no market_cap; all raw factors None → _zscores yields {} per sub-factor
+    # so NO categories are present (every category score is None, not 0). A row with
+    # neither a fundamentals-derived factor NOR a market_cap is skipped entirely.
     pit = [_pit_row(eps_ttm=None, book_value_ps=None, roe=None, roa=None,
                     gross_margin=None, operating_margin=None, dividend_ttm=None,
                     franking_avg_pct=None, shares_outstanding=None)]
@@ -204,3 +229,34 @@ async def test_orchestrator_skips_symbol_with_no_usable_data():
     counts = await refresh_factor_scores(conn, as_of=D("2026-06-24"))
     assert counts == {"symbols": 1, "rows": 0}
     assert conn.executed == []
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_writes_market_cap_only_row():
+    # market_cap present (shares × price) but EVERY fundamental factor None → the row is
+    # still written (market_cap alone is a valid record), with all scores NULL and
+    # n_factors_present == 0. Guards the skip condition's second clause.
+    pit = [_pit_row(eps_ttm=None, book_value_ps=None, roe=None, roa=None,
+                    gross_margin=None, operating_margin=None, dividend_ttm=None,
+                    franking_avg_pct=None, shares_outstanding=Decimal("500"))]
+    prices = [_price_row("CBA.AU", "2026-06-24", 20, 20)]
+    conn = FakeConn(pit, prices)
+    counts = await refresh_factor_scores(conn, as_of=D("2026-06-24"))
+    assert counts == {"symbols": 1, "rows": 1}
+    _sql, args = conn.executed[0]
+    assert args[4] == Decimal("10000.000000")     # market_cap = 500 * 20
+    assert args[11] == 0                            # n_factors_present
+    assert all(a is None for a in args[5:11])       # value..composite all NULL
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_writes_null_sector_as_null():
+    # A NULL sector is bucketed under "__none__" for scoring but written back as NULL
+    # (not the bucket key). End-to-end check of the orchestrator NULL-sector path.
+    pit = [_pit_row("A.AU", sector=None), _pit_row("B.AU", sector="Tech")]
+    prices = [_price_row("A.AU", "2026-06-24", 10, 10), _price_row("B.AU", "2026-06-24", 10, 10)]
+    conn = FakeConn(pit, prices)
+    counts = await refresh_factor_scores(conn, as_of=D("2026-06-24"))
+    assert counts["rows"] == 2
+    sectors = {args[0]: args[3] for _sql, args in conn.executed}
+    assert sectors["A.AU"] is None and sectors["B.AU"] == "Tech"

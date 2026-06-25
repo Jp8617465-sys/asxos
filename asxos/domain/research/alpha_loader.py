@@ -88,8 +88,15 @@ async def load_panel(conn: asyncpg.Connection) -> pd.DataFrame:
 # for total-return forward returns. `signal_date` aliases `as_of` so the same
 # alpha_eval.evaluate() machinery (rank-IC, decile spread, effective-sample guard)
 # applies unchanged — the score columns are the factor z-scores rather than ML probs.
-# Leak-safety lives upstream in rs_factor_scores (knowledge_date <= as_of); here we only
-# join returns that are STRICTLY FORWARD of as_of (rn0 + h), so no look-ahead is added.
+#
+# Leak-safety. The SCORES are computed leak-safe upstream (rs_factor_scores uses
+# knowledge_date <= as_of). The forward RETURNS are, by definition, prices AFTER as_of —
+# that is the realised outcome being measured, not look-ahead. The px CTE intentionally
+# loads the full price series (no dt filter): `rn0` is ANCHORED by `pr.dt = fs.as_of`,
+# and row_number() counts only rows with smaller dt, so adding later-dated bars cannot
+# shift rn0 — `rn0 + h` is always exactly h trading days after as_of and is stable across
+# re-runs. (A dt<=as_of filter here would be WRONG: it would delete the very forward bars
+# the returns need.) This mirrors the production `_PANEL_SQL` ML-signal loader exactly.
 _FACTOR_SCORE_COLS = (
     "value_score", "quality_score", "momentum_score",
     "low_vol_score", "yield_score", "composite_score",
