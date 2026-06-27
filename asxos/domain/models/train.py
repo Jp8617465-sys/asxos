@@ -169,6 +169,15 @@ def train_model_a(
         pred = reg.predict(X[test_idx])
         rmses.append(float(np.sqrt(mean_squared_error(y_reg[test_idx], pred))))
 
+    if not aucs:
+        # walk_forward_split yielded no folds (panel too small) — np.mean([]) would
+        # silently return nan and ship a degenerate model. Fail loudly per
+        # CLAUDE.md non-negotiable #10 / ml-conventions MIN_SAMPLES gate.
+        raise ValueError(
+            "walk_forward_split produced no folds — insufficient training data; "
+            "refusing to return a degenerate TrainingResult (nan metrics)"
+        )
+
     final_clf = LGBMClassifier(**DEFAULT_CLF_PARAMS)
     final_clf.fit(X, y_class)
     final_reg = LGBMRegressor(**DEFAULT_REG_PARAMS)

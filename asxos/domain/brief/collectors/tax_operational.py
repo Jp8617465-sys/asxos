@@ -66,11 +66,19 @@ async def collect_tax_operational(conn: Any, as_of: date) -> SectionResult:
         holdings = {r["symbol"] for r in holdings_rows}
 
         for r in reg_rows:
-            tags = r["relevance_tags"] or {}
+            tags = r["relevance_tags"] or []
             if isinstance(tags, str):
                 import json
                 tags = json.loads(tags)
-            symbols = tags.get("symbols", []) if isinstance(tags, dict) else []
+            # relevance_tags is JSONB defaulting to '[]' (array of symbols) but
+            # some rows carry a {"symbols": [...]} dict — handle both, else the
+            # array-shaped (and default) rows are silently dropped.
+            if isinstance(tags, dict):
+                symbols = tags.get("symbols", [])
+            elif isinstance(tags, list):
+                symbols = tags
+            else:
+                symbols = []
             for sym in (symbols or []):
                 if sym in holdings:
                     items.append(SeverityItem(

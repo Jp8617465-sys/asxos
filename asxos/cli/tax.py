@@ -147,6 +147,8 @@ def tax_action(
 async def _run_tax_action(days_ahead: int) -> None:
     from datetime import timedelta
 
+    from dateutil.relativedelta import relativedelta
+
     from asxos.domain.tax.cgt import days_to_eligibility
 
     await init_pool()
@@ -182,7 +184,8 @@ async def _run_tax_action(days_ahead: int) -> None:
     table.add_column("days", justify="right")
 
     for r, d in soon:
-        eligible_at = r["acquired_at"] + timedelta(days=366)
+        # spec §5.1 — calendar arithmetic, not day-count (+366 is wrong across leap spans).
+        eligible_at = r["acquired_at"] + relativedelta(years=1) + timedelta(days=1)
         table.add_row(
             str(r["id"]),
             r["symbol"],
