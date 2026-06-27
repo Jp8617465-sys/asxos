@@ -34,7 +34,11 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-Fifteen tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
+**`migrations/` (currently through 0028) is the canonical schema** — roughly 40
+tables across the signal, portfolio, tax, paper-trade, research-store, FX and
+position-monitor subsystems. The list below is a partial overview of the core
+tables, **not exhaustive** — do not trust it for completeness; read the migrations.
+No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
 - `prices` — (symbol, dt) PK, OHLCV
@@ -111,7 +115,9 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 11 dev-side subagents (see `.claude/agents/README.md`).
+`.claude/agents/` holds 13 subagents — 11 dev-side (architecture/quality/docs) plus
+2 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`,
+routed in the table below); see `.claude/agents/README.md`.
 They are **advisory by default**: most are read-only and return analysis, designs,
 or specs as text that the main loop then implements. Only `refactoring-expert`
 (code) and `technical-writer` (docs) can mutate files. `security-engineer` and
