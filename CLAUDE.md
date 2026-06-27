@@ -56,7 +56,7 @@ Fifteen tables. No `user_id` anywhere. NUMERIC(18,6) on every monetary or statis
 ## Common commands
 
 - `make dev` — start API locally
-- `make check` — ruff + mypy + pytest
+- `make check` — ruff + mypy + pytest (enforced in CI by the `full-check` workflow on PRs to `main` and `claude/**` pushes; `targeted-ml-tests` is the fast ML lane)
 - `make migrate` — reminder only; actual apply via Supabase MCP
 - `make check-drift` — reconcile `render.yaml` against Render dashboard via MCP
 
@@ -78,6 +78,22 @@ One additional runtime gap (not a collection-error, fails during execution):
 - `tests/test_train_walk_forward.py::test_train_model_a_returns_valid_result` — requires
   `lightgbm` in the venv. The system Python has it; the sandbox venv does not. Passes
   on Render.
+
+## Known coverage gaps (verify, don't assume)
+
+Coverage prose rots. Verify against the suite (`pytest --co -q`) before trusting
+any "X is covered" claim — including this file. Current known gaps:
+
+- **§7 Medicare on net capital gains is not wired end-to-end.** `medicare_levy_on()`
+  exists and is unit-tested, but the `tax_view_*` aggregator (`asxos/domain/tax/positions.py`)
+  surfaces components (dividends-after-tax, the §5.2 net-gain structure, and for
+  SMSF the §6.3 Div 296 overlay) and does **not** apply Medicare to the CGT branch.
+  The levy is folded into the individual dividend path only. Do not assume a
+  combined-tax figure exists.
+- **Div 296 TC-20 (cost-base reset, s 296-50) and TC-21 (45-day franking warning,
+  s 207-145) are unimplemented**, not merely untested. `div296_reset_date` is a
+  config field nothing consumes yet. Building either is a spec-governed change
+  (non-negotiable #8 — requires a spec amendment, not an ad-hoc fix).
 
 ## Auto-activating rules
 
@@ -120,6 +136,21 @@ Delegate proactively: prefer dispatching the relevant agent over doing its job
 inline — specialised review should happen by default, not only when asked. These
 are domain-neutral DEV agents; finance/domain agents (portfolio, tax, signals)
 are a separate, still-open question — do not conflate the two.
+
+### Review gate (enforced)
+
+`.claude/hooks/review-gate.sh` (wired via `.claude/settings.json` as a `PreToolUse`
+hook on Bash) **blocks `git commit` when Python files are staged** until the review
+loop has run for that exact staged diff. Flow: stage → attempt commit → the hook
+denies with instructions → run `security-engineer` / `refactoring-expert` /
+`technical-writer` on the staged diff → `touch .claude/.review-passed-<sha>` (the
+hook prints the exact marker path) → retry the commit. The marker is keyed to the
+staged-diff hash, so any further change re-arms the gate.
+
+Honest limit: the hook cannot itself spawn an agent or verify one ran — it forces a
+deliberate step (write the marker) rather than guaranteeing the review happened.
+Writing the marker without running the loop is an explicit, visible bypass. Doc-only
+and config-only commits (no staged `*.py`) are not gated.
 
 ## Custom slash commands
 
