@@ -1,10 +1,13 @@
 # Dev-side subagents
 
-Eleven specialised development subagents, adapted for asxos from Edmund Yong's
-public Claude Code configuration (`edmund-io/edmunds-claude-code`). Each is a
-dev-workflow agent — they help build and maintain the codebase. They are **not**
-finance/domain agents (portfolio, tax, signals); those are a separate question
-under evaluation.
+Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
+from Edmund Yong's public Claude Code configuration
+(`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**
+added after a system-architect scoping pass (see bottom). The dev agents help build
+and maintain the codebase generally; the finance agents guard spec↔test↔code
+conformance in the tax and portfolio domains. All thirteen are advisory by default;
+none is a runtime in-product agent (a runtime tax/portfolio LLM is a structural NO —
+it would collide with the personal-advice firewall and Decimal-only determinism).
 
 Claude routes to these contextually based on the task, or you can invoke one
 explicitly (e.g. "use the security-engineer to review this").
@@ -55,3 +58,24 @@ main agent's judgment (matched on the `description`) or explicit user request
 makes them part of normal dev work lives in the root `CLAUDE.md`
 (**Subagents — delegation policy**); the `description` fields carry PROACTIVELY /
 MUST BE USED cues that bias automatic delegation toward the right agent.
+
+## Finance-domain conformance agents (2)
+
+Added after the system-architect scoping pass. Both are **advisory, read-only**
+(`Read, Glob, Grep`), and exist for one reason: maintaining spec↔test↔code
+conformance — the gap the red team exposed (§7 hidden as "untested", TC-20/21
+unimplemented). They are NOT runtime components and never touch the personal-advice
+firewall.
+
+- **tax-spec-conformance** — owns `docs/foundation/spec/tax-alpha.md` ↔
+  `asxos/domain/tax/*` ↔ `tests/test_tax_*`. Flags spec sections with no covering
+  test, code deviating from a cited section, and "untested" framings that hide
+  "unimplemented". Use on any tax-touching diff.
+- **portfolio-invariant-guard** — owns `.claude/rules/portfolio-conventions.md` ↔
+  `asxos/domain/portfolio/*`. Verifies the regulatory firewall, the hard-fail table,
+  the *intentional* silent-omit paths, the §5.1 boundary-defer location, and
+  Decimal-only. Use on any portfolio-touching diff.
+
+Explicitly **not** built: a signals/ML conformance agent (covered by
+`ml-conventions.md` + `targeted-ml-tests`) and any broad "finance reviewer" (too
+unaccountable — the value is the spec/rules-anchored narrowness).

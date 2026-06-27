@@ -138,9 +138,19 @@ Before acting, consult the relevant agent:
 not part of the per-change loop. `frontend-architect` is dormant (no v1 frontend).
 
 Delegate proactively: prefer dispatching the relevant agent over doing its job
-inline — specialised review should happen by default, not only when asked. These
-are domain-neutral DEV agents; finance/domain agents (portfolio, tax, signals)
-are a separate, still-open question — do not conflate the two.
+inline — specialised review should happen by default, not only when asked.
+
+The eleven above are domain-neutral DEV agents. Two **finance-domain conformance**
+agents (also advisory, read-only) now sit alongside them — use them proactively:
+
+| About to touch… | Consult |
+|---|---|
+| `asxos/domain/tax/*` or `tests/test_tax_*` | `tax-spec-conformance` (spec↔test↔code) |
+| `asxos/domain/portfolio/*` | `portfolio-invariant-guard` (firewall, hard-fails, Decimal-only) |
+
+A runtime in-product tax/portfolio LLM agent is a structural **NO** (personal-advice
+firewall + Decimal-only determinism). Signals/ML conformance is already covered by
+`ml-conventions.md` + `targeted-ml-tests`; no agent for it.
 
 ### Review gate (enforced)
 
