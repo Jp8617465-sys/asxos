@@ -6,7 +6,7 @@ from typing import Any
 
 import typer
 
-from asxos.cli._common import console
+from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
 
@@ -15,6 +15,8 @@ def import_holdings(
     dry_run: bool = typer.Option(False, "--dry-run", help="Parse + validate without writing"),
 ) -> None:
     """Bulk-import lots from CSV into holding_lots. All-or-nothing per file."""
+    _require_personal_use()  # portfolio-conventions Part 0 Q1 — gate before touching holding data
+
     from pathlib import Path
 
     from asxos.domain.tax.import_csv import parse_csv
