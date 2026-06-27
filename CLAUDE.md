@@ -88,6 +88,39 @@ One additional runtime gap (not a collection-error, fails during execution):
 - `screening-conventions.md` — rule JSON schema, walk-forward methodology
 - `job-conventions.md` — JobMonitor, pipeline guards, idempotency, env vars
 
+## Subagents — delegation policy
+
+`.claude/agents/` holds 11 dev-side subagents (see `.claude/agents/README.md`).
+They are **advisory by default**: most are read-only and return analysis, designs,
+or specs as text that the main loop then implements. Only `refactoring-expert`
+(code) and `technical-writer` (docs) can mutate files. `security-engineer` and
+`performance-engineer` may run read-only tooling via Bash but never edit.
+
+**Route dev work through these agents — do not freelance work that has an owner.**
+Before acting, consult the relevant agent:
+
+| About to… | Consult first |
+|---|---|
+| Start a feature whose scope isn't already a written spec | `requirements-analyst` |
+| Add a module / cross-domain dependency / structural change | `system-architect` |
+| Design or change an API route, DB schema/migration, auth, or write-path job | `backend-architect` |
+| Add, swap, or upgrade a dependency or external service | `tech-stack-researcher` |
+| Touch a hot path (API query, job throughput, ML inference, vol calc) | `performance-engineer` |
+
+**After any non-trivial code change, before committing, run the review loop:**
+
+1. `security-engineer` — if the change touches secrets, external input, dependencies, or financial/PII data.
+2. `refactoring-expert` — reduce complexity/duplication without changing behaviour.
+3. `technical-writer` — update affected docs, runbooks, and docstrings.
+
+`deep-research-agent` and `learning-guide` are on-demand (research / explanation),
+not part of the per-change loop. `frontend-architect` is dormant (no v1 frontend).
+
+Delegate proactively: prefer dispatching the relevant agent over doing its job
+inline — specialised review should happen by default, not only when asked. These
+are domain-neutral DEV agents; finance/domain agents (portfolio, tax, signals)
+are a separate, still-open question — do not conflate the two.
+
 ## Custom slash commands
 
 `.claude/commands/` has 20 domain and lifecycle commands carried verbatim from the previous repo. The seven domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used.
