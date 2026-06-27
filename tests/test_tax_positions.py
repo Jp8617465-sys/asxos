@@ -159,6 +159,22 @@ def test_tc11_individual_cgt_income_tax_plus_medicare() -> None:
     assert tv.cgt_tax_outcome.total_tax == Decimal("1950.00")
 
 
+def test_individual_cgt_medicare_honours_zero_config_rate() -> None:
+    # §7.1: a low-income individual (medicare_levy_rate=0) pays no Medicare on the
+    # CGT branch — must match the dividend path, not the bare statutory constant.
+    gain = CapitalGain("AAA", Decimal("10000"), discountable=True, holding_period_days=400)
+    tv = tax_view_individual(
+        lots=[],
+        realised_gains=[gain],
+        dividends=[],
+        config=IndividualConfig(marginal_rate=Decimal("0.37"), medicare_levy_rate=Decimal("0")),
+        today=date(2026, 6, 1),
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert tv.cgt_tax_outcome.medicare == Decimal("0")
+    assert tv.cgt_tax_outcome.total_tax == Decimal("1850.00")  # income tax only
+
+
 def test_tc10_individual_medicare_on_non_discount_gain() -> None:
     # TC-10 (spec §5.1; §7 makes Medicare base-wide): $10,000 non-discountable gain,
     # individual 37%. net gain $10,000 → 3700 income + 200 medicare = $3,900.

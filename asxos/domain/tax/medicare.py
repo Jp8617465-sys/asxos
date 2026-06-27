@@ -18,10 +18,17 @@ from decimal import Decimal
 from asxos.domain.tax.types import MEDICARE_LEVY_RATE, AccountType
 
 
-def medicare_levy_on(base: Decimal, *, account_type: AccountType) -> Decimal:
-    """0 for super (spec §7); base * 0.02 for individuals (no low-income
-    floor implemented in v1 — the user sets `medicare_levy_rate` to 0 in
-    their config if they fall under the threshold per ATO publication)."""
+def medicare_levy_on(
+    base: Decimal, *, account_type: AccountType, rate: Decimal = MEDICARE_LEVY_RATE
+) -> Decimal:
+    """0 for super (spec §7); `base * rate` for individuals.
+
+    `rate` defaults to the statutory 2% (MEDICARE_LEVY_RATE) but callers pass the
+    taxpayer's configured `medicare_levy_rate` so a low-income individual (rate 0
+    per the §7.1 ATO threshold) is honoured — consistently with the dividend path,
+    which already folds `config.medicare_levy_rate` into the marginal rate. Passing
+    the constant unconditionally was the Phase-1 regression this fixes.
+    """
     if account_type == "smsf":
         return Decimal("0")
-    return base * MEDICARE_LEVY_RATE
+    return base * rate

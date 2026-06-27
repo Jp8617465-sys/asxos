@@ -34,3 +34,11 @@ def test_levy_stacks_on_grossed_up_dividend_plus_net_gain() -> None:
     # levy at 2% = 128.5714 (independent oracle, not a restatement of the rate).
     base = Decimal("1428.57") + Decimal("5000")
     assert medicare_levy_on(base, account_type="individual") == Decimal("128.5714")
+
+
+def test_individual_levy_honours_configured_rate() -> None:
+    # §7.1: a low-income individual sets medicare_levy_rate=0 → no levy; a custom
+    # rate is applied. (Default stays the statutory 2%.)
+    assert medicare_levy_on(Decimal("10000"), account_type="individual", rate=Decimal("0")) == Decimal("0")
+    assert medicare_levy_on(Decimal("10000"), account_type="individual", rate=Decimal("0.015")) == Decimal("150")
+    assert medicare_levy_on(Decimal("10000"), account_type="individual") == Decimal("200")

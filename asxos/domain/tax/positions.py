@@ -61,7 +61,11 @@ def tax_view_individual(
         # spec §5.3/§7: income tax + Medicare on the post-discount net gain.
         base = ncg.net_capital_gain
         income_tax = _q(base * config.marginal_rate)
-        medicare = _q(medicare_levy_on(base, account_type="individual"))
+        # honour the taxpayer's configured rate (0 for low-income per §7.1), matching
+        # the dividend path — not the bare statutory constant.
+        medicare = _q(
+            medicare_levy_on(base, account_type="individual", rate=config.medicare_levy_rate)
+        )
         cgt_tax = CgtTaxOutcome(
             net_capital_gain=base,
             exempt_proportion=Decimal("0"),
