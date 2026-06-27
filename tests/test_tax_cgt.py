@@ -160,6 +160,69 @@ def test_tc18_optimal_loss_ordering() -> None:
     assert ncg.net_capital_loss_cf == Decimal("0")
 
 
+def test_tc18_optimal_ordering_smsf_one_third() -> None:
+    # §5.2 ordering with the SMSF 1/3 discount (TC-18 is individual; this pins the
+    # ordering × SMSF-discount interaction). Same inputs as TC-18:
+    # $10k ND, $30k D, CY loss $15k, CF loss $5k → $20k discount gain remains.
+    # SMSF: discount = 20000 × 1/3 = $6,666.67 → net $13,333.33.
+    gains = [
+        CapitalGain("ND.AU", Decimal("10000"), discountable=False, holding_period_days=100),
+        CapitalGain("D.AU", Decimal("30000"), discountable=True, holding_period_days=400),
+    ]
+    ncg = net_capital_gain(
+        gains,
+        current_year_losses=Decimal("15000"),
+        carried_forward_losses=Decimal("5000"),
+        account_type="smsf",
+    )
+    # Ordering signature: non-discount extinguished first, $20k discount remains.
+    assert ncg.nd_remainder == Decimal("0")
+    assert ncg.d_remainder_pre_discount == Decimal("20000")
+    assert ncg.discount_applied == Decimal("20000") * cgt_discount_rate("smsf")
+    assert ncg.net_capital_gain == Decimal("20000") * (Decimal("1") - cgt_discount_rate("smsf"))
+
+
+def test_partial_loss_extinguishes_non_discount_only() -> None:
+    # §5.2: a loss smaller than the non-discount total is applied entirely to
+    # non-discount, leaving the discount gains fully intact.
+    # $10k ND, $5k D, CY loss $4k → ND remainder $6k, D untouched $5k.
+    # Individual 50% discount on the $5k → net = 6000 + 2500 = $8,500.
+    gains = [
+        CapitalGain("ND.AU", Decimal("10000"), discountable=False, holding_period_days=100),
+        CapitalGain("D.AU", Decimal("5000"), discountable=True, holding_period_days=400),
+    ]
+    ncg = net_capital_gain(
+        gains,
+        current_year_losses=Decimal("4000"),
+        carried_forward_losses=Decimal("0"),
+        account_type="individual",
+    )
+    assert ncg.nd_remainder == Decimal("6000")
+    assert ncg.d_remainder_pre_discount == Decimal("5000")
+    assert ncg.discount_applied == Decimal("2500")
+    assert ncg.net_capital_gain == Decimal("8500")
+
+
+def test_smsf_one_third_discount_precision_characterised() -> None:
+    # §2 precision trap: the SMSF discount is Decimal(1)/Decimal(3) TRUNCATED to
+    # 28 digits — it is NOT an exact $1,000 on a $3,000 base (discount_applied =
+    # 999.9999…). The residual cancels so the net rounds back to $2,000 at 28-digit
+    # precision, and downstream tax lines quantize to cents (positions._q). Pinned
+    # so this precision behaviour cannot drift silently.
+    gain = CapitalGain("D.AU", Decimal("3000"), discountable=True, holding_period_days=400)
+    ncg = net_capital_gain(
+        [gain],
+        current_year_losses=Decimal("0"),
+        carried_forward_losses=Decimal("0"),
+        account_type="smsf",
+    )
+    # discount_applied is 999.9999… (truncated 1/3), NOT an exact 1000 — but the
+    # by-construction check below is the load-bearing one; we don't assert the
+    # inequality, so a future exact-Fraction path that yields 1000 won't false-fail.
+    assert ncg.discount_applied == Decimal("3000") * cgt_discount_rate("smsf")
+    assert ncg.net_capital_gain == Decimal("2000")
+
+
 def test_excess_loss_becomes_carry_forward() -> None:
     # spec §5.2 Step 4: loss exceeding total gain → net_capital_loss_cf > 0
     gains = [
