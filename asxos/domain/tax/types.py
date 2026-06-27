@@ -174,6 +174,31 @@ class Div296Outcome:
 
 
 @dataclass(frozen=True)
+class CgtTaxOutcome:
+    """Income tax + Medicare on the s 102-5 net capital gain (spec §5.3 / §7).
+
+    Individual: income_tax = net_capital_gain × marginal_rate;
+                medicare   = net_capital_gain × 0.02 (s 251S(1)(a), §5.3/§7).
+    SMSF:       income_tax = net_capital_gain × (1 − exempt_proportion) × 0.15
+                (§4.2 fund rate; ECPI exempt proportion applied to the post-discount
+                net capital gain per §5.2 — "the CGT discount and the ECPI exemption
+                are independent and stack"); medicare = 0 (§7, no levy on funds).
+
+    NOTE: §5.2 states the ECPI-on-net-gain *mechanism* explicitly, so this is not an
+    inference. What is unverified is only the *numeric* path: the §11 matrix has no
+    worked example with a non-zero fund_pension_proportion on the CGT branch (TC-12
+    is accumulation-only). See CLAUDE.md known coverage gaps.
+    """
+
+    net_capital_gain: Decimal  # the base (echo of NetCapitalGain.net_capital_gain)
+    exempt_proportion: Decimal  # ECPI; Decimal("0") for individuals
+    taxable_base: Decimal  # net_capital_gain × (1 − exempt_proportion)
+    income_tax: Decimal
+    medicare: Decimal  # 0 for SMSF (§7)
+    total_tax: Decimal  # income_tax + medicare
+
+
+@dataclass(frozen=True)
 class TaxView:
     """Aggregated tax position for `asx tax-view`."""
 
@@ -185,3 +210,4 @@ class TaxView:
     div296_outcome: Div296Outcome | None = None
     eligibility_alerts: list[str] = field(default_factory=list)
     franking_warnings: list[str] = field(default_factory=list)
+    cgt_tax_outcome: CgtTaxOutcome | None = None  # spec §5.3/§7; None when no gains

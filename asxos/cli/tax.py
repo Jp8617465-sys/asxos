@@ -118,6 +118,17 @@ async def _run_tax_view(
         console.print("[yellow]Crossing 12-month boundary in next 30 days:[/yellow]")
         for a in view.eligibility_alerts:
             console.print(f"  - {a}")
+    if view.cgt_tax_outcome:
+        cgt = view.cgt_tax_outcome
+        console.print(
+            f"CGT tax (spec §5.3/§7): income_tax={cgt.income_tax:.2f}, "
+            f"medicare={cgt.medicare:.2f}, total={cgt.total_tax:.2f}"
+            + (
+                f"  [dim](ECPI exempt {cgt.exempt_proportion:.0%})[/dim]"
+                if cgt.exempt_proportion > 0
+                else ""
+            )
+        )
     if view.div296_outcome:
         div296 = view.div296_outcome
         console.print(

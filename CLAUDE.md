@@ -84,12 +84,17 @@ One additional runtime gap (not a collection-error, fails during execution):
 Coverage prose rots. Verify against the suite (`pytest --co -q`) before trusting
 any "X is covered" claim — including this file. Current known gaps:
 
-- **§7 Medicare on net capital gains is not wired end-to-end.** `medicare_levy_on()`
-  exists and is unit-tested, but the `tax_view_*` aggregator (`asxos/domain/tax/positions.py`)
-  surfaces components (dividends-after-tax, the §5.2 net-gain structure, and for
-  SMSF the §6.3 Div 296 overlay) and does **not** apply Medicare to the CGT branch.
-  The levy is folded into the individual dividend path only. Do not assume a
-  combined-tax figure exists.
+- **§7 Medicare + CGT income tax are now wired into the aggregator** (Phase 1).
+  `tax_view_*` (`asxos/domain/tax/positions.py`) emit a `CgtTaxOutcome`
+  (income_tax + medicare + total_tax) on the net-gain branch: individual = marginal
+  + 2% (TC-11 $1,950, asserted end-to-end); SMSF = 15% on the ECPI-adjusted base,
+  Medicare 0. Two residual items (flagged in code, not blocking): (a) the SMSF
+  ECPI-on-CGT *mechanism* is spec-explicit (§5.2: "the CGT discount and the ECPI
+  exemption are independent and stack"), but the §11 matrix has no *numeric* worked
+  example with a non-zero `fund_pension_proportion` on the CGT branch — only that
+  numeric path is unverified; and (b) the cents-quantization of the CGT ledger lines
+  is a documented choice (bases keep full precision). Closing (a) = add a
+  TC-with-pension to the spec §11 matrix.
 - **Div 296 TC-20 (cost-base reset, s 296-50) and TC-21 (45-day franking warning,
   s 207-145) are unimplemented**, not merely untested. `div296_reset_date` is a
   config field nothing consumes yet. Building either is a spec-governed change

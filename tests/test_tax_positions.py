@@ -134,3 +134,93 @@ def test_smsf_election_emits_franking_warning() -> None:
     )
     assert tv.franking_warnings
     assert "cost_base_div296" in tv.franking_warnings[0]
+
+
+# ---------------------------------------------------------------------------
+# §5.3 / §7 — Medicare + income tax on the net capital gain (the conformance fix)
+# ---------------------------------------------------------------------------
+
+
+def test_tc11_individual_cgt_income_tax_plus_medicare() -> None:
+    # TC-11 (spec §5.1/§5.3/§7): $10,000 discountable gain, individual 37%.
+    # net gain $5,000 → income tax 5000*0.37=1850, medicare 5000*0.02=100,
+    # total $1,950 (the spec's stated figure).
+    gain = CapitalGain("AAA", Decimal("10000"), discountable=True, holding_period_days=400)
+    tv = tax_view_individual(
+        lots=[],
+        realised_gains=[gain],
+        dividends=[],
+        config=IndividualConfig(marginal_rate=Decimal("0.37")),
+        today=date(2026, 6, 1),
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert tv.cgt_tax_outcome.income_tax == Decimal("1850.00")
+    assert tv.cgt_tax_outcome.medicare == Decimal("100.00")
+    assert tv.cgt_tax_outcome.total_tax == Decimal("1950.00")
+
+
+def test_tc10_individual_medicare_on_non_discount_gain() -> None:
+    # TC-10 (spec §5.1; §7 makes Medicare base-wide): $10,000 non-discountable gain,
+    # individual 37%. net gain $10,000 → 3700 income + 200 medicare = $3,900.
+    gain = CapitalGain("AAA", Decimal("10000"), discountable=False, holding_period_days=100)
+    tv = tax_view_individual(
+        lots=[],
+        realised_gains=[gain],
+        dividends=[],
+        config=IndividualConfig(marginal_rate=Decimal("0.37")),
+        today=date(2026, 6, 1),
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert tv.cgt_tax_outcome.total_tax == Decimal("3900.00")
+
+
+def test_tc12_smsf_accumulation_fund_tax_15pct() -> None:
+    # TC-12 (spec §4.2/§5): $10,000 discountable gain, SMSF accumulation (ECPI 0).
+    # SMSF 1/3 discount → net gain $6,666.67 → fund tax 0.15 = $1,000.00. Medicare 0.
+    gain = CapitalGain("BBB", Decimal("10000"), discountable=True, holding_period_days=400)
+    tv = tax_view_smsf(
+        lots=[],
+        realised_gains=[gain],
+        dividends=[],
+        config=SMSFConfig(fund_pension_proportion=Decimal("0")),
+        tsb_ref=None,
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert tv.cgt_tax_outcome.income_tax == Decimal("1000.00")
+    assert tv.cgt_tax_outcome.medicare == Decimal("0")
+    assert tv.cgt_tax_outcome.total_tax == Decimal("1000.00")
+
+
+def test_smsf_ecpi_reduces_cgt_fund_tax() -> None:
+    # INFERRED (no §11 worked example): ECPI exempt proportion reduces the CGT
+    # fund-tax base. $10,000 non-discountable gain, SMSF 60% pension →
+    # taxable_base 4000, fund tax 0.15 = $600. Flagged for spec confirmation.
+    gain = CapitalGain("BBB", Decimal("10000"), discountable=False, holding_period_days=100)
+    tv = tax_view_smsf(
+        lots=[],
+        realised_gains=[gain],
+        dividends=[],
+        config=SMSFConfig(fund_pension_proportion=Decimal("0.6")),
+        tsb_ref=None,
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert tv.cgt_tax_outcome.taxable_base == Decimal("4000.0")
+    assert tv.cgt_tax_outcome.income_tax == Decimal("600.00")
+
+
+def test_individual_net_loss_produces_zero_cgt_tax() -> None:
+    # A net capital loss (losses exceed gains) → net_capital_gain 0, so zero CGT
+    # income tax / Medicare, and the residual loss is carried forward (§5.2 Step 4).
+    loss = CapitalGain("AAA", Decimal("-8000"), discountable=False, holding_period_days=100)
+    gain = CapitalGain("BBB", Decimal("3000"), discountable=False, holding_period_days=100)
+    tv = tax_view_individual(
+        lots=[],
+        realised_gains=[loss, gain],
+        dividends=[],
+        config=IndividualConfig(marginal_rate=Decimal("0.37")),
+        today=date(2026, 6, 1),
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert tv.cgt_tax_outcome.total_tax == Decimal("0.00")
+    assert tv.net_capital_gain is not None
+    assert tv.net_capital_gain.net_capital_loss_cf == Decimal("5000")

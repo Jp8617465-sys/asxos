@@ -6,6 +6,7 @@ section numbers; deviations require a spec amendment.
 from asxos.domain.tax.types import (  # noqa: F401
     AccountType,
     CapitalGain,
+    CgtTaxOutcome,
     Div296Outcome,
     Dividend,
     DividendOutcome,
