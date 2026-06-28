@@ -22,8 +22,8 @@ import logging
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.research.alpha_eval import AlphaReport, evaluate
 from asxos.domain.research.alpha_loader import (
-    FACTOR_HORIZONS,
     _FACTOR_SCORE_COLS,
+    FACTOR_HORIZONS,
     load_factor_panel,
 )
 

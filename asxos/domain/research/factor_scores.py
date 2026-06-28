@@ -36,6 +36,7 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
+from itertools import pairwise
 from math import log
 from typing import TYPE_CHECKING, Any
 
@@ -125,7 +126,7 @@ def neg_realised_vol(adj_closes: list[float]) -> float | None:
     """
     window = adj_closes[-(_VOL_WINDOW_TD + 1):]
     rets: list[float] = []
-    for prev, cur in zip(window, window[1:]):
+    for prev, cur in pairwise(window):
         if prev > 0 and cur > 0:
             rets.append(log(cur / prev))
     if len(rets) < 20:
@@ -316,7 +317,7 @@ def _q6(x: float | None) -> Decimal | None:
 
 
 async def refresh_factor_scores(
-    conn: "asyncpg.Connection",
+    conn: asyncpg.Connection,
     *,
     as_of: date,
     symbols: list[str] | None = None,

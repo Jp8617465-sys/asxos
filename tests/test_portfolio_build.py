@@ -20,8 +20,7 @@ _BUILD_DATE = date(2026, 6, 1)
 @pytest.mark.asyncio
 async def test_build_no_active_profile_raises(monkeypatch) -> None:
     # plan H.1 CRITICAL-5: hard-fail (not a warning) when no profile is active.
-    async def _no_profile(conn):  # noqa: ANN001, ANN202
-        return None
+    async def _no_profile(conn):        return None
 
     monkeypatch.setattr("asxos.domain.portfolio.build.load_active", _no_profile)
     with pytest.raises(RuntimeError, match="no active profile"):
@@ -33,8 +32,7 @@ async def test_build_stale_signals_raises(monkeypatch) -> None:
     # plan H.1 CRITICAL-3: signals_as_of more than 2 days before build → hard-fail.
     # The stale gate fires before any profile attribute is read, so a sentinel
     # non-None profile is sufficient.
-    async def _profile(conn):  # noqa: ANN001, ANN202
-        return object()
+    async def _profile(conn):        return object()
 
     monkeypatch.setattr("asxos.domain.portfolio.build.load_active", _profile)
     stale = _BUILD_DATE - timedelta(days=3)  # 3 days > 2-day tolerance → just stale
@@ -50,8 +48,7 @@ async def test_build_signals_exactly_two_days_old_passes_stale_gate(monkeypatch)
     # Boundary: (build - as_of).days == 2 is NOT stale (the gate is `> 2`, not
     # `>= 2`). Proves the boundary. The pipeline then fails on the next gate
     # (no active model_version), which is how we confirm it passed the stale check.
-    async def _profile(conn):  # noqa: ANN001, ANN202
-        return object()
+    async def _profile(conn):        return object()
 
     monkeypatch.setattr("asxos.domain.portfolio.build.load_active", _profile)
     fresh = _BUILD_DATE - timedelta(days=2)
@@ -65,8 +62,7 @@ async def test_build_signals_exactly_two_days_old_passes_stale_gate(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_build_no_signals_raises(monkeypatch) -> None:
-    async def _profile(conn):  # noqa: ANN001, ANN202
-        return object()
+    async def _profile(conn):        return object()
 
     monkeypatch.setattr("asxos.domain.portfolio.build.load_active", _profile)
     conn = AsyncMock()

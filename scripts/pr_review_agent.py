@@ -11,7 +11,6 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-
 GITHUB_API = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 OPENAI_API = os.environ.get("OPENAI_API_URL", "https://api.openai.com/v1/responses")
 MARKER_PREFIX = "<!-- pr-review-agent:v1"
@@ -282,7 +281,7 @@ def main() -> int:
     repo = env("GITHUB_REPOSITORY")
     github_token = env("GITHUB_TOKEN")
 
-    with open(event_path, "r", encoding="utf-8") as handle:
+    with open(event_path, encoding="utf-8") as handle:
         event = json.load(handle)
 
     if event_name == "pull_request":
