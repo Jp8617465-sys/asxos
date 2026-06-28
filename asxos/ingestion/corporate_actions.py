@@ -22,6 +22,7 @@ Decimal throughout (NUMERIC columns; never float for money).
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -29,6 +30,8 @@ from typing import Any
 import asyncpg
 
 from asxos.ingestion.eodhd import EODHDClient
+
+log = logging.getLogger(__name__)
 
 # (symbol, ex_date, action_type, split_ratio, dividend_amount, franking_pct,
 #  pay_date, record_date) — `source` is the literal below. franking_pct is COALESCEd
@@ -173,10 +176,12 @@ async def refresh_corporate_actions(
             try:
                 div = await client.dividends(sym)
             except Exception:
+                log.warning("dividends fetch failed for %s", sym, exc_info=True)
                 div = None
             try:
                 spl = await client.splits(sym)
             except Exception:
+                log.warning("splits fetch failed for %s", sym, exc_info=True)
                 spl = None
         return sym, div, spl
 
