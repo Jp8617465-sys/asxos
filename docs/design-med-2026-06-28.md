@@ -258,6 +258,16 @@ vs a real minimum-observation count. Needs the sign-off owner (James) to lock.
 
 ## Item 4 — fundamentals.market_cap migration  (READY — but production apply needs sign-off)
 
+> **WRITTEN 2026-06-28 — migration 0029 + tests committed; APPLY +
+> REQUIRED_MIGRATIONS bump PENDING user go.** `migrations/0029_widen_market_cap_columns.sql`
+> (widens BOTH `fundamentals.market_cap` AND `universe.market_cap` from
+> NUMERIC(18,6) to NUMERIC(24,6)) and its tests are written this session:
+> `tests/test_migration_0029_market_cap.py` (static content guard) plus a parse
+> test in `tests/test_fundamentals_ingestion.py`. NOT YET APPLIED to the live DB —
+> `mcp__supabase__apply_migration` and the `REQUIRED_MIGRATIONS` bump await James's
+> explicit go (per the production sign-off below). The rest of this block is
+> retained as the design record.
+
 **Files:** `asxos/ingestion/fundamentals.py:55,89-93,96+` (propagate);
 `migrations/0001_initial.sql:33` (`universe.market_cap`),
 `migrations/0002_fundamentals_add_market_cap.sql:7` (`fundamentals.market_cap`);
