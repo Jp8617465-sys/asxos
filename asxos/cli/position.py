@@ -15,6 +15,7 @@ import typer
 
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.portfolio.profile import load_active
 from asxos.domain.position_monitor.display import format_history, format_monitor
 from asxos.domain.position_monitor.fetcher import fetch_macro_data, fetch_price_data
 from asxos.domain.position_monitor.service import (
@@ -97,8 +98,23 @@ async def _monitor_async(
     await init_pool()
     try:
         async with acquire() as conn:
+            # The monitored position is the ACTIVE PROFILE's: an individual and
+            # their SMSF are separate CGT taxpayers, so lots are scoped to the
+            # active account_type (never pooled). Hard-fail with no active profile —
+            # without it we cannot know whose lots to aggregate (mirrors
+            # PortfolioService.build()'s no-active-profile RuntimeError).
+            profile = await load_active(conn)
+            if profile is None:
+                console.print(
+                    "[red]No active profile. Run "
+                    "`asx portfolio profile activate <name>` first.[/red]"
+                )
+                raise typer.Exit(1)
+            account_type = profile.account_type
             last = await get_last_sentiment_inputs(conn, symbol)
-            ctx = await load_position_context(conn, symbol)
+            ctx = await load_position_context(
+                conn, symbol, account_type=account_type, as_of=run_date
+            )
 
             # Load DB underlyings if a thesis exists for this symbol
             thesis_id = ctx.get("thesis_id")
@@ -172,7 +188,9 @@ async def _monitor_async(
             acquired=ctx.get("acquired"),
             cgt_date=ctx.get("cgt_date"),
             regime_label=regime,
-            account_type=ctx.get("account_type") or "individual",
+            account_type=account_type,
+            lots=ctx.get("lots") or (),
+            all_eligible=ctx.get("all_eligible", False),
             price_type="intraday" if intraday else "close",
             volume_vs_avg_pct=volume_vs_avg_pct,
             short_interest_pct=short_interest_pct,

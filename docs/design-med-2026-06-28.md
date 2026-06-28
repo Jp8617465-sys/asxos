@@ -15,6 +15,18 @@ one open choice flagged for James before code.
 
 ## Item 1 — position_monitor multi-lot aggregation  (READY)
 
+> **IMPLEMENTED 2026-06-28 (active-profile scoping; supersedes the
+> `mixed_account_types` warn/fail option below).** A deep-research pass
+> established that individual and SMSF are separate CGT taxpayers, so lot
+> aggregation is SCOPED to the active profile's `account_type` (filter, never
+> pool) rather than averaged across account types with a mixed-account flag.
+> The "Open decision" / mixed-account-type cross-cutting flag is therefore
+> moot. Shipped: per-lot CGT ladder, an `all_eligible` flag, deterministic
+> `ORDER BY`, and a no-active-profile hard-fail at the CLI. Files: `asxos/domain/
+> position_monitor/{service,types,display}.py`, `asxos/cli/position.py`; tests in
+> `tests/test_position_monitor_lots.py` + `tests/test_cli_position.py`. The rest
+> of this block is retained as the design record.
+
 **File:** `asxos/domain/position_monitor/service.py:178-234` (`load_position_context`);
 consumers `display.py:64-76,222-256` and `_build_scenarios` (`service.py:78-99`);
 carrier `types.py:33-36` (`MonitorInput`).

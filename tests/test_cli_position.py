@@ -21,6 +21,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -120,6 +121,11 @@ def _macro_stub() -> MagicMock:
     return md
 
 
+def _profile(account_type: str = "individual") -> SimpleNamespace:
+    """Minimal active-profile stand-in (only account_type is read by the monitor)."""
+    return SimpleNamespace(account_type=account_type)
+
+
 def test_monitor_valid_as_of_flows_to_input(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
     captured: dict[str, Any] = {}
@@ -134,8 +140,9 @@ def test_monitor_valid_as_of_flows_to_input(monkeypatch: pytest.MonkeyPatch) -> 
         patch.object(position_mod, "acquire", side_effect=_fake_acquire),
         patch.object(position_mod, "fetch_price_data", new=AsyncMock(return_value=_price_stub())),
         patch.object(position_mod, "fetch_macro_data", new=AsyncMock(return_value=_macro_stub())),
+        patch.object(position_mod, "load_active", new=AsyncMock(return_value=_profile())),
         patch.object(position_mod, "get_last_sentiment_inputs", new=AsyncMock(return_value=None)),
-        patch.object(position_mod, "load_position_context", new=AsyncMock(return_value={})),
+        patch.object(position_mod, "load_position_context", new=AsyncMock(return_value={})) as load_ctx,
         patch.object(position_mod, "list_thesis_underlyings", new=AsyncMock(return_value=None)),
         patch.object(position_mod, "build_monitor_result", side_effect=_capture_build),
         patch.object(position_mod, "format_monitor", return_value="FMT"),
@@ -152,6 +159,33 @@ def test_monitor_valid_as_of_flows_to_input(monkeypatch: pytest.MonkeyPatch) -> 
     assert "FMT" in result.output
     assert captured["inputs"].as_of == date(2026, 3, 1)
     assert captured["inputs"].symbol == "BHP.AU"
+    # The active profile's account_type + the run date are passed into the loader
+    # (the lot ladder is scoped to the active taxpayer), and onto the input.
+    assert load_ctx.await_args.kwargs["account_type"] == "individual"
+    assert load_ctx.await_args.kwargs["as_of"] == date(2026, 3, 1)
+    assert captured["inputs"].account_type == "individual"
+
+
+def test_monitor_no_active_profile_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    # No active profile → hard-fail (exit 1) before any position context is loaded;
+    # without it the monitor cannot know whose lots to aggregate (CGT firewall).
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    with (
+        patch.object(position_mod, "init_pool", new=AsyncMock()),
+        patch.object(position_mod, "close_pool", new=AsyncMock()),
+        patch.object(position_mod, "acquire", side_effect=_fake_acquire),
+        patch.object(position_mod, "fetch_price_data", new=AsyncMock(return_value=_price_stub())),
+        patch.object(position_mod, "fetch_macro_data", new=AsyncMock(return_value=_macro_stub())),
+        patch.object(position_mod, "load_active", new=AsyncMock(return_value=None)),
+        patch.object(position_mod, "load_position_context", new=AsyncMock()) as load_ctx,
+    ):
+        result = runner.invoke(
+            cli_main.app, ["position", "monitor", "BHP.AU", "--no-save"], input="\n\n\n\n"
+        )
+
+    assert result.exit_code == 1
+    assert "No active profile" in result.output
+    load_ctx.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
