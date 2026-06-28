@@ -71,7 +71,23 @@ plus a default project) that more plausibly host live apps.
 
 ---
 
-## 3. Staged wipe proposal (DESTRUCTIVE — pending explicit go)
+## 3. Wipe — APPLIED 2026-06-28 (migration 0030)
+
+**DONE.** James chose "backup-then-drop-all non-asxos". Migration `0030` archived the
+14 data-bearing tables (10 prev-repo legacy + 4 foreign) into schema
+`archive_dropped_20260628` via CTAS, then dropped all **122** non-asxos tables (CASCADE)
++ the 2 dead views (`v_pending_retraining_jobs`, `v_recent_deployments`). Result:
+**public 165→43 tables** (42 asxos + `schema_migrations`) + 3 asxos views; asxos data
+intact (`prices` 675k); archive holds the 14 tables (e.g. `signal_evidence_chains` 4,107
+rows); `schema_migrations` 83→84; `REQUIRED_MIGRATIONS`=84. Verified `asxos_fk_into_drop=0`
+pre-drop. The ~12 orphaned foreign trigger/helper functions were left (inert; dropping
+`update_model_versions_timestamp`/`update_updated_at_column` could affect kept asxos
+triggers — optional follow-up). The `archive_dropped_20260628` schema can be dropped later
+to reclaim space once you're confident nothing's needed from it.
+
+The original staged proposal is retained below as the record.
+
+## 3a. Original staged wipe proposal (superseded by §3)
 
 **Safety preconditions (non-negotiable):**
 - **Full backup first** — `backup_irreplaceable.sh` does NOT cover these tables; take a
