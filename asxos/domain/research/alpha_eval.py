@@ -26,6 +26,7 @@ stats), unlike the Decimal-only portfolio domain.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -64,7 +65,7 @@ class DecileResult:
 class CalibrationResult:
     n: int
     brier: float
-    buckets: list[dict]   # [{pred, realised_up_rate, n}]
+    buckets: list[dict[str, Any]]   # [{pred, realised_up_rate, n}]
     miscalibration: float  # mean |pred - realised| over buckets (weighted)
 
 
@@ -101,7 +102,7 @@ class AlphaReport:
 _TRADING_DAYS_PER_CAL_DAY = 1.40  # ~252 trading / 365 calendar
 
 
-def effective_sample_size(dates: list, horizon_trading_days: int) -> int:
+def effective_sample_size(dates: list[Any], horizon_trading_days: int) -> int:
     """Greedily count dates spaced at least ``horizon`` trading days apart.
 
     Forward-return windows of dates closer than the horizon overlap, so they are
@@ -208,7 +209,7 @@ def calibration(
         return CalibrationResult(0, float("nan"), [], float("nan"))
     valid["_up"] = (valid[ret_col] > 0).astype(float)
     valid["_bk"] = np.minimum((valid[prob_col] * n_buckets).astype(int), n_buckets - 1)
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     miscal_num = 0.0
     for _, g in valid.groupby("_bk"):
         pred = float(g[prob_col].mean())

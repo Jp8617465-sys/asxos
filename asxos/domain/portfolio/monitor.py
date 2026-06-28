@@ -32,6 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, getcontext
+from collections.abc import Callable
 from typing import Literal
 
 # Wide precision for chained Decimal multiplies/divides (vol, drawdown, sqrt).
@@ -424,7 +425,11 @@ def position_perfs(inp: MonitorInputs) -> list[PositionPerf]:
         ldt, bar = lb
         price_ret = (bar.close / pos.entry_close - _ONE) if pos.entry_close > _ZERO else _ZERO
         used_adj = bar.adj_close is not None and pos.entry_adj_close > _ZERO
-        total_ret = (bar.adj_close / pos.entry_adj_close - _ONE) if used_adj else price_ret
+        total_ret = (
+            bar.adj_close / pos.entry_adj_close - _ONE
+            if bar.adj_close is not None and pos.entry_adj_close > _ZERO
+            else price_ret
+        )
         pnl = pos.qty * (bar.close - pos.entry_close)
         total_pnl_all += pnl
         rows.append(
@@ -457,13 +462,16 @@ def equal_vs_model_weight_return(
     priced = [p for p in perfs if p.priced and p.total_return_pct is not None]
     if not priced:
         return None, None
-    eq = _mean([p.total_return_pct for p in priced])
+    eq = _mean([r for p in priced if (r := p.total_return_pct) is not None])
     wmap = {pos.symbol: pos.target_weight for pos in positions}
     wsum = sum((wmap.get(p.symbol, _ZERO) for p in priced), _ZERO)
     if wsum <= _ZERO:
         model = None
     else:
-        model = sum((p.total_return_pct * wmap.get(p.symbol, _ZERO) for p in priced), _ZERO) / wsum
+        model = sum(
+            (r * wmap.get(p.symbol, _ZERO) for p in priced if (r := p.total_return_pct) is not None),
+            _ZERO,
+        ) / wsum
         model = _q2(model)
     return (_q2(eq) if eq is not None else None), model
 
@@ -472,14 +480,16 @@ def hit_rate_and_payoff(
     perfs: list[PositionPerf],
 ) -> tuple[Decimal | None, Decimal | None, Decimal | None, Decimal | None]:
     """(hit_rate_pct, avg_winner_pct, avg_loser_pct, payoff_ratio) on priced names."""
-    rets = [p.total_return_pct for p in perfs if p.priced and p.total_return_pct is not None]
+    rets = [r for p in perfs if p.priced and (r := p.total_return_pct) is not None]
     if not rets:
         return None, None, None, None
     winners = [r for r in rets if r > _ZERO]
     losers = [r for r in rets if r < _ZERO]
     hit = _q2(Decimal(len(winners)) / Decimal(len(rets)) * _HUNDRED)
-    avg_w = _q2(_mean(winners)) if winners else None
-    avg_l = _q2(_mean(losers)) if losers else None
+    mean_w = _mean(winners)
+    mean_l = _mean(losers)
+    avg_w = _q2(mean_w) if mean_w is not None else None
+    avg_l = _q2(mean_l) if mean_l is not None else None
     payoff = None
     if avg_w is not None and avg_l is not None and avg_l != _ZERO:
         payoff = _q2(abs(avg_w / avg_l))
@@ -535,15 +545,16 @@ def estimate_costs(inp: MonitorInputs) -> CostEstimate:
 
 def _bucket(perfs: list[PositionPerf], label: str) -> BucketPerf:
     priced = [p for p in perfs if p.priced and p.total_return_pct is not None]
-    rets = [p.total_return_pct for p in priced]
+    rets = [r for p in priced if (r := p.total_return_pct) is not None]
     pnl = sum((p.pnl_aud for p in perfs if p.pnl_aud is not None), _ZERO)
     hit = None
     if rets:
         winners = sum(1 for r in rets if r > _ZERO)
         hit = _q2(Decimal(winners) / Decimal(len(rets)) * _HUNDRED)
+    mean_ret = _mean(rets)
     return BucketPerf(
         label=label, n=len(perfs), n_priced=len(priced),
-        mean_total_return_pct=_q2(_mean(rets)) if rets else None,
+        mean_total_return_pct=_q2(mean_ret) if mean_ret is not None else None,
         hit_rate_pct=hit, total_pnl_aud=_q6(pnl),
     )
 
@@ -573,7 +584,8 @@ def _edge_label(edges: tuple[Decimal, ...], idx: int) -> str:
 
 
 def _bucket_by_value(
-    perfs: list[PositionPerf], edges: tuple[Decimal, ...], value
+    perfs: list[PositionPerf], edges: tuple[Decimal, ...],
+    value: Callable[[PositionPerf], Decimal],
 ) -> list[BucketPerf]:
     groups: dict[int, list[PositionPerf]] = {}
     for p in perfs:

@@ -44,27 +44,27 @@ def _div(a: Decimal | None, b: Decimal | None) -> Decimal | None:
     return (a / b).quantize(_Q6)
 
 
-def _dividend_summary(dividends: list[dict]) -> tuple[Decimal | None, Decimal | None]:
-    amounts = [_num(d.get("dividend_amount")) for d in dividends]
-    amounts = [a for a in amounts if a is not None]
+def _dividend_summary(
+    dividends: list[dict[str, Any]],
+) -> tuple[Decimal | None, Decimal | None]:
+    amounts = [a for d in dividends if (a := _num(d.get("dividend_amount"))) is not None]
     div_sum = sum(amounts, Decimal(0)) if amounts else None
-    frks = [_num(d.get("franking_pct")) for d in dividends]
-    frks = [f for f in frks if f is not None]
+    frks = [f for d in dividends if (f := _num(d.get("franking_pct"))) is not None]
     frank_avg = (sum(frks, Decimal(0)) / len(frks)).quantize(_Q6) if frks else None
     return div_sum, frank_avg
 
 
 def compute_pit_factors(
-    income: dict | None,
-    balance: dict | None,
-    dividends: list[dict],
+    income: dict[str, Any] | None,
+    balance: dict[str, Any] | None,
+    dividends: list[dict[str, Any]],
     *,
     period_end: date,
     report_date: date | None,
     filing_date: date | None,
     as_of: date,
     lag_days: int = 75,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Derive one rs_fundamentals_pit row. `income`/`balance` carry the promoted scalar
     columns plus a `line_items` dict (for grossProfit/operatingIncome/netDebt). Returns
     None if both statements are absent. `knowledge_date` is the guarded PIT key."""
@@ -122,7 +122,7 @@ ON CONFLICT (symbol, knowledge_date) DO UPDATE SET
 """
 
 
-def _stmt_dict(row: asyncpg.Record | None) -> dict | None:
+def _stmt_dict(row: asyncpg.Record | None) -> dict[str, Any] | None:
     if row is None:
         return None
     li = row["line_items"]
@@ -185,6 +185,8 @@ async def refresh_fundamentals_pit(
     seen: set[str] = set()
     for (sym, pe), stmts in groups.items():
         anchor = stmts.get("income") or stmts.get("balance_sheet")
+        if anchor is None:
+            continue
         window_start = pe - relativedelta(years=1)
         window_divs = [
             {"dividend_amount": d["dividend_amount"], "franking_pct": d["franking_pct"]}

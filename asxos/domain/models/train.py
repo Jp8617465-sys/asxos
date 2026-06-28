@@ -147,7 +147,7 @@ def train_model_a(
         raise ValueError("no rows remained after feature dropna")
 
     from lightgbm import LGBMClassifier, LGBMRegressor
-    from sklearn.metrics import mean_squared_error, roc_auc_score  # type: ignore[import-not-found]
+    from sklearn.metrics import mean_squared_error, roc_auc_score
 
     df = df.sort_values(["dt", "symbol"]).reset_index(drop=True)
     X = df[features].to_numpy(dtype=float)

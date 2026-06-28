@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import asyncpg
@@ -241,7 +241,7 @@ async def _load_benchmark(
     )
 
 
-async def list_persisted_runs(conn: asyncpg.Connection) -> list[dict]:
+async def list_persisted_runs(conn: asyncpg.Connection) -> list[dict[str, Any]]:
     """All persisted runs, most recent first (for --all)."""
     rows = await conn.fetch(
         "SELECT run_id, as_of, signals_as_of, model_version FROM rebalance_runs ORDER BY as_of DESC, run_id DESC"
