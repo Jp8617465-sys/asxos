@@ -17,6 +17,8 @@ from fractions import Fraction
 from dateutil.relativedelta import relativedelta
 
 from asxos.domain.tax.types import (
+    MEDICARE_LEVY_RATE,
+    SMSF_TAX_RATE,
     AccountType,
     CapitalGain,
     NetCapitalGain,
@@ -109,32 +111,52 @@ def net_capital_gain(
 
 def cgt_break_even_price(
     current_price: Decimal,
-    cost_usd: Decimal,
+    cost: Decimal,
     account_type: str,
     acquired: date,
     as_of: date,
     marginal_rate: Decimal = Decimal("0.45"),
+    medicare_rate: Decimal = MEDICARE_LEVY_RATE,
 ) -> Decimal | None:
     """
-    Minimum sale price to break even after CGT vs waiting for the 50% discount.
+    Minimum sale price today to break even after CGT vs deferring until the
+    s 115-100 discount is available, holding price constant. Decision-support
+    heuristic per spec §5.4 — NOT a tax computation.
 
-    Formula (spec §2 + §5.1):
-        P_sell = [P * (1 - r*d) - cost * r*d] / (1 - r)
+    Formula (spec §5.4):
+        P_sell = [P * (1 - r_eff*d) - cost * r_eff*(1 - d)] / (1 - r_eff)
 
-    where d = CGT discount fraction (0.5 individual, 1/3 SMSF), r = marginal rate.
+    where d = CGT discount fraction (0.5 individual, exact 1/3 SMSF, §2) and the
+    effective rate r_eff is:
+      - individual: marginal_rate + medicare_rate (the net capital gain attracts
+        the 2% Medicare levy on BOTH sides of the break-even, §5.3/§7);
+      - SMSF: SMSF_TAX_RATE (0.15, §2), Medicare 0 (§7 — no levy on super funds).
+    The cost coefficient is (1 - d), NOT d; the two coincide only for individuals
+    (d = 0.5), so using d overstates the SMSF break-even (the bug §5.4 corrects).
 
-    Returns None if: already CGT-eligible, no unrealised gain, or formula
-    produces a result below cost (degenerate: tiny gain, very high rate).
-    spec §5.1 calendar arithmetic via days_to_eligibility().
+    `current_price` and `cost` must be in the same currency (translate US lots
+    per §8.2 before calling). The flat 2% individual Medicare addition is valid
+    only above the §7.1 low-income threshold (§5.4 disclosure).
+
+    Returns None if: already CGT-eligible (§5.1 via days_to_eligibility),
+    no unrealised gain, r_eff >= 1 (degenerate), or the result is below cost.
     """
     if days_to_eligibility(acquired, as_of) == 0:
         return None
-    if current_price <= cost_usd:
+    if current_price <= cost:
         return None
     discount = cgt_discount_rate(account_type)  # type: ignore[arg-type]  # str narrows to AccountType at runtime
-    denominator = Decimal("1") - marginal_rate
+    # §5.4: SMSF pays 15% with no Medicare; individual marginal stacks the 2% levy.
+    if account_type == "smsf":
+        r_eff = SMSF_TAX_RATE
+    else:
+        r_eff = marginal_rate + medicare_rate
+    denominator = Decimal("1") - r_eff
     if denominator <= 0:
         return None
-    numerator = current_price * (Decimal("1") - marginal_rate * discount) - cost_usd * marginal_rate * discount
+    numerator = (
+        current_price * (Decimal("1") - r_eff * discount)
+        - cost * r_eff * (Decimal("1") - discount)
+    )
     result = (numerator / denominator).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return result if result > cost_usd else None
+    return result if result > cost else None

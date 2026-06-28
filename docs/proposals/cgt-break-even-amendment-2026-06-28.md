@@ -1,6 +1,11 @@
 # Proposal — CGT discount break-even spec amendment + test plan (2026-06-28)
 
-**Status: DRAFT for James's sign-off. No spec or code change applied.**
+**Status: APPROVED & APPLIED (2026-06-28).** §5.4 added to `tax-alpha.md` (v1.3) with
+TC-22/TC-23; code fix in `asxos/domain/tax/cgt.py` + `tests/test_tax_break_even.py`.
+Resolved decisions: **Medicare = include** (individual `r_eff = marginal + 0.02`;
+SMSF `r_eff = 0.15`, Medicare 0); **currency = caller-translates per §8.2**. TC-22
+restated with the Medicare-inclusive rate (126.60, not the draft's pre-Medicare 124.55).
+This file is retained as the rationale record.
 
 This proposal closes a non-negotiable-#8 deviation: `cgt_break_even_price()`
 (`asxos/domain/tax/cgt.py:110-140`) computes a tax number with a citation
@@ -115,6 +120,8 @@ TC-23 to the §11 worked-example matrix.
 > numerator = 100·(1 − 0.225) − 40·0.45·0.5 = 77.5 − 9 = 68.5; /0.55 = **124.55**.
 > Check: sell-later nets 100 − 60·0.5·0.45 = 86.50; sell-now @124.55 nets
 > 124.55 − 84.55·0.45 = 86.50. ✓
+> _(Draft, pre-Medicare. The **applied** TC-22 uses r_eff = 0.47 → **126.60**; see
+> the status note at the top of this file and tax-alpha.md §5.4 / §11.)_
 >
 > **TC-23 (SMSF).** P=100, cost=40, r=0.15, d=1/3, not yet eligible.
 > numerator = 100·(1 − 0.05) − 40·0.15·(2/3) = 95 − 4 = 91; /0.85 = **107.06**.
@@ -132,8 +139,8 @@ Target `tests/test_tax_cgt.py` (or a new `tests/test_tax_break_even.py`). Every 
 cites §5.4 / TC-22 / TC-23.
 
 **Correctness (the fix):**
-1. **TC-22 individual** → `Decimal("124.55")`. *(Passes against current code — the
-   individual path is correct by coincidence.)*
+1. **TC-22 individual** → `Decimal("124.55")` *(draft, pre-Medicare; the **applied**
+   test asserts **126.60** at r_eff = 0.47 — see the status note above)*.
 2. **TC-23 SMSF** → `Decimal("107.06")`, with the corrected SMSF rate `r=0.15` and
    `d=1/3`. **Fails against current code** (wrong coefficient + wrong default rate) —
    this is the regression lock proving the fix.

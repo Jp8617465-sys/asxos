@@ -29,7 +29,7 @@ _33 confirmed untested gaps from the full audit (docs/audit-2026-06-27.md). Prio
 - `asxos/domain/portfolio/volatility.py:63-108` — load_vols_for_symbols (async DB entry point: empty-symbols early return, ROW_NUMBER/ANY($1::text[]) query, per-symbol grouping, ValueError silent-omit loop at 104-107) ha
 
 ### domain/tax
-- `asxos/domain/tax/cgt.py:110-140` — cgt_break_even_price (lines 110-140) has no covering test in tests/; it is live in production via position_monitor/display.py:223.
+- ~~`asxos/domain/tax/cgt.py:110-140` — cgt_break_even_price (lines 110-140) has no covering test in tests/; it is live in production via position_monitor/display.py:223.~~ **COVERED 2026-06-28:** `tests/test_tax_break_even.py` (TC-22/TC-23, round-trip invariant, None branches, SMSF exactness); spec §5.4.
 - `asxos/domain/tax/lots.py:105-106` — Line 24 divides cost_base_normal by lot.quantity with no zero guard; a zero-quantity lot raises ZeroDivisionError instead of a domain error, and partial-draw brokerage pr
 
 ## P2
