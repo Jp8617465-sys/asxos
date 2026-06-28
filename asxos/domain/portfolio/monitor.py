@@ -29,10 +29,10 @@ attribution, signal-bucket diagnostics, and cost estimates around it.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, getcontext
-from collections.abc import Callable
 from typing import Literal
 
 # Wide precision for chained Decimal multiplies/divides (vol, drawdown, sqrt).
