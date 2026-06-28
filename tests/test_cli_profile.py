@@ -10,7 +10,8 @@ Collects cleanly in the bare sandbox (no numpy/lightgbm/fastapi imports).
 """
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from collections.abc import Iterator
+from contextlib import ExitStack, asynccontextmanager, contextmanager
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
@@ -39,6 +40,22 @@ def _patch_pool(conn: Any):
         patch.object(profile_mod, "close_pool", new=AsyncMock(return_value=None)),
         patch.object(profile_mod, "acquire", side_effect=lambda: _conn_ctx(conn)),
     ]
+
+
+@contextmanager
+def _patched(conn: Any, **domain_mocks: Any) -> Iterator[None]:
+    """Enter the pool patches plus any `asxos.domain.portfolio.profile` attribute
+    mocks (passed by name). Replaces the old `with (*_patch_pool(conn), ...)` form,
+    which Python parses as a single tuple display — not a parenthesized with-items
+    list — and so fails with 'tuple object does not support the context manager
+    protocol'.
+    """
+    with ExitStack() as stack:
+        for cm in _patch_pool(conn):
+            stack.enter_context(cm)
+        for name, mock in domain_mocks.items():
+            stack.enter_context(patch.object(domain_profile, name, mock))
+        yield
 
 
 def _fake_profile(**over: Any) -> SimpleNamespace:
@@ -88,11 +105,7 @@ def test_init_parses_comma_split_exclusions(monkeypatch: pytest.MonkeyPatch) -> 
     save = AsyncMock(return_value=42)
     activate = AsyncMock(return_value=42)
 
-    with (
-        *_patch_pool(conn),
-        patch.object(domain_profile, "save", save),
-        patch.object(domain_profile, "activate", activate),
-    ):
+    with _patched(conn, save=save, activate=activate):
         result = runner.invoke(
             cli_main.app,
             [
@@ -124,7 +137,7 @@ def test_init_value_error_becomes_bad_parameter(monkeypatch: pytest.MonkeyPatch)
     conn = MagicMock()
     save = AsyncMock(side_effect=ValueError("cash_floor out of range"))
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "save", save)):
+    with _patched(conn, save=save):
         result = runner.invoke(
             cli_main.app,
             ["profile", "init", "--capital", "1000"],
@@ -143,7 +156,7 @@ def test_show_renders_active_profile(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = MagicMock()
     load_active = AsyncMock(return_value=_fake_profile())
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "load_active", load_active)):
+    with _patched(conn, load_active=load_active):
         result = runner.invoke(cli_main.app, ["profile", "show"])
 
     assert result.exit_code == 0, result.output
@@ -157,7 +170,7 @@ def test_show_by_name_uses_load_by_name(monkeypatch: pytest.MonkeyPatch) -> None
     conn = MagicMock()
     load_by_name = AsyncMock(return_value=_fake_profile(name="other"))
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "load_by_name", load_by_name)):
+    with _patched(conn, load_by_name=load_by_name):
         result = runner.invoke(cli_main.app, ["profile", "show", "--name", "other"])
 
     assert result.exit_code == 0, result.output
@@ -170,7 +183,7 @@ def test_show_none_named_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = MagicMock()
     load_by_name = AsyncMock(return_value=None)
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "load_by_name", load_by_name)):
+    with _patched(conn, load_by_name=load_by_name):
         result = runner.invoke(cli_main.app, ["profile", "show", "--name", "ghost"])
 
     assert result.exit_code == 1
@@ -182,7 +195,7 @@ def test_show_none_active_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = MagicMock()
     load_active = AsyncMock(return_value=None)
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "load_active", load_active)):
+    with _patched(conn, load_active=load_active):
         result = runner.invoke(cli_main.app, ["profile", "show"])
 
     assert result.exit_code == 1
@@ -198,7 +211,7 @@ def test_activate_success(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = MagicMock()
     activate = AsyncMock(return_value=9)
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "activate", activate)):
+    with _patched(conn, activate=activate):
         result = runner.invoke(cli_main.app, ["profile", "activate", "growth1"])
 
     assert result.exit_code == 0, result.output
@@ -212,7 +225,7 @@ def test_activate_error_becomes_bad_parameter(monkeypatch: pytest.MonkeyPatch) -
     conn = MagicMock()
     activate = AsyncMock(side_effect=Exception("no such profile"))
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "activate", activate)):
+    with _patched(conn, activate=activate):
         result = runner.invoke(cli_main.app, ["profile", "activate", "ghost"])
 
     assert result.exit_code != 0
@@ -228,7 +241,7 @@ def test_list_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = MagicMock()
     list_profiles = AsyncMock(return_value=[])
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "list_profiles", list_profiles)):
+    with _patched(conn, list_profiles=list_profiles):
         result = runner.invoke(cli_main.app, ["profile", "list"])
 
     assert result.exit_code == 0, result.output
@@ -242,7 +255,7 @@ def test_list_populated(monkeypatch: pytest.MonkeyPatch) -> None:
             _fake_profile(profile_id=2, name="growth1", is_active=False)]
     list_profiles = AsyncMock(return_value=rows)
 
-    with (*_patch_pool(conn), patch.object(domain_profile, "list_profiles", list_profiles)):
+    with _patched(conn, list_profiles=list_profiles):
         result = runner.invoke(cli_main.app, ["profile", "list"])
 
     assert result.exit_code == 0, result.output

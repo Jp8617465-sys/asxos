@@ -22,6 +22,7 @@ collects cleanly even in the bare sandbox.
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Any
 from unittest.mock import patch
@@ -33,6 +34,19 @@ from asxos.cli import main as cli_main
 from asxos.cli import portfolio as portfolio_mod
 
 runner = CliRunner()
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _norm(output: str) -> str:
+    """Strip ANSI colour codes and collapse all whitespace runs to single spaces.
+
+    typer/rich renders a raised ``BadParameter`` inside a bordered, colour-styled
+    panel and soft-wraps the message at the console width, so the raw error string
+    is not a contiguous substring of ``result.output``. Normalising lets us assert
+    the message text without coupling to rich's panel layout.
+    """
+    return " ".join(_ANSI.sub("", output).split())
 
 
 @pytest.fixture
@@ -85,7 +99,7 @@ def test_build_portfolio_bad_as_of(personal_use: None) -> None:
         result = runner.invoke(cli_main.app, ["build-portfolio", "--as-of", "not-a-date"])
 
     assert result.exit_code != 0
-    assert "--as-of must be YYYY-MM-DD" in result.output
+    assert "--as-of must be YYYY-MM-DD" in _norm(result.output)
 
 
 def test_build_portfolio_bad_signals(personal_use: None) -> None:
@@ -96,7 +110,7 @@ def test_build_portfolio_bad_signals(personal_use: None) -> None:
         result = runner.invoke(cli_main.app, ["build-portfolio", "--signals", "2026-13-99"])
 
     assert result.exit_code != 0
-    assert "--signals must be YYYY-MM-DD" in result.output
+    assert "--signals must be YYYY-MM-DD" in _norm(result.output)
 
 
 def test_build_portfolio_parses_valid_dates(personal_use: None) -> None:
@@ -180,7 +194,7 @@ def test_propose_trades_invalid_side(personal_use: None) -> None:
         result = runner.invoke(cli_main.app, ["propose-trades", "--side", "long"])
 
     assert result.exit_code != 0
-    assert "--side must be buy, sell, or hold" in result.output
+    assert "--side must be buy, sell, or hold" in _norm(result.output)
 
 
 @pytest.mark.parametrize("side", ["buy", "sell", "hold"])
