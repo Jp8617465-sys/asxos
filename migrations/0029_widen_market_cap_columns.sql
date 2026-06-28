@@ -30,12 +30,34 @@
 -- exceeds 10^12 — but storing such values is the whole point. To revert you must
 -- first delete/clamp any out-of-range rows.
 --
+-- DEPENDENT VIEW (found by the live pre-apply catalog check — the static design
+-- review missed it): the regular view public.stock_universe selects
+-- universe.market_cap. PostgreSQL refuses ALTER COLUMN TYPE on a column a view
+-- references ("cannot alter type of a column used by a view or rule"), so the view
+-- is dropped, the columns altered, then the view recreated and re-granted — all in
+-- one transaction (apply_migration is transactional, so this is atomic). The view
+-- def and its grants (ALL to anon/authenticated/service_role; owner postgres) are
+-- reproduced verbatim. fundamentals.market_cap has no dependents.
+--
 -- PRE-APPLY (see docs/design-med-2026-06-28.md Item 4):
---   1. Catalog-check for any view / expression index on these columns.
+--   1. Catalog-check for any view / expression index on these columns. (DONE:
+--      only stock_universe on universe.market_cap; only pkey indexes.)
 --   2. Capture before-image: SELECT max(market_cap), min(market_cap), count(*) ...
 -- POST-APPLY: verify information_schema.columns shows numeric_precision=24,
---   numeric_scale=6 for both; confirm before/after max/min/count unchanged;
---   then bump REQUIRED_MIGRATIONS.
+--   numeric_scale=6 for both; confirm stock_universe + its grants survive; confirm
+--   before/after max/min/count unchanged; then bump REQUIRED_MIGRATIONS.
+
+DROP VIEW IF EXISTS public.stock_universe;
 
 ALTER TABLE fundamentals ALTER COLUMN market_cap TYPE NUMERIC(24,6);
 ALTER TABLE universe     ALTER COLUMN market_cap TYPE NUMERIC(24,6);
+
+CREATE VIEW public.stock_universe AS
+    SELECT symbol     AS ticker,
+           name       AS company_name,
+           sector,
+           market_cap,
+           true       AS is_active
+    FROM universe;
+
+GRANT ALL ON public.stock_universe TO anon, authenticated, service_role;

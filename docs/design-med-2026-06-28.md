@@ -256,17 +256,21 @@ vs a real minimum-observation count. Needs the sign-off owner (James) to lock.
 
 ---
 
-## Item 4 — fundamentals.market_cap migration  (READY — but production apply needs sign-off)
+## Item 4 — fundamentals.market_cap migration  (APPLIED 2026-06-28)
 
-> **WRITTEN 2026-06-28 — migration 0029 + tests committed; APPLY +
-> REQUIRED_MIGRATIONS bump PENDING user go.** `migrations/0029_widen_market_cap_columns.sql`
-> (widens BOTH `fundamentals.market_cap` AND `universe.market_cap` from
-> NUMERIC(18,6) to NUMERIC(24,6)) and its tests are written this session:
-> `tests/test_migration_0029_market_cap.py` (static content guard) plus a parse
-> test in `tests/test_fundamentals_ingestion.py`. NOT YET APPLIED to the live DB —
-> `mcp__supabase__apply_migration` and the `REQUIRED_MIGRATIONS` bump await James's
-> explicit go (per the production sign-off below). The rest of this block is
-> retained as the design record.
+> **APPLIED 2026-06-28 to production (project gxjqezqndltaelmyctnl).** Migration
+> 0029 widened BOTH `fundamentals.market_cap` AND `universe.market_cap` from
+> NUMERIC(18,6) to NUMERIC(24,6). The live pre-apply catalog check found a
+> dependent view `public.stock_universe` on `universe.market_cap` that the static
+> design review missed (created out-of-band — it exists nowhere in `migrations/`),
+> so the migration also DROPs → recreates that view and restores its grants (ALL to
+> anon/authenticated/service_role; owner postgres) in one transaction. Post-apply
+> verified: both columns numeric(24,6); the view returns 1,895 rows with owner +
+> grants preserved; before/after count/max/min identical (value-preserving);
+> `schema_migrations` 82→83; `REQUIRED_MIGRATIONS` bumped to 83 in
+> `asxos/api/main.py`. Tests: `tests/test_migration_0029_market_cap.py` (static
+> guard incl. the view drop/recreate/regrant) + a >10^12 parse test in
+> `tests/test_fundamentals_ingestion.py`. The rest of this block is the design record.
 
 **Files:** `asxos/ingestion/fundamentals.py:55,89-93,96+` (propagate);
 `migrations/0001_initial.sql:33` (`universe.market_cap`),
