@@ -39,6 +39,11 @@ format:  ## Run ruff format
 
 check: lint type test  ## Run all quality gates
 
+install-hooks:  ## Activate the tracked git pre-push gate (ruff + mypy)
+	git config core.hooksPath scripts/hooks
+	@echo "core.hooksPath -> scripts/hooks. Pre-push runs ruff + mypy."
+	@echo "Set RUN_TESTS=1 to also run pytest on push; bypass with 'git push --no-verify'."
+
 shell:  ## Start a Python REPL with asxos importable
 	$(VENV)/bin/python
 
