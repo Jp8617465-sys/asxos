@@ -191,6 +191,19 @@ as the Phase-5 producer's responsibility.
 
 ## Item 3 — paper_trade weeks gate  (NEEDS-OWNER-DECISION)
 
+> **IMPLEMENTED 2026-06-28 (B-refined: maturation AND cron-continuity;
+> min_matured_runs=1, 14-day gap tolerance).** The NEEDS-OWNER-DECISION on the
+> predicate is resolved: the `backend-architect`-defined success criteria were
+> adopted. The old gate (≥4 runs each ≥4 weeks old → ~7 weeks under weekly
+> cadence) is replaced by a decoupled two-part predicate: **maturation** (≥
+> `min_matured_runs` runs ≥ `maturation_weeks`*7 days old, over `rebalance_runs`)
+> AND **continuity** (the weekly `build_portfolio` cron actually observed the
+> window — over `job_runs` status='success', no >14-day blackout, currently
+> alive), via the new `_cron_was_continuous` helper. CLI message corrected. Files:
+> `asxos/domain/portfolio/paper_trade.py`, `asxos/cli/portfolio.py`; tests in
+> `tests/test_portfolio_paper_trade.py` (6 pure-continuity + 5 gate tests). The
+> rest of this block is retained as the design record.
+
 **File:** `asxos/domain/portfolio/paper_trade.py:235-270`.
 
 ### Problem

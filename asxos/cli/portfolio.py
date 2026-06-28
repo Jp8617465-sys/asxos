@@ -398,11 +398,13 @@ async def _run_portfolio_signoff(*, note: str, force: bool) -> None:
     try:
         async with acquire() as conn:
             if not force:
-                ok = await has_enough_paper_weeks(conn, min_weeks=4, today=today)
+                ok = await has_enough_paper_weeks(conn, maturation_weeks=4, today=today)
                 if not ok:
                     console.print(
                         "[red]Insufficient paper-trade history.[/red] "
-                        "Need ≥4 evaluable runs (each ≥4 weeks old). "
+                        "Need ≥4 weeks of matured paper-trade evidence with a "
+                        "continuously-running weekly build cron (oldest run ≥28 days "
+                        "old; no cron blackout >14 days). "
                         "Pass [bold]--force[/bold] to override."
                     )
                     raise typer.Exit(code=1)
