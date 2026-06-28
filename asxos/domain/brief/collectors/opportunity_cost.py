@@ -6,10 +6,22 @@ gracefully when the table does not yet exist (Phase 5 migration adds it) or
 when no scenarios have been computed.
 
 SeverityItem levels:
-  - yellow: a candidate offers meaningfully higher net return (>5% delta)
-  - green:  current allocation looks reasonable vs alternatives
+  - yellow: an alternative's *absolute* CGT-adjusted net expected return exceeds
+            5%. This is a LEVEL screen, NOT a delta vs the current holding — no
+            current-holding baseline is fetched or subtracted here.
+  - green:  no alternative clears the absolute net-return level.
 Section status:
   - no_data: table not yet populated (Phase 5 not yet run)
+
+NOTE (the real delta is a Phase-5 producer responsibility): a true
+"advantage over the current holding" requires the held position's net expected
+return on the SAME CGT-adjusted basis. That belongs in a
+`current_net_expected_return` column on `opportunity_cost_scenarios`, populated
+by the Phase-5 producer (which already applies the CGT-friction model). The
+collector cannot reconstruct it from `signals.expected_return` (gross / different
+horizon) or `theses.target` (a price, not a return) without manufacturing a delta
+from incomparable quantities. Until that column exists this stays a level screen.
+See docs/design-med-2026-06-28.md Item 2.
 """
 from __future__ import annotations
 
@@ -21,7 +33,10 @@ from asxos.db import acquire
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 
 _SECTION = "opportunity_cost"
-_MEANINGFUL_DELTA = Decimal("0.05")  # 5% net return advantage triggers yellow
+# Absolute net-return LEVEL above which an alternative is flagged yellow. NOT a
+# delta vs the current holding (see the module docstring) — renamed from the
+# misleading `_MEANINGFUL_DELTA` to reflect what the code actually tests.
+_MEANINGFUL_NET_LEVEL = Decimal("0.05")
 
 
 async def collect_opportunity_cost(as_of: date) -> SectionResult:
@@ -86,7 +101,7 @@ async def collect_opportunity_cost(as_of: date) -> SectionResult:
 
         level = (
             SeverityLevel.yellow
-            if net is not None and Decimal(str(net)) > _MEANINGFUL_DELTA
+            if net is not None and Decimal(str(net)) > _MEANINGFUL_NET_LEVEL
             else SeverityLevel.green
         )
         items.append(SeverityItem(level=level, message=msg, section=_SECTION))
