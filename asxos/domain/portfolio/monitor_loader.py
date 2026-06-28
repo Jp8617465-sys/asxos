@@ -38,6 +38,36 @@ def _dec(v: object) -> Decimal:
     return Decimal(str(v))
 
 
+def _position_from_row(r: asyncpg.Record) -> Position:
+    """Map a target_allocations⋈proposed_trades⋈prices row to a Position.
+
+    Nullable numeric columns are guarded: a NULL prob_up / expected_return (or a
+    missing trade/price row from the LEFT JOINs) becomes Decimal('0') rather than
+    crashing the whole load with Decimal(str(None)) -> InvalidOperation.
+    """
+    ref = r["reference_price"]
+    entry_close = _dec(ref) if ref is not None else (
+        _dec(r["entry_close"]) if r["entry_close"] is not None else Decimal("0")
+    )
+    adj = r["entry_adj_close"]
+    entry_adj = _dec(adj) if adj is not None else entry_close
+    qty = _dec(r["target_qty"]) if r["target_qty"] is not None else Decimal("0")
+    return Position(
+        symbol=r["symbol"],
+        sector=r["sector"],
+        qty=qty,
+        entry_close=entry_close,
+        entry_adj_close=entry_adj,
+        target_weight=_dec(r["target_weight"]),
+        target_aud=_dec(r["target_aud"]),
+        signal_label=r["signal_label"],
+        prob_up=_dec(r["prob_up"]) if r["prob_up"] is not None else Decimal("0"),
+        expected_return=(
+            _dec(r["expected_return"]) if r["expected_return"] is not None else Decimal("0")
+        ),
+    )
+
+
 async def load_run_inputs(
     conn: asyncpg.Connection,
     run_id: int,
@@ -83,29 +113,7 @@ async def load_run_inputs(
     positions: list[Position] = []
     symbols: list[str] = []
     for r in rows:
-        # entry close: prefer the recorded reference_price (the build's basis);
-        # fall back to the prices.close on the build date.
-        ref = r["reference_price"]
-        entry_close = _dec(ref) if ref is not None else (
-            _dec(r["entry_close"]) if r["entry_close"] is not None else Decimal("0")
-        )
-        adj = r["entry_adj_close"]
-        entry_adj = _dec(adj) if adj is not None else entry_close
-        qty = _dec(r["target_qty"]) if r["target_qty"] is not None else Decimal("0")
-        positions.append(
-            Position(
-                symbol=r["symbol"],
-                sector=r["sector"],
-                qty=qty,
-                entry_close=entry_close,
-                entry_adj_close=entry_adj,
-                target_weight=_dec(r["target_weight"]),
-                target_aud=_dec(r["target_aud"]),
-                signal_label=r["signal_label"],
-                prob_up=_dec(r["prob_up"]),
-                expected_return=_dec(r["expected_return"]),
-            )
-        )
+        positions.append(_position_from_row(r))
         symbols.append(r["symbol"])
 
     invested = sum((p.target_aud for p in positions), Decimal("0"))

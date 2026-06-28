@@ -181,8 +181,16 @@ async def collect(as_of: date) -> BriefData:
         data_as_of = await latest_complete_trading_day(conn)
         signals_as_of = data_as_of or as_of
 
+        # regime is market-wide for an as_of but rows are keyed by
+        # (model, model_version, symbol); a bare LIMIT 1 returns an arbitrary,
+        # non-reproducible row. Pin a deterministic order so the brief is stable.
         regime_row = await conn.fetchrow(
-            "SELECT regime FROM signals WHERE as_of = $1 LIMIT 1",
+            """
+            SELECT regime FROM signals
+            WHERE as_of = $1
+            ORDER BY model_version DESC, model, symbol
+            LIMIT 1
+            """,
             signals_as_of,
         )
         regime: str | None = regime_row["regime"] if regime_row else None

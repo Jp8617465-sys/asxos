@@ -37,6 +37,20 @@ def _make_multi(n: int = 300) -> pd.DataFrame:
     return pd.concat([_make_prices(n, "BHP.AU"), _make_prices(n, "CBA.AU")], ignore_index=True)
 
 
+def test_compute_all_features_rejects_unsorted_dt() -> None:
+    # Lookback features depend on per-symbol ascending dt order; an unsorted panel
+    # must fail loudly, not silently emit wrong-but-finite features.
+    shuffled = _make_prices(300).sample(frac=1.0, random_state=0).reset_index(drop=True)
+    with pytest.raises(ValueError, match="sorted ascending by dt"):
+        FeatureEngine().compute_all_features(shuffled)
+
+
+def test_compute_all_features_accepts_sorted_dt() -> None:
+    # The happy path (already sorted, as all production callers pass) is unaffected.
+    out = FeatureEngine().compute_all_features(_make_prices(300))
+    assert len(out) == 300
+
+
 # ---------------------------------------------------------------------------
 # Basic output shape
 # ---------------------------------------------------------------------------
