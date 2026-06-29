@@ -8,14 +8,32 @@ No I/O; pure functions. The CLI layer calls console.print(format_monitor(result)
 """
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from asxos.domain.position_monitor.types import MonitorResult
+from asxos.domain.position_monitor.types import MonitorInput, MonitorResult
 from asxos.domain.tax.cgt import cgt_break_even_price
 from asxos.domain.themes.stage_classifier import StageThresholds
 
 _T = StageThresholds()
+
+
+def _break_even_lot(inp: MonitorInput) -> tuple[Decimal, date] | None:
+    """Per-share cost + acquired of the earliest-still-ineligible lot, or None.
+
+    The break-even is a single-lot CGT-friction comparison (sell now at the full
+    rate vs wait for the discount on that lot), so it must use ONE lot's economics
+    — the earliest-maturing ineligible lot, the one with a live deferral decision —
+    NOT the position weighted-average `cost_usd`, which would mix two lots' costs
+    against one lot's acquisition date and produce a meaningless number.
+    """
+    pending = [lot for lot in inp.lots if not lot.is_eligible]  # lots are acquired ASC
+    if not pending:
+        return None
+    lot = pending[0]
+    return lot.cost_base_normal / lot.quantity, lot.acquired_at
+
 
 _STAGE_EMOJI: dict[str, str] = {
     "early": "🌱",
@@ -75,6 +93,8 @@ def format_monitor(result: MonitorResult) -> str:
             lines.append(
                 f"║  CGT discount in: {max(0, days_to_cgt)} days  ({inp.cgt_date})"
             )
+        elif inp.all_eligible:
+            lines.append("║  CGT discount: all lots eligible now")
 
     lines.append(f"╚{'═' * 66}╝")
     lines.append("")
@@ -219,10 +239,12 @@ def format_monitor(result: MonitorResult) -> str:
         ).quantize(Decimal("0.1"))
         lines.append(f"  Stop gap:   {pct_to_stop}% above ${inp.stop_price}")
     lines.append(f"  To 200d MA: {pct_to_200d}% above current price")
-    if inp.cost_usd is not None and inp.acquired is not None and inp.cgt_date is not None:
+    be_lot = _break_even_lot(inp)
+    if be_lot is not None and inp.cgt_date is not None:
+        lot_cost, lot_acquired = be_lot
         be = cgt_break_even_price(
-            inp.current_price, inp.cost_usd,
-            inp.account_type, inp.acquired, inp.as_of,
+            inp.current_price, lot_cost,
+            inp.account_type, lot_acquired, inp.as_of,
         )
         if be is not None:
             days = max(0, (inp.cgt_date - inp.as_of).days)
@@ -254,6 +276,8 @@ def format_monitor(result: MonitorResult) -> str:
         lines.append("  └─────────────────────────────────────────────────────────┘")
         lines.append("")
         lines.append(f"  CGT discount: {max(0, days_to_cgt)} days to {inp.cgt_date}")
+    elif inp.all_eligible:
+        lines.append("  CGT discount: all open lots are already eligible.")
     else:
         lines.append("  No active thesis context — showing classifier outputs only.")
 

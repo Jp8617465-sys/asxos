@@ -1,0 +1,49 @@
+name: full-check
+
+# Full deterministic gate: ruff + mypy + the entire pytest suite (`make check`).
+# Complements targeted-ml-tests.yml (the fast ML-safety lane) by covering the
+# domains that lane deliberately skips — tax, portfolio, brief, regime, etc. A
+# logic regression outside models/ or signals/ is caught here, not in production.
+#
+# Installs the ml + dev extras so the full suite (including LightGBM/sklearn
+# tests) collects and runs; this matches the env where `pip install -e ".[ml]"`
+# is expected, so the documented sandbox-only ML collection gaps do not apply.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - "claude/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (ml + dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ml,dev]"
+
+      - name: Lint (ruff, whole repo)
+        run: ruff check .
+
+      - name: Type-check (mypy)
+        run: mypy asxos
+
+      - name: Test (full pytest suite)
+        run: python -m pytest -q

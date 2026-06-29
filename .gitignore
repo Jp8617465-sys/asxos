@@ -34,3 +34,6 @@ data/
 *.log
 /tmp/
 *.bak
+
+# subagent review-gate markers (local, diff-keyed)
+.claude/.review-passed-*

@@ -98,6 +98,7 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
     if holdings_rows and mv > 0:
         fx = Decimal(str(fx_rate)) if fx_rate is not None else None
         _NON_AU = (".US", ".NYSE", ".NASDAQ", ".AMEX")
+        priced: list[tuple[str, Decimal]] = []
         for hr in holdings_rows:
             mv_local = Decimal(str(hr["mv_local"]))
             sym = hr["symbol"]
@@ -107,7 +108,15 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
                 mv_aud = mv_local / fx
             else:
                 mv_aud = mv_local
-            conc_item = position_concentration(sym, mv_aud, mv, section=_SECTION)
+            priced.append((sym, mv_aud))
+        # The denominator must come from the SAME source as the numerator (the priced
+        # per-holding MVs), not the snapshot's holdings_mv_aud which may be derived
+        # from a different price date/source — else concentration % is skewed. Fall
+        # back to the snapshot MV only if nothing priced (e.g. all-FX, no fx rate).
+        total_priced = sum((m for _, m in priced), Decimal("0"))
+        denom = total_priced if total_priced > 0 else mv
+        for sym, mv_aud in priced:
+            conc_item = position_concentration(sym, mv_aud, denom, section=_SECTION)
             if conc_item:
                 items.append(conc_item)
 

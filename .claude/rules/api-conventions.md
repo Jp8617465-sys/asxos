@@ -45,7 +45,25 @@ paths:
 - Numbered SQL files in `migrations/`, applied via
   `mcp__supabase__apply_migration` against project `gxjqezqndltaelmyctnl`.
 - No `make migrate` runner — `make migrate` only prints the reminder.
-- After applying: bump `REQUIRED_MIGRATIONS` in `asxos/api/main.py`.
+- After applying: bump `REQUIRED_MIGRATIONS` in `asxos/api/main.py` to the observed
+  `SELECT count(*) FROM supabase_migrations.schema_migrations` (not a guessed +1).
+- **PRE-APPLY dependent-object check (required before any `ALTER`/`DROP COLUMN`/
+  `DROP TABLE`).** `migrations/` is not a complete picture of the live DB — out-of-band
+  objects can exist (e.g. the `stock_universe` view that tripped 0029). Before altering
+  a column or dropping an object, run via `mcp__supabase__execute_sql` and handle any
+  hit (e.g. drop+recreate the dependent view in the same migration):
+  ```sql
+  SELECT dependent_ns.nspname AS schema, dependent_view.relname AS view_name
+  FROM pg_depend d
+  JOIN pg_rewrite r ON r.oid = d.objid
+  JOIN pg_class dependent_view ON dependent_view.oid = r.ev_class
+  JOIN pg_namespace dependent_ns ON dependent_ns.oid = dependent_view.relnamespace
+  JOIN pg_class src ON src.oid = d.refobjid
+  JOIN pg_attribute a ON a.attrelid = src.oid AND a.attnum = d.refobjsubid
+  WHERE src.relname = '<table>' AND a.attname = '<column>';
+  ```
+  For a populated table also capture a before-image (`count/max/min`) and re-verify it
+  post-apply. See `docs/db-shared-project-audit-2026-06-28.md`.
 
 ## Testing
 

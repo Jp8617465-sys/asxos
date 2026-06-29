@@ -147,7 +147,7 @@ def train_model_a(
         raise ValueError("no rows remained after feature dropna")
 
     from lightgbm import LGBMClassifier, LGBMRegressor
-    from sklearn.metrics import mean_squared_error, roc_auc_score  # type: ignore[import-not-found]
+    from sklearn.metrics import mean_squared_error, roc_auc_score
 
     df = df.sort_values(["dt", "symbol"]).reset_index(drop=True)
     X = df[features].to_numpy(dtype=float)
@@ -168,6 +168,15 @@ def train_model_a(
         reg.fit(X[train_idx], y_reg[train_idx])
         pred = reg.predict(X[test_idx])
         rmses.append(float(np.sqrt(mean_squared_error(y_reg[test_idx], pred))))
+
+    if not aucs:
+        # walk_forward_split yielded no folds (panel too small) — np.mean([]) would
+        # silently return nan and ship a degenerate model. Fail loudly per
+        # CLAUDE.md non-negotiable #10 / ml-conventions MIN_SAMPLES gate.
+        raise ValueError(
+            "walk_forward_split produced no folds — insufficient training data; "
+            "refusing to return a degenerate TrainingResult (nan metrics)"
+        )
 
     final_clf = LGBMClassifier(**DEFAULT_CLF_PARAMS)
     final_clf.fit(X, y_class)

@@ -67,6 +67,16 @@ def test_parse_blank_sector():
     assert parse_fundamentals(raw)["sector"] is None
 
 
+def test_parse_trillion_dollar_market_cap_preserved():
+    # A >10^12 market cap (the value that overflows NUMERIC(18,6) and motivates
+    # migration 0029 widening to NUMERIC(24,6)) parses to the exact Decimal with
+    # no loss. Overflow itself is a DB-write concern; this pins that the value
+    # flows through the parser intact, so the widened column receives it whole.
+    raw = {**_FULL_RESPONSE, "Highlights": {**_FULL_RESPONSE["Highlights"],
+                                            "MarketCapitalization": 3_500_000_000_000}}
+    assert parse_fundamentals(raw)["market_cap"] == Decimal("3500000000000")
+
+
 def test_parse_null_pe_ratio():
     raw = {**_FULL_RESPONSE, "Highlights": {**_FULL_RESPONSE["Highlights"], "PERatio": None}}
     f = parse_fundamentals(raw)

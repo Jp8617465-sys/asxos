@@ -107,6 +107,16 @@ class FeatureEngine:
             raise ValueError(f"Missing required columns: {missing}")
 
         df = df.copy()
+        # Lookback features (momentum/vol/trend/ATR) use groupby("symbol").pct_change /
+        # rolling and depend on per-symbol ascending dt order. Fail loudly rather than
+        # silently emit wrong-but-finite features on unsorted input (callers — loader,
+        # retrain — already sort, so this never fires in production).
+        if not bool(
+            df.groupby("symbol")["dt"].apply(lambda s: s.is_monotonic_increasing).all()
+        ):
+            raise ValueError(
+                "compute_all_features requires rows sorted ascending by dt within each symbol"
+            )
         df = self._momentum(df)
         df = self._volatility(df)
         df = self._liquidity(df)

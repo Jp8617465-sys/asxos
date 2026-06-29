@@ -75,7 +75,9 @@ async def _create_theme(
             )
         console.print(f"[green]✓[/green] Created theme [bold]{theme.theme_code}[/bold] (#{theme.theme_id})")
         _print_theme_detail(theme)
-    except (ValueError, Exception) as exc:
+    except (ValueError, typer.BadParameter) as exc:
+        # User-input errors get a clean one-line message; unexpected/infra errors
+        # propagate with a traceback (CLAUDE.md non-negotiable #10 — fail loudly).
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
     finally:

@@ -8,6 +8,22 @@ from typing import Any, Literal
 
 
 @dataclass(frozen=True)
+class LotCgt:
+    """One open lot's CGT ladder rung, scoped to the active profile's account_type.
+
+    Lots are never pooled across account types: an individual and their SMSF are
+    separate CGT taxpayers (ITAA 1997 s 115-100; cost bases do not combine), so a
+    ladder only ever contains lots of one account_type.
+    """
+
+    quantity: Decimal
+    acquired_at: date
+    cost_base_normal: Decimal      # AUD, s 110-25
+    cgt_eligible_date: date        # acquired + 1yr + 1day (spec §5.1)
+    is_eligible: bool              # as_of >= cgt_eligible_date
+
+
+@dataclass(frozen=True)
 class MonitorInput:
     """All inputs for a single monitor run."""
 
@@ -36,7 +52,8 @@ class MonitorInput:
     cgt_date: date | None = None
     regime_label: str | None = None
 
-    # Account type (from holding_lots; used for CGT break-even calc)
+    # Account type (from the ACTIVE PROFILE; scopes the lot ladder + CGT break-even
+    # to one taxpayer — individual and SMSF lots are never pooled).
     account_type: str = "individual"
 
     # Price type flag — intraday vs confirmed close
@@ -51,6 +68,14 @@ class MonitorInput:
     analyst_neutral_count: int | None = None
     analyst_sell_count: int | None = None
     analyst_consensus_target: Decimal | None = None
+
+    # Per-lot CGT ladder (scoped to the active account_type; empty when no open
+    # lots). `cost_usd`/`shares`/`cgt_date` are the position-level headline scalars
+    # derived from these. `all_eligible` is True iff `lots` is non-empty AND every
+    # lot is already CGT-discount-eligible — distinct from the empty-ladder case
+    # where `cgt_date` is also None.
+    lots: tuple[LotCgt, ...] = field(default_factory=tuple)
+    all_eligible: bool = False
 
 
 @dataclass(frozen=True)

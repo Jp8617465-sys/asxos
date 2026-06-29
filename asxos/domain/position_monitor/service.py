@@ -14,7 +14,8 @@ Underlying handling:
 """
 from __future__ import annotations
 
-from datetime import timedelta
+import json
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -22,6 +23,7 @@ from dateutil.relativedelta import relativedelta
 
 from asxos.domain.brief.cross_layer import cross_layer_observations
 from asxos.domain.position_monitor.types import (
+    LotCgt,
     MonitorInput,
     MonitorResult,
     ScenarioState,
@@ -175,10 +177,27 @@ def build_monitor_result(
 # DB helpers
 # ---------------------------------------------------------------------------
 
-async def load_position_context(conn: Any, symbol: str) -> dict[str, Any]:
-    """Load thesis stop/target + lot cost/shares/acquired for a symbol.
+async def load_position_context(
+    conn: Any, symbol: str, *, account_type: str, as_of: date
+) -> dict[str, Any]:
+    """Load thesis stop/target + the active-account_type lot ladder for a symbol.
 
-    Returns an empty dict if no active thesis is found.
+    `account_type` is the ACTIVE PROFILE's account type, resolved by the caller
+    (the CLI composition root) and passed in. Lots are filtered to that account
+    type and never pooled across types: an individual and their SMSF are separate
+    CGT taxpayers (ITAA 1997 s 115-100), so the monitored position is the active
+    taxpayer's alone. v2 = dual per-account sub-positions (out of v1 scope); do NOT
+    "fix" this filter into a cross-account blend.
+
+    `account_type` is keyword-only and required — a default would silently
+    re-introduce the "assume individual" bug. Returns an empty dict if no active
+    thesis is found.
+
+    The headline scalars (`cost_usd` = weighted-average cost-per-share, `shares`,
+    `cgt_date`) are derived from all matching open lots, and the full per-lot ladder
+    is returned under `lots`. `cgt_date` is the earliest-still-ineligible lot's
+    eligible date (the next tranche to mature) — None when there are no lots OR when
+    every lot is already eligible; `all_eligible` disambiguates those two cases.
     """
     row = await conn.fetchrow(
         """
@@ -189,49 +208,89 @@ async def load_position_context(conn: Any, symbol: str) -> dict[str, Any]:
                t.analyst_neutral_count,
                t.analyst_sell_count,
                t.analyst_consensus_target,
-               hl.cost_base_normal,
-               hl.quantity,
-               hl.acquired_at   AS lot_acquired_at,
-               hl.account_type  AS lot_account_type
+               agg.total_cost,
+               agg.total_qty,
+               agg.lots
         FROM   theses t
-        LEFT   JOIN holding_lots hl
-               ON  hl.symbol = t.symbol
-               AND hl.disposed_at IS NULL
+        LEFT   JOIN LATERAL (
+            SELECT SUM(hl.cost_base_normal) AS total_cost,
+                   SUM(hl.quantity)         AS total_qty,
+                   jsonb_agg(jsonb_build_object(
+                       'quantity',         hl.quantity,
+                       'acquired_at',      hl.acquired_at,
+                       'cost_base_normal', hl.cost_base_normal
+                   ) ORDER BY hl.acquired_at, hl.id) AS lots
+            FROM   holding_lots hl
+            WHERE  hl.symbol = t.symbol
+              AND  hl.disposed_at IS NULL
+              AND  hl.quantity > 0
+              AND  hl.account_type = $2
+        ) agg ON TRUE
         WHERE  t.symbol = $1
           AND  t.status  = 'active'
         ORDER  BY t.opened_at DESC
         LIMIT  1
         """,
         symbol,
+        account_type,
     )
     if not row:
         return {}
 
-    acquired = row["lot_acquired_at"]
-    cgt_date = (
-        acquired + relativedelta(years=1) + timedelta(days=1)
-        if acquired is not None
-        else None
-    )
-    cost_per_share = (
-        row["cost_base_normal"] / row["quantity"]
-        if row["cost_base_normal"] is not None and row["quantity"]
-        else None
+    lots, cost_per_share, total_qty, cgt_date, all_eligible = _build_lot_ladder(
+        row["lots"], row["total_cost"], row["total_qty"], as_of,
     )
     return {
         "thesis_id": row["thesis_id"],
         "stop_price": row["stop_price"],
         "target_price": row["target_price"],
         "cost_usd": cost_per_share,
-        "shares": row["quantity"],
-        "acquired": acquired,
+        "shares": total_qty,
+        "acquired": lots[0].acquired_at if lots else None,
         "cgt_date": cgt_date,
-        "account_type": row["lot_account_type"] or "individual",
+        "account_type": account_type,
+        "lots": lots,
+        "all_eligible": all_eligible,
         "analyst_buy_count": row["analyst_buy_count"],
         "analyst_neutral_count": row["analyst_neutral_count"],
         "analyst_sell_count": row["analyst_sell_count"],
         "analyst_consensus_target": row["analyst_consensus_target"],
     }
+
+
+def _build_lot_ladder(
+    lots_raw: Any, total_cost: Decimal | None, total_qty: Decimal | None, as_of: date
+) -> tuple[tuple[LotCgt, ...], Decimal | None, Decimal | None, date | None, bool]:
+    """Parse the jsonb lot array into a typed CGT ladder + position headline scalars.
+
+    §5.1 calendar arithmetic (acquired + 1yr + 1day) lives here, the single source
+    of truth, matching cgt.is_discountable.
+    """
+    if not lots_raw:
+        return (), None, None, None, False
+    if isinstance(lots_raw, str):  # asyncpg may hand jsonb back as text
+        lots_raw = json.loads(lots_raw)
+
+    ladder: list[LotCgt] = []
+    for entry in lots_raw:  # already ordered acquired_at ASC, id ASC
+        acquired = date.fromisoformat(str(entry["acquired_at"])[:10])
+        eligible = acquired + relativedelta(years=1) + timedelta(days=1)
+        ladder.append(LotCgt(
+            quantity=Decimal(str(entry["quantity"])),
+            acquired_at=acquired,
+            cost_base_normal=Decimal(str(entry["cost_base_normal"])),
+            cgt_eligible_date=eligible,
+            is_eligible=as_of >= eligible,
+        ))
+
+    cost_per_share = (total_cost / total_qty) if total_cost is not None and total_qty else None
+    ineligible = [lot for lot in ladder if not lot.is_eligible]
+    if not ineligible:
+        cgt_date, all_eligible = None, True
+    else:
+        cgt_date = min(lot.cgt_eligible_date for lot in ineligible)
+        all_eligible = False
+    return tuple(ladder), cost_per_share, total_qty, cgt_date, all_eligible
 
 
 async def get_last_sentiment_inputs(conn: Any, symbol: str) -> dict[str, Any] | None:

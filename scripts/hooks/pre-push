@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# asxos pre-push gate — client-side mirror of the `full-check` CI workflow.
+#
+# Why this exists: on a free GitHub plan a PRIVATE repo cannot enforce branch
+# protection / rulesets server-side, so `full-check` runs and reports but cannot
+# BLOCK a merge. For a solo committer this hook is the real enforcement point: it
+# refuses a push whose ruff/mypy gate is red, catching regressions before they
+# leave the machine. CI still runs the full pytest suite as the backstop.
+#
+# Scope: ruff + mypy by default (seconds). Set RUN_TESTS=1 to also run the full
+# pytest suite locally before pushing. Bypass (use sparingly) with:
+#     git push --no-verify
+#
+# Install: `make install-hooks` (sets core.hooksPath to scripts/hooks).
+
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 1
+
+# Prefer the project venv tools; fall back to whatever is on PATH.
+if [ -x ".venv/bin/ruff" ]; then RUFF=".venv/bin/ruff"; else RUFF="ruff"; fi
+if [ -x ".venv/bin/mypy" ]; then MYPY=".venv/bin/mypy"; else MYPY="mypy"; fi
+if [ -x ".venv/bin/pytest" ]; then PYTEST=".venv/bin/pytest"; else PYTEST="pytest"; fi
+
+fail() {
+  echo ""
+  echo "  ✗ pre-push gate failed: $1"
+  echo "    Fix the issue, or bypass with 'git push --no-verify' (not recommended)."
+  echo ""
+  exit 1
+}
+
+# Each tool is best-effort: if it isn't installed in this environment, skip that
+# check (CI 'full-check' is the backstop) rather than block the push. On a full
+# dev env both ruff and mypy are present, so the gate bites.
+ran=""
+
+if command -v "${RUFF%% *}" >/dev/null 2>&1; then
+  echo "  → pre-push: ruff check ."
+  "$RUFF" check . || fail "ruff"
+  ran="ruff"
+else
+  echo "  ⚠ ruff not found — skipping (CI 'full-check' still runs)."
+fi
+
+if command -v "${MYPY%% *}" >/dev/null 2>&1; then
+  echo "  → pre-push: mypy asxos"
+  "$MYPY" asxos || fail "mypy"
+  ran="${ran:+$ran + }mypy"
+else
+  echo "  ⚠ mypy not found — skipping (CI 'full-check' still runs)."
+fi
+
+if [ "${RUN_TESTS:-0}" = "1" ] && command -v "${PYTEST%% *}" >/dev/null 2>&1; then
+  echo "  → pre-push: pytest (RUN_TESTS=1)"
+  "$PYTEST" -q || fail "pytest"
+  ran="${ran:+$ran + }pytest"
+fi
+
+echo "  ✓ pre-push gate passed (${ran:-no tools available})."
+exit 0

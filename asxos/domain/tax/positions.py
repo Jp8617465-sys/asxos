@@ -7,7 +7,7 @@ tax config. The CLI layer handles DB I/O.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from asxos.domain.tax.cgt import days_to_eligibility, net_capital_gain
 from asxos.domain.tax.div_296 import div296_liability
@@ -15,8 +15,11 @@ from asxos.domain.tax.dividends import (
     after_tax_dividend_individual,
     after_tax_dividend_smsf,
 )
+from asxos.domain.tax.medicare import medicare_levy_on
 from asxos.domain.tax.types import (
+    SMSF_TAX_RATE,
     CapitalGain,
+    CgtTaxOutcome,
     Div296Outcome,
     Dividend,
     HoldingLot,
@@ -25,6 +28,16 @@ from asxos.domain.tax.types import (
     SMSFConfig,
     TaxView,
 )
+
+_CENTS = Decimal("0.01")
+
+
+def _q(x: Decimal) -> Decimal:
+    """Quantize a tax *ledger line* to cents (ROUND_HALF_UP), matching the
+    cgt_break_even_price convention. Policy: ledger lines (income_tax, medicare,
+    total_tax) are quantized; bases (net_capital_gain, taxable_base) keep full
+    precision. (The dividend ledger does not quantize — CgtTaxOutcome does.)"""
+    return x.quantize(_CENTS, rounding=ROUND_HALF_UP)
 
 
 def tax_view_individual(
@@ -37,12 +50,29 @@ def tax_view_individual(
 ) -> TaxView:
     today = today or date.today()
     ncg: NetCapitalGain | None = None
+    cgt_tax: CgtTaxOutcome | None = None
     if realised_gains:
         ncg = net_capital_gain(
             realised_gains,
             current_year_losses=Decimal("0"),
             carried_forward_losses=config.carried_forward_capital_loss,
             account_type="individual",
+        )
+        # spec §5.3/§7: income tax + Medicare on the post-discount net gain.
+        base = ncg.net_capital_gain
+        income_tax = _q(base * config.marginal_rate)
+        # honour the taxpayer's configured rate (0 for low-income per §7.1), matching
+        # the dividend path — not the bare statutory constant.
+        medicare = _q(
+            medicare_levy_on(base, account_type="individual", rate=config.medicare_levy_rate)
+        )
+        cgt_tax = CgtTaxOutcome(
+            net_capital_gain=base,
+            exempt_proportion=Decimal("0"),
+            taxable_base=base,
+            income_tax=income_tax,
+            medicare=medicare,
+            total_tax=income_tax + medicare,
         )
 
     after_tax = Decimal("0")
@@ -66,6 +96,7 @@ def tax_view_individual(
         net_capital_gain=ncg,
         dividends_after_tax=after_tax,
         eligibility_alerts=alerts,
+        cgt_tax_outcome=cgt_tax,
     )
 
 
@@ -83,12 +114,29 @@ def tax_view_smsf(
 ) -> TaxView:
     today = today or date.today()
     ncg: NetCapitalGain | None = None
+    cgt_tax: CgtTaxOutcome | None = None
     if realised_gains:
         ncg = net_capital_gain(
             realised_gains,
             current_year_losses=Decimal("0"),
             carried_forward_losses=config.carried_forward_capital_loss,
             account_type="smsf",
+        )
+        # spec §4.2 fund rate (15%) on the post-discount net gain, less the ECPI
+        # exempt proportion. §5.2 states ECPI applies to the post-discount net
+        # capital gain ("independent and stack"); it is ignored only for the Div
+        # 296 base (§6.2), so the two paths do not double-count. Medicare is 0 for
+        # funds (§7). No numeric TC exists for non-zero ECPI (TC-12 is accumulation).
+        base = ncg.net_capital_gain
+        taxable_base = base * (Decimal("1") - config.fund_pension_proportion)
+        income_tax = _q(taxable_base * SMSF_TAX_RATE)
+        cgt_tax = CgtTaxOutcome(
+            net_capital_gain=base,
+            exempt_proportion=config.fund_pension_proportion,
+            taxable_base=taxable_base,
+            income_tax=income_tax,
+            medicare=_q(medicare_levy_on(base, account_type="smsf")),
+            total_tax=income_tax,
         )
 
     after_tax = Decimal("0")
@@ -135,4 +183,5 @@ def tax_view_smsf(
         div296_outcome=div296,
         eligibility_alerts=alerts,
         franking_warnings=warnings,
+        cgt_tax_outcome=cgt_tax,
     )

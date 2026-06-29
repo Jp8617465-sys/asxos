@@ -1,6 +1,6 @@
 # Tax alpha specification
 
-Version 1.1. Date 2026-05-19. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). See section 13 for the full delta from v1.0.
+Version 1.3. Date 2026-06-28. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). See section 13 for the full delta history.
 
 ## 1. Scope and non-goals
 
@@ -152,6 +152,38 @@ Worked example. Discountable gains $30,000, non-discountable gains $10,000, curr
 ### 5.3 Medicare levy on the net capital gain
 
 For individuals, Medicare levy applies to the net capital gain at the same 2% rate, on the same base (the post-discount, post-loss-offset amount included in taxable income via s 102-5). This is automatic by virtue of the levy applying to taxable income under s 251S(1)(a) ITAA 1936. See §7.
+
+### 5.4 CGT discount break-even price (decision-support heuristic)
+
+Governs `cgt_break_even_price()` in `asxos/domain/tax/cgt.py`, surfaced by the position monitor. This is a **decision-support hint, not a tax computation**: it estimates the minimum sale price *today* (before the s 115-100 discount is available) that nets the same after-tax proceeds as deferring the sale until the discount is available, holding the price constant.
+
+**Scope and assumptions (disclose to the user):**
+
+- The price is assumed unchanged at the current price `P` on the date the discount becomes available. A heuristic, not a forecast. It ignores the time value of money, dividends/franking received during the deferral, and transaction costs.
+- **Currency.** `P` and `cost` must be expressed in the **same currency**. For US lots, translate per §8.2 before calling; the function performs no Div 775 translation.
+- **Effective rate `r_eff`.** Individual: `r_eff = marginal_rate + 0.02` — the marginal rate plus the 2% Medicare levy, because the net capital gain enters taxable income and attracts the levy in *both* the sell-now and sell-later scenarios (§5.3, §7). SMSF: `r_eff = 0.15` (the §2 headline rate), Medicare 0 (§7: the levy does not apply to super funds).
+- **Medicare flat-rate validity.** The 2% individual addition is the *above-threshold flat* rate. It does **not** hold for an individual inside or below the §7.1 low-income shade-in band (~$28,011–$35,014 for FY 2026), where the marginal Medicare rate differs and the full vs discounted gain may sit at different points on the shade-in curve. Consistent with §2 ("the system does not implement the bracket table"), the heuristic uses the flat 2% and is only valid for an individual above the §7.1 threshold — the system's primary use case (a member at or near the Division 296 threshold, §2).
+
+**Discount fraction `d`** (§2): 0.5 individual; exact `1/3` SMSF (s 115-100(b)).
+
+**Formula.** Equate sell-now after-tax `P_sell − (P_sell − cost)·r_eff` with sell-later after-tax `P − (P − cost)·d·r_eff` and solve for `P_sell`:
+
+> P_sell = [ P·(1 − r_eff·d) − cost·r_eff·(1 − d) ] / (1 − r_eff)
+
+**The cost coefficient is `(1 − d)`, not `d`** — the two coincide only for individuals (d = 0.5), so an SMSF (d = 1/3) computed with `d` overstates the break-even price.
+
+**None (no meaningful answer) when:**
+
+- already discount-eligible (`days_to_eligibility == 0`, §5.1);
+- no unrealised gain (`P ≤ cost`);
+- `r_eff ≥ 1` (degenerate — the `(1 − r_eff)` denominator is non-positive). Validation of the marginal-rate *input* per §10 ("rate above 0.5 rejected") is the caller's responsibility; this heuristic does not re-validate it;
+- the computed `P_sell ≤ cost` (degenerate: tiny gain, very high rate).
+
+Quantize the result to cents with `ROUND_HALF_UP` (consistent with the CGT ledger convention).
+
+**TC-22 (individual).** P=100, cost=40, marginal_rate=0.45 → r_eff=0.47, d=0.5, not yet eligible. numerator = 100·(1 − 0.235) − 40·0.47·0.5 = 76.5 − 9.4 = 67.1; /0.53 = **126.60**. Round-trip: sell-later nets 100 − 60·0.5·0.47 = 85.90; sell-now @126.60 nets 126.60 − 86.60·0.47 = 85.90. ✓
+
+**TC-23 (SMSF).** P=100, cost=40, r_eff=0.15, d=1/3, not yet eligible. numerator = 100·(1 − 0.05) − 40·0.15·(2/3) = 95 − 4 = 91; /0.85 = **107.06**. Round-trip: sell-later nets 100 − 60·(1/3)·0.15 = 97.00; sell-now @107.06 nets 107.06 − 67.06·0.15 = 97.00. ✓
 
 ## 6. Division 296 (per ss 296-30 to 296-45 ITAA 1997 and Imposition Act 2026)
 
@@ -375,6 +407,8 @@ Each case below must be covered by a unit test referencing the spec section.
 | TC-19 | $1,000 fully franked dividend, 30% company, mixed-phase SMSF fund_pension_proportion=0.60 | After-tax cash $1,342.86 | §4.2 |
 | TC-20 | Asset acquired 2020-01-01 for $50,000, MV at 2026-06-30 $80,000, disposed 2027-01-01 for $100,000, SMSF accumulation with s 296-50 election | Fund CGT: net gain $33,333, tax $5,000. Div 296 earnings input: $13,333. | §6.4 |
 | TC-21 | Disposal 30 days after acquisition with dividend paid during the period | Warning surfaced; franking credit not auto-removed. | §4.3 |
+| TC-22 | Break-even: P=100, cost=40, individual marginal 0.45 (r_eff 0.47), not yet eligible | Break-even sale price $126.60 (sell-now nets = sell-later nets = $85.90) | §5.4 |
+| TC-23 | Break-even: P=100, cost=40, SMSF (r_eff 0.15, d=1/3), not yet eligible | Break-even sale price $107.06 (sell-now nets = sell-later nets = $97.00) | §5.4 |
 
 ## 12. Authoritative sources
 
@@ -420,6 +454,11 @@ Each case below must be covered by a unit test referencing the spec section.
 Direct fetching of the ATO franking and CGT pages returned 403 during preparation of v1.0; v1.1 confirms via the AustLII statutory text, the audit's verification against the Parliamentary Library Bills Digest, and the cross-referencing of the practitioner sources above. Before implementation cuts code, the final step is a direct read of the compiled Acts on the Federal Register of Legislation.
 
 ## 13. Change log
+
+**v1.3, 2026-06-28.** Adds §5.4 (CGT discount break-even price) to give the position-monitor heuristic a governing spec home, and corrects a tax-math error in the existing implementation:
+- Added §5.4: the break-even formula `P_sell = [P·(1 − r_eff·d) − cost·r_eff·(1 − d)] / (1 − r_eff)`, derived by equating sell-now and sell-later after-tax proceeds. **The cost coefficient is `(1 − d)`, not `d`** — the prior implementation used `d`, which is correct only for individuals (d=0.5) and overstates the break-even for SMSFs (d=1/3).
+- §5.4 effective rate: individual `r_eff = marginal + 0.02` (Medicare applies to the net capital gain on both sides, §5.3/§7); SMSF `r_eff = 0.15` (§2), Medicare 0. Discloses that the flat 2% is valid only above the §7.1 low-income shade-in band.
+- Added TC-22 (individual) and TC-23 (SMSF) to the §11 matrix, with round-trip-verified worked numbers. TC-23 is the regression lock against the old `d`-coefficient bug.
 
 **v1.2, 2026-05-27.** M15 US equities extension — §8 rewritten from "reserved for v2" placeholder to full Div 775 specification:
 - Added §8.1: statutory basis (s 775-15, s 775-20, s 775-30, ATO TR 2019/1).

@@ -28,6 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -259,15 +260,92 @@ async def list_evaluable_runs(
     return [{"run_id": r["run_id"], "as_of": r["as_of"]} for r in rows]
 
 
+# Continuity tolerance: the weekly build_portfolio cron runs every 7 days, so a
+# 14-day max gap tolerates exactly one missed slot (transient infra) but fails a
+# genuine multi-week blackout.
+_CONTINUITY_MAX_GAP_DAYS = 14
+
+
+def _cron_was_continuous(
+    successes: list[date],
+    window_open: date,
+    today: date,
+    *,
+    max_gap_days: int = _CONTINUITY_MAX_GAP_DAYS,
+) -> bool:
+    """True iff the weekly cron actually observed the maturation window.
+
+    `successes` are the `build_portfolio` job_runs success dates (ascending). The
+    window the paper trade must have been observed across is `[window_open, today]`.
+    Continuous means: a real run opened the window (earliest success on/before
+    window_open), the cron is currently alive (latest success within max_gap_days
+    of today), and there is no blackout > max_gap_days between consecutive runs.
+    """
+    if not successes:
+        return False
+    ordered = sorted(successes)
+    if ordered[0] > window_open:
+        return False  # the window did not open on a real run — not enough history
+    if ordered[-1] < today - timedelta(days=max_gap_days):
+        return False  # the cron is not currently alive (stale)
+    return all((b - a).days <= max_gap_days for a, b in pairwise(ordered))
+
+
 async def has_enough_paper_weeks(
     conn: asyncpg.Connection,
     *,
-    min_weeks: int = 4,
+    maturation_weeks: int = 4,
+    min_matured_runs: int = 1,
+    require_continuity: bool = True,
     today: date | None = None,
 ) -> bool:
-    """True when ≥ min_weeks evaluable runs exist (plan Part 0 Q3 sign-off gate)."""
-    runs = await list_evaluable_runs(conn, weeks=min_weeks, today=today)
-    return len(runs) >= min_weeks
+    """M13.8 sign-off gate: are there ≥`maturation_weeks` of OBSERVED paper-trade
+    evidence before flipping ``ASXOS_PORTFOLIO_BRIEF_ENABLED=1``?
+
+    Two independent, decoupled conditions (the old gate conflated count and weeks
+    into one number — needing ≥4 runs each ≥4 weeks old, which under weekly cadence
+    silently inflated "4 weeks" to ~7):
+
+    1. **Maturation** (`rebalance_runs`): at least `min_matured_runs` runs are old
+       enough to have `maturation_weeks` of subsequent price history
+       (`as_of <= today - maturation_weeks*7`). Default `min_matured_runs=1` — the
+       literal "4 weeks elapsed" reading.
+    2. **Continuity** (`job_runs`, the same source the brief freshness gate trusts):
+       the weekly `build_portfolio` cron actually ran across the window — no
+       blackout > 14 days, the window opened on a real run, and the cron is
+       currently alive. This is what stops a same-day backfill of one old-dated run
+       from gaming a pure-time gate.
+
+    Returns `pass_1 and pass_2`. Set `require_continuity=False` to gate on maturation
+    alone (e.g. for a manual override path).
+    """
+    if today is None:
+        today = date.today()
+    window_open = today - timedelta(days=maturation_weeks * 7)
+
+    matured = await conn.fetchval(
+        "SELECT COUNT(*) FROM rebalance_runs WHERE as_of <= $1",
+        window_open,
+    )
+    if (matured or 0) < min_matured_runs:
+        return False
+
+    if not require_continuity:
+        return True
+
+    rows = await conn.fetch(
+        """
+        SELECT as_of
+        FROM job_runs
+        WHERE job_name = 'build_portfolio'
+          AND status = 'success'
+          AND as_of >= $1
+        ORDER BY as_of
+        """,
+        window_open - timedelta(days=_CONTINUITY_MAX_GAP_DAYS),
+    )
+    successes = [r["as_of"] for r in rows]
+    return _cron_was_continuous(successes, window_open, today)
 
 
 async def record_signoff(

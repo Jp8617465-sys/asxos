@@ -100,7 +100,7 @@ def _d(s: Any) -> date | None:
         return None
 
 
-def _report_dates(fund: dict) -> dict[date, date | None]:
+def _report_dates(fund: dict[str, Any]) -> dict[date, date | None]:
     """period_end -> reportDate from Earnings.History (raw; may be future/None)."""
     out: dict[date, date | None] = {}
     history = ((fund.get("Earnings") or {}).get("History")) or {}
@@ -112,7 +112,7 @@ def _report_dates(fund: dict) -> dict[date, date | None]:
     return out
 
 
-def _promote(st: dict, stmt_type: str) -> dict[str, Decimal | None]:
+def _promote(st: dict[str, Any], stmt_type: str) -> dict[str, Decimal | None]:
     """Promote the scalar line items relevant to this statement type. The full raw
     statement is preserved in line_items JSONB regardless."""
     p: dict[str, Decimal | None] = dict.fromkeys(
@@ -131,12 +131,12 @@ def _promote(st: dict, stmt_type: str) -> dict[str, Decimal | None]:
 
 
 # Row tuple matches _UPSERT params $1..$14 (line_items is a JSON string -> ::jsonb).
-def to_statement_rows(fund: Any, symbol: str, *, as_of: date) -> list[tuple]:
+def to_statement_rows(fund: Any, symbol: str, *, as_of: date) -> list[tuple[Any, ...]]:
     """EODHD /fundamentals payload -> rs_financial_statements rows (3 statements x
     yearly+quarterly). `report_date` is joined from Earnings.History by period end.
     Statements with no `date`, or a period_end after `as_of` (unreported future
     period — EODHD should never return one, this is a safety net), are skipped."""
-    rows: list[tuple] = []
+    rows: list[tuple[Any, ...]] = []
     if not isinstance(fund, dict):
         return rows
     fin = fund.get("Financials") or {}

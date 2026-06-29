@@ -118,6 +118,17 @@ async def _run_tax_view(
         console.print("[yellow]Crossing 12-month boundary in next 30 days:[/yellow]")
         for a in view.eligibility_alerts:
             console.print(f"  - {a}")
+    if view.cgt_tax_outcome:
+        cgt = view.cgt_tax_outcome
+        console.print(
+            f"CGT tax (spec §5.3/§7): income_tax={cgt.income_tax:.2f}, "
+            f"medicare={cgt.medicare:.2f}, total={cgt.total_tax:.2f}"
+            + (
+                f"  [dim](ECPI exempt {cgt.exempt_proportion:.0%})[/dim]"
+                if cgt.exempt_proportion > 0
+                else ""
+            )
+        )
     if view.div296_outcome:
         div296 = view.div296_outcome
         console.print(
@@ -135,6 +146,8 @@ def tax_action(
 
 async def _run_tax_action(days_ahead: int) -> None:
     from datetime import timedelta
+
+    from dateutil.relativedelta import relativedelta
 
     from asxos.domain.tax.cgt import days_to_eligibility
 
@@ -171,7 +184,8 @@ async def _run_tax_action(days_ahead: int) -> None:
     table.add_column("days", justify="right")
 
     for r, d in soon:
-        eligible_at = r["acquired_at"] + timedelta(days=366)
+        # spec §5.1 — calendar arithmetic, not day-count (+366 is wrong across leap spans).
+        eligible_at = r["acquired_at"] + relativedelta(years=1) + timedelta(days=1)
         table.add_row(
             str(r["id"]),
             r["symbol"],

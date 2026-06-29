@@ -133,6 +133,7 @@ def thesis_open(
     reason: str = typer.Option("Initial thesis", "--reason", help="Opening rationale"),
 ) -> None:
     """Open a new investment thesis (research or watching status)."""
+    _require_personal_use()
     if status not in ("research", "watching"):
         raise typer.BadParameter("--status must be 'research' or 'watching'")
     if conviction and not (1 <= conviction <= 5):
@@ -191,6 +192,7 @@ def thesis_show(
     symbol: str = typer.Argument(..., help="Symbol, e.g. CBA.AU"),
 ) -> None:
     """Show the most recent thesis for a symbol (all fields)."""
+    _require_personal_use()
     asyncio.run(_show_thesis(symbol))
 
 
@@ -212,6 +214,7 @@ def thesis_list(
     status: str = typer.Option("", "--status", help="Filter: research|watching|active|exited|expired"),
 ) -> None:
     """List all theses (or filter by status)."""
+    _require_personal_use()
     asyncio.run(_list_theses(status.strip() or None))
 
 
@@ -240,6 +243,7 @@ def thesis_enter(
     qty: int = typer.Option(0, "--qty", help="Number of shares (informational)"),
 ) -> None:
     """Transition thesis to active — capital deployed."""
+    _require_personal_use()
     price = _parse_decimal(at, "entry price")
     asyncio.run(_enter_thesis(symbol, price, qty or None))
 
@@ -279,6 +283,7 @@ def thesis_revise(
 
     One field per invocation. --reason is required.
     """
+    _require_personal_use()
     changes: dict[str, object] = {}
     if thesis:
         changes["thesis_text"] = thesis.strip()
@@ -341,6 +346,7 @@ def _thesis_review_cmd(
     This is the core discipline scaffold. You must state why you are still
     holding. No field is changed. The event is recorded in thesis_revisions.
     """
+    _require_personal_use()
     asyncio.run(_review_thesis(symbol, reason))
 
 
@@ -379,6 +385,7 @@ def thesis_exit(
     redeploy: bool = typer.Option(False, "--redeploy", help="Show CGT-adjusted redeployment candidates after exit"),
 ) -> None:
     """Close a thesis position. Use --redeploy to see CGT-adjusted redeployment ranking."""
+    _require_personal_use()
     price = _parse_decimal(at, "exit price")
     if stop and hit_target:
         raise typer.BadParameter("Cannot use both --stop and --target")
@@ -465,6 +472,7 @@ def thesis_attach_underlying(
     The sum of all exposure weights per thesis must not exceed 1.0.
     Run `asx underlying list` to see available underlying codes.
     """
+    _require_personal_use()
     exposure_d = _parse_decimal(exposure, "exposure")
     if direction not in ("positive", "negative"):
         raise typer.BadParameter("--direction must be 'positive' or 'negative'")
@@ -503,6 +511,7 @@ def thesis_history(
     symbol: str = typer.Argument(..., help="Symbol, e.g. CBA.AU"),
 ) -> None:
     """Show the full revision history for a symbol's most recent thesis."""
+    _require_personal_use()
     asyncio.run(_thesis_history(symbol))
 
 

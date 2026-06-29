@@ -356,6 +356,34 @@ class TestCollectOpportunityCost:
 
         _run(_run_test())
 
+    def test_is_an_absolute_level_screen_not_a_delta(self):
+        # Documented==computed contract (Item 2): the threshold is the alternative's
+        # ABSOLUTE CGT-adjusted net return, with NO current-holding baseline. An alt
+        # at net 6% trips yellow regardless of any holding; net exactly 5% does not
+        # (the test is strict `>`). Guards against a future "delta vs current" drift.
+        async def _run_test():
+            def _row(net: str) -> object:
+                return _make_row(
+                    thesis_id=1, symbol="MIN.AU", alternative_symbol="PLS.AU",
+                    alternative_source="watchlist",
+                    gross_expected_return=Decimal("0.10"),
+                    estimated_cgt_friction=Decimal("0.04"),
+                    net_expected_return=Decimal(net), notes=None,
+                )
+            for net, expected in [("0.06", SeverityLevel.yellow),
+                                  ("0.05", SeverityLevel.green)]:
+                conn = AsyncMock()
+                conn.fetch.return_value = [_row(net)]
+                with patch(
+                    "asxos.domain.brief.collectors.opportunity_cost.acquire"
+                ) as mock_acquire:
+                    mock_acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+                    mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+                    result = await collect_opportunity_cost(AS_OF)
+                assert result.items[0].level == expected, net
+
+        _run(_run_test())
+
 
 # ── cross_layer ────────────────────────────────────────────────────────────────
 
