@@ -17,13 +17,12 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
   `div296_reset_date` config field is consumed by nothing. Requires a
   spec-amendment-governed change (CLAUDE.md non-negotiable #8 + `tax-spec-conformance`).
   Tracked in CLAUDE.md "Known coverage gaps".
-- **TC-21 45-day franking warning (s 207-145)** — unimplemented. Same governance:
-  spec amendment first, then code. Owner: `tax-spec-conformance` +
-  `docs/foundation/spec/tax-alpha.md`.
-- **SMSF ECPI-on-CGT numeric path is unverified** — §5.2 says the CGT discount and
-  ECPI exemption stack, but no §11 worked example has a non-zero
-  `fund_pension_proportion` on the CGT branch. Close by adding a TC-with-pension to
-  the §11 matrix. Owner: `docs/foundation/spec/tax-alpha.md` §11 + `tax-spec-conformance`.
+- ~~**TC-21 45-day franking warning (s 207-145)**~~ — **CLOSED** (session
+  2026-06-29). Implemented in `dividends.py::check_45_day_warnings` + wired into
+  `tax_view_smsf()`. Four tests cover the positive case and three boundary cases.
+- ~~**SMSF ECPI-on-CGT numeric path is unverified**~~ — **CLOSED** (session
+  2026-06-29). TC-24 added to spec §11 (v1.4) with matching test
+  `test_tc24_smsf_ecpi_stacks_with_cgt_discount`. Implementation was already correct.
 
 ## P2 — endpoints / honesty completions
 

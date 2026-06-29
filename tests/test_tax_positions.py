@@ -22,6 +22,7 @@ from asxos.domain.tax.types import (
     HoldingLot,
     IndividualConfig,
     SMSFConfig,
+    TaxView,
 )
 
 
@@ -39,11 +40,12 @@ def _div(cash: str) -> Dividend:
     )
 
 
-def _lot(symbol: str, acquired_at: date) -> HoldingLot:
+def _lot(symbol: str, acquired_at: date, disposed_at: date | None = None) -> HoldingLot:
     return HoldingLot(
         lot_id=1,
         symbol=symbol,
         acquired_at=acquired_at,
+        disposed_at=disposed_at,
         quantity=Decimal("100"),
         cost_base_normal=Decimal("1000"),
         cost_base_div296=Decimal("1000"),
@@ -118,6 +120,67 @@ def test_smsf_view_no_tsb_skips_div296() -> None:
         tsb_ref=None,
     )
     assert tv.div296_outcome is None
+
+
+def _smsf_view(lot: HoldingLot, div: Dividend) -> TaxView:
+    return tax_view_smsf(
+        lots=[lot],
+        realised_gains=[],
+        dividends=[div],
+        config=SMSFConfig(fund_pension_proportion=Decimal("0")),
+        tsb_ref=None,
+    )
+
+
+def test_tc21_45_day_franking_warning_surfaced() -> None:
+    # TC-21 (spec §4.3, s 207-145): 30-day hold → 29 clear days (< 45) → warn.
+    # Franking credit is NOT auto-removed (§4.3: informational only).
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 1, 31))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 1, 15),
+        cash_dividend=Decimal("500"), franking_pct=Decimal("1.0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert tv.franking_warnings
+    assert any("207-145" in w for w in tv.franking_warnings)
+    assert tv.dividends_after_tax > Decimal("0")  # credit not auto-removed
+
+
+def test_tc21_no_warning_when_held_45_clear_days() -> None:
+    # Boundary: (Feb 16 - Jan 1).days = 46 → clear_days = 45 ≥ 45 → no warning.
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 2, 16))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 1, 15),
+        cash_dividend=Decimal("500"), franking_pct=Decimal("1.0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert not any("207-145" in w for w in tv.franking_warnings)
+
+
+def test_tc21_no_warning_when_dividend_outside_holding_period() -> None:
+    # No warning if the dividend is paid after disposal.
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 1, 31))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 2, 15),  # after disposal
+        cash_dividend=Decimal("500"), franking_pct=Decimal("1.0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert not any("207-145" in w for w in tv.franking_warnings)
+
+
+def test_tc21_no_warning_for_unfranked_dividend() -> None:
+    # No warning if the dividend is unfranked — no credits to deny.
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 1, 31))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 1, 15),
+        cash_dividend=Decimal("500"), franking_pct=Decimal("0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert not any("207-145" in w for w in tv.franking_warnings)
 
 
 def test_smsf_election_emits_franking_warning() -> None:

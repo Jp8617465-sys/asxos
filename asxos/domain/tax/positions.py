@@ -14,6 +14,7 @@ from asxos.domain.tax.div_296 import div296_liability
 from asxos.domain.tax.dividends import (
     after_tax_dividend_individual,
     after_tax_dividend_smsf,
+    check_45_day_warnings_smsf,
 )
 from asxos.domain.tax.medicare import medicare_levy_on
 from asxos.domain.tax.types import (
@@ -79,6 +80,9 @@ def tax_view_individual(
     for div in dividends:
         after_tax += after_tax_dividend_individual(div, config).after_tax_cash
 
+    # spec §4.3: the 45-day qualified-person check is SMSF-only; the $5,000
+    # small-shareholder exemption (s 207-145(b)) covers most individuals and
+    # is not modelled here. Call check_45_day_warnings_smsf from tax_view_smsf.
     alerts: list[str] = []
     for lot in lots:
         if lot.disposed_at is not None:
@@ -174,6 +178,9 @@ def tax_view_smsf(
             "Div 296 election locks cost_base_div296 at MV(30-Jun-2026); "
             "depreciated assets eliminate pre-2026 capital loss from Div 296 earnings."
         )
+    # spec §4.3 (s 207-145): 45-day qualified-person warning for each disposed
+    # lot with a franked dividend during a short holding period.
+    warnings.extend(check_45_day_warnings_smsf(lots, dividends))
 
     return TaxView(
         account_type="smsf",
