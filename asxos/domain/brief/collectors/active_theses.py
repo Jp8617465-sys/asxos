@@ -20,6 +20,7 @@ from asxos.domain.brief.severity import (
     thesis_revisit_overdue,
     thesis_timeline_expired,
 )
+from asxos.domain.brief.shap import format_top_factors
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.divergence import detect_hidden_risk
@@ -63,6 +64,21 @@ async def collect_active_theses(as_of: date) -> SectionResult:
         })
         all_moves = await get_5d_moves(conn, all_underlying_ids, as_of) if all_underlying_ids else {}
 
+        # Steady-state ML explainability: latest Model A signal per thesis symbol.
+        # One batch query (DISTINCT ON, latest as_of) — same pattern as the V1
+        # signal-change line. Missing signal → no drivers line on that card.
+        all_symbols = [r["symbol"] for r in rows]
+        sig_rows = await conn.fetch(
+            """
+            SELECT DISTINCT ON (symbol) symbol, signal_label, shap_factors
+            FROM signals
+            WHERE symbol = ANY($1) AND model = 'model_a'
+            ORDER BY symbol, as_of DESC
+            """,
+            all_symbols,
+        )
+        sig_by_symbol = {r["symbol"]: r for r in sig_rows}
+
         for row in rows:
             thesis_id = row["thesis_id"]
             symbol = row["symbol"]
@@ -93,12 +109,21 @@ async def collect_active_theses(as_of: date) -> SectionResult:
 
             timeline_mo = f"{row['timeline_days'] // 30}mo" if row["timeline_days"] else "—"
 
+            # Steady-state ML driver line — why Model A rates this symbol today.
+            sig = sig_by_symbol.get(symbol)
+            signal_line = ""
+            if sig is not None:
+                drivers = format_top_factors(sig["shap_factors"], n=3)
+                drivers_str = f" | Top drivers: {drivers}" if drivers else ""
+                signal_line = f"\nModel A: {sig['signal_label']}{drivers_str}"
+
             msg = (
                 f"{symbol} | Active | {days_since}d\n"
                 f"{entry_str}"
                 f"Stop: {row['stop_price'] or '—'} | Target: {row['target_price'] or '—'} | {timeline_mo}\n"
                 f"Underlying: {score.label} (weighted {score.weighted_movement:+.2f}%)\n"
                 f"Revisit: {'overdue' if days_to_revisit < 0 else f'due in {days_to_revisit}d'}"
+                f"{signal_line}"
             )
 
             # Determine severity — expiry and overdue both red; expiry takes priority

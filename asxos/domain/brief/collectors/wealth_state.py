@@ -14,6 +14,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from asxos.domain.benchmark.returns import alpha, period_return
 from asxos.domain.brief.severity import portfolio_drawdown, position_concentration
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
 
@@ -29,7 +30,8 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
         """
         SELECT capital_aud, holdings_mv_aud, cash_aud,
                us_holdings_mv_aud, us_holdings_cost_aud,
-               fx_rate_audusd, unrealised_fx_pnl_aud
+               fx_rate_audusd, unrealised_fx_pnl_aud,
+               benchmark_tr_level, trailing_div_yield_pct
         FROM portfolio_daily_snapshots
         WHERE as_of = $1
         """,
@@ -38,6 +40,20 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
 
     peak_row = await conn.fetchrow(
         "SELECT MAX(capital_aud) AS peak FROM portfolio_daily_snapshots WHERE as_of <= $1",
+        as_of,
+    )
+
+    # Inception anchor for since-inception benchmark framing: the earliest
+    # snapshot that carries a benchmark level. NULL benchmark → this returns None
+    # and the benchmark line is omitted (self-healing once Stage 1 backfills).
+    inception_row = await conn.fetchrow(
+        """
+        SELECT as_of, capital_aud, benchmark_tr_level
+        FROM portfolio_daily_snapshots
+        WHERE benchmark_tr_level IS NOT NULL AND as_of <= $1
+        ORDER BY as_of ASC
+        LIMIT 1
+        """,
         as_of,
     )
 
@@ -84,6 +100,33 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
             items.append(SeverityItem(
                 level=SeverityLevel.green,
                 message=f"Portfolio AUD {capital:,.0f} · MV {mv:,.0f} · Cash {cash:,.0f} ({cash_ratio:.1f}%)",
+                section=_SECTION,
+            ))
+
+    # Benchmark-relative performance (the "are we beating the market?" line).
+    # Since-inception is the honest metric from point-in-time snapshots: anchor
+    # on the earliest snapshot carrying a benchmark level, compare portfolio
+    # capital growth to the XJO total-return level over the same window. Gated
+    # on a non-NULL current benchmark and a positive inception anchor — omitted
+    # entirely (self-healing) until Stage 1 backfills the benchmark columns.
+    cur_tr = row["benchmark_tr_level"]
+    if cur_tr is not None and inception_row is not None:
+        inc_cap = Decimal(str(inception_row["capital_aud"] or 0))
+        inc_tr = Decimal(str(inception_row["benchmark_tr_level"]))
+        cur_tr_d = Decimal(str(cur_tr))
+        if inc_cap > 0 and inc_tr > 0 and capital > 0:
+            port_pct = period_return(inc_cap, capital) * 100
+            bench_pct = period_return(inc_tr, cur_tr_d) * 100
+            alpha_pct = alpha(port_pct, bench_pct)
+            # "(approx)" flags the documented yield approximation; absent once the
+            # real accumulation index is wired (trailing_div_yield_pct then NULL).
+            approx = " approx" if row["trailing_div_yield_pct"] is not None else ""
+            items.append(SeverityItem(
+                level=SeverityLevel.green if alpha_pct >= 0 else SeverityLevel.yellow,
+                message=(
+                    f"Portfolio {port_pct:+.1f}% vs XJO-TR{approx} {bench_pct:+.1f}% "
+                    f"(since {inception_row['as_of']}) · alpha {alpha_pct:+.1f}%"
+                ),
                 section=_SECTION,
             ))
 

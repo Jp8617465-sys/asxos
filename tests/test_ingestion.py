@@ -12,7 +12,12 @@ import pytest
 
 import jobs.sync_prices as sync_prices_job
 from asxos.ingestion.eodhd import EODHDClient, _is_retryable
-from asxos.ingestion.prices import to_fx_rows, to_price_rows, to_us_price_rows
+from asxos.ingestion.prices import (
+    fetch_and_upsert_index_symbol,
+    to_fx_rows,
+    to_price_rows,
+    to_us_price_rows,
+)
 
 # ---------------------------------------------------------------------------
 # _is_retryable
@@ -242,6 +247,60 @@ def test_to_us_price_rows_correct_column_order():
 
 def test_to_us_price_rows_empty_input_returns_empty():
     assert to_us_price_rows([], symbol="AAPL.US") == []
+
+
+# ---------------------------------------------------------------------------
+# Index price ingestion — benchmark framing (Phase 1.5)
+# ---------------------------------------------------------------------------
+
+_INDEX_RAW = [
+    {"date": "2026-06-22", "open": 8500.0, "high": 8550.0, "low": 8480.0,
+     "close": 8520.0, "volume": 0, "adjusted_close": 8520.0},
+    {"date": "2026-06-23", "open": 8520.0, "high": 8560.0, "low": 8510.0,
+     "close": 8540.0, "volume": 0, "adjusted_close": 8540.0},
+]
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_upsert_index_symbol_no_remap():
+    """The .INDX symbol is the API symbol verbatim — no eodhd_symbol() remap,
+    and rows are upserted under that exact symbol (prices→universe FK)."""
+    client = MagicMock()
+    client.daily_prices = AsyncMock(return_value=_INDEX_RAW)
+    conn = AsyncMock()
+    conn.executemany = AsyncMock()
+
+    n = await fetch_and_upsert_index_symbol("AXJO.INDX", date(2026, 6, 22), client, conn)
+
+    assert n == 2
+    # API symbol passed verbatim (the bug we avoid: remapping AXJO.INDX)
+    client.daily_prices.assert_awaited_once_with("AXJO.INDX", from_date="2026-06-22")
+    # Rows upserted under the index symbol
+    upsert_rows = conn.executemany.await_args.args[1]
+    assert all(r[0] == "AXJO.INDX" for r in upsert_rows)
+    assert {r[1] for r in upsert_rows} == {date(2026, 6, 22), date(2026, 6, 23)}
+
+
+@pytest.mark.asyncio
+async def test_sync_index_prices_one_failure_does_not_abort(monkeypatch):
+    """A single index fetch failure is logged and skipped; others still count."""
+    async def _fake_fetch(sym, _from, _client, _conn):
+        if sym == "BAD.INDX":
+            raise RuntimeError("boom")
+        return 5
+
+    monkeypatch.setattr(sync_prices_job, "fetch_and_upsert_index_symbol", _fake_fetch)
+    total = await sync_prices_job._sync_index_prices(
+        ["AXJO.INDX", "BAD.INDX"], date(2026, 6, 22), MagicMock(), AsyncMock()
+    )
+    assert total == 5  # AXJO succeeded (5), BAD failed (skipped)
+
+
+@pytest.mark.asyncio
+async def test_sync_index_prices_empty_list_returns_zero():
+    assert await sync_prices_job._sync_index_prices(
+        [], date(2026, 6, 22), MagicMock(), AsyncMock()
+    ) == 0
 
 
 # ---------------------------------------------------------------------------

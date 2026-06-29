@@ -163,3 +163,26 @@ async def fetch_and_upsert_us_symbol(
     raw = await client.daily_prices(api_sym, from_date=from_date.isoformat())
     rows = to_us_price_rows(raw, symbol=symbol)
     return await upsert_prices(conn, rows)
+
+
+# ---------------------------------------------------------------------------
+# Index prices — benchmark framing (M-Brief-V2)
+# ---------------------------------------------------------------------------
+
+async def fetch_and_upsert_index_symbol(
+    symbol: str,
+    from_date: date,
+    client: EODHDClient,
+    conn: asyncpg.Connection,
+) -> int:
+    """Fetch + upsert prices for a single index symbol (e.g. AXJO.INDX).
+
+    The EODHD ``.INDX`` symbol is already canonical, so — unlike the US path —
+    there is NO ``eodhd_symbol()`` remap: the stored symbol IS the API symbol.
+    The per-symbol response shares the US shape (no ``code`` field), so
+    ``to_us_price_rows`` and the idempotent ``upsert_prices`` are reused. Index
+    rows have no volume; EODHD returns volume 0 / null, which upserts fine.
+    """
+    raw = await client.daily_prices(symbol, from_date=from_date.isoformat())
+    rows = to_us_price_rows(raw, symbol=symbol)
+    return await upsert_prices(conn, rows)

@@ -32,6 +32,7 @@ from asxos.domain.prices.coverage import (
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
     fetch_and_upsert_bulk,
+    fetch_and_upsert_index_symbol,
     fetch_and_upsert_us_symbol,
     to_fx_rows,
     upsert_fx_rates,
@@ -95,6 +96,23 @@ async def get_active_universe() -> set[str]:
         return {r["symbol"] for r in rows}
 
 
+async def get_index_symbols() -> list[str]:
+    """Benchmark index symbols (e.g. AXJO.INDX) — independent of is_active.
+
+    Indices are seeded is_active=FALSE (migration 0031): they are benchmark
+    references, not tradeable-equity universe members, so every equity job's
+    `WHERE is_active` (generate_signals, sync_fundamentals, retrain_model_a,
+    refresh_universe's delisting sweep) naturally excludes them — no ML-path
+    edits needed. They still need price ingestion, so this dedicated suffix
+    query feeds Phase 1.5. The prices→universe FK is satisfied by the seed row.
+    """
+    async with acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT symbol FROM universe WHERE symbol LIKE '%.INDX' ORDER BY symbol"
+        )
+        return [r["symbol"] for r in rows]
+
+
 async def _sync_us_prices(
     us_symbols: list[str],
     from_date: date,
@@ -119,6 +137,36 @@ async def _sync_us_prices(
     for sym, res in zip(us_symbols, results, strict=False):
         if isinstance(res, Exception):
             log.warning("sync_prices US: %s failed: %s", sym, res)
+        else:
+            total += res
+    return total
+
+
+async def _sync_index_prices(
+    index_symbols: list[str],
+    from_date: date,
+    client,
+    conn,
+) -> int:
+    """Phase 1.5: fetch + upsert prices for each index symbol concurrently.
+
+    Benchmark indices (e.g. AXJO.INDX) are NOT returned by the AU bulk endpoint
+    (equities only), so they need the per-symbol /eod path — mirroring the US
+    phase. A single index failure does not abort the run (return_exceptions).
+    """
+    if not index_symbols:
+        return 0
+    results = await asyncio.gather(
+        *[
+            fetch_and_upsert_index_symbol(sym, from_date, client, conn)
+            for sym in index_symbols
+        ],
+        return_exceptions=True,
+    )
+    total = 0
+    for sym, res in zip(index_symbols, results, strict=False):
+        if isinstance(res, Exception):
+            log.warning("sync_prices index: %s failed: %s", sym, res)
         else:
             total += res
     return total
@@ -152,6 +200,7 @@ async def main(from_date: date | None) -> None:
         au_rows = 0
         us_rows = 0
         fx_rows = 0
+        idx_rows = 0
 
         # Phase 1 — AU bulk, self-healing. One unified weekday loop from `start`
         # (day after the latest observed price date, or an explicit --from)
@@ -179,6 +228,19 @@ async def main(from_date: date | None) -> None:
                 days[0],
                 days[-1],
             )
+
+        # Phase 1.5 — index prices (benchmark framing). AXJO.INDX and any other
+        # `.INDX` symbol are fetched per-symbol because the AU bulk endpoint
+        # returns equities only. Index symbols are is_active=FALSE, so they come
+        # from a dedicated suffix query (not the active universe). Self-heals over
+        # the same window from `start`. snapshot_portfolio reads these to populate
+        # the benchmark columns of portfolio_daily_snapshots.
+        index_symbols = await get_index_symbols()
+        if index_symbols:
+            log.info("sync_prices index: %d symbols %s", len(index_symbols), index_symbols)
+            async with acquire() as conn:
+                idx_rows = await _sync_index_prices(index_symbols, start, client, conn)
+            log.info("sync_prices index: %d rows", idx_rows)
 
         # Phase 2 + 3 — US prices and FX rates (only when US holdings exist).
         # Both self-heal over the same window by fetching from `start`.
@@ -238,7 +300,7 @@ async def main(from_date: date | None) -> None:
                     fx_rows,
                 )
 
-        monitor.rows_written = au_rows + us_rows + fx_rows
+        monitor.rows_written = au_rows + us_rows + fx_rows + idx_rows
 
     await close_pool()
 

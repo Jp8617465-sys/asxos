@@ -163,16 +163,18 @@ def test_no_active_profile_raises():
 
 
 # ---------------------------------------------------------------------------
-# 4. Missing trailing yield — benchmark_tr_level stays NULL, row still written
+# 4. No benchmark index in prices — both benchmark columns stay NULL, row written
 # ---------------------------------------------------------------------------
 
-def test_missing_trailing_yield_writes_null_benchmark(monkeypatch):
-    """benchmark_tr_level=NULL when trailing yield is None; row written."""
+def test_no_index_writes_null_benchmark():
+    """benchmark_xjo_close + benchmark_tr_level NULL when neither index is in
+    prices (default-None dispatch); row still written."""
     fetchrow_map = {
         "job_runs": {"status": "success"},
         "profiles WHERE is_active": _PROFILE_ROW,
-        "AXJO.INDX": None,
         "fx_rates": _FX_ROW,
+        # the prices query (symbol param) falls through to the None default for
+        # both AXJO.INDX and the accumulation symbol.
     }
     fetch_map = {"current_holdings": []}  # empty holdings
     conn = _make_conn(fetchrow_map, fetch_map)
@@ -187,20 +189,119 @@ def test_missing_trailing_yield_writes_null_benchmark(monkeypatch):
     monitor = MagicMock()
     monitor.rows_written = 0
 
-    monkeypatch.setattr(job_mod, "_fetch_trailing_div_yield", lambda: None)
-
     with patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)):
         asyncio.run(job_mod._snapshot_one_day(AS_OF, monitor))
 
     assert monitor.rows_written == 1
     args = inserted_rows[0]
+    benchmark_xjo_close = args[4]
     benchmark_tr_level = args[5]
     trailing_div = args[6]
     holdings_count = args[7]
+    assert benchmark_xjo_close is None
     assert benchmark_tr_level is None
     assert trailing_div is None
     assert holdings_count == 0  # empty holdings
     assert args[2] == Decimal("0")  # holdings_mv_aud = 0
+
+
+# ---------------------------------------------------------------------------
+# 4b. benchmark_tr_level — accumulation index path + approximation path
+# ---------------------------------------------------------------------------
+
+def test_accumulation_tr_level_epoch_is_identity():
+    # At the epoch the overlay factor is 1 → tr level == price close.
+    assert job_mod._accumulation_tr_level(
+        Decimal("8000"), job_mod._TR_EPOCH
+    ) == Decimal("8000.000000")
+
+
+def test_accumulation_tr_level_overlay_is_positive_after_epoch():
+    assert job_mod._accumulation_tr_level(Decimal("8000"), date(2021, 6, 1)) > Decimal("8000")
+
+
+def test_accumulation_tr_level_ratio_cancels_epoch():
+    # The brief uses tr(t1)/tr(t0); the epoch cancels, leaving (1+yield)^Δyears.
+    # 2022-01-01 → 2023-01-01 is exactly 365 days → ratio == 1 + _ASX200_TR_YIELD.
+    c = Decimal("8000")
+    t0 = job_mod._accumulation_tr_level(c, date(2022, 1, 1))
+    t1 = job_mod._accumulation_tr_level(c, date(2023, 1, 1))
+    expected = Decimal("1") + job_mod._ASX200_TR_YIELD
+    assert abs(t1 / t0 - expected) < Decimal("0.0001")
+
+
+def _index_conn(xjo_close: str | None, accum_close: str | None):
+    """A conn whose prices fetchrow routes by the symbol arg, so the price index
+    and the accumulation index can return different values (the substring-based
+    _make_conn cannot, since both issue the same query string)."""
+    conn = MagicMock()
+
+    async def _fetchrow(query, *args):
+        if "job_runs" in query:
+            return {"status": "success"}
+        if "profiles WHERE is_active" in query:
+            return _PROFILE_ROW
+        if "FROM prices WHERE symbol" in query:
+            sym = args[0]
+            if sym == job_mod._XJO_SYMBOL and xjo_close is not None:
+                return {"close": xjo_close}
+            if sym == job_mod._XJO_TR_SYMBOL and accum_close is not None:
+                return {"close": accum_close}
+            return None
+        if "fx_rates" in query:
+            return _FX_ROW
+        return None
+
+    async def _fetch(query, *args):
+        return []
+
+    conn.fetchrow = _fetchrow
+    conn.fetch = _fetch
+    return conn
+
+
+def test_benchmark_tr_level_approximation_when_only_price_index():
+    """AXJO.INDX present, accumulation absent → tr is the documented overlay and
+    trailing_div_yield_pct records the assumed yield."""
+    conn = _index_conn(xjo_close="8000.000000", accum_close=None)
+    inserted: list = []
+
+    async def _execute(query, *args):
+        if "INSERT INTO portfolio_daily_snapshots" in query:
+            inserted.append(args)
+
+    conn.execute = _execute
+    monitor = MagicMock()
+    monitor.rows_written = 0
+
+    with patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)):
+        asyncio.run(job_mod._snapshot_one_day(AS_OF, monitor))
+
+    args = inserted[0]
+    assert args[4] == Decimal("8000.000000")          # benchmark_xjo_close
+    assert args[5] > Decimal("8000")                  # benchmark_tr_level (overlay)
+    assert args[6] == job_mod._ASX200_TR_YIELD * Decimal("100")  # trailing_div_yield_pct
+
+
+def test_benchmark_tr_level_prefers_real_accumulation_index():
+    """Accumulation index present → tr uses it verbatim, trailing yield NULL."""
+    conn = _index_conn(xjo_close="8000.000000", accum_close="9999.000000")
+    inserted: list = []
+
+    async def _execute(query, *args):
+        if "INSERT INTO portfolio_daily_snapshots" in query:
+            inserted.append(args)
+
+    conn.execute = _execute
+    monitor = MagicMock()
+    monitor.rows_written = 0
+
+    with patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)):
+        asyncio.run(job_mod._snapshot_one_day(AS_OF, monitor))
+
+    args = inserted[0]
+    assert args[5] == Decimal("9999.000000")  # benchmark_tr_level = real index
+    assert args[6] is None                    # trailing_div_yield_pct (index embeds divs)
 
 
 # ---------------------------------------------------------------------------
