@@ -126,7 +126,8 @@ def tax_view_smsf(
         # exempt proportion. §5.2 states ECPI applies to the post-discount net
         # capital gain ("independent and stack"); it is ignored only for the Div
         # 296 base (§6.2), so the two paths do not double-count. Medicare is 0 for
-        # funds (§7). No numeric TC exists for non-zero ECPI (TC-12 is accumulation).
+        # funds (§7). TC-24 (§5.2, §4.2) is the numeric lock for the stacking path
+        # (discountable gain + non-zero fund_pension_proportion).
         base = ncg.net_capital_gain
         taxable_base = base * (Decimal("1") - config.fund_pension_proportion)
         income_tax = _q(taxable_base * SMSF_TAX_RATE)

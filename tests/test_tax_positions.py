@@ -208,9 +208,9 @@ def test_tc12_smsf_accumulation_fund_tax_15pct() -> None:
 
 
 def test_smsf_ecpi_reduces_cgt_fund_tax() -> None:
-    # INFERRED (no §11 worked example): ECPI exempt proportion reduces the CGT
-    # fund-tax base. $10,000 non-discountable gain, SMSF 60% pension →
-    # taxable_base 4000, fund tax 0.15 = $600. Flagged for spec confirmation.
+    # Non-discountable path: no CGT discount, just ECPI. $10,000 non-discountable
+    # gain, SMSF 60% pension → taxable_base 4000, fund tax $600.
+    # The stacking path (discountable + ECPI) is covered by TC-24 below.
     gain = CapitalGain("BBB", Decimal("10000"), discountable=False, holding_period_days=100)
     tv = tax_view_smsf(
         lots=[],
@@ -222,6 +222,29 @@ def test_smsf_ecpi_reduces_cgt_fund_tax() -> None:
     assert tv.cgt_tax_outcome is not None
     assert tv.cgt_tax_outcome.taxable_base == Decimal("4000.0")
     assert tv.cgt_tax_outcome.income_tax == Decimal("600.00")
+
+
+def test_tc24_smsf_ecpi_stacks_with_cgt_discount() -> None:
+    # TC-24 (spec §5.2, §4.2): $10,000 discountable gain, SMSF 60% pension.
+    # 1/3 CGT discount → net gain $6,666.67; ECPI exempt (60%) → taxable base
+    # $2,666.67; fund tax at 15% = $400.00; Medicare 0.
+    # Confirms the CGT discount and ECPI exemption are independent and stack
+    # (§5.2 last paragraph). This is the numeric lock for the previously
+    # unverified SMSF non-zero fund_pension_proportion path on the CGT branch.
+    gain = CapitalGain("BBB", Decimal("10000"), discountable=True, holding_period_days=400)
+    tv = tax_view_smsf(
+        lots=[],
+        realised_gains=[gain],
+        dividends=[],
+        config=SMSFConfig(fund_pension_proportion=Decimal("0.6")),
+        tsb_ref=None,
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert _approx(tv.cgt_tax_outcome.net_capital_gain, "6666.67")
+    assert _approx(tv.cgt_tax_outcome.taxable_base, "2666.67")
+    assert tv.cgt_tax_outcome.income_tax == Decimal("400.00")
+    assert tv.cgt_tax_outcome.medicare == Decimal("0")
+    assert tv.cgt_tax_outcome.total_tax == Decimal("400.00")
 
 
 def test_individual_net_loss_produces_zero_cgt_tax() -> None:
