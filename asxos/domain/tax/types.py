@@ -184,10 +184,9 @@ class CgtTaxOutcome:
                 net capital gain per §5.2 — "the CGT discount and the ECPI exemption
                 are independent and stack"); medicare = 0 (§7, no levy on funds).
 
-    NOTE: §5.2 states the ECPI-on-net-gain *mechanism* explicitly, so this is not an
-    inference. What is unverified is only the *numeric* path: the §11 matrix has no
-    worked example with a non-zero fund_pension_proportion on the CGT branch (TC-12
-    is accumulation-only). See CLAUDE.md known coverage gaps.
+    TC-24 (spec §5.2, §4.2) is the numeric lock for the stacking path: $10,000
+    discountable gain, SMSF 60% pension → net gain $6,666.67, taxable base $2,666.67,
+    fund tax $400.00. Previously flagged as unverified in CLAUDE.md; closed in v1.4.
     """
 
     net_capital_gain: Decimal  # the base (echo of NetCapitalGain.net_capital_gain)

@@ -92,17 +92,18 @@ any "X is covered" claim — including this file. Current known gaps:
   `tax_view_*` (`asxos/domain/tax/positions.py`) emit a `CgtTaxOutcome`
   (income_tax + medicare + total_tax) on the net-gain branch: individual = marginal
   + 2% (TC-11 $1,950, asserted end-to-end); SMSF = 15% on the ECPI-adjusted base,
-  Medicare 0. Two residual items (flagged in code, not blocking): (a) the SMSF
-  ECPI-on-CGT *mechanism* is spec-explicit (§5.2: "the CGT discount and the ECPI
-  exemption are independent and stack"), but the §11 matrix has no *numeric* worked
-  example with a non-zero `fund_pension_proportion` on the CGT branch — only that
-  numeric path is unverified; and (b) the cents-quantization of the CGT ledger lines
-  is a documented choice (bases keep full precision). Closing (a) = add a
-  TC-with-pension to the spec §11 matrix.
-- **Div 296 TC-20 (cost-base reset, s 296-50) and TC-21 (45-day franking warning,
-  s 207-145) are unimplemented**, not merely untested. `div296_reset_date` is a
-  config field nothing consumes yet. Building either is a spec-governed change
-  (non-negotiable #8 — requires a spec amendment, not an ad-hoc fix).
+  Medicare 0. One residual item (not blocking): the cents-quantization of the CGT
+  ledger lines is a documented choice (bases keep full precision). Previously
+  unverified SMSF ECPI-on-CGT stacking path **closed by TC-24** (spec v1.4, §5.2,
+  §4.2): $10,000 discountable gain, 60% pension → net gain $6,666.67, taxable base
+  $2,666.67, fund tax $400.00. See `tests/test_tax_positions.py::test_tc24_smsf_ecpi_stacks_with_cgt_discount`.
+- **Div 296 TC-20 (cost-base reset, s 296-50) is unimplemented**, not merely
+  untested. `div296_reset_date` is a config field nothing consumes yet. Building
+  it is a spec-governed change (non-negotiable #8 — requires a spec amendment).
+- **TC-21 (45-day franking warning, s 207-145) is now implemented** in
+  `asxos/domain/tax/dividends.py::check_45_day_warnings` + wired into
+  `tax_view_smsf()`. Four tests in `test_tax_positions.py` cover the positive
+  case and three boundary cases. Credits are never auto-removed (§4.3).
 
 ## Auto-activating rules
 

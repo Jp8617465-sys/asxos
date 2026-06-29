@@ -1,6 +1,6 @@
 # Tax alpha specification
 
-Version 1.3. Date 2026-06-28. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). See section 13 for the full delta history.
+Version 1.4. Date 2026-06-29. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT stacking numeric verification). See section 13 for the full delta history.
 
 ## 1. Scope and non-goals
 
@@ -409,6 +409,7 @@ Each case below must be covered by a unit test referencing the spec section.
 | TC-21 | Disposal 30 days after acquisition with dividend paid during the period | Warning surfaced; franking credit not auto-removed. | §4.3 |
 | TC-22 | Break-even: P=100, cost=40, individual marginal 0.45 (r_eff 0.47), not yet eligible | Break-even sale price $126.60 (sell-now nets = sell-later nets = $85.90) | §5.4 |
 | TC-23 | Break-even: P=100, cost=40, SMSF (r_eff 0.15, d=1/3), not yet eligible | Break-even sale price $107.06 (sell-now nets = sell-later nets = $97.00) | §5.4 |
+| TC-24 | $10,000 discountable gain (held > 12 months), SMSF fund_pension_proportion=0.60 | 1/3 CGT discount → net gain $6,666.67. ECPI exempt (60%) → taxable base $2,666.67. Fund tax at 15% = $400.00. Medicare 0. (§5.2: discount and ECPI are independent and stack.) | §5.2, §4.2 |
 
 ## 12. Authoritative sources
 
@@ -454,6 +455,10 @@ Each case below must be covered by a unit test referencing the spec section.
 Direct fetching of the ATO franking and CGT pages returned 403 during preparation of v1.0; v1.1 confirms via the AustLII statutory text, the audit's verification against the Parliamentary Library Bills Digest, and the cross-referencing of the practitioner sources above. Before implementation cuts code, the final step is a direct read of the compiled Acts on the Federal Register of Legislation.
 
 ## 13. Change log
+
+**v1.4, 2026-06-29.** Closes the SMSF ECPI-on-CGT stacking gap flagged in CLAUDE.md "Known coverage gaps":
+- Added TC-24 to §11 matrix: $10,000 discountable gain (held > 12 months), SMSF fund_pension_proportion=0.60. Validates numerically that the 1/3 CGT discount and the ECPI exemption apply independently and stack (§5.2 last paragraph): discount reduces the gain to $6,666.67, then 60% ECPI exempt reduces the taxable base to $2,666.67, fund tax at 15% = $400.00.
+- The implementation in `asxos/domain/tax/positions.py` was already correct. TC-24 provides the missing §11 numeric worked example and closes the "no TC with non-zero fund_pension_proportion on the CGT branch" gap noted in `tests/test_tax_positions.py:test_smsf_ecpi_reduces_cgt_fund_tax`.
 
 **v1.3, 2026-06-28.** Adds §5.4 (CGT discount break-even price) to give the position-monitor heuristic a governing spec home, and corrects a tax-math error in the existing implementation:
 - Added §5.4: the break-even formula `P_sell = [P·(1 − r_eff·d) − cost·r_eff·(1 − d)] / (1 − r_eff)`, derived by equating sell-now and sell-later after-tax proceeds. **The cost coefficient is `(1 − d)`, not `d`** — the prior implementation used `d`, which is correct only for individuals (d=0.5) and overstates the break-even for SMSFs (d=1/3).
