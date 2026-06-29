@@ -49,6 +49,13 @@ def test_infer_currency_us_suffix_returns_usd() -> None:
     assert _infer_currency("AAPL.US") == "USD"
 
 
+def test_infer_currency_other_us_exchanges_return_usd() -> None:
+    # All US-exchange suffixes are USD — not just .US (the bug being prevented).
+    assert _infer_currency("HUBS.NYSE") == "USD"
+    assert _infer_currency("MSFT.NASDAQ") == "USD"
+    assert _infer_currency("X.AMEX") == "USD"
+
+
 def test_infer_currency_asx_returns_aud() -> None:
     assert _infer_currency("BHP.AU") == "AUD"
     assert _infer_currency("CBA") == "AUD"

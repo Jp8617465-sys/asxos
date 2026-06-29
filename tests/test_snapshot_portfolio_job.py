@@ -124,6 +124,54 @@ def test_happy_path_writes_row(monkeypatch):
     assert capital_aud == (holdings_mv_aud + cash_aud).quantize(Decimal("0.000001"))
 
 
+def test_nyse_holding_is_fx_converted(monkeypatch):
+    """A .NYSE holding (USD close) must be FX-converted like .US — the bug being
+    fixed booked it 1:1 into holdings_mv_aud. Regression guard for task #7."""
+    holdings = [
+        {"symbol": "BHP.AU", "quantity": "100.000000", "close": "45.200000"},
+        {"symbol": "HUBS.NYSE", "quantity": "5.000000", "close": "150.000000"},
+    ]
+    fetchrow_map = {
+        "job_runs": {"status": "success"},
+        "profiles WHERE is_active": _PROFILE_ROW,
+        "fx_rates": _FX_ROW,  # AUDUSD 0.6251
+    }
+    fetch_map = {
+        "current_holdings": holdings,
+        # the us_cost query now matches all foreign suffixes
+        "SUM(hl.cost_base_normal)": [{"total_cost_aud": Decimal("7000.000000")}],
+    }
+    conn = _make_conn(fetchrow_map, fetch_map)
+
+    inserted: list = []
+
+    async def _execute(query, *args):
+        if "INSERT INTO portfolio_daily_snapshots" in query:
+            inserted.append(args)
+
+    conn.execute = _execute
+    monitor = MagicMock()
+    monitor.rows_written = 0
+
+    with patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)):
+        asyncio.run(job_mod._snapshot_one_day(AS_OF, monitor))
+
+    args = inserted[0]
+    holdings_mv_aud = args[2]
+    us_mv_aud = args[8]
+    us_cost_aud = args[9]
+
+    # BHP 100*45.2 = 4520 AUD; HUBS.NYSE 5*150/0.6251 = 1199.808... AUD (NOT 750)
+    hubs_aud = Decimal("5") * Decimal("150") / Decimal("0.6251")
+    expected_total = (Decimal("4520") + hubs_aud).quantize(Decimal("0.000001"))
+    assert abs(holdings_mv_aud - expected_total) < Decimal("0.01")
+    # us_mv_aud is the .NYSE leg only (FX-converted) — proves it wasn't booked 1:1
+    assert abs(us_mv_aud - hubs_aud.quantize(Decimal("0.000001"))) < Decimal("0.01")
+    assert holdings_mv_aud > Decimal("5000")  # the buggy 1:1 path would give 5270
+    # cost query now matches .NYSE → us_cost_aud populated (was NULL under '%.US')
+    assert us_cost_aud == Decimal("7000.000000")
+
+
 # ---------------------------------------------------------------------------
 # 2. Upstream blocked — sync_prices not success
 # ---------------------------------------------------------------------------

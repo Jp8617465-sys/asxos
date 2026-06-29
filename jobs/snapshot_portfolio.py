@@ -42,6 +42,7 @@ from decimal import Decimal
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.fx import foreign_symbol_sql, is_foreign_symbol
 from asxos.jobs._helpers import UpstreamBlocked
 from asxos.jobs.utils.job_monitor import JobMonitor
 
@@ -116,7 +117,8 @@ async def _compute_holdings_mv(
     """Compute total market value of current_holdings on as_of.
 
     AU symbols: price in AUD, no FX conversion needed.
-    US symbols: price in USD, converted to AUD via most recent AUDUSD rate.
+    US-exchange (USD) symbols — any FOREIGN_SUFFIXES (.US/.NYSE/.NASDAQ/.AMEX):
+    price in USD, converted to AUD via most recent AUDUSD rate.
     Returns (holdings_mv_aud, holdings_count, us_mv_aud, us_cost_aud, fx_rate_audusd).
     """
     # Fetch the most recent AUDUSD rate on or before as_of (monthly data)
@@ -149,7 +151,7 @@ async def _compute_holdings_mv(
         qty = Decimal(str(r["quantity"]))
         close = Decimal(str(r["close"]))
         price_aud: Decimal
-        if r["symbol"].endswith(".US"):
+        if is_foreign_symbol(r["symbol"]):
             if audusd_rate is None:
                 raise RuntimeError(
                     f"No AUDUSD FX rate on or before {as_of} — "
@@ -167,10 +169,10 @@ async def _compute_holdings_mv(
     us_cost_aud: Decimal | None = None
     if us_mv_aud is not None:
         us_cost_rows = await conn.fetch(
-            """
+            f"""
             SELECT SUM(hl.cost_base_normal) AS total_cost_aud
             FROM holding_lots hl
-            WHERE hl.disposed_at IS NULL AND hl.symbol LIKE '%.US'
+            WHERE hl.disposed_at IS NULL AND {foreign_symbol_sql("hl.symbol")}
             """
         )
         if us_cost_rows and us_cost_rows[0]["total_cost_aud"] is not None:

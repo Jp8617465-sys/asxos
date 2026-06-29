@@ -8,6 +8,7 @@ import typer
 
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.fx import is_foreign_symbol
 
 
 def import_holdings(
@@ -34,10 +35,11 @@ def import_holdings(
 
 
 def _infer_currency(symbol: str) -> str:
-    """Infer currency from exchange suffix (.US → USD, everything else → AUD)."""
-    if symbol.endswith(".US"):
-        return "USD"
-    return "AUD"
+    """Infer currency from exchange suffix.
+
+    Any US-exchange suffix (.US/.NYSE/.NASDAQ/.AMEX) → USD; everything else → AUD.
+    """
+    return "USD" if is_foreign_symbol(symbol) else "AUD"
 
 
 async def _ensure_in_universe(conn: Any, symbol: str) -> None:

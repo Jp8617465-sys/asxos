@@ -23,19 +23,24 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "check_us_positions"
 
 
 async def _fetch_us_theses(conn) -> list[dict]:  # type: ignore[no-untyped-def, type-arg]
-    """Return active theses for US symbols with stop + earnings data."""
+    """Return active theses for US-exchange symbols with stop + earnings data.
+
+    Matches every FOREIGN_SUFFIXES exchange (.US/.NYSE/.NASDAQ/.AMEX), not just
+    `.US` — otherwise a `.NYSE` thesis (e.g. HUBS.NYSE) is silently unmonitored.
+    """
     rows = await conn.fetch(
-        """
+        f"""
         SELECT thesis_id, symbol, stop_price, next_earnings_date
         FROM   theses
         WHERE  status = 'active'
-          AND  symbol LIKE '%.US'
+          AND  {foreign_symbol_sql("symbol")}
         ORDER  BY symbol
         """
     )

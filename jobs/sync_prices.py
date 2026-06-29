@@ -29,6 +29,7 @@ from asxos.domain.prices.coverage import (
     classify_sync_completeness,
     latest_observed_price_date,
 )
+from asxos.domain.prices.fx import foreign_symbol_sql, is_foreign_symbol
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
     fetch_and_upsert_bulk,
@@ -292,15 +293,11 @@ async def main(from_date: date | None) -> None:
 
         # Phase 2 + 3 — US prices and FX rates (only when US holdings exist).
         # Both self-heal over the same window by fetching from `start`.
-        _NON_AU_SUFFIXES = (".US", ".NYSE", ".NASDAQ", ".AMEX")
         async with acquire() as conn:
-            us_symbols = [s for s in universe if any(s.endswith(sfx) for sfx in _NON_AU_SUFFIXES)]
+            us_symbols = [s for s in universe if is_foreign_symbol(s)]
             us_acquired_start: date | None = await conn.fetchval(
                 "SELECT MIN(acquired_at) FROM holding_lots"
-                " WHERE symbol LIKE '%.US'"
-                "    OR symbol LIKE '%.NYSE'"
-                "    OR symbol LIKE '%.NASDAQ'"
-                "    OR symbol LIKE '%.AMEX'"
+                f" WHERE {foreign_symbol_sql('symbol')}"
             )
 
         if us_symbols:

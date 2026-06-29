@@ -17,6 +17,7 @@ from typing import Any
 from asxos.domain.benchmark.returns import alpha, period_return
 from asxos.domain.brief.severity import portfolio_drawdown, position_concentration
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
+from asxos.domain.prices.fx import is_foreign_symbol
 
 _SECTION = "wealth_state"
 
@@ -140,12 +141,11 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
     # Per-holding concentration (only when we have per-symbol price data)
     if holdings_rows and mv > 0:
         fx = Decimal(str(fx_rate)) if fx_rate is not None else None
-        _NON_AU = (".US", ".NYSE", ".NASDAQ", ".AMEX")
         priced: list[tuple[str, Decimal]] = []
         for hr in holdings_rows:
             mv_local = Decimal(str(hr["mv_local"]))
             sym = hr["symbol"]
-            if any(sym.endswith(sfx) for sfx in _NON_AU):
+            if is_foreign_symbol(sym):
                 if fx is None:
                     continue
                 mv_aud = mv_local / fx
