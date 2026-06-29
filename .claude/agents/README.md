@@ -120,10 +120,12 @@ columns — there is **no** `constraints_json`. `signals.model='model_a'`.
   `regulatory_events`, and `signal_sentiment`. The "here's what's going on in the
   market" input to a portfolio review. Every sentence carries a number or named source.
 
-The path to a full portfolio-manager synthesizer: **Stage 1 (done)** wired the data
-pipeline (AXJO.INDX ingestion, steady-state SHAP in the brief, benchmark rendering);
-**Stage 2 (done)** corrected and live-validated these four agents' SQL and added the
-pure-Decimal `theses/trajectory.py` + `benchmark/returns.py` helpers; **Stage 3** adds a
-market-context narrator; **Stage 4** is the `/pm-review` slash command that fans out all
-five agents and synthesizes the "good buy / bad buy / here's why" verdict (a slash
-command, because a subagent cannot spawn subagents — the main loop does the fan-out).
+The path to a full portfolio-manager synthesizer, now complete: **Stage 1 (done)** wired
+the data pipeline (AXJO.INDX ingestion, steady-state SHAP in the brief, benchmark
+rendering); **Stage 2 (done)** corrected and live-validated the analysis agents' SQL and
+added the pure-Decimal `theses/trajectory.py` + `benchmark/returns.py` helpers;
+**Stage 3 (done)** added the market-context narrator (5th agent); **Stage 4 (done)** is
+the `/pm-review [SYMBOL]` slash command that fans out all five agents from the main loop
+(a subagent cannot spawn subagents) and synthesizes the "good buy / bad buy / here's why"
+read into a verdict — **GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE** — with the strongest
+evidence for and against, each traced to a cited agent output.
