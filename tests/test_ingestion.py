@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 import jobs.sync_prices as sync_prices_job
+from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.ingestion.eodhd import EODHDClient, _is_retryable
 from asxos.ingestion.prices import (
     fetch_and_upsert_index_symbol,
@@ -294,6 +295,25 @@ async def test_sync_index_prices_one_failure_does_not_abort(monkeypatch):
         ["AXJO.INDX", "BAD.INDX"], date(2026, 6, 22), MagicMock(), AsyncMock()
     )
     assert total == 5  # AXJO succeeded (5), BAD failed (skipped)
+
+
+@pytest.mark.asyncio
+async def test_get_us_holding_symbols_queries_open_foreign_lots():
+    """Held US symbols come from OPEN holding_lots (is_active-independent), via
+    the foreign-suffix clause — so an inactive HUBS.NYSE is still fetched."""
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[{"symbol": "AAPL.US"}, {"symbol": "HUBS.NYSE"}])
+    with patch.object(sync_prices_job, "acquire") as mock_acquire:
+        mock_acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+        out = await sync_prices_job.get_us_holding_symbols()
+
+    assert out == ["AAPL.US", "HUBS.NYSE"]
+    q = conn.fetch.await_args.args[0]
+    assert "holding_lots" in q
+    assert "disposed_at IS NULL" in q                  # open lots only
+    assert foreign_symbol_sql("symbol") in q           # the shared foreign clause
+    assert "is_active" not in q                         # independent of is_active (the bug)
 
 
 @pytest.mark.asyncio

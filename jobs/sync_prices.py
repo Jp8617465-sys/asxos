@@ -29,7 +29,7 @@ from asxos.domain.prices.coverage import (
     classify_sync_completeness,
     latest_observed_price_date,
 )
-from asxos.domain.prices.fx import foreign_symbol_sql, is_foreign_symbol
+from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
     fetch_and_upsert_bulk,
@@ -145,6 +145,27 @@ async def get_index_symbols() -> list[str]:
     async with acquire() as conn:
         rows = await conn.fetch(
             "SELECT symbol FROM universe WHERE symbol LIKE '%.INDX' ORDER BY symbol"
+        )
+        return [r["symbol"] for r in rows]
+
+
+async def get_us_holding_symbols() -> list[str]:
+    """Held US-exchange symbols (e.g. HUBS.NYSE) — independent of is_active.
+
+    A held US holding is shaped like an index (the AXJO.INDX precedent): it needs
+    prices but is NOT an ASX-equity-universe member, so it is is_active=FALSE and
+    every `WHERE is_active` ML reader (generate_signals, retrain, sync_fundamentals)
+    excludes it for free — no junk US signal enters the ASX model / portfolio
+    candidates. Phase 2 therefore can't derive these from the *active* universe;
+    it sources them from the **open holding lots** directly (the only US names we
+    actually hold), so coverage auto-stops when a lot closes. The prices→universe
+    FK holds because the holding's universe row already exists.
+    """
+    async with acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT DISTINCT symbol FROM holding_lots"
+            f" WHERE disposed_at IS NULL AND {foreign_symbol_sql('symbol')}"
+            " ORDER BY symbol"
         )
         return [r["symbol"] for r in rows]
 
@@ -292,9 +313,11 @@ async def main(from_date: date | None) -> None:
             log.info("sync_prices index: %d rows", idx_rows)
 
         # Phase 2 + 3 — US prices and FX rates (only when US holdings exist).
+        # US holdings are is_active=FALSE (held, not ASX-equity-universe members),
+        # so they come from a dedicated open-lot query, NOT the active universe.
         # Both self-heal over the same window by fetching from `start`.
+        us_symbols = await get_us_holding_symbols()
         async with acquire() as conn:
-            us_symbols = [s for s in universe if is_foreign_symbol(s)]
             us_acquired_start: date | None = await conn.fetchval(
                 "SELECT MIN(acquired_at) FROM holding_lots"
                 f" WHERE {foreign_symbol_sql('symbol')}"

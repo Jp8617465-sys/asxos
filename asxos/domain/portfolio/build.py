@@ -32,7 +32,68 @@ from asxos.domain.portfolio.types import (
     RebalanceResult,
 )
 from asxos.domain.portfolio.volatility import load_vols_for_symbols
+from asxos.domain.prices.fx import is_foreign_symbol
 from asxos.domain.tax.cgt import days_to_eligibility
+
+
+def forced_sell_inactive_symbols(universe_rows: list[Any]) -> frozenset[str]:
+    """Symbols eligible for the universe_inactive forced-sell.
+
+    Feeds ``compute_deltas(universe_inactive_symbols=...)`` in rebalance.py,
+    where a held symbol in this set is force-sold (drift threshold ignored).
+
+    An AU equity that has gone is_active=FALSE is a real delisting → still
+    force-sold. Held US holdings (.US/.NYSE/.NASDAQ/.AMEX) are is_active=FALSE by
+    design — they are not ASX-equity-universe members (the AXJO.INDX precedent),
+    NOT delisted — so they are excluded here and never auto-liquidated. `.INDX`
+    benchmark rows are likewise never held, so they don't reach the forced-sell.
+    """
+    return frozenset(
+        r["symbol"]
+        for r in universe_rows
+        if not r["is_active"] and not is_foreign_symbol(r["symbol"])
+    )
+
+
+def rebalance_holding_snapshots(
+    holdings_rows: list[Any],
+    prices: dict[str, Decimal],
+    account_type: Any,
+    build_date: date,
+) -> list[HoldingSnapshot]:
+    """current_holdings rows + latest prices → HoldingSnapshot[] for the rebalance.
+
+    Two exclusions:
+    - **US/foreign holdings** (.US/.NYSE/.NASDAQ/.AMEX) are NOT part of the ASX-AUD
+      rebalance strategy — no ASX signal/target, their close is USD (not the AUD this
+      snapshot assumes), and they must not be auto-liquidated as an "exited universe"
+      sell. They are tracked elsewhere (daily snapshot valuation, check_us_positions
+      stop monitor) and deliberately never reach `compute_deltas`. This is the primary
+      guard that a held US holding is not force-sold (it never enters the rebalance).
+    - **No price data** — a symbol with no close is omitted (can't value it).
+    """
+    out: list[HoldingSnapshot] = []
+    for r in holdings_rows:
+        sym = r["symbol"]
+        if is_foreign_symbol(sym):
+            continue
+        price = prices.get(sym)
+        if price is None:
+            continue
+        out.append(
+            HoldingSnapshot(
+                lot_id=r["lot_id"],
+                symbol=sym,
+                acquired_at=r["acquired_at"],
+                quantity=Decimal(str(r["quantity"])),
+                cost_base_normal=Decimal(str(r["cost_base_normal"])),
+                cost_base_div296=Decimal(str(r["cost_base_div296"])),
+                account_type=account_type,  # plan H.1 CRITICAL-1 resolution
+                current_price_aud=price,
+                days_to_cgt_discount=days_to_eligibility(r["acquired_at"], build_date),
+            )
+        )
+    return out
 
 
 class PortfolioService:
@@ -148,9 +209,7 @@ class PortfolioService:
             "SELECT symbol, sector, market_cap, is_active FROM universe ORDER BY symbol"
         )
         universe_by_symbol = {r["symbol"]: r for r in universe_rows}
-        inactive_symbols: frozenset[str] = frozenset(
-            r["symbol"] for r in universe_rows if not r["is_active"]
-        )
+        inactive_symbols = forced_sell_inactive_symbols(universe_rows)
 
         # Step 4+5: vol + candidates (plan H.2 QUICK-WIN-6: vol for buys only).
         signal_symbols = [r["symbol"] for r in signals_rows]
@@ -215,25 +274,9 @@ class PortfolioService:
             r["symbol"]: Decimal(str(r["close"])) for r in price_rows
         }
 
-        holdings: list[HoldingSnapshot] = []
-        for r in holdings_rows:
-            sym = r["symbol"]
-            price = prices.get(sym)
-            if price is None:
-                continue  # no price data — omit from snapshot
-            holdings.append(
-                HoldingSnapshot(
-                    lot_id=r["lot_id"],
-                    symbol=sym,
-                    acquired_at=r["acquired_at"],
-                    quantity=Decimal(str(r["quantity"])),
-                    cost_base_normal=Decimal(str(r["cost_base_normal"])),
-                    cost_base_div296=Decimal(str(r["cost_base_div296"])),
-                    account_type=profile.account_type,  # plan H.1 CRITICAL-1 resolution
-                    current_price_aud=price,
-                    days_to_cgt_discount=days_to_eligibility(r["acquired_at"], build_date),
-                )
-            )
+        holdings = rebalance_holding_snapshots(
+            holdings_rows, prices, profile.account_type, build_date
+        )
 
         current_qty = _rebalance.current_qty_by_symbol(holdings)
 
