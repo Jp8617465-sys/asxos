@@ -3,11 +3,14 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**
-added after a system-architect scoping pass (see bottom). The dev agents help build
-and maintain the codebase generally; the finance agents guard spec↔test↔code
-conformance in the tax and portfolio domains. All thirteen are advisory by default;
-none is a runtime in-product agent (a runtime tax/portfolio LLM is a structural NO —
-it would collide with the personal-advice firewall and Decimal-only determinism).
+and **four investment-analysis agents** (see bottom). The dev agents help build and
+maintain the codebase; the conformance agents guard spec↔test↔code correctness; the
+investment-analysis agents surface evidence-grounded views on the live portfolio.
+All seventeen are advisory by default; none is a runtime in-product agent (a runtime
+tax/portfolio LLM is a structural NO — it would collide with the personal-advice
+firewall and Decimal-only determinism). The investment-analysis agents run in Claude
+Code sessions only, querying Supabase directly — they are the interactive layer on
+top of the automated brief, not a replacement for it.
 
 Claude routes to these contextually based on the task, or you can invoke one
 explicitly (e.g. "use the security-engineer to review this").
@@ -79,3 +82,31 @@ firewall.
 Explicitly **not** built: a signals/ML conformance agent (covered by
 `ml-conventions.md` + `targeted-ml-tests`) and any broad "finance reviewer" (too
 unaccountable — the value is the spec/rules-anchored narrowness).
+
+## Investment-analysis agents (4)
+
+Added after the system-architect strategic review (2026-06-29). These are a distinct
+category from the conformance agents: they query **live Supabase data** (signals,
+prices, theses, holding_lots, portfolio_daily_snapshots) and produce evidence-grounded
+analysis of the portfolio's current state. Every output cites a specific data point —
+no unanchored opinion. They are the building blocks toward a future portfolio-manager
+synthesizer agent. Tools include `mcp__Supabase__execute_sql`.
+
+- **thesis-coherence-guard** — compares current ML signal SHAP factors against the
+  written thesis rationale. Verdicts: COHERENT / NEEDS REVIEW / CONTRADICTED. Invoke
+  when a signal label changes on a held position or before committing a thesis revision.
+- **benchmark-performance-analyst** — computes portfolio return vs XJO total-return
+  benchmark (MTD, YTD, since-inception) and attributes alpha to selection vs
+  allocation. Blocked until AXJO.INDX is added to `sync_prices`.
+- **thesis-milestone-monitor** — checks whether each active thesis is on trajectory
+  to hit its target within its timeline. Classifies ON TRACK / BEHIND / STALLED /
+  STOP VIOLATED / ABOVE TARGET. Distinct from the brief's timeline-expiry check.
+- **portfolio-coherence-reviewer** — checks the live portfolio against the user's own
+  stated framework: conviction vs position size, signal vs holding, sector vs profile
+  cap, stop proximity. Surfaces undocumented deviations only.
+
+The path to a full portfolio-manager synthesizer: wire the data pipeline (AXJO.INDX,
+SHAP in brief, benchmark rendering), build these four agents, then compose a
+synthesizer that orchestrates them into a "good buy / bad buy / here's why" narrative
+grounded in their evidence outputs. See `docs/foundation/BUILD_GUIDE.md` for the
+milestone sequence.
