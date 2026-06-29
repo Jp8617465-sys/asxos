@@ -92,12 +92,23 @@ analysis of the portfolio's current state. Every output cites a specific data po
 no unanchored opinion. They are the building blocks toward a future portfolio-manager
 synthesizer agent. Tools include `mcp__Supabase__execute_sql`.
 
+Their SQL is **verified against the live schema** (Stage 2, 2026-06-29): every column
+each agent SELECTs was dry-run against the database. Key column truths to preserve when
+editing them: `theses` uses `entry_band_lower/upper`, `timeline_days`, `opened_at`,
+`conviction_level` (SMALLINT 1..5), and a `status` column (active = `'active'`;
+closed = `'exited'|'expired'`) — NOT `entry_price_*`, `timeline_months`, `thesis_date`,
+or any `event_type='closed'` predicate. `thesis_revisions` uses `revision_type` (not
+`event_type`). `profiles` exposes `sector_cap_pct`/`per_name_cap_pct`/`excluded_*`
+columns — there is **no** `constraints_json`. `signals.model='model_a'`.
+
 - **thesis-coherence-guard** — compares current ML signal SHAP factors against the
   written thesis rationale. Verdicts: COHERENT / NEEDS REVIEW / CONTRADICTED. Invoke
   when a signal label changes on a held position or before committing a thesis revision.
 - **benchmark-performance-analyst** — computes portfolio return vs XJO total-return
   benchmark (MTD, YTD, since-inception) and attributes alpha to selection vs
-  allocation. Blocked until AXJO.INDX is added to `sync_prices`.
+  allocation. AXJO.INDX ingestion is wired (Stage 1); benchmark columns populate once
+  `snapshot_portfolio` runs after the index has prices. Uses the pure-Decimal
+  `asxos/domain/benchmark/returns.py` helpers.
 - **thesis-milestone-monitor** — checks whether each active thesis is on trajectory
   to hit its target within its timeline. Classifies ON TRACK / BEHIND / STALLED /
   STOP VIOLATED / ABOVE TARGET. Distinct from the brief's timeline-expiry check.
@@ -105,8 +116,10 @@ synthesizer agent. Tools include `mcp__Supabase__execute_sql`.
   stated framework: conviction vs position size, signal vs holding, sector vs profile
   cap, stop proximity. Surfaces undocumented deviations only.
 
-The path to a full portfolio-manager synthesizer: wire the data pipeline (AXJO.INDX,
-SHAP in brief, benchmark rendering), build these four agents, then compose a
-synthesizer that orchestrates them into a "good buy / bad buy / here's why" narrative
-grounded in their evidence outputs. See `docs/foundation/BUILD_GUIDE.md` for the
-milestone sequence.
+The path to a full portfolio-manager synthesizer: **Stage 1 (done)** wired the data
+pipeline (AXJO.INDX ingestion, steady-state SHAP in the brief, benchmark rendering);
+**Stage 2 (done)** corrected and live-validated these four agents' SQL and added the
+pure-Decimal `theses/trajectory.py` + `benchmark/returns.py` helpers; **Stage 3** adds a
+market-context narrator; **Stage 4** is the `/pm-review` slash command that fans out all
+five agents and synthesizes the "good buy / bad buy / here's why" verdict (a slash
+command, because a subagent cannot spawn subagents — the main loop does the fan-out).

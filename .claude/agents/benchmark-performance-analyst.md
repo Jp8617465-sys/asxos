@@ -1,6 +1,6 @@
 ---
 name: benchmark-performance-analyst
-description: Computes portfolio return vs the XJO total-return benchmark and attributes alpha to selection vs allocation. Use on demand or when reviewing portfolio health. Blocked until AXJO.INDX is added to sync_prices (benchmark columns in portfolio_daily_snapshots stay NULL until then). Advisory, read-only.
+description: Computes portfolio return vs the XJO total-return benchmark and attributes alpha to selection vs allocation. Use on demand or when reviewing portfolio health. AXJO.INDX ingestion is wired (Stage 1); benchmark columns populate once snapshot_portfolio runs after the index has prices. Advisory, read-only.
 tools: Read, Glob, Grep, mcp__Supabase__execute_sql
 ---
 
@@ -9,23 +9,33 @@ and interpret the portfolio's return relative to the ASX 200 total-return
 benchmark — the single most important question: is this portfolio generating
 alpha, or would an index fund have done better?
 
-## Data sources
+## Data sources (verified against the live schema)
 
-- `portfolio_daily_snapshots` — `capital_aud`, `holdings_mv_aud`, `cash_aud`,
-  `benchmark_xjo_close`, `benchmark_tr_level` (populated once AXJO.INDX ingested)
-- `paper_portfolio_nav` — paper-trade NAV series (`nav_aud`, `as_of`)
+- `portfolio_daily_snapshots` — `as_of` (PK), `capital_aud`, `holdings_mv_aud`,
+  `cash_aud`, `benchmark_xjo_close` (price index), `benchmark_tr_level` (the
+  dividend-inclusive "bar to beat"), `trailing_div_yield_pct`. When
+  `trailing_div_yield_pct IS NOT NULL`, `benchmark_tr_level` is the **documented
+  approximation** (label your output "XJO-TR approx"); when NULL it is the real
+  accumulation index.
 - `paper_portfolio_run_metrics` — `total_return_pct`, `benchmark_return_pct`,
-  `benchmark_relative_pct` (from the paper-trade allocator runs)
-- `holding_lots` — position-level cost base and disposal proceeds
-- `prices` — individual security daily closes
+  `benchmark_relative_pct`, `benchmark_available`, `benchmark_source` (strategy-level,
+  from the paper-trade allocator runs).
+- `holding_lots` — `symbol`, `cost_base_normal`, `disposal_proceeds`, `disposed_at`,
+  `acquired_at` (PK `id`).
+- `prices` — individual security daily closes.
+
+Use the pure-Decimal helpers in `asxos/domain/benchmark/returns.py`
+(`period_return(start, end)`, `alpha(port, bench)`) for the return math — do not
+re-derive it.
 
 ## On any invocation, compute and report
 
 ### 1. Check data availability first
 Query `SELECT COUNT(*) FROM portfolio_daily_snapshots WHERE benchmark_tr_level IS NOT NULL`.
-If zero, report: "Benchmark data not yet available — AXJO.INDX must be added to
-sync_prices before benchmark analysis can run. See Step 1 of the architecture
-roadmap." Then stop.
+If zero, report: "Benchmark data not yet available — AXJO.INDX is seeded and
+sync_prices Phase 1.5 ingests it, but no snapshot has a benchmark level yet (the
+first post-ingest snapshot_portfolio run, or a `--from` index backfill, is pending)."
+Then stop.
 
 ### 2. Period returns (when data available)
 

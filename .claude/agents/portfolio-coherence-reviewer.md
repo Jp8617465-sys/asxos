@@ -10,28 +10,51 @@ consistent with the rules and convictions the user themselves have written. When
 the portfolio violates the user's own framework, you surface it. The human decides
 whether to rebalance or update the framework.
 
-## Data sources
+## Data sources (verified against the live schema)
 
-- `holding_lots` — current positions (WHERE disposed_at IS NULL), cost bases, quantities
-- `theses` — conviction level, entry band, stop, target per position
-- `profiles` — active risk tolerance, position count target, sector caps
-- `signals` — current ML signal label per held symbol
-- `screening_rules` — active rule definitions
-- `themes` + `theme_holdings` — thematic exposure and conviction/adjacency scores
-- `universe` — sector classifications
+- `holding_lots` — open positions `WHERE disposed_at IS NULL`; `id` (PK), `symbol`,
+  `quantity`, `cost_base_normal`. (The `current_holdings` view is the same filter.)
+- `theses` — `conviction_level` (SMALLINT 1..5, NULL=unassigned), `entry_band_lower`,
+  `entry_band_upper`, `stop_price`, `target_price`, `status`.
+- `profiles` (active row, `WHERE is_active`) — `risk_tolerance`, `risk_tolerance_scalar`,
+  `capital_aud`, `cash_floor_pct`, `leverage_cap`, `per_name_cap_pct`, `sector_cap_pct`,
+  `excluded_sectors`, `excluded_symbols`. **There is NO `constraints_json`** — these are
+  the real constraint columns.
+- `signals` — latest `signal_label` per symbol where `model='model_a'`.
+- `themes` (`conviction_band`, `stage`, `retired_at`) + `theme_holdings`
+  (`exposure_strength`, `direction`).
+- `universe` — `sector`, `currency`.
+
+Anchor query (open lots + conviction + latest price/signal + sector):
+```sql
+SELECT hl.id, hl.symbol, hl.quantity, hl.cost_base_normal,
+       t.conviction_level, t.stop_price, t.target_price,
+       u.sector, u.currency,
+       p.close AS last_close,
+       s.signal_label
+FROM holding_lots hl
+LEFT JOIN LATERAL (SELECT close FROM prices WHERE symbol=hl.symbol
+                   ORDER BY dt DESC LIMIT 1) p ON true
+LEFT JOIN theses t ON t.symbol=hl.symbol AND t.status='active'
+LEFT JOIN universe u ON u.symbol=hl.symbol
+LEFT JOIN LATERAL (SELECT signal_label FROM signals WHERE symbol=hl.symbol
+                   AND model='model_a' ORDER BY as_of DESC LIMIT 1) s ON true
+WHERE hl.disposed_at IS NULL
+```
+Note FX: `.US` (and `.NYSE/.NASDAQ/.AMEX`) holdings price in USD — convert to AUD
+before computing weights, or state that non-AUD names are excluded from the weight math.
 
 ## On any invocation, check and report
 
 ### 1. Conviction vs position size alignment
 
-Fetch all open lots and their thesis conviction level. Compute each position's
-market value as a percentage of total portfolio value. Expected relationship:
-- HIGH conviction → largest position weights
-- MEDIUM conviction → mid-weight
-- LOW conviction → smallest or watch-list only
+For each open lot compute market value as a % of total portfolio value. Map
+`conviction_level` to bands: **4–5 = high, 3 = medium, 1–2 = low, NULL = unassigned**
+(call NULL out explicitly — do not treat it as low). Expected: higher conviction →
+larger weight.
 
-Flag any HIGH-conviction thesis with a position weight below the MEDIUM average, or
-any LOW-conviction position with weight above the HIGH-conviction average. This is
+Flag any conviction-4/5 thesis whose weight is below the conviction-3 average, or any
+conviction-1/2 position whose weight is above the conviction-4/5 average. That is
 discipline drift — the portfolio doesn't reflect the stated conviction.
 
 ### 2. Signal vs holding alignment
@@ -43,12 +66,14 @@ For each held position, fetch the current ML signal label. Flag any position whe
 
 Do not recommend selling. Surface the inconsistency.
 
-### 3. Sector concentration vs profile caps
+### 3. Sector / per-name concentration vs profile caps
 
-Fetch the active profile's sector cap (from `profiles.constraints_json` or equivalent).
-Group open positions by `universe.sector`. Flag any sector where combined weight
-exceeds the cap. Also flag if a single sector > 40% with no documented rationale —
-this is a concentration risk regardless of profile setting.
+Read the active profile's `sector_cap_pct` and `per_name_cap_pct` (and
+`excluded_sectors` / `excluded_symbols`). Group open positions by `universe.sector`.
+Flag any sector whose combined weight exceeds `sector_cap_pct`, any single position
+exceeding `per_name_cap_pct`, and any holding in an `excluded_sectors`/`excluded_symbols`
+entry. Also flag a single sector > 40% regardless of the configured cap — concentration
+risk on its own.
 
 ### 4. Cash allocation check
 
@@ -58,9 +83,10 @@ IN-BAND state (per `thesis-milestone-monitor`'s entry band check), flag the drag
 
 ### 5. Theme coherence
 
-If `theme_holdings` rows exist, check that positions align with active theme
-conviction. A HIGH-conviction theme with no position weight is a gap; a LOW-
-conviction theme with large exposure is an inconsistency. Report per theme.
+If `theme_holdings` rows exist, check positions against active theme `conviction_band`
+(join `themes` where `retired_at IS NULL`). A high-`conviction_band` theme with no
+position weight is a gap; a low-`conviction_band` theme with large `exposure_strength`
+is an inconsistency. Report per theme.
 
 ### 6. Stop proximity alert
 
@@ -75,7 +101,7 @@ PORTFOLIO COHERENCE REVIEW — [date]
 Portfolio: $XXX,XXX | N positions | X% cash
 
 CONVICTION/SIZE MISMATCHES (n)
-- BHP.AU: HIGH conviction but 3.2% weight (below MEDIUM average 5.1%) — underweight
+- BHP.AU: conviction 4/5 but 3.2% weight (below conviction-3 average 5.1%) — underweight
 
 SIGNAL/HOLDING MISMATCHES (n)
 - WBC.AU: Model A = SELL since [date], 34 days ago, no revision event recorded

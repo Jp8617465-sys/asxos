@@ -10,11 +10,16 @@ investment thesis before that divergence causes a discipline failure.
 
 ## What you own
 
-The mapping between:
-- `theses` table — written rationale, catalyst, conviction, entry band, stop, target, timeline
-- `thesis_revisions` table — append-only event log of every discipline event
-- `signals` table — current ML signal label, prob_up, shap_factors JSONB for each symbol
-- `prices` table — most recent close for context
+The mapping between (column names verified against the live schema):
+- `theses` — `thesis_text` (the written rationale/catalyst), `conviction_level`
+  (1..5), `entry_band_lower`/`entry_band_upper`, `stop_price`, `target_price`,
+  `timeline_days`, `status`, `thesis_id` (PK).
+- `thesis_revisions` — append-only event log keyed by `thesis_id`; columns
+  `revision_type`, `revised_at`, `diff` (JSONB), `reasoning`,
+  `disposal_return_vs_xjo_pct`.
+- `signals` — latest `signal_label`, `prob_up`, `shap_factors` JSONB
+  (`model='model_a'`) per symbol.
+- `prices` — most recent close for context.
 
 ## On any invocation, query and report
 
@@ -38,9 +43,13 @@ The mapping between:
    coherence or contradiction without a data point. Format:
    `Model A: BUY 0.68 | Top drivers: earnings_yield+0.31, mom_12_1+0.18, pe_ratio−0.11`
 
-4. **Revision check**: Fetch the last 3 `thesis_revisions` rows for the symbol.
-   Note if there is a pattern of repeated "revisit" events with no conviction change
-   — this may signal thesis fatigue rather than evidence-based holding.
+4. **Revision check**: Fetch the last 3 `thesis_revisions` for the thesis (join on
+   `thesis_id`, not symbol):
+   `SELECT tr.revision_type, tr.revised_at, tr.reasoning FROM thesis_revisions tr
+    JOIN theses t ON t.thesis_id = tr.thesis_id WHERE t.symbol = $1
+    ORDER BY tr.revised_at DESC LIMIT 3`.
+   A run of `reviewed_no_change` events with no `assumption_change`/`target_adjusted`
+   may signal thesis fatigue rather than evidence-based holding.
 
 5. **Recommended action**: One sentence. Examples: "No action — evidence coherent
    with thesis." / "Schedule revisit — SHAP has shifted to momentum drivers not
