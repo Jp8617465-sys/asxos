@@ -3,10 +3,10 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**
-and **four investment-analysis agents** (see bottom). The dev agents help build and
+and **five investment-analysis agents** (see bottom). The dev agents help build and
 maintain the codebase; the conformance agents guard spec↔test↔code correctness; the
 investment-analysis agents surface evidence-grounded views on the live portfolio.
-All seventeen are advisory by default; none is a runtime in-product agent (a runtime
+All eighteen are advisory by default; none is a runtime in-product agent (a runtime
 tax/portfolio LLM is a structural NO — it would collide with the personal-advice
 firewall and Decimal-only determinism). The investment-analysis agents run in Claude
 Code sessions only, querying Supabase directly — they are the interactive layer on
@@ -83,7 +83,7 @@ Explicitly **not** built: a signals/ML conformance agent (covered by
 `ml-conventions.md` + `targeted-ml-tests`) and any broad "finance reviewer" (too
 unaccountable — the value is the spec/rules-anchored narrowness).
 
-## Investment-analysis agents (4)
+## Investment-analysis agents (5)
 
 Added after the system-architect strategic review (2026-06-29). These are a distinct
 category from the conformance agents: they query **live Supabase data** (signals,
@@ -115,6 +115,10 @@ columns — there is **no** `constraints_json`. `signals.model='model_a'`.
 - **portfolio-coherence-reviewer** — checks the live portfolio against the user's own
   stated framework: conviction vs position size, signal vs holding, sector vs profile
   cap, stop proximity. Surfaces undocumented deviations only.
+- **market-context-narrator** — a 3-sentence backdrop (regime + one macro driver +
+  one sentiment/regulatory data point) from `market_context_current`,
+  `regulatory_events`, and `signal_sentiment`. The "here's what's going on in the
+  market" input to a portfolio review. Every sentence carries a number or named source.
 
 The path to a full portfolio-manager synthesizer: **Stage 1 (done)** wired the data
 pipeline (AXJO.INDX ingestion, steady-state SHAP in the brief, benchmark rendering);
