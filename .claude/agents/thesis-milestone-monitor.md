@@ -48,8 +48,10 @@ For each active thesis compute (work in DAYS; display months as `days // 30`):
 
 - **Elapsed days**: `today − opened_at`
 - **Remaining days**: `timeline_days − elapsed_days`
-- **Cost anchor**: `actual_entry_price` if set, else
-  `holding_lots.cost_base_normal / quantity` for the open lot on this symbol.
+- **Cost anchor**: `actual_entry_price` if set, else the weighted average across ALL
+  open lots on the symbol —
+  `SUM(cost_base_normal) / SUM(quantity) WHERE symbol=$1 AND disposed_at IS NULL`
+  (a symbol may hold several open lots; never anchor on a single arbitrary lot).
 - **Progress to target**: `(current_price − anchor) / (target_price − anchor)`
 - **Required rate**: gain from `current_price` to `target_price` over the
   remaining days, plus the **implied annualised return** — a 40% gain needed in
@@ -58,7 +60,8 @@ For each active thesis compute (work in DAYS; display months as `days // 30`):
 ### 3. Status classification (per `classify_trajectory`)
 
 - **ON TRACK**: progress ≥ `elapsed_days / timeline_days` (linear expectation).
-- **BEHIND**: progress < 50% of linear expectation with < 50% of timeline left.
+- **BEHIND**: progress < 50% of linear expectation (whether before or after the
+  timeline midpoint — `classify_trajectory` returns BEHIND in both halves).
 - **STALLED**: < 5% progress after > 40% of `timeline_days` elapsed.
 - **STOP VIOLATED**: `current_price ≤ stop_price` (highest priority; cite the
   close date). Note: a NULL `stop_price` means no stop set — say so, don't assume.

@@ -98,3 +98,18 @@ def test_null_stop_never_violated() -> None:
 def test_ahead_of_pace_before_midpoint_on_track() -> None:
     # progress 0.3 ≥ expected 0.277 (early) → ON TRACK
     assert _classify("43", elapsed=100, timeline=360) == Trajectory.ON_TRACK
+
+
+def test_behind_in_first_half_below_half_pace() -> None:
+    # The half-pace fall-through with expected ≤ 0.5 (the only BEHIND path after
+    # the dead-branch simplification): progress 0.05 < expected/2 (0.194),
+    # expected 0.388 (not > 0.4, so not STALLED) → BEHIND.
+    assert _classify("40.5", elapsed=140, timeline=360) == Trajectory.BEHIND
+
+
+def test_stop_violated_beats_above_target() -> None:
+    # Contrived thesis (stop above target) to assert STOP_VIOLATED precedence:
+    # current 52 is both ≥ target (50) AND ≤ stop (53) → STOP_VIOLATED wins.
+    assert _classify(
+        "52", target=Decimal("50"), stop=Decimal("53")
+    ) == Trajectory.STOP_VIOLATED

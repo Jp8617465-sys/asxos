@@ -25,7 +25,10 @@ whether to rebalance or update the framework.
   (`exposure_strength`, `direction`).
 - `universe` — `sector`, `currency`.
 
-Anchor query (open lots + conviction + latest price/signal + sector):
+Anchor query (open lots + conviction + latest price/signal + sector). **All three
+joins are LATERAL … LIMIT 1** so each open lot yields exactly one row — there is no
+unique constraint guaranteeing one active thesis per symbol, so a plain join on
+`theses` would fan a lot into multiple rows and double-count its weight:
 ```sql
 SELECT hl.id, hl.symbol, hl.quantity, hl.cost_base_normal,
        t.conviction_level, t.stop_price, t.target_price,
@@ -35,14 +38,19 @@ SELECT hl.id, hl.symbol, hl.quantity, hl.cost_base_normal,
 FROM holding_lots hl
 LEFT JOIN LATERAL (SELECT close FROM prices WHERE symbol=hl.symbol
                    ORDER BY dt DESC LIMIT 1) p ON true
-LEFT JOIN theses t ON t.symbol=hl.symbol AND t.status='active'
+LEFT JOIN LATERAL (SELECT conviction_level, stop_price, target_price FROM theses
+                   WHERE symbol=hl.symbol AND status='active'
+                   ORDER BY opened_at DESC LIMIT 1) t ON true
 LEFT JOIN universe u ON u.symbol=hl.symbol
 LEFT JOIN LATERAL (SELECT signal_label FROM signals WHERE symbol=hl.symbol
                    AND model='model_a' ORDER BY as_of DESC LIMIT 1) s ON true
 WHERE hl.disposed_at IS NULL
 ```
-Note FX: `.US` (and `.NYSE/.NASDAQ/.AMEX`) holdings price in USD — convert to AUD
-before computing weights, or state that non-AUD names are excluded from the weight math.
+`holding_lots` is lot-level: a symbol may have several open lots. **Aggregate market
+value by symbol** (sum across lots) before computing weights and sector/per-name caps —
+do not treat each `hl.id` as a separate position. FX: `.US` (and
+`.NYSE/.NASDAQ/.AMEX`) holdings price in USD — convert to AUD before computing weights,
+or state that non-AUD names are excluded from the weight math.
 
 ## On any invocation, check and report
 

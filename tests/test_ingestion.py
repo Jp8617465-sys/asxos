@@ -303,6 +303,60 @@ async def test_sync_index_prices_empty_list_returns_zero():
     ) == 0
 
 
+@pytest.mark.asyncio
+async def test_resolve_index_start_explicit_from_wins():
+    conn = AsyncMock()
+    out = await sync_prices_job._resolve_index_start(
+        ["AXJO.INDX"], date(2024, 1, 1), date(2026, 6, 22), conn
+    )
+    assert out == date(2024, 1, 1)
+    conn.fetchval.assert_not_called()  # explicit --from short-circuits the query
+
+
+@pytest.mark.asyncio
+async def test_resolve_index_start_no_rows_bootstraps_floor():
+    # Freshly-seeded index (no prices yet) → bootstrap from the auto-backfill floor.
+    conn = AsyncMock()
+    conn.fetchval = AsyncMock(return_value=None)
+    today = date(2026, 6, 22)
+    out = await sync_prices_job._resolve_index_start(["AXJO.INDX"], None, today, conn)
+    assert out == today - timedelta(days=sync_prices_job._MAX_AUTO_BACKFILL_DAYS)
+
+
+@pytest.mark.asyncio
+async def test_resolve_index_start_heals_from_own_latest_not_equity():
+    # The index resumes from ITS OWN last date + 1 (the bug being prevented: it
+    # must not inherit the equity start, or index-only gaps never self-heal).
+    conn = AsyncMock()
+    conn.fetchval = AsyncMock(return_value=date(2026, 6, 20))
+    out = await sync_prices_job._resolve_index_start(
+        ["AXJO.INDX"], None, date(2026, 6, 22), conn
+    )
+    assert out == date(2026, 6, 21)
+
+
+@pytest.mark.asyncio
+async def test_resolve_index_start_stale_clamps_to_floor():
+    # A gap older than the cap heals only the floor window (operator runs --from).
+    conn = AsyncMock()
+    today = date(2026, 6, 22)
+    conn.fetchval = AsyncMock(return_value=date(2026, 1, 1))  # >10 days stale
+    out = await sync_prices_job._resolve_index_start(["AXJO.INDX"], None, today, conn)
+    assert out == today - timedelta(days=sync_prices_job._MAX_AUTO_BACKFILL_DAYS)
+
+
+@pytest.mark.asyncio
+async def test_daily_prices_coerces_non_list_to_empty():
+    # A no-data/error response can come back as {} — daily_prices must return []
+    # so the per-symbol parsers never see a non-list (security hardening).
+    client = EODHDClient(api_key="x")
+    client._get = AsyncMock(return_value={})
+    try:
+        assert await client.daily_prices("AXJO.INDX") == []
+    finally:
+        await client.close()
+
+
 # ---------------------------------------------------------------------------
 # sync_prices self-heal helpers — cadence-bug fix
 # ---------------------------------------------------------------------------

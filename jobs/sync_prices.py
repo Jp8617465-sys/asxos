@@ -96,6 +96,41 @@ async def get_active_universe() -> set[str]:
         return {r["symbol"] for r in rows}
 
 
+async def _resolve_index_start(
+    index_symbols: list[str], from_date: date | None, today: date, conn
+) -> date:
+    """First date to attempt for index symbols in self-heal mode.
+
+    The index has its OWN latest-observed floor — it must NOT inherit the equity
+    `start` (MAX over the active universe). Otherwise an index-only gap (EODHD
+    missed AXJO while equities synced fine, or the index was seeded after the
+    equities were already current) would never self-heal, because the equity
+    start would have advanced past it. An explicit --from wins. A freshly-seeded
+    index with no rows bootstraps from the auto-backfill floor; a full multi-year
+    history load still needs an explicit --from (the floor caps auto-heal depth).
+    """
+    if from_date is not None:
+        return from_date
+    floor = today - timedelta(days=_MAX_AUTO_BACKFILL_DAYS)
+    last = await conn.fetchval(
+        "SELECT MAX(dt) FROM prices WHERE symbol = ANY($1)", index_symbols
+    )
+    if last is None:
+        return floor
+    start = last + timedelta(days=1)
+    if start < floor:
+        log.warning(
+            "sync_prices index: latest index price date %s is >%d days stale; "
+            "auto-healing only from %s. Run --from %s for a full index backfill.",
+            last,
+            _MAX_AUTO_BACKFILL_DAYS,
+            floor,
+            start,
+        )
+        return floor
+    return start
+
+
 async def get_index_symbols() -> list[str]:
     """Benchmark index symbols (e.g. AXJO.INDX) — independent of is_active.
 
@@ -237,9 +272,22 @@ async def main(from_date: date | None) -> None:
         # the benchmark columns of portfolio_daily_snapshots.
         index_symbols = await get_index_symbols()
         if index_symbols:
-            log.info("sync_prices index: %d symbols %s", len(index_symbols), index_symbols)
+            # The index self-heals from its OWN latest-observed date, independent
+            # of the equity `start` (see _resolve_index_start).
             async with acquire() as conn:
-                idx_rows = await _sync_index_prices(index_symbols, start, client, conn)
+                index_start = await _resolve_index_start(
+                    index_symbols, from_date, today, conn
+                )
+            log.info(
+                "sync_prices index: %d symbols %s from %s",
+                len(index_symbols),
+                index_symbols,
+                index_start,
+            )
+            async with acquire() as conn:
+                idx_rows = await _sync_index_prices(
+                    index_symbols, index_start, client, conn
+                )
             log.info("sync_prices index: %d rows", idx_rows)
 
         # Phase 2 + 3 — US prices and FX rates (only when US holdings exist).
@@ -312,6 +360,7 @@ if __name__ == "__main__":
         dest="from_date",
         type=date.fromisoformat,
         default=None,
-        help="Backfill start date (YYYY-MM-DD). Omit for yesterday only.",
+        help="Backfill start date (YYYY-MM-DD). Omit to self-heal from the "
+        "latest observed price date (capped at the auto-backfill window).",
     )
     asyncio.run(main(parser.parse_args().from_date))

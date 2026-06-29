@@ -47,7 +47,9 @@ The mapping between (column names verified against the live schema):
    `thesis_id`, not symbol):
    `SELECT tr.revision_type, tr.revised_at, tr.reasoning FROM thesis_revisions tr
     JOIN theses t ON t.thesis_id = tr.thesis_id WHERE t.symbol = $1
-    ORDER BY tr.revised_at DESC LIMIT 3`.
+    AND t.status = 'active' ORDER BY tr.revised_at DESC LIMIT 3`
+   (the `status='active'` filter avoids mixing revisions from multiple theses that
+   have shared the symbol over time).
    A run of `reviewed_no_change` events with no `assumption_change`/`target_adjusted`
    may signal thesis fatigue rather than evidence-based holding.
 

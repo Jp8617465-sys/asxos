@@ -27,7 +27,9 @@ def _normalize(shap: dict[str, Any] | str | None) -> dict[str, Any]:
         except (ValueError, TypeError):
             return {}
         return parsed if isinstance(parsed, dict) else {}
-    return shap
+    # Totality: anything that is neither a dict nor a parseable JSON object
+    # (e.g. a stray list) yields {} rather than reaching .items() downstream.
+    return shap if isinstance(shap, dict) else {}
 
 
 def rank_shap_factors(

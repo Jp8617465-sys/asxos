@@ -82,13 +82,11 @@ def classify_trajectory(
     progress = progress_to_target(current_price, anchor, target_price)
     expected = linear_expectation(elapsed_days, timeline_days)
 
-    # STALLED: almost no progress well into the timeline.
+    # STALLED: almost no progress well into the timeline (an absolute floor,
+    # independent of the linear pace).
     if expected > Decimal("0.4") and progress < Decimal("0.05"):
         return Trajectory.STALLED
-    # BEHIND: less than half the expected pace, past the timeline midpoint.
-    if expected > Decimal("0.5") and progress < expected / 2:
-        return Trajectory.BEHIND
-    if progress >= expected:
-        return Trajectory.ON_TRACK
-    # Between half-pace and full-pace, before the midpoint → not yet BEHIND.
+    # Otherwise: at least half the expected linear pace → ON TRACK; below half →
+    # BEHIND. (progress ≥ expected trivially clears expected/2, so this single
+    # cut subsumes the "exactly on pace" case.)
     return Trajectory.ON_TRACK if progress >= expected / 2 else Trajectory.BEHIND
