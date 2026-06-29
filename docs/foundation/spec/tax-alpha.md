@@ -1,6 +1,6 @@
 # Tax alpha specification
 
-Version 1.3. Date 2026-06-28. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). See section 13 for the full delta history.
+Version 1.5. Date 2026-06-29. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT numeric). v1.5 implements TC-20 (Div 296 cost-base reset). See section 13 for the full delta history.
 
 ## 1. Scope and non-goals
 
@@ -253,11 +253,21 @@ Worked example. Asset acquired 1 January 2020 for $50,000, market value at 30 Ju
 
 Larger APRA funds (more than 6 members) use a different four-year phase-in under ITTPA s 296-60 (out of v1 scope; the system models SMSFs only).
 
+**Implementation contract (§6.4).**
+
+`tax_view_smsf()` accepts an optional `div296_realised_gains: list[CapitalGain] | None` parameter representing CGT disposals where each gain is computed from `HoldingLot.cost_base_div296` (not `cost_base_normal`). The caller computes these gains using the same disposal date and proceeds as the ordinary CGT computation, substituting only the cost base.
+
+When `SMSFConfig.div296_election_made is True` and `div296_realised_gains` is provided, `tax_view_smsf()` calls `net_capital_gain(div296_realised_gains, ...)` with the same loss inputs and `account_type="smsf"` to derive the Div 296 earnings base. The s 115-100 1/3 discount is applied by `net_capital_gain()` — the Div 296 path uses the same algorithm as the ordinary CGT path, consistent with "the 1/3 discount mirrored per s 115-100" above.
+
+When `div296_election_made is False` or `div296_realised_gains` is `None`, the Div 296 earnings fall through to the §6.2 behaviour: `ncg.net_capital_gain` from the ordinary CGT path (computed from `cost_base_normal` gains) is passed to `div296_liability()`.
+
 ### 6.5 Election warning for depreciated assets
 
 When recommending the election to a user, the system must surface a warning if any fund asset is in unrealised loss at 30 June 2026. Under the as-enacted ITTPA s 296-50, the all-or-nothing rule resets the cost base to market value unconditionally — there is no "greater of cost base or market value" fallback in the legislation. For a depreciated asset, the election locks in a lower cost base for Division 296, eliminating the pre-2026 capital loss from future Division 296 earnings.
 
 > **Pending accountant verification (carried from §10):** whether ATO administrative guidance is expected to introduce a "greater of cost base or market value" interpretation, and whether such guidance would change the recommended election strategy for SMSFs holding any depreciated assets. The spec's current behaviour is to surface the warning and let the user decide; revisit if the ATO clarifies.
+
+**Data-driven detection (§6.5).** When `SMSFConfig.div296_election_made is True`, `tax_view_smsf()` checks each `HoldingLot` in the `lots` parameter. A lot is detected as depreciated when `cost_base_div296 < cost_base_normal`; since `cost_base_div296` is set to MV(30 June 2026) on election, this condition identifies assets in unrealised loss at the reset date. Lots disposed before 1 July 2026 are excluded — the election covers only assets held at the reset date. One warning per lot names the symbol, lot ID, and both cost bases. When no lot is in loss, a brief advisory confirming the check ran is emitted instead of the generic static string.
 
 ### 6.6 Out of v1 scope for Division 296
 
@@ -405,10 +415,11 @@ Each case below must be covered by a unit test referencing the spec section.
 | TC-17 | TSB $12M, earnings $100,000 | Div 296 liability $12,917 (tier 1 $11,250 + tier 2 $1,667) | §6.3 |
 | TC-18 | Discountable gains $30,000, non-discountable $10,000, CY loss $15,000, CF loss $5,000, individual 37% | Net gain $10,000. Tax $3,900. (Optimal ordering verified.) | §5.2 |
 | TC-19 | $1,000 fully franked dividend, 30% company, mixed-phase SMSF fund_pension_proportion=0.60 | After-tax cash $1,342.86 | §4.2 |
-| TC-20 | Asset acquired 2020-01-01 for $50,000, MV at 2026-06-30 $80,000, disposed 2027-01-01 for $100,000, SMSF accumulation with s 296-50 election | Fund CGT: net gain $33,333, tax $5,000. Div 296 earnings input: $13,333. | §6.4 |
+| TC-20 | Asset acquired 2020-01-01 for $50,000, MV at 2026-06-30 $80,000, disposed 2027-01-01 for $100,000, SMSF accumulation with s 296-50 election | Fund CGT: net gain ≈ $33,333, tax $5,000 (`cgt_tax_outcome.income_tax`). Div 296 earnings input ≈ $13,333 (`div296_outcome.earnings`). Pins the dual-path behavior: ordinary CGT from `cost_base_normal`, Div 296 earnings from `cost_base_div296` via `div296_realised_gains`. | §6.4 |
 | TC-21 | Disposal 30 days after acquisition with dividend paid during the period | Warning surfaced; franking credit not auto-removed. | §4.3 |
 | TC-22 | Break-even: P=100, cost=40, individual marginal 0.45 (r_eff 0.47), not yet eligible | Break-even sale price $126.60 (sell-now nets = sell-later nets = $85.90) | §5.4 |
 | TC-23 | Break-even: P=100, cost=40, SMSF (r_eff 0.15, d=1/3), not yet eligible | Break-even sale price $107.06 (sell-now nets = sell-later nets = $97.00) | §5.4 |
+| TC-24 | $10,000 discountable gain, SMSF fund_pension_proportion=0.60 | Net gain after 1/3 discount ≈ $6,666.67. ECPI exempt (60%) ≈ $4,000. Taxable base ≈ $2,666.67. Fund tax 15% = $400.00. Medicare 0. Confirms §5.2: CGT discount and ECPI exemption stack independently. | §5.2, §4.2 |
 
 ## 12. Authoritative sources
 
@@ -454,6 +465,16 @@ Each case below must be covered by a unit test referencing the spec section.
 Direct fetching of the ATO franking and CGT pages returned 403 during preparation of v1.0; v1.1 confirms via the AustLII statutory text, the audit's verification against the Parliamentary Library Bills Digest, and the cross-referencing of the practitioner sources above. Before implementation cuts code, the final step is a direct read of the compiled Acts on the Federal Register of Legislation.
 
 ## 13. Change log
+
+**v1.5, 2026-06-29.** Implements TC-20 — the Div 296 cost-base reset (ITTPA s 296-50, spec §6.4/§6.5). Two additions:
+- §6.4 "Implementation contract" paragraph: defines the `div296_realised_gains: list[CapitalGain] | None` parameter on `tax_view_smsf()`. When the election is made and this list is provided, `net_capital_gain(div296_realised_gains, ...)` derives the Div 296 earnings base (s 115-100 1/3 discount applied identically to the ordinary CGT path). Falls through to §6.2 behaviour when no election or no list supplied.
+- §6.5 "Data-driven detection" paragraph: replaces the static advisory string with per-lot detection (`cost_base_div296 < cost_base_normal`, excluding pre-election disposals). Per-lot warnings name symbol, lot ID, and both cost bases. When no lot is in loss, a brief advisory is emitted.
+- TC-20 in §11 updated: pins `div296_outcome.earnings ≈ $13,333` alongside the existing `cgt_tax_outcome.income_tax = $5,000` assertion to lock the dual-path behavior.
+
+**v1.4, 2026-06-29.** Adds TC-24 to §11 matrix, closing the SMSF ECPI-on-CGT numeric verification gap (CLAUDE.md known coverage gap (a)):
+- TC-24: $10,000 discountable gain, SMSF fund_pension_proportion=0.60. Net gain after 1/3 discount ≈ $6,666.67; ECPI exempt ≈ $4,000; taxable base ≈ $2,666.67; fund tax $400.00; Medicare 0. Confirms §5.2 — the CGT discount and ECPI exemption are independent and stack.
+- No code change for TC-24 — the existing `positions.py` implementation was already correct.
+- TC-21 (§4.3 45-day franking warning for SMSFs) implementation gap is also closed in this session via the new `check_45_day_warnings_smsf()` function in `asxos/domain/tax/dividends.py`, wired into `tax_view_smsf()` via `warnings.extend(...)`. §4.3 was fully specified and required no spec amendment.
 
 **v1.3, 2026-06-28.** Adds §5.4 (CGT discount break-even price) to give the position-monitor heuristic a governing spec home, and corrects a tax-math error in the existing implementation:
 - Added §5.4: the break-even formula `P_sell = [P·(1 − r_eff·d) − cost·r_eff·(1 − d)] / (1 − r_eff)`, derived by equating sell-now and sell-later after-tax proceeds. **The cost coefficient is `(1 − d)`, not `d`** — the prior implementation used `d`, which is correct only for individuals (d=0.5) and overstates the break-even for SMSFs (d=1/3).

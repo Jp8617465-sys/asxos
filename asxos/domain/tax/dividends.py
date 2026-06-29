@@ -6,6 +6,8 @@ Two paths:
   full credit when refundable (default for individuals per s 67-25).
 - SMSF (§4.2): proportionate method per s 295-390. ECPI component is exempt,
   taxable component at 15%, franking credit fully refundable under Div 207.
+- SMSF 45-day warning (§4.3): s 207-145 qualified-person rule; the $5,000
+  small-shareholder exemption does not apply to SMSFs.
 """
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ from asxos.domain.tax.types import (
     SMSF_TAX_RATE,
     Dividend,
     DividendOutcome,
+    HoldingLot,
     IndividualConfig,
     SMSFConfig,
 )
@@ -71,3 +74,39 @@ def after_tax_dividend_smsf(
 def grossed_up_amount(div: Dividend) -> Decimal:
     """Helper re-export — same as franking.grossed_up. Useful for tests."""
     return grossed_up(div)
+
+
+def check_45_day_warnings_smsf(
+    lots: list[HoldingLot],
+    dividends: list[Dividend],
+) -> list[str]:
+    """spec §4.3 — s 207-145 qualified-person rule for SMSFs.
+
+    The $5,000 small-shareholder exemption (s 207-145(1)(d) ITAA 1997) does not
+    apply to SMSFs. Warns if a disposed lot was held for fewer than 46 calendar
+    days (< 45 clear days, excluding the day of acquisition and the day of
+    disposal) and a dividend on that symbol was paid during the holding period.
+    Pay date is used as a proxy for the ex-dividend entitlement date (§3).
+
+    The system does not remove franking credits automatically — it warns only.
+    One warning is emitted per affected lot; multiple dividends in the same
+    short-hold window are not individually enumerated.
+    """
+    warnings = []
+    for lot in lots:
+        if lot.disposed_at is None:
+            continue
+        holding_days = (lot.disposed_at - lot.acquired_at).days
+        if holding_days >= 46:
+            continue
+        for div in dividends:
+            if div.symbol != lot.symbol:
+                continue
+            if lot.acquired_at <= div.pay_date <= lot.disposed_at:
+                warnings.append(
+                    f"{lot.symbol} (lot {lot.lot_id}): held {holding_days} days "
+                    f"(fewer than 45 clear days); dividend {div.pay_date} may be "
+                    f"denied under s 207-145. Franking credit not auto-removed."
+                )
+                break
+    return warnings
