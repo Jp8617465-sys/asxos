@@ -1,3 +1,89 @@
+# asxos — next-session backlog (updated 2026-06-30)
+
+---
+
+## P0 — HIGHEST PRIORITY: Multi-sleeve global architecture (2026-06-30)
+
+Full design in `.claude/plans/greedy-jumping-unicorn.md` (plan file). This is the
+next major development direction for the system. Summary of decisions made and
+blockers found by the 2026-06-30 agent review (system-architect,
+portfolio-invariant-guard, portfolio-coherence-reviewer).
+
+### Sleeve architecture (agreed design)
+
+**Thesis sleeve** (live now, primary): human conviction-driven, 6-18mo, drives
+`theses`/`thesis_revisions`/`holding_lots`. Currently the only real sleeve.
+
+**ML 5d paper sleeve** (always separate): Model A IC reverses at 21d — never
+allocates capital. Lives as evidence input to the agentic thesis-drafter layer
+(`asx thesis assist`). The 5 pm-review agents already surface SHAP for this.
+
+**Factor/Value×Quality sleeve** (sequenced): earns weight via `alpha_eval` gate
+(positive IC at 126/252d, `approved=TRUE` in `alpha_eval_runs` table). Phase 1
+builds data infrastructure only — factor sleeve is disabled (`sleeve_weights_json`
+stays `{"thesis": 1.0, "factor": 0.0}`) until the gate is met.
+
+**Momentum sleeve** (sequenced after factor): same gate at 63d IC.
+
+### Pre-implementation blockers (must fix before Phase 1 coding)
+
+- **B1**: `sleeves.py` does not exist — Phase 1 must build it from scratch
+- **B2**: `compose.py` regime query needs `WHERE model = 'model_a'` (not a
+  tiebreaker — the proposed `signal_id` column doesn't exist)
+- **B3**: `build.py` signal fetch is unfiltered by model — add
+  `WHERE model = 'model_a'` to signal fetch AND `model_versions` fetch. Do this
+  BEFORE Phase 1 rows land in `signals`.
+- **B4**: `signals` FK needs a `model_versions` seed row for `factor_sleeve`
+  before `factor_signal_writer` can write any rows
+- **B5**: `factor_signal_writer.py` needs `ASXOS_PERSONAL_USE=1` gate (first check)
+- **B6**: `factor_signal_writer` interface underspecified — define calibration
+  mapping for `prob_up`, `confidence`, `signal_label`, `regime` from z-scores
+- **B7**: `blend_sleeves()` must be Decimal-only (no numpy); add to module docstring
+- **B8**: `sleeve_weights_json` needs DB CHECK constraint + closed key-set validator
+  (same pattern as `score_weights_json` in `types.py:130-134`)
+- **B9**: `revision_source='agent_draft'` is a CHECK constraint DROP+re-ADD, not ADD COLUMN
+- **B10**: `alpha_eval_runs` table schema needed (JSONB report + scalar gate fields)
+- **B11**: `compute_factor_scores.py` needs a staleness guard on `knowledge_date`
+  before writing factor scores (hard-fail if `rs_fundamentals_pit` data > 14 days old)
+
+### Financial coherence findings (portfolio-coherence-reviewer)
+
+- **FC1**: Model A quarantine is documented but not enforced in `build.py` —
+  `WHERE model = 'model_a'` fix (B3) is also the quarantine enforcement
+- **FC2**: Value×Quality sleeve has zero evidence base; must earn weight via
+  `alpha_eval` gate, not be deployed as Phase 1 production path
+- **FC3**: **HUBS.NYSE requires a `thesis_revisions` entry NOW** — stop $230
+  violated (close $184.47), pm-review = EXIT-CANDIDATE, no revision logged.
+  Required by the framework. Run `asx thesis revise HUBS.NYSE`.
+- **FC4**: Horizon mismatch (5d/63d/126d/252d) in one weekly cron — state the
+  per-sleeve cadence explicitly or accept weekly as documented compromise
+- **FC5**: Thesis-overrides-factor direction needs a decision: low-conviction
+  thesis should NOT veto high-conviction factor signal (inverts conviction-weighting)
+- **FC6**: Cross-market factor scoring needs normalisation methodology before any
+  non-ASX symbol enters the factor sleeve
+
+### Phase 1 execution sequence (when ready to start)
+
+1. Fix `build.py` + `compose.py` model filters (B2+B3) — one commit, standard review
+2. Populate research store: 5 sequential Render jobs
+   (`sync_security_master → sync_corporate_actions → sync_financial_statements →
+   derive_fundamentals_pit → compute_factor_scores`)
+3. Migration 0032: `profiles.sleeve_weights_json`, `alpha_eval_runs` table,
+   `model_versions` seed for `factor_sleeve`, `signals_model_as_of_idx` index
+4. Build `sleeves.py` from scratch (Decimal-only, `blend_sleeves()`)
+5. Build `factor_signal_writer.py` with calibration contract + all gates
+6. Wire `sleeves.py` into `build.py` (with per-model staleness windows)
+7. Schedule `asxos-compute-factor-signals` cron in `render.yaml` (disabled by gate)
+
+### Required decisions (not code — before Phase 1 starts)
+
+1. HUBS.NYSE revision event (see FC3 above — run `asx thesis revise HUBS.NYSE`)
+2. Per-sleeve rebalance cadence: weekly for all (compromise), or per-sleeve crons?
+3. Override direction: any-thesis-veto vs conviction-threshold gate vs no-override
+4. Cross-market scope: confirm factor sleeve is ASX-only until normalisation is documented
+
+---
+
 # asxos — next-session backlog (open follow-ups, as of 2026-06-28)
 
 Open items left after branch `claude/edmund-yong-subagent-wecr3g` (SMSF CGT
