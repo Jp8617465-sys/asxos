@@ -1,5 +1,5 @@
 """
-Spec §4 dividend boundary tests — covers TC-01 through TC-09 and TC-19.
+Spec §4 dividend boundary tests — covers TC-01 through TC-09, TC-19, and TC-21.
 
 Each test cites the spec section and the TC ID from §11.
 """
@@ -13,8 +13,9 @@ import pytest
 from asxos.domain.tax.dividends import (
     after_tax_dividend_individual,
     after_tax_dividend_smsf,
+    check_45_day_warnings_smsf,
 )
-from asxos.domain.tax.types import Dividend, IndividualConfig, SMSFConfig
+from asxos.domain.tax.types import Dividend, HoldingLot, IndividualConfig, SMSFConfig
 
 
 def _div(cash: str, pct: str = "1.0", rate: str = "0.30") -> Dividend:
@@ -133,3 +134,80 @@ def test_individual_marginal_out_of_range_rejected() -> None:
 def test_smsf_pension_prop_out_of_range_rejected() -> None:
     with pytest.raises(ValueError, match="fund_pension_proportion"):
         SMSFConfig(fund_pension_proportion=Decimal("1.5"))
+
+
+# ---------------------------------------------------------------------------
+# §4.3 / TC-21 — 45-day holding period warning (s 207-145, SMSF only)
+# ---------------------------------------------------------------------------
+
+
+def _disposed_lot(symbol: str, acquired: date, disposed: date) -> HoldingLot:
+    return HoldingLot(
+        lot_id=1,
+        symbol=symbol,
+        acquired_at=acquired,
+        quantity=Decimal("100"),
+        cost_base_normal=Decimal("1000"),
+        cost_base_div296=Decimal("1000"),
+        disposed_at=disposed,
+        disposal_proceeds=Decimal("1100"),
+    )
+
+
+def _div_on(symbol: str, pay_date: date) -> Dividend:
+    return Dividend(
+        symbol=symbol,
+        pay_date=pay_date,
+        cash_dividend=Decimal("100"),
+        franking_pct=Decimal("1.0"),
+    )
+
+
+def test_tc21_warning_on_30_day_hold_with_dividend_in_period() -> None:
+    # TC-21 (spec §4.3): disposal 30 days after acquisition, dividend paid mid-hold
+    # → warning surfaced; franking credit not auto-removed.
+    acquired = date(2026, 1, 1)
+    disposed = date(2026, 1, 31)  # (disposed - acquired).days == 30
+    lot = _disposed_lot("BHP.AU", acquired, disposed)
+    div = _div_on("BHP.AU", date(2026, 1, 15))
+
+    warnings = check_45_day_warnings_smsf([lot], [div])
+
+    assert len(warnings) == 1
+    assert "BHP.AU" in warnings[0]
+    assert "s 207-145" in warnings[0]
+    assert "29 clear days" in warnings[0]  # clear_days = (disposed - acquired).days - 1 = 29
+
+
+def test_tc21_no_warning_at_46_day_hold() -> None:
+    # Boundary (spec §4.3): acquired day 0, disposed day 46 → days 1..45 = 45 clear days
+    # (excluding acquisition and disposal) → qualifies; no warning.
+    acquired = date(2026, 1, 1)
+    disposed = date(2026, 2, 16)  # (disposed - acquired).days == 46
+    lot = _disposed_lot("BHP.AU", acquired, disposed)
+    div = _div_on("BHP.AU", date(2026, 1, 15))
+
+    warnings = check_45_day_warnings_smsf([lot], [div])
+    assert warnings == []
+
+
+def test_tc21_no_warning_dividend_outside_holding_period() -> None:
+    # Short hold (30 days) but dividend pay date is after disposal → no warning.
+    acquired = date(2026, 1, 1)
+    disposed = date(2026, 1, 31)
+    lot = _disposed_lot("BHP.AU", acquired, disposed)
+    div = _div_on("BHP.AU", date(2026, 2, 1))  # after disposal
+
+    warnings = check_45_day_warnings_smsf([lot], [div])
+    assert warnings == []
+
+
+def test_tc21_no_warning_different_symbol() -> None:
+    # Short hold but dividend is for a different symbol → no warning.
+    acquired = date(2026, 1, 1)
+    disposed = date(2026, 1, 31)
+    lot = _disposed_lot("BHP.AU", acquired, disposed)
+    div = _div_on("CBA.AU", date(2026, 1, 15))  # different symbol
+
+    warnings = check_45_day_warnings_smsf([lot], [div])
+    assert warnings == []

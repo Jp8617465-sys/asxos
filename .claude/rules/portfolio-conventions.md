@@ -36,6 +36,26 @@ candidate (`m14_candidate_beta_cap`). Out of v1 scope.
 
 ---
 
+## `universe.is_active` overload — `security_kind` follow-up (`m14_candidate_security_kind_enum`)
+
+`universe.is_active` is overloaded across three concerns: price-fetching, the
+ASX-equity **ML universe** (every `WHERE is_active` reader — generate_signals,
+retrain, sync_fundamentals, loader, coverage, …), and delisting/forced-sell. This
+forces non-ASX-equity symbols (indices, held US equities) to be `is_active=FALSE`
+and selected by *suffix* conventions instead: `.INDX` via `get_index_symbols()`,
+held US holdings via `get_us_holding_symbols()` (open lots + `foreign_symbol_sql`),
+and excluded from the forced-sell in `build.py`. `is_active=FALSE` therefore means
+"not an ASX-equity-universe member," NOT "we don't hold/track it" (that's
+`holding_lots` / `current_holdings`).
+
+The clean end-state is a `security_kind` enum (`au_equity | us_equity | index`) so
+each consumer selects by kind and the three suffix/flag conventions collapse into
+one column. Deferred (`m14_candidate_security_kind_enum`): it's a 9+-site migration
+plus a backfill; the suffix-based detection above is the incremental first step and
+is correct until then. Build the enum when there is migration headroom (post-M13.8).
+
+---
+
 ## Risk-tolerance → position-count heuristic (plan I.2)
 
 The mapping (conservative=30, balanced=20, growth=15, aggressive=10) is a

@@ -114,6 +114,7 @@ def tax_view_smsf(
     div296_lsbt: Decimal = Decimal("3000000"),
     div296_vlsbt: Decimal = Decimal("10000000"),
     div296_provisional: bool = False,
+    div296_realised_gains: list[CapitalGain] | None = None,
     today: date | None = None,
 ) -> TaxView:
     today = today or date.today()
@@ -149,16 +150,32 @@ def tax_view_smsf(
         after_tax += after_tax_dividend_smsf(div, config).after_tax_cash
 
     div296: Div296Outcome | None = None
-    if tsb_ref is not None and ncg is not None:
-        # spec §6.2: ECPI is ignored for Div 296 — use the pre-ECPI net gain
-        # (here ncg.net_capital_gain is already post-discount per s 115-100).
-        div296 = div296_liability(
-            tsb_ref=tsb_ref,
-            earnings=ncg.net_capital_gain,
-            lsbt=div296_lsbt,
-            vlsbt=div296_vlsbt,
-            is_provisional=div296_provisional,
-        )
+    if tsb_ref is not None:
+        div296_earnings: Decimal | None
+        if config.div296_election_made and div296_realised_gains is not None:
+            # spec §6.4: election made — Div 296 earnings from cost_base_div296 gains.
+            # The 1/3 discount is applied by net_capital_gain(), mirroring the ordinary
+            # CGT path (spec §6.4 implementation contract).
+            ncg_div296 = net_capital_gain(
+                div296_realised_gains,
+                current_year_losses=Decimal("0"),
+                carried_forward_losses=config.carried_forward_capital_loss,
+                account_type="smsf",
+            )
+            div296_earnings = ncg_div296.net_capital_gain
+        else:
+            # spec §6.2: no election or no div296 gains — use ordinary net gain.
+            # ECPI is ignored for Div 296 (ncg.net_capital_gain is post-discount,
+            # pre-ECPI per s 115-100).
+            div296_earnings = ncg.net_capital_gain if ncg is not None else None
+        if div296_earnings is not None:
+            div296 = div296_liability(
+                tsb_ref=tsb_ref,
+                earnings=div296_earnings,
+                lsbt=div296_lsbt,
+                vlsbt=div296_vlsbt,
+                is_provisional=div296_provisional,
+            )
 
     alerts: list[str] = []
     for lot in lots:
@@ -172,12 +189,25 @@ def tax_view_smsf(
 
     warnings: list[str] = []
     if config.div296_election_made:
-        # spec §6.5: warn on any depreciated asset locked in by the election
-        # (caller must supply current MV via lots; we surface a hint only here)
-        warnings.append(
-            "Div 296 election locks cost_base_div296 at MV(30-Jun-2026); "
-            "depreciated assets eliminate pre-2026 capital loss from Div 296 earnings."
-        )
+        # spec §6.5: data-driven per-lot depreciated-asset detection.
+        # Exclude lots disposed before the reset date — the election covers only
+        # assets held at 30 June 2026.
+        depreciated = [
+            lot for lot in lots
+            if lot.cost_base_div296 < lot.cost_base_normal
+            and (lot.disposed_at is None or lot.disposed_at >= date(2026, 7, 1))
+        ]
+        for lot in depreciated:
+            warnings.append(
+                f"{lot.symbol} (lot {lot.lot_id}): Div 296 election resets "
+                f"cost_base_div296 ({lot.cost_base_div296}) below "
+                f"cost_base_normal ({lot.cost_base_normal}); "
+                f"eliminates pre-2026 capital loss from Div 296 earnings (spec §6.5)."
+            )
+        if not depreciated:
+            warnings.append(
+                "Div 296 election made; no depreciated assets detected at the reset date."
+            )
     # spec §4.3 (s 207-145): 45-day qualified-person warning for each disposed
     # lot with a franked dividend during a short holding period.
     warnings.extend(check_45_day_warnings_smsf(lots, dividends))

@@ -116,9 +116,10 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 13 subagents — 11 dev-side (architecture/quality/docs) plus
-2 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`,
-routed in the table below); see `.claude/agents/README.md`.
+`.claude/agents/` holds 18 subagents — 11 dev-side (architecture/quality/docs), 2
+finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`),
+and 5 investment-analysis agents (the evidence layer behind `/pm-review`), all routed
+in the tables below; see `.claude/agents/README.md`.
 They are **advisory by default**: most are read-only and return analysis, designs,
 or specs as text that the main loop then implements. Only `refactoring-expert`
 (code) and `technical-writer` (docs) can mutate files. `security-engineer` and
@@ -159,6 +160,22 @@ A runtime in-product tax/portfolio LLM agent is a structural **NO** (personal-ad
 firewall + Decimal-only determinism). Signals/ML conformance is already covered by
 `ml-conventions.md` + `targeted-ml-tests`; no agent for it.
 
+Five **investment-analysis** agents (advisory, read-only, Supabase access) form the
+evidence layer for the `/pm-review` synthesizer — they query live data and cite a
+specific data point in every output (no unanchored opinion):
+
+| To answer… | Invoke |
+|---|---|
+| Does the ML SHAP evidence still support the written thesis? | `thesis-coherence-guard` |
+| Are we beating the XJO total-return benchmark? | `benchmark-performance-analyst` |
+| Is each thesis on pace to its target within its timeline? | `thesis-milestone-monitor` |
+| Does the portfolio match the user's own conviction/cap framework? | `portfolio-coherence-reviewer` |
+| What's the market backdrop right now? | `market-context-narrator` |
+
+`/pm-review [SYMBOL]` (a slash command, because a subagent can't spawn subagents)
+fans these five out from the main loop and synthesizes the GOOD HOLD / TRIM / REVIEW /
+EXIT-CANDIDATE verdict. These agents surface evidence only — never orders or advice.
+
 ### Review gate (enforced)
 
 `.claude/hooks/review-gate.sh` (wired via `.claude/settings.json` as a `PreToolUse`
@@ -176,4 +193,4 @@ and config-only commits (no staged `*.py`) are not gated.
 
 ## Custom slash commands
 
-`.claude/commands/` has 20 domain and lifecycle commands carried verbatim from the previous repo. The seven domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used.
+`.claude/commands/` has 21 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence.

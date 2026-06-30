@@ -66,7 +66,11 @@ class EODHDClient:
         params: dict[str, Any] = {}
         if from_date:
             params["from"] = from_date
-        return await self._get(f"/eod/{symbol}", **params)  # type: ignore[no-any-return]
+        result = await self._get(f"/eod/{symbol}", **params)
+        # Same list guard as news_for_symbol/sentiments_for_symbol: a no-data or
+        # error response can come back as {} — coerce to [] so the per-symbol
+        # parsers (to_us_price_rows / to_fx_rows) never see a non-list.
+        return result if isinstance(result, list) else []
 
     async def daily_prices_bulk(self, exchange: str = "AU", *, date: str | None = None) -> list[dict[str, Any]]:
         params: dict[str, Any] = {}

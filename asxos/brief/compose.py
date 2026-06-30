@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.domain.brief.shap import format_top_factors
 from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.tax.cgt import days_to_eligibility
 
@@ -268,20 +269,8 @@ async def _signal_changes(conn: asyncpg.Connection, as_of: date) -> list[SignalC
     )
     out: list[SignalChange] = []
     for r in rows:
-        shap = r["shap_factors"] or {}
-        if isinstance(shap, str):
-            import json
-            shap = json.loads(shap)
-        top = ""
-        if shap:
-            ordered = sorted(
-                ((k, v) for k, v in shap.items() if k != "bias" and v is not None),
-                key=lambda kv: abs(float(kv[1])),
-                reverse=True,
-            )
-            if ordered:
-                k, v = ordered[0]
-                top = f"{k}{float(v):+.3f}"
+        # Single strongest driver — same ranking the V2 thesis cards use.
+        top = format_top_factors(r["shap_factors"], n=1)
         out.append(
             SignalChange(
                 symbol=r["symbol"],

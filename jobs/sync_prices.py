@@ -29,9 +29,11 @@ from asxos.domain.prices.coverage import (
     classify_sync_completeness,
     latest_observed_price_date,
 )
+from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
     fetch_and_upsert_bulk,
+    fetch_and_upsert_index_symbol,
     fetch_and_upsert_us_symbol,
     to_fx_rows,
     upsert_fx_rates,
@@ -95,6 +97,79 @@ async def get_active_universe() -> set[str]:
         return {r["symbol"] for r in rows}
 
 
+async def _resolve_index_start(
+    index_symbols: list[str], from_date: date | None, today: date, conn
+) -> date:
+    """First date to attempt for index symbols in self-heal mode.
+
+    The index has its OWN latest-observed floor — it must NOT inherit the equity
+    `start` (MAX over the active universe). Otherwise an index-only gap (EODHD
+    missed AXJO while equities synced fine, or the index was seeded after the
+    equities were already current) would never self-heal, because the equity
+    start would have advanced past it. An explicit --from wins. A freshly-seeded
+    index with no rows bootstraps from the auto-backfill floor; a full multi-year
+    history load still needs an explicit --from (the floor caps auto-heal depth).
+    """
+    if from_date is not None:
+        return from_date
+    floor = today - timedelta(days=_MAX_AUTO_BACKFILL_DAYS)
+    last = await conn.fetchval(
+        "SELECT MAX(dt) FROM prices WHERE symbol = ANY($1)", index_symbols
+    )
+    if last is None:
+        return floor
+    start = last + timedelta(days=1)
+    if start < floor:
+        log.warning(
+            "sync_prices index: latest index price date %s is >%d days stale; "
+            "auto-healing only from %s. Run --from %s for a full index backfill.",
+            last,
+            _MAX_AUTO_BACKFILL_DAYS,
+            floor,
+            start,
+        )
+        return floor
+    return start
+
+
+async def get_index_symbols() -> list[str]:
+    """Benchmark index symbols (e.g. AXJO.INDX) — independent of is_active.
+
+    Indices are seeded is_active=FALSE (migration 0031): they are benchmark
+    references, not tradeable-equity universe members, so every equity job's
+    `WHERE is_active` (generate_signals, sync_fundamentals, retrain_model_a,
+    refresh_universe's delisting sweep) naturally excludes them — no ML-path
+    edits needed. They still need price ingestion, so this dedicated suffix
+    query feeds Phase 1.5. The prices→universe FK is satisfied by the seed row.
+    """
+    async with acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT symbol FROM universe WHERE symbol LIKE '%.INDX' ORDER BY symbol"
+        )
+        return [r["symbol"] for r in rows]
+
+
+async def get_us_holding_symbols() -> list[str]:
+    """Held US-exchange symbols (e.g. HUBS.NYSE) — independent of is_active.
+
+    A held US holding is shaped like an index (the AXJO.INDX precedent): it needs
+    prices but is NOT an ASX-equity-universe member, so it is is_active=FALSE and
+    every `WHERE is_active` ML reader (generate_signals, retrain, sync_fundamentals)
+    excludes it for free — no junk US signal enters the ASX model / portfolio
+    candidates. Phase 2 therefore can't derive these from the *active* universe;
+    it sources them from the **open holding lots** directly (the only US names we
+    actually hold), so coverage auto-stops when a lot closes. The prices→universe
+    FK holds because the holding's universe row already exists.
+    """
+    async with acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT DISTINCT symbol FROM holding_lots"
+            f" WHERE disposed_at IS NULL AND {foreign_symbol_sql('symbol')}"
+            " ORDER BY symbol"
+        )
+        return [r["symbol"] for r in rows]
+
+
 async def _sync_us_prices(
     us_symbols: list[str],
     from_date: date,
@@ -119,6 +194,36 @@ async def _sync_us_prices(
     for sym, res in zip(us_symbols, results, strict=False):
         if isinstance(res, Exception):
             log.warning("sync_prices US: %s failed: %s", sym, res)
+        else:
+            total += res
+    return total
+
+
+async def _sync_index_prices(
+    index_symbols: list[str],
+    from_date: date,
+    client,
+    conn,
+) -> int:
+    """Phase 1.5: fetch + upsert prices for each index symbol concurrently.
+
+    Benchmark indices (e.g. AXJO.INDX) are NOT returned by the AU bulk endpoint
+    (equities only), so they need the per-symbol /eod path — mirroring the US
+    phase. A single index failure does not abort the run (return_exceptions).
+    """
+    if not index_symbols:
+        return 0
+    results = await asyncio.gather(
+        *[
+            fetch_and_upsert_index_symbol(sym, from_date, client, conn)
+            for sym in index_symbols
+        ],
+        return_exceptions=True,
+    )
+    total = 0
+    for sym, res in zip(index_symbols, results, strict=False):
+        if isinstance(res, Exception):
+            log.warning("sync_prices index: %s failed: %s", sym, res)
         else:
             total += res
     return total
@@ -152,6 +257,7 @@ async def main(from_date: date | None) -> None:
         au_rows = 0
         us_rows = 0
         fx_rows = 0
+        idx_rows = 0
 
         # Phase 1 — AU bulk, self-healing. One unified weekday loop from `start`
         # (day after the latest observed price date, or an explicit --from)
@@ -180,17 +286,41 @@ async def main(from_date: date | None) -> None:
                 days[-1],
             )
 
+        # Phase 1.5 — index prices (benchmark framing). AXJO.INDX and any other
+        # `.INDX` symbol are fetched per-symbol because the AU bulk endpoint
+        # returns equities only. Index symbols are is_active=FALSE, so they come
+        # from a dedicated suffix query (not the active universe). Self-heals over
+        # the same window from `start`. snapshot_portfolio reads these to populate
+        # the benchmark columns of portfolio_daily_snapshots.
+        index_symbols = await get_index_symbols()
+        if index_symbols:
+            # The index self-heals from its OWN latest-observed date, independent
+            # of the equity `start` (see _resolve_index_start).
+            async with acquire() as conn:
+                index_start = await _resolve_index_start(
+                    index_symbols, from_date, today, conn
+                )
+            log.info(
+                "sync_prices index: %d symbols %s from %s",
+                len(index_symbols),
+                index_symbols,
+                index_start,
+            )
+            async with acquire() as conn:
+                idx_rows = await _sync_index_prices(
+                    index_symbols, index_start, client, conn
+                )
+            log.info("sync_prices index: %d rows", idx_rows)
+
         # Phase 2 + 3 — US prices and FX rates (only when US holdings exist).
+        # US holdings are is_active=FALSE (held, not ASX-equity-universe members),
+        # so they come from a dedicated open-lot query, NOT the active universe.
         # Both self-heal over the same window by fetching from `start`.
-        _NON_AU_SUFFIXES = (".US", ".NYSE", ".NASDAQ", ".AMEX")
+        us_symbols = await get_us_holding_symbols()
         async with acquire() as conn:
-            us_symbols = [s for s in universe if any(s.endswith(sfx) for sfx in _NON_AU_SUFFIXES)]
             us_acquired_start: date | None = await conn.fetchval(
                 "SELECT MIN(acquired_at) FROM holding_lots"
-                " WHERE symbol LIKE '%.US'"
-                "    OR symbol LIKE '%.NYSE'"
-                "    OR symbol LIKE '%.NASDAQ'"
-                "    OR symbol LIKE '%.AMEX'"
+                f" WHERE {foreign_symbol_sql('symbol')}"
             )
 
         if us_symbols:
@@ -238,7 +368,7 @@ async def main(from_date: date | None) -> None:
                     fx_rows,
                 )
 
-        monitor.rows_written = au_rows + us_rows + fx_rows
+        monitor.rows_written = au_rows + us_rows + fx_rows + idx_rows
 
     await close_pool()
 
@@ -250,6 +380,7 @@ if __name__ == "__main__":
         dest="from_date",
         type=date.fromisoformat,
         default=None,
-        help="Backfill start date (YYYY-MM-DD). Omit for yesterday only.",
+        help="Backfill start date (YYYY-MM-DD). Omit to self-heal from the "
+        "latest observed price date (capped at the auto-backfill window).",
     )
     asyncio.run(main(parser.parse_args().from_date))

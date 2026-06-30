@@ -183,11 +183,8 @@ def test_tc21_no_warning_for_unfranked_dividend() -> None:
     assert not any("207-145" in w for w in tv.franking_warnings)
 
 
-def test_smsf_election_emits_franking_warning() -> None:
-    # §6.5: with the election flagged, the aggregator surfaces a static advisory
-    # hint. NOTE: the locking behaviour itself (pinning cost_base_div296 at
-    # MV(30-Jun-2026), eliminating pre-2026 losses) is NOT yet implemented — this
-    # only asserts the hint is surfaced, not that the lock is computed.
+def test_smsf_election_no_depreciated_assets_emits_advisory() -> None:
+    # §6.5: election made but no lots → data-driven check finds nothing → brief advisory.
     tv = tax_view_smsf(
         lots=[],
         realised_gains=[],
@@ -196,7 +193,32 @@ def test_smsf_election_emits_franking_warning() -> None:
         tsb_ref=None,
     )
     assert tv.franking_warnings
-    assert "cost_base_div296" in tv.franking_warnings[0]
+    assert "no depreciated" in tv.franking_warnings[0].lower()
+
+
+def test_smsf_election_depreciated_lot_warns_with_symbol_and_cost_bases() -> None:
+    # §6.5: lot where cost_base_div296 < cost_base_normal → per-lot warning with
+    # symbol, lot ID, and both cost bases.
+    lot = HoldingLot(
+        lot_id=1,
+        symbol="BHP.AU",
+        acquired_at=date(2020, 1, 1),
+        quantity=Decimal("100"),
+        cost_base_normal=Decimal("50000"),
+        cost_base_div296=Decimal("40000"),  # depreciated: MV(30-Jun-2026) < cost
+    )
+    tv = tax_view_smsf(
+        lots=[lot],
+        realised_gains=[],
+        dividends=[],
+        config=SMSFConfig(fund_pension_proportion=Decimal("0"), div296_election_made=True),
+        tsb_ref=None,
+    )
+    assert len(tv.franking_warnings) == 1
+    assert "BHP.AU" in tv.franking_warnings[0]
+    assert "lot 1" in tv.franking_warnings[0]
+    assert "50000" in tv.franking_warnings[0]
+    assert "40000" in tv.franking_warnings[0]
 
 
 # ---------------------------------------------------------------------------
@@ -326,3 +348,68 @@ def test_individual_net_loss_produces_zero_cgt_tax() -> None:
     assert tv.cgt_tax_outcome.total_tax == Decimal("0.00")
     assert tv.net_capital_gain is not None
     assert tv.net_capital_gain.net_capital_loss_cf == Decimal("5000")
+
+
+# ---------------------------------------------------------------------------
+# TC-20 (spec §6.4, v1.5) — Div 296 cost-base reset (s 296-50 ITTPA)
+# ---------------------------------------------------------------------------
+
+
+def test_tc20_smsf_div296_election_uses_cost_base_div296() -> None:
+    # TC-20 (spec §6.4, v1.5): SMSF with s 296-50 election. Dual-path disposal.
+    # Acquired 2020-01-01 $50,000; MV at 30-Jun-2026 $80,000; disposed 2027-01-01 $100,000.
+    # SMSF accumulation (fund_pension_proportion=0), election made, tsb_ref 3.2M.
+    #
+    # Fund CGT (cost_base_normal): gross $50,000 discountable → 1/3 discount → net ≈ $33,333
+    # → fund tax 15% = $5,000 (cgt_tax_outcome.income_tax).
+    # Div 296 earnings (cost_base_div296): gross $20,000 → 1/3 discount → ≈ $13,333
+    # (div296_outcome.earnings) — NOT $33,333 from the cost_base_normal path.
+    fund_cgt_gain = CapitalGain(
+        "BHP.AU", Decimal("50000"), discountable=True, holding_period_days=2557
+    )
+    div296_gain = CapitalGain(
+        "BHP.AU", Decimal("20000"), discountable=True, holding_period_days=2557
+    )
+    tv = tax_view_smsf(
+        lots=[],
+        realised_gains=[fund_cgt_gain],
+        dividends=[],
+        config=SMSFConfig(
+            fund_pension_proportion=Decimal("0"),
+            div296_election_made=True,
+        ),
+        tsb_ref=Decimal("3200000"),
+        div296_realised_gains=[div296_gain],
+    )
+    # Fund CGT: net gain ≈ 50,000 × 2/3 ≈ 33,333; tax at 15% = $5,000
+    assert tv.cgt_tax_outcome is not None
+    assert abs(tv.cgt_tax_outcome.income_tax - Decimal("5000")) < Decimal("0.01")
+    # Div 296 earnings come from cost_base_div296 path: ≈ 20,000 × 2/3 ≈ 13,333
+    assert tv.div296_outcome is not None
+    assert abs(tv.div296_outcome.earnings - Decimal("13333.33")) < Decimal("0.01")
+
+
+def test_tc20_without_election_uses_normal_ncg_for_div296() -> None:
+    # Regression: when div296_election_made=False, Div 296 earnings still come from
+    # the ordinary cost_base_normal path (spec §6.2), even if div296_realised_gains
+    # is supplied.
+    fund_cgt_gain = CapitalGain(
+        "BHP.AU", Decimal("50000"), discountable=True, holding_period_days=2557
+    )
+    div296_gain = CapitalGain(
+        "BHP.AU", Decimal("20000"), discountable=True, holding_period_days=2557
+    )
+    tv = tax_view_smsf(
+        lots=[],
+        realised_gains=[fund_cgt_gain],
+        dividends=[],
+        config=SMSFConfig(
+            fund_pension_proportion=Decimal("0"),
+            div296_election_made=False,
+        ),
+        tsb_ref=Decimal("3200000"),
+        div296_realised_gains=[div296_gain],  # supplied but election not made → ignored
+    )
+    assert tv.div296_outcome is not None
+    # Earnings should use ordinary ncg (≈ 33,333), not the div296 gains (≈ 13,333)
+    assert abs(tv.div296_outcome.earnings - Decimal("33333.33")) < Decimal("0.01")

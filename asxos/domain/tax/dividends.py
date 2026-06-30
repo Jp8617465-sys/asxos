@@ -6,6 +6,8 @@ Two paths:
   full credit when refundable (default for individuals per s 67-25).
 - SMSF (§4.2): proportionate method per s 295-390. ECPI component is exempt,
   taxable component at 15%, franking credit fully refundable under Div 207.
+- SMSF 45-day warning (§4.3): s 207-145 qualified-person rule; the $5,000
+  small-shareholder exemption does not apply to SMSFs.
 """
 from __future__ import annotations
 

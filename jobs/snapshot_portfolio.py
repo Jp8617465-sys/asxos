@@ -10,26 +10,30 @@ Schedule: weekdays 20:40 UTC (after sync_prices 20:30, before compose_brief 21:0
 
 Hard-fail conditions (CLAUDE.md non-negotiable #10):
   - No active profile in profiles table (RuntimeError)
-  - sync_prices job_runs.status != 'success' for as_of (UpstreamBlocked)
+  - sync_prices job_runs.status != 'success' for as_of (UpstreamBlocked);
+    --from backfill skips missing days instead of aborting (see main())
   - holdings_mv_aud computation fails (e.g. asyncpg error) (unhandled exception)
 
 Soft-degrade conditions (NULL column instead of failure):
-  - benchmark_xjo_close: AXJO.INDX not yet in prices table
-  - benchmark_tr_level: trailing_div_yield_pct source not wired in v1
-  - trailing_div_yield_pct: stub returns None until D4 source is implemented
+  - benchmark_xjo_close: AXJO.INDX not yet in prices table (before first
+    sync_prices Phase 1.5 run after migration 0031 seeds the universe row)
+  - benchmark_tr_level: NULL only while benchmark_xjo_close is NULL
 
 cash_aud in v1: profile.cash_floor_pct * profile.capital_aud (profile's
 configured capital baseline). This is a conservative estimate. A real cash
 ledger replaces this after M13.8 paper-trade sign-off.
 
-XJO benchmark: EODHD symbol AXJO.INDX. Not yet added to sync_prices ingestion
-pipeline — benchmark columns stay NULL until that's wired. Add AXJO.INDX to
-sync_prices Phase 1 (universe) to enable benchmark framing in the V2 brief.
+XJO benchmark: EODHD symbol AXJO.INDX (price index), ingested by sync_prices
+Phase 1.5 once seeded in `universe` (migration 0031). benchmark_tr_level is the
+dividend-inclusive "bar to beat": the real S&P/ASX 200 accumulation index
+(_XJO_TR_SYMBOL) when ingested, else a documented compounding gross-yield
+approximation on the price close (see _accumulation_tr_level). trailing_div_yield_pct
+records which path ran (NULL = real index, assumed % = approximation).
 
 Usage:
     python jobs/snapshot_portfolio.py                         # yesterday
     python jobs/snapshot_portfolio.py --as-of 2026-05-27
-    python jobs/snapshot_portfolio.py --from 2026-01-01       # backfill
+    python jobs/snapshot_portfolio.py --from 2026-01-01       # backfill; days without a sync_prices success row are skipped, not hard-failed
 """
 import argparse
 import asyncio
@@ -39,17 +43,50 @@ from decimal import Decimal
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.fx import foreign_symbol_sql, is_foreign_symbol
 from asxos.jobs._helpers import UpstreamBlocked
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-# EODHD symbol for ASX 200 (price-return index).
-# Not in prices until AXJO.INDX is added to sync_prices ingestion.
+# EODHD symbol for ASX 200 (price-return index). Ingested via sync_prices
+# Phase 1.5 once seeded in `universe` (migration 0031).
 _XJO_SYMBOL = "AXJO.INDX"
 
+# Candidate EODHD symbol for the S&P/ASX 200 *accumulation* (total-return) index.
+# Preferred for benchmark_tr_level WHEN PRESENT in `prices` — the moment this is
+# confirmed available on EODHD and seeded into `universe`, snapshot_portfolio
+# upgrades from the documented approximation below to the real index, no code
+# change. Left unseeded until verified on Render (where EODHD_API_KEY exists).
+_XJO_TR_SYMBOL = "AXJOA.INDX"
+
+# Documented total-return approximation used until the real accumulation index is
+# wired. The S&P/ASX 200 cash dividend yield runs ~4%/yr; a price-only benchmark
+# understates the "bar to beat" by that much. We accrue it as a compounding
+# overlay on the price level:
+#     tr(t) = xjo_close(t) × (1 + _ASX200_TR_YIELD) ** ((t − _TR_EPOCH)/365)
+# The epoch is a fixed anchor that CANCELS in the brief's since-inception ratio
+# tr(t1)/tr(t0), so its exact value is immaterial — it only fixes the level.
+# This is an APPROXIMATION (cash yield, not franking-grossed-up; constant, not
+# the realised monthly yield). Cited in the brief as "XJO-TR (approx)".
+_ASX200_TR_YIELD = Decimal("0.04")
+_TR_EPOCH = date(2020, 1, 1)
+
 JOB_NAME = "snapshot_portfolio"
+
+
+def _accumulation_tr_level(xjo_close: Decimal, as_of: date) -> Decimal:
+    """Approximate ASX 200 total-return level from the price close (see above).
+
+    Pure Decimal. The epoch anchor cancels in the brief's since-inception ratio,
+    so only the *increment* y×Δt/365 of dividend return over a holding window
+    survives — which is exactly the dividend drag a price-only benchmark omits.
+    """
+    years = Decimal((as_of - _TR_EPOCH).days) / Decimal("365")
+    return (xjo_close * (Decimal("1") + _ASX200_TR_YIELD) ** years).quantize(
+        Decimal("0.000001")
+    )
 
 
 async def _upstream_ok(conn, as_of: date) -> bool:
@@ -81,7 +118,8 @@ async def _compute_holdings_mv(
     """Compute total market value of current_holdings on as_of.
 
     AU symbols: price in AUD, no FX conversion needed.
-    US symbols: price in USD, converted to AUD via most recent AUDUSD rate.
+    US-exchange (USD) symbols — any FOREIGN_SUFFIXES (.US/.NYSE/.NASDAQ/.AMEX):
+    price in USD, converted to AUD via most recent AUDUSD rate.
     Returns (holdings_mv_aud, holdings_count, us_mv_aud, us_cost_aud, fx_rate_audusd).
     """
     # Fetch the most recent AUDUSD rate on or before as_of (monthly data)
@@ -114,7 +152,7 @@ async def _compute_holdings_mv(
         qty = Decimal(str(r["quantity"]))
         close = Decimal(str(r["close"]))
         price_aud: Decimal
-        if r["symbol"].endswith(".US"):
+        if is_foreign_symbol(r["symbol"]):
             if audusd_rate is None:
                 raise RuntimeError(
                     f"No AUDUSD FX rate on or before {as_of} — "
@@ -132,10 +170,10 @@ async def _compute_holdings_mv(
     us_cost_aud: Decimal | None = None
     if us_mv_aud is not None:
         us_cost_rows = await conn.fetch(
-            """
+            f"""
             SELECT SUM(hl.cost_base_normal) AS total_cost_aud
             FROM holding_lots hl
-            WHERE hl.disposed_at IS NULL AND hl.symbol LIKE '%.US'
+            WHERE hl.disposed_at IS NULL AND {foreign_symbol_sql("hl.symbol")}
             """
         )
         if us_cost_rows and us_cost_rows[0]["total_cost_aud"] is not None:
@@ -157,13 +195,19 @@ async def _fetch_xjo_close(conn, as_of: date) -> Decimal | None:
     return Decimal(str(row["close"])) if row else None
 
 
-def _fetch_trailing_div_yield() -> Decimal | None:
-    """Trailing ASX 200 dividend yield — stub for v1.
+async def _fetch_accum_close(conn, as_of: date) -> Decimal | None:
+    """Fetch the real accumulation-index close for as_of, if it has been ingested.
 
-    Returns None until the D4 source (ASX/RBA monthly stats) is wired.
-    When None, benchmark_tr_level stays NULL; brief degrades to price-only.
+    Returns None until _XJO_TR_SYMBOL is confirmed on EODHD and seeded into
+    `universe` — at which point benchmark_tr_level upgrades from the documented
+    approximation to the genuine total-return index with no code change.
     """
-    return None
+    row = await conn.fetchrow(
+        "SELECT close FROM prices WHERE symbol = $1 AND dt = $2",
+        _XJO_TR_SYMBOL,
+        as_of,
+    )
+    return Decimal(str(row["close"])) if row else None
 
 
 async def _snapshot_one_day(as_of: date, monitor: JobMonitor) -> None:
@@ -182,22 +226,30 @@ async def _snapshot_one_day(as_of: date, monitor: JobMonitor) -> None:
             await _compute_holdings_mv(conn, as_of)
         )
         xjo_close = await _fetch_xjo_close(conn, as_of)
+        accum_close = await _fetch_accum_close(conn, as_of)
 
-    trailing_yield = _fetch_trailing_div_yield()
     cash_aud = (profile["cash_floor_pct"] * profile["capital_aud"]).quantize(
         Decimal("0.000001")
     )
     capital_aud = (holdings_mv_aud + cash_aud).quantize(Decimal("0.000001"))
 
+    # benchmark_tr_level — the dividend-inclusive "bar to beat". Prefer the real
+    # accumulation index when ingested; otherwise overlay the documented yield
+    # approximation on the price close. trailing_div_yield_pct records which path
+    # ran: NULL when the real index embeds dividends, the assumed % otherwise.
     benchmark_tr_level: Decimal | None = None
-    if xjo_close is not None and trailing_yield is not None:
-        # TR ≈ price-return × (1 + annual_yield_pct/100 × days/365) — stub
-        benchmark_tr_level = xjo_close
+    trailing_yield: Decimal | None = None
+    if accum_close is not None:
+        benchmark_tr_level = accum_close
+    elif xjo_close is not None:
+        benchmark_tr_level = _accumulation_tr_level(xjo_close, as_of)
+        trailing_yield = _ASX200_TR_YIELD * Decimal("100")
 
     if xjo_close is None:
         log.warning(
-            "AXJO.INDX not in prices for %s — benchmark_xjo_close will be NULL. "
-            "Add AXJO.INDX to sync_prices to enable benchmark framing.",
+            "AXJO.INDX not in prices for %s — benchmark columns will be NULL. "
+            "Seed AXJO.INDX in universe (migration 0031) so sync_prices Phase 1.5 "
+            "ingests it.",
             as_of,
         )
 
@@ -265,12 +317,25 @@ async def main(as_of_arg: date | None, from_date: date | None) -> None:
             current = from_date
             while current < today:
                 if current.weekday() < 5:
-                    async with JobMonitor(
-                        job_name=JOB_NAME,
-                        as_of=current,
-                        healthcheck_url="",  # no ping on backfill runs
-                    ) as monitor:
-                        await _snapshot_one_day(current, monitor)
+                    # Backfill escape hatch: skip rather than abort when a day has no
+                    # sync_prices success row. Aborting on the first gap would make a
+                    # catch-up backfill useless after any period of missed syncs.
+                    # The daily --as-of path still hard-fails (UpstreamBlocked) —
+                    # this softer behavior is operator-run only.
+                    async with acquire() as gate_conn:
+                        gate_ok = await _upstream_ok(gate_conn, current)
+                    if not gate_ok:
+                        log.warning(
+                            "backfill: skipping %s — no sync_prices success row",
+                            current,
+                        )
+                    else:
+                        async with JobMonitor(
+                            job_name=JOB_NAME,
+                            as_of=current,
+                            healthcheck_url="",  # no ping on backfill runs
+                        ) as monitor:
+                            await _snapshot_one_day(current, monitor)
                 current += timedelta(days=1)
             log.info("backfill complete through %s", current - timedelta(days=1))
         else:

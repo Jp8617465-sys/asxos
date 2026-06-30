@@ -11,8 +11,14 @@ import httpx
 import pytest
 
 import jobs.sync_prices as sync_prices_job
+from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.ingestion.eodhd import EODHDClient, _is_retryable
-from asxos.ingestion.prices import to_fx_rows, to_price_rows, to_us_price_rows
+from asxos.ingestion.prices import (
+    fetch_and_upsert_index_symbol,
+    to_fx_rows,
+    to_price_rows,
+    to_us_price_rows,
+)
 
 # ---------------------------------------------------------------------------
 # _is_retryable
@@ -242,6 +248,133 @@ def test_to_us_price_rows_correct_column_order():
 
 def test_to_us_price_rows_empty_input_returns_empty():
     assert to_us_price_rows([], symbol="AAPL.US") == []
+
+
+# ---------------------------------------------------------------------------
+# Index price ingestion — benchmark framing (Phase 1.5)
+# ---------------------------------------------------------------------------
+
+_INDEX_RAW = [
+    {"date": "2026-06-22", "open": 8500.0, "high": 8550.0, "low": 8480.0,
+     "close": 8520.0, "volume": 0, "adjusted_close": 8520.0},
+    {"date": "2026-06-23", "open": 8520.0, "high": 8560.0, "low": 8510.0,
+     "close": 8540.0, "volume": 0, "adjusted_close": 8540.0},
+]
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_upsert_index_symbol_no_remap():
+    """The .INDX symbol is the API symbol verbatim — no eodhd_symbol() remap,
+    and rows are upserted under that exact symbol (prices→universe FK)."""
+    client = MagicMock()
+    client.daily_prices = AsyncMock(return_value=_INDEX_RAW)
+    conn = AsyncMock()
+    conn.executemany = AsyncMock()
+
+    n = await fetch_and_upsert_index_symbol("AXJO.INDX", date(2026, 6, 22), client, conn)
+
+    assert n == 2
+    # API symbol passed verbatim (the bug we avoid: remapping AXJO.INDX)
+    client.daily_prices.assert_awaited_once_with("AXJO.INDX", from_date="2026-06-22")
+    # Rows upserted under the index symbol
+    upsert_rows = conn.executemany.await_args.args[1]
+    assert all(r[0] == "AXJO.INDX" for r in upsert_rows)
+    assert {r[1] for r in upsert_rows} == {date(2026, 6, 22), date(2026, 6, 23)}
+
+
+@pytest.mark.asyncio
+async def test_sync_index_prices_one_failure_does_not_abort(monkeypatch):
+    """A single index fetch failure is logged and skipped; others still count."""
+    async def _fake_fetch(sym, _from, _client, _conn):
+        if sym == "BAD.INDX":
+            raise RuntimeError("boom")
+        return 5
+
+    monkeypatch.setattr(sync_prices_job, "fetch_and_upsert_index_symbol", _fake_fetch)
+    total = await sync_prices_job._sync_index_prices(
+        ["AXJO.INDX", "BAD.INDX"], date(2026, 6, 22), MagicMock(), AsyncMock()
+    )
+    assert total == 5  # AXJO succeeded (5), BAD failed (skipped)
+
+
+@pytest.mark.asyncio
+async def test_get_us_holding_symbols_queries_open_foreign_lots():
+    """Held US symbols come from OPEN holding_lots (is_active-independent), via
+    the foreign-suffix clause — so an inactive HUBS.NYSE is still fetched."""
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[{"symbol": "AAPL.US"}, {"symbol": "HUBS.NYSE"}])
+    with patch.object(sync_prices_job, "acquire") as mock_acquire:
+        mock_acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+        out = await sync_prices_job.get_us_holding_symbols()
+
+    assert out == ["AAPL.US", "HUBS.NYSE"]
+    q = conn.fetch.await_args.args[0]
+    assert "holding_lots" in q
+    assert "disposed_at IS NULL" in q                  # open lots only
+    assert foreign_symbol_sql("symbol") in q           # the shared foreign clause
+    assert "is_active" not in q                         # independent of is_active (the bug)
+
+
+@pytest.mark.asyncio
+async def test_sync_index_prices_empty_list_returns_zero():
+    assert await sync_prices_job._sync_index_prices(
+        [], date(2026, 6, 22), MagicMock(), AsyncMock()
+    ) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_index_start_explicit_from_wins():
+    conn = AsyncMock()
+    out = await sync_prices_job._resolve_index_start(
+        ["AXJO.INDX"], date(2024, 1, 1), date(2026, 6, 22), conn
+    )
+    assert out == date(2024, 1, 1)
+    conn.fetchval.assert_not_called()  # explicit --from short-circuits the query
+
+
+@pytest.mark.asyncio
+async def test_resolve_index_start_no_rows_bootstraps_floor():
+    # Freshly-seeded index (no prices yet) → bootstrap from the auto-backfill floor.
+    conn = AsyncMock()
+    conn.fetchval = AsyncMock(return_value=None)
+    today = date(2026, 6, 22)
+    out = await sync_prices_job._resolve_index_start(["AXJO.INDX"], None, today, conn)
+    assert out == today - timedelta(days=sync_prices_job._MAX_AUTO_BACKFILL_DAYS)
+
+
+@pytest.mark.asyncio
+async def test_resolve_index_start_heals_from_own_latest_not_equity():
+    # The index resumes from ITS OWN last date + 1 (the bug being prevented: it
+    # must not inherit the equity start, or index-only gaps never self-heal).
+    conn = AsyncMock()
+    conn.fetchval = AsyncMock(return_value=date(2026, 6, 20))
+    out = await sync_prices_job._resolve_index_start(
+        ["AXJO.INDX"], None, date(2026, 6, 22), conn
+    )
+    assert out == date(2026, 6, 21)
+
+
+@pytest.mark.asyncio
+async def test_resolve_index_start_stale_clamps_to_floor():
+    # A gap older than the cap heals only the floor window (operator runs --from).
+    conn = AsyncMock()
+    today = date(2026, 6, 22)
+    conn.fetchval = AsyncMock(return_value=date(2026, 1, 1))  # >10 days stale
+    out = await sync_prices_job._resolve_index_start(["AXJO.INDX"], None, today, conn)
+    assert out == today - timedelta(days=sync_prices_job._MAX_AUTO_BACKFILL_DAYS)
+
+
+@pytest.mark.asyncio
+async def test_daily_prices_coerces_non_list_to_empty():
+    # A no-data/error response can come back as {} — daily_prices must return []
+    # so the per-symbol parsers never see a non-list (security hardening).
+    client = EODHDClient(api_key="x")
+    client._get = AsyncMock(return_value={})
+    try:
+        assert await client.daily_prices("AXJO.INDX") == []
+    finally:
+        await client.close()
 
 
 # ---------------------------------------------------------------------------

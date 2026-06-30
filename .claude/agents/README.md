@@ -3,11 +3,14 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**
-added after a system-architect scoping pass (see bottom). The dev agents help build
-and maintain the codebase generally; the finance agents guard spec↔test↔code
-conformance in the tax and portfolio domains. All thirteen are advisory by default;
-none is a runtime in-product agent (a runtime tax/portfolio LLM is a structural NO —
-it would collide with the personal-advice firewall and Decimal-only determinism).
+and **five investment-analysis agents** (see bottom). The dev agents help build and
+maintain the codebase; the conformance agents guard spec↔test↔code correctness; the
+investment-analysis agents surface evidence-grounded views on the live portfolio.
+All eighteen are advisory by default; none is a runtime in-product agent (a runtime
+tax/portfolio LLM is a structural NO — it would collide with the personal-advice
+firewall and Decimal-only determinism). The investment-analysis agents run in Claude
+Code sessions only, querying Supabase directly — they are the interactive layer on
+top of the automated brief, not a replacement for it.
 
 Claude routes to these contextually based on the task, or you can invoke one
 explicitly (e.g. "use the security-engineer to review this").
@@ -79,3 +82,50 @@ firewall.
 Explicitly **not** built: a signals/ML conformance agent (covered by
 `ml-conventions.md` + `targeted-ml-tests`) and any broad "finance reviewer" (too
 unaccountable — the value is the spec/rules-anchored narrowness).
+
+## Investment-analysis agents (5)
+
+Added after the system-architect strategic review (2026-06-29). These are a distinct
+category from the conformance agents: they query **live Supabase data** (signals,
+prices, theses, holding_lots, portfolio_daily_snapshots) and produce evidence-grounded
+analysis of the portfolio's current state. Every output cites a specific data point —
+no unanchored opinion. They are the building blocks toward a future portfolio-manager
+synthesizer agent. Tools include `mcp__Supabase__execute_sql`.
+
+Their SQL is **verified against the live schema** (Stage 2, 2026-06-29): every column
+each agent SELECTs was dry-run against the database. Key column truths to preserve when
+editing them: `theses` uses `entry_band_lower/upper`, `timeline_days`, `opened_at`,
+`conviction_level` (SMALLINT 1..5), and a `status` column (active = `'active'`;
+closed = `'exited'|'expired'`) — NOT `entry_price_*`, `timeline_months`, `thesis_date`,
+or any `event_type='closed'` predicate. `thesis_revisions` uses `revision_type` (not
+`event_type`). `profiles` exposes `sector_cap_pct`/`per_name_cap_pct`/`excluded_*`
+columns — there is **no** `constraints_json`. `signals.model='model_a'`.
+
+- **thesis-coherence-guard** — compares current ML signal SHAP factors against the
+  written thesis rationale. Verdicts: COHERENT / NEEDS REVIEW / CONTRADICTED. Invoke
+  when a signal label changes on a held position or before committing a thesis revision.
+- **benchmark-performance-analyst** — computes portfolio return vs XJO total-return
+  benchmark (MTD, YTD, since-inception) and attributes alpha to selection vs
+  allocation. AXJO.INDX ingestion is wired (Stage 1); benchmark columns populate once
+  `snapshot_portfolio` runs after the index has prices. Uses the pure-Decimal
+  `asxos/domain/benchmark/returns.py` helpers.
+- **thesis-milestone-monitor** — checks whether each active thesis is on trajectory
+  to hit its target within its timeline. Classifies ON TRACK / BEHIND / STALLED /
+  STOP VIOLATED / ABOVE TARGET. Distinct from the brief's timeline-expiry check.
+- **portfolio-coherence-reviewer** — checks the live portfolio against the user's own
+  stated framework: conviction vs position size, signal vs holding, sector vs profile
+  cap, stop proximity. Surfaces undocumented deviations only.
+- **market-context-narrator** — a 3-sentence backdrop (regime + one macro driver +
+  one sentiment/regulatory data point) from `market_context_current`,
+  `regulatory_events`, and `signal_sentiment`. The "here's what's going on in the
+  market" input to a portfolio review. Every sentence carries a number or named source.
+
+The path to a full portfolio-manager synthesizer, now complete: **Stage 1 (done)** wired
+the data pipeline (AXJO.INDX ingestion, steady-state SHAP in the brief, benchmark
+rendering); **Stage 2 (done)** corrected and live-validated the analysis agents' SQL and
+added the pure-Decimal `theses/trajectory.py` + `benchmark/returns.py` helpers;
+**Stage 3 (done)** added the market-context narrator (5th agent); **Stage 4 (done)** is
+the `/pm-review [SYMBOL]` slash command that fans out all five agents from the main loop
+(a subagent cannot spawn subagents) and synthesizes the "good buy / bad buy / here's why"
+read into a verdict — **GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE** — with the strongest
+evidence for and against, each traced to a cited agent output.
