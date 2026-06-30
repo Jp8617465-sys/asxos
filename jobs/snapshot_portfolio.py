@@ -10,7 +10,8 @@ Schedule: weekdays 20:40 UTC (after sync_prices 20:30, before compose_brief 21:0
 
 Hard-fail conditions (CLAUDE.md non-negotiable #10):
   - No active profile in profiles table (RuntimeError)
-  - sync_prices job_runs.status != 'success' for as_of (UpstreamBlocked)
+  - sync_prices job_runs.status != 'success' for as_of (UpstreamBlocked);
+    --from backfill skips missing days instead of aborting (see main())
   - holdings_mv_aud computation fails (e.g. asyncpg error) (unhandled exception)
 
 Soft-degrade conditions (NULL column instead of failure):
@@ -32,7 +33,7 @@ records which path ran (NULL = real index, assumed % = approximation).
 Usage:
     python jobs/snapshot_portfolio.py                         # yesterday
     python jobs/snapshot_portfolio.py --as-of 2026-05-27
-    python jobs/snapshot_portfolio.py --from 2026-01-01       # backfill
+    python jobs/snapshot_portfolio.py --from 2026-01-01       # backfill; days without a sync_prices success row are skipped, not hard-failed
 """
 import argparse
 import asyncio
@@ -316,12 +317,25 @@ async def main(as_of_arg: date | None, from_date: date | None) -> None:
             current = from_date
             while current < today:
                 if current.weekday() < 5:
-                    async with JobMonitor(
-                        job_name=JOB_NAME,
-                        as_of=current,
-                        healthcheck_url="",  # no ping on backfill runs
-                    ) as monitor:
-                        await _snapshot_one_day(current, monitor)
+                    # Backfill escape hatch: skip rather than abort when a day has no
+                    # sync_prices success row. Aborting on the first gap would make a
+                    # catch-up backfill useless after any period of missed syncs.
+                    # The daily --as-of path still hard-fails (UpstreamBlocked) —
+                    # this softer behavior is operator-run only.
+                    async with acquire() as gate_conn:
+                        gate_ok = await _upstream_ok(gate_conn, current)
+                    if not gate_ok:
+                        log.warning(
+                            "backfill: skipping %s — no sync_prices success row",
+                            current,
+                        )
+                    else:
+                        async with JobMonitor(
+                            job_name=JOB_NAME,
+                            as_of=current,
+                            healthcheck_url="",  # no ping on backfill runs
+                        ) as monitor:
+                            await _snapshot_one_day(current, monitor)
                 current += timedelta(days=1)
             log.info("backfill complete through %s", current - timedelta(days=1))
         else:

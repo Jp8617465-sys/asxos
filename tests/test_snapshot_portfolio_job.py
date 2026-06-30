@@ -7,6 +7,7 @@ Uses asyncpg Record-shaped dicts via unittest.mock.
 from __future__ import annotations
 
 import asyncio
+import datetime as _dt
 from contextlib import asynccontextmanager
 from datetime import date
 from decimal import Decimal
@@ -353,7 +354,91 @@ def test_benchmark_tr_level_prefers_real_accumulation_index():
 
 
 # ---------------------------------------------------------------------------
-# 5. Idempotency — second run for same as_of overwrites via UPSERT
+# 5. --from backfill gate-skip (M2 must-fix)
+# ---------------------------------------------------------------------------
+
+class _FixedDate(_dt.date):
+    """Subclass of date that overrides today() for test isolation."""
+
+    _today: _dt.date = _dt.date(2026, 5, 30)  # Saturday — loop covers Wed/Thu/Fri
+
+    @classmethod
+    def today(cls) -> _dt.date:  # type: ignore[override]
+        return cls._today
+
+
+class _FakeJobMonitor:
+    """Minimal async context manager standing in for JobMonitor."""
+
+    def __init__(self, **kwargs: object) -> None:
+        self.rows_written = 0
+
+    async def __aenter__(self) -> _FakeJobMonitor:
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> bool:
+        return False
+
+
+def test_backfill_from_skips_blocked_day():
+    """--from backfill warns and skips days with no sync_prices success row
+    instead of raising UpstreamBlocked, then continues to OK days.
+
+    Range: 2026-05-27 (Wed, ok) / 2026-05-28 (Thu, ok) / 2026-05-29 (Fri, BLOCKED).
+    Today capped at 2026-05-30 (Sat) so the loop ends after Friday.
+    Assert: only Wed + Thu are snapshotted; Fri is silently skipped, no exception.
+    """
+    from_date = _dt.date(2026, 5, 27)
+    ok_dates = {_dt.date(2026, 5, 27), _dt.date(2026, 5, 28)}
+
+    synced_days: list[_dt.date] = []
+
+    async def fake_snapshot_one_day(as_of: _dt.date, monitor: object) -> None:
+        synced_days.append(as_of)
+
+    gate_conn = MagicMock()
+
+    async def _gate_fetchrow(query: str, *args: object) -> dict | None:
+        if "job_runs" in query:
+            return {"status": "success"} if args[0] in ok_dates else None
+        return None
+
+    gate_conn.fetchrow = _gate_fetchrow
+
+    async def run() -> None:
+        with (
+            patch.object(job_mod, "init_pool", AsyncMock()),
+            patch.object(job_mod, "close_pool", AsyncMock()),
+            patch.object(job_mod, "_snapshot_one_day", fake_snapshot_one_day),
+            patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(gate_conn)),
+            patch.object(job_mod, "JobMonitor", _FakeJobMonitor),
+            patch("jobs.snapshot_portfolio.date", _FixedDate),
+        ):
+            await job_mod.main(None, from_date)
+
+    asyncio.run(run())
+
+    assert synced_days == [_dt.date(2026, 5, 27), _dt.date(2026, 5, 28)]
+    assert _dt.date(2026, 5, 29) not in synced_days  # Fri blocked → skip, not abort
+
+
+def test_as_of_blocked_still_raises():
+    """Daily --as-of path (non-backfill) still hard-fails with UpstreamBlocked
+    when sync_prices has no success row. CLAUDE.md #10 intact."""
+    fetchrow_map = {"job_runs": None}
+    conn = _make_conn(fetchrow_map)
+    monitor = MagicMock()
+    monitor.rows_written = 0
+
+    with patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)):
+        with pytest.raises(UpstreamBlocked):
+            asyncio.run(job_mod._snapshot_one_day(AS_OF, monitor))
+
+    assert monitor.rows_written == 0
+
+
+# ---------------------------------------------------------------------------
+# 6. Idempotency — second run for same as_of overwrites via UPSERT
 # ---------------------------------------------------------------------------
 
 def test_upsert_on_conflict(monkeypatch):
