@@ -80,6 +80,9 @@ def tax_view_individual(
     for div in dividends:
         after_tax += after_tax_dividend_individual(div, config).after_tax_cash
 
+    # spec §4.3: the 45-day qualified-person check is SMSF-only; the $5,000
+    # small-shareholder exemption (s 207-145(b)) covers most individuals and
+    # is not modelled here. Call check_45_day_warnings_smsf from tax_view_smsf.
     alerts: list[str] = []
     for lot in lots:
         if lot.disposed_at is not None:
@@ -128,7 +131,8 @@ def tax_view_smsf(
         # exempt proportion. §5.2 states ECPI applies to the post-discount net
         # capital gain ("independent and stack"); it is ignored only for the Div
         # 296 base (§6.2), so the two paths do not double-count. Medicare is 0 for
-        # funds (§7). TC-24 (spec §5.2, v1.4) provides the numeric verification.
+        # funds (§7). TC-24 (§5.2, §4.2) is the numeric lock for the stacking path
+        # (discountable gain + non-zero fund_pension_proportion).
         base = ncg.net_capital_gain
         taxable_base = base * (Decimal("1") - config.fund_pension_proportion)
         income_tax = _q(taxable_base * SMSF_TAX_RATE)
@@ -204,6 +208,8 @@ def tax_view_smsf(
             warnings.append(
                 "Div 296 election made; no depreciated assets detected at the reset date."
             )
+    # spec §4.3 (s 207-145): 45-day qualified-person warning for each disposed
+    # lot with a franked dividend during a short holding period.
     warnings.extend(check_45_day_warnings_smsf(lots, dividends))
 
     return TaxView(

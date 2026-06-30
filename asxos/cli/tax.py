@@ -118,6 +118,11 @@ async def _run_tax_view(
         console.print("[yellow]Crossing 12-month boundary in next 30 days:[/yellow]")
         for a in view.eligibility_alerts:
             console.print(f"  - {a}")
+    if view.franking_warnings:
+        # spec §4.3 (s 207-145): advisory only — credits are not auto-removed.
+        console.print("[yellow]Franking credit warnings (s 207-145):[/yellow]")
+        for w in view.franking_warnings:
+            console.print(f"  - {w}")
     if view.cgt_tax_outcome:
         cgt = view.cgt_tax_outcome
         console.print(

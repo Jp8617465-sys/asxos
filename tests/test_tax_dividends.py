@@ -176,7 +176,7 @@ def test_tc21_warning_on_30_day_hold_with_dividend_in_period() -> None:
     assert len(warnings) == 1
     assert "BHP.AU" in warnings[0]
     assert "s 207-145" in warnings[0]
-    assert "30 days" in warnings[0]
+    assert "29 clear days" in warnings[0]  # clear_days = (disposed - acquired).days - 1 = 29
 
 
 def test_tc21_no_warning_at_46_day_hold() -> None:

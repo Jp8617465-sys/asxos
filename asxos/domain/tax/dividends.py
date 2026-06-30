@@ -80,33 +80,35 @@ def check_45_day_warnings_smsf(
     lots: list[HoldingLot],
     dividends: list[Dividend],
 ) -> list[str]:
-    """spec §4.3 — s 207-145 qualified-person rule for SMSFs.
+    """spec §4.3 (s 207-145): warn when a disposed SMSF lot was held fewer than
+    45 clear days (excluding acquisition day and disposal day) and a franked
+    dividend was paid during the holding period.
 
-    The $5,000 small-shareholder exemption (s 207-145(1)(d) ITAA 1997) does not
-    apply to SMSFs. Warns if a disposed lot was held for fewer than 46 calendar
-    days (< 45 clear days, excluding the day of acquisition and the day of
-    disposal) and a dividend on that symbol was paid during the holding period.
-    Pay date is used as a proxy for the ex-dividend entitlement date (§3).
+    The $5,000 small-shareholder exemption available to individuals does NOT
+    apply to complying SMSFs (§4.3). Credits are never auto-removed; the
+    warning is informational only — the system does not enforce or deny credits
+    automatically; it only warns.
 
-    The system does not remove franking credits automatically — it warns only.
-    One warning is emitted per affected lot; multiple dividends in the same
-    short-hold window are not individually enumerated.
+    Returns one warning string per qualifying lot (stops at the first offending
+    dividend per lot — multiple dividends on the same lot do not multiply lines).
     """
-    warnings = []
+    warnings: list[str] = []
     for lot in lots:
         if lot.disposed_at is None:
             continue
-        holding_days = (lot.disposed_at - lot.acquired_at).days
-        if holding_days >= 46:
+        clear_days = (lot.disposed_at - lot.acquired_at).days - 1
+        if clear_days >= 45:
             continue
         for div in dividends:
             if div.symbol != lot.symbol:
                 continue
-            if lot.acquired_at <= div.pay_date <= lot.disposed_at:
+            if div.franking_pct == 0:
+                continue  # unfranked — no credit at risk
+            if lot.acquired_at <= div.pay_date < lot.disposed_at:
                 warnings.append(
-                    f"{lot.symbol} (lot {lot.lot_id}): held {holding_days} days "
-                    f"(fewer than 45 clear days); dividend {div.pay_date} may be "
-                    f"denied under s 207-145. Franking credit not auto-removed."
+                    f"{lot.symbol} lot {lot.lot_id}: held {clear_days} clear days "
+                    f"(< 45); dividend paid {div.pay_date} may fail the qualified-person "
+                    f"test (s 207-145). Franking credit NOT auto-removed."
                 )
-                break
+                break  # one warning per lot is sufficient
     return warnings

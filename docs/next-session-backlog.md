@@ -17,13 +17,12 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
   `div296_reset_date` config field is consumed by nothing. Requires a
   spec-amendment-governed change (CLAUDE.md non-negotiable #8 + `tax-spec-conformance`).
   Tracked in CLAUDE.md "Known coverage gaps".
-- **TC-21 45-day franking warning (s 207-145)** — unimplemented. Same governance:
-  spec amendment first, then code. Owner: `tax-spec-conformance` +
-  `docs/foundation/spec/tax-alpha.md`.
-- **SMSF ECPI-on-CGT numeric path is unverified** — §5.2 says the CGT discount and
-  ECPI exemption stack, but no §11 worked example has a non-zero
-  `fund_pension_proportion` on the CGT branch. Close by adding a TC-with-pension to
-  the §11 matrix. Owner: `docs/foundation/spec/tax-alpha.md` §11 + `tax-spec-conformance`.
+- ~~**TC-21 45-day franking warning (s 207-145)**~~ — **CLOSED** (session
+  2026-06-29). Implemented in `dividends.py::check_45_day_warnings_smsf` + wired into
+  `tax_view_smsf()`. Four tests cover the positive case and three boundary cases.
+- ~~**SMSF ECPI-on-CGT numeric path is unverified**~~ — **CLOSED** (session
+  2026-06-29). TC-24 added to spec §11 (v1.4) with matching test
+  `test_tc24_smsf_ecpi_stacks_with_cgt_discount`. Implementation was already correct.
 
 ## P2 — endpoints / honesty completions
 
@@ -61,3 +60,56 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
   currently the disclosed `0.45` default flows through `cgt_break_even_price()`. Real
   per-user rate is **out of v1 scope**, noted only. Governing:
   `docs/proposals/cgt-break-even-amendment-2026-06-28.md` + spec §5.4.
+
+---
+
+## TC-20 kickoff (next session)
+
+**Branch:** create a new `claude/**` branch from `main` after PR #9 merges.
+
+**Task:** Implement TC-20 — Div 296 cost-base reset (s 296-50, spec §6.4/§6.5).
+
+**State entering the session:**
+- `SMSFConfig.div296_election_made` (bool) — consumed only for a static advisory
+  string; the actual election branching logic is unimplemented.
+- `SMSFConfig.div296_reset_date` (date) — never consumed anywhere.
+- `holding_lots.cost_base_div296` column (migration 0001) — initialised to
+  `cost_base_normal` on lot creation; never written post-reset or read in any
+  gain-computation path.
+- `div296_liability()` in `div_296.py` receives `ncg.net_capital_gain` (computed
+  from `cost_base_normal`). The spec requires a separate Div-296 earnings figure
+  computed from `cost_base_div296` when the election is made.
+- The depreciated-asset warning body (`positions.py`) is a static string; actual
+  detection of which lots are depreciated is not implemented.
+
+**Files to read first:**
+- `docs/foundation/spec/tax-alpha.md` §6.4, §6.5, §11 (TC-20 row absent — must
+  be added as spec amendment)
+- `asxos/domain/tax/div_296.py` (full)
+- `asxos/domain/tax/positions.py` lines 148–160 (current Div 296 earnings path)
+- `asxos/domain/tax/types.py` — `SMSFConfig`, `HoldingLot`, `Div296Outcome`
+- `migrations/0001_*.sql` — `holding_lots` schema (dual cost-base columns)
+
+**TC-20 worked example (spec §11):**
+Acquired 2020-01-01 $50,000; MV at 2026-06-30 $80,000; disposed 2027-01-01
+$100,000; SMSF accumulation; election made.
+- Fund CGT (ordinary): gain $50,000 → 1/3 discount → net $33,333 → tax 15% = $5,000.
+- Div 296 earnings (reset base): gain $20,000 → 1/3 discount → included $13,333.
+
+**Mandatory implementation order:**
+1. Read spec §6.4, §6.5, §11 in full.
+2. Consult `tax-spec-conformance` agent on the proposed spec amendment.
+3. Amend spec (v1.5): add TC-20 to §11 matrix; flesh out §6.4 disposal branching
+   (ordinary CGT vs Div 296 paths); add §13 change log entry.
+4. Implement in `positions.py`: when `config.div296_election_made is True`,
+   compute a separate Div-296 gain using `cost_base_div296` and feed it (not
+   `ncg.net_capital_gain`) into `div296_liability()`.
+5. Add depreciated-asset detection (lot where `cost_base_div296 > current_mv` at
+   reset date) to replace the static §6.5 advisory with a data-driven warning.
+6. Tests: pin TC-20 worked example across all five output fields.
+7. Full review loop (security-engineer / refactoring-expert / technical-writer)
+   before committing. review-gate marker required.
+
+**Governance:** CLAUDE.md non-negotiable #8 — spec amendment first, then code.
+No schema changes needed (dual cost-base columns exist from migration 0001).
+Estimated scope: 6–10 hours.

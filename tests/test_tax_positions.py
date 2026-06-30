@@ -22,6 +22,7 @@ from asxos.domain.tax.types import (
     HoldingLot,
     IndividualConfig,
     SMSFConfig,
+    TaxView,
 )
 
 
@@ -39,11 +40,12 @@ def _div(cash: str) -> Dividend:
     )
 
 
-def _lot(symbol: str, acquired_at: date) -> HoldingLot:
+def _lot(symbol: str, acquired_at: date, disposed_at: date | None = None) -> HoldingLot:
     return HoldingLot(
         lot_id=1,
         symbol=symbol,
         acquired_at=acquired_at,
+        disposed_at=disposed_at,
         quantity=Decimal("100"),
         cost_base_normal=Decimal("1000"),
         cost_base_div296=Decimal("1000"),
@@ -118,6 +120,67 @@ def test_smsf_view_no_tsb_skips_div296() -> None:
         tsb_ref=None,
     )
     assert tv.div296_outcome is None
+
+
+def _smsf_view(lot: HoldingLot, div: Dividend) -> TaxView:
+    return tax_view_smsf(
+        lots=[lot],
+        realised_gains=[],
+        dividends=[div],
+        config=SMSFConfig(fund_pension_proportion=Decimal("0")),
+        tsb_ref=None,
+    )
+
+
+def test_tc21_45_day_franking_warning_surfaced() -> None:
+    # TC-21 (spec §4.3, s 207-145): 30-day hold → 29 clear days (< 45) → warn.
+    # Franking credit is NOT auto-removed (§4.3: informational only).
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 1, 31))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 1, 15),
+        cash_dividend=Decimal("500"), franking_pct=Decimal("1.0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert tv.franking_warnings
+    assert any("207-145" in w for w in tv.franking_warnings)
+    assert tv.dividends_after_tax > Decimal("0")  # credit not auto-removed
+
+
+def test_tc21_no_warning_when_held_45_clear_days() -> None:
+    # Boundary: (Feb 16 - Jan 1).days = 46 → clear_days = 45 ≥ 45 → no warning.
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 2, 16))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 1, 15),
+        cash_dividend=Decimal("500"), franking_pct=Decimal("1.0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert not any("207-145" in w for w in tv.franking_warnings)
+
+
+def test_tc21_no_warning_when_dividend_outside_holding_period() -> None:
+    # No warning if the dividend is paid after disposal.
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 1, 31))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 2, 15),  # after disposal
+        cash_dividend=Decimal("500"), franking_pct=Decimal("1.0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert not any("207-145" in w for w in tv.franking_warnings)
+
+
+def test_tc21_no_warning_for_unfranked_dividend() -> None:
+    # No warning if the dividend is unfranked — no credits to deny.
+    lot = _lot("AAA", date(2026, 1, 1), disposed_at=date(2026, 1, 31))
+    div = Dividend(
+        symbol="AAA", pay_date=date(2026, 1, 15),
+        cash_dividend=Decimal("500"), franking_pct=Decimal("0"),
+        corporate_tax_rate=Decimal("0.30"),
+    )
+    tv = _smsf_view(lot, div)
+    assert not any("207-145" in w for w in tv.franking_warnings)
 
 
 def test_smsf_election_no_depreciated_assets_emits_advisory() -> None:
@@ -230,9 +293,9 @@ def test_tc12_smsf_accumulation_fund_tax_15pct() -> None:
 
 
 def test_smsf_ecpi_reduces_cgt_fund_tax() -> None:
-    # INFERRED (no §11 worked example): ECPI exempt proportion reduces the CGT
-    # fund-tax base. $10,000 non-discountable gain, SMSF 60% pension →
-    # taxable_base 4000, fund tax 0.15 = $600. Flagged for spec confirmation.
+    # Non-discountable path: no CGT discount, just ECPI. $10,000 non-discountable
+    # gain, SMSF 60% pension → taxable_base 4000, fund tax $600.
+    # The stacking path (discountable + ECPI) is covered by TC-24 below.
     gain = CapitalGain("BBB", Decimal("10000"), discountable=False, holding_period_days=100)
     tv = tax_view_smsf(
         lots=[],
@@ -244,6 +307,29 @@ def test_smsf_ecpi_reduces_cgt_fund_tax() -> None:
     assert tv.cgt_tax_outcome is not None
     assert tv.cgt_tax_outcome.taxable_base == Decimal("4000.0")
     assert tv.cgt_tax_outcome.income_tax == Decimal("600.00")
+
+
+def test_tc24_smsf_ecpi_stacks_with_cgt_discount() -> None:
+    # TC-24 (spec §5.2, §4.2): $10,000 discountable gain, SMSF 60% pension.
+    # 1/3 CGT discount → net gain $6,666.67; ECPI exempt (60%) → taxable base
+    # $2,666.67; fund tax at 15% = $400.00; Medicare 0.
+    # Confirms the CGT discount and ECPI exemption are independent and stack
+    # (§5.2 last paragraph). This is the numeric lock for the previously
+    # unverified SMSF non-zero fund_pension_proportion path on the CGT branch.
+    gain = CapitalGain("BBB", Decimal("10000"), discountable=True, holding_period_days=400)
+    tv = tax_view_smsf(
+        lots=[],
+        realised_gains=[gain],
+        dividends=[],
+        config=SMSFConfig(fund_pension_proportion=Decimal("0.6")),
+        tsb_ref=None,
+    )
+    assert tv.cgt_tax_outcome is not None
+    assert _approx(tv.cgt_tax_outcome.net_capital_gain, "6666.67")
+    assert _approx(tv.cgt_tax_outcome.taxable_base, "2666.67")
+    assert tv.cgt_tax_outcome.income_tax == Decimal("400.00")
+    assert tv.cgt_tax_outcome.medicare == Decimal("0")
+    assert tv.cgt_tax_outcome.total_tax == Decimal("400.00")
 
 
 def test_individual_net_loss_produces_zero_cgt_tax() -> None:
@@ -262,32 +348,6 @@ def test_individual_net_loss_produces_zero_cgt_tax() -> None:
     assert tv.cgt_tax_outcome.total_tax == Decimal("0.00")
     assert tv.net_capital_gain is not None
     assert tv.net_capital_gain.net_capital_loss_cf == Decimal("5000")
-
-
-# ---------------------------------------------------------------------------
-# TC-24 (spec §5.2, v1.4) — SMSF ECPI-on-CGT numeric verification
-# ---------------------------------------------------------------------------
-
-
-def test_tc24_smsf_ecpi_stacks_with_cgt_discount() -> None:
-    # TC-24 (spec §5.2, v1.4): $10,000 discountable gain, SMSF fund_pension_proportion=0.60.
-    # Step 1: 1/3 discount → net gain ≈ $6,666.67.
-    # Step 2: ECPI (60%) → taxable base ≈ $2,666.67.
-    # Step 3: fund tax 15% = $400.00. Medicare 0.
-    # Confirms §5.2: CGT discount and ECPI exemption are independent and stack.
-    gain = CapitalGain("BHP.AU", Decimal("10000"), discountable=True, holding_period_days=400)
-    tv = tax_view_smsf(
-        lots=[],
-        realised_gains=[gain],
-        dividends=[],
-        config=SMSFConfig(fund_pension_proportion=Decimal("0.6")),
-        tsb_ref=None,
-    )
-    assert tv.cgt_tax_outcome is not None
-    assert tv.cgt_tax_outcome.income_tax == Decimal("400.00")
-    assert tv.cgt_tax_outcome.medicare == Decimal("0")
-    # taxable_base keeps full Decimal precision; use tolerance per §11 spec phrasing "≈"
-    assert abs(tv.cgt_tax_outcome.taxable_base - Decimal("2666.67")) <= Decimal("0.01")
 
 
 # ---------------------------------------------------------------------------

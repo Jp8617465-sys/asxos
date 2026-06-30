@@ -1,6 +1,6 @@
 # Tax alpha specification
 
-Version 1.5. Date 2026-06-29. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT numeric). v1.5 implements TC-20 (Div 296 cost-base reset). See section 13 for the full delta history.
+Version 1.5. Date 2026-06-29. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT stacking numeric verification). v1.5 implements TC-20 (Div 296 cost-base reset). See section 13 for the full delta history.
 
 ## 1. Scope and non-goals
 
@@ -419,7 +419,7 @@ Each case below must be covered by a unit test referencing the spec section.
 | TC-21 | Disposal 30 days after acquisition with dividend paid during the period | Warning surfaced; franking credit not auto-removed. | §4.3 |
 | TC-22 | Break-even: P=100, cost=40, individual marginal 0.45 (r_eff 0.47), not yet eligible | Break-even sale price $126.60 (sell-now nets = sell-later nets = $85.90) | §5.4 |
 | TC-23 | Break-even: P=100, cost=40, SMSF (r_eff 0.15, d=1/3), not yet eligible | Break-even sale price $107.06 (sell-now nets = sell-later nets = $97.00) | §5.4 |
-| TC-24 | $10,000 discountable gain, SMSF fund_pension_proportion=0.60 | Net gain after 1/3 discount ≈ $6,666.67. ECPI exempt (60%) ≈ $4,000. Taxable base ≈ $2,666.67. Fund tax 15% = $400.00. Medicare 0. Confirms §5.2: CGT discount and ECPI exemption stack independently. | §5.2, §4.2 |
+| TC-24 | $10,000 discountable gain (held > 12 months), SMSF fund_pension_proportion=0.60 | 1/3 CGT discount → net gain $6,666.67. ECPI exempt (60%) → taxable base $2,666.67. Fund tax at 15% = $400.00. Medicare 0. (§5.2: discount and ECPI are independent and stack.) | §5.2, §4.2 |
 
 ## 12. Authoritative sources
 
@@ -471,9 +471,8 @@ Direct fetching of the ATO franking and CGT pages returned 403 during preparatio
 - §6.5 "Data-driven detection" paragraph: replaces the static advisory string with per-lot detection (`cost_base_div296 < cost_base_normal`, excluding pre-election disposals). Per-lot warnings name symbol, lot ID, and both cost bases. When no lot is in loss, a brief advisory is emitted.
 - TC-20 in §11 updated: pins `div296_outcome.earnings ≈ $13,333` alongside the existing `cgt_tax_outcome.income_tax = $5,000` assertion to lock the dual-path behavior.
 
-**v1.4, 2026-06-29.** Adds TC-24 to §11 matrix, closing the SMSF ECPI-on-CGT numeric verification gap (CLAUDE.md known coverage gap (a)):
-- TC-24: $10,000 discountable gain, SMSF fund_pension_proportion=0.60. Net gain after 1/3 discount ≈ $6,666.67; ECPI exempt ≈ $4,000; taxable base ≈ $2,666.67; fund tax $400.00; Medicare 0. Confirms §5.2 — the CGT discount and ECPI exemption are independent and stack.
-- No code change for TC-24 — the existing `positions.py` implementation was already correct.
+**v1.4, 2026-06-29.** Closes the SMSF ECPI-on-CGT stacking gap flagged in CLAUDE.md "Known coverage gaps":
+- Added TC-24 to §11 matrix: $10,000 discountable gain (held > 12 months), SMSF fund_pension_proportion=0.60. Validates numerically that the 1/3 CGT discount and the ECPI exemption apply independently and stack (§5.2 last paragraph): discount reduces the gain to $6,666.67, then 60% ECPI exempt reduces the taxable base to $2,666.67, fund tax at 15% = $400.00. The implementation in `asxos/domain/tax/positions.py` was already correct. TC-24 provides the missing §11 numeric worked example and closes the "no TC with non-zero fund_pension_proportion on the CGT branch" gap noted in `tests/test_tax_positions.py:test_smsf_ecpi_reduces_cgt_fund_tax`.
 - TC-21 (§4.3 45-day franking warning for SMSFs) implementation gap is also closed in this session via the new `check_45_day_warnings_smsf()` function in `asxos/domain/tax/dividends.py`, wired into `tax_view_smsf()` via `warnings.extend(...)`. §4.3 was fully specified and required no spec amendment.
 
 **v1.3, 2026-06-28.** Adds §5.4 (CGT discount break-even price) to give the position-monitor heuristic a governing spec home, and corrects a tax-math error in the existing implementation:
