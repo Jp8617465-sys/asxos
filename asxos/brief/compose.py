@@ -34,6 +34,7 @@ import jinja2
 from dateutil.relativedelta import relativedelta
 
 from asxos.domain.brief.shap import format_top_factors
+from asxos.domain.models.production_gate import resolve_production_model
 from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.tax.cgt import days_to_eligibility
 
@@ -175,6 +176,19 @@ async def collect(as_of: date) -> BriefData:
     if _acquire is None:
         from asxos.db import acquire as _acquire
     async with _acquire() as conn:
+        # Governance gate (Section 4.4 Step B): resolve the single
+        # active+approved_for_allocation production model. This is a
+        # configuration invariant, not a data-freshness gap, so it fails
+        # loudly rather than degrading like the regime/signal-staleness
+        # checks below. Gate condition + error messages live in
+        # production_gate.py so build.py (the other model_versions
+        # consumer) can't drift apart on the invariant.
+        model_rows = await conn.fetch(
+            "SELECT model FROM model_versions "
+            "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
+        )
+        production_model = resolve_production_model(model_rows)
+
         # Anchor signal/regime queries on the latest *complete* trading day
         # (the anchor generate_signals uses), not the calendar as_of — EOD data
         # lands ~1 day late, so "today" usually has no signal row yet. The
@@ -188,10 +202,11 @@ async def collect(as_of: date) -> BriefData:
         regime_row = await conn.fetchrow(
             """
             SELECT regime FROM signals
-            WHERE as_of = $1
+            WHERE model = $1 AND as_of = $2
             ORDER BY model_version DESC, model, symbol
             LIMIT 1
             """,
+            production_model,
             signals_as_of,
         )
         regime: str | None = regime_row["regime"] if regime_row else None
@@ -201,7 +216,7 @@ async def collect(as_of: date) -> BriefData:
         ) or 0
 
         latest_signal_date: date | None = await conn.fetchval(
-            "SELECT MAX(as_of) FROM signals"
+            "SELECT MAX(as_of) FROM signals WHERE model = $1", production_model
         )
         latest_price_date: date | None = await conn.fetchval(
             """
@@ -212,7 +227,7 @@ async def collect(as_of: date) -> BriefData:
             """
         )
 
-        signal_changes = await _signal_changes(conn, signals_as_of)
+        signal_changes = await _signal_changes(conn, signals_as_of, production_model)
         tax_actions = await _tax_actions(conn, as_of)
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
@@ -235,7 +250,9 @@ async def collect(as_of: date) -> BriefData:
     )
 
 
-async def _signal_changes(conn: asyncpg.Connection, as_of: date) -> list[SignalChange]:
+async def _signal_changes(
+    conn: asyncpg.Connection, as_of: date, production_model: str
+) -> list[SignalChange]:
     rows = await conn.fetch(
         """
         WITH today AS (
@@ -243,7 +260,7 @@ async def _signal_changes(conn: asyncpg.Connection, as_of: date) -> list[SignalC
                 s.symbol, s.signal_label, s.shap_factors
             FROM signals s
             JOIN current_holdings h ON h.symbol = s.symbol
-            WHERE s.as_of = $1
+            WHERE s.model = $2 AND s.as_of = $1
             ORDER BY s.symbol, s.as_of DESC
         ),
         yesterday AS (
@@ -251,7 +268,8 @@ async def _signal_changes(conn: asyncpg.Connection, as_of: date) -> list[SignalC
                 s.symbol, s.signal_label
             FROM signals s
             JOIN current_holdings h ON h.symbol = s.symbol
-            WHERE s.as_of < $1
+            WHERE s.model = $2
+              AND s.as_of < $1
               AND s.as_of >= $1::date - 7
             ORDER BY s.symbol, s.as_of DESC
         )
@@ -266,6 +284,7 @@ async def _signal_changes(conn: asyncpg.Connection, as_of: date) -> list[SignalC
         ORDER BY t.symbol
         """,
         as_of,
+        production_model,
     )
     out: list[SignalChange] = []
     for r in rows:

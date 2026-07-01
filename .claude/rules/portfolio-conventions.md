@@ -18,6 +18,40 @@ This stays `0` until 4 weeks of paper-trade sign-off completes (M13.8).
 
 ---
 
+## Contamination-isolation model gate (plan H.1 CRITICAL-4 + governance Section 4.4 Step B)
+
+`PortfolioService.build()` and `compose.collect()` no longer pick the
+production model by a hardcoded name. Both query
+`model_versions WHERE is_active = TRUE AND approved_for_allocation = TRUE`
+and hard-fail on 0 rows (nothing approved) or >1 rows (multiple approved —
+multi-sleeve blending is out of v1 scope). `approved_for_allocation`
+(migration 0032) is orthogonal to `is_active`: `is_active` means "current
+version of this model," `approved_for_allocation` means "this model is
+allowed to influence the live portfolio/brief at all." A new model row can
+exist, be activated, and be iterated on entirely within its own model
+namespace without ever reaching the allocator or the brief, because that
+requires a second, separate, explicit approval action.
+
+In `build.py` the gate is Step 2 in `build()`'s docstring step list —
+inserted ahead of the signals fetch (now Step 3) because that query
+needs the gated model name to filter on (`WHERE model = $1` in both
+signals branches). In `compose.py` the gate is the first statement
+inside `collect()`'s connection block, for the same reason
+(`production_model` feeds the regime and signal-change queries
+downstream).
+
+The CLI actions implied by both hard-fail messages —
+`asx model approve <model> <version>` and `asx model revoke <model>
+<version>` — **do not exist yet**. `asxos/cli/model.py` currently has
+only `activate` and `list`. Until `approve`/`revoke` ship, the only way
+to set `approved_for_allocation` is a manual UPDATE via
+`mcp__supabase__execute_sql` (or a fresh migration, as 0032 did for the
+one-time `model_a`/`v1_5` grandfather). Adding the CLI verbs is tracked
+in `docs/next-session-backlog.md` under the governance-architecture plan,
+Phase 1+ — not scoped to Phase 0/0.5.
+
+---
+
 ## v1 risk-blindness invariants (plan I.1)
 
 The constraint waterfall does NOT protect against market-wide co-movement.
@@ -160,6 +194,8 @@ cadence and on-demand CLI use.
 | Condition | Raises |
 |---|---|
 | No active profile | `RuntimeError` in `PortfolioService.build()` |
+| 0 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` / `compose.collect()` |
+| >1 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` / `compose.collect()` |
 | Empty buy universe after filtering | `RuntimeError` in `allocator.allocate()` |
 | Non-convergent constraint waterfall (>5 iterations) | `RuntimeError` in `constraints.apply_constraints()` |
 | Insufficient price history for vol | symbol silently omitted from candidates |
