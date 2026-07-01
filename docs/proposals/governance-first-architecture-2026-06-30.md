@@ -38,7 +38,34 @@ or **[HISTORICAL]**. Do not infer status from prose — only the label is author
   with no gate at all) all now resolve the production model via the shared
   `asxos/domain/models/production_gate.py::resolve_production_model()` helper before
   reading `signals`, hard-failing on 0 or >1 eligible rows.
-- **Phase 1-4 — not started.** See Section 7 below.
+- **Phase 1 — done.** `theses.governance_status`/`source_run_id` (migration 0033),
+  `thesis_evidence`/`agent_evidence`/`agent_runs`/`governance_events` (migration
+  0033), `thesis_revisions` provenance columns + the `theses_governance_audit`
+  trigger (migration 0034 — this codebase's first Postgres trigger). New:
+  `asxos/domain/theses/schemas.py`, `service.py::create_thesis_from_agent_run()`/
+  `approve_object()`/`reject_object()`, `enter_thesis()`'s governance guard,
+  `asx thesis approve|reject` + `open --from-agent-run`. **Bug found and fixed
+  during implementation, corrects Section 4.7 below:** the single-shared-trigger-
+  function design (one function, `TG_ARGV[0]`-dispatched across `theses`/
+  `macro_theses`/`themes`/`theme_holdings`) fails at runtime with "record NEW has
+  no field macro_thesis_id" — PL/pgSQL validates `NEW`/`OLD` field references
+  against the trigger's bound table for every `CASE` branch, not just the one that
+  executes at runtime. Fixed with a `theses`-specific function
+  (`_check_theses_governance_audit()`, no `TG_ARGV`, no `CASE`). Phase 2 must write
+  its own per-table function(s) for `macro_theses`/`themes`/`theme_holdings` — do
+  not assume this one generalizes; see migration
+  `0034_governance_audit_trigger_and_revision_provenance.sql`'s header comment for
+  the full account (confirmed by hitting the error live against Supabase before
+  applying the fix). **Second bug found and fixed by a post-implementation security
+  review pass, also corrects Section 4.7 below:** the trigger's `EXISTS` check
+  validated `object_id`/`to_status`/`xact_id` but never `from_status` against
+  `OLD.governance_status` — a hand-authored transaction bypassing `service.py`
+  could claim an arbitrary prior state. Fixed by adding `AND from_status =
+  OLD.governance_status`; re-applied to prod and re-verified with a new
+  adversarial check (spoofed `from_status` now correctly rejected) alongside the
+  original two checks (unaudited UPDATE rejected, correctly-audited UPDATE
+  accepted).
+- **Phase 2-4 — not started.** See Section 7 below.
 
 ---
 
@@ -635,48 +662,79 @@ Three independent layers, each closing a different bypass route:
        to_status    TEXT NOT NULL CHECK (to_status IN ('draft','evidence_complete','pending_review','approved','rejected','retired')),
        event_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
        reasoning    TEXT NOT NULL CHECK (reasoning <> ''),
-       actor        TEXT NOT NULL DEFAULT 'human' CHECK (actor IN ('human','agent'))
+       actor        TEXT NOT NULL DEFAULT 'human' CHECK (actor IN ('human','agent')),
+       -- Ties this row to the exact transaction that wrote it. Checked by the
+       -- trigger below via pg_current_xact_id() equality, not a time window
+       -- (see the trigger's own note for why a window is insufficient).
+       xact_id      BIGINT NOT NULL DEFAULT pg_current_xact_id()::text::bigint
    );
    CREATE INDEX idx_governance_events_object ON governance_events (object_type, object_id, event_at DESC);
+   CREATE INDEX idx_governance_events_xact ON governance_events (object_type, object_id, to_status, xact_id);
    ```
    `theme_holdings`' natural key is composite (`theme_id, symbol`) — it gains a
    surrogate `ADD COLUMN holding_id BIGSERIAL UNIQUE` purely so `governance_events`
    can reference one BIGINT identity uniformly across all four tables, without
    changing its existing PK or any existing query.
 
-   A trigger (one shared function, applied per table) rejects any `governance_status`
-   transition that lacks a matching, freshly-written `governance_events` row in the
-   same transaction:
+   **[CORRECTED during Phase 1 implementation — this block originally specified a
+   single shared function across all 4 tables, dispatched via `TG_ARGV[0]` with a
+   `CASE` over `NEW.thesis_id`/`NEW.macro_thesis_id`/etc. That fails at runtime with
+   "record NEW has no field macro_thesis_id": PL/pgSQL validates `NEW`/`OLD` field
+   references against the table the trigger is bound to for EVERY `CASE` branch, not
+   just the one that executes — a function bound to `theses` cannot reference
+   `NEW.theme_id` even in a branch that never runs. Confirmed by hitting this exact
+   error live against Supabase. The corrected, applied version below is
+   `theses`-specific — no `TG_ARGV`, no cross-table `CASE`. It also replaces the
+   original 5-second `event_at` time-window check with `pg_current_xact_id()`
+   equality: a time window has a real bypass gap (a legitimate `governance_events`
+   row from an earlier, unrelated transaction within the window would satisfy the
+   check for a completely different, unaudited UPDATE on the same object), whereas
+   the transaction ID is exact. Phase 2 must write its own per-table function(s) for
+   `macro_theses`/`themes`/`theme_holdings` — do not assume this one generalizes;
+   see `migrations/0034_governance_audit_trigger_and_revision_provenance.sql`'s
+   header comment for the full account.]**
+
+   **[THIRD fix, found by a security review pass after Phase 1 first shipped: the
+   `EXISTS` check below originally validated `object_id`/`to_status`/`xact_id` but
+   never validated `from_status` against `OLD.governance_status`. A transaction that
+   hand-authored a `governance_events` row with a fabricated `from_status` (not
+   matching the row's real prior state), followed by the matching `UPDATE`, would
+   satisfy the trigger — narrower than a full bypass (still requires hand-authoring
+   both statements, deliberately going around `service.py`) but wider than this
+   section previously disclosed. `approve_object()`/`reject_object()` were never
+   affected (both read `from_status` under `SELECT ... FOR UPDATE` in the same
+   transaction, so it's always accurate) — the fix hardens the trigger itself rather
+   than relying on callers being well-behaved. Fixed and re-verified live against
+   prod (reject unaudited UPDATE; accept correctly-audited UPDATE; reject a
+   from_status-spoofed UPDATE) — the code block below reflects the applied fix.]**
    ```sql
-   CREATE OR REPLACE FUNCTION _check_governance_audit() RETURNS TRIGGER AS $$
-   DECLARE
-       v_object_type TEXT := TG_ARGV[0];
-       v_object_id   BIGINT;
+   CREATE OR REPLACE FUNCTION _check_theses_governance_audit() RETURNS TRIGGER AS $$
    BEGIN
        IF NEW.governance_status = OLD.governance_status THEN
            RETURN NEW;
        END IF;
-       v_object_id := CASE v_object_type
-           WHEN 'thesis' THEN NEW.thesis_id
-           WHEN 'macro_thesis' THEN NEW.macro_thesis_id
-           WHEN 'theme' THEN NEW.theme_id
-           WHEN 'theme_holding' THEN NEW.holding_id
-       END;
        IF NOT EXISTS (
            SELECT 1 FROM governance_events
-           WHERE object_type = v_object_type AND object_id = v_object_id
-             AND to_status = NEW.governance_status AND event_at >= NOW() - INTERVAL '5 seconds'
+           WHERE object_type = 'thesis' AND object_id = NEW.thesis_id
+             AND from_status = OLD.governance_status
+             AND to_status = NEW.governance_status
+             AND xact_id = pg_current_xact_id()::text::bigint
        ) THEN
-           RAISE EXCEPTION 'governance_status transition to % on % % requires a governance_events '
-               'row written in the same transaction — use the service-layer approve/reject '
-               'functions, not a direct UPDATE.', NEW.governance_status, v_object_type, v_object_id;
+           RAISE EXCEPTION 'governance_status transition from % to % on thesis % '
+               'requires a matching governance_events row (same from_status, '
+               'to_status) written in the SAME transaction (xact %) -- '
+               'use the service-layer approve_object()/reject_object()/draft-creation '
+               'functions, not a direct UPDATE.',
+               OLD.governance_status, NEW.governance_status, NEW.thesis_id, pg_current_xact_id();
        END IF;
        RETURN NEW;
    END; $$ LANGUAGE plpgsql;
 
    CREATE TRIGGER theses_governance_audit BEFORE UPDATE OF governance_status ON theses
-       FOR EACH ROW EXECUTE FUNCTION _check_governance_audit('thesis');
-   -- + one trigger per remaining table, differing only in the label argument
+       FOR EACH ROW EXECUTE FUNCTION _check_theses_governance_audit();
+   -- Phase 2: write a properly-tested per-table function (or a dynamic/JSON-
+   -- extraction version, validated against real multi-table shapes) when
+   -- macro_theses/themes/theme_holdings exist to govern.
    ```
    A migration that does `UPDATE theses SET governance_status = 'approved'` without
    also inserting the matching `governance_events` row in the same transaction simply

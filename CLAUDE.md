@@ -66,16 +66,34 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 ## Known test environment gaps (do not chase)
 
-Four tests are permanently collection-errors in the remote Claude Code sandbox because
-`joblib` / `lightgbm` / `sklearn` are not installed in the sandbox Python env:
+14 tests are permanently collection-errors in the remote Claude Code sandbox because
+`joblib` (transitively `lightgbm` / `sklearn`) is not installed in the sandbox Python
+env. All 14 fail identically (`ModuleNotFoundError: No module named 'joblib'`) via
+one of two import chains: direct (`domain/models/model_a.py` -> `domain/models/
+cache.py` -> `joblib`) or indirect through `from asxos.cli import main as cli_main`
+(`cli/main.py` -> `cli/predict.py` -> the same chain) — the indirect route is easy to
+miss since the erroring test file itself may import nothing ML-related:
 
+- `tests/test_api_main.py`
+- `tests/test_cli_holdings.py`
+- `tests/test_cli_model.py`
+- `tests/test_cli_news.py`
+- `tests/test_cli_portfolio.py`
+- `tests/test_cli_position.py`
 - `tests/test_cli_predict.py`
+- `tests/test_cli_profile.py`
+- `tests/test_cli_signal.py`
+- `tests/test_cli_thesis.py`
 - `tests/test_generate_signals_job.py`
 - `tests/test_model_a_predict.py`
 - `tests/test_model_cache.py`
+- `tests/test_retrain_dry_run_guard.py`
 
-These pass in the production Render environment where `pip install -e ".[ml]"` is run.
-Do not add workarounds or skip markers — the tests themselves are correct.
+Verify this list against `pytest tests/ -q 2>&1 | grep '^ERROR'` before trusting it —
+it's exactly as prone to rotting as the "Known coverage gaps" section below, and this
+count has already grown once (4 -> 14) since first documented. These all pass in the
+production Render environment where `pip install -e ".[ml]"` is run. Do not add
+workarounds or skip markers — the tests themselves are correct.
 
 One additional runtime gap (not a collection-error, fails during execution):
 

@@ -40,12 +40,32 @@ contamination-isolation gate below) that both must wait on.
   >1 eligible rows — no model can reach the allocator, the brief, or a thesis card's
   ML driver line without an explicit human approval action. `REQUIRED_MIGRATIONS`
   bumped 85→86. Reviewed by security-engineer, refactoring-expert, technical-writer.
+- **Phase 1** — Governance schema: `theses.governance_status`/`source_run_id`
+  (migration 0033), `thesis_evidence`/`agent_evidence`/`agent_runs`/`governance_events`
+  tables (migration 0033), `thesis_revisions` provenance columns + the
+  `theses_governance_audit` trigger (migration 0034 — this codebase's first Postgres
+  trigger). New: `asxos/domain/theses/schemas.py` (3 Pydantic proposal models),
+  `service.py::create_thesis_from_agent_run()`/`approve_object()`/`reject_object()`,
+  `enter_thesis()`'s governance guard, `asx thesis approve|reject` + `open
+  --from-agent-run`. `REQUIRED_MIGRATIONS` bumped 86→88. Two judgment calls resolved
+  (see the design doc's Progress note): `create_thesis_from_agent_run()` ships as a
+  documented, tested stub (no `ThesisProposal` schema exists yet — that's a Phase 2
+  gap, `m14_candidate_agentic_thesis_drafter`); `--accept-stale-evidence` overrides
+  staleness only, never the zero-evidence check. One design-doc bug found and fixed
+  during implementation: the planned single shared trigger function across all 4
+  governed tables fails at runtime (PL/pgSQL validates `NEW`/`OLD` field references
+  against the trigger's bound table even in unreached `CASE` branches) — replaced with
+  a `theses`-specific function; Phase 2 needs its own function(s) for
+  `macro_theses`/`themes`/`theme_holdings`, not a naive extension of this one. A
+  second bug — found by the post-implementation security review pass — was that the
+  trigger's `EXISTS` check never validated `from_status` against
+  `OLD.governance_status`, letting a hand-authored (service-layer-bypassing)
+  transaction claim an arbitrary prior state; fixed by adding `AND from_status =
+  OLD.governance_status`, re-applied to prod, and re-verified with a new adversarial
+  check.
 
 ### Not started
 
-- **Phase 1** — Governance schema (`thesis_evidence`, `agent_evidence`, `agent_runs`,
-  `governance_events` + audit trigger, `theses.governance_status`/`source_run_id`).
-  **Hard blocker for Phase 2** — no discovery agent may be built before this ships.
 - **Phase 2** — Discovery agents (`macro-economist`, `theme-researcher`,
   `instrument-selector`) + `macro_theses` table.
 - **Phase 3** — Executable thesis invalidation (`invalidation_indicator_registry` +

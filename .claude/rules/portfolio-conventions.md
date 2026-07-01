@@ -52,6 +52,45 @@ Phase 1+ — not scoped to Phase 0/0.5.
 
 ---
 
+## Governance-status gate on enter_thesis() (governance architecture Phase 1)
+
+`enter_thesis()` (`asxos/domain/theses/service.py`) hard-fails unless
+`governance_status = 'approved'` (migration 0033/0034), alongside its
+existing status/thesis_text/stop_price/target_price checks. This is
+orthogonal to the contamination-isolation model gate above: that gate
+protects which MODEL's signals reach the allocator; this gate protects
+whether a specific THESIS row is trustworthy enough to have capital
+deployed against it, regardless of model. `governance_status` DEFAULTs to
+`'approved'` for all human-authored theses (zero friction for the existing
+CLI flow) — the guard is only load-bearing for agent-originated drafts,
+which as of Phase 1 cannot yet be created end-to-end (no `ThesisProposal`
+schema exists — see `asxos/domain/theses/schemas.py`). See
+`docs/proposals/governance-first-architecture-2026-06-30.md` Section 4.1/4.7.
+
+The transition from `pending_review` to `approved`/`rejected` is enforced at
+the DB level, not just the service layer: `theses_governance_audit` (migration
+0034) is this codebase's **first Postgres trigger**. It rejects any
+`governance_status` UPDATE that lacks a matching `governance_events` row
+written in the same transaction (checked via `pg_current_xact_id()`
+equality). `approve_object()`/`reject_object()` in `service.py` are the only
+functions that satisfy this — a direct `UPDATE theses SET
+governance_status=...` fails loudly. Deliberately NOT a generic cross-table
+function (see the migration 0034 header comment for why the originally
+planned single-shared-trigger design across `theses`/`macro_theses`/`themes`/
+`theme_holdings` fails at runtime — PL/pgSQL validates `NEW`/`OLD` field
+references against the trigger's bound table even in unreached `CASE`
+branches).
+
+**Deferred** (`m14_candidate_governance_aware_revisit_cadence`):
+`approve_object()` does not reset `revisit_due_at`/`last_revisited_at`, even
+though the design doc describes agent-originated theses getting a 7-day
+cadence that should widen to 30 days on approval. Nothing else in Phase 1
+wires up a governance-status-aware revisit cadence, so implementing just the
+reset in isolation would be untested and disconnected from any consumer.
+Revisit alongside a real cadence mechanism, not as an isolated change.
+
+---
+
 ## v1 risk-blindness invariants (plan I.1)
 
 The constraint waterfall does NOT protect against market-wide co-movement.

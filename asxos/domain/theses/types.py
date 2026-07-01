@@ -64,6 +64,13 @@ class Thesis:
 
     themes: denormalised tuple of theme_codes attached to this thesis.
     Do not modify directly — use ThesisService.attach_theme().
+
+    governance_status (migration 0033): provenance/approval state, ORTHOGONAL
+    to status. status answers "is capital deployed"; governance_status
+    answers "is this content trustworthy enough to exist/be acted on".
+    DEFAULT 'approved' — matches the DB column default, grandfathering every
+    pre-0033 row. enter_thesis() hard-fails unless this is 'approved'. See
+    docs/proposals/governance-first-architecture-2026-06-30.md Section 4.1.
     """
 
     thesis_id: int
@@ -97,6 +104,9 @@ class Thesis:
     # PM conviction + tax fields (migration 0026)
     conviction_level: int | None = None  # 1..5 PM conviction scale; None = unset
     tax_notes: str = ""                  # CGT / franking / holding-period notes
+    # Governance provenance/approval field (migration 0033)
+    governance_status: str = "approved"  # 'draft'|'evidence_complete'|'pending_review'|
+                                          # 'approved'|'rejected'|'retired'; matches DB DEFAULT
 
 
 @dataclass(frozen=True)
@@ -137,6 +147,16 @@ REVISABLE_FIELDS: dict[str, str] = {
     "invalidation_conditions": "invalidation_conditions",
     "conviction_level": "conviction_level",
     "tax_notes": "tax_notes",
+    # governance_status (migration 0033) is DELIBERATELY NOT in this
+    # allowlist. It has its own dedicated transition functions
+    # (approve_object()/reject_object() in service.py) that write a matching
+    # governance_events row in the same transaction — a requirement the
+    # migration 0034 theses_governance_audit trigger enforces at the DB
+    # level. revise_thesis()'s generic path has no governance_events-writing
+    # logic, so adding "governance_status" here would either be rejected
+    # (current, correct behaviour — it's simply not in this dict) or, if
+    # wired up carelessly, fail with an opaque trigger exception on the
+    # UPDATE. Do not add "governance_status" to this dict.
 }
 
 # Maps Python attribute name → revision_type to record in thesis_revisions.
