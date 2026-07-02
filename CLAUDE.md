@@ -47,7 +47,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `holding_lots` — lot-level positions for CGT, with `cost_base_normal` and `cost_base_div296`
 - `current_holdings` — VIEW over holding_lots WHERE disposed_at IS NULL
 - `decisions` — journal
-- `regulatory_events` — daily ingest from ASIC/RBA/ATO/ASX
+- `regulatory_events` — daily ingest from RBA + Treasury RSS (`jobs/ingest_regulatory.py`); ASIC/ASX were never wired, ATO removed (dead feed — re-add is a backlog item)
 - `job_runs` — completion tracking
 - `model_versions` — active model flag via `is_active` column
 - `screening_rules` — JSON rule definitions

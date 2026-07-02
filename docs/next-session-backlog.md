@@ -121,26 +121,69 @@ contamination-isolation gate below) that both must wait on.
 A post-Phase-2b critical review found the discovery layer's data sources have
 **never contained a row**: `ingest_regulatory` has failed daily for ~5 weeks (33
 consecutive `job_runs` failures since its single success on 2026-05-27 — and its
-Healthchecks deadman never surfaced this), and **`ingest_market_context` was
-never built or deployed** (no `job_runs` entry under any name; `market_context`
-is empty, so `market-context-narrator` and `/pm-review`'s MARKET line have been
-returning "no snapshot" since they shipped, and `macro-economist` will —
-correctly, by design — halt rather than invent a regime). Building Phase 2c's
-two further discovery agents before this data flows would add more inert
-machinery. Scope, investigation-first:
+Healthchecks deadman never surfaced this), and **`ingest_market_context` has
+never executed in production** (zero `job_runs` rows under any name;
+`market_context` has zero rows ever). The market-context job itself EXISTS —
+built 2026-06-01, commit 605cb61, with an `asxos-ingest-market-context` cron
+entry in `render.yaml` (schedule `45 20 * * 0-4`) — the gap is
+deployment/secrets: the Render cron service appears never to have been
+provisioned, and its `sync: false` manual secrets (`FRED_API_KEY`,
+`HEALTHCHECK_URL_INGEST_MARKET_CONTEXT`) were never set. Consequence:
+`market-context-narrator` and `/pm-review`'s MARKET line have been returning
+"no snapshot" since they shipped, and `macro-economist` will — correctly, by
+design — halt rather than invent a regime. Building Phase 2c's two further
+discovery agents before this data flows would add more inert machinery.
 
-1. Diagnose + fix `ingest_regulatory` (read `asxos/jobs/` source, Render logs
-   via `mcp__render__*`, `job_runs` error detail); also find out why the
-   deadman never alerted — a monitoring hole independent of the job bug.
-2. Design (backend-architect) + build + deploy `ingest_market_context`
-   (migration 0013's columns: ASX200/AVIX/RBA/AUD/iron ore/US spreads;
-   JobMonitor + deadman + render.yaml cron + check-drift per job-conventions).
-3. Diagnose the zombie `sync_financial_statements` `running` job_runs row
-   (stuck since 2026-06-27) while in there.
+Diagnosis is COMPLETE (2026-07-02); the code fixes land in this same commit.
+Status per item:
+
+1. **`ingest_regulatory` — diagnosed; code fixes in this commit.** The sources
+   were broken three ways: (i) the ATO URL was a dead HTML page (site
+   redesign; no stable public feed exists any more) — REMOVED from `SOURCES`,
+   re-add tracked as operator item (d) below; (ii) the RBA feed is RSS-CB
+   (RSS 1.0/RDF), which the parser could not read, so the one fetchable source
+   parsed 0 events on every run since launch — parser fixed; (iii) Treasury
+   fails from Render for reasons unverifiable outside Render (gov.au WAFs
+   block non-browser clients — even Anthropic server-side fetchers get 403) —
+   a browser User-Agent added as the portable mitigation, final verification
+   on the next Render run. The deadman hole was two-layer: `JobMonitor` pinged
+   Healthchecks only on success, so a daily-failing job sent nothing (fixed —
+   failures now ping the `/fail` endpoint), AND
+   `HEALTHCHECK_URL_INGEST_REGULATORY` is a `sync: false` manual secret that
+   was likely never set on the live cron, so no deadman was ever armed (even
+   the single 2026-05-27 success would not have pinged).
+2. **`ingest_market_context` — no code work needed.** Job, JobMonitor wiring,
+   and the `render.yaml` blueprint entry all exist (see above); what remains
+   is entirely provisioning + secrets — operator items (a) below.
+3. **Zombie `sync_financial_statements` `running` row (stuck since
+   2026-06-27) — diagnosed; fixed in this commit.** The `JobMonitor`
+   stale-heal was scoped to same-`as_of` rows only, so a stuck row from a
+   prior day was never healed — scope widened in this commit; the zombie row
+   itself is being marked `failed` manually.
 4. Then run the deferred Phase 2b stage 4-5 for real: `/discover-macro` →
    `asx agent-run log` → `asx macro-thesis open --from-agent-run` → `approve`
    against live data (needs an environment with Postgres wire access — the
    remote sandbox only reaches Supabase via MCP HTTP).
+
+**REMAINING — operator actions (the load-bearing part; nothing above flows
+until these are done):**
+
+- (a) Provision the `asxos-ingest-market-context` cron on Render — the
+  blueprint entry already exists in `render.yaml`, so this is a blueprint sync
+  via Render MCP or the dashboard, not a code change — then set
+  `FRED_API_KEY` + `HEALTHCHECK_URL_INGEST_MARKET_CONTEXT` on the service.
+- (b) Set `HEALTHCHECK_URL_INGEST_REGULATORY` on the live cron and create/arm
+  the two Healthchecks checks (one per job, daily schedule with a sensible
+  grace window) — per-job UUID ping-URL convention, as with the other jobs.
+- (c) Verify the next scheduled `ingest_regulatory` run writes rows (RBA at
+  minimum) and confirm whether Treasury now passes with the browser
+  User-Agent — the Treasury failure mode is only observable from Render.
+- (d) ATO re-add decision: small open item — the operator must pick a feed
+  URL from https://www.ato.gov.au/about-ato/subscriptions in a browser (no
+  stable public feed URL exists to hardcode), then re-add it to `SOURCES`.
+- (e) ASIC/ASX remain unwired (they never were; the CLAUDE.md schema line has
+  been corrected) — wiring them is a separate future decision, not part of
+  this fix.
 
 ### Not started
 

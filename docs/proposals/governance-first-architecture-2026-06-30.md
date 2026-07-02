@@ -108,10 +108,12 @@ or **[HISTORICAL]**. Do not infer status from prose — only the label is author
 - **Phase 2c-4 — not started.** See Section 7 below. Sequencing decision
   (2026-07-02, user-confirmed): the data pipeline feeding the discovery layer
   is fixed BEFORE Phase 2c — `market_context` has never had a row (the
-  `ingest_market_context` job was never built) and `regulatory_events` has
-  never had a surviving row (`ingest_regulatory` failing daily since
-  2026-05-27), so further discovery agents would be inert machinery until
-  those flow. See `docs/next-session-backlog.md` "Next up".
+  `ingest_market_context` job was built 2026-06-01 but has never executed in
+  production — a provisioning/secrets gap, not missing code) and
+  `regulatory_events` has never had a surviving row (`ingest_regulatory`
+  broken since launch, failing daily since 2026-05-27), so further discovery
+  agents would be inert machinery until those flow. See
+  `docs/next-session-backlog.md` "Next up".
 
 ---
 
@@ -872,7 +874,8 @@ Phase 2b built the first of the three discovery agents (`macro-economist`) plus 
 generic capture mechanism every later one reuses (`asx agent-run log` →
 `agent_runs`/`agent_evidence`); `theme-researcher`/`instrument-selector` remain
 Phase 2c. Reused from before: `market_context_current` (regime snapshot — currently
-zero-row until `ingest_market_context` ships; see the Progress note), the FRED +
+zero-row until the `ingest_market_context` cron is provisioned; see the Progress
+note), the FRED +
 EODHD clients, the `themes`/`theme_holdings` schema, the 5 live investment-analysis
 agents as a style template.
 

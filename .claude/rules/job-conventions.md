@@ -9,8 +9,13 @@ paths:
 
 - Every cron job uses the `JobMonitor` async context manager from
   `asxos/jobs/utils/job_monitor.py`. It writes lifecycle to `job_runs`
-  (status, duration_ms, rows_written, error_message) and pings the
-  Healthchecks.io URL on success.
+  (status, duration_ms, rows_written, error_message) and pings
+  Healthchecks.io: base URL on success, URL + `/fail` on failure (explicit
+  failure signal; also marks the check for deadman purposes), and
+  deliberately nothing on 'blocked' (the deadman should miss so "upstream
+  stuck" surfaces). Its stale-row heal in `__aenter__` is cross-`as_of`:
+  any `running` row for the job older than 2 hours is failed, whatever
+  date it was for.
 - No Sentry wrapper. No `record_job_completion` / `job_completions` table —
   that was the old system.
 - No `ALERT_WEBHOOK_URL` / `ALERT_EMAIL` — alerting is "Healthchecks.io
