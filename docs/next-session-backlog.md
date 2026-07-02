@@ -185,6 +185,28 @@ until these are done):**
   been corrected) — wiring them is a separate future decision, not part of
   this fix.
 
+### Security finding — agent DB role scoping (found during Phase 2a+2b PR
+review, 2026-07-02; land BEFORE Phase 2c)
+
+security-engineer's review of the full PR diff (5 commits, `9bb8a5f..HEAD`)
+found `macro-economist`'s "SELECT-only" constraint is prompt-level only —
+`mcp__Supabase__execute_sql` can execute arbitrary SQL, and this diff is the
+first time that unrestricted access sits next to a governed table
+(`macro_theses`) fed by untrusted RSS content. A successful prompt injection
+could in principle hand-write the exact `governance_events` INSERT +
+`macro_theses` UPDATE pair the audit triggers require, bypassing human
+approval entirely — no technical control stops it today, only the agent's
+own instructions. Not introduced by this diff (the same tool-grant pattern
+already existed via `market-context-narrator`); narrow attack surface today
+(fixed, currently-trusted gov.au sources) and single-user blast radius, so
+not treated as a blocker for this PR. Full writeup in
+`.claude/rules/portfolio-conventions.md` under
+`m14_candidate_agent_db_role_scoping`. Fix shape: a read-only Postgres role
+for agent MCP sessions, distinct from the human/CLI role — needs a
+`backend-architect` design pass (how the MCP server picks a role per
+session isn't yet clear) before Phase 2c adds two more discovery agents on
+the same pattern.
+
 ### Not started
 
 - **Phase 2c** — `theme-researcher` + `instrument-selector` agents. Pattern

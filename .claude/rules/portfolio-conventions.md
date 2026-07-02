@@ -160,6 +160,31 @@ evidence link is indirect (`macro_theses.source_run_id` ->
 Land the join-based check when a second evidence-heavy discovery agent
 (Phase 2c) makes the pattern worth generalising.
 
+**Known gap** (`m14_candidate_agent_db_role_scoping`, found by security-engineer
+during the Phase 2a+2b PR review, 2026-07-02 — not blocking, tracked for
+before Phase 2c): `macro-economist`'s "SELECT-only" instruction
+(`.claude/agents/macro-economist.md`) — and the pre-existing
+`market-context-narrator`'s identical instruction — is enforced entirely at
+the prompt level. The underlying `mcp__Supabase__execute_sql` grant can
+execute arbitrary SQL; `.claude/settings.json` has no MCP/tool permission
+scoping to restrict it. Before this diff, exploiting that gap required a
+human deliberately hand-writing SQL to bypass `service.py` — a trusted-actor
+risk migration 0034's header comment already calls out. This diff is the
+first time an LLM agent with that same unrestricted access sits adjacent to
+a governed table, fed by externally-sourced, untrusted text
+(`regulatory_events.title`/`summary` from RSS feeds, truncated but not
+sanitised). A successful prompt injection could in principle have the agent
+emit exactly the `INSERT INTO governance_events ...; UPDATE macro_theses SET
+governance_status = 'approved' ...` pair the BEFORE UPDATE triggers require
+in one transaction — fully bypassing the human-approval gate this whole
+architecture exists to build, with no code-level backstop today. Accepted
+as a documented risk rather than a blocker: the RSS sources are hardcoded
+and currently trusted (gov.au), and the blast radius is single-user. The
+clean fix is a read-only Postgres role dedicated to agent MCP sessions,
+distinct from the role human/CLI sessions use — scope this via
+`backend-architect` before Phase 2c adds `theme-researcher` and
+`instrument-selector` on the same pattern.
+
 ---
 
 ## v1 risk-blindness invariants (plan I.1)

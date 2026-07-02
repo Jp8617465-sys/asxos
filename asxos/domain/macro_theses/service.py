@@ -60,6 +60,35 @@ def _row_to_macro_thesis(row: asyncpg.Record) -> MacroThesis:
     )
 
 
+async def _apply_governance_transition(
+    conn: asyncpg.Connection,
+    macro_thesis_id: int,
+    *,
+    from_status: str,
+    to_status: str,
+    reasoning: str,
+    actor: str = "human",
+) -> asyncpg.Record:
+    """Thin macro_theses-specific wrapper over the shared
+    asxos.domain.governance.transitions.apply_governance_transition() — same
+    convention as theses/service.py::_apply_governance_transition(), applied
+    here because all four call sites below repeat the identical
+    table_name="macro_theses"/id_column="macro_thesis_id"/object_type=
+    "macro_thesis" triple.
+    """
+    return await governance_transitions.apply_governance_transition(
+        conn,
+        table_name="macro_theses",
+        id_column="macro_thesis_id",
+        object_type="macro_thesis",
+        object_id=macro_thesis_id,
+        from_status=from_status,
+        to_status=to_status,
+        reasoning=reasoning,
+        actor=actor,
+    )
+
+
 async def get_macro_thesis(conn: asyncpg.Connection, macro_thesis_id: int) -> MacroThesis | None:
     """Fetch a macro thesis by ID. Returns None if not found."""
     row = await conn.fetchrow(
@@ -147,23 +176,15 @@ async def create_macro_thesis_from_agent_run(
         )
         macro_thesis_id = row["macro_thesis_id"]
 
-        await governance_transitions.apply_governance_transition(
-            conn,
-            table_name="macro_theses",
-            id_column="macro_thesis_id",
-            object_type="macro_thesis",
-            object_id=macro_thesis_id,
+        await _apply_governance_transition(
+            conn, macro_thesis_id,
             from_status="draft",
             to_status="evidence_complete",
             reasoning=reasoning,
             actor="agent",
         )
-        row = await governance_transitions.apply_governance_transition(
-            conn,
-            table_name="macro_theses",
-            id_column="macro_thesis_id",
-            object_type="macro_thesis",
-            object_id=macro_thesis_id,
+        row = await _apply_governance_transition(
+            conn, macro_thesis_id,
             from_status="evidence_complete",
             to_status="pending_review",
             reasoning=reasoning,
@@ -202,12 +223,8 @@ async def approve_object(
         if not reasoning or not reasoning.strip():
             raise ValueError("reasoning is required to approve a macro thesis")
 
-        row = await governance_transitions.apply_governance_transition(
-            conn,
-            table_name="macro_theses",
-            id_column="macro_thesis_id",
-            object_type="macro_thesis",
-            object_id=macro_thesis_id,
+        row = await _apply_governance_transition(
+            conn, macro_thesis_id,
             from_status=existing["governance_status"],
             to_status="approved",
             reasoning=reasoning,
@@ -236,12 +253,8 @@ async def reject_object(
         if not reasoning or not reasoning.strip():
             raise ValueError("reasoning is required to reject a macro thesis")
 
-        row = await governance_transitions.apply_governance_transition(
-            conn,
-            table_name="macro_theses",
-            id_column="macro_thesis_id",
-            object_type="macro_thesis",
-            object_id=macro_thesis_id,
+        row = await _apply_governance_transition(
+            conn, macro_thesis_id,
             from_status=existing["governance_status"],
             to_status="rejected",
             reasoning=reasoning,

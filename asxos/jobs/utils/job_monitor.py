@@ -137,16 +137,17 @@ class JobMonitor:
         # Healthchecks an immediate explicit-failure signal AND still marks
         # the check for deadman purposes.
         if status == "success" and self.healthcheck_url:
-            try:
-                async with httpx.AsyncClient(timeout=5) as client:
-                    await client.get(self.healthcheck_url)
-            except Exception:
-                pass  # ping failure never fails a successful job
+            await self._ping(self.healthcheck_url)
         elif status == "failure" and self.healthcheck_url:
-            try:
-                async with httpx.AsyncClient(timeout=5) as client:
-                    await client.get(self.healthcheck_url + "/fail")
-            except Exception:
-                pass  # ping failure must never mask the original job exception
+            await self._ping(self.healthcheck_url + "/fail")
 
         return False  # never suppress exceptions
+
+    async def _ping(self, url: str) -> None:
+        # A flaky Healthchecks endpoint must never turn a successful job into
+        # a failure, nor mask the job's own exception on the way out.
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.get(url)
+        except Exception:
+            pass

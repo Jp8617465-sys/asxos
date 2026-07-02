@@ -34,10 +34,11 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0028) is the canonical schema** — roughly 40
-tables across the signal, portfolio, tax, paper-trade, research-store, FX and
-position-monitor subsystems. The list below is a partial overview of the core
-tables, **not exhaustive** — do not trust it for completeness; read the migrations.
+**`migrations/` (currently through 0036) is the canonical schema** — roughly 40
+tables across the signal, portfolio, tax, paper-trade, research-store, FX,
+position-monitor and governance subsystems. The list below is a partial overview
+of the core tables, **not exhaustive** — do not trust it for completeness; read
+the migrations.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
