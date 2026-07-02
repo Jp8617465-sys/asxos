@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import typer
 
+from asxos.cli.agent_run import agent_run_app
 from asxos.cli.brief import brief
 from asxos.cli.holdings import import_holdings
 from asxos.cli.journal import journal_app
+from asxos.cli.macro_thesis import macro_thesis_app
 from asxos.cli.model import model_app
 from asxos.cli.news import news_app
 from asxos.cli.portfolio import build_portfolio, portfolio_app, propose_trades
@@ -48,6 +50,8 @@ app.add_typer(portfolio_app, name="portfolio")
 app.add_typer(position_app, name="position")
 app.add_typer(thesis_app, name="thesis")
 app.add_typer(theme_app, name="theme")
+app.add_typer(macro_thesis_app, name="macro-thesis")
+app.add_typer(agent_run_app, name="agent-run")
 
 
 if __name__ == "__main__":  # pragma: no cover

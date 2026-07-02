@@ -24,6 +24,7 @@ from typing import Any
 
 import asyncpg
 
+from asxos.domain.governance import transitions as governance_transitions
 from asxos.domain.theses.types import (
     _REVISION_TYPE_FOR_FIELD,
     REVISABLE_FIELDS,
@@ -249,6 +250,14 @@ async def open_thesis(
         # Upsert theme_holdings placeholder rows for each theme code.
         # ON CONFLICT DO NOTHING — if the row exists (symbol already linked to
         # this theme from a prior thesis), leave it untouched.
+        # governance_status='draft' explicitly (not the column DEFAULT
+        # 'approved'): a system_default placeholder is unreviewed structural
+        # scaffolding, not a reviewed exposure claim — migration 0035
+        # backfilled existing placeholders to 'draft' for exactly this
+        # reason, and omitting it here would recreate the laundered state
+        # on every new `asx thesis open --themes`. INSERTs don't fire the
+        # governance audit trigger (BEFORE UPDATE only), so no
+        # governance_events row is required.
         for code in themes:
             theme_row = await conn.fetchrow(
                 "SELECT theme_id FROM themes WHERE theme_code = $1", code
@@ -261,8 +270,9 @@ async def open_thesis(
             await conn.execute(
                 """
                 INSERT INTO theme_holdings
-                    (theme_id, symbol, exposure_strength, source, last_validated_at, created_at)
-                VALUES ($1, $2, 0.5, 'system_default', $3, $3)
+                    (theme_id, symbol, exposure_strength, source, governance_status,
+                     last_validated_at, created_at)
+                VALUES ($1, $2, 0.5, 'system_default', 'draft', $3, $3)
                 ON CONFLICT (theme_id, symbol) DO NOTHING
                 """,
                 theme_row["theme_id"],
@@ -648,38 +658,24 @@ async def _apply_governance_transition(
     to_status: str,
     reasoning: str,
 ) -> asyncpg.Record:
-    """UPDATE theses.governance_status and write the matching governance_events
-    row, in that order, within the caller's existing transaction.
-
-    Shared by approve_object()/reject_object() — this pairing (not the
-    fetch-and-validate logic above it, which differs per caller) is the part
-    that must be exact: the migration 0034 trigger rejects any
-    governance_status UPDATE lacking a governance_events row for the same
-    (object_id, to_status) written in the same Postgres transaction. Returns
-    the updated row so callers can pass it straight to _row_to_thesis().
+    """Thin theses-specific wrapper over the shared
+    asxos.domain.governance.transitions.apply_governance_transition() —
+    extracted there in Phase 2a since the same governance_events-INSERT-then-
+    UPDATE pairing (in that load-bearing order — see transitions.py's module
+    docstring) is now needed by themes/theme_holdings/macro_theses too. Kept
+    as a wrapper (not inlined at each call site) so approve_object()/
+    reject_object() below need zero changes.
     """
-    row = await conn.fetchrow(
-        """
-        UPDATE theses
-        SET governance_status = $1
-        WHERE thesis_id = $2
-        RETURNING *
-        """,
-        to_status,
-        thesis_id,
+    return await governance_transitions.apply_governance_transition(
+        conn,
+        table_name="theses",
+        id_column="thesis_id",
+        object_type="thesis",
+        object_id=thesis_id,
+        from_status=from_status,
+        to_status=to_status,
+        reasoning=reasoning,
     )
-    await conn.execute(
-        """
-        INSERT INTO governance_events
-            (object_type, object_id, from_status, to_status, reasoning, actor)
-        VALUES ('thesis', $1, $2, $3, $4, 'human')
-        """,
-        thesis_id,
-        from_status,
-        to_status,
-        reasoning,
-    )
-    return row
 
 
 async def approve_object(

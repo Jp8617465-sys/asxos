@@ -17,6 +17,7 @@ from decimal import Decimal
 
 import asyncpg
 
+from asxos.domain.governance import transitions as governance_transitions
 from asxos.domain.themes.types import Theme, ThemeHolding
 
 _VALID_STAGES = frozenset(
@@ -25,6 +26,7 @@ _VALID_STAGES = frozenset(
 _VALID_CONVICTION_BANDS = frozenset(("low", "medium", "high"))
 _VALID_DIRECTIONS = frozenset(("positive", "negative"))
 _VALID_SOURCES = frozenset(("user", "llm_inferred", "system_default"))
+_REJECTABLE_FROM = {"draft", "evidence_complete", "pending_review"}
 
 
 def _now_utc() -> datetime:
@@ -44,6 +46,11 @@ def _row_to_theme(row: asyncpg.Record) -> Theme:
         started_at=row["started_at"],
         retired_at=row["retired_at"],
         last_reviewed_at=row["last_reviewed_at"],
+        # migration 0035 fields — .get() with a fallback, not row[...], so a
+        # pre-migration-shaped fixture row dict doesn't KeyError.
+        macro_thesis_id=row.get("macro_thesis_id"),
+        governance_status=row.get("governance_status", "approved"),
+        source_run_id=row.get("source_run_id"),
     )
 
 
@@ -58,6 +65,10 @@ def _row_to_theme_holding(row: asyncpg.Record) -> ThemeHolding:
         last_validated_at=row["last_validated_at"],
         note=row["note"],
         created_at=row["created_at"],
+        # migration 0035 fields
+        holding_id=row.get("holding_id"),
+        governance_status=row.get("governance_status", "approved"),
+        source_run_id=row.get("source_run_id"),
     )
 
 
@@ -340,3 +351,146 @@ async def retire_theme(
     if row is None:
         raise ValueError(f"Theme code {theme_code!r} not found")
     return _row_to_theme(row)
+
+
+async def approve_theme(conn: asyncpg.Connection, theme_id: int, *, reasoning: str) -> Theme:
+    """Transition a theme from pending_review to approved.
+
+    No agent producer exists yet for object_type='theme' (that's Phase 2c's
+    instrument-selector/theme-researcher work) — this function exists now so
+    the themes_governance_audit trigger (migration 0036) has a service-layer
+    path to test against, and so a human can manually approve a theme that
+    was ever hand-created at a non-'approved' governance_status. Unlike
+    theses/service.py::approve_object(), there is no evidence-staleness gate
+    here: nothing produces agent-originated themes yet, so there is no
+    evidence to check the staleness of.
+    """
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM themes WHERE theme_id = $1 FOR UPDATE", theme_id
+        )
+        if existing is None:
+            raise ValueError(f"Theme {theme_id} not found")
+        if existing["governance_status"] != "pending_review":
+            raise ValueError(
+                f"Cannot approve theme {theme_id} — governance_status is "
+                f"{existing['governance_status']!r}, expected 'pending_review'."
+            )
+        if not reasoning or not reasoning.strip():
+            raise ValueError("reasoning is required to approve a theme")
+
+        row = await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="themes",
+            id_column="theme_id",
+            object_type="theme",
+            object_id=theme_id,
+            from_status=existing["governance_status"],
+            to_status="approved",
+            reasoning=reasoning,
+        )
+        return _row_to_theme(row)
+
+
+async def reject_theme(conn: asyncpg.Connection, theme_id: int, *, reasoning: str) -> Theme:
+    """Transition a theme from draft/evidence_complete/pending_review to
+    rejected. See approve_theme()'s docstring for why there's no evidence
+    check here (the contrast is with theses/service.py::approve_object();
+    theses' own reject_object() has no evidence check either)."""
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM themes WHERE theme_id = $1 FOR UPDATE", theme_id
+        )
+        if existing is None:
+            raise ValueError(f"Theme {theme_id} not found")
+        if existing["governance_status"] not in _REJECTABLE_FROM:
+            raise ValueError(
+                f"Cannot reject theme {theme_id} — governance_status is "
+                f"{existing['governance_status']!r}, expected one of "
+                f"{sorted(_REJECTABLE_FROM)}."
+            )
+        if not reasoning or not reasoning.strip():
+            raise ValueError("reasoning is required to reject a theme")
+
+        row = await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="themes",
+            id_column="theme_id",
+            object_type="theme",
+            object_id=theme_id,
+            from_status=existing["governance_status"],
+            to_status="rejected",
+            reasoning=reasoning,
+        )
+        return _row_to_theme(row)
+
+
+async def approve_theme_holding(
+    conn: asyncpg.Connection, holding_id: int, *, reasoning: str
+) -> ThemeHolding:
+    """Transition a theme_holding from pending_review to approved.
+
+    Takes holding_id (the migration 0035 surrogate key), never the composite
+    (theme_id, symbol) natural key — this is the entire reason the surrogate
+    was added (governance_events.object_id needs one BIGINT uniformly). See
+    approve_theme()'s docstring for why there's no evidence check here.
+    """
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM theme_holdings WHERE holding_id = $1 FOR UPDATE", holding_id
+        )
+        if existing is None:
+            raise ValueError(f"Theme holding {holding_id} not found")
+        if existing["governance_status"] != "pending_review":
+            raise ValueError(
+                f"Cannot approve theme holding {holding_id} — governance_status is "
+                f"{existing['governance_status']!r}, expected 'pending_review'."
+            )
+        if not reasoning or not reasoning.strip():
+            raise ValueError("reasoning is required to approve a theme holding")
+
+        row = await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="theme_holdings",
+            id_column="holding_id",
+            object_type="theme_holding",
+            object_id=holding_id,
+            from_status=existing["governance_status"],
+            to_status="approved",
+            reasoning=reasoning,
+        )
+        return _row_to_theme_holding(row)
+
+
+async def reject_theme_holding(
+    conn: asyncpg.Connection, holding_id: int, *, reasoning: str
+) -> ThemeHolding:
+    """Transition a theme_holding from draft/evidence_complete/pending_review
+    to rejected. Takes holding_id, not (theme_id, symbol) — see
+    approve_theme_holding()'s docstring."""
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM theme_holdings WHERE holding_id = $1 FOR UPDATE", holding_id
+        )
+        if existing is None:
+            raise ValueError(f"Theme holding {holding_id} not found")
+        if existing["governance_status"] not in _REJECTABLE_FROM:
+            raise ValueError(
+                f"Cannot reject theme holding {holding_id} — governance_status is "
+                f"{existing['governance_status']!r}, expected one of "
+                f"{sorted(_REJECTABLE_FROM)}."
+            )
+        if not reasoning or not reasoning.strip():
+            raise ValueError("reasoning is required to reject a theme holding")
+
+        row = await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="theme_holdings",
+            id_column="holding_id",
+            object_type="theme_holding",
+            object_id=holding_id,
+            from_status=existing["governance_status"],
+            to_status="rejected",
+            reasoning=reasoning,
+        )
+        return _row_to_theme_holding(row)

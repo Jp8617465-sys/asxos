@@ -34,6 +34,9 @@ def _make_theme_row(
     adjacent_codes: list | None = None,
     started_at: date = _TODAY,
     retired_at: date | None = None,
+    macro_thesis_id: int | None = None,
+    governance_status: str = "approved",
+    source_run_id: int | None = None,
 ) -> dict:
     return {
         "theme_id": theme_id,
@@ -47,6 +50,9 @@ def _make_theme_row(
         "started_at": started_at,
         "retired_at": retired_at,
         "last_reviewed_at": _NOW,
+        "macro_thesis_id": macro_thesis_id,
+        "governance_status": governance_status,
+        "source_run_id": source_run_id,
     }
 
 
@@ -58,6 +64,9 @@ def _make_holding_row(
     mechanism_text: str = "NIM benefits from higher rates",
     source: str = "user",
     note: str | None = None,
+    holding_id: int | None = 1,
+    governance_status: str = "approved",
+    source_run_id: int | None = None,
 ) -> dict:
     return {
         "theme_id": theme_id,
@@ -69,6 +78,9 @@ def _make_holding_row(
         "last_validated_at": _NOW,
         "note": note,
         "created_at": _NOW,
+        "holding_id": holding_id,
+        "governance_status": governance_status,
+        "source_run_id": source_run_id,
     }
 
 
@@ -328,3 +340,130 @@ async def test_attach_thesis_missing_theme_raises() -> None:
             conn, "nonexistent-theme", "CBA.AU",
             exposure_strength=Decimal("0.5"),
         )
+
+
+# ---------------------------------------------------------------------------
+# Governance — approve_theme / reject_theme / approve_theme_holding /
+# reject_theme_holding (Phase 2a). No agent producer exists yet for
+# object_type='theme'/'theme_holding' (Phase 2c) — these exist so the
+# themes_governance_audit/theme_holdings_governance_audit triggers
+# (migration 0036) have a service-layer path to test against.
+# ---------------------------------------------------------------------------
+
+async def test_approve_theme_happy_path() -> None:
+    conn = _make_conn(
+        fetchrow_returns=[
+            _make_theme_row(governance_status="pending_review"),
+            _make_theme_row(governance_status="approved"),
+        ]
+    )
+    theme = await svc.approve_theme(conn, 1, reasoning="Evidence checks out")
+    assert theme.governance_status == "approved"
+    gov_calls = [c for c in conn.execute.await_args_list if "governance_events" in c.args[0]]
+    assert len(gov_calls) == 1
+    assert gov_calls[0].args[1:] == ("theme", 1, "pending_review", "approved", "Evidence checks out", "human")
+
+
+async def test_approve_theme_wrong_status_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[_make_theme_row(governance_status="draft")])
+    with pytest.raises(ValueError, match="expected 'pending_review'"):
+        await svc.approve_theme(conn, 1, reasoning="x")
+
+
+async def test_approve_theme_not_found_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[None])
+    with pytest.raises(ValueError, match="not found"):
+        await svc.approve_theme(conn, 999, reasoning="x")
+
+
+async def test_approve_theme_empty_reasoning_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[_make_theme_row(governance_status="pending_review")])
+    with pytest.raises(ValueError, match="reasoning is required"):
+        await svc.approve_theme(conn, 1, reasoning="  ")
+
+
+async def test_reject_theme_happy_path() -> None:
+    conn = _make_conn(
+        fetchrow_returns=[
+            _make_theme_row(governance_status="draft"),
+            _make_theme_row(governance_status="rejected"),
+        ]
+    )
+    theme = await svc.reject_theme(conn, 1, reasoning="Duplicate")
+    assert theme.governance_status == "rejected"
+
+
+async def test_reject_theme_already_approved_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[_make_theme_row(governance_status="approved")])
+    with pytest.raises(ValueError, match="expected one of"):
+        await svc.reject_theme(conn, 1, reasoning="x")
+
+
+async def test_approve_theme_holding_happy_path() -> None:
+    conn = _make_conn(
+        fetchrow_returns=[
+            _make_holding_row(governance_status="pending_review"),
+            _make_holding_row(governance_status="approved"),
+        ]
+    )
+    holding = await svc.approve_theme_holding(conn, 1, reasoning="Evidence checks out")
+    assert holding.governance_status == "approved"
+    gov_calls = [c for c in conn.execute.await_args_list if "governance_events" in c.args[0]]
+    assert len(gov_calls) == 1
+    # object_id is holding_id (the surrogate), not (theme_id, symbol).
+    assert gov_calls[0].args[1:] == ("theme_holding", 1, "pending_review", "approved", "Evidence checks out", "human")
+
+
+async def test_approve_theme_holding_wrong_status_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[_make_holding_row(governance_status="draft")])
+    with pytest.raises(ValueError, match="expected 'pending_review'"):
+        await svc.approve_theme_holding(conn, 1, reasoning="x")
+
+
+async def test_approve_theme_holding_not_found_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[None])
+    with pytest.raises(ValueError, match="not found"):
+        await svc.approve_theme_holding(conn, 999, reasoning="x")
+
+
+async def test_reject_theme_holding_happy_path() -> None:
+    conn = _make_conn(
+        fetchrow_returns=[
+            _make_holding_row(governance_status="draft"),
+            _make_holding_row(governance_status="rejected"),
+        ]
+    )
+    holding = await svc.reject_theme_holding(conn, 1, reasoning="Not a real exposure")
+    assert holding.governance_status == "rejected"
+
+
+async def test_reject_theme_holding_empty_reasoning_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[_make_holding_row(governance_status="draft")])
+    with pytest.raises(ValueError, match="reasoning is required"):
+        await svc.reject_theme_holding(conn, 1, reasoning="")
+
+
+# ---------------------------------------------------------------------------
+# _row_to_theme / _row_to_theme_holding — governance field defaulting
+# ---------------------------------------------------------------------------
+
+async def test_row_to_theme_defaults_governance_status_when_absent() -> None:
+    """A pre-migration-0035-shaped row dict (no governance columns) round-
+    trips to 'approved' via .get(), not KeyError."""
+    row = _make_theme_row()
+    del row["governance_status"], row["source_run_id"], row["macro_thesis_id"]
+    conn = _make_conn(fetchrow_returns=[row])
+    theme = await svc.get_theme(conn, "big-4-banks")
+    assert theme is not None
+    assert theme.governance_status == "approved"
+    assert theme.source_run_id is None
+    assert theme.macro_thesis_id is None
+
+
+async def test_row_to_theme_holding_defaults_governance_status_when_absent() -> None:
+    row = _make_holding_row()
+    del row["governance_status"], row["source_run_id"], row["holding_id"]
+    conn = _make_conn(fetch_returns=[[row]])
+    holdings = await svc.list_theme_holdings(conn, "big-4-banks")
+    assert holdings[0].governance_status == "approved"
+    assert holdings[0].holding_id is None

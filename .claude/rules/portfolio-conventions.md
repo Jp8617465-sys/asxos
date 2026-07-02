@@ -91,6 +91,77 @@ Revisit alongside a real cadence mechanism, not as an isolated change.
 
 ---
 
+## Phase 2a governance expansion — macro_theses/themes/theme_holdings triggers
+
+Migration 0036 adds three MORE independent trigger functions
+(`_check_macro_theses_governance_audit()`, `_check_themes_governance_audit()`,
+`_check_theme_holdings_governance_audit()`), each modeled character-for-
+character on the corrected `_check_theses_governance_audit()` (including the
+`from_status = OLD.governance_status` check from day one, not as a later
+retrofit). **Not a shared function with `TG_ARGV` dispatch** — the design
+doc's Section 5.5 originally showed exactly that broken pattern
+(`_check_governance_audit('macro_thesis')`), which is the same bug Phase 1
+already found and fixed for `theses`; Section 5.5 has been corrected to match
+this migration, not the other way around. `theme_holdings`'s trigger checks
+`NEW.holding_id` (a new `BIGSERIAL UNIQUE` surrogate, migration 0035) rather
+than the composite `(theme_id, symbol)` natural key — this surrogate exists
+specifically so `governance_events.object_id` can reference one BIGINT
+uniformly across all four governed tables.
+
+**Module boundary decision**: `asxos/domain/macro_theses/` is its own new
+package, not folded into `asxos/domain/themes/`, despite `themes.macro_thesis_id`
+creating a dependency between them. A macro thesis has an independent
+lifecycle driven by its own agent (`macro-economist`) — it can exist, be
+approved, and be retired with zero themes ever linked to it
+(`ON DELETE SET NULL`) — matching this codebase's existing one-package-per-
+major-entity convention (`theses/` and `themes/` are already separate despite
+`theses/service.py::open_thesis()` writing directly into `theme_holdings`).
+`theme_holdings` governance (`approve_theme_holding()`/`reject_theme_holding()`)
+stays in the existing `themes/service.py`, not a fourth package — it has no
+identity outside a theme.
+
+The `governance_events`-INSERT-then-UPDATE pairing — **in that order, and the
+order is load-bearing** — that satisfies every one of these triggers is now a
+single shared helper,
+`asxos/domain/governance/transitions.py::apply_governance_transition()` —
+extracted from the theses-specific version once a 4th call site (macro_theses)
+needed the identical shape. Every audit trigger is `BEFORE UPDATE`: its
+`EXISTS` check runs synchronously at the moment the UPDATE statement fires, so
+the matching `governance_events` row must already be visible within the same
+transaction *before* the UPDATE — INSERT-after-UPDATE is rejected by the
+trigger every time. `table_name`/`id_column` are f-string-interpolated
+(Postgres identifiers can't be `$N`-bound); every call site passes a hardcoded
+literal, never caller-supplied input.
+
+**Verification lesson (Phase 2a live-fire finding, encode-don't-repeat):** the
+original helper (and Phase 1's shipped inline ancestor in `theses/service.py`)
+did UPDATE-then-INSERT, and it passed every mocked unit test AND two full
+review loops AND Phase 1's manual live verification — because mocked
+connections don't enforce trigger semantics, and the manual check verified
+hand-written SQL that happened to use the correct order rather than the actual
+statement sequence the Python emits. Phase 1's `asx thesis approve|reject`
+would have failed against the live trigger on first real use. The bug only
+surfaced when Phase 2a's verification replayed the *exact Python-emitted
+statement sequence* against prod (in a rolled-back transaction). Rule: any new
+or changed code that performs a `governance_status` transition must have its
+emitted statement ORDER live-verified against the real triggers at least once
+(rolled-back transaction is fine) — mocked tests and hand-replicated SQL do
+not count. `tests/test_governance_transitions.py` pins the order at the unit
+level (a shared ordered call log across execute/fetchrow), but that only
+guards the shared helper, not novel call patterns around it.
+
+**Deferred** (`m14_candidate_macro_thesis_evidence_staleness_check`):
+`macro_theses/service.py::approve_object()` does not check evidence staleness
+before approval, unlike `theses/service.py::approve_object()`. theses' check
+queries `thesis_evidence` directly (a table with a `thesis_id` FK);
+`macro_theses` has no equivalent direct FK from `agent_evidence` — its
+evidence link is indirect (`macro_theses.source_run_id` ->
+`agent_runs.proposed_object.evidence_citation_ids` -> `agent_evidence.evidence_id`).
+Land the join-based check when a second evidence-heavy discovery agent
+(Phase 2c) makes the pattern worth generalising.
+
+---
+
 ## v1 risk-blindness invariants (plan I.1)
 
 The constraint waterfall does NOT protect against market-wide co-movement.

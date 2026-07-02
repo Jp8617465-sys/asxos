@@ -63,19 +63,101 @@ contamination-isolation gate below) that both must wait on.
   transaction claim an arbitrary prior state; fixed by adding `AND from_status =
   OLD.governance_status`, re-applied to prod, and re-verified with a new adversarial
   check.
+- **Phase 2a+2b** — `macro_theses` table + governance columns on `themes`/
+  `theme_holdings` (migration 0035: `macro_theses`, `themes.macro_thesis_id`,
+  `theme_holdings.holding_id` surrogate, 4 `governed_active_*` views), 3 more
+  independent per-table audit triggers (migration 0036 — `macro_theses`/`themes`/
+  `theme_holdings`, each modeled on the corrected `theses` trigger, `from_status`
+  check included from day one). `REQUIRED_MIGRATIONS` bumped 88→90. New: shared
+  `asxos/domain/governance/` package (`transitions.py`'s `apply_governance_transition()`,
+  extracted from `theses/service.py` once a 4th call site needed the identical
+  `governance_events`-INSERT-then-UPDATE shape; `agent_run_service.py`'s `log_agent_run()`
+  — the write side of `agent_runs`/`agent_evidence` Phase 1 never built), a new
+  `asxos/domain/macro_theses/` package (own package, not folded into `themes/` — see
+  `portfolio-conventions.md`'s module-boundary note), `themes/service.py`'s
+  `approve_theme`/`reject_theme`/`approve_theme_holding`/`reject_theme_holding`. New
+  CLI: `asx agent-run log`, `asx macro-thesis list|show|open --from-agent-run|approve|reject`.
+  New agent: `.claude/agents/macro-economist.md` (the first "discovery" agent —
+  proposes content rather than analyzing holdings) + `/discover-macro` slash command.
+  Section 5.5 of the design doc had the same shared-trigger-function bug Section 4.7
+  already fixed once (`_check_governance_audit('macro_thesis')` via `TG_ARGV`) —
+  corrected to match migration 0036, not copied verbatim. One deferral:
+  `m14_candidate_macro_thesis_evidence_staleness_check` (no direct `agent_evidence`
+  FK on `macro_theses`, unlike `theses`' `thesis_evidence` FK — land when Phase 2c's
+  second evidence-heavy agent makes the join-based check worth generalising).
+  **Third bug of the governance build, found by Phase 2a's live verification and
+  the most serious**: `apply_governance_transition()` (and Phase 1's shipped
+  inline ancestor) did UPDATE-then-INSERT — but every audit trigger is `BEFORE
+  UPDATE` and checks for the `governance_events` row synchronously at UPDATE
+  time, so that order is rejected by the trigger every time. Phase 1's `asx
+  thesis approve|reject` would have failed on first real use despite passing
+  every mocked test, two review loops, and Phase 1's own manual verification
+  (which tested hand-written SQL in the correct order, never the actual
+  Python-emitted sequence). Fixed to INSERT-then-UPDATE in the shared helper
+  (retroactively fixing theses, which now calls through it), live-verified
+  against prod for the theses/themes/macro_theses paths, order pinned by
+  `tests/test_governance_transitions.py`. Verification rule encoded in
+  `portfolio-conventions.md`: statement ORDER of any governance transition must
+  be live-verified against the real triggers — mocks and hand-replicated SQL
+  don't count. The Phase 2a+2b review loop caught two more of the same
+  mock-invisible class before commit: `log_agent_run()` bound an ISO-8601
+  string to the TIMESTAMPTZ `agent_evidence.source_as_of` (asyncpg requires
+  datetime — fixed with `fromisoformat` + pinning tests), and `open_thesis()`'s
+  `system_default` placeholder INSERT omitted `governance_status`, landing new
+  placeholders at the DEFAULT `'approved'` — the exact laundered state
+  migration 0035's backfill exists to prevent (fixed: explicit `'draft'` +
+  pinning test). Non-blocking residuals from the same review, LOW/INFO,
+  fold into later work: (F-3) no service path advances a `draft`
+  theme/theme_holding to `pending_review`, so backfilled/placeholder rows are
+  unapprovable through code until Phase 2c's producers land; (F-4)
+  `log_agent_run()` raises raw TypeError/AttributeError on structurally
+  malformed JSON shapes (non-list evidence, non-dict claims) — fail-loud, no
+  injection, tidy opportunistically; (F-6) `asx macro-thesis show|list` render
+  agent-authored text with Rich markup enabled — consider
+  `rich.markup.escape` at the display boundary.
+
+### Next up — data-pipeline fix (user decision 2026-07-02, BEFORE Phase 2c)
+
+A post-Phase-2b critical review found the discovery layer's data sources have
+**never contained a row**: `ingest_regulatory` has failed daily for ~5 weeks (33
+consecutive `job_runs` failures since its single success on 2026-05-27 — and its
+Healthchecks deadman never surfaced this), and **`ingest_market_context` was
+never built or deployed** (no `job_runs` entry under any name; `market_context`
+is empty, so `market-context-narrator` and `/pm-review`'s MARKET line have been
+returning "no snapshot" since they shipped, and `macro-economist` will —
+correctly, by design — halt rather than invent a regime). Building Phase 2c's
+two further discovery agents before this data flows would add more inert
+machinery. Scope, investigation-first:
+
+1. Diagnose + fix `ingest_regulatory` (read `asxos/jobs/` source, Render logs
+   via `mcp__render__*`, `job_runs` error detail); also find out why the
+   deadman never alerted — a monitoring hole independent of the job bug.
+2. Design (backend-architect) + build + deploy `ingest_market_context`
+   (migration 0013's columns: ASX200/AVIX/RBA/AUD/iron ore/US spreads;
+   JobMonitor + deadman + render.yaml cron + check-drift per job-conventions).
+3. Diagnose the zombie `sync_financial_statements` `running` job_runs row
+   (stuck since 2026-06-27) while in there.
+4. Then run the deferred Phase 2b stage 4-5 for real: `/discover-macro` →
+   `asx agent-run log` → `asx macro-thesis open --from-agent-run` → `approve`
+   against live data (needs an environment with Postgres wire access — the
+   remote sandbox only reaches Supabase via MCP HTTP).
 
 ### Not started
 
-- **Phase 2** — Discovery agents (`macro-economist`, `theme-researcher`,
-  `instrument-selector`) + `macro_theses` table.
+- **Phase 2c** — `theme-researcher` + `instrument-selector` agents. Pattern
+  proven by 2b; deliberately deferred until the data pipeline above feeds real
+  context (user decision 2026-07-02).
 - **Phase 3** — Executable thesis invalidation (`invalidation_indicator_registry` +
-  evaluation job).
+  evaluation job). Weigh immediately after the data-pipeline fix — it serves the
+  thesis discipline loop directly (see HUBS.NYSE below).
 - **Phase 4** — `/pm-review` integration (5→7 agents) + brief invalidation subsection.
 - **Plan B** (multi-sleeve) — unchanged in substance from the prior backlog's B1-B11
   blockers / FC1-FC6 findings; full detail preserved in the plan file's Section 8.
   Still requires Phase 0.5 (now done) before it can start. **HUBS.NYSE still needs a
   `thesis_revisions` entry** (stop $230 violated, pm-review = EXIT-CANDIDATE, no
-  revision logged) — this is a portfolio decision, not blocked on any of the above.
+  revision logged) — this is a portfolio decision, not blocked on any of the above,
+  and re-flagged by the 2026-07-02 review: it is the exact failure mode the thesis
+  model exists to prevent, and only James can supply the revision reasoning.
 
 See the plan file for full schema DDL, CLI command specs, and phase completion
 criteria before starting Phase 1.

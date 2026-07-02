@@ -65,7 +65,53 @@ or **[HISTORICAL]**. Do not infer status from prose — only the label is author
   adversarial check (spoofed `from_status` now correctly rejected) alongside the
   original two checks (unaudited UPDATE rejected, correctly-audited UPDATE
   accepted).
-- **Phase 2-4 — not started.** See Section 7 below.
+- **Phase 2a+2b — done through 4.8 stage 3** (the stage 4-5 live-operational
+  `/discover-macro` run is deferred behind the data-pipeline fix below —
+  `market_context` has no row for the agent to read yet; see
+  `docs/next-session-backlog.md` "Next up" item 4).
+  `macro_theses` table + `themes.macro_thesis_id` FK +
+  `themes`/`theme_holdings` `governance_status`/`source_run_id` (+
+  `theme_holdings.holding_id` surrogate) (migration 0035), the 4
+  `governed_active_*` gated views (migration 0035), 3 more independent
+  per-table audit triggers (migration 0036 — `macro_theses`/`themes`/
+  `theme_holdings`, each including the `from_status` check from day one, not
+  as a rediscovered Phase 1 gap). `REQUIRED_MIGRATIONS` bumped 88→90. New:
+  `asxos/domain/governance/` (shared `transitions.py::apply_governance_transition()`,
+  extracted from `theses/service.py` once a 4th call site needed it;
+  `agent_run_service.py::log_agent_run()` — the write side of `agent_runs`/
+  `agent_evidence` Phase 1 never built, including `local:N` evidence-citation
+  resolution and the `evidence_citation_ids` DB round-trip tier check),
+  `asxos/domain/macro_theses/` (own package — see the module-boundary decision
+  in `portfolio-conventions.md`), `themes/service.py`'s
+  `approve_theme`/`reject_theme`/`approve_theme_holding`/`reject_theme_holding`.
+  New CLI: `asx agent-run log`, `asx macro-thesis list|show|open --from-agent-run|approve|reject`.
+  New agent: `.claude/agents/macro-economist.md` (the first "discovery" agent)
+  + `/discover-macro` slash command. **Bug found and fixed, corrects Section
+  5.5 below:** that section's trigger DDL still showed the same
+  shared-function-with-`TG_ARGV` design Section 4.7 already fixed for
+  `theses` in Phase 1 — corrected to the three-independent-functions design
+  actually applied. One deferral:
+  `m14_candidate_macro_thesis_evidence_staleness_check` (`macro_theses` has no
+  direct `agent_evidence` FK the way `theses` has `thesis_evidence`; land the
+  join-based staleness check when Phase 2c's second evidence-heavy agent
+  makes the pattern worth generalising). **Third bug found and fixed, the most
+  serious of the build, corrects Section 4.7 below:** the shared transition
+  helper (and Phase 1's shipped inline ancestor) did UPDATE-then-INSERT — but
+  the audit triggers are `BEFORE UPDATE` and check for the `governance_events`
+  row synchronously at UPDATE time, so that order is rejected every time.
+  Phase 1's `asx thesis approve|reject` would have failed on first real use
+  despite passing every mocked test, two review loops, and Phase 1's manual
+  verification (which tested hand-written SQL in the correct order, never the
+  actual Python-emitted sequence). Fixed to INSERT-then-UPDATE, live-verified
+  against prod, order pinned by `tests/test_governance_transitions.py`;
+  verification rule encoded in `portfolio-conventions.md`.
+- **Phase 2c-4 — not started.** See Section 7 below. Sequencing decision
+  (2026-07-02, user-confirmed): the data pipeline feeding the discovery layer
+  is fixed BEFORE Phase 2c — `market_context` has never had a row (the
+  `ingest_market_context` job was never built) and `regulatory_events` has
+  never had a surviving row (`ingest_regulatory` failing daily since
+  2026-05-27), so further discovery agents would be inert machinery until
+  those flow. See `docs/next-session-backlog.md` "Next up".
 
 ---
 
@@ -694,7 +740,11 @@ Three independent layers, each closing a different bypass route:
    see `migrations/0034_governance_audit_trigger_and_revision_provenance.sql`'s
    header comment for the full account.]**
 
-   **[THIRD fix, found by a security review pass after Phase 1 first shipped: the
+   **[SECOND bug of the governance build — migration 0034's own header numbers this
+   as its THIRD fix, because that count also includes the pre-apply time-window
+   correction folded into the block above; the Progress note's bug count (shared
+   function = first, this = second, statement order = third) is the canonical one.
+   Found by a security review pass after Phase 1 first shipped: the
    `EXISTS` check below originally validated `object_id`/`to_status`/`xact_id` but
    never validated `from_status` against `OLD.governance_status`. A transaction that
    hand-authored a `governance_events` row with a fabricated `from_status` (not
@@ -740,6 +790,20 @@ Three independent layers, each closing a different bypass route:
    also inserting the matching `governance_events` row in the same transaction simply
    fails. This closes the exact scenario named by review: a direct SQL update, a
    one-off script, or a future AI session trying to shortcut the review step.
+
+   **Statement order is load-bearing (Phase 2a live-fire finding):** because
+   these are `BEFORE UPDATE` triggers, the `EXISTS` check runs synchronously at
+   the moment the UPDATE fires — the `governance_events` INSERT must come
+   *before* the UPDATE within the transaction, or the trigger rejects the
+   UPDATE every time. The service-layer helper
+   (`asxos/domain/governance/transitions.py::apply_governance_transition()`)
+   originally did UPDATE-then-INSERT (inherited from Phase 1's inline version)
+   and passed every mocked test, two review loops, and Phase 1's manual
+   verification — the bug only surfaced when Phase 2a replayed the exact
+   Python-emitted statement sequence against the live triggers. Any new code
+   performing a governance transition must have its statement order
+   live-verified (rolled-back transaction is fine); see
+   `portfolio-conventions.md`'s "Verification lesson" for the full rule.
 
 3. **Capital cannot be deployed on unapproved content.** `enter_thesis()` — the single
    function that turns a thesis into a live position — hard-fails unless
@@ -804,10 +868,13 @@ structural idea Section 5.5's `macro_theses.regime_quadrant` borrows.
 
 ### 5.2 Implementation capability (built)
 
-Nothing yet for this section — Phase 2 (Section 7) builds the three discovery agents.
-What already exists and will be reused: `market_context_current` (regime snapshot),
-the FRED + EODHD clients, the `themes`/`theme_holdings` schema, the 5 live
-investment-analysis agents as a style template.
+Phase 2b built the first of the three discovery agents (`macro-economist`) plus the
+generic capture mechanism every later one reuses (`asx agent-run log` →
+`agent_runs`/`agent_evidence`); `theme-researcher`/`instrument-selector` remain
+Phase 2c. Reused from before: `market_context_current` (regime snapshot — currently
+zero-row until `ingest_market_context` ships; see the Progress note), the FRED +
+EODHD clients, the `themes`/`theme_holdings` schema, the 5 live investment-analysis
+agents as a style template.
 
 ### 5.3 Validated edge (none yet — TBD)
 
@@ -815,11 +882,12 @@ No backtested or live statistical evidence exists for the four-quadrant framewor
 applied in this codebase. See Section 4.6 for the validation-tier vocabulary any future
 claim here must use.
 
-### 5.4 The three discovery agents (built in Phase 2, governed per Section 4.2)
+### 5.4 The three discovery agents (one built in Phase 2b, two planned for Phase 2c; governed per Section 4.2)
 
-**`macro-economist`** — reads `market_context_current` + `macro_theses` +
-`regulatory_events`, synthesizes a regime quadrant + 3-5 macro theses, each claim
-tagged verified/inferred/speculative with a replayable evidence snapshot (4.2).
+**`macro-economist`** [BUILT — Phase 2b] — reads `market_context_current` + approved
+macro theses (via `governed_active_macro_theses`) + `regulatory_events`, proposes
+1-5 macro theses each mapped to a regime quadrant, each claim tagged
+verified/inferred/speculative with a replayable evidence snapshot (4.2).
 Produces `MacroThesisProposal` objects — never SQL, never a direct write.
 
 **`theme-researcher`** — given a macro thesis, identifies ASX-investable themes with
@@ -837,6 +905,22 @@ invocation logged to `agent_runs` by the orchestrating session, every proposal r
 through the Section 4.8 testing progression before being trusted.
 
 ### 5.5 `macro_theses` schema (gated from day one — not exempted)
+
+**[CORRECTED during Phase 2a implementation — this section originally showed
+`CREATE TRIGGER ... EXECUTE FUNCTION _check_governance_audit('macro_thesis')`,
+the same shared-function-with-`TG_ARGV`-dispatch pattern Section 4.7 already
+built, broke, and replaced for `theses` in Phase 1 (see that section's own
+`[CORRECTED ...]` note). PL/pgSQL validates `NEW`/`OLD` field references
+against the trigger's bound table for every `CASE` branch, not just the one
+that executes — a function bound to `macro_theses` cannot reference
+`NEW.theme_id`/`NEW.holding_id` even in a branch that never runs, so a single
+`_check_governance_audit()` shared across all four tables was never viable.
+The code block below shows the actual applied design: three independent
+functions (`_check_macro_theses_governance_audit()`,
+`_check_themes_governance_audit()`, `_check_theme_holdings_governance_audit()`,
+migration 0036), each modeled on `theses`' corrected trigger — including the
+`from_status = OLD.governance_status` check from day one, not as a Phase 2
+rediscovery of the same gap Phase 1's own post-ship security review found.]**
 
 ```sql
 CREATE TABLE macro_theses (
@@ -857,11 +941,44 @@ CREATE TABLE macro_theses (
                                 -- table is new/empty — its primary output surface is the
                                 -- macro-economist agent, so agent-drafted is the expected norm.
     created_at                TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    retired_at                 DATE
+    retired_at                 DATE,
+
+    CONSTRAINT macro_theses_retired_requires_approved
+        CHECK (retired_at IS NULL OR governance_status IN ('approved', 'retired'))
+        -- can't retire a thesis that was never live (as applied in migration 0035)
 );
 CREATE INDEX idx_macro_theses_active ON macro_theses (created_at DESC) WHERE retired_at IS NULL AND governance_status = 'approved';
+
+-- Independent function, not a shared _check_governance_audit('macro_thesis')
+-- dispatch — see the [CORRECTED ...] note above. Mirrors the corrected
+-- _check_theses_governance_audit() (migration 0034) exactly, including the
+-- from_status check from day one.
+CREATE OR REPLACE FUNCTION _check_macro_theses_governance_audit() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.governance_status = OLD.governance_status THEN RETURN NEW; END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM governance_events
+        WHERE object_type = 'macro_thesis' AND object_id = NEW.macro_thesis_id
+          AND from_status = OLD.governance_status AND to_status = NEW.governance_status
+          AND xact_id = pg_current_xact_id()::text::bigint
+    ) THEN
+        RAISE EXCEPTION 'governance_status transition from % to % on macro_thesis % '
+            'requires a matching governance_events row (same from_status, to_status) '
+            'written in the SAME transaction (xact %) -- use the service-layer '
+            'approve_object()/reject_object() functions in '
+            'asxos/domain/macro_theses/service.py, not a direct UPDATE.',
+            OLD.governance_status, NEW.governance_status, NEW.macro_thesis_id, pg_current_xact_id();
+    END IF;
+    RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+
 CREATE TRIGGER macro_theses_governance_audit BEFORE UPDATE OF governance_status ON macro_theses
-    FOR EACH ROW EXECUTE FUNCTION _check_governance_audit('macro_thesis');
+    FOR EACH ROW EXECUTE FUNCTION _check_macro_theses_governance_audit();
+-- themes/theme_holdings get their own analogous functions
+-- (_check_themes_governance_audit(), _check_theme_holdings_governance_audit() --
+-- the latter checks NEW.holding_id, the migration 0035 surrogate key, not the
+-- composite (theme_id, symbol) natural key) — see migrations/
+-- 0036_phase2_governance_audit_triggers.sql for the full, applied SQL.
 ```
 Gated identically to `theses`/`themes` (Section 4.1/4.2/4.7), **not exempted as
 "purely human-curated"** — the prior revert happened precisely because the original
@@ -879,22 +996,26 @@ existing `source='system_default'` placeholder rows, which are backfilled to
 inserted inline by `open_thesis()`, not reviewed content, and should not masquerade as
 approved exposure).
 
-A gated view is the read surface for the brief, `/pm-review`, and any future allocator
-code:
+Gated views are the read surface for the brief, `/pm-review`, and any future allocator
+code — applied in migration 0035 as `governed_active_theses` / `governed_active_themes` /
+`governed_active_theme_holdings` / `governed_active_macro_theses`:
 ```sql
-CREATE VIEW active_theses AS
+CREATE VIEW governed_active_theses AS
     SELECT * FROM theses WHERE governance_status = 'approved' AND status NOT IN ('expired');
--- + active_themes, active_theme_holdings, analogous WHERE governance_status = 'approved'
+-- + governed_active_themes / governed_active_macro_theses (each adding retired_at IS NULL)
+-- and governed_active_theme_holdings (governance predicate only — that table has no
+-- liveness column). See migrations/0035_macro_theses_and_governance_columns.sql for
+-- the full applied SQL.
 ```
 `WHERE governance_status='approved'` baked into the view rather than relying on every
 call site remembering the filter — the same "gate via a structurally-hard-to-bypass
 predicate" pattern as Section 4.4's `approved_for_allocation`.
 
 **Naming note:** `asxos/domain/brief/collectors/active_theses.py` (the Phase-0.5-fixed
-collector module) is an unrelated pre-existing name — a future `active_theses` SQL
-VIEW here would collide lexically only in prose, not in code (Python module vs. SQL
-view are different namespaces), but pick a distinct view name (e.g.
-`governed_active_theses`) if this reads confusingly when Phase 2 actually implements it.
+collector module) is an unrelated pre-existing name — an `active_theses` SQL view (this
+section's original proposed name) would have collided lexically in prose, though not in
+code (Python module vs. SQL view are different namespaces). That is exactly why
+migration 0035 named the applied views `governed_active_*` instead.
 
 ---
 
@@ -922,7 +1043,7 @@ grandfathered, all three call sites query through the shared
 `production_gate.py::resolve_production_model()` gate and hard-fail on 0 or >1
 eligible rows.
 
-**Phase 1 — Governance schema [PLANNED].** (Sections 4.1, 4.2, 4.7). Depends on
+**Phase 1 — Governance schema [DONE].** (Sections 4.1, 4.2, 4.7). Depends on
 nothing structurally, but **blocks Phase 2 absolutely** — no discovery agent may be
 built before this ships.
 Migrations: `theses.governance_status`/`source_run_id` (replacing no prior columns —
@@ -942,16 +1063,44 @@ evidence is rejected before `pending_review` is ever reached; a direct `UPDATE
 theses SET governance_status='approved'` with no matching `governance_events` row
 fails against the trigger; `make check` green.
 
-**Phase 2 — Discovery agents [PLANNED].** (Section 5). Depends on Phase 1.
-Builds `macro-economist`, `theme-researcher`, `instrument-selector` agent files,
-the `macro_theses` table + `themes.macro_thesis_id` FK, `themes`/`theme_holdings`
-`governance_status`/`source_run_id` columns + their audit triggers, the
-`theme_holdings.holding_id` surrogate key, the gated views (Section 5.5).
-*Done when:* Section 4.8 stages 1-3 pass for every discovery agent (fixture tests,
-synthetic end-to-end, and a clean read-only dry-run of each agent's SQL via Supabase
-MCP); a full macro→theme→instrument→`asx thesis open --from-agent-run`→`asx thesis
-approve` cycle completes manually against live data with real, replayable evidence
-snapshots (stage 4-5 of 4.8, the first live-operational run).
+**Phase 2a+2b — Governance expansion + macro-economist [DONE through 4.8
+stage 3 — the stage 4-5 live-operational run in the criteria below is
+deferred behind the data-pipeline fix; see `docs/next-session-backlog.md`
+"Next up" item 4].** (Section 5,
+5.5). Depends on Phase 1. Split from the original single "Phase 2" scope after
+two independent architecture reviews both flagged that building all three
+agents + all three tables' triggers + the entirely-new agent-output-capture
+mechanism in one pass compounded first-time risk (Phase 1 itself needed two
+live-fire bug fixes on a single table). 2a: the `macro_theses` table +
+`themes.macro_thesis_id` FK, `themes`/`theme_holdings` `governance_status`/
+`source_run_id` columns + their audit triggers, the `theme_holdings.holding_id`
+surrogate key, the gated views (Section 5.5). 2b: `macro-economist` (the first
+discovery agent), the new `asx agent-run log` mechanism (validates + persists
+agent evidence/proposals — the write side of `agent_runs` Phase 1 never
+built), `/discover-macro`, and `asx macro-thesis` CLI.
+*Done when:* Section 4.8 stages 1-3 pass for `macro-economist` (fixture tests,
+synthetic end-to-end, and a clean read-only dry-run of its SQL via Supabase
+MCP); a full macro-economist→`/discover-macro`→`asx macro-thesis open
+--from-agent-run`→`asx macro-thesis approve` cycle completes manually against
+live data with real, replayable evidence snapshots (stage 4-5 of 4.8, the
+first live-operational run).
+*Status (2026-07-02):* stages 1-3 are met; the stage 4-5 live cycle is
+deferred behind the data-pipeline fix (`market_context`/`regulatory_events`
+hold no rows to discover against — see the Progress note above and
+`docs/next-session-backlog.md` "Next up"). The [DONE] tag therefore covers
+the schema/code/agent surface, not yet the first live-operational run.
+
+**Phase 2c — theme-researcher + instrument-selector [PLANNED].** (Section 5).
+Depends on Phase 2a+2b. Builds `theme-researcher`/`instrument-selector` agent
+files and their `create_theme_from_agent_run()`/`create_theme_holding_from_agent_run()`
+service functions, now that Phase 2b has proven the agent_runs-logging +
+per-table-trigger pattern once — this should be "repeat a working pattern
+twice," not "invent and debug it under three tables' complexity
+simultaneously."
+*Done when:* Section 4.8 stages 1-3 pass for both agents; a full
+macro→theme→instrument→`asx thesis open --from-agent-run`→`asx thesis approve`
+cycle completes manually against live data with real, replayable evidence
+snapshots.
 
 **Phase 3 — Executable invalidation [PLANNED].** (Section 4.5). Depends on Phase 1
 (reuses the `thesis_revisions` provenance shape for auto-generated breach records) and

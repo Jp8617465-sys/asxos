@@ -124,6 +124,42 @@ async def test_open_thesis_happy_path() -> None:
     assert t.thesis_id == 1
 
 
+async def test_open_thesis_theme_placeholder_born_draft_not_approved() -> None:
+    """Phase 2a security-review finding F-2: the system_default placeholder
+    INSERT must set governance_status='draft' EXPLICITLY — omitting it lands
+    the row at the migration-0035 column DEFAULT 'approved', recreating the
+    exact laundered unreviewed-placeholder-as-approved state that migration
+    0035's own backfill exists to prevent (and seeding the
+    governed_active_theme_holdings read surface with unreviewed exposure)."""
+    row = _make_thesis_row()
+    theme_row = {"theme_id": 7}
+    execute_calls: list[tuple[str, tuple]] = []
+
+    conn = _make_conn(fetchrow_returns=[row, theme_row])
+
+    async def _execute(q, *args):
+        execute_calls.append((q, args))
+
+    conn.execute = _execute
+
+    await svc.open_thesis(
+        conn, "CBA.AU",
+        themes=["big-4-banks"],
+        reasoning="Opening with a theme link",
+    )
+
+    placeholder_inserts = [
+        (q, a) for q, a in execute_calls if "INSERT INTO theme_holdings" in q
+    ]
+    assert len(placeholder_inserts) == 1
+    query = placeholder_inserts[0][0]
+    assert "'system_default'" in query
+    assert "'draft'" in query, (
+        "system_default placeholder INSERT must explicitly set "
+        "governance_status='draft' — the column DEFAULT is 'approved'"
+    )
+
+
 # ---------------------------------------------------------------------------
 # 2. open_thesis — symbol validation
 # ---------------------------------------------------------------------------
@@ -519,11 +555,13 @@ async def test_approve_object_happy_path() -> None:
     assert t.governance_status == "approved"
     gov_calls = [(q, a) for q, a in execute_calls if "governance_events" in q]
     assert len(gov_calls) == 1
-    # INSERT params are ($1=thesis_id, $2=from_status, $3=to_status,
-    # $4=reasoning) — the 'thesis'/'human' literals are inline SQL text, not
-    # bind params. (_apply_governance_transition() binds to_status, unlike
-    # the earlier per-function SQL it replaced.)
-    assert gov_calls[0][1][3] == "Evidence checks out"  # reasoning param
+    # INSERT params are ($1=object_type, $2=object_id, $3=from_status,
+    # $4=to_status, $5=reasoning, $6=actor) — Phase 2a's shared
+    # governance.transitions.apply_governance_transition() binds all six
+    # (this file's own version previously inlined 'thesis'/'human' as SQL
+    # literals; the shared helper serves multiple tables/actors, so both
+    # are bind params now).
+    assert gov_calls[0][1][4] == "Evidence checks out"  # reasoning param
 
 
 async def test_approve_object_all_speculative_evidence_raises() -> None:
