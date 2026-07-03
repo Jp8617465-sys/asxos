@@ -165,16 +165,34 @@ Status per item:
    against live data (needs an environment with Postgres wire access — the
    remote sandbox only reaches Supabase via MCP HTTP).
 
-**REMAINING — operator actions (the load-bearing part; nothing above flows
-until these are done):**
+**PROVISIONING UPDATE (2026-07-03, done via Render API from the Claude
+session — user-authorized):** a live-state diff against `render.yaml` found
+the gap was 12 services, not 1 — **twelve crons defined in render.yaml had
+never been created on Render at all** (no Blueprint is connected to the repo,
+so nothing ever applied the file; the 17 pre-existing services were created
+by hand or via MCP). All 12 were created via the Render API mirroring their
+render.yaml specs exactly (env values materialized as local copies, matching
+the documented convention in `job-conventions.md`). **10 are resumed and
+live** — including the thesis-discipline layer (`check-us-positions`,
+`check-au-positions`, `check-thesis-invalidations`), which is the machinery
+that would have emailed the HUBS.NYSE stop-breach alert on 2026-06-03 had it
+been deployed. **2 remain suspended pending `FRED_API_KEY`:**
+`asxos-ingest-market-context` (crn-d93q9onlk1mc739qiucg) and
+`asxos-ingest-underlyings` (crn-d93q9pdaeets73eb9c30).
 
-- (a) Provision the `asxos-ingest-market-context` cron on Render — the
-  blueprint entry already exists in `render.yaml`, so this is a blueprint sync
-  via Render MCP or the dashboard, not a code change — then set
-  `FRED_API_KEY` + `HEALTHCHECK_URL_INGEST_MARKET_CONTEXT` on the service.
-- (b) Set `HEALTHCHECK_URL_INGEST_REGULATORY` on the live cron and create/arm
-  the two Healthchecks checks (one per job, daily schedule with a sensible
-  grace window) — per-job UUID ping-URL convention, as with the other jobs.
+**REMAINING — operator actions:**
+
+- (a) Provide `FRED_API_KEY` (free key at fred.stlouisfed.org) → set it on
+  the two suspended crons and resume them. This is the last blocker on
+  `market_context` data flowing, and therefore on the whole discovery
+  pipeline (`macro-economist` halts by design without a snapshot).
+- (b) Healthchecks deadman coverage: create 12 new checks (one per new cron;
+  per-job UUID ping-URL convention) and set each
+  `HEALTHCHECK_URL_<JOB>` env var on its service. The jobs run fine without
+  them (URL is optional in code) but have no deadman until then —
+  `check-cron-health` (now live, 22:00 UTC daily) provides interim
+  stuck/missing-job email coverage. A Healthchecks.io API key would let the
+  Claude session create all 12 checks programmatically.
 - (c) Verify the next scheduled `ingest_regulatory` run writes rows (RBA at
   minimum) and confirm whether Treasury now passes with the browser
   User-Agent — the Treasury failure mode is only observable from Render.
@@ -184,6 +202,12 @@ until these are done):**
 - (e) ASIC/ASX remain unwired (they never were; the CLAUDE.md schema line has
   been corrected) — wiring them is a separate future decision, not part of
   this fix.
+- (f) Longer-term: connect the repo as a real Render Blueprint so
+  `render.yaml` pushes auto-sync (the workflow CLAUDE.md non-negotiable #2
+  assumes). Needs the dashboard + a careful first-sync preview — 17
+  pre-existing hand-created services mean a casual sync could duplicate
+  services. Until then, API/MCP creation mirroring render.yaml is the apply
+  step, followed by a live-state drift diff.
 
 ### Security finding — agent DB role scoping (found during Phase 2a+2b PR
 review, 2026-07-02; land BEFORE Phase 2c)
