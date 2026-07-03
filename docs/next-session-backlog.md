@@ -208,6 +208,15 @@ been deployed. **2 remain suspended pending `FRED_API_KEY`:**
   pre-existing hand-created services mean a casual sync could duplicate
   services. Until then, API/MCP creation mirroring render.yaml is the apply
   step, followed by a live-state drift diff.
+- (g) Low, code follow-up (security-engineer, 2026-07-03 invalidation-fix
+  review): the copy-pasted `_send_alert()` in the five alert jobs
+  (`check_us_positions`, `check_au_positions`, `check_thesis_invalidations`,
+  `check_model_staleness`, `check_cron_health`, `validate_price_data`)
+  interpolates condition/alert text into `<pre>{body}</pre>` without
+  `html.escape()`. Single-user-authored content, so exploitation requires
+  self-authorship — fix by extracting one shared helper with escaping, not
+  six inline patches. Also fold the 12 newly provisioned crons into
+  `job-conventions.md`'s pipeline schedule table while in there.
 
 ### Security finding — agent DB role scoping (found during Phase 2a+2b PR
 review, 2026-07-02; land BEFORE Phase 2c)
