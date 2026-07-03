@@ -16,6 +16,11 @@ Patterns recognized (case-insensitive, first match wins per condition):
 
 Conditions that don't match a price pattern are skipped (manual check required).
 Already-triggered or resolved conditions are not re-evaluated.
+
+Entries may be {"condition", "status", ...} dicts (the service-layer write
+contract) or bare strings (legacy manually seeded rows). Strings are read as
+active conditions, and the whole array is rewritten in dict shape whenever a
+trigger fires — see _normalize_conditions().
 """
 from __future__ import annotations
 
@@ -23,8 +28,10 @@ import asyncio
 import json
 import os
 import re
+from collections.abc import Iterable
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -37,6 +44,22 @@ _PRICE_BELOW_RE = re.compile(
 _PRICE_ABOVE_RE = re.compile(
     r'(?i)\b(?:price|close|stock)\b.{0,40}(?:above|over|rises?\s+above|>|>=)\s*\$?\s*(\d+(?:\.\d+)?)'
 )
+
+
+def _normalize_conditions(raw: str | Iterable[Any]) -> list[dict[str, Any]]:
+    """Return invalidation_conditions as a list of {"condition", "status", ...} dicts.
+
+    The service layer writes dicts, but manually seeded theses store bare
+    strings (e.g. thesis #2 HUBS.NYSE — found by this job's first live run,
+    2026-07-03). A bare string means an active, never-evaluated condition, so
+    coerce rather than crash; the dict shape is written back on any trigger,
+    normalizing the row permanently.
+    """
+    entries = json.loads(raw) if isinstance(raw, str) else raw
+    return [
+        e if isinstance(e, dict) else {"condition": str(e), "status": "active"}
+        for e in entries
+    ]
 
 
 def _parse_price_condition(condition: str) -> tuple[str, Decimal] | None:
@@ -110,8 +133,7 @@ async def _run(as_of: date) -> None:
             for t in theses:
                 symbol = t["symbol"]
                 thesis_id = t["thesis_id"]
-                raw = t["invalidation_conditions"]
-                conditions: list[dict] = json.loads(raw) if isinstance(raw, str) else list(raw)
+                conditions = _normalize_conditions(t["invalidation_conditions"])
 
                 async with acquire() as conn:
                     close = await _fetch_latest_close(conn, symbol, as_of)
