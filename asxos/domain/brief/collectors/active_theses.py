@@ -22,6 +22,7 @@ from asxos.domain.brief.severity import (
 )
 from asxos.domain.brief.shap import format_top_factors
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
+from asxos.domain.models.production_gate import resolve_production_model
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.divergence import detect_hidden_risk
 from asxos.domain.underlyings.service import bulk_list_thesis_underlyings, get_5d_moves
@@ -64,6 +65,16 @@ async def collect_active_theses(as_of: date) -> SectionResult:
         })
         all_moves = await get_5d_moves(conn, all_underlying_ids, as_of) if all_underlying_ids else {}
 
+        # Governance Section 4.4 Step B / portfolio-conventions.md: resolve the
+        # single active+approved_for_allocation production model before
+        # reading signals, so an unapproved model can't surface on a thesis
+        # card any more than it can reach the allocator or the V1 brief.
+        model_rows = await conn.fetch(
+            "SELECT model FROM model_versions "
+            "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
+        )
+        production_model = resolve_production_model(model_rows)
+
         # Steady-state ML explainability: latest Model A signal per thesis symbol.
         # One batch query (DISTINCT ON, latest as_of) — same pattern as the V1
         # signal-change line. Missing signal → no drivers line on that card.
@@ -72,10 +83,11 @@ async def collect_active_theses(as_of: date) -> SectionResult:
             """
             SELECT DISTINCT ON (symbol) symbol, signal_label, shap_factors
             FROM signals
-            WHERE symbol = ANY($1) AND model = 'model_a'
+            WHERE symbol = ANY($1) AND model = $2
             ORDER BY symbol, as_of DESC
             """,
             all_symbols,
+            production_model,
         )
         sig_by_symbol = {r["symbol"]: r for r in sig_rows}
 

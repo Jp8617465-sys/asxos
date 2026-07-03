@@ -34,10 +34,11 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0028) is the canonical schema** — roughly 40
-tables across the signal, portfolio, tax, paper-trade, research-store, FX and
-position-monitor subsystems. The list below is a partial overview of the core
-tables, **not exhaustive** — do not trust it for completeness; read the migrations.
+**`migrations/` (currently through 0036) is the canonical schema** — roughly 40
+tables across the signal, portfolio, tax, paper-trade, research-store, FX,
+position-monitor and governance subsystems. The list below is a partial overview
+of the core tables, **not exhaustive** — do not trust it for completeness; read
+the migrations.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
@@ -47,15 +48,17 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `holding_lots` — lot-level positions for CGT, with `cost_base_normal` and `cost_base_div296`
 - `current_holdings` — VIEW over holding_lots WHERE disposed_at IS NULL
 - `decisions` — journal
-- `regulatory_events` — daily ingest from ASIC/RBA/ATO/ASX
+- `regulatory_events` — daily ingest from RBA + Treasury RSS (`jobs/ingest_regulatory.py`); ASIC/ASX were never wired, ATO removed (dead feed — re-add is a backlog item)
 - `job_runs` — completion tracking
 - `model_versions` — active model flag via `is_active` column
 - `screening_rules` — JSON rule definitions
 - `portfolio_daily_snapshots` — (as_of) PK, capital_aud, holdings_mv_aud, cash_aud, benchmark columns; re-derivable, NOT in backup_irreplaceable.sh
-- `themes` — (theme_id BIGSERIAL) PK; theme_code UNIQUE slug, stage/conviction/adjacency; irreplaceable
-- `theses` — (thesis_id BIGSERIAL) PK; per-symbol investment thesis with entry band, stop, target, timeline, audit trail; irreplaceable
+- `themes` — (theme_id BIGSERIAL) PK; theme_code UNIQUE slug, stage/conviction/adjacency, governance_status; irreplaceable
+- `theses` — (thesis_id BIGSERIAL) PK; per-symbol investment thesis with entry band, stop, target, timeline, audit trail, governance_status; irreplaceable
 - `thesis_revisions` — (revision_id BIGSERIAL) PK; append-only event log for every discipline event; irreplaceable
-- `theme_holdings` — (theme_id, symbol) PK; symbol-level theme exposure strength; irreplaceable
+- `theme_holdings` — (theme_id, symbol) PK, plus `holding_id BIGSERIAL` surrogate; symbol-level theme exposure strength, governance_status; irreplaceable
+- `macro_theses` — (macro_thesis_id BIGSERIAL) PK; regime-quadrant-tagged macro thesis, governance_status DEFAULT 'draft'; agent-originated via `macro-economist`; irreplaceable
+- `agent_runs` / `agent_evidence` / `governance_events` — governance audit trail: every discovery-agent invocation, its cited evidence (tiered verified/inferred/speculative, replayable snapshots), and every governance_status transition; irreplaceable
 
 ## Common commands
 
@@ -66,16 +69,36 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 ## Known test environment gaps (do not chase)
 
-Four tests are permanently collection-errors in the remote Claude Code sandbox because
-`joblib` / `lightgbm` / `sklearn` are not installed in the sandbox Python env:
+16 tests are permanently collection-errors in the remote Claude Code sandbox because
+`joblib` (transitively `lightgbm` / `sklearn`) is not installed in the sandbox Python
+env. All 16 fail identically (`ModuleNotFoundError: No module named 'joblib'`) via
+one of two import chains: direct (`domain/models/model_a.py` -> `domain/models/
+cache.py` -> `joblib`) or indirect through `from asxos.cli import main as cli_main`
+(`cli/main.py` -> `cli/predict.py` -> the same chain) — the indirect route is easy to
+miss since the erroring test file itself may import nothing ML-related:
 
+- `tests/test_api_main.py`
+- `tests/test_cli_agent_run.py`
+- `tests/test_cli_holdings.py`
+- `tests/test_cli_macro_thesis.py`
+- `tests/test_cli_model.py`
+- `tests/test_cli_news.py`
+- `tests/test_cli_portfolio.py`
+- `tests/test_cli_position.py`
 - `tests/test_cli_predict.py`
+- `tests/test_cli_profile.py`
+- `tests/test_cli_signal.py`
+- `tests/test_cli_thesis.py`
 - `tests/test_generate_signals_job.py`
 - `tests/test_model_a_predict.py`
 - `tests/test_model_cache.py`
+- `tests/test_retrain_dry_run_guard.py`
 
-These pass in the production Render environment where `pip install -e ".[ml]"` is run.
-Do not add workarounds or skip markers — the tests themselves are correct.
+Verify this list against `pytest tests/ -q 2>&1 | grep '^ERROR'` before trusting it —
+it's exactly as prone to rotting as the "Known coverage gaps" section below, and this
+count has already grown twice (4 -> 14 -> 16) since first documented. These all pass
+in the production Render environment where `pip install -e ".[ml]"` is run. Do not add
+workarounds or skip markers — the tests themselves are correct.
 
 One additional runtime gap (not a collection-error, fails during execution):
 
@@ -116,10 +139,11 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 18 subagents — 11 dev-side (architecture/quality/docs), 2
+`.claude/agents/` holds 19 subagents — 11 dev-side (architecture/quality/docs), 2
 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`),
-and 5 investment-analysis agents (the evidence layer behind `/pm-review`), all routed
-in the tables below; see `.claude/agents/README.md`.
+5 investment-analysis agents (the evidence layer behind `/pm-review`), and 1 discovery
+agent (`macro-economist`; 2 more planned in Phase 2c), all routed in the tables below;
+see `.claude/agents/README.md`.
 They are **advisory by default**: most are read-only and return analysis, designs,
 or specs as text that the main loop then implements. Only `refactoring-expert`
 (code) and `technical-writer` (docs) can mutate files. `security-engineer` and
@@ -176,6 +200,22 @@ specific data point in every output (no unanchored opinion):
 fans these five out from the main loop and synthesizes the GOOD HOLD / TRIM / REVIEW /
 EXIT-CANDIDATE verdict. These agents surface evidence only — never orders or advice.
 
+One **discovery** agent (`macro-economist`, Phase 2b; `theme-researcher` and
+`instrument-selector` planned for Phase 2c) proposes new investment content for
+governance review, rather than analyzing existing holdings the way the five
+investment-analysis agents above do. Still read-only against the DB (never
+INSERT/UPDATE/DDL, same as the analysis agents) — its structured output becomes a
+`macro_theses` row (at `pending_review`) only when a human runs `asx macro-thesis
+open --from-agent-run`, and reaches `approved` only via `asx macro-thesis approve`:
+
+| To propose… | Invoke via |
+|---|---|
+| 1-5 macro theses for the current regime | `/discover-macro` (fans out `macro-economist`) |
+
+`/discover-macro` parses the agent's structured output and calls `asx agent-run log`
+to persist it as `agent_runs` rows (one per proposal) — the agent itself never
+writes to the DB.
+
 ### Review gate (enforced)
 
 `.claude/hooks/review-gate.sh` (wired via `.claude/settings.json` as a `PreToolUse`
@@ -193,4 +233,4 @@ and config-only commits (no staged `*.py`) are not gated.
 
 ## Custom slash commands
 
-`.claude/commands/` has 21 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence.
+`.claude/commands/` has 22 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review.

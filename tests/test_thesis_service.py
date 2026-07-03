@@ -39,6 +39,7 @@ def _make_thesis_row(
     actual_entry_at: datetime | None = None,
     actual_exit_price: Decimal | None = None,
     actual_exit_at: datetime | None = None,
+    governance_status: str = "approved",
 ) -> dict:
     """Return a dict shaped like an asyncpg theses row."""
     return {
@@ -61,6 +62,7 @@ def _make_thesis_row(
         "revisit_due_at": _DUE,
         "opened_at": _NOW,
         "closed_at": None,
+        "governance_status": governance_status,
     }
 
 
@@ -120,6 +122,42 @@ async def test_open_thesis_happy_path() -> None:
     assert t.symbol == "CBA.AU"
     assert t.status == "watching"
     assert t.thesis_id == 1
+
+
+async def test_open_thesis_theme_placeholder_born_draft_not_approved() -> None:
+    """Phase 2a security-review finding F-2: the system_default placeholder
+    INSERT must set governance_status='draft' EXPLICITLY — omitting it lands
+    the row at the migration-0035 column DEFAULT 'approved', recreating the
+    exact laundered unreviewed-placeholder-as-approved state that migration
+    0035's own backfill exists to prevent (and seeding the
+    governed_active_theme_holdings read surface with unreviewed exposure)."""
+    row = _make_thesis_row()
+    theme_row = {"theme_id": 7}
+    execute_calls: list[tuple[str, tuple]] = []
+
+    conn = _make_conn(fetchrow_returns=[row, theme_row])
+
+    async def _execute(q, *args):
+        execute_calls.append((q, args))
+
+    conn.execute = _execute
+
+    await svc.open_thesis(
+        conn, "CBA.AU",
+        themes=["big-4-banks"],
+        reasoning="Opening with a theme link",
+    )
+
+    placeholder_inserts = [
+        (q, a) for q, a in execute_calls if "INSERT INTO theme_holdings" in q
+    ]
+    assert len(placeholder_inserts) == 1
+    query = placeholder_inserts[0][0]
+    assert "'system_default'" in query
+    assert "'draft'" in query, (
+        "system_default placeholder INSERT must explicitly set "
+        "governance_status='draft' — the column DEFAULT is 'approved'"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -430,3 +468,472 @@ def test_row_to_thesis_maps_conviction_and_tax():
     t2 = svc._row_to_thesis(_make_thesis_row())
     assert t2.conviction_level is None
     assert t2.tax_notes == ""
+
+
+# ---------------------------------------------------------------------------
+# Migration 0033/0034 — governance_status guard on enter_thesis()
+# ---------------------------------------------------------------------------
+
+async def test_enter_thesis_unapproved_governance_status_raises() -> None:
+    """A thesis with complete thesis_text/stop/target but governance_status
+    != 'approved' must still hard-fail — this is the capital-risk gate
+    (design doc Section 4.7 layer 3)."""
+    existing = _make_thesis_row(status="watching", governance_status="draft")
+    conn = _make_conn(fetchrow_returns=[existing])
+
+    with pytest.raises(ValueError, match=r"governance_status is .draft."):
+        await svc.enter_thesis(conn, thesis_id=1, entry_price=Decimal("43"))
+
+
+async def test_enter_thesis_pending_review_governance_status_raises() -> None:
+    existing = _make_thesis_row(status="watching", governance_status="pending_review")
+    conn = _make_conn(fetchrow_returns=[existing])
+
+    with pytest.raises(ValueError, match=r"governance_status is .pending_review."):
+        await svc.enter_thesis(conn, thesis_id=1, entry_price=Decimal("43"))
+
+
+async def test_enter_thesis_approved_governance_status_succeeds() -> None:
+    """Explicit positive-path test — entry succeeds BECAUSE governance_status
+    is 'approved', not merely as an accidental side effect of the fixture
+    default. Guards against the default silently changing later without
+    this invariant being caught."""
+    existing = _make_thesis_row(status="watching", governance_status="approved")
+    updated = _make_thesis_row(
+        status="active",
+        actual_entry_price=Decimal("43.500000"),
+        actual_entry_at=_NOW,
+        governance_status="approved",
+    )
+    conn = _make_conn(fetchrow_returns=[existing, updated])
+
+    t = await svc.enter_thesis(conn, thesis_id=1, entry_price=Decimal("43.50"), qty=100)
+
+    assert t.status == "active"
+    assert t.governance_status == "approved"
+
+
+# ---------------------------------------------------------------------------
+# Migration 0033/0034 — approve_object()
+# ---------------------------------------------------------------------------
+
+def _evidence_row(tier: str, retrieved_at: datetime) -> dict:
+    return {"tier": tier, "retrieved_at": retrieved_at}
+
+
+async def test_approve_object_happy_path() -> None:
+    existing = _make_thesis_row(governance_status="pending_review")
+    updated = _make_thesis_row(governance_status="approved")
+    execute_calls: list = []
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    fr_returns = iter([existing, updated])
+
+    async def _fetchrow(_q, *_args):
+        return next(fr_returns, None)
+
+    async def _fetch(_q, *_args):
+        # Real "now", not the fixture's fixed historical _NOW — approve_object()
+        # computes its own now() via _now_utc() to check staleness against, so
+        # "1 day old" must be 1 day before the real clock, not before _NOW.
+        return [_evidence_row("verified", datetime.now(tz=UTC) - timedelta(days=1))]
+
+    async def _execute(query, *args):
+        execute_calls.append((query, args))
+
+    conn.fetchrow = _fetchrow
+    conn.fetch = _fetch
+    conn.execute = _execute
+
+    t = await svc.approve_object(conn, thesis_id=1, reasoning="Evidence checks out")
+
+    assert t.governance_status == "approved"
+    gov_calls = [(q, a) for q, a in execute_calls if "governance_events" in q]
+    assert len(gov_calls) == 1
+    # INSERT params are ($1=object_type, $2=object_id, $3=from_status,
+    # $4=to_status, $5=reasoning, $6=actor) — Phase 2a's shared
+    # governance.transitions.apply_governance_transition() binds all six
+    # (this file's own version previously inlined 'thesis'/'human' as SQL
+    # literals; the shared helper serves multiple tables/actors, so both
+    # are bind params now).
+    assert gov_calls[0][1][4] == "Evidence checks out"  # reasoning param
+
+
+async def test_approve_object_all_speculative_evidence_raises() -> None:
+    """Explicitly named in the Phase 1 done-criteria: 'a thesis with only
+    speculative evidence is rejected before pending_review is ever
+    reached' (design doc Section 9, verification item 3)."""
+    existing = _make_thesis_row(governance_status="pending_review")
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    conn.fetchrow = AsyncMock(return_value=existing)
+    conn.fetch = AsyncMock(
+        return_value=[_evidence_row("speculative", _NOW - timedelta(days=1))]
+    )
+
+    with pytest.raises(ValueError, match="no non-speculative evidence"):
+        await svc.approve_object(conn, thesis_id=1, reasoning="test")
+
+
+async def test_approve_object_zero_evidence_rows_raises() -> None:
+    existing = _make_thesis_row(governance_status="pending_review")
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    conn.fetchrow = AsyncMock(return_value=existing)
+    conn.fetch = AsyncMock(return_value=[])
+
+    with pytest.raises(ValueError, match="no non-speculative evidence"):
+        await svc.approve_object(conn, thesis_id=1, reasoning="test")
+
+
+async def test_approve_object_stale_evidence_without_override_raises() -> None:
+    existing = _make_thesis_row(governance_status="pending_review")
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    conn.fetchrow = AsyncMock(return_value=existing)
+    conn.fetch = AsyncMock(
+        return_value=[_evidence_row("verified", _NOW - timedelta(days=20))]
+    )
+
+    with pytest.raises(ValueError, match="older than 14 days"):
+        await svc.approve_object(conn, thesis_id=1, reasoning="test")
+
+
+async def test_approve_object_stale_evidence_with_override_succeeds_and_logs_second_event() -> None:
+    existing = _make_thesis_row(governance_status="pending_review")
+    updated = _make_thesis_row(governance_status="approved")
+    execute_calls: list = []
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    fr_returns = iter([existing, updated])
+
+    async def _fetchrow(_q, *_args):
+        return next(fr_returns, None)
+
+    async def _fetch(_q, *_args):
+        return [_evidence_row("verified", _NOW - timedelta(days=20))]
+
+    async def _execute(query, *args):
+        execute_calls.append((query, args))
+
+    conn.fetchrow = _fetchrow
+    conn.fetch = _fetch
+    conn.execute = _execute
+
+    t = await svc.approve_object(
+        conn, thesis_id=1, reasoning="Approving anyway",
+        accept_stale_evidence="Macro thesis still intact despite old citation",
+    )
+
+    assert t.governance_status == "approved"
+    gov_calls = [(q, a) for q, a in execute_calls if "governance_events" in q]
+    assert len(gov_calls) == 2  # the approval event AND the override event
+    override_call = [
+        c for c in gov_calls
+        if any("Macro thesis still intact" in str(arg) for arg in c[1])
+    ]
+    assert override_call, "override reasoning was not logged as its own event"
+
+
+async def test_approve_object_wrong_governance_status_raises() -> None:
+    existing = _make_thesis_row(governance_status="draft")
+    conn = _make_conn(fetchrow_returns=[existing])
+
+    with pytest.raises(ValueError, match=r"governance_status is .draft."):
+        await svc.approve_object(conn, thesis_id=1, reasoning="test")
+
+
+async def test_approve_object_empty_reasoning_raises() -> None:
+    existing = _make_thesis_row(governance_status="pending_review")
+    conn = _make_conn(fetchrow_returns=[existing])
+
+    with pytest.raises(ValueError, match="reasoning is required"):
+        await svc.approve_object(conn, thesis_id=1, reasoning="")
+
+
+# ---------------------------------------------------------------------------
+# Migration 0033/0034 — reject_object()
+# ---------------------------------------------------------------------------
+
+async def test_reject_object_happy_path() -> None:
+    existing = _make_thesis_row(governance_status="pending_review")
+    updated = _make_thesis_row(governance_status="rejected")
+    execute_calls: list = []
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    fr_returns = iter([existing, updated])
+
+    async def _fetchrow(_q, *_args):
+        return next(fr_returns, None)
+
+    async def _execute(query, *args):
+        execute_calls.append((query, args))
+
+    conn.fetchrow = _fetchrow
+    conn.execute = _execute
+
+    t = await svc.reject_object(conn, thesis_id=1, reasoning="Evidence doesn't support catalyst")
+
+    assert t.governance_status == "rejected"
+    gov_calls = [(q, a) for q, a in execute_calls if "governance_events" in q]
+    assert len(gov_calls) == 1
+
+
+async def test_reject_object_empty_reasoning_raises() -> None:
+    existing = _make_thesis_row(governance_status="pending_review")
+    conn = _make_conn(fetchrow_returns=[existing])
+
+    with pytest.raises(ValueError, match="reasoning is required"):
+        await svc.reject_object(conn, thesis_id=1, reasoning="")
+
+
+async def test_reject_object_already_approved_raises() -> None:
+    existing = _make_thesis_row(governance_status="approved")
+    conn = _make_conn(fetchrow_returns=[existing])
+
+    with pytest.raises(ValueError, match=r"governance_status is .approved."):
+        await svc.reject_object(conn, thesis_id=1, reasoning="test")
+
+
+async def test_reject_object_from_draft_succeeds() -> None:
+    """draft is a valid source state for rejection, not just pending_review."""
+    existing = _make_thesis_row(governance_status="draft")
+    updated = _make_thesis_row(governance_status="rejected")
+    conn = _make_conn(fetchrow_returns=[existing, updated])
+
+    t = await svc.reject_object(conn, thesis_id=1, reasoning="Bad proposal")
+
+    assert t.governance_status == "rejected"
+
+
+# ---------------------------------------------------------------------------
+# Migration 0033 — governance_status defaulting / row mapping
+# ---------------------------------------------------------------------------
+
+def test_row_to_thesis_defaults_governance_status_when_absent():
+    """A pre-0033 row-shaped dict (no governance_status key) round-trips to
+    'approved' via .get() fallback, not a KeyError."""
+    row = _make_thesis_row()
+    del row["governance_status"]
+    t = svc._row_to_thesis(row)
+    assert t.governance_status == "approved"
+
+
+def test_row_to_thesis_maps_governance_status_when_present():
+    row = _make_thesis_row(governance_status="rejected")
+    t = svc._row_to_thesis(row)
+    assert t.governance_status == "rejected"
+
+
+# ---------------------------------------------------------------------------
+# Migration 0033/0034 — create_thesis_from_agent_run() documented stub
+# ---------------------------------------------------------------------------
+
+async def test_create_thesis_from_agent_run_no_thesis_proposal_schema_raises() -> None:
+    """Confirms the documented Phase 1/2 gap fails loudly, not silently.
+    See asxos/domain/theses/schemas.py module docstring and
+    service.py::create_thesis_from_agent_run()'s docstring."""
+    run_row = {
+        "run_id": 7,
+        "agent_name": "test-agent",
+        "acted_on": False,
+        "object_type": "thesis",
+        "proposed_object": '{"some": "data"}',
+    }
+    conn = _make_conn(fetchrow_returns=[run_row])
+
+    with pytest.raises(ValueError, match="no ThesisProposal Pydantic schema exists"):
+        await svc.create_thesis_from_agent_run(conn, run_id=7, symbol="CBA.AU")
+
+
+async def test_create_thesis_from_agent_run_not_found_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[None])
+    with pytest.raises(ValueError, match="not found"):
+        await svc.create_thesis_from_agent_run(conn, run_id=999, symbol="CBA.AU")
+
+
+async def test_create_thesis_from_agent_run_already_acted_on_raises() -> None:
+    run_row = {
+        "run_id": 7, "agent_name": "test-agent", "acted_on": True,
+        "object_type": "thesis", "proposed_object": "{}",
+    }
+    conn = _make_conn(fetchrow_returns=[run_row])
+    with pytest.raises(ValueError, match="already acted on"):
+        await svc.create_thesis_from_agent_run(conn, run_id=7, symbol="CBA.AU")
+
+
+async def test_create_thesis_from_agent_run_wrong_object_type_raises() -> None:
+    run_row = {
+        "run_id": 7, "agent_name": "test-agent", "acted_on": False,
+        "object_type": "macro_thesis", "proposed_object": "{}",
+    }
+    conn = _make_conn(fetchrow_returns=[run_row])
+    with pytest.raises(ValueError, match="only accepts object_type='thesis'"):
+        await svc.create_thesis_from_agent_run(conn, run_id=7, symbol="CBA.AU")
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 done-criteria — synthetic end-to-end governance state machine
+# (draft -> evidence_complete -> pending_review -> approved -> entered),
+# constructed via a manually-inserted pending_review row rather than
+# through create_thesis_from_agent_run() (documented stub — see above).
+# This satisfies design-doc Section 4.8 stage 2 ("proves the state machine
+# is correct end-to-end") without requiring ThesisProposal to exist.
+# ---------------------------------------------------------------------------
+
+async def test_phase1_done_criteria_draft_to_entered_end_to_end() -> None:
+    """Synthetic agent-originated thesis (manually constructed at
+    governance_status='pending_review') advances through approve_object()
+    and then enter_thesis() successfully, proving the governance state
+    machine mechanics end-to-end per design doc Section 4.8 stage 2 /
+    Section 7's Phase 1 done criteria."""
+    draft_row = _make_thesis_row(thesis_id=99, governance_status="pending_review")
+    approved_row = _make_thesis_row(thesis_id=99, governance_status="approved")
+    active_row = _make_thesis_row(
+        thesis_id=99, status="active", governance_status="approved",
+        actual_entry_price=Decimal("43.500000"), actual_entry_at=_NOW,
+    )
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    approve_conn = MagicMock()
+    approve_conn.transaction = _tx
+    fr_returns = iter([draft_row, approved_row])
+
+    async def _fetchrow(_q, *_args):
+        return next(fr_returns, None)
+
+    async def _fetch(_q, *_args):
+        # Real "now", not the fixture's fixed historical _NOW — see the
+        # matching comment in test_approve_object_happy_path.
+        return [_evidence_row("verified", datetime.now(tz=UTC) - timedelta(days=1))]
+
+    approve_conn.fetchrow = _fetchrow
+    approve_conn.fetch = _fetch
+    approve_conn.execute = AsyncMock(return_value=None)
+
+    approved = await svc.approve_object(
+        approve_conn, thesis_id=99, reasoning="Verified evidence supports thesis"
+    )
+    assert approved.governance_status == "approved"
+
+    enter_conn = _make_conn(fetchrow_returns=[approved_row, active_row])
+    entered = await svc.enter_thesis(
+        enter_conn, thesis_id=99, entry_price=Decimal("43.50")
+    )
+    assert entered.status == "active"
+    assert entered.governance_status == "approved"
+
+
+async def test_phase1_done_criteria_speculative_only_never_reaches_pending_review() -> None:
+    """The other half of the Phase 1 done criteria: 'a thesis with only
+    speculative evidence is rejected before pending_review is ever
+    reached.' Since Phase 1's create_thesis_from_agent_run() stub never
+    successfully creates a row (see the dedicated stub test above), the
+    only way a speculative-only thesis could reach 'approved' is via
+    approve_object() directly — and that is exactly what
+    test_approve_object_all_speculative_evidence_raises already proves
+    fails. This test is a thin restatement making the done-criteria
+    traceability explicit, not new logic."""
+    existing = _make_thesis_row(governance_status="pending_review")
+    conn = _make_conn(fetchrow_returns=[existing], fetch_returns=[[]])
+
+    with pytest.raises(ValueError, match="no non-speculative evidence"):
+        await svc.approve_object(conn, thesis_id=1, reasoning="attempt")
+
+
+# ---------------------------------------------------------------------------
+# Migration 0033 — Decimal-string contract for agent proposal JSONB fields
+# ---------------------------------------------------------------------------
+
+def test_theme_holding_proposal_exposure_strength_never_becomes_float() -> None:
+    """Decimal fields in agent proposals must never round-trip through
+    float — matches the existing _serialise() contract (CLAUDE.md
+    non-negotiable #5)."""
+    from asxos.domain.theses.schemas import ThemeHoldingProposal
+
+    p = ThemeHoldingProposal(
+        theme_code="ai-infrastructure",
+        symbol="NVDA.US",
+        exposure_strength=Decimal("0.653421"),
+        direction="positive",
+        mechanism_text="Direct beneficiary of AI datacentre capex cycle",
+        evidence_citation_ids=[1],
+    )
+    dumped = p.model_dump(mode="json")
+    assert isinstance(dumped["exposure_strength"], str)  # never float in JSON mode
+    assert Decimal(dumped["exposure_strength"]) == Decimal("0.653421")
+    assert "e" not in dumped["exposure_strength"].lower()  # no float sci-notation artifacts
+
+
+def test_theme_holding_proposal_exposure_strength_out_of_range_raises() -> None:
+    from pydantic import ValidationError
+
+    from asxos.domain.theses.schemas import ThemeHoldingProposal
+
+    with pytest.raises(ValidationError):
+        ThemeHoldingProposal(
+            theme_code="test", symbol="NVDA.US",
+            exposure_strength=Decimal("1.5"),  # > 1, invalid
+            direction="positive", mechanism_text="test",
+            evidence_citation_ids=[1],
+        )
+
+
+def test_macro_thesis_proposal_requires_at_least_one_evidence_citation() -> None:
+    from pydantic import ValidationError
+
+    from asxos.domain.theses.schemas import MacroThesisProposal
+
+    with pytest.raises(ValidationError):
+        MacroThesisProposal(
+            title="Test", thesis_text="Test thesis",
+            regime_quadrant="rising_growth_rising_inflation",
+            horizon_months=12, catalyst="Test catalyst", falsifier="Test falsifier",
+            evidence_citation_ids=[],  # empty — must fail min_length=1
+        )
+
+
+def test_theme_proposal_theme_code_pattern_enforced() -> None:
+    from pydantic import ValidationError
+
+    from asxos.domain.theses.schemas import ThemeProposal
+
+    with pytest.raises(ValidationError):
+        ThemeProposal(
+            theme_code="Invalid Theme Code!",  # uppercase + spaces + punctuation, invalid
+            name="Test", description="Test", conviction_band="medium",
+            stage="early", evidence_citation_ids=[1],
+        )

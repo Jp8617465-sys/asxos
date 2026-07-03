@@ -2,9 +2,15 @@
 
 Commands:
   asx thesis open SYMBOL   — open a new thesis (research or watching)
+  asx thesis open SYMBOL --from-agent-run ID — create a draft from an agent
+                             proposal (Phase 1: always fails, no ThesisProposal
+                             schema exists yet — see domain/theses/schemas.py)
   asx thesis show SYMBOL   — detailed view of the most recent thesis for a symbol
   asx thesis list          — summary table of all (or filtered) theses
   asx thesis enter SYMBOL  — transition to active (capital deployed)
+  asx thesis approve ID    — governance_status pending_review -> approved
+  asx thesis reject ID     — governance_status draft/evidence_complete/
+                             pending_review -> rejected
   asx thesis revise SYMBOL — revise one field with an audit event
   asx thesis review SYMBOL — discipline event: reviewed, no change
   asx thesis hold SYMBOL   — alias for review
@@ -131,9 +137,26 @@ def thesis_open(
     conviction: int = typer.Option(0, "--conviction", help="PM conviction 1-5 (0 = unset)"),
     tax_notes: str = typer.Option("", "--tax-notes", help="CGT / franking / holding-period notes"),
     reason: str = typer.Option("Initial thesis", "--reason", help="Opening rationale"),
+    from_agent_run: int = typer.Option(
+        0, "--from-agent-run",
+        help="agent_runs.run_id to create a draft thesis from (governance_status='draft', "
+             "not 'approved'). All other options are ignored in this mode.",
+    ),
 ) -> None:
-    """Open a new investment thesis (research or watching status)."""
+    """Open a new investment thesis (research or watching status).
+
+    --from-agent-run <run_id> creates the thesis via
+    create_thesis_from_agent_run() instead of the normal human-authored
+    path. As of Phase 1, this always fails with a clear error (no
+    ThesisProposal schema exists yet — see
+    asxos/domain/theses/schemas.py) — the flag is wired end-to-end ahead of
+    that schema landing.
+    """
     _require_personal_use()
+    if from_agent_run:
+        asyncio.run(_open_thesis_from_agent_run(symbol, from_agent_run))
+        return
+
     if status not in ("research", "watching"):
         raise typer.BadParameter("--status must be 'research' or 'watching'")
     if conviction and not (1 <= conviction <= 5):
@@ -183,6 +206,23 @@ async def _open_thesis(
             )
         console.print(f"[green]✓[/green] Opened thesis #{t.thesis_id} for {t.symbol} ({t.status})")
         _print_thesis_detail(t)
+    finally:
+        await close_pool()
+
+
+async def _open_thesis_from_agent_run(symbol: str, run_id: int) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.create_thesis_from_agent_run(conn, run_id, symbol)
+        console.print(
+            f"[green]✓[/green] Opened draft thesis #{t.thesis_id} for {t.symbol} "
+            f"from agent run #{run_id} (governance_status={t.governance_status})"
+        )
+        _print_thesis_detail(t)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
     finally:
         await close_pool()
 
@@ -259,6 +299,76 @@ async def _enter_thesis(symbol: str, price: Decimal, qty: int | None) -> None:
             t = await svc.enter_thesis(conn, t.thesis_id, price, qty)
         console.print(f"[green]✓[/green] Thesis #{t.thesis_id} {symbol} entered at {price}")
         _print_thesis_detail(t)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+# ---------------------------------------------------------------------------
+# approve / reject — governance_status transitions (Phase 1)
+# ---------------------------------------------------------------------------
+
+@thesis_app.command("approve")
+def thesis_approve(
+    thesis_id: int = typer.Argument(..., help="Thesis ID (numeric), not symbol"),
+    reason: str = typer.Option(..., "--reason", help="Why you are approving this"),
+    accept_stale_evidence: str = typer.Option(
+        "", "--accept-stale-evidence",
+        help="Override the 14-day evidence staleness check (reason required, logged separately)",
+    ),
+) -> None:
+    """Approve a thesis pending review — governance_status -> 'approved'.
+
+    Hard-fails if governance_status is not 'pending_review', if evidence is
+    100% speculative (no override available), or if non-speculative
+    evidence is older than 14 days (override with --accept-stale-evidence).
+    """
+    _require_personal_use()
+    asyncio.run(_approve_thesis(thesis_id, reason, accept_stale_evidence.strip() or None))
+
+
+async def _approve_thesis(
+    thesis_id: int, reason: str, accept_stale_evidence: str | None
+) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.approve_object(
+                conn, thesis_id,
+                reasoning=reason,
+                accept_stale_evidence=accept_stale_evidence,
+            )
+        console.print(f"[green]✓[/green] Approved thesis #{t.thesis_id} ({t.symbol})")
+        _print_thesis_detail(t)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@thesis_app.command("reject")
+def thesis_reject(
+    thesis_id: int = typer.Argument(..., help="Thesis ID (numeric), not symbol"),
+    reason: str = typer.Option(..., "--reason", help="Why you are rejecting this"),
+) -> None:
+    """Reject a thesis pending review — governance_status -> 'rejected'.
+
+    Only valid from 'draft', 'evidence_complete', or 'pending_review' —
+    cannot reject an already-approved/rejected/retired thesis.
+    """
+    _require_personal_use()
+    asyncio.run(_reject_thesis(thesis_id, reason))
+
+
+async def _reject_thesis(thesis_id: int, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.reject_object(conn, thesis_id, reasoning=reason)
+        console.print(f"[yellow]✗[/yellow] Rejected thesis #{t.thesis_id} ({t.symbol})")
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
@@ -697,6 +807,7 @@ def _print_thesis_detail(t: Thesis) -> None:
         ("ID", str(t.thesis_id)),
         ("Symbol", t.symbol),
         ("Status", t.status),
+        ("Governance", t.governance_status),  # NEW — migration 0033
         ("Thesis", t.thesis_text or "[dim]not articulated[/dim]"),
         ("Entry band", f"{t.entry_band_lower}–{t.entry_band_upper}" if t.entry_band_lower else "—"),
         ("Stop", str(t.stop_price or "—")),

@@ -11,11 +11,13 @@ class JobMonitor:
     Never suppresses exceptions. Failure is recorded then re-raised.
 
     Status mapping (set in __aexit__):
-      - no exception              → 'success'
+      - no exception              → 'success' (pings the Healthchecks URL)
       - UpstreamBlocked raised    → 'blocked' (distinct from failure;
                                     upstream not ready, retry later;
                                     Healthchecks NOT pinged)
-      - any other exception       → 'failure'
+      - any other exception       → 'failure' (pings healthcheck_url + '/fail'
+                                    — Healthchecks' explicit-failure signal;
+                                    also marks the check for deadman purposes)
 
     The 'blocked' distinction prevents alert fatigue: the P0-1/P0-2 guards
     will generate many runs where the right operator response is "wait for
@@ -46,6 +48,11 @@ class JobMonitor:
             # concurrent job instance can see a partially-updated state.
             async with conn.transaction():
                 # Mark any prior crashed run failed before starting fresh.
+                # Deliberately NOT scoped to as_of: a sync_financial_statements
+                # run that crashed on 2026-06-27 sat at status='running' forever
+                # because every later run's heal was scoped to its own as_of
+                # (date.today()) and so could never touch the prior day's row.
+                # Any 'running' row for this job older than 2 hours is stale.
                 await conn.execute(
                     """
                     UPDATE job_runs SET
@@ -53,12 +60,10 @@ class JobMonitor:
                         finished_at   = NOW(),
                         error_message = 'prior run crashed (process never exited cleanly)'
                     WHERE job_name = $1
-                      AND as_of    = $2
                       AND status   = 'running'
                       AND started_at < NOW() - INTERVAL '2 hours'
                     """,
                     self.job_name,
-                    self.as_of,
                 )
                 await conn.execute(
                     """
@@ -124,14 +129,25 @@ class JobMonitor:
                 self.as_of,
             )
 
-        # Ping Healthchecks ONLY on full success. Blocked runs do NOT ping —
-        # the deadman should miss so the "upstream stuck" pattern surfaces
-        # in monitoring. Failures also don't ping (same as before).
+        # Success pings the base URL. Blocked runs do NOT ping — the deadman
+        # should miss so the "upstream stuck" pattern surfaces in monitoring.
+        # Failures ping healthcheck_url + '/fail': ingest_regulatory failed 33
+        # consecutive days in total silence because failures used to send no
+        # signal at all and the deadman was never armed. '/fail' gives
+        # Healthchecks an immediate explicit-failure signal AND still marks
+        # the check for deadman purposes.
         if status == "success" and self.healthcheck_url:
-            try:
-                async with httpx.AsyncClient(timeout=5) as client:
-                    await client.get(self.healthcheck_url)
-            except Exception:
-                pass  # ping failure never fails a successful job
+            await self._ping(self.healthcheck_url)
+        elif status == "failure" and self.healthcheck_url:
+            await self._ping(self.healthcheck_url + "/fail")
 
         return False  # never suppress exceptions
+
+    async def _ping(self, url: str) -> None:
+        # A flaky Healthchecks endpoint must never turn a successful job into
+        # a failure, nor mask the job's own exception on the way out.
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.get(url)
+        except Exception:
+            pass

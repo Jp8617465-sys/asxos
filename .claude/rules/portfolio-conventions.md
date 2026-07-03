@@ -18,6 +18,175 @@ This stays `0` until 4 weeks of paper-trade sign-off completes (M13.8).
 
 ---
 
+## Contamination-isolation model gate (plan H.1 CRITICAL-4 + governance Section 4.4 Step B)
+
+`PortfolioService.build()` and `compose.collect()` no longer pick the
+production model by a hardcoded name. Both query
+`model_versions WHERE is_active = TRUE AND approved_for_allocation = TRUE`
+and hard-fail on 0 rows (nothing approved) or >1 rows (multiple approved —
+multi-sleeve blending is out of v1 scope). `approved_for_allocation`
+(migration 0032) is orthogonal to `is_active`: `is_active` means "current
+version of this model," `approved_for_allocation` means "this model is
+allowed to influence the live portfolio/brief at all." A new model row can
+exist, be activated, and be iterated on entirely within its own model
+namespace without ever reaching the allocator or the brief, because that
+requires a second, separate, explicit approval action.
+
+In `build.py` the gate is Step 2 in `build()`'s docstring step list —
+inserted ahead of the signals fetch (now Step 3) because that query
+needs the gated model name to filter on (`WHERE model = $1` in both
+signals branches). In `compose.py` the gate is the first statement
+inside `collect()`'s connection block, for the same reason
+(`production_model` feeds the regime and signal-change queries
+downstream).
+
+The CLI actions implied by both hard-fail messages —
+`asx model approve <model> <version>` and `asx model revoke <model>
+<version>` — **do not exist yet**. `asxos/cli/model.py` currently has
+only `activate` and `list`. Until `approve`/`revoke` ship, the only way
+to set `approved_for_allocation` is a manual UPDATE via
+`mcp__supabase__execute_sql` (or a fresh migration, as 0032 did for the
+one-time `model_a`/`v1_5` grandfather). Adding the CLI verbs is tracked
+in `docs/next-session-backlog.md` under the governance-architecture plan,
+Phase 1+ — not scoped to Phase 0/0.5.
+
+---
+
+## Governance-status gate on enter_thesis() (governance architecture Phase 1)
+
+`enter_thesis()` (`asxos/domain/theses/service.py`) hard-fails unless
+`governance_status = 'approved'` (migration 0033/0034), alongside its
+existing status/thesis_text/stop_price/target_price checks. This is
+orthogonal to the contamination-isolation model gate above: that gate
+protects which MODEL's signals reach the allocator; this gate protects
+whether a specific THESIS row is trustworthy enough to have capital
+deployed against it, regardless of model. `governance_status` DEFAULTs to
+`'approved'` for all human-authored theses (zero friction for the existing
+CLI flow) — the guard is only load-bearing for agent-originated drafts,
+which as of Phase 1 cannot yet be created end-to-end (no `ThesisProposal`
+schema exists — see `asxos/domain/theses/schemas.py`). See
+`docs/proposals/governance-first-architecture-2026-06-30.md` Section 4.1/4.7.
+
+The transition from `pending_review` to `approved`/`rejected` is enforced at
+the DB level, not just the service layer: `theses_governance_audit` (migration
+0034) is this codebase's **first Postgres trigger**. It rejects any
+`governance_status` UPDATE that lacks a matching `governance_events` row
+written in the same transaction (checked via `pg_current_xact_id()`
+equality). `approve_object()`/`reject_object()` in `service.py` are the only
+functions that satisfy this — a direct `UPDATE theses SET
+governance_status=...` fails loudly. Deliberately NOT a generic cross-table
+function (see the migration 0034 header comment for why the originally
+planned single-shared-trigger design across `theses`/`macro_theses`/`themes`/
+`theme_holdings` fails at runtime — PL/pgSQL validates `NEW`/`OLD` field
+references against the trigger's bound table even in unreached `CASE`
+branches).
+
+**Deferred** (`m14_candidate_governance_aware_revisit_cadence`):
+`approve_object()` does not reset `revisit_due_at`/`last_revisited_at`, even
+though the design doc describes agent-originated theses getting a 7-day
+cadence that should widen to 30 days on approval. Nothing else in Phase 1
+wires up a governance-status-aware revisit cadence, so implementing just the
+reset in isolation would be untested and disconnected from any consumer.
+Revisit alongside a real cadence mechanism, not as an isolated change.
+
+---
+
+## Phase 2a governance expansion — macro_theses/themes/theme_holdings triggers
+
+Migration 0036 adds three MORE independent trigger functions
+(`_check_macro_theses_governance_audit()`, `_check_themes_governance_audit()`,
+`_check_theme_holdings_governance_audit()`), each modeled character-for-
+character on the corrected `_check_theses_governance_audit()` (including the
+`from_status = OLD.governance_status` check from day one, not as a later
+retrofit). **Not a shared function with `TG_ARGV` dispatch** — the design
+doc's Section 5.5 originally showed exactly that broken pattern
+(`_check_governance_audit('macro_thesis')`), which is the same bug Phase 1
+already found and fixed for `theses`; Section 5.5 has been corrected to match
+this migration, not the other way around. `theme_holdings`'s trigger checks
+`NEW.holding_id` (a new `BIGSERIAL UNIQUE` surrogate, migration 0035) rather
+than the composite `(theme_id, symbol)` natural key — this surrogate exists
+specifically so `governance_events.object_id` can reference one BIGINT
+uniformly across all four governed tables.
+
+**Module boundary decision**: `asxos/domain/macro_theses/` is its own new
+package, not folded into `asxos/domain/themes/`, despite `themes.macro_thesis_id`
+creating a dependency between them. A macro thesis has an independent
+lifecycle driven by its own agent (`macro-economist`) — it can exist, be
+approved, and be retired with zero themes ever linked to it
+(`ON DELETE SET NULL`) — matching this codebase's existing one-package-per-
+major-entity convention (`theses/` and `themes/` are already separate despite
+`theses/service.py::open_thesis()` writing directly into `theme_holdings`).
+`theme_holdings` governance (`approve_theme_holding()`/`reject_theme_holding()`)
+stays in the existing `themes/service.py`, not a fourth package — it has no
+identity outside a theme.
+
+The `governance_events`-INSERT-then-UPDATE pairing — **in that order, and the
+order is load-bearing** — that satisfies every one of these triggers is now a
+single shared helper,
+`asxos/domain/governance/transitions.py::apply_governance_transition()` —
+extracted from the theses-specific version once a 4th call site (macro_theses)
+needed the identical shape. Every audit trigger is `BEFORE UPDATE`: its
+`EXISTS` check runs synchronously at the moment the UPDATE statement fires, so
+the matching `governance_events` row must already be visible within the same
+transaction *before* the UPDATE — INSERT-after-UPDATE is rejected by the
+trigger every time. `table_name`/`id_column` are f-string-interpolated
+(Postgres identifiers can't be `$N`-bound); every call site passes a hardcoded
+literal, never caller-supplied input.
+
+**Verification lesson (Phase 2a live-fire finding, encode-don't-repeat):** the
+original helper (and Phase 1's shipped inline ancestor in `theses/service.py`)
+did UPDATE-then-INSERT, and it passed every mocked unit test AND two full
+review loops AND Phase 1's manual live verification — because mocked
+connections don't enforce trigger semantics, and the manual check verified
+hand-written SQL that happened to use the correct order rather than the actual
+statement sequence the Python emits. Phase 1's `asx thesis approve|reject`
+would have failed against the live trigger on first real use. The bug only
+surfaced when Phase 2a's verification replayed the *exact Python-emitted
+statement sequence* against prod (in a rolled-back transaction). Rule: any new
+or changed code that performs a `governance_status` transition must have its
+emitted statement ORDER live-verified against the real triggers at least once
+(rolled-back transaction is fine) — mocked tests and hand-replicated SQL do
+not count. `tests/test_governance_transitions.py` pins the order at the unit
+level (a shared ordered call log across execute/fetchrow), but that only
+guards the shared helper, not novel call patterns around it.
+
+**Deferred** (`m14_candidate_macro_thesis_evidence_staleness_check`):
+`macro_theses/service.py::approve_object()` does not check evidence staleness
+before approval, unlike `theses/service.py::approve_object()`. theses' check
+queries `thesis_evidence` directly (a table with a `thesis_id` FK);
+`macro_theses` has no equivalent direct FK from `agent_evidence` — its
+evidence link is indirect (`macro_theses.source_run_id` ->
+`agent_runs.proposed_object.evidence_citation_ids` -> `agent_evidence.evidence_id`).
+Land the join-based check when a second evidence-heavy discovery agent
+(Phase 2c) makes the pattern worth generalising.
+
+**Known gap** (`m14_candidate_agent_db_role_scoping`, found by security-engineer
+during the Phase 2a+2b PR review, 2026-07-02 — not blocking, tracked for
+before Phase 2c): `macro-economist`'s "SELECT-only" instruction
+(`.claude/agents/macro-economist.md`) — and the pre-existing
+`market-context-narrator`'s identical instruction — is enforced entirely at
+the prompt level. The underlying `mcp__Supabase__execute_sql` grant can
+execute arbitrary SQL; `.claude/settings.json` has no MCP/tool permission
+scoping to restrict it. Before this diff, exploiting that gap required a
+human deliberately hand-writing SQL to bypass `service.py` — a trusted-actor
+risk migration 0034's header comment already calls out. This diff is the
+first time an LLM agent with that same unrestricted access sits adjacent to
+a governed table, fed by externally-sourced, untrusted text
+(`regulatory_events.title`/`summary` from RSS feeds, truncated but not
+sanitised). A successful prompt injection could in principle have the agent
+emit exactly the `INSERT INTO governance_events ...; UPDATE macro_theses SET
+governance_status = 'approved' ...` pair the BEFORE UPDATE triggers require
+in one transaction — fully bypassing the human-approval gate this whole
+architecture exists to build, with no code-level backstop today. Accepted
+as a documented risk rather than a blocker: the RSS sources are hardcoded
+and currently trusted (gov.au), and the blast radius is single-user. The
+clean fix is a read-only Postgres role dedicated to agent MCP sessions,
+distinct from the role human/CLI sessions use — scope this via
+`backend-architect` before Phase 2c adds `theme-researcher` and
+`instrument-selector` on the same pattern.
+
+---
+
 ## v1 risk-blindness invariants (plan I.1)
 
 The constraint waterfall does NOT protect against market-wide co-movement.
@@ -160,6 +329,8 @@ cadence and on-demand CLI use.
 | Condition | Raises |
 |---|---|
 | No active profile | `RuntimeError` in `PortfolioService.build()` |
+| 0 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` / `compose.collect()` |
+| >1 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` / `compose.collect()` |
 | Empty buy universe after filtering | `RuntimeError` in `allocator.allocate()` |
 | Non-convergent constraint waterfall (>5 iterations) | `RuntimeError` in `constraints.apply_constraints()` |
 | Insufficient price history for vol | symbol silently omitted from candidates |

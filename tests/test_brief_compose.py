@@ -15,6 +15,8 @@ from contextlib import asynccontextmanager
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from asxos.brief.compose import (
     BriefData,
     JobFailure,
@@ -226,6 +228,7 @@ def _make_conn(
     news_job_rows=None,
     latest_signal_date=None,
     latest_price_date=None,
+    model_gate_rows=None,
 ):
     """Build a mock asyncpg connection that routes queries to canned rows.
 
@@ -233,9 +236,15 @@ def _make_conn(
     news_job_rows:      rows for ``FROM job_runs … job_name = 'ingest_news'`` (_news_ingest_fresh)
     latest_signal_date: return value for ``SELECT MAX(as_of) FROM signals``
     latest_price_date:  return value for ``SELECT MAX(p.dt) FROM prices ...``
+    model_gate_rows:    rows for the ``FROM model_versions`` contamination-isolation
+                         gate query; defaults to a single approved model_a row so
+                         existing tests don't need to know about the gate.
     """
     _latest_signal_date = latest_signal_date
     _latest_price_date = latest_price_date
+    _model_gate_rows = (
+        model_gate_rows if model_gate_rows is not None else [{"model": "model_a"}]
+    )
 
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value=regime_row)
@@ -254,6 +263,8 @@ def _make_conn(
 
     async def _fetch(query, *args, **kwargs):
         q = " ".join(query.split())
+        if "FROM model_versions" in q:
+            return _model_gate_rows
         if "signals s\nJOIN current_holdings" in query or ("FROM signals" in q and "old_label" in q):
             return signal_rows
         if "FROM current_holdings\nORDER BY acquired_at" in query:
@@ -356,6 +367,60 @@ def test_collect_handles_empty_db() -> None:
     assert not data.has_failures
 
 
+def test_collect_no_approved_model_raises() -> None:
+    """Contamination-isolation gate: zero active+approved_for_allocation
+    model_versions rows is a configuration invariant violation, not a
+    data-freshness gap — collect() must fail loudly, not degrade."""
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        regime_row=None,
+        holdings_count=0,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[],
+        fail_rows=[],
+        model_gate_rows=[],
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        pytest.raises(RuntimeError, match="approved_for_allocation"),
+    ):
+        asyncio.run(collect(today))
+
+
+def test_collect_multiple_approved_models_raises() -> None:
+    """Multi-sleeve blending is out of v1 scope — more than one
+    active+approved_for_allocation model is a hard-fail, not a silent
+    arbitrary pick."""
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        regime_row=None,
+        holdings_count=0,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[],
+        fail_rows=[],
+        model_gate_rows=[{"model": "model_a"}, {"model": "factor_sleeve"}],
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        pytest.raises(RuntimeError, match="multiple models"),
+    ):
+        asyncio.run(collect(today))
+
+
 def test_collect_anchors_on_complete_trading_day() -> None:
     """collect() queries regime/signals on the latest *complete* trading day,
     not the calendar as_of, and records it as data_as_of → not stale."""
@@ -388,8 +453,10 @@ def test_collect_anchors_on_complete_trading_day() -> None:
     assert data.data_as_of == complete_day
     assert data.regime == "neutral"
     assert data.signals_stale is False
-    # The regime query used the complete-day anchor, not the calendar date.
-    assert conn.fetchrow.await_args.args[1] == complete_day
+    # The regime query is pinned to the production model and used the
+    # complete-day anchor, not the calendar date.
+    assert conn.fetchrow.await_args.args[1] == "model_a"
+    assert conn.fetchrow.await_args.args[2] == complete_day
 
 
 # ---------------------------------------------------------------------------

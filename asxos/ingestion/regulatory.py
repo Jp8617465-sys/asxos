@@ -1,10 +1,14 @@
 """
 Regulatory event ingestion.
 
-Three sources (ASIC, RBA, ATO; ASX market announcements is a stretch goal
-once an authenticated endpoint is wired). Each source has a parser that
-turns the upstream payload (RSS XML for ATO / RBA, JSON for ASX) into a
-list of `RegulatoryEvent` records, which the job UPSERTs.
+Two live sources: RBA (RSS 1.0/RDF — the "RSS-CB" central-bank profile) and
+Treasury (RSS 2.0). ATO was removed — its site redesign killed the Newsroom
+feed and there is no stable public replacement. ASIC was never wired. ASX
+market announcements (JSON) is a stretch goal once an authenticated endpoint
+exists; `parse_json_announcements` is kept for that path.
+
+Each source has a parser that turns the upstream payload (RSS XML, JSON)
+into a list of `RegulatoryEvent` records, which the job UPSERTs.
 
 Network I/O is pushed to fetchers in the job script — parsers are pure
 functions over bytes/strings so they're easy to unit-test against fixtures.
@@ -29,6 +33,9 @@ _RSS_DATE_FORMATS = (
     "%Y-%m-%dT%H:%M:%S%z",
     "%Y-%m-%dT%H:%M:%SZ",
 )
+_ATOM_NS = "{http://www.w3.org/2005/Atom}"
+_RSS1_NS = "{http://purl.org/rss/1.0/}"
+_DC_NS = "{http://purl.org/dc/elements/1.1/}"
 
 
 @dataclass(frozen=True)
@@ -43,15 +50,26 @@ class RegulatoryEvent:
 
 
 def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> list[RegulatoryEvent]:
-    """Parse an RSS 2.0 / Atom-ish feed into RegulatoryEvent rows."""
+    """Parse an RSS 2.0 / RSS 1.0 (RDF) / Atom-ish feed into RegulatoryEvent rows."""
     root = ET.fromstring(xml_bytes)
-    items = root.findall(".//item") or root.findall("./{http://www.w3.org/2005/Atom}entry")
+    items = root.findall(".//item") or root.findall(f"./{_ATOM_NS}entry")
+    ns = ""
+    if not items:
+        # RSS 1.0/RDF fallback (e.g. RBA's RSS-CB feeds): rdf:RDF root, items
+        # in the RSS 1.0 default namespace, dates in Dublin Core <dc:date>
+        # (ISO 8601) rather than RSS 2.0 <pubDate>.
+        items = root.findall(f".//{_RSS1_NS}item")
+        ns = _RSS1_NS
     out: list[RegulatoryEvent] = []
     for item in items:
-        title = _text(item, "title")
-        link = _text(item, "link") or _attr(item, "link", "href")
-        pub_str = _text(item, "pubDate") or _text(item, "{http://www.w3.org/2005/Atom}published")
-        summary = _text(item, "description") or _text(item, "{http://www.w3.org/2005/Atom}summary") or ""
+        title = _text(item, f"{ns}title")
+        link = _text(item, f"{ns}link") or _attr(item, f"{ns}link", "href")
+        if ns:
+            pub_str = _text(item, f"{_DC_NS}date")
+            summary = _text(item, f"{ns}description")
+        else:
+            pub_str = _text(item, "pubDate") or _text(item, f"{_ATOM_NS}published")
+            summary = _text(item, "description") or _text(item, f"{_ATOM_NS}summary")
 
         if not title or not link:
             continue

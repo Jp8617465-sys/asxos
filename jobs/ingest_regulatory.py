@@ -2,14 +2,20 @@
 """
 Daily regulatory ingest.
 
-Fetches three RSS-ish sources, parses each, UPSERTs into regulatory_events.
-Failure of any single source is logged but does not abort the run — we
-record success as long as one source ingests.
+Fetches two RSS sources, parses each, UPSERTs into regulatory_events.
+Per-source failure is logged, then gated by assert_partial_success with
+threshold=0.5: with N=2 sources, 2/2 or 1/2 healthy passes (ratio >= 0.5);
+0/2 hard-fails the run.
 
-Sources (all RSS):
-  ATO      — https://www.ato.gov.au/Newsroom/Newsroom-feeds/
-  RBA      — https://www.rba.gov.au/rss/rss-cb-media-releases.xml
-  Treasury — https://treasury.gov.au/news/rss
+Sources:
+  RBA      — https://www.rba.gov.au/rss/rss-cb-media-releases.xml (RSS 1.0/RDF)
+  Treasury — https://treasury.gov.au/news/rss (RSS 2.0)
+
+ATO was removed: the ATO site redesign killed the old Newsroom feed URL
+(https://www.ato.gov.au/Newsroom/Newsroom-feeds/ is now a dead HTML index
+page) and there is no stable public replacement — RSS only exists behind a
+per-user subscription wizard. Re-add conditions are tracked in
+docs/next-session-backlog.md.
 
 Usage:
     python jobs/ingest_regulatory.py
@@ -40,11 +46,30 @@ class SourceSpec:
     default_kind: str
 
 
+# ATO is deliberately absent: its old Newsroom feed URL is a dead HTML index
+# page after the ATO site redesign, and there is no stable public replacement
+# (RSS only exists behind a per-user subscription wizard). Re-add conditions
+# are tracked in docs/next-session-backlog.md.
 SOURCES: list[SourceSpec] = [
-    SourceSpec("ATO", "https://www.ato.gov.au/Newsroom/Newsroom-feeds/", "tax"),
     SourceSpec("RBA", "https://www.rba.gov.au/rss/rss-cb-media-releases.xml", "monetary_policy"),
     SourceSpec("Treasury", "https://treasury.gov.au/news/rss", "other"),
 ]
+
+# gov.au WAFs 403 default python User-Agents: from Render, Treasury was
+# blocked on every run while RBA happened to pass without a UA. A mainstream
+# desktop-browser UA plus an explicit feed Accept header is the cheap,
+# portable mitigation — final confirmation is only possible from Render
+# egress, since the WAF behaviour differs by client IP reputation.
+_CLIENT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "application/rss+xml, application/rdf+xml, application/atom+xml, "
+        "application/xml;q=0.9, */*;q=0.8"
+    ),
+}
 
 
 async def _fetch_and_upsert(client: httpx.AsyncClient, source: SourceSpec) -> int | None:
@@ -93,16 +118,16 @@ async def main() -> None:
             as_of=today,
             healthcheck_url=settings.healthcheck_url_ingest_regulatory,
         ) as monitor:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(headers=_CLIENT_HEADERS) as client:
                 totals = await asyncio.gather(
                     *[_fetch_and_upsert(client, s) for s in SOURCES]
                 )
 
-            # Threshold 0.5 (not 0.75) because N=3 sources: at 0.75 even
-            # 2/3 (0.667) would hard-fail, which is too brittle for RSS feeds.
-            # 0.5 allows one source to die without aborting; 2-of-3 failures
-            # is treated as a real outage. Per-source SLA tracking is a
-            # separate (deferred) improvement.
+            # Threshold 0.5 with N=2 sources: 2/2 (1.0) and 1/2 (0.5) pass
+            # the >= comparison; 0/2 hard-fails. One feed may be down without
+            # aborting the run, but both failing means nothing ingested and
+            # the job must fail loudly. Per-source SLA tracking is a separate
+            # (deferred) improvement.
             n_ok = assert_partial_success(
                 totals,
                 is_ok=lambda r: r is not None,

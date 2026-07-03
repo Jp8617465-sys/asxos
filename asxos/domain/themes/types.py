@@ -60,6 +60,13 @@ class Theme:
     started_at: date
     retired_at: date | None  # None = active theme
     last_reviewed_at: datetime
+    # Governance provenance/approval fields (migration 0035). Orthogonal to
+    # retired_at (investment lifecycle): governance_status answers "is this
+    # content trustworthy enough to exist", matching theses.governance_status
+    # (migration 0033). DEFAULT 'approved' matches the DB grandfather default.
+    macro_thesis_id: int | None = None
+    governance_status: str = "approved"
+    source_run_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -94,3 +101,12 @@ class ThemeHolding:
     last_validated_at: datetime
     note: str | None
     created_at: datetime
+    # Governance provenance/approval fields (migration 0035). holding_id is
+    # the surrogate key added because the natural PK (theme_id, symbol) is
+    # composite and governance_events.object_id needs one BIGINT uniformly.
+    # DEFAULT 'approved' matches the DB grandfather default, except
+    # source='system_default' rows, which are backfilled to 'draft' —
+    # see migration 0035's comment for why.
+    holding_id: int | None = None
+    governance_status: str = "approved"
+    source_run_id: int | None = None

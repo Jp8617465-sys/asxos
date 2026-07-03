@@ -2,15 +2,17 @@
 
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
-(`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**
-and **five investment-analysis agents** (see bottom). The dev agents help build and
-maintain the codebase; the conformance agents guard spec↔test↔code correctness; the
-investment-analysis agents surface evidence-grounded views on the live portfolio.
-All eighteen are advisory by default; none is a runtime in-product agent (a runtime
-tax/portfolio LLM is a structural NO — it would collide with the personal-advice
-firewall and Decimal-only determinism). The investment-analysis agents run in Claude
-Code sessions only, querying Supabase directly — they are the interactive layer on
-top of the automated brief, not a replacement for it.
+(`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**,
+**five investment-analysis agents**, and **one discovery agent** (see bottom). The
+dev agents help build and maintain the codebase; the conformance agents guard
+spec↔test↔code correctness; the investment-analysis agents surface evidence-grounded
+views on the live portfolio; the discovery agent proposes new investment content for
+governance review. All nineteen are advisory by default; none is a runtime
+in-product agent (a runtime tax/portfolio LLM is a structural NO — it would collide
+with the personal-advice firewall and Decimal-only determinism). The investment-
+analysis and discovery agents run in Claude Code sessions only, querying Supabase
+directly — they are the interactive layer on top of the automated brief, not a
+replacement for it.
 
 Claude routes to these contextually based on the task, or you can invoke one
 explicitly (e.g. "use the security-engineer to review this").
@@ -129,3 +131,25 @@ the `/pm-review [SYMBOL]` slash command that fans out all five agents from the m
 (a subagent cannot spawn subagents) and synthesizes the "good buy / bad buy / here's why"
 read into a verdict — **GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE** — with the strongest
 evidence for and against, each traced to a cited agent output.
+
+## Discovery agents (1, Phase 2b; 2 more planned in Phase 2c)
+
+Added as part of the governance-first architecture
+(`docs/proposals/governance-first-architecture-2026-06-30.md`). A distinct category
+from the five investment-analysis agents above: those *analyze* existing holdings;
+this one *proposes new content* (a macro thesis, eventually a theme or an instrument)
+for human governance review. Same tool boundary as the analysis agents (`Read, Glob,
+Grep, mcp__Supabase__execute_sql`, SELECT-only) — it never writes to the database
+itself. Its output is a structured JSON block (see the agent file's own "Output"
+section) that a slash command parses and persists via `asx agent-run log`, which a
+human then reviews and promotes via `asx macro-thesis approve`.
+
+- **macro-economist** — reads the current market snapshot
+  (`market_context_current`), existing approved macro theses
+  (`governed_active_macro_theses`), and recent regulatory events, then proposes 1-5
+  macro theses tagged to a regime quadrant, each with a catalyst/falsifier and cited
+  evidence. Invoked via `/discover-macro`.
+
+Not yet built (Phase 2c): **theme-researcher** (given a macro thesis, proposes
+ASX-investable themes) and **instrument-selector** (given a theme, proposes 3-5
+ASX instruments/ETFs — the first real use of `theme_holdings.source='llm_inferred'`).

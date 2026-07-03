@@ -24,6 +24,7 @@ from typing import Any
 
 import asyncpg
 
+from asxos.domain.governance import transitions as governance_transitions
 from asxos.domain.theses.types import (
     _REVISION_TYPE_FOR_FIELD,
     REVISABLE_FIELDS,
@@ -34,6 +35,8 @@ from asxos.domain.theses.types import (
 
 _VALID_SYMBOL_SUFFIXES = (".AU", ".US")
 _REVISIT_INTERVAL_DAYS = 30
+_STALE_EVIDENCE_DAYS = 14
+_REJECTABLE_FROM = {"draft", "evidence_complete", "pending_review"}
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +118,8 @@ def _row_to_thesis(row: asyncpg.Record) -> Thesis:
         # migration 0026 fields
         conviction_level=row.get("conviction_level"),
         tax_notes=row.get("tax_notes") or "",
+        # migration 0033 field
+        governance_status=row.get("governance_status", "approved"),
     )
 
 
@@ -245,6 +250,14 @@ async def open_thesis(
         # Upsert theme_holdings placeholder rows for each theme code.
         # ON CONFLICT DO NOTHING — if the row exists (symbol already linked to
         # this theme from a prior thesis), leave it untouched.
+        # governance_status='draft' explicitly (not the column DEFAULT
+        # 'approved'): a system_default placeholder is unreviewed structural
+        # scaffolding, not a reviewed exposure claim — migration 0035
+        # backfilled existing placeholders to 'draft' for exactly this
+        # reason, and omitting it here would recreate the laundered state
+        # on every new `asx thesis open --themes`. INSERTs don't fire the
+        # governance audit trigger (BEFORE UPDATE only), so no
+        # governance_events row is required.
         for code in themes:
             theme_row = await conn.fetchrow(
                 "SELECT theme_id FROM themes WHERE theme_code = $1", code
@@ -257,8 +270,9 @@ async def open_thesis(
             await conn.execute(
                 """
                 INSERT INTO theme_holdings
-                    (theme_id, symbol, exposure_strength, source, last_validated_at, created_at)
-                VALUES ($1, $2, 0.5, 'system_default', $3, $3)
+                    (theme_id, symbol, exposure_strength, source, governance_status,
+                     last_validated_at, created_at)
+                VALUES ($1, $2, 0.5, 'system_default', 'draft', $3, $3)
                 ON CONFLICT (theme_id, symbol) DO NOTHING
                 """,
                 theme_row["theme_id"],
@@ -485,6 +499,12 @@ async def enter_thesis(
 
     Hard-fails (raises ValueError) if:
       - status is not 'watching' or 'research'
+      - governance_status is not 'approved'  (migration 0033/0034 — Phase 1
+        governance guard; see docs/proposals/governance-first-architecture-
+        2026-06-30.md Section 4.1's evidence-requirement table, last row:
+        "watching -> active (enter_thesis, investment lifecycle) — Existing
+        hard-fails unchanged, plus: hard-fail unless governance_status =
+        'approved'")
       - thesis_text is None or empty  (cannot enter on unarticulated thesis)
       - stop_price is None
       - target_price is None
@@ -509,6 +529,13 @@ async def enter_thesis(
             raise ValueError(
                 f"Cannot enter thesis {thesis_id} — current status is "
                 f"{existing['status']!r}. Expected 'watching' or 'research'."
+            )
+        if existing["governance_status"] != "approved":
+            raise ValueError(
+                f"Cannot enter thesis {thesis_id} — governance_status is "
+                f"{existing['governance_status']!r}, must be 'approved'. "
+                "Agent-originated theses require human approval first: "
+                "asx thesis approve <id> --reason '...'"
             )
         if not existing["thesis_text"]:
             raise ValueError(
@@ -559,6 +586,226 @@ async def enter_thesis(
             revised_at=now,
             revision_type="entered",
             diff=diff,
+            reasoning=reasoning,
+        )
+
+        return _row_to_thesis(row)
+
+
+async def create_thesis_from_agent_run(
+    conn: asyncpg.Connection,
+    run_id: int,
+    symbol: str,
+    *,
+    reasoning: str = "Draft created from agent run",
+) -> Thesis:
+    """Create a thesis draft from a logged agent_runs proposal.
+
+    PHASE 1/2 GAP (documented, not a bug): no ThesisProposal Pydantic schema
+    exists yet (see asxos/domain/theses/schemas.py module docstring — the
+    design doc explicitly defers a full instrument-thesis proposal shape to
+    a future agentic thesis-drafter, m14_candidate_agentic_thesis_drafter).
+    This function is therefore currently UNREACHABLE for object_type='thesis'
+    rows in practice: it will always raise ValueError below. It exists now,
+    fully wired end-to-end (CLI flag, transaction shape, error handling), so
+    that landing ThesisProposal later is a schema-plus-one-branch change, not
+    a new code path.
+
+    Intended eventual behaviour once ThesisProposal exists is specified in
+    docs/proposals/governance-first-architecture-2026-06-30.md Section 4.2
+    ("AI agent governance") — not reproduced here to avoid two copies of a
+    Phase 2 design drifting out of sync; this docstring documents Phase 1's
+    actual behaviour (always raises) only.
+
+    Raises ValueError if:
+      - run_id does not exist in agent_runs
+      - the agent_runs row was already acted_on
+      - object_type != 'thesis' (wrong function for that proposal type)
+      - object_type == 'thesis' — always, currently, per the gap above
+    """
+    async with conn.transaction():
+        run = await conn.fetchrow(
+            "SELECT * FROM agent_runs WHERE run_id = $1 FOR UPDATE", run_id
+        )
+        if run is None:
+            raise ValueError(f"agent_runs row {run_id} not found")
+        if run["acted_on"]:
+            raise ValueError(f"agent_runs row {run_id} was already acted on")
+        if run["object_type"] != "thesis":
+            raise ValueError(
+                f"agent_runs row {run_id} has object_type={run['object_type']!r} "
+                "— create_thesis_from_agent_run() only accepts object_type="
+                "'thesis' rows. Use the matching Phase 2 service function for "
+                "macro_thesis/theme/theme_holding proposals once built."
+            )
+
+        raise ValueError(
+            f"agent_runs row {run_id} has object_type='thesis', but no "
+            "ThesisProposal Pydantic schema exists yet to validate "
+            "proposed_object against — this is a documented Phase 1/2 gap "
+            "(m14_candidate_agentic_thesis_drafter), not a bug. See "
+            "asxos/domain/theses/schemas.py module docstring. "
+            "create_thesis_from_agent_run() cannot create theses rows from "
+            "agent proposals until that schema lands."
+        )
+
+
+async def _apply_governance_transition(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    *,
+    from_status: str,
+    to_status: str,
+    reasoning: str,
+) -> asyncpg.Record:
+    """Thin theses-specific wrapper over the shared
+    asxos.domain.governance.transitions.apply_governance_transition() —
+    extracted there in Phase 2a since the same governance_events-INSERT-then-
+    UPDATE pairing (in that load-bearing order — see transitions.py's module
+    docstring) is now needed by themes/theme_holdings/macro_theses too. Kept
+    as a wrapper (not inlined at each call site) so approve_object()/
+    reject_object() below need zero changes.
+    """
+    return await governance_transitions.apply_governance_transition(
+        conn,
+        table_name="theses",
+        id_column="thesis_id",
+        object_type="thesis",
+        object_id=thesis_id,
+        from_status=from_status,
+        to_status=to_status,
+        reasoning=reasoning,
+    )
+
+
+async def approve_object(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    *,
+    reasoning: str,
+    accept_stale_evidence: str | None = None,
+) -> Thesis:
+    """Transition a thesis from pending_review to approved.
+
+    The only human-facing path from pending_review -> approved. Hard-fails on:
+      - governance_status != 'pending_review'
+      - reasoning empty
+      - zero non-speculative thesis_evidence rows — ALWAYS hard-fails, no
+        override exists for this check (a thesis with no citable evidence
+        has nothing for a human to knowingly accept; only staleness — "the
+        evidence is old" — is something a human can legitimately judge as
+        still valid)
+      - any non-speculative evidence row's retrieved_at older than
+        _STALE_EVIDENCE_DAYS (14) calendar days, UNLESS accept_stale_evidence
+        is given (a non-empty reason string) — the override itself is logged
+        as an ADDITIONAL governance_events row (reasoning=accept_stale_evidence),
+        never folded into the approval's own reasoning field.
+
+    Writes: theses.governance_status='approved', a governance_events row
+    (from_status=<prior value>, to_status='approved', actor='human',
+    reasoning=reasoning) in the SAME transaction as the theses UPDATE — this
+    is what satisfies the migration 0034 trigger.
+    """
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM theses WHERE thesis_id = $1 FOR UPDATE", thesis_id
+        )
+        if existing is None:
+            raise ValueError(f"Thesis {thesis_id} not found")
+        if existing["governance_status"] != "pending_review":
+            raise ValueError(
+                f"Cannot approve thesis {thesis_id} — governance_status is "
+                f"{existing['governance_status']!r}, expected 'pending_review'."
+            )
+        if not reasoning or not reasoning.strip():
+            raise ValueError("reasoning is required to approve a thesis")
+
+        evidence_rows = await conn.fetch(
+            """
+            SELECT tier, retrieved_at FROM thesis_evidence
+            WHERE thesis_id = $1 AND superseded_at IS NULL
+            """,
+            thesis_id,
+        )
+        non_speculative = [r for r in evidence_rows if r["tier"] != "speculative"]
+        if not non_speculative:
+            raise ValueError(
+                f"Cannot approve thesis {thesis_id} — no non-speculative "
+                "evidence exists. Speculative-only theses cannot be approved "
+                "(no override available for this check)."
+            )
+
+        now = _now_utc()
+        stale_cutoff = now - timedelta(days=_STALE_EVIDENCE_DAYS)
+        stale = [r for r in non_speculative if r["retrieved_at"] < stale_cutoff]
+        if stale and not accept_stale_evidence:
+            raise ValueError(
+                f"Cannot approve thesis {thesis_id} — {len(stale)} evidence "
+                f"citation(s) older than {_STALE_EVIDENCE_DAYS} days. Pass "
+                "accept_stale_evidence='<reason>' to override (logged "
+                "separately)."
+            )
+
+        row = await _apply_governance_transition(
+            conn, thesis_id,
+            from_status=existing["governance_status"],
+            to_status="approved",
+            reasoning=reasoning,
+        )
+        if stale and accept_stale_evidence:
+            # A second, separate governance_events row for the override
+            # itself — never folded into the approval's own reasoning field
+            # (see the docstring above). from_status='approved' here because
+            # this event records the override decision made AFTER the
+            # transition above, not the transition itself.
+            await conn.execute(
+                """
+                INSERT INTO governance_events
+                    (object_type, object_id, from_status, to_status, reasoning, actor)
+                VALUES ('thesis', $1, 'approved', 'approved', $2, 'human')
+                """,
+                thesis_id,
+                accept_stale_evidence,
+            )
+
+        return _row_to_thesis(row)
+
+
+async def reject_object(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    *,
+    reasoning: str,
+) -> Thesis:
+    """Transition a thesis from draft/evidence_complete/pending_review to
+    rejected.
+
+    Hard-fails if reasoning is empty or governance_status is already
+    'approved'/'rejected'/'retired' (rejection only makes sense against a
+    not-yet-decided row — _REJECTABLE_FROM is the allowed source-state set).
+
+    Writes: theses.governance_status='rejected', a matching governance_events
+    row in the same transaction (satisfies the migration 0034 trigger).
+    """
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM theses WHERE thesis_id = $1 FOR UPDATE", thesis_id
+        )
+        if existing is None:
+            raise ValueError(f"Thesis {thesis_id} not found")
+        if existing["governance_status"] not in _REJECTABLE_FROM:
+            raise ValueError(
+                f"Cannot reject thesis {thesis_id} — governance_status is "
+                f"{existing['governance_status']!r}, expected one of "
+                f"{sorted(_REJECTABLE_FROM)}."
+            )
+        if not reasoning or not reasoning.strip():
+            raise ValueError("reasoning is required to reject a thesis")
+
+        row = await _apply_governance_transition(
+            conn, thesis_id,
+            from_status=existing["governance_status"],
+            to_status="rejected",
             reasoning=reasoning,
         )
 

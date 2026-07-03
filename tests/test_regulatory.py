@@ -34,6 +34,41 @@ _RSS_FIXTURE = b"""<?xml version="1.0" encoding="UTF-8" ?>
 """
 
 
+# RSS 1.0/RDF — faithful to the RBA RSS-CB shape: rdf:RDF root, channel and
+# item elements in the RSS 1.0 default namespace, dates in dc:date (ISO 8601),
+# no pubDate anywhere.
+_RDF_FIXTURE = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns="http://purl.org/rss/1.0/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel rdf:about="https://www.rba.gov.au/rss/rss-cb-media-releases.xml">
+    <title>RBA - Media Releases</title>
+    <link>https://www.rba.gov.au/media-releases/</link>
+    <description>Media releases from the Reserve Bank of Australia</description>
+    <items>
+      <rdf:Seq>
+        <rdf:li rdf:resource="https://www.rba.gov.au/media-releases/2026/mr-26-15.html"/>
+        <rdf:li rdf:resource="https://www.rba.gov.au/media-releases/2026/mr-26-14.html"/>
+      </rdf:Seq>
+    </items>
+  </channel>
+  <item rdf:about="https://www.rba.gov.au/media-releases/2026/mr-26-15.html">
+    <title>Statement by the Reserve Bank Board: Monetary Policy Decision</title>
+    <link>https://www.rba.gov.au/media-releases/2026/mr-26-15.html</link>
+    <description>At its meeting today, the Board decided to lower the cash rate target to 3.60 per cent.</description>
+    <dc:date>2026-07-01T09:30:00+10:00</dc:date>
+  </item>
+  <item rdf:about="https://www.rba.gov.au/media-releases/2026/mr-26-14.html">
+    <title>BHP announcement noted in quarterly market operations report</title>
+    <link>https://www.rba.gov.au/media-releases/2026/mr-26-14.html</link>
+    <description>BHP Group activity noted in the June quarter operations report.</description>
+    <dc:date>2026-06-30T14:00:00+10:00</dc:date>
+  </item>
+</rdf:RDF>
+"""
+
+
 def test_parse_rss_extracts_two_items() -> None:
     events = parse_rss(_RSS_FIXTURE, source="RBA")
     assert len(events) == 2
@@ -56,6 +91,39 @@ def test_parse_rss_classifies_kind() -> None:
     events = parse_rss(_RSS_FIXTURE, source="RBA")
     assert events[0].kind == "monetary_policy"  # "cash rate" keyword
     assert events[1].kind == "disclosure"        # "announcement" keyword
+
+
+def test_parse_rss_rdf_regression_not_empty() -> None:
+    # Regression lock: before RSS 1.0/RDF support, parse_rss only looked for
+    # un-namespaced .//item or Atom entries, so the RBA RSS-CB feed silently
+    # parsed to [] on every production run.
+    events = parse_rss(_RDF_FIXTURE, source="RBA")
+    assert len(events) > 0
+
+
+def test_parse_rss_rdf_extracts_items_titles_links_source() -> None:
+    events = parse_rss(_RDF_FIXTURE, source="RBA")
+    assert len(events) == 2
+    assert all(isinstance(e, RegulatoryEvent) for e in events)
+    assert events[0].title == "Statement by the Reserve Bank Board: Monetary Policy Decision"
+    assert events[0].url == "https://www.rba.gov.au/media-releases/2026/mr-26-15.html"
+    assert events[1].title == "BHP announcement noted in quarterly market operations report"
+    assert events[1].url == "https://www.rba.gov.au/media-releases/2026/mr-26-14.html"
+    assert all(e.source == "RBA" for e in events)
+
+
+def test_parse_rss_rdf_parses_dc_dates() -> None:
+    # dc:date is ISO 8601 with a timezone offset, not RSS 2.0 pubDate
+    events = parse_rss(_RDF_FIXTURE, source="RBA")
+    assert events[0].published_at == date(2026, 7, 1)
+    assert events[1].published_at == date(2026, 6, 30)
+
+
+def test_parse_rss_rdf_extracts_symbols_and_classifies_kind() -> None:
+    events = parse_rss(_RDF_FIXTURE, source="RBA")
+    assert events[0].kind == "monetary_policy"  # "cash rate" keyword
+    assert events[1].kind == "disclosure"        # "announcement" keyword
+    assert "BHP.AU" in events[1].symbols
 
 
 def test_extract_symbols_skips_common_acronyms() -> None:

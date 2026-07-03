@@ -38,11 +38,17 @@ def _thesis_row(symbol: str = "BHP.AU") -> dict:
     }
 
 
-async def _run_collector(theses_rows, signal_rows, as_of=date(2026, 6, 1)):
+async def _run_collector(
+    theses_rows, signal_rows, as_of=date(2026, 6, 1), model_gate_rows=None
+):
     conn = MagicMock()
-    # conn.fetch: 1st call = theses query, 2nd = signals query (underlyings are
-    # patched out, so they don't touch conn.fetch).
-    conn.fetch = AsyncMock(side_effect=[theses_rows, signal_rows])
+    # conn.fetch: 1st call = theses query, 2nd = the contamination-isolation
+    # model gate, 3rd = signals query (underlyings are patched out, so they
+    # don't touch conn.fetch).
+    gate_rows = (
+        model_gate_rows if model_gate_rows is not None else [{"model": "model_a"}]
+    )
+    conn.fetch = AsyncMock(side_effect=[theses_rows, gate_rows, signal_rows])
 
     score = MagicMock()
     score.label = "confirming"
@@ -95,3 +101,24 @@ async def test_driver_line_label_only_when_shap_empty():
     msg = result.items[0].message
     assert "Model A: HOLD" in msg
     assert "Top drivers" not in msg
+
+
+@pytest.mark.asyncio
+async def test_no_approved_model_raises():
+    # Contamination-isolation gate: zero active+approved_for_allocation rows
+    # is a configuration invariant violation — must fail loudly, not
+    # silently omit the Model A driver line.
+    with pytest.raises(RuntimeError, match="approved_for_allocation"):
+        await _run_collector([_thesis_row()], [], model_gate_rows=[])
+
+
+@pytest.mark.asyncio
+async def test_multiple_approved_models_raises():
+    # Multi-sleeve blending is out of v1 scope — more than one eligible
+    # model is a hard-fail, not a silent arbitrary pick.
+    with pytest.raises(RuntimeError, match="multiple models"):
+        await _run_collector(
+            [_thesis_row()],
+            [],
+            model_gate_rows=[{"model": "model_a"}, {"model": "factor_sleeve"}],
+        )

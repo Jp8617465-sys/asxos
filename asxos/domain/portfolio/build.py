@@ -7,8 +7,10 @@ constraints.py, and tax_overlay.py remain pure.
 Plan compliance notes:
   H.1 CRITICAL-3 — signals recency asserted: signals_as_of must be within
                     2 days of the build date.
-  H.1 CRITICAL-4 — model_version fetched from model_versions WHERE
-                    is_active=TRUE and written to rebalance_runs.
+  H.1 CRITICAL-4 / governance Section 4.4 Step B — model_version fetched
+                    from model_versions WHERE is_active=TRUE AND
+                    approved_for_allocation=TRUE, hard-failing on 0 or >1
+                    eligible rows, and written to rebalance_runs.
   H.1 CRITICAL-5 — hard-fail if no active profile.
   H.2 QUICK-WIN-5 — asyncpg executemany for batch INSERT.
   H.2 QUICK-WIN-7 — RETURNING run_id instead of currval().
@@ -21,6 +23,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
+from asxos.domain.models.production_gate import resolve_production_model
 from asxos.domain.portfolio import allocator as _allocator
 from asxos.domain.portfolio import constraints as _constraints
 from asxos.domain.portfolio import rebalance as _rebalance
@@ -122,21 +125,27 @@ class PortfolioService:
 
         Steps (plan Part B M13.6):
         1. Load profile — hard-fail if none active
-        2. Load latest signals — hard-fail if empty or stale
-        3. Load universe rows
-        4. Load 60-day vol for candidate symbols
-        5. Build AllocationCandidate[]
-        6. allocator.allocate() → AllocationTarget[]
-        7. (optional) constraints.apply_constraints() + trim_min_position()
-        8. Load current_holdings + latest prices → HoldingSnapshot[]
-        9. rebalance.compute_deltas() [§5.1 check inside]
-        10. (optional) tax_overlay.tag_loss_harvest()
-        11. assemble_result()
+        2. Resolve the production model — hard-fail if 0 or >1 rows are
+           both is_active AND approved_for_allocation (governance Section
+           4.4 Step B). Runs before signals because that query filters on
+           the resolved model name.
+        3. Load latest signals for that model — hard-fail if empty or stale
+        4. Load universe rows
+        5. Load 60-day vol for candidate symbols
+        6. Build AllocationCandidate[]
+        7. allocator.allocate() → AllocationTarget[]
+        8. (optional) constraints.apply_constraints() + trim_min_position()
+        9. Load current_holdings + latest prices → HoldingSnapshot[]
+        10. rebalance.compute_deltas() [§5.1 check inside]
+        11. (optional) tax_overlay.tag_loss_harvest()
+        12. assemble_result()
 
         Hard-fails (RuntimeError) on:
         - No active profile (plan H.1 CRITICAL-5)
+        - No model_version is both active and approved_for_allocation, or
+          more than one is (plan H.1 CRITICAL-4 / governance Section 4.4
+          Step B) — checked before signals are fetched
         - No signals / stale signals (>2 days old, plan H.1 CRITICAL-3)
-        - No active model_version (plan H.1 CRITICAL-4)
         - Empty buy universe after filtering
         - Non-convergent constraint waterfall
         - Missing prices for any held or target symbol
@@ -155,6 +164,19 @@ class PortfolioService:
 
         build_date = as_of or date.today()
 
+        # Governance Section 4.4 Step B / plan H.1 CRITICAL-4: resolve the
+        # single active+approved_for_allocation model before the signals
+        # fetch, since that query needs the gated model name to filter on.
+        # Gate condition + error messages live in production_gate.py so
+        # build.py and compose.py (the other model_versions consumer) can't
+        # drift apart on the invariant.
+        model_rows = await conn.fetch(
+            "SELECT model, version FROM model_versions "
+            "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
+        )
+        production_model = resolve_production_model(model_rows)
+        model_version: str = model_rows[0]["version"]
+
         # Step 2: signals.
         if signals_date:
             signals_rows = await conn.fetch(
@@ -162,9 +184,10 @@ class PortfolioService:
                 SELECT symbol, as_of, signal_label, prob_up,
                        expected_return, confidence, model_version
                 FROM signals
-                WHERE as_of = $1
+                WHERE model = $1 AND as_of = $2
                 ORDER BY symbol
                 """,
+                production_model,
                 signals_date,
             )
         else:
@@ -173,9 +196,11 @@ class PortfolioService:
                 SELECT symbol, as_of, signal_label, prob_up,
                        expected_return, confidence, model_version
                 FROM signals
-                WHERE as_of = (SELECT MAX(as_of) FROM signals)
+                WHERE model = $1
+                  AND as_of = (SELECT MAX(as_of) FROM signals WHERE model = $1)
                 ORDER BY symbol
-                """
+                """,
+                production_model,
             )
         if not signals_rows:
             raise RuntimeError(
@@ -192,17 +217,6 @@ class PortfolioService:
                 f"2 days before build date {build_date}. "
                 "Run the signal-generation job to refresh."
             )
-
-        # Plan H.1 CRITICAL-4: pin active model_version.
-        model_row = await conn.fetchrow(
-            "SELECT version FROM model_versions WHERE is_active = TRUE LIMIT 1"
-        )
-        if model_row is None:
-            raise RuntimeError(
-                "no active model_version; run `asx model activate <version>` first "
-                "(plan H.1 CRITICAL-4)"
-            )
-        model_version: str = model_row["version"]
 
         # Step 3: universe.
         universe_rows = await conn.fetch(

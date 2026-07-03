@@ -5,8 +5,10 @@ Covers:
   - UpstreamBlocked exception is mapped to status='blocked'
   - override_reason kwarg persists through INSERT and UPDATE
   - 'blocked' runs do NOT ping the healthcheck (so the deadman misses)
-  - Normal failure path still maps to status='failure'
+  - Normal failure maps to status='failure' AND pings healthcheck_url + '/fail'
+  - A ping exception on the '/fail' ping never masks the job's own exception
   - Happy path still maps to status='success' AND pings healthcheck
+  - Stale-row heal is cross-as_of (no as_of bind — a crashed prior-day row heals)
 """
 from __future__ import annotations
 
@@ -112,8 +114,8 @@ async def test_blocked_does_not_ping_success_url() -> None:
 
 
 @pytest.mark.asyncio
-async def test_real_failure_records_failure_status_and_no_ping() -> None:
-    """Any non-UpstreamBlocked exception → status='failure', no ping."""
+async def test_real_failure_records_failure_status_and_pings_fail_url() -> None:
+    """Any non-UpstreamBlocked exception → status='failure', pings url + '/fail'."""
     conn = MagicMock()
     conn.execute = AsyncMock()
 
@@ -138,7 +140,77 @@ async def test_real_failure_records_failure_status_and_no_ping() -> None:
 
     update_call = conn.execute.await_args_list[2]
     assert update_call.args[1] == "failure"
-    fake_get.assert_not_awaited()
+    # Explicit-failure signal: the exact URL requested ends with /fail
+    fake_get.assert_awaited_once_with("http://hc/ping/fail")
+    assert fake_get.await_args.args[0].endswith("/fail")
+
+
+@pytest.mark.asyncio
+async def test_fail_ping_exception_does_not_mask_job_exception() -> None:
+    """A flaky '/fail' ping must never swallow or replace the job's exception."""
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    fake_get = AsyncMock(side_effect=RuntimeError("healthcheck.io down"))
+    fake_client = MagicMock()
+    fake_client.get = fake_get
+
+    @asynccontextmanager
+    async def fake_async_client(*a, **kw):
+        yield fake_client
+
+    with _patch_pool(conn), patch(
+        "asxos.jobs.utils.job_monitor.httpx.AsyncClient", new=fake_async_client
+    ):
+        # The ORIGINAL ValueError propagates, not the ping's RuntimeError
+        with pytest.raises(ValueError, match="Postgres unreachable"):
+            async with JobMonitor(
+                job_name="t",
+                as_of=date(2026, 5, 28),
+                healthcheck_url="http://hc/ping",
+            ):
+                raise ValueError("Postgres unreachable")
+
+    # The /fail ping was attempted; failure status was still recorded
+    fake_get.assert_awaited_once_with("http://hc/ping/fail")
+    update_call = conn.execute.await_args_list[2]
+    assert update_call.args[1] == "failure"
+
+
+@pytest.mark.asyncio
+async def test_stale_row_heal_is_not_scoped_to_as_of() -> None:
+    """The __aenter__ heal must match ANY stale running row for this job_name,
+    regardless of its as_of — a sync_financial_statements run that crashed on
+    2026-06-27 stayed 'running' forever because the heal was scoped to each
+    later run's own as_of (date.today()) and never saw the prior-day row."""
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    fake_get = AsyncMock()
+    fake_client = MagicMock()
+    fake_client.get = fake_get
+
+    @asynccontextmanager
+    async def fake_async_client(*a, **kw):
+        yield fake_client
+
+    with _patch_pool(conn), patch(
+        "asxos.jobs.utils.job_monitor.httpx.AsyncClient", new=fake_async_client
+    ):
+        async with JobMonitor(
+            job_name="t", as_of=date(2026, 5, 28), healthcheck_url="http://hc/ping"
+        ):
+            pass
+
+    # Call 0 is the stale-row heal UPDATE
+    heal_call = conn.execute.await_args_list[0]
+    heal_sql = heal_call.args[0]
+    assert "status   = 'running'" in heal_sql
+    assert "INTERVAL '2 hours'" in heal_sql
+    # No as_of filter in the WHERE clause, and no as_of bind arg —
+    # only (sql, job_name) is passed.
+    assert "as_of" not in heal_sql
+    assert heal_call.args[1:] == ("t",)
 
 
 @pytest.mark.asyncio
