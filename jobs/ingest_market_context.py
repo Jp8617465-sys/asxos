@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from asxos.clients.fred import get_client as get_fred_client
@@ -26,6 +26,18 @@ from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.regime.classifier import CLASSIFIER_VERSION, classify
 from asxos.ingestion.eodhd import get_client as get_eodhd_client
 from asxos.jobs.utils.job_monitor import JobMonitor
+
+
+def _safe_exc_detail(exc: Exception) -> str:
+    """Exception summary safe to persist in ingestion_warnings JSONB.
+
+    str(exc) on an httpx.HTTPStatusError embeds the full request URL —
+    including the api_token query param — which would land the EODHD/FRED
+    key in the database. Persist only the class name and, when present,
+    the HTTP status code.
+    """
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return f"{type(exc).__name__}" + (f" (HTTP {status})" if status else "")
 
 
 def _to_dec(v: object) -> Decimal | None:
@@ -110,18 +122,10 @@ async def _compute_breadth(conn, as_of: date) -> dict[str, Decimal | None]:
     }
 
 
-async def _fetch_avix_history(eodhd, as_of: date, days: int = 35) -> list[Decimal]:
-    """Return recent AVIX closes (newest-first) for band-position computation."""
-    from_date = (as_of.toordinal() - days)
-    from_str = date.fromordinal(from_date).isoformat()
-    rows = await eodhd.daily_prices("AVIX.INDX.AU", from_date=from_str)
-    closes = []
-    for r in sorted(rows, key=lambda x: x.get("date", ""), reverse=True):
-        raw = r.get("adjusted_close") or r.get("close")
-        v = _to_dec(raw)
-        if v is not None:
-            closes.append(v)
-    return closes
+# EODHD ticker for the S&P/ASX 200 VIX. The original "AVIX.INDX.AU" 404s on
+# EODHD (live-probed 2026-07-03: AVIX.INDX.AU / AVIX.INDX / XVI.INDX all 404;
+# AXVI.INDX returns data) — the job hard-failed on avix=None on its first run.
+_AVIX_SYMBOL = "AXVI.INDX"
 
 
 async def _fetch_eodhd_indicators(
@@ -141,19 +145,23 @@ async def _fetch_eodhd_indicators(
         "iron_ore_62fe": None,
     }
 
-    from_str = as_of.isoformat()
+    # Fetch a trailing window, not just as_of: asx200_daily_change_pct needs
+    # the prior close, avix_5d_change_pct needs 5 rows, avix_30d_band_pos
+    # needs 30 rows. With from_date=as_of (the original code) every one of
+    # those was permanently None. 60 calendar days ≈ 40+ trading rows.
+    from_str = (as_of - timedelta(days=60)).isoformat()
 
     async def _latest(symbol: str) -> list[dict]:
         try:
             rows = await eodhd.daily_prices(symbol, from_date=from_str)
             return sorted(rows, key=lambda x: x.get("date", ""), reverse=True)
         except Exception as exc:
-            warnings.append({"source": symbol, "status": "fetch_failed", "detail": str(exc)})
+            warnings.append({"source": symbol, "status": "fetch_failed", "detail": _safe_exc_detail(exc)})
             return []
 
     asx200_rows, avix_rows, audusd_rows, vix_rows, iron_rows = await asyncio.gather(
         _latest("AXJO.INDX"),
-        _latest("AVIX.INDX.AU"),
+        _latest(_AVIX_SYMBOL),
         _latest("AUDUSD.FOREX"),
         _latest("VIX.US"),
         _latest("IRON.COMM"),
@@ -190,7 +198,7 @@ async def _fetch_eodhd_indicators(
                         (avix_vals[0] - lo) / (hi - lo)
                     ).quantize(Decimal("0.000001"))
     else:
-        warnings.append({"source": "AVIX.INDX.AU", "status": "no_data", "detail": "no rows returned"})
+        warnings.append({"source": _AVIX_SYMBOL, "status": "no_data", "detail": "no rows returned"})
 
     # AUD/USD
     if audusd_rows:
@@ -228,7 +236,7 @@ async def _fetch_fred_indicators(as_of: date) -> tuple[dict[str, Decimal | None]
             if val is None:
                 warnings.append({"source": series_id, "status": "no_data", "detail": "all recent values missing"})
         except Exception as exc:
-            warnings.append({"source": series_id, "status": "fetch_failed", "detail": str(exc)})
+            warnings.append({"source": series_id, "status": "fetch_failed", "detail": _safe_exc_detail(exc)})
 
     await asyncio.gather(
         _get("BAMLH0A0HYM2", "us_hy_oas"),
