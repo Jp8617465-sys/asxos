@@ -69,20 +69,24 @@ async def _compute_breadth(conn, as_of: date) -> dict[str, Decimal | None]:
             HAVING COUNT(*) >= 180
         ),
         highs10 AS (
+            -- One row per symbol (window extremes). Grouping by (symbol, close)
+            -- here fans the join out ~5x and inflates every denominator — the
+            -- job's first live run returned total=9058 against a 1874-symbol
+            -- universe before this was fixed.
             SELECT p.symbol,
-                   MAX(p.high) = p.close AS new_high,
-                   MIN(p.low)  = p.close AS new_low
+                   MAX(p.high) AS win_high,
+                   MIN(p.low)  AS win_low
             FROM   prices p
             JOIN   universe u ON u.symbol = p.symbol AND u.is_active
             WHERE  p.dt BETWEEN ($1 - INTERVAL '10 days')::date AND $1
-            GROUP  BY p.symbol, p.close
+            GROUP  BY p.symbol
         )
         SELECT
             COUNT(l.symbol)                                              AS total,
-            COALESCE(SUM(CASE WHEN l.close > m50.avg_close THEN 1 END), 0) AS above_50,
-            COALESCE(SUM(CASE WHEN l.close > m200.avg_close THEN 1 END), 0) AS above_200,
-            COALESCE(SUM(CASE WHEN h.new_high THEN 1 END), 0)           AS new_highs,
-            COALESCE(SUM(CASE WHEN h.new_low THEN 1 END), 0)            AS new_lows
+            COALESCE(SUM(CASE WHEN l.close > ma50.avg_close THEN 1 END), 0) AS above_50,
+            COALESCE(SUM(CASE WHEN l.close > ma200.avg_close THEN 1 END), 0) AS above_200,
+            COALESCE(SUM(CASE WHEN l.close >= h.win_high THEN 1 END), 0)    AS new_highs,
+            COALESCE(SUM(CASE WHEN l.close <= h.win_low THEN 1 END), 0)     AS new_lows
         FROM latest l
         LEFT JOIN ma50  ON ma50.symbol  = l.symbol
         LEFT JOIN ma200 ON ma200.symbol = l.symbol
