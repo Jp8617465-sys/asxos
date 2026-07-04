@@ -1,3 +1,10 @@
+> **HISTORICAL — SUPERSEDED (banner added 2026-07-04).** This document evaluated and
+> chose a Hetzner-VPS / systemd-timers / local-Postgres architecture. The system as
+> built runs on **Render cron services + Supabase Postgres** — i.e., the options this
+> document scored as "losers" in §1. The *principles* (hard-fail startup, drift-visible
+> scheduling, one source of truth for what runs) carried forward into `CLAUDE.md`; the
+> *stack decisions* here are history. Live deployment truth: `render.yaml` + `CLAUDE.md`.
+
 # Phase 4 architecture — single-user investment intelligence OS
 
 This document specifies the day-one architecture for the new repository. The system has exactly one user, runs on one VPS, has no auth, no frontend, no notifications routing, and no compliance posture. It exists to support three workflows for that user: a daily 7am brief, ad-hoc CLI investigation, and a decisions journal. Everything else is deferred.

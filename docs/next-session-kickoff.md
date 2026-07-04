@@ -1,3 +1,10 @@
+> **⚠️ STALE — do not paste into a new Claude session (banner added 2026-07-04).**
+> This kickoff reflects 2026-06-28 state: an old branch, migrations 0029/0030, and
+> `REQUIRED_MIGRATIONS = 84`. Current: migrations through 0036, `REQUIRED_MIGRATIONS = 90`
+> (`asxos/api/main.py:15`). Session entry is now `CLAUDE.md` → `docs/session-handoff-2026-07-04.md`
+> → `docs/README.md`. The "Conventions to honor" section below is still broadly correct;
+> everything under "Branch / PR state" and "Already-applied DB state" is superseded.
+
 # asxos — next-session kickoff prompt
 
 Paste the block below verbatim into a new Claude Code session to continue this work.

@@ -222,7 +222,7 @@ been deployed. **2 remain suspended pending `FRED_API_KEY`:**
   services. Until then, API/MCP creation mirroring render.yaml is the apply
   step, followed by a live-state drift diff.
 - (g) Low, code follow-up (security-engineer, 2026-07-03 invalidation-fix
-  review): the copy-pasted `_send_alert()` in the five alert jobs
+  review): the copy-pasted `_send_alert()` in the six alert jobs
   (`check_us_positions`, `check_au_positions`, `check_thesis_invalidations`,
   `check_model_staleness`, `check_cron_health`, `validate_price_data`)
   interpolates condition/alert text into `<pre>{body}</pre>` without
@@ -290,10 +290,11 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
 
 ## P1 — spec-governed / correctness
 
-- **TC-20 Div 296 cost-base reset (s 296-50)** — unimplemented, not just untested;
-  `div296_reset_date` config field is consumed by nothing. Requires a
-  spec-amendment-governed change (CLAUDE.md non-negotiable #8 + `tax-spec-conformance`).
-  Tracked in CLAUDE.md "Known coverage gaps".
+- ~~**TC-20 Div 296 cost-base reset (s 296-50)**~~ — **CLOSED** (spec v1.5).
+  Implemented in `positions.py` (election path via `div296_realised_gains` from
+  `cost_base_div296`) and tested in `tests/test_tax_positions.py` TC-20 section
+  (`:354-413`). The "## TC-20 kickoff" section below is a historical record only —
+  do not re-run it.
 - ~~**TC-21 45-day franking warning (s 207-145)**~~ — **CLOSED** (session
   2026-06-29). Implemented in `dividends.py::check_45_day_warnings_smsf` + wired into
   `tax_view_smsf()`. Four tests cover the positive case and three boundary cases.
@@ -341,6 +342,11 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
 ---
 
 ## TC-20 kickoff (next session)
+
+> **COMPLETED — HISTORICAL RECORD (banner added 2026-07-04).** TC-20 was implemented
+> and tested (spec v1.5); see `asxos/domain/tax/positions.py` + `tests/test_tax_positions.py`
+> TC-20 section. Do NOT re-run this kickoff. Retained for the worked example and
+> process shape only.
 
 **Branch:** create a new `claude/**` branch from `main` after PR #9 merges.
 

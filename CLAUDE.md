@@ -119,12 +119,14 @@ any "X is covered" claim — including this file. Current known gaps:
   + 2% (TC-11 $1,950, asserted end-to-end); SMSF = 15% on the ECPI-adjusted base,
   Medicare 0. One residual item (not blocking): the cents-quantization of the CGT
   ledger lines is a documented choice (bases keep full precision). Previously
-  unverified SMSF ECPI-on-CGT stacking path **closed by TC-24** (spec v1.4, §5.2,
+  unverified SMSF ECPI-on-CGT stacking path **closed by TC-24** (added spec v1.4; current spec v1.5, §5.2,
   §4.2): $10,000 discountable gain, 60% pension → net gain $6,666.67, taxable base
   $2,666.67, fund tax $400.00. See `tests/test_tax_positions.py::test_tc24_smsf_ecpi_stacks_with_cgt_discount`.
-- **Div 296 TC-20 (cost-base reset, s 296-50) is unimplemented**, not merely
-  untested. `div296_reset_date` is a config field nothing consumes yet. Building
-  it is a spec-governed change (non-negotiable #8 — requires a spec amendment).
+- **Div 296 TC-20 (cost-base reset, s 296-50) is IMPLEMENTED and tested** (spec
+  v1.5 §6.4/§6.5). Election path computes Div 296 earnings from `cost_base_div296`
+  gains; non-election falls back to ordinary NCG; data-driven depreciated-lot
+  warnings included. See `asxos/domain/tax/positions.py:117,155-170,191-213` and
+  the TC-20 tests in `tests/test_tax_positions.py:354-413`.
 - **TC-21 (45-day franking warning, s 207-145) is now implemented** in
   `asxos/domain/tax/dividends.py::check_45_day_warnings` + wired into
   `tax_view_smsf()`. Four tests in `test_tax_positions.py` cover the positive

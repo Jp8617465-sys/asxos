@@ -8,7 +8,7 @@ Single user. No auth, no frontend, no multi-tenancy. ML signals, SHAP explanatio
 
 - Python 3.12, FastAPI, Postgres 16 (Supabase).
 - LightGBM Model A producing daily signals with inline SHAP factors.
-- Eight Render cron services driving the daily pipeline, monitored by Healthchecks.io.
+- Render cron services driving the daily/weekly pipelines (see `render.yaml` for the authoritative list), monitored by Healthchecks.io.
 - All operations driven through Claude Code with MCP servers (Render, Supabase, GitHub).
 - No Render dashboard clicks for routine changes — `make check-drift` enforces parity between `render.yaml` and deployed state.
 
@@ -19,7 +19,7 @@ See `docs/foundation/` for the full diagnostic, design, and execution planning:
 - `phase-1-audit.md` — why we rebuilt
 - `phase-2-survives-the-fire.md` — durable knowledge carried forward
 - `phase-3-product-redefinition.md` — single-user reframe
-- `phase-4-architecture-system-architect.md` — the chosen architecture
+- `phase-4-architecture-system-architect.md` — the original architecture evaluation (HISTORICAL: it chose a VPS/systemd/local-Postgres design later superseded by the live Render/Supabase stack — see the banner in that file)
 - `phase-5-milestones.md` — M1 through M12 milestone definitions
 - `phase-a-tax-math-verification.md` — tax code defect audit
 - `phase-b-failure-postmortem.md` — root cause of the previous system
@@ -38,7 +38,7 @@ See `docs/foundation/` for the full diagnostic, design, and execution planning:
 5. **Centralised fail-fast env var loading.** `asxos/config.py` reads every required var at startup and raises on missing.
 6. **Smaller test suite.** ~400 load-bearing tests, not 5,000.
 7. **Consolidation milestones.** Every fourth or fifth milestone is verify-and-tidy, not feature-add.
-8. **Smaller stack.** Eight cron services, ten tables, one email provider, one monitoring deadman switch.
+8. **Smaller stack.** One email provider, one monitoring deadman switch, one hosting platform. (The original "eight cron services, ten tables" target has grown with the system — `render.yaml` and `migrations/` are the live counts; the principle that survives is: no component without an owner and a deadman.)
 9. **No graceful warnings in infrastructure code.** Fail loudly.
 10. **Spec-first for non-trivial domain logic.** See `docs/foundation/spec/tax-alpha.md`.
 
