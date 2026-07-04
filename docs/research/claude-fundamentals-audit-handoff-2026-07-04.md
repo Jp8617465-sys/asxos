@@ -1,5 +1,17 @@
 # asxos fundamentals audit handoff for Claude Code
 
+**Status:** historical / provenance record
+**Scope:** whole-repo fundamentals audit (origin hypothesis)
+**Last verified:** 2026-07-04
+**Read priority:** background
+**Superseded by:** state claims → `docs/session-handoff-2026-07-04.md`; code claims verified into `docs/live-readiness-audit-plan-2026-07-04.md`; language strategy (§6) → consolidated into `docs/executable-roadmap-2026-07-04.md` §H (that is the source of truth, not this doc's §6)
+
+> **HISTORICAL — do not action from this file (banner added 2026-07-04).** Its code
+> claims were independently verified TRUE by the live-readiness audit; its state
+> claims (Model A dispute, Render provisioning) are superseded; its language-strategy
+> section (§6) is the earlier form of the roadmap §H verdict. The doc's own metadata
+> line below is point-in-time.
+
 **Date:** 2026-07-04  
 **Audience:** Claude Code / future implementation sessions  
 **Status:** research and planning only; no code changes implied  

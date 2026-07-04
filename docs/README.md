@@ -39,7 +39,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Backlog / session state | `next-session-backlog.md` + the newest `session-handoff-*.md` (handoff outranks backlog on priority; backlog outranks handoff on itemized detail) |
 | Agent routing | `../CLAUDE.md` "Subagents — delegation policy" tables are the source; a lint-enforced transcription is planned in a later process PR |
 | Agent DB role scoping | design only, not implemented — `model-a-audit-and-extension-plan-2026-07-04.md` Part B + `live-readiness-audit-plan-2026-07-04.md` §7 |
-| Rust/Go strategy | planned — not in the repo; verdict "not now" in `executable-roadmap-2026-07-04.md` §H + `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
+| Language / stack strategy (incl. Rust/Go) | `executable-roadmap-2026-07-04.md` §H is the single source (verdict "not now"; Python primary; Rust later for kernels only; Go rejected-for-now; adopt uv). Rust/Go are planned — not in the repo. Older language notes (e.g. `research/claude-fundamentals-audit-handoff-2026-07-04.md` §6) defer to §H. |
 
 ## If you are about to… read this first
 | About to… | Read |
@@ -59,11 +59,11 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 ## Historical / background (do not treat as current)
 - `foundation/phase-*.md` — rebuild history. `foundation/phase-4-architecture-system-architect.md` describes an abandoned VPS/systemd/local-Postgres design, superseded by the live Render/Supabase stack (see its banner).
 - `audit-2026-06-27.md`, `strategy/*` — dated snapshots.
+- `research/repo-navigation-audit-and-plan-prompt-2026-07-04.md` — HISTORICAL/executed: the origin of this docs map (shipped in PR #16). Kept as the map's rationale record.
+- `research/claude-fundamentals-audit-handoff-2026-07-04.md` — HISTORICAL: the original fundamentals hypothesis. State claims superseded by `session-handoff-2026-07-04.md`; code claims verified into `live-readiness-audit-plan-2026-07-04.md`; language strategy (§6) defers to `executable-roadmap-2026-07-04.md` §H.
 
 ## Stale — do not use as a session entry point
 - `next-session-kickoff.md` — references a three-migration-epochs-old branch/state (see its banner).
 
 ## Branch-only — NOT yet on `main` (land them on `main` when their work completes)
-- `research/claude-fundamentals-audit-handoff-2026-07-04.md` — branch `claude/fundamentals-audit-report-2026-07-04` (PR #15); not on `main`.
-- `research/repo-navigation-audit-and-plan-prompt-2026-07-04.md` — same branch (PR #15); not on `main`.
 - `asxos-live-readiness-audit-2026-07-04.md` — branch `claude/fundamentals-live-readiness-audit-2026-07-04`; not on `main`.
