@@ -8,6 +8,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 - `docs/foundation/BUILD_GUIDE.md` — the executable manual for M1 through M12.
 - `docs/foundation/phase-b-failure-postmortem.md` — the lessons. The previous repo died of these; this repo encodes the fixes.
 - `docs/foundation/spec/tax-alpha.md` — tax-module source of truth. Implementation reads from this; tests cite section numbers.
+- `docs/README.md` — the docs map / source-of-truth index. Points to the authoritative doc for each area (deployment, schema, tax, governance, research store, Model A, backlog). Start here when unsure which doc governs.
 
 ## Non-negotiable rules
 

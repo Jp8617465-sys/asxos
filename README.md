@@ -4,6 +4,18 @@ Personal investment intelligence OS for ASX equities.
 
 Single user. No auth, no frontend, no multi-tenancy. ML signals, SHAP explanations, tax-alpha view over positions, daily morning brief by email.
 
+## Current operating guide
+
+Start here — this README is a stable overview, not a live operating map:
+
+- **Agent guide + non-negotiables:** `CLAUDE.md`
+- **Docs map / source-of-truth index:** `docs/README.md`
+- **Current session handoff:** `docs/session-handoff-2026-07-04.md`
+- **Live deployment source:** `render.yaml` (reconciled via Render/Supabase MCP)
+- **Canonical schema:** `migrations/`
+
+The "Foundation documents" and "Lessons" sections below are background/history; some foundation docs describe an earlier architecture and carry supersede banners. Check `docs/README.md` status labels before treating any doc as current.
+
 ## Architecture
 
 - Python 3.12, FastAPI, Postgres 16 (Supabase).

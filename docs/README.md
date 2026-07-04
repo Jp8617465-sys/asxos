@@ -1,0 +1,69 @@
+# asxos docs map
+
+**Status:** current
+**Scope:** whole repo — navigation index / source-of-truth map
+**Last verified:** 2026-07-04
+**Read priority:** read first
+**Superseded by:** N/A
+
+Where truth lives. Status labels used across the repo: `current` | `historical` | `superseded` | `stale` | `branch-only`.
+**If a doc contradicts this map, trust the "Authoritative source" column below and fix the doc.**
+
+**New session, unsure where to start?** Read `../CLAUDE.md`, then the newest `session-handoff-*.md`, then this map — then stop and ask. Do not invent your own entry point.
+
+**Handoffs live on `main`.** Any doc a future session must read has to be committed to `main`. A handoff that lives only on a feature branch or in plan-mode is a process defect — this repo has already lost one that way (`research/session-handoff.md:6-9`).
+
+---
+
+## Read first, in order
+1. `../CLAUDE.md` — agent guide + non-negotiables (note temporary rule **#11**: Model A quarantine)
+2. `session-handoff-2026-07-04.md` — the live Model A reliability dispute (P0, unresolved)
+3. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
+4. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
+5. `next-session-backlog.md` — itemized backlog (top half current; the 2026-06-28 half is partially stale — see its banners)
+6. `executable-roadmap-2026-07-04.md` — the current sequenced roadmap (5 workstreams + PR plan)
+
+## Authoritative source by area
+| Area | Authoritative source |
+|---|---|
+| Repo overview | `../README.md` (pointers only — no live counts) |
+| Claude session entry | `../CLAUDE.md` → newest `session-handoff-*.md` → this map |
+| Live deployment | `../render.yaml` + live Render via MCP (`make check-drift`). No Blueprint is connected — `render.yaml` is the reconciliation target, not auto-applied. |
+| Schema / migrations | `../migrations/` + live `supabase_migrations.schema_migrations` (must equal `REQUIRED_MIGRATIONS` in `../asxos/api/main.py`). `public.schema_migrations` is a dead legacy table — never read it. |
+| Tax math | `foundation/spec/tax-alpha.md` (v1.5 — TC-20 is implemented; spec-first per non-negotiable #8) |
+| Governance | `proposals/governance-first-architecture-2026-06-30.md` + `../.claude/rules/portfolio-conventions.md` |
+| Research store | `../migrations/0027_research_store.sql` for schema; the **live DB** for state (`research/research-store-schema.md`'s "applied-empty" header is a 2026-06-22 snapshot) |
+| Model A / alpha evidence | live `signals` + `../asxos/domain/research/alpha_eval.py`; audit design in `model-a-audit-and-extension-plan-2026-07-04.md` Part A; dispute status in `session-handoff-2026-07-04.md`; `research/alpha-research-audit.md` is the pre-training-period diagnosis (not live-signal truth) |
+| Portfolio invariants | `../.claude/rules/portfolio-conventions.md` |
+| Risk | none built (v1 is risk-blind by design — `../.claude/rules/portfolio-conventions.md`); design notes in `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
+| Backlog / session state | `next-session-backlog.md` + the newest `session-handoff-*.md` (handoff outranks backlog on priority; backlog outranks handoff on itemized detail) |
+| Agent routing | `../CLAUDE.md` "Subagents — delegation policy" tables are the source; a lint-enforced transcription is planned in a later process PR |
+| Agent DB role scoping | design only, not implemented — `model-a-audit-and-extension-plan-2026-07-04.md` Part B + `live-readiness-audit-plan-2026-07-04.md` §7 |
+| Rust/Go strategy | planned — not in the repo; verdict "not now" in `executable-roadmap-2026-07-04.md` §H + `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
+
+## If you are about to… read this first
+| About to… | Read |
+|---|---|
+| Run a migration / `ALTER` / `DROP` | `db-shared-project-audit-2026-06-28.md` §2 (mandatory `pg_depend` pre-apply check; asxos is a 43-table tenant in a shared ~165-table project) |
+| Touch tax math | `foundation/spec/tax-alpha.md` + CLAUDE.md #8 (spec amendment first) |
+| Touch the portfolio / allocator | `../.claude/rules/portfolio-conventions.md` |
+| Work on the research store / factors | `research/research-store-schema.md` + live-DB verification |
+| Act on a Model A signal | **STOP** — CLAUDE.md rule #11 (Model A is quarantined) |
+
+## Current audits / plans (2026-07-04)
+- `session-handoff-2026-07-04.md` — the P0 Model A dispute + what to do next
+- `live-readiness-audit-plan-2026-07-04.md` — live-state audit + docs-cleanup plan
+- `model-a-audit-and-extension-plan-2026-07-04.md` — Model A audit design + agent DB scoping (Part B) + Rust/Go RFC (Part C); holds the verbatim detail the roadmap only sequences
+- `executable-roadmap-2026-07-04.md` — the sequencer (5 workstreams + PR plan)
+
+## Historical / background (do not treat as current)
+- `foundation/phase-*.md` — rebuild history. `foundation/phase-4-architecture-system-architect.md` describes an abandoned VPS/systemd/local-Postgres design, superseded by the live Render/Supabase stack (see its banner).
+- `audit-2026-06-27.md`, `strategy/*` — dated snapshots.
+
+## Stale — do not use as a session entry point
+- `next-session-kickoff.md` — references a three-migration-epochs-old branch/state (see its banner).
+
+## Branch-only — NOT yet on `main` (land them on `main` when their work completes)
+- `research/claude-fundamentals-audit-handoff-2026-07-04.md` — branch `claude/fundamentals-audit-report-2026-07-04` (PR #15); not on `main`.
+- `research/repo-navigation-audit-and-plan-prompt-2026-07-04.md` — same branch (PR #15); not on `main`.
+- `asxos-live-readiness-audit-2026-07-04.md` — branch `claude/fundamentals-live-readiness-audit-2026-07-04`; not on `main`.
