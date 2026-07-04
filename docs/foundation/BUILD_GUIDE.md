@@ -1,5 +1,11 @@
 # asxos build guide
 
+**Status:** current
+**Scope:** executable manual (M1–M12)
+**Last verified:** 2026-07-04
+**Read priority:** read first
+**Superseded by:** N/A
+
 A working manual for the rebuild from "nothing" to a working personal investment OS. Read in order. Each section is meant to be executable end-to-end with Claude Code, with the design rationale already settled in `phase-4-architecture-system-architect.md` and `phase-5-milestones.md`. Cross-references to those documents are deliberate — this guide does not re-litigate decisions.
 
 ---

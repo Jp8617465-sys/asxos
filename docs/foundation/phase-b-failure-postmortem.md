@@ -1,5 +1,11 @@
 # Phase B — Failure postmortem
 
+**Status:** current
+**Scope:** lessons / postmortem (the fixes this repo encodes)
+**Last verified:** 2026-07-04
+**Read priority:** read first
+**Superseded by:** N/A
+
 Date: 2026-05-19. Subject: the existing ASX Portfolio OS in its current non-functioning state. Method: reading the commit history from 2026-04-01 to 2026-05-13, the `render.yaml` configuration, the FastAPI lifespan handler, the schema migration sequence, the CI workflows, and the env var distribution. The postmortem describes what broke and why; it does not editorialise about whether the previous architecture was sound.
 
 ## Proximate cause: the API claims healthy while every dependency is dead

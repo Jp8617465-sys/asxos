@@ -68,9 +68,9 @@ MUST BE USED cues that bias automatic delegation toward the right agent.
 
 Added after the system-architect scoping pass. Both are **advisory, read-only**
 (`Read, Glob, Grep`), and exist for one reason: maintaining spec↔test↔code
-conformance — the gap the red team exposed (§7 hidden as "untested", TC-20/21
-unimplemented). They are NOT runtime components and never touch the personal-advice
-firewall.
+conformance — the gap the red team exposed (§7 hidden as "untested"; TC-20/21 once
+hid as "untested" and have since been implemented). They are NOT runtime components
+and never touch the personal-advice firewall.
 
 - **tax-spec-conformance** — owns `docs/foundation/spec/tax-alpha.md` ↔
   `asxos/domain/tax/*` ↔ `tests/test_tax_*`. Flags spec sections with no covering
