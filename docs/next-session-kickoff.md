@@ -1,3 +1,9 @@
+**Status:** stale
+**Scope:** old session prompt
+**Last verified:** 2026-07-04
+**Read priority:** archive — do not use as a session entry point
+**Superseded by:** `CLAUDE.md` + `docs/session-handoff-2026-07-04.md` + `docs/README.md`
+
 > **⚠️ STALE — do not paste into a new Claude session (banner added 2026-07-04).**
 > This kickoff reflects 2026-06-28 state: an old branch, migrations 0029/0030, and
 > `REQUIRED_MIGRATIONS = 84`. Current: migrations through 0036, `REQUIRED_MIGRATIONS = 90`

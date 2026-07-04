@@ -1,5 +1,11 @@
 # Research-store build — session handoff (canonical state)
 
+**Status:** partially stale (row-count/state tables superseded by the live DB)
+**Scope:** research store
+**Last verified:** 2026-07-04
+**Read priority:** read if doing research-store work
+**Superseded by:** live DB for row-state; see the current session-handoff for priority
+
 **Updated:** 2026-06-25 · **Supabase project:** asx-portfolio-os (`gxjqezqndltaelmyctnl`)
 · **Branch:** `claude/kind-mendel-cvpxh7`
 

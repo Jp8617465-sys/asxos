@@ -1,5 +1,11 @@
 # Session handoff — 2026-07-04
 
+**Status:** current
+**Scope:** whole repo / session handoff
+**Last verified:** 2026-07-04
+**Read priority:** read first
+**Superseded by:** N/A
+
 Read this before doing anything else in this repo. It supersedes the tone (not
 the facts) of `docs/next-session-backlog.md`'s older entries — that file's
 itemized backlog is still accurate line-by-line, but this document is the

@@ -1,3 +1,9 @@
+**Status:** historical / superseded
+**Scope:** architecture (design rationale only — not the live stack)
+**Last verified:** 2026-07-04
+**Read priority:** background only
+**Superseded by:** `render.yaml` + `CLAUDE.md`
+
 > **HISTORICAL — SUPERSEDED (banner added 2026-07-04).** This document evaluated and
 > chose a Hetzner-VPS / systemd-timers / local-Postgres architecture. The system as
 > built runs on **Render cron services + Supabase Postgres** — i.e., the options this

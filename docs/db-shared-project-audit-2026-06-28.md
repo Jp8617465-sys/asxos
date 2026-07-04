@@ -1,5 +1,11 @@
 # Shared Supabase project audit + migration-process hardening (2026-06-28)
 
+**Status:** current
+**Scope:** shared-Supabase-project hazards + pre-migration procedure
+**Last verified:** 2026-07-04
+**Read priority:** read before any migration / ALTER / DROP (mandatory `pg_depend` check, §2)
+**Superseded by:** N/A
+
 Triggered by migration 0029: the live pre-apply catalog check found a dependent view
 (`stock_universe`) that no file-based review could have seen, because **asxos's schema
 is a 43-table tenant inside a ~165-table Supabase project** (`asx-portfolio-os`,

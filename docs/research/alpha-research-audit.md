@@ -1,5 +1,11 @@
 # Alpha-research audit — Model A (v1_5) & the portfolio pipeline
 
+**Status:** current (a pre-training-period diagnosis — not live-signal truth)
+**Scope:** Model A / alpha evidence
+**Last verified:** 2026-07-04
+**Read priority:** read alongside the Model A reliability dispute (CLAUDE.md #11)
+**Superseded by:** N/A — do not treat its pre-training numbers as decision-grade for the live signal
+
 **Date:** 2026-06-22 · **Scope:** signal generation + portfolio construction · **Author:** quant audit (Prompt 2, Phase 1)
 **Status:** DIAGNOSIS ONLY. No model, threshold, or pipeline code was changed. Two decisions are left open for you at the end.
 

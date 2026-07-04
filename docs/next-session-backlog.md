@@ -1,5 +1,11 @@
 # asxos — next-session backlog (updated 2026-07-04)
 
+**Status:** current (top half) / partially stale (the 2026-06-28 half — see inline banners)
+**Scope:** backlog
+**Last verified:** 2026-07-04
+**Read priority:** read after the current session-handoff
+**Superseded by:** N/A
+
 ---
 
 ## P(-1) — STOP, read `docs/session-handoff-2026-07-04.md` before anything below

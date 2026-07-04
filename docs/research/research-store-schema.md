@@ -1,5 +1,11 @@
 # Research data store — schema (APPLIED — EMPTY, PENDING DATA VALIDATION)
 
+**Status:** schema current; the "applied-empty" header is a 2026-06-22 snapshot superseded by the live DB
+**Scope:** research store
+**Last verified:** 2026-07-04
+**Read priority:** read if doing research-store work
+**Superseded by:** live DB for row-state (4 of 7 `rs_*` tables now populated)
+
 **Schema applied:** 2026-06-22 · **Source-availability probe:** 2026-06-24 · **Status:** DDL in `migrations/0027_research_store.sql` is applied (`schema_migrations` count=81). **All `rs_*` tables hold 0 rows.** The schema is **not validated with populated data** — constraints, idempotent UPSERTs, identity keys, and sample inserts have not been exercised. Treat this as *applied-empty*, **not** "done" or "closed".
 
 The research store is the **point-in-time, survivorship-free** foundation for long-horizon factor research (Layer-1 alpha in the operating-model architecture). It is **separate** from the production tables (`signals`, `rebalance_runs`, `theses`) so research is reproducible and leak-free. Building it is the audit's #1 prerequisite — without it, value/quality factor research is fitting one month of half-empty data.

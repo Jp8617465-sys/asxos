@@ -1,5 +1,11 @@
 # asxos test-coverage backlog (from audit 2026-06-27)
 
+**Status:** heavily partially stale (several P0/P1 gaps now covered — verify against the suite)
+**Scope:** test-coverage backlog
+**Last verified:** 2026-07-04
+**Read priority:** verify against `pytest --co -q` before trusting any entry
+**Superseded by:** N/A (living backlog — re-verify per item)
+
 _33 confirmed untested gaps from the full audit (docs/audit-2026-06-27.md). Prioritised for a future coverage sprint. Mock pattern per api-conventions §Testing: mock `asxos.db.acquire` and pass synthetic asyncpg Record-shaped rows (see tests/test_brief_v2_sections.py:35 `_make_row`)._
 
 **P0 = `api/main.py` hard-fail startup** — CLAUDE.md non-negotiable #1, zero tests on either the success path or the RuntimeError branches (migration drift, missing model artefact). Highest-value gap.

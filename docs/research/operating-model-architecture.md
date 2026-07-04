@@ -1,5 +1,11 @@
 # Operating-model architecture — how a fund / quant / PM would run asxos
 
+**Status:** prescriptive core current; the point-in-time state snapshots are stale
+**Scope:** research strategy
+**Last verified:** 2026-07-04
+**Read priority:** background / read if doing factor work
+**Superseded by:** N/A (verify its state claims against the live DB)
+
 **Date:** 2026-06-22 · **Status:** architecture / strategy (no code changed)
 **Grounding:** built on this session's verified findings — the model is a **5-day**
 signal (rank-IC ~0.095, not robust, reverses by 21d, concentrated in illiquid
