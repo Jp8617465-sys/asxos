@@ -73,6 +73,34 @@ Row counts and job history are **unchanged** from the 05:30 UTC audit (`docs/asx
   6. Watch the known chain-ordering defect: on 6/27, corporate actions ran 100 minutes into a 20-minute slot and PIT fired mid-upstream (`docs/asxos-live-readiness-audit-2026-07-04.md` §3). A full statements fan-out will likely overrun its slot again tonight — if PIT/factors consume partial upstream data, that is the fixed-offset defect, not a new bug. Design dependency gating; do not hotfix tonight.
 - A scheduled check-in was armed from this session to re-run these queries after tonight's chain completes and report the outcome.
 
+### 2.1 Verified results — post-chain check-in (queried live 2026-07-04 18:00 UTC)
+
+The §2 body above is the ~06:00 pre-chain snapshot. Below is the verified outcome after the weekly chain fired (16:10–17:30 UTC slots). **Headline: the chain populated `rs_factor_scores` for the first time ever, but it is not decision-grade — the fixed-offset chain-ordering defect fired exactly as predicted (checklist item 6), so factors were computed on incomplete upstream, and the two sync jobs were still running at 18:00.**
+
+**`job_runs` (today's chain):**
+
+| Job (slot) | Status @18:00 | Detail |
+|---|---|---|
+| `sync_security_master` (16:10) | **success** | 4,371 rows, 16:10→16:20 |
+| `sync_corporate_actions` (16:30) | **still running** | ~1h30m into a 20-min slot; `rs_corporate_actions` 41,996 and climbing |
+| `sync_financial_statements` (16:50) | **still running** | ~1h10m elapsed, alive (no SIGKILL/OOM repeat) but massively overrunning its slot; 514 rows / **9 symbols** and climbing — crash-fix + completeness verdict **deferred until it finishes** |
+| `derive_fundamentals_pit` (17:10) | success | 53 rows / 10 symbols, max `knowledge_date` 2025-09-26 — **ran against incomplete upstream** (statements still running) |
+| `compute_factor_scores` (17:30) | success | **first run ever**; 10 rows written — but computed over only the ~10 symbols that had statements |
+
+**Row counts (18:00, still moving as the syncs run):** `rs_security_master` 4,373 · `rs_corporate_actions` 41,996 · `rs_financial_statements` 514 rows / **9 symbols** (was 344/8 at 05:30) · `rs_fundamentals_pit` 54 rows / 10 symbols · `rs_factor_scores` **10** (`fs_v1`, as_of 2026-07-02, 10 symbols) · `rs_index_membership` 0 · `rs_estimates` 0.
+
+**Factor-panel join (`rs_factor_scores × prices` at `fs_v1`): 9 rows** (up from 0 at 05:30).
+
+**`eval_alpha_factors` readiness:** the panel is now technically non-empty (9 rows), so `jobs/eval_alpha_factors.py:77-86` would **no longer hard-fail on an empty panel** — but **9 symbols is nowhere near usable**; any IC/decile output would be meaningless. This session cannot run it (sandbox has no `DATABASE_URL`), so this is a **join-based readiness report, not an execution** — and the readiness verdict is: **do NOT draw factor conclusions.** The factor sleeve stays **exploratory**, not candidate/promoted.
+
+**Verdict / what this changes:**
+1. **Progress:** the chain now runs end-to-end and produces a factor panel — the first time `rs_factor_scores`/the join have been non-zero.
+2. **The fixed-offset chain-ordering defect is empirically reconfirmed:** `derive_fundamentals_pit` (17:10) and `compute_factor_scores` (17:30) both completed "success" while `sync_corporate_actions` and `sync_financial_statements` were **still running** → factors were built on ~10 symbols of partial statements. The "success" flags are garbage-in, not data completeness — do not trust them. This is the dependency-gating design item (not a hotfix), now with live evidence.
+3. **Statements sync is still unproven:** it did not repeat the 6/27 SIGKILL/OOM crash (still alive at 1h10m), but it overruns its 20-min slot by 3×+ and had only reached 9 symbols by 18:00. Whether the full ~2,382-symbol fan-out completes cleanly is **still open** — re-check after it finishes.
+4. **Re-check needed:** once `sync_financial_statements` completes, `compute_factor_scores` must be **re-run** so factors reflect the full statements set; only then is a panel-join count meaningful. Today's 9-row join reflects mid-flight partial data.
+
+**Do-not (reaffirmed):** do not run `eval_alpha_factors` conclusions on the 9-symbol panel; do not treat the 17:10/17:30 "success" flags as completeness; do not hotfix the chain-ordering tonight (design dependency-gating per the roadmap); Model A remains quarantined (rule #11), independent of this.
+
 ---
 
 ## 3. Current documentation map (orchestration-prompt deliverable 1)
