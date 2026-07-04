@@ -101,6 +101,28 @@ The §2 body above is the ~06:00 pre-chain snapshot. Below is the verified outco
 
 **Do-not (reaffirmed):** do not run `eval_alpha_factors` conclusions on the 9-symbol panel; do not treat the 17:10/17:30 "success" flags as completeness; do not hotfix the chain-ordering tonight (design dependency-gating per the roadmap); Model A remains quarantined (rule #11), independent of this.
 
+### 2.2 Second check-in (queried live 2026-07-04 20:19 UTC) — statements sync stalled again
+
+**Headline: `sync_corporate_actions` completed cleanly, but `sync_financial_statements` has stalled/zombied at ~9 symbols — the 6/27 crash pattern has recurred. The factor panel is unchanged (still 9 rows of partial data). The data foundation is still not working end-to-end.**
+
+| Job | Status @20:19 | Detail |
+|---|---|---|
+| `sync_corporate_actions` (16:30) | ✅ **success** | finished 18:10 (~1h40m), 41,905 rows written; `rs_corporate_actions` = 42,076 |
+| `sync_financial_statements` (16:50) | ⚠️ **still "running" at 3h29m — but frozen** | `rs_financial_statements` unchanged at **514 rows / 9 symbols** since the 18:00 check (zero progress in ~90 min). No `error_message`, row never transitioned. This matches the 6/27 zombie pattern (process died between JobMonitor `__aenter__`/`__aexit__`, the `running` row was never healed to `failure`). Treat as **effectively failed/stalled**, not a healthy long job — a definitive `failure` mark awaits the stale-heal sweep or a manual mark. |
+
+**Counts (20:19):** `rs_financial_statements` **514 rows / 9 symbols** (≈ 0.4% of the ~2,382 active universe — the full fan-out did **not** happen) · `rs_fundamentals_pit` 54 rows / 10 symbols (unchanged) · `rs_factor_scores` **10** (unchanged) · `rs_corporate_actions` 42,076.
+
+**Factor panel + re-run:** `compute_factor_scores` has **not** re-run (0 runs since 17:35) — the fixed weekly cron won't fire again until next Saturday. Factor-panel join is **still 9 rows** at `fs_v1`, built on the stalled 9-symbol statements. No change from 18:00.
+
+**`eval_alpha_factors` readiness (join-based, NOT executed — sandbox has no `DATABASE_URL`):** the panel is non-empty (9 rows) so it would clear the empty-panel hard-fail, but 9 symbols is unusable. **Do NOT draw factor conclusions** — the panel is neither broad nor built on complete statements. Sleeve stays **exploratory**.
+
+**Verdict / what changed since 18:00:**
+1. **corporate_actions is fine** — it just needed ~1h40m; the 20-min slot is too tight but it completes.
+2. **statements sync is the blocker, and it failed the same way as 6/27** — stalled at ~9 symbols, `running` row frozen for 90+ min. The `--active-only` full-scale fan-out over ~2,382 names still does not survive; the crash root cause was **not** fixed by the earlier stale-heal-scope widening (that heals a stuck row *after the fact*, it doesn't stop the process dying). This is now a **twice-observed P0/P1 pipeline defect**, not a one-off.
+3. **No usable factor panel exists** and won't until (a) `sync_financial_statements` is made to complete the full fan-out (batching / chunked commits / timeout+OOM diagnosis) and (b) `compute_factor_scores` is re-run against it. Both are implementation work — out of scope for these read-only check-ins.
+
+**Recommended next actions (for a future implementation session, not now):** diagnose why `sync_financial_statements` dies at ~9 symbols (OOM/timeout/API rate-limit on the `/fundamentals` fan-out — likely needs chunked commits + per-symbol resilience, not one big transaction); mark the current zombie `running` row `failure`; add dependency-gating so PIT/factors don't fire on incomplete upstream; only then re-run the chain and re-verify the panel. **No writes were made in this check-in.**
+
 ---
 
 ## 3. Current documentation map (orchestration-prompt deliverable 1)
