@@ -61,9 +61,10 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 - `audit-2026-06-27.md`, `strategy/*` — dated snapshots.
 - `research/repo-navigation-audit-and-plan-prompt-2026-07-04.md` — HISTORICAL/executed: the origin of this docs map (shipped in PR #16). Kept as the map's rationale record.
 - `research/claude-fundamentals-audit-handoff-2026-07-04.md` — HISTORICAL: the original fundamentals hypothesis. State claims superseded by `session-handoff-2026-07-04.md`; code claims verified into `live-readiness-audit-plan-2026-07-04.md`; language strategy (§6) defers to `executable-roadmap-2026-07-04.md` §H.
+- `asxos-live-readiness-audit-2026-07-04.md` — HISTORICAL: the original ~05:30 UTC audit that `live-readiness-audit-plan-2026-07-04.md` was built against. Live state (§3) re-verified unchanged ~06:00 (plan §2); classification findings (§1/§2) executed in this map; next-actions (§5) sequenced by `executable-roadmap-2026-07-04.md`.
 
 ## Stale — do not use as a session entry point
 - `next-session-kickoff.md` — references a three-migration-epochs-old branch/state (see its banner).
 
-## Branch-only — NOT yet on `main` (land them on `main` when their work completes)
-- `asxos-live-readiness-audit-2026-07-04.md` — branch `claude/fundamentals-live-readiness-audit-2026-07-04`; not on `main`.
+## Branch-only
+None — all audit/handoff docs are on `main`. (A doc a future session must read has to be committed to `main`; a handoff that lives only on a feature branch is a process defect — `research/session-handoff.md:6-9`.)

@@ -1,5 +1,19 @@
 # asxos current-state / live-readiness audit — 2026-07-04
 
+**Status:** historical
+**Scope:** whole repo / point-in-time live-readiness audit
+**Last verified:** 2026-07-04 ~05:30 UTC
+**Read priority:** background / provenance only
+**Superseded by:** live state (§3) → live DB + `docs/live-readiness-audit-plan-2026-07-04.md` §2; docs/source-of-truth classification (§1/§2) → `docs/README.md`; next-actions sequencing (§5) → `docs/executable-roadmap-2026-07-04.md`
+
+> **HISTORICAL — point-in-time snapshot (banner added 2026-07-04).** This is the
+> original ~05:30 UTC live-readiness audit that `docs/live-readiness-audit-plan-2026-07-04.md`
+> was built against. **Do not action §5 directly** and **do not treat the §2/§3 counts
+> as current** — they are point-in-time (re-verified unchanged ~06:00 in the plan §2).
+> Current sources: the **live DB** for state, `docs/README.md` for the docs map, and
+> `docs/executable-roadmap-2026-07-04.md` for the next-action sequence. Metadata and
+> line-references below are point-in-time.
+
 **Session type:** read-only audit. No code changed, no migrations, no Render or Supabase state modified.
 **Audited repo:** `jp8617465-sys/asxos` @ `6b99face` (main, merged 2026-07-04T05:08Z).
 **Live state queried:** Supabase project `asx-portfolio-os` (`gxjqezqndltaelmyctnl`) and the Render account, both at ~05:30 UTC 2026-07-04.
