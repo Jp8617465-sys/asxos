@@ -1,5 +1,15 @@
 # Repo navigation audit and Claude planning prompt
 
+**Status:** historical — EXECUTED
+**Scope:** docs information-architecture audit (origin of the docs map)
+**Last verified:** 2026-07-04
+**Read priority:** background
+**Superseded by:** `docs/README.md` (this proposal shipped in PR #16 / commit 718f125)
+
+> **HISTORICAL — EXECUTED (banner added 2026-07-04).** This proposal produced the
+> docs map now at `docs/README.md` on `main`. Kept as the origin/rationale record for
+> that map; do not re-action.
+
 **Date:** 2026-07-04  
 **Audience:** Claude Code / future repo-cleanup planning session  
 **Status:** read-only audit input; no implementation implied  
