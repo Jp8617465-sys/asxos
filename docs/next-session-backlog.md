@@ -1,4 +1,17 @@
-# asxos — next-session backlog (updated 2026-06-30)
+# asxos — next-session backlog (updated 2026-07-04)
+
+---
+
+## P(-1) — STOP, read `docs/session-handoff-2026-07-04.md` before anything below
+
+Model A's signal reliability is disputed and unverified (user claim, 2026-07-04:
+signal quality collapses within 5 days, reverses by day 21 — a potential
+horizon mismatch against this system's multi-month thesis holding periods).
+This gates everything else in this file, including the P0 item immediately
+below: there is limited point extending the discovery/governance layer if the
+model it discovers from can't support the position-holding periods the whole
+system assumes. Resolve this first. Full context, what's known, and the
+exact next-session action list are in the handoff doc, not repeated here.
 
 ---
 
