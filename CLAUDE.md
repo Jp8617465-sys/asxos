@@ -4,6 +4,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Read first
 
+- **`docs/session-handoff-2026-07-04.md` — READ THIS FIRST, before anything else.** Model A's signal reliability is under active, unresolved dispute (user claim: signal quality collapses within 5 days and reverses by 21 — a potential horizon mismatch against this system's multi-month thesis holding periods). Not yet independently verified. This gates non-negotiable #11 below and blocks Phase 2c. Remove this line and #11 once resolved.
 - `docs/foundation/BUILD_GUIDE.md` — the executable manual for M1 through M12.
 - `docs/foundation/phase-b-failure-postmortem.md` — the lessons. The previous repo died of these; this repo encodes the fixes.
 - `docs/foundation/spec/tax-alpha.md` — tax-module source of truth. Implementation reads from this; tests cite section numbers.
@@ -20,6 +21,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 8. **Tax math is per the spec at `docs/foundation/spec/tax-alpha.md`.** Implementation must cite spec section numbers; deviations require a spec amendment.
 9. **NumPy psycopg2 adapter block** at the top of any module that writes numpy values via psycopg2. See `.claude/rules/job-conventions.md`.
 10. **No graceful warnings in infra code.** Fail loudly.
+11. **TEMPORARY, pending resolution (added 2026-07-04): do not use Model A output — signals, candidate scans, allocator runs, or new thesis proposals derived from it — as a basis for real capital decisions.** Its signal reliability over the horizons this system actually holds positions for (weeks to months) is disputed and unverified. See `docs/session-handoff-2026-07-04.md`. Remove this rule only after the decay analysis described there is done and the dispute is resolved one way or the other.
 
 ## Stack
 
