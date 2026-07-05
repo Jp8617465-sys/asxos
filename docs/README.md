@@ -38,7 +38,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Risk | none built (v1 is risk-blind by design — `../.claude/rules/portfolio-conventions.md`); design notes in `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
 | Backlog / session state | `next-session-backlog.md` + the newest `session-handoff-*.md` (handoff outranks backlog on priority; backlog outranks handoff on itemized detail) |
 | Agent routing | `../CLAUDE.md` "Subagents — delegation policy" tables are the source; a lint-enforced transcription is planned in a later process PR |
-| Agent DB role scoping | design only, not implemented — `model-a-audit-and-extension-plan-2026-07-04.md` Part B + `live-readiness-audit-plan-2026-07-04.md` §7 |
+| Agent DB role scoping | enforcement design (not yet implemented): `model-a-audit-and-extension-plan-2026-07-04.md` Part B + `live-readiness-audit-plan-2026-07-04.md` §7. **Provisioning-route decision: `pr2a-supabase-ro-provisioning-plan-2026-07-05.md`** — route gated on a feasibility check; no frontmatter flips until the chosen route passes the full live-fire battery |
 | Language / stack strategy (incl. Rust/Go) | `executable-roadmap-2026-07-04.md` §H is the single source (verdict "not now"; Python primary; Rust later for kernels only; Go rejected-for-now; adopt uv). Rust/Go are planned — not in the repo. Older language notes (e.g. `research/claude-fundamentals-audit-handoff-2026-07-04.md` §6) defer to §H. |
 
 ## If you are about to… read this first
@@ -55,6 +55,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 - `live-readiness-audit-plan-2026-07-04.md` — live-state audit + docs-cleanup plan
 - `model-a-audit-and-extension-plan-2026-07-04.md` — Model A audit design + agent DB scoping (Part B) + Rust/Go RFC (Part C); holds the verbatim detail the roadmap only sequences
 - `executable-roadmap-2026-07-04.md` — the sequencer (5 workstreams + PR plan)
+- `pr2a-supabase-ro-provisioning-plan-2026-07-05.md` — PR 2A: the `supabase-ro` provisioning-route decision (local-stdio recommended; the hosted/custom connector is transport-unstable; stop/go gate before the six frontmatter flips)
 
 ## Historical / background (do not treat as current)
 - `foundation/phase-*.md` — rebuild history. `foundation/phase-4-architecture-system-architect.md` describes an abandoned VPS/systemd/local-Postgres design, superseded by the live Render/Supabase stack (see its banner).
