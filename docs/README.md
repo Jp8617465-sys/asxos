@@ -2,7 +2,7 @@
 
 **Status:** current
 **Scope:** whole repo — navigation index / source-of-truth map
-**Last verified:** 2026-07-04
+**Last verified:** 2026-07-05
 **Read priority:** read first
 **Superseded by:** N/A
 
@@ -50,7 +50,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Work on the research store / factors | `research/research-store-schema.md` + live-DB verification |
 | Act on a Model A signal | **STOP** — CLAUDE.md rule #11 (Model A is quarantined) |
 
-## Current audits / plans (2026-07-04)
+## Current audits / plans (2026-07-04 → 07-05)
 - `session-handoff-2026-07-04.md` — the P0 Model A dispute + what to do next
 - `live-readiness-audit-plan-2026-07-04.md` — live-state audit + docs-cleanup plan
 - `model-a-audit-and-extension-plan-2026-07-04.md` — Model A audit design + agent DB scoping (Part B) + Rust/Go RFC (Part C); holds the verbatim detail the roadmap only sequences

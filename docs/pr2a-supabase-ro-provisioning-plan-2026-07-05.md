@@ -163,8 +163,9 @@ only** (never a literal token in this file); **name it `supabase-ro`** (never
    permission-approval round-trip? (The most us-addressable root cause; safe for a
    read-only tool because the DB enforces read-only regardless of the prompt.)
 
-**Decision rule:** (1)+(2)+(3) hold → Route 1. Otherwise → Route 2. (4) applies to
-whichever route.
+**Decision rule:** if questions 1, 2 and 3 all hold → **Route 1** (local-stdio);
+otherwise → **Route 2** (direct-HTTP). Question 4 (pre-approval) applies to whichever
+route is chosen.
 
 ---
 
@@ -218,8 +219,11 @@ different route. Fixed order:
 ```
 register supabase-ro (chosen route)
   → live-fire §5 (P0 all pass, 42501 not 25006, zero transport drops)
-  → runtime canary live (PR 2C) + CI allowlist guard live (PR 2B)
-  → flip the six .claude/agents/*.md:4 lines to mcp__supabase-ro__execute_sql
+  → runtime canary live (PR 2C)
+  → PR 2B (single, atomic): flip the six .claude/agents/*.md:4 lines to
+      mcp__supabase-ro__execute_sql AND land the CI allowlist guard in the SAME PR
+      — the guard is red until the flip (it fails while any agent still grants the
+      write tool), so the two cannot be sequenced across PRs; they land together
 ```
 
 **Never** add a write-tool fallback path (falling back to `mcp__Supabase__execute_sql`
@@ -269,7 +273,7 @@ on an RO failure silently reopens the exact bypass this closes).
 |---|---|---|
 | **PR 2A** (this doc) | Provisioning-route decision — routes, `.mcp.json` shape, §4 questions, §5 battery, §6 gate, ticket list. **Docs only.** | now |
 | **PR 2B** | Stable-route full-battery evidence + six frontmatter flips + CI allowlist guard + prose updates (retire "SELECT-only convention" → "technically enforced") | after §6 gate passes |
-| **PR 2C** | Runtime canary job + `config.py` field + `render.yaml` cron + test | after route chosen |
+| **PR 2C** | Runtime canary job + `config.py` field + `render.yaml` cron + test | after route chosen; **live before the §6 flip** |
 | **Backup fix** | Add the 4 governance tables to `backup_irreplaceable.sh` | now, separate, **prioritised** |
 | **PM-review fix** | Tool-error vs data-absent semantics in `pm-review.md` (+ `discover-macro.md`) | now, separate |
 
