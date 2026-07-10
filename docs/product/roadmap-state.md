@@ -167,7 +167,7 @@ just repeats mistakes faster. Each PR is a deliberate, separate change.
 | 4 | Docs-write `/arbi-close` | **done** |
 | 5 | Memory policy + run ledger (`arbi-memory-policy.md`, `arbi-run-ledger.md`, `decision-log.md`) | **done (docs)** |
 | 6 | Dream policy + promotion gate (`arbi-dream-policy.md`, `arbi-promotion-gate.md`) | **done (docs)** |
-| **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | not started — **allowed pre-preconditions; Tier 0–1 only** |
+| **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | **WIRED 2026-07-10** — daily 20:30 UTC (06:30 AEST), fresh session, push+email to James; Routine `trig_01PiLVYg2GHAKpW8Xy43z5JN` |
 | **7b** | **Standing** scheduled autonomy (arbi writes/acts unattended on a schedule) | **blocked** on the 3 preconditions below |
 | 8 | Multi-agent delegation (arbi coordinates specialists) | not started — needs runtime |
 | 9 | GitHub operator mode (docs-only draft PRs) | not started |
@@ -185,7 +185,14 @@ PR 7a: **no writes** (not even `roadmap-state.md`), no DB, no Render, no GitHub 
 branch creation, no roadmap-state overwrite, no capital-impacting output, no Model A-derived
 recommendation. It is **Tier 0–1 only** — deliberately boring, read-only, and impossible to
 confuse with real autonomy. **PR 7b onward** (standing scheduled autonomy that writes/acts
-unattended) stays blocked on the preconditions. PRs 7–10 need an external runtime (Claude Code
+unattended) stays blocked on the preconditions.
+
+**As wired** (Routine `trig_01PiLVYg2GHAKpW8Xy43z5JN`, daily 20:30 UTC = 06:30 AEST, fresh
+session, push+email to James): the read-only guarantee is **prompt-enforced only** — the fresh
+session holds write tools but the trigger instructs it to emit the brief and never write
+(risk **R5**; a role-scoped runtime would enforce it mechanically). Pause/stop it any time by
+disabling or deleting that trigger. To promote to PR 7b (unattended writes), clear the
+preconditions below first. PRs 7–10 need an external runtime (Claude Code
 Routines for scheduling; Managed Agents for the full kernel).
 
 **Preconditions before PR 7b+ (standing / writing scheduled autonomy — NOT required for the
