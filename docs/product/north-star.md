@@ -54,7 +54,8 @@ thing gating the layers above it, outranks work that polishes a lower one.
 
 - A position James holds is backed by a signal whose edge actually persists over the
   **weeks-to-months** horizon the thesis assumes — the open question the handoff pins as
-  P0 (see Blockers). Until that's answered, nothing else here is load-bearing.
+  P0 (see `roadmap-state.md` §Blocked). Until that's answered, nothing else here is
+  load-bearing.
 - The morning brief runs end-to-end, un-dark-launched, and James reads it as *his own
   thinking, sharper* — not a data dump.
 - Discipline events (stop breach, revisit-due, invalidation) reach him **before** they

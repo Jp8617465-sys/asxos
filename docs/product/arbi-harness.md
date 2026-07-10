@@ -75,6 +75,9 @@ The capability ladder:
 | 6 | Merge / deploy / push to `main` / CI | **Approval required** |
 | 7 | Capital action / trading / portfolio change | **Never autonomous** |
 
+The **Autonomous?** column is each tier's *ceiling* — what it would permit once that tier
+is granted — not arbi's current standing grant. What arbi actually holds today is narrower:
+
 **Where arbi stands today:** Tiers 0–1 as *standing* autonomy (it reads and thinks
 whenever invoked). Tier 2 doc-writes happen **only through an explicitly invoked command**
 (`/arbi` refreshing state, `/arbi-close` writing a handoff) — human-in-the-loop, James ran
