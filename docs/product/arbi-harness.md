@@ -173,8 +173,9 @@ the same change.
 ## Session close protocol (`/arbi-close`)
 
 1. Capture end-state (`/sprint-state`).
-2. Append to the **Decision log** in `roadmap-state.md`: last wake's ONE THING → what was
-   done → outcome (this is the learning step; never delete rows).
+2. Append to the **Decision log** — now its own canonical file `decision-log.md` (split out
+   of `roadmap-state.md`) — and to `arbi-run-ledger.md`: last wake's ONE THING → what was
+   done → outcome (the learning step; never delete rows).
 3. Reconcile roadmap-state (position, in-flight, blocked, queue, deferred index, last wake
    snapshot).
 4. Write/update `docs/session-handoff-YYYY-MM-DD.md` in the existing format; keep the P0
