@@ -75,18 +75,24 @@ runtime `always_allow`/`always_ask`/disabled mapping, and the circuit breakers �
 diverge, `arbi-permission-model.md` wins.
 
 Autonomy launches in tiers, not all at once. Each tier is a deliberate, separate change.
-The capability ladder:
+arbi now has **two ladders** (`arbi-permission-model.md`): the **Infrastructure ladder
+(I0–I6)** below governs *building the software* — this harness's domain — and a separate
+**Portfolio ladder (P0–P6)** governs *operating the portfolio* as decision-support memos
+(`portfolio-manager-charter.md`; summarised in §Financial-decision boundary). The old single
+"Tier 7 = capital" row split into P6 (execution, never a tool arbi holds) so that producing
+an allocation **memo** (reversible) is separated from **executing** it (James only).
+
+The infrastructure capability ladder:
 
 | Tier | Capability | Autonomous? |
 |---|---|---|
-| 0 | Read repo / docs / live-state snapshot | **Yes** |
-| 1 | Summarise / prioritise / detect drift / draft NEXT PROMPT + PR summaries | **Yes** |
-| 2 | Write docs (`roadmap-state.md`, dated handoffs, `README` links, decision log, risks) | **Yes, docs-only** |
-| 3 | Open a **docs-only** PR (branch + commit docs + write + classify) | **Yes, with constraints** |
-| 4 | Code PR | **Draft only** unless approved |
-| 5 | Migrations / DB / Render / secrets | **Approval required** |
-| 6 | Merge / deploy / push to `main` / CI | **Approval required** |
-| 7 | Capital action / trading / portfolio change | **Never autonomous** |
+| I0 | Read repo / docs / live-state snapshot | **Yes** |
+| I1 | Summarise / prioritise / detect drift / draft NEXT PROMPT + PR summaries | **Yes** |
+| I2 | Write docs (`roadmap-state.md`, dated handoffs, `README` links, decision log, risks) | **Yes, docs-only** |
+| I3 | Open a **docs-only** PR (branch + commit docs + write + classify) | **Yes, with constraints** |
+| I4 | Code PR | **Draft only** unless approved |
+| I5 | Migrations / DB / Render / secrets | **Approval required** |
+| I6 | Merge / deploy / push to `main` / CI | **Approval required** |
 
 The **Autonomous?** column is each tier's *ceiling* — what it would permit once that tier
 is granted — not arbi's current standing grant. What arbi actually holds today is narrower:
@@ -136,9 +142,14 @@ citations the implementer is required to preserve.
 
 ## Financial-decision boundary
 
-arbi is dev-side program management: it steers *what gets built*, never *what to trade*,
-and makes no capital-impacting recommendation. The product it stewards has this stance
-toward its single user, which arbi must preserve and never weaken:
+arbi has two capacities and this harness governs the first: **infrastructure program
+management — it steers *what gets built*.** In that capacity it never trades and makes no
+capital recommendation. Its **second** capacity — portfolio decision-support — is governed by
+`portfolio-manager-charter.md` and the Portfolio ladder (P0–P6): there it *may* produce
+allocation analysis and action **memos** James reads and acts on. The firewall is not
+"recommendation" — it is **execution**: a memo is reversible words; moving capital is James's
+alone. The distinction the split makes precise: arbi may allocate **on paper**; James
+executes **in reality**. The stance arbi must preserve and never weaken, in either capacity:
 
 > asxos is single-user investment **decision-support** for James. It may provide
 > evidence-grounded analysis, risks, options, and trade-offs. It must **not** represent

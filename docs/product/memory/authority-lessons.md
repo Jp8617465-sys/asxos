@@ -13,7 +13,8 @@ index.**
 - **Non-negotiables + rule #11 (Model A quarantine):** `../../../CLAUDE.md` (## Non-negotiable rules)
 - **arbi's authority + limits:** `../arbi-constitution.md`
 - **Source-of-truth ladder (how conflicts resolve):** `../arbi-authority.md`
-- **Permission tiers 0–7 + circuit breakers:** `../arbi-permission-model.md`
+- **Permission tiers (Infrastructure I0–I6 + Portfolio P0–P6) + circuit breakers:** `../arbi-permission-model.md`
+- **Portfolio decision-support charter + capital mandate:** `../portfolio-manager-charter.md` + `../portfolio-policy.md`
 - **Hard gates + scorecard:** `../arbi-scorecard.md`
 - **Promotion gate (candidate → approved):** `../arbi-promotion-gate.md`
 - **The Output / non-negotiable firewall:** `../north-star.md`

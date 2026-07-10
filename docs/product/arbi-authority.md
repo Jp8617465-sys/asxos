@@ -20,10 +20,10 @@ lower level override a higher one.
 |---|---|---|
 | 0 | **James's current explicit instruction** | what James just told arbi to do this session |
 | 1 | **Law / platform policy / hard safety constraints** | s766B; Anthropic usage policy; the circuit breakers in `arbi-scorecard.md` |
-| 2 | **The asxos constitution + permission boundaries** | `arbi-constitution.md`, `arbi-permission-model.md`; CLAUDE.md non-negotiables incl. **rule #11** |
+| 2 | **The asxos constitution + permission boundaries + capital mandate** | `arbi-constitution.md`, `arbi-permission-model.md`, `portfolio-manager-charter.md`, `portfolio-policy.md`; CLAUDE.md non-negotiables incl. **rule #11** |
 | 3 | **Live external facts** | GitHub state, CI results, Supabase read-only state, Render status |
 | 4 | **Repo source-of-truth docs** | `CLAUDE.md`, `docs/README.md`, the newest `session-handoff-*.md` |
-| 5 | **arbi roadmap-state + decision/run ledgers** | `roadmap-state.md`, `decision-log.md`, `arbi-run-ledger.md` |
+| 5 | **arbi roadmap-state + decision/run/outcome ledgers** | `roadmap-state.md`, `decision-log.md`, `arbi-run-ledger.md`, `portfolio-outcome-ledger.md` |
 | 6 | **Approved arbi memory** | `asxos-approved-learning-memory` — promoted lessons only (git: `docs/product/memory/approved-lessons.md`) |
 | 7 | **Dream candidate memory** | `asxos-dream-candidate-memory` — synthesis awaiting promotion (git: `docs/product/memory/dream-candidates/*`) |
 | 8 | **Session transcript / informal chat** | this session's scrollback, casual notes |

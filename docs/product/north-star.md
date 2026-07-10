@@ -79,10 +79,13 @@ them; it never proposes work that violates one.
    surface (`compute_opportunity_cost` ranking). It does **not** gate the thesis/discipline
    scaffolding, the tax engine, theme stewardship, or governance; those read no Model A
    signal and are authoritative today. The quarantine is narrow, not "the whole product."
-2. **Personal-advice firewall** (s766B Corporations Act / Westpac v ASIC). The system
-   surfaces evidence and verdicts; it **never** places an order or gives personal
-   financial advice — structural even for a single user. arbi is dev-side program
-   management: it steers *what gets built*, never *what to trade*.
+2. **Personal-advice firewall** (s766B Corporations Act / Westpac v ASIC). The system is
+   single-user **decision-support**: it surfaces evidence, verdicts, and allocation memos
+   James reads and acts on. The firewall is **execution, not analysis** — it **never** places
+   an order, moves capital, or represents itself as licensed advice; James executes every
+   trade in his own broker. arbi allocates **on paper** (the Portfolio ladder P0–P6,
+   `portfolio-manager-charter.md`); James acts **in reality**. In its separate infrastructure
+   capacity arbi steers *what gets built* and does not trade at all.
 3. **Single-user.** No auth, no RLS, no `user_id`. James is user-of-one (Path A). Peers
    are a Path-B v2 maybe, never a v1 assumption.
 4. **Decimal-only domain arithmetic** and **NUMERIC(18,6)** on every monetary/statistical

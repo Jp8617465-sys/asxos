@@ -48,7 +48,9 @@ Not prompt-hope — mechanical, defense-in-depth:
 
 The hook reduces risk **R5** (prompt-only enforcement) from total to partial; (2) and (3)
 are what actually bound the irreversible tiers. See `arbi-permission-model.md §Runtime
-enforcement honesty` — Tiers 5–7 stay treated-as-disabled until (2)+(3) land.
+enforcement honesty` — the infra **I5–I6** and portfolio **P5–P6** tiers stay
+treated-as-disabled until (2)+(3) land (P6 execution is already enforced by no execution
+tool being mounted).
 
 ## Activation — NOT on by default
 
