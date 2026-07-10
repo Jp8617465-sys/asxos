@@ -140,7 +140,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 |---|---|---|
 | `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
 | `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `0` — off |
-| `ASXOS_PORTFOLIO_BRIEF_ENABLED` (2nd gate) | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` requires a paper-trade window | see `portfolio-conventions.md` §Regulatory firewall |
+| `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |
 
 ---

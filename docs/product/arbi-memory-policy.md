@@ -30,8 +30,10 @@ trust, not kept as one blob.
 - **arbi never writes to a store it reads as authority.** During normal work it *reads*
   authority/project/approved-learning (read-only) and *writes* only working memory. This is
   the poisoning firewall: even if working memory is corrupted by untrusted input, it is not
-  an authority level (it sits at ladder level 5–6 below repo truth, and is
-  untrusted-until-reviewed).
+  an authority level: it is **untrusted-until-reviewed** and always ranks below repo truth
+  (`arbi-authority.md` levels 3–4) and below *approved* memory (level 6). A read from working
+  memory is advisory only, never authoritative — it reaches an authoritative store solely
+  through the promotion gate.
 - **Promotion is the only bridge** from working/dream memory to approved-learning. Nothing
   reaches an authoritative read-only store except through `arbi-promotion-gate.md`.
 - **Scope by purpose.** A store holds one kind of thing. No mixing authority with run notes.
