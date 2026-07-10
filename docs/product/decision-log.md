@@ -23,7 +23,8 @@ canonical decision history. `roadmap-state.md` now points here.)
 
 | Date | arbi's "one thing" | What was done | Outcome (done/partial/deferred/superseded · did it work?) | Run ref |
 |---|---|---|---|---|
-| _(none yet — first `/arbi-close` appends here)_ | | | | |
+| 2026-07-10 | Scope Model A's real blast radius (governor challenged the "Model A is the platform" framing) | Ran arbi multi-agent scan→verify→synth (6/7 agents); adversarial verifier returned **verdict: supported** with file-cited evidence | **done · worked** — corrected north-star + roadmap-state (quarantine is narrow: only the allocator path + opportunity-cost); logged 2 bugs (R8 behavioral-only quarantine, R9 brief↔approval coupling). Next: run the decay check (the sole P0 unlock) | `wf_f54323f5-d7d` |
+| 2026-07-10 | Run the Model A decay check (THE ONE THING — resolve the P0) | Read-only SQL over live `signals`+`prices` (`signal_outcomes` empty): pooled + per-date corr of `prob_up` vs 5d/21d forward return, label buckets | **done · partial** — 5-day edge is weak + sign-flipping across dates (−0.075→+0.146, pooled ≈0), supporting James's distrust; 21-day claim **not yet testable** (only ~2 matured dates — resolves ~late Aug). **Rule #11 stays.** Full findings: `docs/model-a-decay-analysis-2026-07-10.md` | decay-2026-07-10 |
 
 ## How arbi uses it
 

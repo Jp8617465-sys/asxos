@@ -72,10 +72,13 @@ doc-derived, not live-probed.
 | V2 product `M-Thesis-*` | `V2_..._BRIEF_SPEC.md` Part 8 | **Blocked** at the foundation — the thesis layer rests on a signal engine under dispute. | V2 spec Part 8 |
 | Executable roadmap PR1–8 | `executable-roadmap-2026-07-04.md` §D | PR1 (docs cleanup) partly landed; **PR2 (agent DB read-only scoping) is the near-term unblocker**; PR5 = the Model A audit job. | executable-roadmap §D |
 
-**One-line reconciled read:** *M1–M14a are built (M13/M14a dark-launched); governance is
-through Phase 2b; the V2 thesis product and Phase 2c are blocked on the P0 Model A
-signal-reliability dispute; the cleanest forward move is the Model A decay check, then
-agent DB role scoping (PR2) — not another layer on top.*
+**One-line reconciled read (corrected 2026-07-10, scan `wf_f54323f5-d7d`):** *M1–M14a are
+built (M13/M14a dark-launched); governance is through Phase 2b. The Model A dispute gates
+only the signal-driven **allocator** path (`PortfolioService.build` → `allocator.py`) + the
+peripheral opportunity-cost ranking — NOT the thesis/discipline scaffolding, tax engine,
+theme stewardship, or governance, which are **authoritative and shippable today**. The
+cleanest forward move is the Model A decay check (measuring, not deploying), then agent DB
+role scoping — not another layer on top.*
 
 ---
 
@@ -87,8 +90,11 @@ agent DB role scoping (PR2) — not another layer on top.*
   365-day timeline). Model A is the *only* model and gates every signal/allocator/scan.
   CLAUDE.md rule #11 quarantines it from real-capital decisions until resolved. **This
   blocks Phase 2c and all non-paper deployment.**
-- **Blocked-by-P0:** governance Phase 2c, the V2 thesis product, any real capital
-  deployment.
+- **Blocked-by-P0 (narrow, corrected 2026-07-10):** the signal-driven **allocator** capital
+  path + the peripheral `compute_opportunity_cost` ranking; governance Phase 2c (needs a
+  trusted signal engine); real *signal-driven* capital deployment. **NOT blocked:** the
+  thesis/discipline scaffolding, tax engine, theme stewardship, governance, and the brief's
+  non-signal sections — all authoritative today (scan `wf_f54323f5-d7d`, verdict supported).
 - **Second-order unblocker:** agent DB role scoping (`m14_candidate_agent_db_role_scoping`
   / PR2) — a prerequisite the roadmap places *before* Phase 2c regardless of Model A.
 
@@ -169,7 +175,7 @@ just repeats mistakes faster. Each PR is a deliberate, separate change.
 | 6 | Dream policy + promotion gate (`arbi-dream-policy.md`, `arbi-promotion-gate.md`) | **done (docs)** |
 | **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | **WIRED 2026-07-10** — daily 20:30 UTC (06:30 AEST), fresh session, push+email to James; Routine `trig_01PiLVYg2GHAKpW8Xy43z5JN` |
 | **7b** | **Standing** scheduled autonomy (arbi writes/acts unattended on a schedule) | **blocked** on the 3 preconditions below |
-| 8 | Multi-agent delegation (arbi coordinates specialists) | not started — needs runtime |
+| 8 | Multi-agent delegation (arbi coordinates specialists) | **attended bridge `/arbi-run` shipped 2026-07-10** (governor-invoked, reversible: arbi plans → main loop fans out named specialists); *standing/unattended* dispatch still gated on preconditions + runtime |
 | 9 | GitHub operator mode (docs-only draft PRs) | not started |
 | 10 | Live read-only watchdog (reacts to CI/PR/data events) | not started |
 
