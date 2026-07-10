@@ -177,17 +177,19 @@ async def collect(as_of: date) -> BriefData:
         from asxos.db import acquire as _acquire
     async with _acquire() as conn:
         # Governance gate (Section 4.4 Step B): resolve the single
-        # active+approved_for_allocation production model. This is a
-        # configuration invariant, not a data-freshness gap, so it fails
-        # loudly rather than degrading like the regime/signal-staleness
-        # checks below. Gate condition + error messages live in
-        # production_gate.py so build.py (the other model_versions
-        # consumer) can't drift apart on the invariant.
+        # active+approved_for_allocation production model. The *allocator*
+        # (build.py) calls the gate with required=True and fails loudly — that
+        # is rule #11's mechanical enforcement point. The brief is display-only,
+        # so it passes required=False and DEGRADES gracefully (returns None →
+        # skips the Model A signal reads below) rather than hard-failing when a
+        # Model A quarantine revokes approval (see risk-register R9). Gate
+        # condition + error messages live in production_gate.py so build.py
+        # (the other model_versions consumer) can't drift apart on the invariant.
         model_rows = await conn.fetch(
             "SELECT model FROM model_versions "
             "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
         )
-        production_model = resolve_production_model(model_rows)
+        production_model = resolve_production_model(model_rows, required=False)
 
         # Anchor signal/regime queries on the latest *complete* trading day
         # (the anchor generate_signals uses), not the calendar as_of — EOD data
@@ -196,28 +198,43 @@ async def collect(as_of: date) -> BriefData:
         data_as_of = await latest_complete_trading_day(conn)
         signals_as_of = data_as_of or as_of
 
-        # regime is market-wide for an as_of but rows are keyed by
-        # (model, model_version, symbol); a bare LIMIT 1 returns an arbitrary,
-        # non-reproducible row. Pin a deterministic order so the brief is stable.
-        regime_row = await conn.fetchrow(
-            """
-            SELECT regime FROM signals
-            WHERE model = $1 AND as_of = $2
-            ORDER BY model_version DESC, model, symbol
-            LIMIT 1
-            """,
-            production_model,
-            signals_as_of,
-        )
-        regime: str | None = regime_row["regime"] if regime_row else None
+        # regime, latest_signal_date and signal_changes are Model-A-derived and
+        # display-only. Under a deliberate Model A quarantine (rule #11 →
+        # approved_for_allocation revoked → 0 approved models) resolve returns
+        # None; skip the signal reads so the model-INDEPENDENT brief (tax,
+        # regulatory, job failures, portfolio) still renders instead of
+        # hard-failing. The allocator keeps its own hard-fail (build.py) — that
+        # is rule #11's real enforcement point; this is only the cosmetic signal
+        # surface. See risk-register R9.
+        regime: str | None = None
+        latest_signal_date: date | None = None
+        signal_changes: list[SignalChange] = []
+        if production_model is not None:
+            # regime is market-wide for an as_of but rows are keyed by
+            # (model, model_version, symbol); a bare LIMIT 1 returns an
+            # arbitrary, non-reproducible row. Pin a deterministic order.
+            regime_row = await conn.fetchrow(
+                """
+                SELECT regime FROM signals
+                WHERE model = $1 AND as_of = $2
+                ORDER BY model_version DESC, model, symbol
+                LIMIT 1
+                """,
+                production_model,
+                signals_as_of,
+            )
+            regime = regime_row["regime"] if regime_row else None
+            latest_signal_date = await conn.fetchval(
+                "SELECT MAX(as_of) FROM signals WHERE model = $1", production_model
+            )
+            signal_changes = await _signal_changes(
+                conn, signals_as_of, production_model
+            )
 
         holdings_count = await conn.fetchval(
             "SELECT COUNT(*) FROM current_holdings"
         ) or 0
 
-        latest_signal_date: date | None = await conn.fetchval(
-            "SELECT MAX(as_of) FROM signals WHERE model = $1", production_model
-        )
         latest_price_date: date | None = await conn.fetchval(
             """
             SELECT MAX(p.dt)
@@ -227,7 +244,6 @@ async def collect(as_of: date) -> BriefData:
             """
         )
 
-        signal_changes = await _signal_changes(conn, signals_as_of, production_model)
         tax_actions = await _tax_actions(conn, as_of)
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)

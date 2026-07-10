@@ -73,23 +73,31 @@ async def collect_active_theses(as_of: date) -> SectionResult:
             "SELECT model FROM model_versions "
             "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
         )
-        production_model = resolve_production_model(model_rows)
+        # Display-only: under a deliberate Model A quarantine (rule #11 → 0
+        # approved models) resolve returns None; skip the signal fetch so every
+        # thesis card still renders with full discipline severity, just without
+        # the cosmetic "Model A:" driver line. The allocator keeps its own
+        # hard-fail (build.py) — that is rule #11's real enforcement. See R9.
+        production_model = resolve_production_model(model_rows, required=False)
 
         # Steady-state ML explainability: latest Model A signal per thesis symbol.
         # One batch query (DISTINCT ON, latest as_of) — same pattern as the V1
         # signal-change line. Missing signal → no drivers line on that card.
         all_symbols = [r["symbol"] for r in rows]
-        sig_rows = await conn.fetch(
-            """
-            SELECT DISTINCT ON (symbol) symbol, signal_label, shap_factors
-            FROM signals
-            WHERE symbol = ANY($1) AND model = $2
-            ORDER BY symbol, as_of DESC
-            """,
-            all_symbols,
-            production_model,
-        )
-        sig_by_symbol = {r["symbol"]: r for r in sig_rows}
+        if production_model is not None:
+            sig_rows = await conn.fetch(
+                """
+                SELECT DISTINCT ON (symbol) symbol, signal_label, shap_factors
+                FROM signals
+                WHERE symbol = ANY($1) AND model = $2
+                ORDER BY symbol, as_of DESC
+                """,
+                all_symbols,
+                production_model,
+            )
+            sig_by_symbol = {r["symbol"]: r for r in sig_rows}
+        else:
+            sig_by_symbol = {}
 
         for row in rows:
             thesis_id = row["thesis_id"]

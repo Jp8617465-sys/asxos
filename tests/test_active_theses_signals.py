@@ -104,21 +104,26 @@ async def test_driver_line_label_only_when_shap_empty():
 
 
 @pytest.mark.asyncio
-async def test_no_approved_model_raises():
-    # Contamination-isolation gate: zero active+approved_for_allocation rows
-    # is a configuration invariant violation — must fail loudly, not
-    # silently omit the Model A driver line.
-    with pytest.raises(RuntimeError, match="approved_for_allocation"):
-        await _run_collector([_thesis_row()], [], model_gate_rows=[])
+async def test_no_approved_model_skips_driver_line():
+    # R9: 0 active+approved_for_allocation rows is the EXPECTED state under a
+    # Model A quarantine (rule #11), not a misconfig for this display-only
+    # path. The card must still render with full discipline severity, just
+    # without the cosmetic "Model A:" driver line. The allocator still
+    # hard-fails on 0 approved — see tests/test_portfolio_build.py.
+    result = await _run_collector([_thesis_row()], [], model_gate_rows=[])
+    assert result.status == SectionStatus.ok
+    assert "Model A:" not in result.items[0].message
 
 
 @pytest.mark.asyncio
-async def test_multiple_approved_models_raises():
-    # Multi-sleeve blending is out of v1 scope — more than one eligible
-    # model is a hard-fail, not a silent arbitrary pick.
-    with pytest.raises(RuntimeError, match="multiple models"):
-        await _run_collector(
-            [_thesis_row()],
-            [],
-            model_gate_rows=[{"model": "model_a"}, {"model": "factor_sleeve"}],
-        )
+async def test_multiple_approved_models_skips_driver_line():
+    # R9: >1 approved is ambiguous (no single model to display) → skip the
+    # driver line rather than hard-fail the discipline section. The allocator
+    # still hard-fails on >1 approved — see tests/test_portfolio_build.py.
+    result = await _run_collector(
+        [_thesis_row()],
+        [],
+        model_gate_rows=[{"model": "model_a"}, {"model": "factor_sleeve"}],
+    )
+    assert result.status == SectionStatus.ok
+    assert "Model A:" not in result.items[0].message

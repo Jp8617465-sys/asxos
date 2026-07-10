@@ -367,14 +367,16 @@ def test_collect_handles_empty_db() -> None:
     assert not data.has_failures
 
 
-def test_collect_no_approved_model_raises() -> None:
-    """Contamination-isolation gate: zero active+approved_for_allocation
-    model_versions rows is a configuration invariant violation, not a
-    data-freshness gap — collect() must fail loudly, not degrade."""
+def test_collect_no_approved_model_renders_without_model_sections() -> None:
+    """R9: 0 active+approved_for_allocation models is the EXPECTED state under a
+    Model A quarantine (rule #11), not a misconfig for this display path. collect()
+    must render the model-INDEPENDENT brief (regime None, no signal changes) instead
+    of hard-failing and hiding it. The allocator still hard-fails on 0 approved —
+    see tests/test_portfolio_build.py."""
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row=None,
-        holdings_count=0,
+        regime_row={"regime": "bear"},  # present, but must be skipped (model gated off)
+        holdings_count=2,
         signal_rows=[],
         tax_rows=[],
         reg_rows=[],
@@ -387,21 +389,24 @@ def test_collect_no_approved_model_raises() -> None:
     async def fake_acquire():
         yield conn
 
-    with (
-        patch("asxos.brief.compose.acquire", fake_acquire),
-        pytest.raises(RuntimeError, match="approved_for_allocation"),
-    ):
-        asyncio.run(collect(today))
+    with patch("asxos.brief.compose.acquire", fake_acquire):
+        data = asyncio.run(collect(today))
+
+    assert data.regime is None          # model-derived → skipped under quarantine
+    assert data.signal_changes == []    # model-derived → skipped
+    assert data.latest_signal_date is None
+    assert data.signals_stale is True
+    assert data.holdings_count == 2     # model-INDEPENDENT data survives
 
 
-def test_collect_multiple_approved_models_raises() -> None:
-    """Multi-sleeve blending is out of v1 scope — more than one
-    active+approved_for_allocation model is a hard-fail, not a silent
-    arbitrary pick."""
+def test_collect_multiple_approved_models_renders_without_model_sections() -> None:
+    """R9: >1 approved is ambiguous (no single model to display) → skip the Model A
+    sections rather than hard-fail the whole brief. The allocator still hard-fails on
+    >1 approved — see tests/test_portfolio_build.py."""
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row=None,
-        holdings_count=0,
+        regime_row={"regime": "bull"},
+        holdings_count=1,
         signal_rows=[],
         tax_rows=[],
         reg_rows=[],
@@ -414,11 +419,12 @@ def test_collect_multiple_approved_models_raises() -> None:
     async def fake_acquire():
         yield conn
 
-    with (
-        patch("asxos.brief.compose.acquire", fake_acquire),
-        pytest.raises(RuntimeError, match="multiple models"),
-    ):
-        asyncio.run(collect(today))
+    with patch("asxos.brief.compose.acquire", fake_acquire):
+        data = asyncio.run(collect(today))
+
+    assert data.regime is None
+    assert data.signal_changes == []
+    assert data.holdings_count == 1
 
 
 def test_collect_anchors_on_complete_trading_day() -> None:
