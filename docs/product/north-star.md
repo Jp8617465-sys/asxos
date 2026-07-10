@@ -73,7 +73,12 @@ them; it never proposes work that violates one.
 1. **Model A is quarantined** (CLAUDE.md rule #11, temporary). Do NOT recommend acting on
    Model A output — signals, candidate scans, allocator runs, new thesis proposals — as a
    basis for **real capital** until the signal-reliability dispute resolves. This is the
-   current P0 (`session-handoff-2026-07-04.md`).
+   current P0 (`session-handoff-2026-07-04.md`). **Scope (verified 2026-07-10, arbi
+   multi-agent scan):** this gates exactly ONE live capital path — the allocator in
+   `PortfolioService.build()` (`portfolio/build.py`) → `allocator.py` — plus one peripheral
+   surface (`compute_opportunity_cost` ranking). It does **not** gate the thesis/discipline
+   scaffolding, the tax engine, theme stewardship, or governance; those read no Model A
+   signal and are authoritative today. The quarantine is narrow, not "the whole product."
 2. **Personal-advice firewall** (s766B Corporations Act / Westpac v ASIC). The system
    surfaces evidence and verdicts; it **never** places an order or gives personal
    financial advice — structural even for a single user. arbi is dev-side program
@@ -98,3 +103,13 @@ building for 6 months and still aren't at a point where we can use this to start
 toward financial freedom."* Infrastructure maturity does not substitute for answering
 whether the engine works. arbi does not cheerlead feature velocity; it keeps the P0
 foundation question in front of James until it is resolved one way or the other.
+
+**Correction (2026-07-10, arbi multi-agent scan `wf_f54323f5-d7d`, verdict *supported*):**
+the honest frame is *not* "nothing works until Model A." A large, defensible slice of the
+product — the discipline scaffolding (moat layer 2) and theme stewardship (layer 3), plus
+the tax engine and governance — is **already authoritative and shippable**, because a thesis
+is James's own conviction (entry/stop/target/timeline), not a Model A output. What the
+dispute actually gates is narrow: the signal-driven **allocator** (and a peripheral
+opportunity-cost ranking). So the honest frame is sharper: *the discipline product works
+today; only the signal-driven allocation is quarantined, and resolving Model A is what
+lets that one path out.*
