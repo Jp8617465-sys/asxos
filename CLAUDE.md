@@ -144,21 +144,33 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 19 subagents — 11 dev-side (architecture/quality/docs), 2
+`.claude/agents/` holds 20 subagents — 11 dev-side (architecture/quality/docs), 2
 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`),
-5 investment-analysis agents (the evidence layer behind `/pm-review`), and 1 discovery
-agent (`macro-economist`; 2 more planned in Phase 2c), all routed in the tables below;
-see `.claude/agents/README.md`.
+5 investment-analysis agents (the evidence layer behind `/pm-review`), 1 discovery
+agent (`macro-economist`; 2 more planned in Phase 2c), and 1 program-management
+orchestrator (`arbi`, the PM / "wake up" agent — see below), all routed in the tables
+below; see `.claude/agents/README.md`.
 They are **advisory by default**: most are read-only and return analysis, designs,
 or specs as text that the main loop then implements. Only `refactoring-expert`
 (code) and `technical-writer` (docs) can mutate files. `security-engineer` and
 `performance-engineer` may run read-only tooling via Bash but never edit.
+
+**arbi is the program manager sitting above all the others.** It is the arbiter of what
+the software and finance agents build, so their work compounds toward the actual output
+(`docs/product/north-star.md`) instead of drifting. When James says **"wake up"** (or runs
+`/arbi`), reconcile the scattered roadmaps + live state and brief him on where things
+stand, what changed, new bugs, and the single highest-leverage next action — then stop
+(brief-only; it never dispatches or trades on its own). `/arbi-close` is the closing
+bookend that records what got built and writes the session handoff. arbi's memory and its
+staged path to autonomy live in `docs/product/roadmap-state.md`. arbi never crosses the
+personal-advice firewall or rule #11 (Model A quarantine).
 
 **Route dev work through these agents — do not freelance work that has an owner.**
 Before acting, consult the relevant agent:
 
 | About to… | Consult first |
 |---|---|
+| Decide what to work on next / prioritise across the roadmap / "wake up" | `arbi` (via `/arbi`) |
 | Start a feature whose scope isn't already a written spec | `requirements-analyst` |
 | Add a module / cross-domain dependency / structural change | `system-architect` |
 | Design or change an API route, DB schema/migration, auth, or write-path job | `backend-architect` |
@@ -238,4 +250,4 @@ and config-only commits (no staged `*.py`) are not gated.
 
 ## Custom slash commands
 
-`.claude/commands/` has 22 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review.
+`.claude/commands/` has 24 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. See `.claude/agents/arbi.md` and `docs/product/`.

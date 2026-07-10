@@ -3,11 +3,13 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**,
-**five investment-analysis agents**, and **one discovery agent** (see bottom). The
+**five investment-analysis agents**, **one discovery agent**, and **one
+program-management orchestrator** (`arbi`, see bottom). The
 dev agents help build and maintain the codebase; the conformance agents guard
 spec↔test↔code correctness; the investment-analysis agents surface evidence-grounded
 views on the live portfolio; the discovery agent proposes new investment content for
-governance review. All nineteen are advisory by default; none is a runtime
+governance review; arbi sits above them all and prioritises what gets built toward the
+product's north star. All twenty are advisory by default; none is a runtime
 in-product agent (a runtime tax/portfolio LLM is a structural NO — it would collide
 with the personal-advice firewall and Decimal-only determinism). The investment-
 analysis and discovery agents run in Claude Code sessions only, querying Supabase
