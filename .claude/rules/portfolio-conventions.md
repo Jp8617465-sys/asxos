@@ -23,8 +23,23 @@ This stays `0` until 4 weeks of paper-trade sign-off completes (M13.8).
 `PortfolioService.build()` and `compose.collect()` no longer pick the
 production model by a hardcoded name. Both query
 `model_versions WHERE is_active = TRUE AND approved_for_allocation = TRUE`
-and hard-fail on 0 rows (nothing approved) or >1 rows (multiple approved —
-multi-sleeve blending is out of v1 scope). `approved_for_allocation`
+through the shared `resolve_production_model()` gate
+(`asxos/domain/models/production_gate.py`), whose failure cases are 0 rows
+(nothing approved) or >1 rows (multiple approved — multi-sleeve blending is
+out of v1 scope).
+
+**Allocator hard-fails; brief is best-effort (R9, 2026-07-10).** The
+allocator (`build.py`) calls the gate `required=True` (default) and
+hard-fails on those two cases — this is the capital-safety invariant and
+rule #11's mechanical enforcement point (revoke `approved_for_allocation`
+→ 0 rows → the allocator refuses to run). The display-only brief paths
+(`compose.collect()` + the V2 `active_theses` collector) call it
+`required=False`: they get `None` and skip the cosmetic Model A signal
+reads, so a Model A quarantine can harden the allocator gate without
+hard-failing the model-independent brief (tax, regulatory, job-failure,
+portfolio, thesis-discipline cards).
+
+`approved_for_allocation`
 (migration 0032) is orthogonal to `is_active`: `is_active` means "current
 version of this model," `approved_for_allocation` means "this model is
 allowed to influence the live portfolio/brief at all." A new model row can
@@ -329,8 +344,8 @@ cadence and on-demand CLI use.
 | Condition | Raises |
 |---|---|
 | No active profile | `RuntimeError` in `PortfolioService.build()` |
-| 0 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` / `compose.collect()` |
-| >1 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` / `compose.collect()` |
+| 0 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` (allocator only; brief paths pass `required=False` → `None`, R9) |
+| >1 models both `is_active` and `approved_for_allocation` | `RuntimeError` in `PortfolioService.build()` (allocator only; brief paths pass `required=False` → `None`, R9) |
 | Empty buy universe after filtering | `RuntimeError` in `allocator.allocate()` |
 | Non-convergent constraint waterfall (>5 iterations) | `RuntimeError` in `constraints.apply_constraints()` |
 | Insufficient price history for vol | symbol silently omitted from candidates |
