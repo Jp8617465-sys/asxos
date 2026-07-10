@@ -15,8 +15,6 @@ from contextlib import asynccontextmanager
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from asxos.brief.compose import (
     BriefData,
     JobFailure,
