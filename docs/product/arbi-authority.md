@@ -24,8 +24,8 @@ lower level override a higher one.
 | 3 | **Live external facts** | GitHub state, CI results, Supabase read-only state, Render status |
 | 4 | **Repo source-of-truth docs** | `CLAUDE.md`, `docs/README.md`, the newest `session-handoff-*.md` |
 | 5 | **arbi roadmap-state + decision/run ledgers** | `roadmap-state.md`, `decision-log.md`, `arbi-run-ledger.md` |
-| 6 | **Approved arbi memory** | `asxos-approved-learning-memory` — promoted lessons only |
-| 7 | **Dream candidate memory** | `asxos-dream-candidate-memory` — synthesis awaiting promotion |
+| 6 | **Approved arbi memory** | `asxos-approved-learning-memory` — promoted lessons only (git: `docs/product/memory/approved-lessons.md`) |
+| 7 | **Dream candidate memory** | `asxos-dream-candidate-memory` — synthesis awaiting promotion (git: `docs/product/memory/dream-candidates/*`) |
 | 8 | **Session transcript / informal chat** | this session's scrollback, casual notes |
 
 (This is the reconciled ladder; `arbi-constitution.md` and the scorecard reference the same

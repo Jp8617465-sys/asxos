@@ -63,6 +63,12 @@ launders yesterday's mistakes into tomorrow's context.
 
 ## Today vs the platform
 
+**Update (2026-07-10): the dream is now git-native** — `/arbi-dream` reads the committed
+artifacts and writes `docs/product/memory/dream-candidates/<date>.md` on a `claude/**`
+branch → draft PR; promotion via `/arbi-promote` (a CODEOWNER-reviewed merge). Managed
+Agents Dreams is an optional hosted backend. The paragraph below is the platform mapping.
+
+
 No dream runtime exists in this repo. This policy is the spec for when arbi runs on Anthropic
 **Managed Agents** with **Dreams** enabled. Until then, the manual analogue is `/arbi-close`
 appending honest run outcomes to the decision log + `arbi-run-ledger.md`, and a periodic human

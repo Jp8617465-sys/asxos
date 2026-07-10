@@ -198,8 +198,12 @@ session, push+email to James): the read-only guarantee is **prompt-enforced only
 session holds write tools but the trigger instructs it to emit the brief and never write
 (risk **R5**; a role-scoped runtime would enforce it mechanically). Pause/stop it any time by
 disabling or deleting that trigger. To promote to PR 7b (unattended writes), clear the
-preconditions below first. PRs 7–10 need an external runtime (Claude Code
-Routines for scheduling; Managed Agents for the full kernel).
+preconditions below first. PRs 7–10 run **git-native** — Claude Code Routines
+(schedule) + git (memory: `memory/`) + GitHub branch-protection/PRs/CI + the
+`unattended-guard.sh` hook. The loop machinery is **built** (guard hook, memory
+bank, `/arbi-dream`, `/arbi-promote`, `/arbi-run`; see `arbi-autonomy-loop.md`);
+standing activation stays gated. Managed Agents is an optional hosted backend,
+not a prerequisite.
 
 **Preconditions before PR 7b+ (standing / writing scheduled autonomy — NOT required for the
 7a read-only dry run):** (1) the P0 Model A dispute resolved; (2)

@@ -44,6 +44,13 @@ trust, not kept as one blob.
 
 ## Today vs the platform
 
+**Update (2026-07-10): persistent memory is now git-native** — see
+`docs/product/memory/README.md`. The read-only/read-write split is realised by GitHub
+**branch protection + CODEOWNERS + path**, a *mechanical* upgrade over a provisioned store
+flag (closes part of R5/R7). Managed Agents stores are an optional hosted backend with the
+identical split. The paragraph below predates this and describes the platform mapping.
+
+
 Today arbi has **no persistent memory store** — its "memory" is the git-tracked docs
 (`roadmap-state.md` decision log, `arbi-run-ledger.md`, dated handoffs), which are inherently
 read-only-until-committed and human-reviewed, so the poisoning surface is minimal. The store

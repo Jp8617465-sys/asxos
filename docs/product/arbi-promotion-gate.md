@@ -63,6 +63,12 @@ required to merge it. The gate can clear a boundary change; only James can enact
 
 ## Today vs the platform
 
+**Update (2026-07-10): promotion is now git-native** — a CODEOWNER-reviewed PR merge to
+`main` (arbi cannot self-approve — `.github/CODEOWNERS` makes James the required reviewer),
+CI-gated by `full-check`. See `/arbi-promote`. Managed Agents automation is an optional
+backend. The paragraph below is the platform mapping.
+
+
 Today "promotion" = a reviewed git commit that changes an arbi doc/prompt, with the review
 loop (`security-engineer`/`technical-writer`) and this gate's criteria applied by hand. On
 Managed Agents it becomes automated: outcomes-graded candidates, holdout eval runs, and a
