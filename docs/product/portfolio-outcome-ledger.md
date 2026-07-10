@@ -42,7 +42,7 @@ anything) · realised outcome vs the thesis and an honest read on whether the me
   approach, not repeat it.
 - **Feeds the portfolio-capacity track record** — sustained useful, in-policy, model-independent
   memos are part of what would justify promoting P3 to standing autonomy
-  (`arbi-permission-model.md` §Portfolio ladder promotion). A memo that ever crossed the
+  (`arbi-permission-model.md` §Promotion preconditions). A memo that ever crossed the
   firewall (implied an order, used Model A while quarantined, breached policy) is a hard fail
   that blocks promotion.
 - **Never rewritten by a dream** — a dream may summarise this ledger into a lesson, but the

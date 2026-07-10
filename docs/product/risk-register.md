@@ -3,7 +3,7 @@
 **Status:** current
 **Scope:** the standing risks arbi carries into every brief until they're closed
 **Last verified:** 2026-07-10
-**Owner:** arbi maintains (Tier 2, command-invoked); James owns the risk appetite
+**Owner:** arbi maintains (I2, command-invoked); James owns the risk appetite
 **Superseded by:** N/A
 
 The durable risk list arbi surfaces (BLOCKERS / NEW BUGS-RISKS) and updates as risks open or

@@ -65,7 +65,7 @@ arbi returns exactly these blocks (see `.claude/agents/arbi.md` for the full tem
 - `NEXT PROMPT` — a scoped, copy-pasteable implementation prompt for THE ONE THING,
   structured as: **mission · owner (which agent/command) · success criteria · what must
   NOT be touched · required citations.** This is what a specialist agent (or Claude Code)
-  runs next. arbi *drafts* it; it does not dispatch it (Tier 1).
+  runs next. arbi *drafts* it; it does not dispatch it (I1).
 
 ## Permission tiers
 
@@ -97,19 +97,20 @@ The infrastructure capability ladder:
 The **Autonomous?** column is each tier's *ceiling* — what it would permit once that tier
 is granted — not arbi's current standing grant. What arbi actually holds today is narrower:
 
-**Where arbi stands today:** Tiers 0–1 as *standing* autonomy (it reads and thinks
-whenever invoked). Tier 2 doc-writes happen **only through an explicitly invoked command**
+**Where arbi stands today:** I0–I1 as *standing* autonomy (it reads and thinks
+whenever invoked). I2 doc-writes happen **only through an explicitly invoked command**
 (`/arbi` refreshing state, `/arbi-close` writing a handoff) — human-in-the-loop, James ran
-it — **not** unattended standing autonomy. Tiers 3–7 are **not granted**. Promoting arbi to
-standing Tier 2/3 requires the preconditions in `roadmap-state.md` (Model A resolved; agent
-DB role scoping landed; the decision log + `arbi-evals.md` showing its calls hold up) and an
-explicit human decision. Tier 4 (implementation dispatcher) means arbi decides
-*what/who/success/must-not-touch* and hands the specialist the scoped NEXT PROMPT — it never
-implements the code itself, and the *result* still climbs the tiers above for approval.
+it — **not** unattended standing autonomy. I3–I6 (and, on the Portfolio ladder, P3–P6) are
+**not granted**. Promoting arbi to standing I2/I3 requires the preconditions in
+`roadmap-state.md` (Model A resolved; agent DB role scoping landed; the decision log +
+`arbi-evals.md` showing its calls hold up) and an explicit human decision. I4 (implementation
+dispatcher) means arbi decides *what/who/success/must-not-touch* and hands the specialist the
+scoped NEXT PROMPT — it never implements the code itself, and the *result* still climbs the
+tiers above for approval.
 
 **Scheduled runs** are classified separately (`arbi-permission-model.md` §Scheduled/unattended
-runs): a *scheduled* `/arbi` (PR 7a) is **read-only, Tier 0–1, output-only** — it emits a draft
-brief and does **not** perform the Tier-2 state write the interactive command does (an
+runs): a *scheduled* `/arbi` (PR 7a) is **read-only, I0–I1, output-only** — it emits a draft
+brief and does **not** perform the I2 state write the interactive command does (an
 unattended run has no James-invocation to authorise it). That read-only dry run is the one
 unattended path allowed *before* the promotion preconditions; standing scheduled autonomy that
 writes unattended (PR 7b) stays blocked on them.
@@ -117,7 +118,7 @@ writes unattended (PR 7b) stays blocked on them.
 ## Stop conditions
 
 arbi stops and hands back to James when: (a) it has produced the brief + NEXT PROMPT
-(Tier 1 always stops here); (b) an action would cross a tier it isn't granted; (c) ≥2 live
+(I1 always stops here); (b) an action would cross a tier it isn't granted; (c) ≥2 live
 probes are unavailable (say the read is state-thin, name the gaps); (d) the next action is
 downstream of a live P0 blocker (Model A) for real capital — surface it, don't route
 around it; (e) it cannot cite a claim to a source — it omits the claim rather than
@@ -126,7 +127,7 @@ guessing.
 ## Approval gates (the blast-radius boundaries)
 
 arbi is autonomous for: reading · summarising · prioritising · detecting drift · writing
-handoffs · updating roadmap docs · drafting implementation prompts · (Tier 3+) opening
+handoffs · updating roadmap docs · drafting implementation prompts · (I3+) opening
 docs-only draft PRs.
 
 arbi is **never** autonomous for — always requires explicit James approval: DB writes ·
@@ -172,10 +173,10 @@ basis for real capital. When the dispute resolves and rule #11 is removed from `
 update this section, `north-star.md` §Non-negotiables, and `roadmap-state.md` §Blocked in
 the same change.
 
-## GitHub branch/PR rules (Tier 3+)
+## GitHub branch/PR rules (I3+)
 
 - Work on the session's designated feature branch; never commit directly to `main`.
-- Docs-only commits only, at Tier 3. A commit that stages any `*.py` is out of tier and
+- Docs-only commits only, at I3. A commit that stages any `*.py` is out of tier and
   requires approval (and would trip the `review-gate.sh` hook anyway).
 - Open PRs as **draft**; write the summary; classify as docs/code/infra/db. Do not merge,
   close, enable auto-merge, or modify CI — all approval-gated.

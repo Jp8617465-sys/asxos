@@ -16,20 +16,20 @@ Managed Agents required. Managed Agents is an optional hosted backend, not a pre
 
 ```
 Routine fires (ARBI_UNATTENDED=1)                         ← scheduler (Claude Code Routine)
-  → /arbi            observe live state, decide THE ONE THING          (Tier 0-1)
-  → /arbi-run        dispatch the named specialists in parallel        (Tier 4, reversible)
-  → implement        on a claude/** branch                            (Tier 2-3)
+  → /arbi            observe live state, decide THE ONE THING          (I0-I1)
+  → /arbi-run        dispatch the named specialists in parallel        (I4, reversible)
+  → implement        on a claude/** branch                            (I2-I3)
   → test             make check / targeted pytest + ruff(0.7.0) + mypy
   → review loop      security-engineer / refactoring-expert / technical-writer
-  → open a PR        CI runs; report to James                          (Tier 3, draft)
-  → STOP at merge    ← James merges (Tier 6 = prod deploy)             ← THE HUMAN GATE
-  → /arbi-close      append run-ledger + decision-log + working memory (Tier 2)
+  → open a PR        CI runs; report to James                          (I3, draft)
+  → STOP at merge    ← James merges (I6 = prod deploy)                 ← THE HUMAN GATE
+  → /arbi-close      append run-ledger + decision-log + working memory (I2)
 weekly:  /arbi-dream    consolidate → dream-candidate PR
 monthly: /arbi-promote  candidate → approved-lessons (James merges)
 ```
 
 The loop drives itself to a **green PR** and stops. It does not merge — merge = prod deploy,
-reserved to James (Tier 6). It learns every cycle (the ledgers) and consolidates weekly
+reserved to James (I6). It learns every cycle (the ledgers) and consolidates weekly
 (the dream), so it stops repeating mistakes.
 
 ## What makes an unattended run SAFE (three mechanical layers)

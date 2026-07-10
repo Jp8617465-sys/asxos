@@ -185,11 +185,11 @@ onto — Managed Agents memory/dreams/outcomes — is not provisioned here).
 **PR 7a is the one autonomous-execution step that is safe *before* the preconditions:** a
 scheduled `/arbi` that runs **read-only**. It runs the observe → diff → synthesize → present
 steps and emits a **draft brief / issue / email — and nothing else.** It explicitly does
-**not** perform the Tier-2 state-refresh a human-invoked `/arbi` does (that write is
+**not** perform the I2 state-refresh a human-invoked `/arbi` does (that write is
 authorised by James invoking it interactively; an unattended run has no such invocation). So
 PR 7a: **no writes** (not even `roadmap-state.md`), no DB, no Render, no GitHub mutation, no
 branch creation, no roadmap-state overwrite, no capital-impacting output, no Model A-derived
-recommendation. It is **Tier 0–1 only** — deliberately boring, read-only, and impossible to
+recommendation. It is **I0–I1 only** — deliberately boring, read-only, and impossible to
 confuse with real autonomy. **PR 7b onward** (standing scheduled autonomy that writes/acts
 unattended) stays blocked on the preconditions.
 

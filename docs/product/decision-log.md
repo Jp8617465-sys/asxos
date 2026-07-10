@@ -3,7 +3,7 @@
 **Status:** current
 **Scope:** arbi's durable memory of prioritisation decisions and whether they held up
 **Last verified:** 2026-07-10
-**Owner:** arbi appends (Tier 2, command-invoked); James audits
+**Owner:** arbi appends (I2, command-invoked); James audits
 **Superseded by:** N/A
 
 This is where arbi *learns*. Every `/arbi-close` appends the wake's "one thing," what was

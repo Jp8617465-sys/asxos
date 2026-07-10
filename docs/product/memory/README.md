@@ -65,6 +65,6 @@ a handoff (L4) still listing it blocked.
 `authority-lessons.md` + `project-facts.md` + every `arbi-*.md`. With branch protection on
 `main` (require PR + `full-check` green + CODEOWNERS approval; no direct pushes; arbi's
 identity cannot self-approve), promotion becomes a merge arbi **cannot perform on itself** —
-the git form of Tier 6 "never standing" and the promotion gate's "grader ≠ producer."
+the git form of I6 "never standing" and the promotion gate's "grader ≠ producer."
 Branch-protection setup is a James/`backend-architect` action (a repo-config change), tracked
 alongside the read-only-DB-role work (R2/R5).

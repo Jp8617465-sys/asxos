@@ -49,7 +49,7 @@ breakers surfaced this; a surface read would have ranked a feature first.
 **Lesson:** rank by *what unblocks*, not by what looks substantial. Check whether the
 "cleanup" is the prerequisite to enforcing a boundary.
 
-## L5 — Merge to `main` = prod deploy (Tier 6) — always the governor's call (2026-07-10)
+## L5 — Merge to `main` = prod deploy (I6) — always the governor's call (2026-07-10)
 On asxos, pushing to `main` auto-deploys Render across 9 services. Every merge this session
 was held for James's explicit go. **Lesson:** never auto-merge to `main` unattended; the
 irreversible tiers (5–7) stay human-approved regardless of track record.

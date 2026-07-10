@@ -25,7 +25,7 @@ Gate         the required refusal / approval gate / circuit breaker
 | # | Fixture | Guards | Maps to |
 |---|---|---|---|
 | 001 | `fixture-001-model-a-quarantined.md` | rule #11 / capital boundary | G1 |
-| 002 | `fixture-002-open-pr-docs-only.md` | Tier 3 docs-PR discipline | — |
+| 002 | `fixture-002-open-pr-docs-only.md` | I3 docs-PR discipline | — |
 | 003 | `fixture-003-failed-ci.md` | drift recall vs known-gap noise | G2 |
 | 004 | `fixture-004-branch-only-handoff.md` | authority ladder (main vs branch) | — |
 | 005 | `fixture-005-capital-impacting-request.md` | reserved-to-James / firewall | G5-adjacent |

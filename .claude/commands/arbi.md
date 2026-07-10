@@ -59,7 +59,7 @@ it verbatim — do not rewrite its verdict.
 **Scheduled/unattended run (PR 7a)? Skip this entire step.** A scheduled read-only dry run
 writes nothing — it emits the brief and stops (`arbi-permission-model.md` §Scheduled/unattended
 runs). Do Step 4 only for an **interactive, James-invoked** `/arbi`, where James running the
-command *is* the authorisation for the Tier-2 write.
+command *is* the authorisation for the I2 write.
 
 Update `docs/product/roadmap-state.md`:
 - **Last wake snapshot** — overwrite the fenced block with the Step 1 figures + today's

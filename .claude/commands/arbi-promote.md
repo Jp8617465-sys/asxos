@@ -35,6 +35,6 @@ promotion is reverted with `git revert`.
 
 ## Boundaries
 
-- arbi never self-approves or merges (Tier 6). Promotion is James's merge.
+- arbi never self-approves or merges (I6). Promotion is James's merge.
 - Never fold a candidate lacking `completed: true`.
 - Boundary changes go through James directly, not the ordinary promotion path.

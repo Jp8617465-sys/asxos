@@ -41,6 +41,15 @@ Every one of those outputs is a **memo**. The gap between the best memo arbi can
 one dollar of James's capital moving is **James, reading it and deciding.** That gap is not
 a tool arbi is missing — it is the firewall, expressed as an authority boundary.
 
+**How the P-ladder is realized (not via the wake-up subagent).** The portfolio capacity runs
+through **`/pm-review`** — a slash command that fans out the five read-only investment-analysis
+agents and synthesizes their evidence in the main loop. It is **not** the `.claude/agents/arbi.md`
+wake-up subagent, which is `Read, Glob, Grep`-only and is explicitly barred from emitting any
+buy/sell memo (it may only *recommend that James run `/pm-review`*). So the autonomous,
+scheduled wake-up agent physically cannot produce a capital memo — the P-ladder is a distinct,
+human-invoked surface. This *strengthens* the firewall: the most-autonomous component has the
+least capital reach.
+
 ## The firewall stance (canonical text — other docs cite this)
 
 > asxos is single-user investment **decision-support** for James. It may provide

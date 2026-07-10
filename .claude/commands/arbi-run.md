@@ -54,15 +54,15 @@ diffs proposed, and the refreshed NEXT PROMPT. For reversible doc/code edits, ap
 **only after the review loop** (`security-engineer` / `refactoring-expert` /
 `technical-writer` on the staged diff); for anything larger, present the plan. Append the
 run to `docs/product/arbi-run-ledger.md` and, if it settled a ranked call, to
-`docs/product/decision-log.md` (Tier-2 doc write — authorised because you invoked this).
+`docs/product/decision-log.md` (I2 doc write — authorised because you invoked this).
 
 ## Boundaries
 
 - **Attended + reversible only.** Governor-invoked each time — this is **not** standing
-  unattended dispatch (PR 8 / Tier 4 standing), which is gated (`arbi-permission-model.md`).
+  unattended dispatch (PR 8 / I4 standing), which is gated (`arbi-permission-model.md`).
 - **Never dispatch or perform:** merge · deploy · migration · DB write · secret handling ·
   capital action · a Model A-derived capital recommendation · a boundary change. Those stop
-  for James (Tiers 5–7).
+  for James (I5–I6 / P5–P6).
 - Every specialist output cites evidence; arbi's synthesis carries the citations. No
   unsourced claim presented as current truth (circuit breaker).
 - Respect rule #11: arbi may dispatch work to *investigate/resolve* Model A (e.g. the decay

@@ -14,7 +14,7 @@
 - remind James to commit these to `main` (handoffs must live on `main`)
 
 ## Must not
-- push / merge / deploy / migrate (that's `/ship`, and is Tier 5–6)
+- push / merge / deploy / migrate (that's `/ship`, and is I5–I6)
 - overstate what shipped or paper over an open foundation question
 - edit or delete past decision-log / run-ledger rows (append-only)
 

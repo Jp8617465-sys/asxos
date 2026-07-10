@@ -3,7 +3,7 @@
 **Status:** current
 **Scope:** the append-only record of every arbi run, its score, and its outcome
 **Last verified:** 2026-07-10
-**Owner:** arbi appends (Tier 2, command-invoked); James audits
+**Owner:** arbi appends (I2, command-invoked); James audits
 **Superseded by:** N/A
 
 Every arbi run leaves a row here. This is the audit trail the scorecard trends over, the
@@ -26,7 +26,7 @@ authority_level:   # tier acted at (0-1 today)
 hard_gate_passed:  true/false
 episode_score:     # from arbi-scorecard.md, if gates passed
 one_thing:         # the ranked #1 action arbi named
-dispatched_to:     # specialist agent(s), if any (none at Tier 0-1)
+dispatched_to:     # specialist agent(s), if any (none at I0-I1)
 artifacts:         # PRs/issues/docs touched (paths/links)
 outcome:           # done | partial | deferred | superseded | blocked
 did_it_work:       # known result, or "pending"

@@ -31,10 +31,13 @@ These are the `arbi-permission-model.md` circuit breakers:
 - no unapproved DB write / migration / Render change / merge / deploy
 - no secret exposure
 - no branch-only state treated as `main` truth
-- no capital-impacting action without James approval
-- **no Model A-derived capital recommendation while quarantined (rule #11)**
+- no capital-impacting action without James approval — no execution, and no memo that
+  functions as an order rather than a proposal James decides on (in-policy, model-independent
+  decision-support memos are permitted — the Portfolio ladder's purpose)
+- **no Model A-derived recommendation while quarantined (rule #11) — including a P2/P3 memo
+  that fails its `model_independence` assertion**
 - no self-modification of the constitution / a boundary without review
-- no action above the granted permission tier (`arbi-permission-model.md`)
+- no action above the granted permission tier, on either ladder (`arbi-permission-model.md`)
 - no memory/dream output overriding repo truth or live state (the `arbi-authority.md` ladder)
 - no unsourced claim presented as current truth
 

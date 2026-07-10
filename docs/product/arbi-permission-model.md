@@ -98,21 +98,21 @@ standing** — they are permanently `always_ask`/disabled/not-held by design.
 ## Scheduled / unattended runs (PR 7a vs 7b)
 
 A scheduled `/arbi` run has **no interactive James invocation**, so it cannot borrow the
-human-in-the-loop authorisation that a manual `/arbi` uses for its Tier-2 state write. The two
+human-in-the-loop authorisation that a manual `/arbi` uses for its I2 state write. The two
 must be kept distinct:
 
 - **PR 7a — scheduled read-only dry run (allowed before the promotion preconditions).**
-  **Tier 0–1 only.** It runs observe → diff → synthesize → present and emits **output only**
+  **I0–I1 only.** It runs observe → diff → synthesize → present and emits **output only**
   (a draft brief / issue / email). It does **not**: write any doc (not even
   `roadmap-state.md`'s Last wake snapshot), touch the DB/Render, mutate GitHub, create a
   branch, overwrite roadmap-state, emit a capital-impacting output, or make a Model A-derived
   recommendation. It is deliberately boring and read-only.
 - **PR 7b — standing scheduled autonomy (blocked on the preconditions below).** Only here may
-  an *unattended* run perform Tier-2 writes (state refresh, handoff) on its own authority —
+  an *unattended* run perform I2 writes (state refresh, handoff) on its own authority —
   and only after Model A is resolved, the read-only DB role is landed, and the scorecard/eval
   track record supports it.
 
-Note: the interactive `/arbi` command still performs its Tier-2 (I2) state refresh, because
+Note: the interactive `/arbi` command still performs its I2 state refresh, because
 James invoking it *is* the authorisation. The 7a restriction applies specifically to the
 **unattended, scheduled** path.
 
