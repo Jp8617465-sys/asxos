@@ -3,11 +3,13 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**,
-**five investment-analysis agents**, and **one discovery agent** (see bottom). The
+**five investment-analysis agents**, **one discovery agent**, and **one
+program-management orchestrator** (`arbi`, see bottom). The
 dev agents help build and maintain the codebase; the conformance agents guard
 spec↔test↔code correctness; the investment-analysis agents surface evidence-grounded
 views on the live portfolio; the discovery agent proposes new investment content for
-governance review. All nineteen are advisory by default; none is a runtime
+governance review; arbi sits above them all and prioritises what gets built toward the
+product's north star. All twenty are advisory by default; none is a runtime
 in-product agent (a runtime tax/portfolio LLM is a structural NO — it would collide
 with the personal-advice firewall and Decimal-only determinism). The investment-
 analysis and discovery agents run in Claude Code sessions only, querying Supabase
@@ -153,3 +155,22 @@ human then reviews and promotes via `asx macro-thesis approve`.
 Not yet built (Phase 2c): **theme-researcher** (given a macro thesis, proposes
 ASX-investable themes) and **instrument-selector** (given a theme, proposes 3-5
 ASX instruments/ETFs — the first real use of `theme_holdings.source='llm_inferred'`).
+
+## Program-management orchestrator (1)
+
+**arbi** sits above every other agent: the arbiter of *what gets built*. It reconciles
+the scattered roadmaps and the live repo/deploy state into one honest picture, then names
+the single highest-leverage next action toward the product's north star. Same tool
+boundary as the analysis/discovery agents minus the DB (`Read, Glob, Grep`) —
+**advisory, read-only, brief-only**: it never writes to the database, never trades, and
+cannot dispatch another agent (a subagent can't spawn subagents; the slash command does
+any fan-out). Invoked via **`/arbi`** ("wake up"); **`/arbi-close`** is the closing
+bookend that records what shipped and writes the session handoff.
+
+Its operating contract — mission, inputs, output schema, permission tiers, approval
+gates, and the Model A / financial-decision boundaries — is
+`docs/product/arbi-harness.md`. The Output it measures every recommendation against is
+`docs/product/north-star.md`; its reconciled state plus append-only decision-log memory
+is `docs/product/roadmap-state.md`; how it's scored is `docs/product/arbi-evals.md`. It
+never crosses the personal-advice firewall (s766B) or CLAUDE.md rule #11 (Model A
+quarantine).
