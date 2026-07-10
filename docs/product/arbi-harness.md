@@ -101,6 +101,13 @@ explicit human decision. Tier 4 (implementation dispatcher) means arbi decides
 *what/who/success/must-not-touch* and hands the specialist the scoped NEXT PROMPT — it never
 implements the code itself, and the *result* still climbs the tiers above for approval.
 
+**Scheduled runs** are classified separately (`arbi-permission-model.md` §Scheduled/unattended
+runs): a *scheduled* `/arbi` (PR 7a) is **read-only, Tier 0–1, output-only** — it emits a draft
+brief and does **not** perform the Tier-2 state write the interactive command does (an
+unattended run has no James-invocation to authorise it). That read-only dry run is the one
+unattended path allowed *before* the promotion preconditions; standing scheduled autonomy that
+writes unattended (PR 7b) stays blocked on them.
+
 ## Stop conditions
 
 arbi stops and hands back to James when: (a) it has produced the brief + NEXT PROMPT

@@ -167,19 +167,31 @@ just repeats mistakes faster. Each PR is a deliberate, separate change.
 | 4 | Docs-write `/arbi-close` | **done** |
 | 5 | Memory policy + run ledger (`arbi-memory-policy.md`, `arbi-run-ledger.md`, `decision-log.md`) | **done (docs)** |
 | 6 | Dream policy + promotion gate (`arbi-dream-policy.md`, `arbi-promotion-gate.md`) | **done (docs)** |
-| 7 | Scheduled arbi brief (Routine / Managed Agents scheduled deployment) | not started — **needs runtime** |
+| **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | not started — **allowed pre-preconditions; Tier 0–1 only** |
+| **7b** | **Standing** scheduled autonomy (arbi writes/acts unattended on a schedule) | **blocked** on the 3 preconditions below |
 | 8 | Multi-agent delegation (arbi coordinates specialists) | not started — needs runtime |
 | 9 | GitHub operator mode (docs-only draft PRs) | not started |
 | 10 | Live read-only watchdog (reacts to CI/PR/data events) | not started |
 
-PRs 1–6 are the **governance + learning foundation** and are complete as docs (the runtime
-they map onto — Managed Agents memory/dreams/outcomes — is not provisioned here). PRs 7–10 add
-autonomous execution and require an external runtime (Claude Code Routines for scheduling;
-Managed Agents for the full kernel).
+PRs 1–6 are the **governance + learning foundation**, complete as docs (the runtime they map
+onto — Managed Agents memory/dreams/outcomes — is not provisioned here).
 
-**Preconditions before PR 7+ (scheduled/standing autonomy):** (1) the P0 Model A dispute
-resolved; (2) `m14_candidate_agent_db_role_scoping` landed (read-only DB role); (3) the
-scorecard trend + decision log + eval suite showing arbi's calls hold up
+**PR 7a is the one autonomous-execution step that is safe *before* the preconditions:** a
+scheduled `/arbi` that runs **read-only**. It runs the observe → diff → synthesize → present
+steps and emits a **draft brief / issue / email — and nothing else.** It explicitly does
+**not** perform the Tier-2 state-refresh a human-invoked `/arbi` does (that write is
+authorised by James invoking it interactively; an unattended run has no such invocation). So
+PR 7a: **no writes** (not even `roadmap-state.md`), no DB, no Render, no GitHub mutation, no
+branch creation, no roadmap-state overwrite, no capital-impacting output, no Model A-derived
+recommendation. It is **Tier 0–1 only** — deliberately boring, read-only, and impossible to
+confuse with real autonomy. **PR 7b onward** (standing scheduled autonomy that writes/acts
+unattended) stays blocked on the preconditions. PRs 7–10 need an external runtime (Claude Code
+Routines for scheduling; Managed Agents for the full kernel).
+
+**Preconditions before PR 7b+ (standing / writing scheduled autonomy — NOT required for the
+7a read-only dry run):** (1) the P0 Model A dispute resolved; (2)
+`m14_candidate_agent_db_role_scoping` landed (read-only DB role); (3) the scorecard trend +
+decision log + eval suite showing arbi's calls hold up
 (`arbi-permission-model.md` §promotion preconditions).
 
 **Never lifts, at any PR:** the personal-advice firewall (s766B) — arbi automates *what gets

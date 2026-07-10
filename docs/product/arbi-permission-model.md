@@ -44,6 +44,27 @@ Promotion to *standing* Tier 2/3 (and later Tier 4 dispatch) requires the precon
 below and an explicit James decision. **Tiers 5–7 are never promoted to standing** — they
 are permanently `always_ask`/disabled by design.
 
+## Scheduled / unattended runs (PR 7a vs 7b)
+
+A scheduled `/arbi` run has **no interactive James invocation**, so it cannot borrow the
+human-in-the-loop authorisation that a manual `/arbi` uses for its Tier-2 state write. The two
+must be kept distinct:
+
+- **PR 7a — scheduled read-only dry run (allowed before the promotion preconditions).**
+  **Tier 0–1 only.** It runs observe → diff → synthesize → present and emits **output only**
+  (a draft brief / issue / email). It does **not**: write any doc (not even
+  `roadmap-state.md`'s Last wake snapshot), touch the DB/Render, mutate GitHub, create a
+  branch, overwrite roadmap-state, emit a capital-impacting output, or make a Model A-derived
+  recommendation. It is deliberately boring and read-only.
+- **PR 7b — standing scheduled autonomy (blocked on the preconditions below).** Only here may
+  an *unattended* run perform Tier-2 writes (state refresh, handoff) on its own authority —
+  and only after Model A is resolved, the read-only DB role is landed, and the scorecard/eval
+  track record supports it.
+
+Note: the interactive `/arbi` command still performs its Tier-2 state refresh, because James
+invoking it *is* the authorisation. The 7a restriction applies specifically to the
+**unattended, scheduled** path.
+
 ## Promotion preconditions (Tier ≤4 only)
 
 Before arbi earns standing autonomy at a higher reversible tier, all must hold:
