@@ -7,10 +7,16 @@
 **Superseded by:** N/A
 
 arbi has no trained weights — it's a prompt + docs. So "getting better" can't mean
-gradient updates; it means (1) the **decision log** in `roadmap-state.md` accumulating
+gradient updates; it means (1) the **decision log** (`decision-log.md`) accumulating
 real outcomes arbi checks its next call against, and (2) this rubric catching regressions
 in brief quality when the agent file, the docs, or the model change. Run these after any
 edit to `arbi.md` / `arbi-harness.md` / the product docs, and spot-check periodically.
+
+**This file is the eval-suite index.** The metric authority (hard gates + reward vector +
+promotion rule) is `arbi-scorecard.md`; the per-task pass/fail rubrics live in
+`docs/product/rubrics/` (daily-brief, roadmap-update, session-close, safety-boundary,
+dream-promotion); the golden scenarios below are the fixture set (expand into
+`docs/product/evals/` as needed). A candidate is promoted only via `arbi-promotion-gate.md`.
 
 ---
 

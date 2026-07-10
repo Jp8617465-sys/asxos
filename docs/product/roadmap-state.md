@@ -147,47 +147,45 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 
 ## Decision log & outcomes (arbi's memory)
 
-This is how arbi *learns* — it has no trained weights; its memory is this append-only
-log plus the dated handoffs, all git-versioned. Every `/arbi-close` appends the last
-wake's "one thing," what was actually done, and whether it worked. Every `/arbi` reads
-this before ranking, so a recommendation that didn't pan out reshapes the next one.
-**Never delete rows** — this is the audit trail of the project's real trajectory, and
-the only place the system checks its own past calls against outcomes.
+Moved to its own canonical file: **`decision-log.md`** (append-only; the run audit trail is
+`arbi-run-ledger.md`; standing risks are `risk-register.md`). arbi reads the decision log
+first each wake and checks whether its last call held up. It was split out of this file so it
+can grow without bloating the reconciled-state view and so the promotion gate + run ledger
+reference one canonical decision history.
 
-| Date | arbi's "one thing" | What was done | Outcome (done/partial/deferred/superseded · did it work?) |
-|---|---|---|---|
-| _(none yet — first `/arbi-close` appends here)_ | | | |
+## Autonomy roadmap — the ASXOS Autonomy Kernel (10-PR sequence)
 
-## Autonomy roadmap — from brief to self-driving
+How arbi grows from a brief into the bounded autonomous operating layer. Governance +
+memory/dream policy land **before** scheduled autonomy — without them, scheduled autonomy
+just repeats mistakes faster. Each PR is a deliberate, separate change.
 
-James asked how arbi becomes continuously learning and autonomous. The path is staged;
-each stage is a deliberate, separate change, and two limits **never** lift (see below).
+| PR | What | Status |
+|---|---|---|
+| 1 | Constitution + authority hierarchy (`arbi-constitution.md`, `arbi-authority.md`, `arbi-permission-model.md`) | **done (2026-07-10)** |
+| 2 | Scorecard + eval rubrics (`arbi-scorecard.md`, `rubrics/`, `arbi-evals.md`) | **done (2026-07-10)** |
+| 3 | Read-only `/arbi` | **done** |
+| 4 | Docs-write `/arbi-close` | **done** |
+| 5 | Memory policy + run ledger (`arbi-memory-policy.md`, `arbi-run-ledger.md`, `decision-log.md`) | **done (docs)** |
+| 6 | Dream policy + promotion gate (`arbi-dream-policy.md`, `arbi-promotion-gate.md`) | **done (docs)** |
+| 7 | Scheduled arbi brief (Routine / Managed Agents scheduled deployment) | not started — **needs runtime** |
+| 8 | Multi-agent delegation (arbi coordinates specialists) | not started — needs runtime |
+| 9 | GitHub operator mode (docs-only draft PRs) | not started |
+| 10 | Live read-only watchdog (reacts to CI/PR/data events) | not started |
 
-- **Stage 0 — brief-only (now).** arbi observes and recommends; James executes. Memory =
-  this file + handoffs. Learning = the decision log above.
-- **Stage 1 — assisted dispatch.** `/arbi` gains a dispatch toggle: on James's "go" it
-  dispatches the owning agent/command for THE ONE THING (already scaffolded as the
-  commented future toggle in `.claude/commands/arbi.md`). Human is still in the loop per
-  action.
-- **Stage 2 — scheduled wake.** A Routine / cron fires `/arbi` on a cadence (e.g. 06:30
-  AEST) so it proactively surfaces "what changed / new bugs" unprompted — the "FRIDAY
-  watched overnight" step. Mechanism: `mcp__Claude_Code_Remote__create_trigger` (fires
-  into a session) or a Render cron, same pattern as the existing 29 jobs.
-- **Stage 3 — bounded autonomy.** arbi auto-executes a *whitelisted, reversible* class of
-  dev/ops actions (run the decay analysis, refresh docs, open a **draft** PR, run tests)
-  and reports. Everything touching real capital or a governed object still routes through
-  the existing governance rail: `agent_runs` → `pending_review` → human `approve`. That
-  rail is precisely what makes autonomy safe — an autonomous arbi still cannot move
-  capital without a human approval transition.
+PRs 1–6 are the **governance + learning foundation** and are complete as docs (the runtime
+they map onto — Managed Agents memory/dreams/outcomes — is not provisioned here). PRs 7–10 add
+autonomous execution and require an external runtime (Claude Code Routines for scheduling;
+Managed Agents for the full kernel).
 
-**Preconditions before Stage 2+:** (1) the P0 Model A dispute resolved — you cannot
-autonomously act on an engine under dispute; (2) `m14_candidate_agent_db_role_scoping`
-landed — a read-only Postgres role so an unattended agent can't write; (3) the decision
-log showing arbi's calls have actually held up.
+**Preconditions before PR 7+ (scheduled/standing autonomy):** (1) the P0 Model A dispute
+resolved; (2) `m14_candidate_agent_db_role_scoping` landed (read-only DB role); (3) the
+scorecard trend + decision log + eval suite showing arbi's calls hold up
+(`arbi-permission-model.md` §promotion preconditions).
 
-**Never lifts, at any stage:** the personal-advice firewall (s766B) — arbi automates
-*what gets built*, never *what to trade*; and the Model A quarantine (rule #11) until the
-dispute resolves. Autonomy expands on the dev/ops side only.
+**Never lifts, at any PR:** the personal-advice firewall (s766B) — arbi automates *what gets
+built*, never *what to trade*; the Model A quarantine (rule #11) until resolved; and the
+irreversible tiers (5–7) stay `always_ask`/disabled regardless of track record. Autonomy
+expands only on the reversible dev/ops side.
 
 ---
 

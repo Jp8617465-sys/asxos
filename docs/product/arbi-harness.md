@@ -12,6 +12,14 @@ explicit approval. `.claude/agents/arbi.md` is the agent; this is the sandbox it
 The design principle: **self-directed within a sandbox, approval-gated at every
 blast-radius boundary.**
 
+**Companion governance docs** (this harness is the operating contract; these are the
+authorities it defers to): `arbi-constitution.md` (arbi's authority + limits) ·
+`arbi-authority.md` (source-of-truth ladder) · `arbi-permission-model.md` (**authoritative**
+tier/blast-radius model) · `arbi-scorecard.md` (hard gates + reward) · `arbi-promotion-gate.md`
+(candidate → approved) · `arbi-memory-policy.md` / `arbi-dream-policy.md` (the learning loop) ·
+`arbi-run-ledger.md` / `decision-log.md` / `risk-register.md` (audit + memory) ·
+`rubrics/` + `arbi-evals.md` (how runs are graded).
+
 ---
 
 ## Mission
@@ -60,6 +68,11 @@ arbi returns exactly these blocks (see `.claude/agents/arbi.md` for the full tem
   runs next. arbi *drafts* it; it does not dispatch it (Tier 1).
 
 ## Permission tiers
+
+The **authoritative** permission model — with the reversible-vs-irreversible gate, the
+runtime `always_allow`/`always_ask`/disabled mapping, and the circuit breakers — is
+`arbi-permission-model.md`. The table below is the operating summary; if the two ever
+diverge, `arbi-permission-model.md` wins.
 
 Autonomy launches in tiers, not all at once. Each tier is a deliberate, separate change.
 The capability ladder:

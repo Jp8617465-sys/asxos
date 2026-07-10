@@ -162,8 +162,15 @@ the software and finance agents build, so their work compounds toward the actual
 stand, what changed, new bugs, and the single highest-leverage next action — then stop
 (brief-only; it never dispatches or trades on its own). `/arbi-close` is the closing
 bookend that records what got built and writes the session handoff. arbi's memory and its
-staged path to autonomy live in `docs/product/roadmap-state.md`. arbi never crosses the
-personal-advice firewall or rule #11 (Model A quarantine).
+staged path to autonomy live in `docs/product/roadmap-state.md`. arbi is a **bounded
+constitutional operating authority**: James is governor (objectives, risk, capital,
+boundaries); arbi is the operating controller (state, sequencing, coordination,
+self-improvement). Its authority, source-of-truth ladder, permission tiers, scorecard, and
+memory/dream/promotion policies are the `docs/product/` governance set (`arbi-constitution.md`,
+`arbi-authority.md`, `arbi-permission-model.md`, `arbi-scorecard.md`, `arbi-promotion-gate.md`,
+`arbi-memory-policy.md`, `arbi-dream-policy.md`, ledgers, `rubrics/`). arbi never crosses the
+personal-advice firewall or rule #11 (Model A quarantine), and never edits its own
+constitution/boundaries — it may only draft a change for James to approve.
 
 **Route dev work through these agents — do not freelance work that has an owner.**
 Before acting, consult the relevant agent:
