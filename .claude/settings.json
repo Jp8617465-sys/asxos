@@ -1,4 +1,74 @@
 {
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+
+      "mcp__supabase-ro__execute_sql",
+      "mcp__supabase-ro__list_tables",
+      "mcp__supabase-ro__list_extensions",
+      "mcp__supabase-ro__list_migrations",
+
+      "mcp__github__get_me",
+      "mcp__github__list_pull_requests",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_commits",
+      "mcp__github__get_commit",
+      "mcp__github__list_branches",
+      "mcp__github__get_file_contents",
+      "mcp__github__list_issues",
+      "mcp__github__issue_read",
+      "mcp__github__search_issues",
+      "mcp__github__search_pull_requests",
+      "mcp__github__search_code",
+      "mcp__github__list_tags",
+      "mcp__github__get_tag",
+      "mcp__github__actions_list",
+      "mcp__github__actions_get",
+      "mcp__github__get_job_logs",
+      "mcp__github__get_check_run",
+
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git merge-base:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Bash(git stash:*)",
+      "Bash(git config user.email:*)",
+      "Bash(git config user.name:*)",
+      "Bash(git push -u origin claude/*)",
+      "Bash(git push origin claude/*)",
+
+      "Bash(ruff:*)",
+      "Bash(mypy:*)",
+      "Bash(pytest:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python -m ruff:*)",
+      "Bash(python -m mypy:*)",
+      "Bash(make check:*)",
+      "Bash(make check-drift:*)"
+    ],
+    "ask": [
+      "Bash(git push origin main:*)",
+      "Bash(git push -u origin main:*)",
+      "mcp__Supabase__execute_sql",
+      "mcp__Supabase__apply_migration",
+      "mcp__github__merge_pull_request",
+      "mcp__github__create_pull_request",
+      "mcp__github__push_files",
+      "mcp__github__create_or_update_file",
+      "mcp__github__delete_file"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
