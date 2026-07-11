@@ -305,6 +305,34 @@ canonical source of account type. Do not add `account_type` to `holding_lots`.
 
 ---
 
+## `cost_base_normal` currency — it is the AUD tax base, not native (risk R10)
+
+**`holding_lots.cost_base_normal` (and the `current_holdings` view over it) is
+denominated in AUD** — it is the CGT cost base, FX-converted at the lot's
+acquisition rate. For a foreign lot it is **not** `quantity × native_price`.
+Example (HUBS.NYSE, lot id=1): `cost_base_normal = 6978.23` AUD = 24 sh ×
+US$187.54 ÷ 0.6450 acquisition-FX; the per-share USD entry is
+`actual_entry_price = 187.54` on the thesis, **not** `6978.23 / 24 = 290.76`.
+
+Dividing `cost_base_normal` by `quantity` for a foreign holding and comparing
+to a USD `prices.close` is a **currency error**. In the 2026-07-11 `/pm-review`
+it made two analysis agents report HUBS as −29%/stop-violated when the position
+was ≈ flat (+9.8% USD). To measure a foreign lot's return, convert **both** legs
+to one currency: either compare `cost_base_normal` (AUD) to
+`quantity × close ÷ current_AUDUSD` (AUD), or reconstruct the native cost as
+`actual_entry_price × quantity` (USD) and compare to `quantity × close` (USD).
+`portfolio_daily_snapshots.*_aud` columns are already AUD; `prices.close` and
+`holding_lots.disposal_proceeds` are native — never mix the two without an FX
+step (`asxos/domain/prices/fx.py`).
+
+The clean end-state is an explicit `cost_base_ccy` marker or split
+`cost_base_aud`/`cost_base_usd` columns (a migration — cleanup-backlog RC1,
+gated); until then this convention is the guard. The HUBS acquisition FX
+(0.6450) is confirmed against the brokerage statement — not a data error, just
+an ESPP fill rate that differs from spot.
+
+---
+
 ## No-active-profile hard-fail (plan H.1 CRITICAL-5)
 
 `PortfolioService.build()` raises `RuntimeError` if no profile is active.

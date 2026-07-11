@@ -45,16 +45,18 @@ def forced_sell_inactive_symbols(universe_rows: list[Any]) -> frozenset[str]:
     Feeds ``compute_deltas(universe_inactive_symbols=...)`` in rebalance.py,
     where a held symbol in this set is force-sold (drift threshold ignored).
 
-    An AU equity that has gone is_active=FALSE is a real delisting → still
-    force-sold. Held US holdings (.US/.NYSE/.NASDAQ/.AMEX) are is_active=FALSE by
-    design — they are not ASX-equity-universe members (the AXJO.INDX precedent),
-    NOT delisted — so they are excluded here and never auto-liquidated. `.INDX`
-    benchmark rows are likewise never held, so they don't reach the forced-sell.
+    Only ``security_kind = 'au_equity'`` rows are eligible: an AU equity (incl.
+    A-REITs, which stay au_equity) that has gone is_active=FALSE is a real
+    delisting → still force-sold. Every fund/foreign kind (etf/lic/hybrid/index/
+    us_equity) is excluded and never auto-liquidated — a held ETF or US holding is
+    not an ASX-equity delisting. (Pre-0037 this keyed on ``not is_foreign_symbol``;
+    security_kind now carries that meaning directly, and also excludes .AU-suffixed
+    ETFs — e.g. VGS.AU — which the suffix check could not.)
     """
     return frozenset(
         r["symbol"]
         for r in universe_rows
-        if not r["is_active"] and not is_foreign_symbol(r["symbol"])
+        if r["security_kind"] == "au_equity" and not r["is_active"]
     )
 
 
@@ -63,22 +65,31 @@ def rebalance_holding_snapshots(
     prices: dict[str, Decimal],
     account_type: Any,
     build_date: date,
+    non_equity_symbols: frozenset[str] = frozenset(),
 ) -> list[HoldingSnapshot]:
     """current_holdings rows + latest prices → HoldingSnapshot[] for the rebalance.
 
-    Two exclusions:
+    Three exclusions:
     - **US/foreign holdings** (.US/.NYSE/.NASDAQ/.AMEX) are NOT part of the ASX-AUD
       rebalance strategy — no ASX signal/target, their close is USD (not the AUD this
       snapshot assumes), and they must not be auto-liquidated as an "exited universe"
       sell. They are tracked elsewhere (daily snapshot valuation, check_us_positions
       stop monitor) and deliberately never reach `compute_deltas`. This is the primary
       guard that a held US holding is not force-sold (it never enters the rebalance).
+    - **Non-au_equity holdings** (ETF/LIC/hybrid/index by `security_kind` — e.g. a held
+      VGS.AU) are excluded for the same reason: a fund carries no ASX single-name
+      signal/target, so if it entered the rebalance it would miss `targets` and fall
+      through to an `exited_universe` full-sell. `non_equity_symbols` is computed from
+      `universe.security_kind` in `build()`. This closes the SECOND auto-liquidation path
+      (the forced-sell set in `forced_sell_inactive_symbols` closes the `universe_inactive`
+      path); together they guarantee a held fund is valued but never force-sold. Note this
+      is what catches a **.AU-suffixed** ETF, which `is_foreign_symbol` cannot.
     - **No price data** — a symbol with no close is omitted (can't value it).
     """
     out: list[HoldingSnapshot] = []
     for r in holdings_rows:
         sym = r["symbol"]
-        if is_foreign_symbol(sym):
+        if is_foreign_symbol(sym) or sym in non_equity_symbols:
             continue
         price = prices.get(sym)
         if price is None:
@@ -220,7 +231,7 @@ class PortfolioService:
 
         # Step 3: universe.
         universe_rows = await conn.fetch(
-            "SELECT symbol, sector, market_cap, is_active FROM universe ORDER BY symbol"
+            "SELECT symbol, sector, market_cap, is_active, security_kind FROM universe ORDER BY symbol"
         )
         universe_by_symbol = {r["symbol"]: r for r in universe_rows}
         inactive_symbols = forced_sell_inactive_symbols(universe_rows)
@@ -288,8 +299,15 @@ class PortfolioService:
             r["symbol"]: Decimal(str(r["close"])) for r in price_rows
         }
 
+        # Held funds/foreign (non-au_equity) are excluded from the rebalance so they are
+        # never proposed for an exited_universe sell — the mirror of the forced-sell guard.
+        non_equity_symbols = frozenset(
+            sym for sym, r in universe_by_symbol.items()
+            if r["security_kind"] != "au_equity"
+        )
         holdings = rebalance_holding_snapshots(
-            holdings_rows, prices, profile.account_type, build_date
+            holdings_rows, prices, profile.account_type, build_date,
+            non_equity_symbols=non_equity_symbols,
         )
 
         current_qty = _rebalance.current_qty_by_symbol(holdings)

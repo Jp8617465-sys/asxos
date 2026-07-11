@@ -23,7 +23,7 @@ git push origin main
 
 **Step 5 — Watch the deploy**
 For each service that auto-deploys, watch the build via
-`mcp__render__list_deploys`. Wait until each is `live` (or fail).
+`GET api.render.com/v1/services/<id>/deploys`. Wait until each is `live` (or fail).
 The web service (`asxos-api`) is the fastest signal — if its lifespan
 hard-fails (DB unreachable, migration drift, model artefact missing) the
 deploy will not go live.
@@ -65,4 +65,4 @@ If the failure is pre-push, no production impact.
   Render only auto-deploys from `main`
 - The token in `~/Projects/asxos-secrets/.env.production` must match
   `ASXOS_API_TOKEN` set on `asxos-api` — if you rotated locally, upload
-  via `mcp__render__update_environment_variables` BEFORE pushing
+  via the Render API (`PUT api.render.com/v1/services/<id>/env-vars`) BEFORE pushing

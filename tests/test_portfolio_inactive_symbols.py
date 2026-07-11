@@ -16,8 +16,8 @@ from asxos.domain.portfolio.build import (
 )
 
 
-def _row(symbol: str, is_active: bool) -> dict:
-    return {"symbol": symbol, "is_active": is_active}
+def _row(symbol: str, is_active: bool, security_kind: str = "au_equity") -> dict:
+    return {"symbol": symbol, "is_active": is_active, "security_kind": security_kind}
 
 
 def _hrow(symbol: str, lot_id: int = 1) -> dict:
@@ -45,22 +45,30 @@ def test_active_au_not_force_sold() -> None:
 def test_held_us_holding_not_force_sold() -> None:
     # HUBS.NYSE is is_active=FALSE by design (not an ASX-equity-universe member),
     # NOT delisted — it must NOT be auto-liquidated.
-    out = forced_sell_inactive_symbols([_row("HUBS.NYSE", False)])
+    out = forced_sell_inactive_symbols([_row("HUBS.NYSE", False, "us_equity")])
     assert out == frozenset()
 
 
 def test_all_foreign_exchanges_excluded() -> None:
-    rows = [_row(s, False) for s in ("X.US", "Y.NYSE", "Z.NASDAQ", "W.AMEX")]
+    rows = [_row(s, False, "us_equity") for s in ("X.US", "Y.NYSE", "Z.NASDAQ", "W.AMEX")]
     assert forced_sell_inactive_symbols(rows) == frozenset()
 
 
 def test_index_row_excluded() -> None:
-    # An inactive index row is never held, but confirm it's not force-sold either.
-    # (.INDX is not foreign, but is_active=FALSE — it would be INCLUDED by the
-    #  filter; it never reaches a forced sell because it's never in holdings, and
-    #  this test documents that a stray .INDX in the set is harmless.)
-    out = forced_sell_inactive_symbols([_row("AXJO.INDX", False)])
-    assert out == frozenset({"AXJO.INDX"})  # included by filter; never held → inert
+    # Post-0037: an index row (security_kind='index') is excluded outright. The kind
+    # filter is stricter than the old is_foreign_symbol check — .INDX is not a
+    # FOREIGN_SUFFIX, so it used to be INCLUDED-but-inert (never held); now it's cleanly
+    # excluded, which is the correct behaviour.
+    out = forced_sell_inactive_symbols([_row("AXJO.INDX", False, "index")])
+    assert out == frozenset()
+
+
+def test_au_etf_not_force_sold() -> None:
+    # VGS.AU is an ETF (security_kind='etf') with the SAME .AU suffix as an equity.
+    # The old is_foreign_symbol check could not tell them apart and would have
+    # force-sold a held ETF on a delisting sweep; the kind filter excludes it.
+    out = forced_sell_inactive_symbols([_row("VGS.AU", False, "etf")])
+    assert out == frozenset()
 
 
 def test_bare_code_au_is_force_sold() -> None:
@@ -72,10 +80,11 @@ def test_bare_code_au_is_force_sold() -> None:
 
 def test_mixed_set() -> None:
     rows = [
-        _row("BHP.AU", False),     # delisted AU → included
-        _row("CBA.AU", True),      # active AU → excluded
-        _row("HUBS.NYSE", False),  # held US → excluded
-        _row("AAPL.US", False),    # held US → excluded
+        _row("BHP.AU", False),                  # delisted au_equity → included
+        _row("CBA.AU", True),                   # active au_equity → excluded
+        _row("HUBS.NYSE", False, "us_equity"),  # held US → excluded
+        _row("AAPL.US", False, "us_equity"),    # held US → excluded
+        _row("VGS.AU", False, "etf"),           # ETF (even .AU-suffixed) → excluded
     ]
     assert forced_sell_inactive_symbols(rows) == frozenset({"BHP.AU"})
 
@@ -88,6 +97,20 @@ def test_snapshot_excludes_foreign_holding_even_with_price() -> None:
     rows = [_hrow("BHP.AU", 1), _hrow("HUBS.NYSE", 2)]
     prices = {"BHP.AU": Decimal("45.20"), "HUBS.NYSE": Decimal("150.00")}
     out = rebalance_holding_snapshots(rows, prices, "individual", date(2026, 6, 1))
+    assert {h.symbol for h in out} == {"BHP.AU"}
+
+
+def test_snapshot_excludes_held_etf() -> None:
+    # A held ETF (security_kind != au_equity, passed via non_equity_symbols) is excluded from
+    # the rebalance snapshot — so it never reaches compute_deltas and is never proposed for an
+    # 'exited_universe' full-sell. Mirror of the foreign-holding guard; this is the path that
+    # catches a .AU-suffixed ETF (VGS.AU), which is_foreign_symbol cannot.
+    rows = [_hrow("BHP.AU", 1), _hrow("VGS.AU", 2)]
+    prices = {"BHP.AU": Decimal("45.20"), "VGS.AU": Decimal("110.00")}
+    out = rebalance_holding_snapshots(
+        rows, prices, "individual", date(2026, 6, 1),
+        non_equity_symbols=frozenset({"VGS.AU"}),
+    )
     assert {h.symbol for h in out} == {"BHP.AU"}
 
 

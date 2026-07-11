@@ -23,7 +23,7 @@ is *its* job. Same split as `/pm-review` and `/discover-macro`.
 Run `/sprint-state` (git branch/ahead-of-main/open PRs/last commits/working tree; test
 count via `pytest tests/ -q --tb=no 2>&1 | tail -1`; migration state incl.
 `REQUIRED_MIGRATIONS` vs applied; open `TaskList`). Then add the `/catchup` freshness
-probes: Render service health (`mcp__render__list_services`, filter `asxos-%`, flag
+probes: Render service health (`GET api.render.com/v1/services`, `$RENDER_API_KEY`, filter `asxos-%`, flag
 suspended/non-live), and Supabase freshness (`MAX(prices.dt)`, `MAX(signals.as_of)`,
 recent `job_runs` per cron). If a probe's backing service is unavailable this session,
 record the gap — do not invent a value.
@@ -59,7 +59,7 @@ it verbatim — do not rewrite its verdict.
 **Scheduled/unattended run (PR 7a)? Skip this entire step.** A scheduled read-only dry run
 writes nothing — it emits the brief and stops (`arbi-permission-model.md` §Scheduled/unattended
 runs). Do Step 4 only for an **interactive, James-invoked** `/arbi`, where James running the
-command *is* the authorisation for the Tier-2 write.
+command *is* the authorisation for the I2 write.
 
 Update `docs/product/roadmap-state.md`:
 - **Last wake snapshot** — overwrite the fenced block with the Step 1 figures + today's

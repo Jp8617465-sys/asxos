@@ -76,12 +76,11 @@ async def _run_news_signoff(*, note: str, force: bool) -> None:
 
     console.print(f"[green]✓[/green] News sign-off recorded (decisions.id={decisions_id}).")
     console.print()
-    console.print("[bold]Next step — flip the brief flag via Render MCP:[/bold]")
+    console.print("[bold]Next step — flip the brief flag via the Render REST API:[/bold]")
     console.print(
-        "  mcp__render__update_environment_variables(\n"
-        "      serviceId='crn-d883biq8qa3s73eud08g',  # asxos-compose-brief\n"
-        "      envVars=[{'key': 'ASXOS_NEWS_BRIEF_ENABLED', 'value': '1'}]\n"
-        "  )"
+        "  curl -X PUT -H \"Authorization: Bearer $RENDER_API_KEY\" \\\n"
+        "       -H \"Content-Type: application/json\" -d '{\"value\":\"1\"}' \\\n"
+        "       https://api.render.com/v1/services/crn-d883biq8qa3s73eud08g/env-vars/ASXOS_NEWS_BRIEF_ENABLED"
     )
     console.print()
     console.print(

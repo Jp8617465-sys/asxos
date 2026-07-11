@@ -54,7 +54,7 @@ async def main(single_symbol: str | None) -> None:
     else:
         async with acquire() as conn:
             rows = await conn.fetch(
-                "SELECT symbol FROM universe WHERE is_active ORDER BY symbol"
+                "SELECT symbol FROM universe WHERE is_active AND security_kind = 'au_equity' ORDER BY symbol"
             )
         symbols = [r["symbol"] for r in rows]
 

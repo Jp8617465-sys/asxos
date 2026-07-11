@@ -4,7 +4,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Read first
 
-- **`docs/session-handoff-2026-07-04.md` — READ THIS FIRST, before anything else.** Model A's signal reliability is under active, unresolved dispute (user claim: signal quality collapses within 5 days and reverses by 21 — a potential horizon mismatch against this system's multi-month thesis holding periods). Not yet independently verified. This gates non-negotiable #11 below and blocks Phase 2c. Remove this line and #11 once resolved.
+- **`docs/model-a-decay-analysis-2026-07-11.md` — READ THIS FIRST, before anything else.** The Model A signal-reliability dispute is **RESOLVED (2026-07-11), against Model A**: on 19,032 matured `signal_outcomes`, `corr(ml_prob, 21d return) = −0.03` and its STRONG_BUY signals returned −0.09% at 21d vs HOLD's +5.07% — conviction is inverted at the top; no usable edge over the weeks-to-months horizon the theses hold for. The quarantine (rule #11) is **vindicated and stands as standing policy for v1_5** (NOT removed — removal would mean Model A is fine, which the evidence refutes). What's still open is James's strategic call (retrain to a decay bar / shelve the ML engine / both) and thereby how Phase 2c unblocks.
 - `docs/foundation/BUILD_GUIDE.md` — the executable manual for M1 through M12.
 - `docs/foundation/phase-b-failure-postmortem.md` — the lessons. The previous repo died of these; this repo encodes the fixes.
 - `docs/foundation/spec/tax-alpha.md` — tax-module source of truth. Implementation reads from this; tests cite section numbers.
@@ -13,7 +13,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 ## Non-negotiable rules
 
 1. **Hard-fail startup.** `asxos/api/main.py` lifespan raises on dependency-init failure. No `logger.warning(...); continue`. If the DB is unreachable, the API does not start.
-2. **MCP-driven service management.** Use `mcp__render__*` and `mcp__supabase__*` for routine Render and Supabase operations. Never edit the Render dashboard for changes — every change goes through `render.yaml` + `git push` + `make check-drift`.
+2. **API/MCP service management.** Manage **Render via its REST API** (`https://api.render.com/v1`, bearer `$RENDER_API_KEY` — **there is NO Render MCP; do not call `mcp__render__*`**); use `mcp__supabase__*` for Supabase. Never edit the Render dashboard for changes — every change goes through `render.yaml` + `git push` + `make check-drift`.
 3. **No feature flags.** If a feature is half-built, it stays on a branch.
 4. **No `user_id` columns, no auth, no RLS.** Single user.
 5. **NUMERIC(18,6)** for every monetary or statistical column from day one.
@@ -22,7 +22,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 8. **Tax math is per the spec at `docs/foundation/spec/tax-alpha.md`.** Implementation must cite spec section numbers; deviations require a spec amendment.
 9. **NumPy psycopg2 adapter block** at the top of any module that writes numpy values via psycopg2. See `.claude/rules/job-conventions.md`.
 10. **No graceful warnings in infra code.** Fail loudly.
-11. **TEMPORARY, pending resolution (added 2026-07-04): do not use Model A output — signals, candidate scans, allocator runs, or new thesis proposals derived from it — as a basis for real capital decisions.** Its signal reliability over the horizons this system actually holds positions for (weeks to months) is disputed and unverified. See `docs/session-handoff-2026-07-04.md`. Remove this rule only after the decay analysis described there is done and the dispute is resolved one way or the other.
+11. **STANDING (resolved 2026-07-11): do not use Model A output — signals, candidate scans, allocator runs, or new thesis proposals derived from it — as a basis for real capital decisions.** No longer "temporary/disputed": the decay analysis (`docs/model-a-decay-analysis-2026-07-11.md`) shows on 19,032 matured signals that v1_5 has **no usable edge** over the 5d/21d horizons this system holds for (`corr(ml_prob, 21d) = −0.03`; STRONG_BUY 21d −0.09% vs HOLD +5.07% — conviction inverted at the top). Keep this rule until a **new** model version passes a pre-registered decay bar (positive, monotonic conviction→21d return) AND earns `approved_for_allocation` — do not remove it on the basis of v1_5.
 
 ## Stack
 
@@ -30,7 +30,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 |---|---|---|
 | API | FastAPI 0.115 | `make dev` → 127.0.0.1:8788 |
 | DB | Supabase Postgres 16 (existing project, free tier) | `mcp__supabase__execute_sql` |
-| Jobs (M12+) | Render cron services | `mcp__render__*` |
+| Jobs (M12+) | Render cron services | Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`) |
 | Migrations | Plain `.sql` in `migrations/`, applied via `mcp__supabase__apply_migration` | No runner script |
 | Email | Resend (test sender for v1) | curl-based, no SDK |
 | Monitoring | Healthchecks.io deadman | per-job ping URL |
@@ -68,7 +68,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `make dev` — start API locally
 - `make check` — ruff + mypy + pytest (enforced in CI by the `full-check` workflow on PRs to `main` and `claude/**` pushes; `targeted-ml-tests` is the fast ML lane)
 - `make migrate` — reminder only; actual apply via Supabase MCP
-- `make check-drift` — reconcile `render.yaml` against Render dashboard via MCP
+- `make check-drift` — reconcile `render.yaml` against the live Render services via the Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`)
 
 ## Known test environment gaps (do not chase)
 
@@ -257,4 +257,4 @@ and config-only commits (no staged `*.py`) are not gated.
 
 ## Custom slash commands
 
-`.claude/commands/` has 24 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `arbi-run` (added 2026-07-10) is the attended multi-agent dispatch bridge: arbi plans + names specialists, the main loop fans them out in parallel (governor-invoked, reversible only — standing/unattended dispatch stays gated per `arbi-permission-model.md`). See `.claude/agents/arbi.md` and `docs/product/`.
+`.claude/commands/` has 27 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `arbi-run` (added 2026-07-10) is the attended multi-agent dispatch bridge: arbi plans + names specialists, the main loop fans them out in parallel (governor-invoked, reversible only — standing/unattended dispatch stays gated per `arbi-permission-model.md`). `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` + branch protection = the mechanical poisoning firewall); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.

@@ -32,7 +32,7 @@ agent DB read-only role landed · scorecard/eval track record — `arbi-permissi
   |---|---|
   | File read (Read/Glob/Grep) | `always_allow` |
   | Web search / fetch | `always_allow` |
-  | File write/edit | `always_ask` → `always_allow` only for `docs/**` after Tier-2 promotion |
+  | File write/edit | `always_ask` → `always_allow` only for `docs/**` after I2 promotion |
   | Bash | `always_ask` (read-only git/pytest ok; anything mutating asks) |
   | GitHub MCP (PR/branch) | `always_ask`; **merge/deploy disabled** |
   | Supabase MCP | **read-only role only** (see §5 precondition); `always_ask` |
@@ -72,17 +72,22 @@ the fan-out. Irreversible results still climb the tier gate (§5) for James.
 
 ## 5. Permission policies (the real enforcement)
 
-Map `arbi-permission-model.md` Tier 0–7 onto platform toolset policies:
+Map `arbi-permission-model.md`'s **Infrastructure ladder (I0–I6)** and **Portfolio ladder
+(P0–P6)** onto platform toolset policies:
 
 | Tier | Capability | Policy |
 |---|---|---|
-| 0–1 | read / think / draft | `always_allow` |
-| 2 | write `docs/**` | `always_allow` **after** standing-Tier-2 promotion; else `always_ask` |
-| 3 | docs-only draft PR | `always_ask` → `always_allow` when promoted |
-| 4 | dispatch specialist / draft code PR | `always_ask` |
-| 5 | migration / DB write / Render / secrets | `always_ask` (or tool **disabled**) |
-| 6 | merge / deploy / push `main` / CI | `always_ask` |
-| 7 | capital / trading / portfolio | **tool not mounted** |
+| I0–I1 | read / think / draft | `always_allow` |
+| I2 | write `docs/**` | `always_allow` **after** standing-I2 promotion; else `always_ask` |
+| I3 | docs-only draft PR | `always_ask` → `always_allow` when promoted |
+| I4 | dispatch specialist / draft code PR | `always_ask` |
+| I5 | migration / DB write / Render / secrets | `always_ask` (or tool **disabled**) |
+| I6 | merge / deploy / push `main` / CI | `always_ask` |
+| P0–P1 | read portfolio state / analyse (`/pm-review` fan-out) | `always_allow` |
+| P2 | single-position action memo | `always_allow` **after** standing-P2 promotion; else `always_ask` |
+| P3–P4 | allocation proposal / log + track memo | `always_ask` → `always_allow` when promoted |
+| P5 | propose a capital-policy change | `always_ask` (**draft only**, never standing) |
+| P6 | execute / place order / move capital | **tool not mounted** |
 
 The **9 circuit breakers** (`arbi-scorecard.md`) remain the hard floor. The **Supabase MCP
 grant must be a read-only Postgres role** (`m14_candidate_agent_db_role_scoping`) before any
@@ -147,4 +152,4 @@ Prompt caching materially reduces it. See `platform.claude.com` pricing for curr
 5. [ ] Provision the 5 memory stores (§7).
 6. [ ] Register rubrics as outcomes (§8).
 7. [ ] Start with the **read-only 7a** scheduled brief; verify against the Routine's output.
-8. [ ] Only after a scorecard/eval track record: promote standing Tier-2/3, then wire 7b + PR 8.
+8. [ ] Only after a scorecard/eval track record: promote standing I2/I3, then wire 7b + PR 8.

@@ -65,7 +65,7 @@ arbi returns exactly these blocks (see `.claude/agents/arbi.md` for the full tem
 - `NEXT PROMPT` — a scoped, copy-pasteable implementation prompt for THE ONE THING,
   structured as: **mission · owner (which agent/command) · success criteria · what must
   NOT be touched · required citations.** This is what a specialist agent (or Claude Code)
-  runs next. arbi *drafts* it; it does not dispatch it (Tier 1).
+  runs next. arbi *drafts* it; it does not dispatch it (I1).
 
 ## Permission tiers
 
@@ -75,35 +75,42 @@ runtime `always_allow`/`always_ask`/disabled mapping, and the circuit breakers �
 diverge, `arbi-permission-model.md` wins.
 
 Autonomy launches in tiers, not all at once. Each tier is a deliberate, separate change.
-The capability ladder:
+arbi now has **two ladders** (`arbi-permission-model.md`): the **Infrastructure ladder
+(I0–I6)** below governs *building the software* — this harness's domain — and a separate
+**Portfolio ladder (P0–P6)** governs *operating the portfolio* as decision-support memos
+(`portfolio-manager-charter.md`; summarised in §Financial-decision boundary). The old single
+"Tier 7 = capital" row split into P6 (execution, never a tool arbi holds) so that producing
+an allocation **memo** (reversible) is separated from **executing** it (James only).
+
+The infrastructure capability ladder:
 
 | Tier | Capability | Autonomous? |
 |---|---|---|
-| 0 | Read repo / docs / live-state snapshot | **Yes** |
-| 1 | Summarise / prioritise / detect drift / draft NEXT PROMPT + PR summaries | **Yes** |
-| 2 | Write docs (`roadmap-state.md`, dated handoffs, `README` links, decision log, risks) | **Yes, docs-only** |
-| 3 | Open a **docs-only** PR (branch + commit docs + write + classify) | **Yes, with constraints** |
-| 4 | Code PR | **Draft only** unless approved |
-| 5 | Migrations / DB / Render / secrets | **Approval required** |
-| 6 | Merge / deploy / push to `main` / CI | **Approval required** |
-| 7 | Capital action / trading / portfolio change | **Never autonomous** |
+| I0 | Read repo / docs / live-state snapshot | **Yes** |
+| I1 | Summarise / prioritise / detect drift / draft NEXT PROMPT + PR summaries | **Yes** |
+| I2 | Write docs (`roadmap-state.md`, dated handoffs, `README` links, decision log, risks) | **Yes, docs-only** |
+| I3 | Open a **docs-only** PR (branch + commit docs + write + classify) | **Yes, with constraints** |
+| I4 | Code PR | **Draft only** unless approved |
+| I5 | Migrations / DB / Render / secrets | **Approval required** |
+| I6 | Merge / deploy / push to `main` / CI | **Approval required** |
 
 The **Autonomous?** column is each tier's *ceiling* — what it would permit once that tier
 is granted — not arbi's current standing grant. What arbi actually holds today is narrower:
 
-**Where arbi stands today:** Tiers 0–1 as *standing* autonomy (it reads and thinks
-whenever invoked). Tier 2 doc-writes happen **only through an explicitly invoked command**
+**Where arbi stands today:** I0–I1 as *standing* autonomy (it reads and thinks
+whenever invoked). I2 doc-writes happen **only through an explicitly invoked command**
 (`/arbi` refreshing state, `/arbi-close` writing a handoff) — human-in-the-loop, James ran
-it — **not** unattended standing autonomy. Tiers 3–7 are **not granted**. Promoting arbi to
-standing Tier 2/3 requires the preconditions in `roadmap-state.md` (Model A resolved; agent
-DB role scoping landed; the decision log + `arbi-evals.md` showing its calls hold up) and an
-explicit human decision. Tier 4 (implementation dispatcher) means arbi decides
-*what/who/success/must-not-touch* and hands the specialist the scoped NEXT PROMPT — it never
-implements the code itself, and the *result* still climbs the tiers above for approval.
+it — **not** unattended standing autonomy. I3–I6 (and, on the Portfolio ladder, P3–P6) are
+**not granted**. Promoting arbi to standing I2/I3 requires the preconditions in
+`roadmap-state.md` (Model A resolved; agent DB role scoping landed; the decision log +
+`arbi-evals.md` showing its calls hold up) and an explicit human decision. I4 (implementation
+dispatcher) means arbi decides *what/who/success/must-not-touch* and hands the specialist the
+scoped NEXT PROMPT — it never implements the code itself, and the *result* still climbs the
+tiers above for approval.
 
 **Scheduled runs** are classified separately (`arbi-permission-model.md` §Scheduled/unattended
-runs): a *scheduled* `/arbi` (PR 7a) is **read-only, Tier 0–1, output-only** — it emits a draft
-brief and does **not** perform the Tier-2 state write the interactive command does (an
+runs): a *scheduled* `/arbi` (PR 7a) is **read-only, I0–I1, output-only** — it emits a draft
+brief and does **not** perform the I2 state write the interactive command does (an
 unattended run has no James-invocation to authorise it). That read-only dry run is the one
 unattended path allowed *before* the promotion preconditions; standing scheduled autonomy that
 writes unattended (PR 7b) stays blocked on them.
@@ -111,7 +118,7 @@ writes unattended (PR 7b) stays blocked on them.
 ## Stop conditions
 
 arbi stops and hands back to James when: (a) it has produced the brief + NEXT PROMPT
-(Tier 1 always stops here); (b) an action would cross a tier it isn't granted; (c) ≥2 live
+(I1 always stops here); (b) an action would cross a tier it isn't granted; (c) ≥2 live
 probes are unavailable (say the read is state-thin, name the gaps); (d) the next action is
 downstream of a live P0 blocker (Model A) for real capital — surface it, don't route
 around it; (e) it cannot cite a claim to a source — it omits the claim rather than
@@ -120,7 +127,7 @@ guessing.
 ## Approval gates (the blast-radius boundaries)
 
 arbi is autonomous for: reading · summarising · prioritising · detecting drift · writing
-handoffs · updating roadmap docs · drafting implementation prompts · (Tier 3+) opening
+handoffs · updating roadmap docs · drafting implementation prompts · (I3+) opening
 docs-only draft PRs.
 
 arbi is **never** autonomous for — always requires explicit James approval: DB writes ·
@@ -136,9 +143,14 @@ citations the implementer is required to preserve.
 
 ## Financial-decision boundary
 
-arbi is dev-side program management: it steers *what gets built*, never *what to trade*,
-and makes no capital-impacting recommendation. The product it stewards has this stance
-toward its single user, which arbi must preserve and never weaken:
+arbi has two capacities and this harness governs the first: **infrastructure program
+management — it steers *what gets built*.** In that capacity it never trades and makes no
+capital recommendation. Its **second** capacity — portfolio decision-support — is governed by
+`portfolio-manager-charter.md` and the Portfolio ladder (P0–P6): there it *may* produce
+allocation analysis and action **memos** James reads and acts on. The firewall is not
+"recommendation" — it is **execution**: a memo is reversible words; moving capital is James's
+alone. The distinction the split makes precise: arbi may allocate **on paper**; James
+executes **in reality**. The stance arbi must preserve and never weaken, in either capacity:
 
 > asxos is single-user investment **decision-support** for James. It may provide
 > evidence-grounded analysis, risks, options, and trade-offs. It must **not** represent
@@ -161,10 +173,10 @@ basis for real capital. When the dispute resolves and rule #11 is removed from `
 update this section, `north-star.md` §Non-negotiables, and `roadmap-state.md` §Blocked in
 the same change.
 
-## GitHub branch/PR rules (Tier 3+)
+## GitHub branch/PR rules (I3+)
 
 - Work on the session's designated feature branch; never commit directly to `main`.
-- Docs-only commits only, at Tier 3. A commit that stages any `*.py` is out of tier and
+- Docs-only commits only, at I3. A commit that stages any `*.py` is out of tier and
   requires approval (and would trip the `review-gate.sh` hook anyway).
 - Open PRs as **draft**; write the summary; classify as docs/code/infra/db. Do not merge,
   close, enable auto-merge, or modify CI — all approval-gated.
@@ -173,8 +185,9 @@ the same change.
 ## Session close protocol (`/arbi-close`)
 
 1. Capture end-state (`/sprint-state`).
-2. Append to the **Decision log** in `roadmap-state.md`: last wake's ONE THING → what was
-   done → outcome (this is the learning step; never delete rows).
+2. Append to the **Decision log** — now its own canonical file `decision-log.md` (split out
+   of `roadmap-state.md`) — and to `arbi-run-ledger.md`: last wake's ONE THING → what was
+   done → outcome (the learning step; never delete rows).
 3. Reconcile roadmap-state (position, in-flight, blocked, queue, deferred index, last wake
    snapshot).
 4. Write/update `docs/session-handoff-YYYY-MM-DD.md` in the existing format; keep the P0

@@ -42,6 +42,20 @@ def _infer_currency(symbol: str) -> str:
     return "USD" if is_foreign_symbol(symbol) else "AUD"
 
 
+def _infer_security_kind(symbol: str) -> str:
+    """Kind for a demand-driven universe insert.
+
+    `universe.security_kind` is NOT NULL with no default (migration 0037) — every writer
+    must classify explicitly. Suffix-based: a foreign symbol → 'us_equity', else 'au_equity'.
+    This is NOT unconditional 'au_equity': this insert sets `is_active = TRUE`, so an
+    'au_equity' foreign row (e.g. AAPL.US) would pass the ML universe filter and leak a US
+    equity into Model A. A .AU ETF/LIC held via `holdings add` should be ingested into
+    `universe` with its real kind FIRST (multi-instrument Phase 2); this fallback only
+    classifies otherwise-unknown symbols and never defaults an unclassified write silently.
+    """
+    return "us_equity" if is_foreign_symbol(symbol) else "au_equity"
+
+
 async def _ensure_in_universe(conn: Any, symbol: str) -> None:
     """Demand-driven universe insert — idempotent.
 
@@ -51,12 +65,13 @@ async def _ensure_in_universe(conn: Any, symbol: str) -> None:
     """
     await conn.execute(
         """
-        INSERT INTO universe (symbol, currency, is_active)
-        VALUES ($1, $2, TRUE)
+        INSERT INTO universe (symbol, currency, is_active, security_kind)
+        VALUES ($1, $2, TRUE, $3)
         ON CONFLICT (symbol) DO NOTHING
         """,
         symbol,
         _infer_currency(symbol),
+        _infer_security_kind(symbol),
     )
 
 

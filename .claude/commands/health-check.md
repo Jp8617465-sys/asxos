@@ -3,12 +3,12 @@
 Check service health across Render and Supabase. Run after a deploy, or
 any time something looks off.
 
-## Render (via Render MCP)
+## Render (via the Render REST API — `api.render.com/v1`, `$RENDER_API_KEY`; there is no Render MCP)
 
 For each `asxos-*` service (1 web + 8 crons):
-1. `mcp__render__get_service` → service status, last update
-2. `mcp__render__list_deploys` → most recent deploy status (live / failed)
-3. `mcp__render__list_logs` (last 100 lines) → ERROR / Traceback lines in
+1. `GET api.render.com/v1/services/<id>` → service status, last update
+2. `GET api.render.com/v1/services/<id>/deploys` → most recent deploy status (live / failed)
+3. `GET api.render.com/v1/logs` (last 100 lines) → ERROR / Traceback lines in
    the last 24h
 4. Web only: hit `/health` directly:
    ```bash

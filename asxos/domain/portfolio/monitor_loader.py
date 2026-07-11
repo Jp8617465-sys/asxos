@@ -202,7 +202,7 @@ async def _load_benchmark(
         """
         WITH uni AS (
             SELECT symbol FROM universe
-            WHERE is_active AND currency = 'AUD' AND symbol LIKE '%.AU'
+            WHERE is_active AND security_kind = 'au_equity' AND currency = 'AUD' AND symbol LIKE '%.AU'
         ),
         entry_px AS (
             SELECT p.symbol, p.adj_close

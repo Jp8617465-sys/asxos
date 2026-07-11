@@ -140,7 +140,7 @@ async def _load_panel(
             FROM prices p
             JOIN universe u ON u.symbol = p.symbol
             WHERE p.dt BETWEEN $1 AND $2
-              AND u.is_active = TRUE
+              AND u.is_active = TRUE AND u.security_kind = 'au_equity'
               AND p.symbol = ANY($3)
             ORDER BY p.symbol, p.dt
             """,
@@ -155,7 +155,7 @@ async def _load_panel(
             FROM prices p
             JOIN universe u ON u.symbol = p.symbol
             WHERE p.dt BETWEEN $1 AND $2
-              AND u.is_active = TRUE
+              AND u.is_active = TRUE AND u.security_kind = 'au_equity'
             ORDER BY p.symbol, p.dt
             """,
             start_date,
@@ -229,12 +229,12 @@ async def _load_panel(
 
     if symbols is not None:
         cap_rows = await conn.fetch(
-            "SELECT symbol, market_cap FROM universe WHERE is_active = TRUE AND symbol = ANY($1)",
+            "SELECT symbol, market_cap FROM universe WHERE is_active = TRUE AND security_kind = 'au_equity' AND symbol = ANY($1)",
             symbols,
         )
     else:
         cap_rows = await conn.fetch(
-            "SELECT symbol, market_cap FROM universe WHERE is_active = TRUE"
+            "SELECT symbol, market_cap FROM universe WHERE is_active = TRUE AND security_kind = 'au_equity'"
         )
     if cap_rows:
         caps = pd.DataFrame(cap_rows, columns=cap_rows[0].keys())

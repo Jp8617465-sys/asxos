@@ -136,7 +136,7 @@ async def main(version: str, as_of: date, *, dry_run: bool = False) -> None:
         ) as monitor:
             async with acquire() as conn:
                 sym_rows = await conn.fetch(
-                    "SELECT symbol FROM universe WHERE is_active = TRUE ORDER BY symbol"
+                    "SELECT symbol FROM universe WHERE is_active = TRUE AND security_kind = 'au_equity' ORDER BY symbol"
                 )
             all_symbols = [r["symbol"] for r in sym_rows]
             if not all_symbols:

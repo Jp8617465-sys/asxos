@@ -2595,6 +2595,14 @@ This is the minimum viable set of MCPs for the new system. Each subsection cover
 
 #### Render MCP
 
+> **SUPERSEDED (2026-07-11): there is no Render MCP in this project.** Render is managed via
+> its **REST API** (`https://api.render.com/v1`, bearer `$RENDER_API_KEY`) from Bash/curl. The
+> `mcp__render__*` tool names below and throughout this section do not exist — read every
+> `mcp__render__X` as the equivalent REST call (`list_services`→`GET /v1/services`,
+> `list_logs`→`GET /v1/logs`, `list_deploys`→`GET /v1/services/{id}/deploys`,
+> `update_environment_variables`→`PUT /v1/services/{id}/env-vars`). CLAUDE.md #2 and
+> `.claude/commands/*` carry the corrected form. This section is retained as historical context.
+
 **Installation.** The Render MCP is added to Claude Code via the MCP registry. From a terminal:
 
 ```bash

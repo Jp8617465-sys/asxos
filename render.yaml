@@ -47,7 +47,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.13
       - key: DATABASE_URL
-        sync: false        # uploaded via mcp__render__update_environment_variables
+        sync: false        # set via the Render REST API (PUT api.render.com/v1/services/<id>/env-vars)
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

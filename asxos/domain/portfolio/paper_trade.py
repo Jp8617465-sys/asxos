@@ -360,18 +360,18 @@ async def record_signoff(
     Returns the new decisions.id.
 
     After calling this: flip ASXOS_PORTFOLIO_BRIEF_ENABLED to "1" on both
-    asxos-compose-brief and asxos-build-portfolio via Render MCP:
-        mcp__render__update_environment_variables(
-            serviceId="crn-d883biq8qa3s73eud08g",   # asxos-compose-brief
-            envVars=[{"key": "ASXOS_PORTFOLIO_BRIEF_ENABLED", "value": "1"}],
-        )
+    asxos-compose-brief and asxos-build-portfolio via the Render REST API
+    (there is no Render MCP):
+        curl -X PUT -H "Authorization: Bearer $RENDER_API_KEY" \
+             -H "Content-Type: application/json" -d '{"value":"1"}' \
+             https://api.render.com/v1/services/crn-d883biq8qa3s73eud08g/env-vars/ASXOS_PORTFOLIO_BRIEF_ENABLED
     """
     if as_of is None:
         as_of = date.today()
 
     parts = [
         "[m13_paper_signoff] Operator signed off ≥4 weeks of paper trading.",
-        "Next step: flip ASXOS_PORTFOLIO_BRIEF_ENABLED=1 via Render MCP on",
+        "Next step: flip ASXOS_PORTFOLIO_BRIEF_ENABLED=1 via the Render REST API on",
         "asxos-compose-brief (crn-d883biq8qa3s73eud08g).",
     ]
     if note:
