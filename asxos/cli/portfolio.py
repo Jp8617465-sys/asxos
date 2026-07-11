@@ -382,7 +382,7 @@ def portfolio_signoff(
 
     Requires ≥4 evaluable runs (≥4 weeks of build-portfolio history) unless
     --force is passed.  Inserts a decisions journal entry tagged
-    [m13_paper_signoff] and prints the Render MCP command to flip
+    [m13_paper_signoff] and prints the Render REST API command to flip
     ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (plan Part 0 Q3 / M13.8).
     """
     _require_personal_use()
@@ -415,12 +415,11 @@ async def _run_portfolio_signoff(*, note: str, force: bool) -> None:
 
     console.print(f"[green]✓[/green] Sign-off recorded (decisions.id={decisions_id}).")
     console.print()
-    console.print("[bold]Next step — flip the brief flag via Render MCP:[/bold]")
+    console.print("[bold]Next step — flip the brief flag via the Render REST API:[/bold]")
     console.print(
-        "  mcp__render__update_environment_variables(\n"
-        "      serviceId='crn-d883biq8qa3s73eud08g',  # asxos-compose-brief\n"
-        "      envVars=[{'key': 'ASXOS_PORTFOLIO_BRIEF_ENABLED', 'value': '1'}]\n"
-        "  )"
+        "  curl -X PUT -H \"Authorization: Bearer $RENDER_API_KEY\" \\\n"
+        "       -H \"Content-Type: application/json\" -d '{\"value\":\"1\"}' \\\n"
+        "       https://api.render.com/v1/services/crn-d883biq8qa3s73eud08g/env-vars/ASXOS_PORTFOLIO_BRIEF_ENABLED"
     )
     console.print()
     console.print(

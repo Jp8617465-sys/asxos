@@ -13,7 +13,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 ## Non-negotiable rules
 
 1. **Hard-fail startup.** `asxos/api/main.py` lifespan raises on dependency-init failure. No `logger.warning(...); continue`. If the DB is unreachable, the API does not start.
-2. **MCP-driven service management.** Use `mcp__render__*` and `mcp__supabase__*` for routine Render and Supabase operations. Never edit the Render dashboard for changes — every change goes through `render.yaml` + `git push` + `make check-drift`.
+2. **API/MCP service management.** Manage **Render via its REST API** (`https://api.render.com/v1`, bearer `$RENDER_API_KEY` — **there is NO Render MCP; do not call `mcp__render__*`**); use `mcp__supabase__*` for Supabase. Never edit the Render dashboard for changes — every change goes through `render.yaml` + `git push` + `make check-drift`.
 3. **No feature flags.** If a feature is half-built, it stays on a branch.
 4. **No `user_id` columns, no auth, no RLS.** Single user.
 5. **NUMERIC(18,6)** for every monetary or statistical column from day one.
@@ -30,7 +30,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 |---|---|---|
 | API | FastAPI 0.115 | `make dev` → 127.0.0.1:8788 |
 | DB | Supabase Postgres 16 (existing project, free tier) | `mcp__supabase__execute_sql` |
-| Jobs (M12+) | Render cron services | `mcp__render__*` |
+| Jobs (M12+) | Render cron services | Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`) |
 | Migrations | Plain `.sql` in `migrations/`, applied via `mcp__supabase__apply_migration` | No runner script |
 | Email | Resend (test sender for v1) | curl-based, no SDK |
 | Monitoring | Healthchecks.io deadman | per-job ping URL |
@@ -68,7 +68,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `make dev` — start API locally
 - `make check` — ruff + mypy + pytest (enforced in CI by the `full-check` workflow on PRs to `main` and `claude/**` pushes; `targeted-ml-tests` is the fast ML lane)
 - `make migrate` — reminder only; actual apply via Supabase MCP
-- `make check-drift` — reconcile `render.yaml` against Render dashboard via MCP
+- `make check-drift` — reconcile `render.yaml` against the live Render services via the Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`)
 
 ## Known test environment gaps (do not chase)
 

@@ -10,9 +10,9 @@ $ARGUMENTS = error message, stack trace, or description of the problem.
 - Identify file:line
 
 **Step 2 — Render logs (if production-side)**
-- `mcp__render__list_logs` against the relevant `asxos-*` service
+- the Render API logs (`GET api.render.com/v1/logs?resource=<svc-id>`, `$RENDER_API_KEY`) for the relevant `asxos-*` service
 - Report: frequency in last 24h, first/last occurrence, correlation with
-  a recent deploy (`mcp__render__list_deploys`)
+  a recent deploy (`GET api.render.com/v1/services/<id>/deploys`)
 
 **Step 3 — Supabase logs (if DB-side)**
 - `mcp__3ec0fde8-58dc-483a-b873-6aebe5cbb341__get_logs` for the affected

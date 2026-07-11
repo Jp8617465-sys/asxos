@@ -13,7 +13,7 @@ broken cron · more risks closed with evidence.
 ---
 
 ## Inputs (read-only)
-`render.yaml` · live Render service list (`mcp__render__list_services`) · `job_runs` ·
+`render.yaml` · live Render service list (`GET api.render.com/v1/services`, `$RENDER_API_KEY`) · `job_runs` ·
 latest `prices.dt` / `signals.as_of` / `market_context_current` (via `mcp__supabase-ro__*`) ·
 Healthchecks status · `risk-register.md` · `cleanup-backlog.md` · `roadmap-state.md` ·
 `docs/README.md` · the newest handoff.

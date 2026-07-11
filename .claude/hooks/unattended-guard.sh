@@ -84,6 +84,15 @@ case "$tool" in
     fi
     printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge|\bgit\b[^|;&]*\bmerge\b|gh[[:space:]]+pr[^|;&]*(--merge|--auto|--admin)|gh[[:space:]]+workflow[[:space:]]+(run|enable|disable)|gh[[:space:]]+release[[:space:]]+(create|edit|delete)|gh[[:space:]]+api[^|;&]*(--method|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)|(curl|wget)[^|;&]*api\.github\.com[^|;&]*/merge' \
       && deny "unattended-guard: merge / CI / release mutation is blocked (I6), reserved to James."
+    # A1c — Render REST API mutations via curl/wget. There is NO Render MCP; Render is
+    # managed through api.render.com. This catches mutating methods/bodies (deploy / job
+    # trigger / env-var change / suspend = I5/I6). Note: any Render curl also needs
+    # $RENDER_API_KEY in a header, which A3 (secret expansion) already blocks under
+    # unattended — so in practice ALL Render curl is refused unattended (fail-closed).
+    # Attended runs are a total no-op (the guard is disarmed).
+    printf '%s' "$cmd" | grep -Eiq '(curl|wget)[^|;&]*api\.render\.com' \
+      && printf '%s' "$cmd" | grep -Eiq '(-X[[:space:]]*(POST|PUT|PATCH|DELETE)|--request[[:space:]]*(POST|PUT|PATCH|DELETE)|--data|--data-[a-z]+|--json|(^|[[:space:]])-d[[:space:]]|(^|[[:space:]])-T[[:space:]]|--upload-file)' \
+      && deny "unattended-guard: Render API mutation (deploy / job trigger / env change) is blocked (I5/I6), reserved to James."
     # A2 — DB writes via CLI
     printf '%s' "$cmd" | grep -Eiq 'psql[^|;&]*-c[^|;&]*\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE|GRANT|REVOKE|COPY)\b|supabase[[:space:]]+db[[:space:]]+(push|reset)|PGPASSWORD=' \
       && deny "unattended-guard: DB write via CLI blocked (I5). Reads only, through mcp__supabase-ro__*."
@@ -153,6 +162,9 @@ case "$tool" in
   mcp__supabase-ro__*)
     exit 0
     ;;
+  # NOTE: there is no Render MCP in this project — Render is the REST API, gated above
+  # (A1c) at the Bash/curl layer. These mcp__render__* cases are a harmless belt in case a
+  # Render MCP is ever mounted; the live enforcement path is A1c.
   mcp__render__list_*|mcp__render__get_*)
     exit 0
     ;;

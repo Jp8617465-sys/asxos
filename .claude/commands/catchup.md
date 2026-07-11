@@ -6,7 +6,7 @@ Do this:
 1. `git log --oneline -10`
 2. `git status` (current branch, uncommitted changes, worktree state)
 3. Read `CLAUDE.md` for current project context
-4. Render service health: `mcp__render__list_services` filtered to
+4. Render service health: the Render API (`GET api.render.com/v1/services`, `$RENDER_API_KEY`) filtered to
    `name LIKE 'asxos-%'` — flag any with `suspended != not_suspended` or any
    recent `dep-*` with `status != live`
 5. Supabase freshness check: latest `prices.dt`, latest `signals.as_of`,

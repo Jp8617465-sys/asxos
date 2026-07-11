@@ -48,7 +48,7 @@ shell:  ## Start a Python REPL with asxos importable
 	$(VENV)/bin/python
 
 logs:  ## Tail the Render service logs via MCP (asks Claude Code)
-	@echo "Ask Claude Code: 'tail the last 100 lines of logs from asxos-api via Render MCP'."
+	@echo "Ask Claude Code: 'tail the last 100 lines of logs from asxos-api via the Render REST API (api.render.com/v1/logs, RENDER_API_KEY)'."
 
 deploy:  ## Push to main; Render auto-deploys
 	@echo "Pushing to main. Render will auto-deploy on push."
@@ -57,7 +57,7 @@ deploy:  ## Push to main; Render auto-deploys
 	@echo "Then ask Claude Code: 'run check-drift against the asxos-api Render service'."
 
 check-drift:  ## Compare render.yaml to deployed Render state via MCP
-	@echo "Ask Claude Code: 'use the Render MCP to compare actual deployed services and crons against render.yaml. Report any drift.'"
+	@echo "Ask Claude Code: 'use the Render REST API (api.render.com/v1/services, RENDER_API_KEY) to compare actual deployed services and crons against render.yaml. Report any drift.'"
 
 clean:  ## Remove caches
 	rm -rf .pytest_cache .ruff_cache .mypy_cache __pycache__

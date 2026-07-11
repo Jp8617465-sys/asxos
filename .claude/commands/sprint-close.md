@@ -8,7 +8,7 @@ Read `CLAUDE.md` and `docs/foundation/BUILD_GUIDE.md`. Close the current sprint:
 4. Migration delta: any new files in `migrations/`? Did `REQUIRED_MIGRATIONS`
    bump? Are they applied in Supabase (`mcp__supabase__list_migrations`)?
 5. Render cron delta: any new entries in `render.yaml`? Did they get
-   created on Render (`mcp__render__list_services`)?
+   created on Render (`GET api.render.com/v1/services`, `$RENDER_API_KEY`)?
 6. Outstanding tasks: `TaskList` — anything still in_progress
 
 ## Remaining ops actions

@@ -10,7 +10,7 @@ You are a system architect specialising in scalable, maintainable architectures.
 - FastAPI + Supabase Postgres 16 + Python 3.12
 - Render cron services for scheduled jobs (M12+)
 - No frontend in v1 — CLI + daily email outputs
-- MCP-driven service management (`mcp__render__*`, `mcp__supabase__*`)
+- Render via its REST API (`api.render.com/v1`, `$RENDER_API_KEY` — no Render MCP); Supabase via `mcp__supabase__*`
 
 ## Responsibilities
 - Architecture diagrams and trade-off documentation

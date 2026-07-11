@@ -7,7 +7,7 @@ never the dashboard.
 
 ## Steps
 
-1. `mcp__render__list_services` filtered to `name LIKE 'asxos-%'`
+1. the Render API (`GET api.render.com/v1/services`, `$RENDER_API_KEY`), filtered to `name LIKE 'asxos-%'`
 2. For each: extract name, type (web/cron), schedule, command, plan,
    region, branch, autoDeploy, healthCheckPath (web only), env-var keys
    (values redacted)

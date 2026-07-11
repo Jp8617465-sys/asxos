@@ -20,7 +20,7 @@ Report PASS/FAIL per item.
 
 **Env vars**
 - [ ] Any new `sync: false` keys added to `render.yaml` also uploaded
-  to the relevant service via `mcp__render__update_environment_variables`
+  to the relevant service via the Render API (`PUT api.render.com/v1/services/<id>/env-vars`)
 - [ ] No `.env*` files committed: `git log --all -- '.env*'` returns nothing
 - [ ] Production secrets still match `~/Projects/asxos-secrets/.env.production`
 
