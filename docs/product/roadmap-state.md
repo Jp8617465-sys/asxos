@@ -120,9 +120,18 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
 3. **Resolve the two open governance proposals** — review/approve or reject `agent_runs`
    #3 and #4 (`asx macro-thesis open --from-agent-run` → `approve`). Owner: James +
    main loop. (Does not expire.)
-4. **HUBS data hygiene** — lock-window end date → `theses.tax_notes`; verify the
-   `acquisition_fx_rate=0.6450` vs vendor `0.7171` sign-flip against the brokerage
-   statement. Owner: James supplies, main loop records.
+4. **HUBS data hygiene** — lock-window end date → `theses.tax_notes`. (Acquisition FX
+   `0.6450` **confirmed** = brokerage statement, James 2026-07-11 — an ESPP fill FX ≠ spot;
+   HUBS is ~flat, not −29%. See `portfolio-outcome-ledger.md`.) Owner: James supplies the
+   lock date; main loop records.
+5. **Multi-instrument expansion (ETFs / LICs / all ASX vehicles).** North-star: moat
+   layers 2–3 (discipline + theme stewardship), and it advances **independent of the Model
+   A P0** (rule #11 is moot for passive funds — no signal attaches). James: *"I want ETFs
+   and all investment vehicles on the ASX involved."* Full plan (valuation = market price;
+   look-through = separate exposure layer; `security_kind` keystone; readers-first-then-
+   ingestion ordering invariant; minimal Phase-1 cut to hold VGS/VAS): **`docs/proposals/
+   multi-instrument-expansion-2026-07-11.md`**. Owner: `system-architect` +
+   `backend-architect` (specs done this session); needs James's 4 scope answers before build.
 
 ## Deferred index — `m14_candidate_*` (aggregated; grep to refresh)
 
