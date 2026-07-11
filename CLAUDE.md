@@ -4,7 +4,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Read first
 
-- **`docs/session-handoff-2026-07-04.md` — READ THIS FIRST, before anything else.** Model A's signal reliability is under active, unresolved dispute (user claim: signal quality collapses within 5 days and reverses by 21 — a potential horizon mismatch against this system's multi-month thesis holding periods). Not yet independently verified. This gates non-negotiable #11 below and blocks Phase 2c. Remove this line and #11 once resolved.
+- **`docs/model-a-decay-analysis-2026-07-11.md` — READ THIS FIRST, before anything else.** The Model A signal-reliability dispute is **RESOLVED (2026-07-11), against Model A**: on 19,032 matured `signal_outcomes`, `corr(ml_prob, 21d return) = −0.03` and its STRONG_BUY signals returned −0.09% at 21d vs HOLD's +5.07% — conviction is inverted at the top; no usable edge over the weeks-to-months horizon the theses hold for. The quarantine (rule #11) is **vindicated and stands as standing policy for v1_5** (NOT removed — removal would mean Model A is fine, which the evidence refutes). What's still open is James's strategic call (retrain to a decay bar / shelve the ML engine / both) and thereby how Phase 2c unblocks.
 - `docs/foundation/BUILD_GUIDE.md` — the executable manual for M1 through M12.
 - `docs/foundation/phase-b-failure-postmortem.md` — the lessons. The previous repo died of these; this repo encodes the fixes.
 - `docs/foundation/spec/tax-alpha.md` — tax-module source of truth. Implementation reads from this; tests cite section numbers.
@@ -22,7 +22,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 8. **Tax math is per the spec at `docs/foundation/spec/tax-alpha.md`.** Implementation must cite spec section numbers; deviations require a spec amendment.
 9. **NumPy psycopg2 adapter block** at the top of any module that writes numpy values via psycopg2. See `.claude/rules/job-conventions.md`.
 10. **No graceful warnings in infra code.** Fail loudly.
-11. **TEMPORARY, pending resolution (added 2026-07-04): do not use Model A output — signals, candidate scans, allocator runs, or new thesis proposals derived from it — as a basis for real capital decisions.** Its signal reliability over the horizons this system actually holds positions for (weeks to months) is disputed and unverified. See `docs/session-handoff-2026-07-04.md`. Remove this rule only after the decay analysis described there is done and the dispute is resolved one way or the other.
+11. **STANDING (resolved 2026-07-11): do not use Model A output — signals, candidate scans, allocator runs, or new thesis proposals derived from it — as a basis for real capital decisions.** No longer "temporary/disputed": the decay analysis (`docs/model-a-decay-analysis-2026-07-11.md`) shows on 19,032 matured signals that v1_5 has **no usable edge** over the 5d/21d horizons this system holds for (`corr(ml_prob, 21d) = −0.03`; STRONG_BUY 21d −0.09% vs HOLD +5.07% — conviction inverted at the top). Keep this rule until a **new** model version passes a pre-registered decay bar (positive, monotonic conviction→21d return) AND earns `approved_for_allocation` — do not remove it on the basis of v1_5.
 
 ## Stack
 

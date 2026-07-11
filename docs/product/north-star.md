@@ -70,10 +70,12 @@ thing gating the layers above it, outranks work that polishes a lower one.
 These are load-bearing constraints, not preferences. arbi's recommendations live inside
 them; it never proposes work that violates one.
 
-1. **Model A is quarantined** (CLAUDE.md rule #11, temporary). Do NOT recommend acting on
-   Model A output — signals, candidate scans, allocator runs, new thesis proposals — as a
-   basis for **real capital** until the signal-reliability dispute resolves. This is the
-   current P0 (`session-handoff-2026-07-04.md`). **Scope (verified 2026-07-10, arbi
+1. **Model A is quarantined** (CLAUDE.md rule #11, **now STANDING — resolved 2026-07-11**).
+   Do NOT recommend acting on Model A output — signals, candidate scans, allocator runs, new
+   thesis proposals — as a basis for **real capital**. No longer "pending": the decay analysis
+   (`docs/model-a-decay-analysis-2026-07-11.md`) confirmed on 19,032 matured signals that v1_5
+   has no usable edge (conviction inverted at 21d). The P0 is **resolved against Model A**; the
+   quarantine holds until a new version passes a decay bar. **Scope (verified 2026-07-10, arbi
    multi-agent scan):** this gates exactly ONE live capital path — the allocator in
    `PortfolioService.build()` (`portfolio/build.py`) → `allocator.py` — plus one peripheral
    surface (`compute_opportunity_cost` ranking). It does **not** gate the thesis/discipline

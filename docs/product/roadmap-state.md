@@ -82,14 +82,17 @@ role scoping — not another layer on top.*
 
 ---
 
-## Blocked — P0 first (read `docs/session-handoff-2026-07-04.md`)
+## Blocked — P0 (RESOLVED 2026-07-11; read `docs/model-a-decay-analysis-2026-07-11.md`)
 
-- **P0 — Model A signal reliability is in dispute, unresolved.** James: signals *"greatly
-  diminish after 5 days and completely swing around at 21 days."* If true, it's a
-  **horizon mismatch at the core of the product** (theses hold for months; HUBS has a
-  365-day timeline). Model A is the *only* model and gates every signal/allocator/scan.
-  CLAUDE.md rule #11 quarantines it from real-capital decisions until resolved. **This
-  blocks Phase 2c and all non-paper deployment.**
+- **P0 — Model A signal reliability: RESOLVED, against Model A.** The decay check ran directly
+  on **19,032 matured `signal_outcomes`**: `corr(ml_prob, 21d return) = −0.03`; STRONG_BUY
+  returned −0.09% at 21d vs HOLD's +5.07% (conviction inverted at the top) — **no usable edge**
+  over the weeks-to-months horizon theses hold for. James's original distrust is vindicated.
+  **Rule #11 → standing** (not removed; removal would mean Model A is fine). This closes the
+  *dispute*; it does not by itself unblock Phase 2c — that now needs James's strategic call
+  (retrain a new version to a pre-registered decay bar / shelve the ML engine / both). The
+  model-independent product (discipline, tax, themes, ETFs) was never blocked and is the path
+  forward.
 - **Blocked-by-P0 (narrow, corrected 2026-07-10):** the signal-driven **allocator** capital
   path + the peripheral `compute_opportunity_cost` ranking; governance Phase 2c (needs a
   trusted signal engine); real *signal-driven* capital deployment. **NOT blocked:** the
@@ -108,12 +111,14 @@ role scoping — not another layer on top.*
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-1. **Get the ChatGPT audit from James, then run the Model A decay check.** North-star:
-   the success criterion that a signal's edge persists over the held horizon. Method
-   (from handoff §2): Spearman rank correlation of `prob_up`/`expected_return`/
-   `signal_label` at day 0 vs +5 vs +21 for symbols with signals ≥5 and ≥21 days apart;
-   say plainly if the 15-date sample is too thin. Owner: main loop + `system-architect`/
-   `backend-architect` if the claim holds. **This is THE one thing.**
+1. **~~Run the Model A decay check~~ — DONE 2026-07-11, P0 RESOLVED against Model A**
+   (`docs/model-a-decay-analysis-2026-07-11.md`; 19,032 matured signals; no usable edge;
+   rule #11 standing). **The remaining decision is James's (not arbi's):** retrain a new
+   model version to a pre-registered decay bar, shelve the ML engine and lean fully into the
+   model-independent product, or both — this is what actually unblocks Phase 2c. Until then,
+   the highest-leverage arbi-actionable work is the model-independent product (ETF Slice 2)
+   + fixing the broken monitoring crons the health scorecard surfaced (`check_cron_health`,
+   `check_model_staleness`, `retrain_model_a`, `track_signal_outcomes` staleness).
 2. **Agent DB read-only role scoping (PR2 / `m14_candidate_agent_db_role_scoping`).**
    North-star: non-negotiable #2 (firewall integrity) before more agents sit next to
    governed tables. Owner: `backend-architect`. Prereq for Phase 2c.
