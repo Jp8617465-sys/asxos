@@ -31,10 +31,12 @@ detail behind these lines.
   operating layer + P0 resolution + ETF Phase-1 + product health); current branch
   `claude/asxos-product-manager-agent-tzszlv` ahead of main with the shelf + ETF Slice 2a +
   operating docs._
-- **Recently completed:** P0 decay resolution + ML shelf (2026-07-11); ETF Phase-1
-  `security_kind` (migration 0037) + Slice 2a kind-aware ingestion; product-health scorecard
-  + data contracts; arbi operating docs (`james-inbox`, `dark-launch-exit-plan`,
-  `arbi-red-team`); governance Phase 0.5–2b (PR #11).
+- **Recently completed (on `main`):** P0 decay resolution + ML shelf (2026-07-11); ETF
+  Phase-1 `security_kind` (migration 0037, merged PR #24); product-health scorecard + data
+  contracts; governance Phase 0.5–2b (PR #11). **(Built-not-yet-released, on this branch —
+  see In flight):** ETF Slice 2a kind-aware ingestion; arbi operating docs (`james-inbox`,
+  `dark-launch-exit-plan`, `arbi-red-team`) — do not count these as delivered until the
+  branch merges + deploys.
 - **Blocked items:** real *signal-driven* capital deployment stays **dormant by standing
   policy** (rule #11), not by an open dispute. Phase 2c is **reframed** model-independent
   (discovery/discipline/ETF) and no longer waits on a signal engine
@@ -110,18 +112,25 @@ new agents — not a signal engine.*
   How it plays out (crons, allocator, brief, Phase 2c reframe, the revival decay-bar):
   **`docs/product/ml-engine-shelf-2026-07-11.md`**. Phase 2c is now the model-independent
   discovery/discipline/ETF expansion — it no longer waits on a trusted signal engine.
-- **Blocked-by-P0 (narrow, corrected 2026-07-10):** the signal-driven **allocator** capital
-  path + the peripheral `compute_opportunity_cost` ranking; governance Phase 2c (needs a
-  trusted signal engine); real *signal-driven* capital deployment. **NOT blocked:** the
-  thesis/discipline scaffolding, tax engine, theme stewardship, governance, and the brief's
-  non-signal sections — all authoritative today (scan `wf_f54323f5-d7d`, verdict supported).
+- **Dormant-by-standing-policy (narrow, updated 2026-07-11):** the signal-driven
+  **allocator** capital path + the peripheral `compute_opportunity_cost` ranking; real
+  *signal-driven* capital deployment. These are dormant under rule #11 (standing), not
+  "blocked pending a fix." **Governance Phase 2c is NOT in this list** — it is reframed
+  model-independent (`ml-engine-shelf-2026-07-11.md`) and its only remaining prereq is agent
+  DB role scoping, not a signal engine. **NOT affected at all:** the thesis/discipline
+  scaffolding, tax engine, theme stewardship, governance, and the brief's non-signal sections
+  — all authoritative today (scan `wf_f54323f5-d7d`, verdict supported).
 - **Second-order unblocker:** agent DB role scoping (`m14_candidate_agent_db_role_scoping`
   / PR2) — a prerequisite the roadmap places *before* Phase 2c regardless of Model A.
 
 ## In flight
 
-- Nothing committed in-flight as of seeding. (The first `/arbi` fills this from live
-  git/PR/`TaskList` state.)
+- **Branch `claude/asxos-product-manager-agent-tzszlv`** (ahead of merged main `3f3dbcf`) —
+  the post-shelf reconciliation + arbi operating docs + **ETF Slice 2a** kind-aware ingestion
+  (`asxos/ingestion/universe.py`, the branch's only production code, now with `refresh_universe`
+  test coverage). In merge-readiness review (arbi-red-team + technical-writer audited
+  2026-07-11). Awaiting James's merge call. ETF Slice 2 (VGS/VAS holdings) is **not started** —
+  it is gated on James's holding-lot data (`james-inbox.md`) and on this branch merging first.
 
 ## Ranked next-action queue
 

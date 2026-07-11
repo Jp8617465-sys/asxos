@@ -19,6 +19,7 @@ from asxos.ingestion.prices import (
     to_price_rows,
     to_us_price_rows,
 )
+from asxos.ingestion.universe import _TYPE_TO_KIND, refresh_universe
 
 # ---------------------------------------------------------------------------
 # _is_retryable
@@ -457,3 +458,146 @@ async def test_resolve_start_stale_gap_clamps_to_floor_and_warns(caplog):
         start = await sync_prices_job._resolve_start(None, today, MagicMock())
     assert start == today - timedelta(days=sync_prices_job._MAX_AUTO_BACKFILL_DAYS)
     assert "full backfill" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# refresh_universe — multi-instrument kind tagging (ETF Phase-2 Slice 2a)
+#
+# The pollution firewall this branch relies on: funds (ETF/LIC/hybrid) are kept
+# OUT of Model A's universe by their security_kind, NOT by is_active. The kind is
+# assigned here at ingestion; the 8 ML/screening readers (already on main) filter
+# `security_kind = 'au_equity'`. So the writer-level invariant this suite pins is:
+# no fund is ever tagged au_equity. See docs/proposals/multi-instrument-
+# expansion-2026-07-11.md §7 and asxos/ingestion/universe.py.
+# ---------------------------------------------------------------------------
+
+
+def _mk_universe_conn(existing_rows):
+    """AsyncMock conn: .fetch returns the existing-universe rows, .execute records calls."""
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=existing_rows)
+    conn.execute = AsyncMock()
+    return conn
+
+
+def _captured_inserts(conn):
+    """Return [(sym, name, sector, kind), ...] for every INSERT INTO universe call."""
+    out = []
+    for call in conn.execute.await_args_list:
+        sql = call.args[0]
+        if "INSERT INTO universe" in sql:
+            out.append(call.args[1:])
+    return out
+
+
+@pytest.mark.asyncio
+async def test_refresh_universe_tags_kinds_by_eodhd_type():
+    """Each ingested EODHD Type lands with the mapped security_kind."""
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "BHP", "Name": "BHP Group", "Type": "Common Stock", "Sector": "Materials"},
+        {"Code": "VAS", "Name": "Vanguard AU Shares", "Type": "ETF", "Sector": ""},
+        {"Code": "ARG", "Name": "Argo Investments", "Type": "FUND", "Sector": ""},
+        {"Code": "XYZPR", "Name": "Some Pref", "Type": "Preferred Stock", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(existing_rows=[])  # empty universe
+
+    counts = await refresh_universe(client, conn)
+
+    kind_by_sym = {ins[0]: ins[3] for ins in _captured_inserts(conn)}
+    assert kind_by_sym == {
+        "BHP.AU": "au_equity",
+        "VAS.AU": "etf",
+        "ARG.AU": "lic",
+        "XYZPR.AU": "hybrid",
+    }
+    assert counts["added"] == 4
+
+
+@pytest.mark.asyncio
+async def test_refresh_universe_skips_unmapped_types():
+    """Types outside _TYPE_TO_KIND (rights, warrants, unclassified) are never ingested."""
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "BHP", "Name": "BHP", "Type": "Common Stock", "Sector": ""},
+        {"Code": "RGHT", "Name": "Some Right", "Type": "Right", "Sector": ""},
+        {"Code": "WAR", "Name": "A Warrant", "Type": "Warrant", "Sector": ""},
+        {"Code": "MYST", "Name": "Unclassified", "Type": "", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(existing_rows=[])
+
+    counts = await refresh_universe(client, conn)
+
+    assert {ins[0] for ins in _captured_inserts(conn)} == {"BHP.AU"}
+    assert counts["added"] == 1
+
+
+@pytest.mark.asyncio
+async def test_refresh_universe_funds_never_land_as_au_equity():
+    """The pollution firewall at the writer: no ETF/LIC/hybrid row is tagged
+    au_equity, so the kind-scoped ML readers can never pull a fund into Model A."""
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "VAS", "Name": "ETF", "Type": "ETF", "Sector": ""},
+        {"Code": "ARG", "Name": "LIC", "Type": "FUND", "Sector": ""},
+        {"Code": "NOTE", "Name": "Note", "Type": "Notes", "Sector": ""},
+        {"Code": "BND", "Name": "Bond", "Type": "BOND", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(existing_rows=[])
+
+    await refresh_universe(client, conn)
+
+    inserts = _captured_inserts(conn)
+    assert inserts, "expected fund rows to be inserted"
+    for sym, _name, _sector, kind in inserts:
+        assert kind != "au_equity", f"{sym} tagged au_equity — would pollute Model A"
+        assert kind in set(_TYPE_TO_KIND.values())
+
+
+@pytest.mark.asyncio
+async def test_refresh_universe_delists_absent_active_skips_inactive_out_of_band():
+    """An active, now-absent symbol is delisted; an already-inactive out-of-band
+    row (e.g. a held US equity) is left untouched by the `and is_active` guard."""
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "BHP", "Name": "BHP", "Type": "Common Stock", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(existing_rows=[
+        {"symbol": "BHP.AU", "is_active": True},     # still listed → unchanged
+        {"symbol": "CBA.AU", "is_active": True},     # active, now absent → delist
+        {"symbol": "HUBS.NYSE", "is_active": False}, # inactive out-of-band → skip
+    ])
+
+    counts = await refresh_universe(client, conn)
+
+    delisted = [
+        call.args[1]
+        for call in conn.execute.await_args_list
+        if "is_active = FALSE" in call.args[0]
+    ]
+    assert delisted == ["CBA.AU"]
+    assert "HUBS.NYSE" not in delisted
+    assert counts["delisted"] == 1
+    assert counts["unchanged"] == 1
+
+
+@pytest.mark.asyncio
+async def test_refresh_universe_reactivates_relisted_symbol():
+    """A previously-delisted (is_active=FALSE) symbol that reappears is reactivated,
+    not re-inserted (no duplicate row)."""
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "TLS", "Name": "Telstra", "Type": "Common Stock", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(existing_rows=[{"symbol": "TLS.AU", "is_active": False}])
+
+    counts = await refresh_universe(client, conn)
+
+    assert _captured_inserts(conn) == []  # no INSERT — the row already exists
+    reactivated = [
+        call.args[1]
+        for call in conn.execute.await_args_list
+        if "is_active = TRUE" in call.args[0]
+    ]
+    assert reactivated == ["TLS.AU"]
+    assert counts["reactivated"] == 1

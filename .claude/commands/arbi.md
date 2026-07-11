@@ -46,9 +46,11 @@ the Step 2 delta, plus the **fixed read order** it must follow (its operating co
 3. `docs/README.md`
 4. `docs/product/north-star.md`
 5. `docs/product/roadmap-state.md`
-6. `docs/next-session-backlog.md`
-7. `docs/executable-roadmap-2026-07-04.md`
-8. open PR notes, if available
+6. `docs/product/james-inbox.md` — the decisions only James can settle (surface open rows)
+7. `docs/product/dark-launch-exit-plan.md` — check no dark surface is past its expiry
+8. `docs/next-session-backlog.md`
+9. `docs/executable-roadmap-2026-07-04.md`
+10. open PR notes, if available
 
 arbi returns the brief: STATUS / WHAT CHANGED / NEW BUGS / RISKS / THE PICTURE /
 NEXT ACTIONS / DECISIONS NEEDED (James) / BLOCKERS / WHAT NOT TO DO / NEXT PROMPT. Present
@@ -72,11 +74,26 @@ this command makes — to a git-tracked doc, never to the database.)
 ## Step 5 — Stop (brief-only)
 
 End by restating **THE ONE THING** (arbi's action #1) and offering to start it, e.g.
-"Say the word and I'll kick off the Model A decay check." **Do not dispatch it, edit code,
-or start work.** Wait for James's explicit go.
+"Say the word and I'll tee up the ETF Slice 2 build" (a current, model-independent action —
+never "re-run the Model A decay check": that P0 is resolved, per the boundary below).
+**Do not dispatch it, edit code, or start work.** Wait for James's explicit go — and before
+acting, run `arbi-red-team` on THE ONE THING (see the gate note below).
 
 <!-- Future toggle (not built): an autonomous "dispatch mode" could auto-start action #1.
      James chose brief-only for v1. Keep this a deliberate, separate change. -->
+
+## The red-team gate (before acting on THE ONE THING)
+
+`/arbi` is brief-only — it stops here. The gate fires at **act-time**, not inside the brief:
+when James says "go" on THE ONE THING, the **main loop dispatches `arbi-red-team` first**
+(a subagent can't spawn subagents, so the command/main loop does the fan-out — same pattern
+as `/pm-review`). It stress-tests arbi's single next-action against its five failure modes
+(recency overfit, task-switching, cleanup-as-progress, low-trust-memory-over-repo-truth,
+perfectionism-blocking-a-ship) and returns **PASS / CHALLENGE** with file-cited evidence.
+On PASS, proceed; on CHALLENGE, surface it to James and re-rank rather than acting on a
+distorted call. This is what makes the red-team a real gate rather than a decorative agent.
+(This is manual/attended today — the gate is invoked when acting, not on every read-only
+wake; a standing auto-dispatch stays behind the future-toggle above.)
 
 ## Boundaries
 

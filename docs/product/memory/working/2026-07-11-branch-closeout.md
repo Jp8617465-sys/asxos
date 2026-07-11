@@ -55,3 +55,23 @@ unfinished, finishing it outranks starting the new thread unless (2) or (3) appl
 **Promotion note.** If promoted, this lands in `approved-lessons.md` as the next L-number and
 should cross-link `arbi-red-team.md` challenge #2 and `arbi-scorecard.md` (task-switching is a
 prioritisation-quality signal).
+
+## Outstanding for `/arbi-dream` → `/arbi-promote` (I cannot self-promote — CODEOWNER-gated)
+
+1. **L8 discipline lesson** above (finish-before-you-chase).
+2. **A resolution lesson.** `approved-lessons.md` L6 (2026-07-10) still reads "keep quarantine
+   / 21-day claim resolves ~late Aug" — behind current truth. Append a NEW dated lesson (leave
+   L6 as-is, append-only) recording: the decay check resolved the P0 on 2026-07-11 *against*
+   Model A (no usable edge, 19,032 signals), James shelved the ML engine, rule #11 is standing.
+   So the highest-trust memory layer (L6) stops reading as "P0 pending." (technical-writer
+   audit finding #6, 2026-07-11.)
+
+## Merge-readiness audit outcome (2026-07-11)
+
+arbi-red-team: **MERGE-READY-IF** (2 must-fix, both actioned this run — the `refresh_universe`
+test + the `arbi.md` command decay-check example). technical-writer: 9 findings, the live ones
+actioned (README wiring, read-order, roadmap Phase-2c contradiction, next-session-backlog
+banner, cleanup-backlog wording, CLAUDE migration count); L6 promotion deferred here. The five
+red-team failure modes all PASS; ETF pollution = SAFE (no fund tagged au_equity, now
+test-pinned). Recommended: **one PR** (only `universe.py`+its test are CI-gated; docs are
+ungated) — do not split code from its test.

@@ -37,7 +37,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0036) is the canonical schema** — roughly 40
+**`migrations/` (currently through 0037) is the canonical schema** — roughly 40
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read

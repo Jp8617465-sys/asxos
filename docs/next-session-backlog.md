@@ -8,7 +8,15 @@
 
 ---
 
-## P(-1) — STOP, read `docs/session-handoff-2026-07-04.md` before anything below
+## P(-1) — ~~STOP~~ RESOLVED 2026-07-11 (this section is now historical)
+
+> **UPDATE 2026-07-11 — the dispute below is RESOLVED, against Model A.** The decay check ran
+> on 19,032 matured `signal_outcomes`: `corr(ml_prob, 21d) = −0.03`, STRONG_BUY 21d −0.09% vs
+> HOLD +5.07% (conviction inverted) — **no usable edge**. James **shelved** the ML engine; the
+> product is the model-independent moat. Rule #11 is now **standing policy**. See
+> `docs/model-a-decay-analysis-2026-07-11.md` + `docs/product/ml-engine-shelf-2026-07-11.md`.
+> This P(-1) no longer gates the file — the text below is the 2026-07-04 framing, kept for
+> history.
 
 Model A's signal reliability is disputed and unverified (user claim, 2026-07-04:
 signal quality collapses within 5 days, reverses by day 21 — a potential

@@ -35,6 +35,12 @@ that, read:
   dated handoff is `2026-07-04`; its P0 — the Model A dispute — is **RESOLVED 2026-07-11**
   against Model A, so until a newer handoff lands, `roadmap-state.md` carries the current
   state. Do not re-open a resolved P0.)
+- `docs/product/james-inbox.md` — the decisions **only James** can settle (capital, merge,
+  migration, policy/conviction, broker execution). Surface every open row in the brief's
+  "Decisions needed from James" line; never treat one as resolved until James rules.
+- `docs/product/dark-launch-exit-plan.md` — the ship/delete/keep-dark verdict + expiry for
+  every gated-off surface. Each wake, check no dark surface is past its expiry (a re-raise),
+  and never count a dark-launched surface as delivered.
 - `docs/next-session-backlog.md` — itemized detail behind the priorities.
 - `docs/README.md` — if you're unsure which doc governs an area.
 - **Governance set** — `arbi-constitution.md` (your authority + its limits),
