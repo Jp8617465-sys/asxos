@@ -172,7 +172,25 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
    `0.6450` **confirmed** = brokerage statement, James 2026-07-11 — an ESPP fill FX ≠ spot;
    HUBS is ~flat, not −29%. See `portfolio-outcome-ledger.md`.) Owner: James supplies the
    lock date; main loop records.
-5. **Multi-instrument expansion (ETFs / LICs / all ASX vehicles).** North-star: moat
+6. **Universe→segment→stock coverage framework.** 1,872 active au_equity symbols, 13 theses
+   (0.7%), 1 theme, 0 macro_theses — the gap is a missing narrowing layer (universe → sector →
+   screen → thesis), not too few theses (north-star.md explicitly wants a small opinionated set,
+   not universal coverage). Full framework: `docs/proposals/thesis-coverage-framework-2026-07-
+   11.md`. Buildable now, no agent DB role scoping dependency: (1) sector-coverage rollup (pure
+   SQL, zero schema — answers "where am I structurally blind" directly); (2) wire
+   `screening_rules` — schema-only since migration 0001, zero readers, confirmed unwired — to a
+   real `curated_composite` evaluator (tighten `source_method` away from its ML-artifact-flavored
+   vocabulary first); (3) wire the missing `asx theme approve|reject|open --from-agent-run` CLI
+   verbs onto `themes/service.py`'s already-built governance functions; (4) clear the 2 pending
+   `macro_theses` `agent_runs` proposals (item 3 above) before adding a 4th discovery agent to
+   the queue. Blocked on agent DB role scoping (item 2 above): a new `sector-screener` discovery
+   agent (bottom-up, coverage-driven — sibling to, not a mode of, `theme-researcher`'s top-down
+   macro-conditioned design), sharing `theme-researcher`/`instrument-selector`'s not-yet-built
+   `create_theme_from_agent_run()`/`create_theme_holding_from_agent_run()` service functions.
+   Governance path identical to `macro-economist` at every step — no direct agent writes, ever.
+   Triggered by James, 2026-07-11. Owner: `requirements-analyst` (drafted) →
+   `system-architect`/`backend-architect` (design) → James (scope sign-off).
+7. **Multi-instrument expansion (ETFs / LICs / all ASX vehicles).** North-star: moat
    layers 2–3 (discipline + theme stewardship), and it advances **independent of the Model
    A P0** (rule #11 is moot for passive funds — no signal attaches). James: *"I want ETFs
    and all investment vehicles on the ASX involved."* Full plan (valuation = market price;
