@@ -144,12 +144,13 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 20 subagents — 11 dev-side (architecture/quality/docs), 2
+`.claude/agents/` holds 21 subagents — 11 dev-side (architecture/quality/docs), 2
 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`),
 5 investment-analysis agents (the evidence layer behind `/pm-review`), 1 discovery
-agent (`macro-economist`; 2 more planned in Phase 2c), and 1 program-management
-orchestrator (`arbi`, the PM / "wake up" agent — see below), all routed in the tables
-below; see `.claude/agents/README.md`.
+agent (`macro-economist`; 2 more planned in Phase 2c), and 2 program-management agents
+(`arbi`, the PM / "wake up" agent — see below — plus `arbi-red-team`, the adversarial
+critic that stress-tests arbi's "one thing" before it's acted on), all routed in the
+tables below; see `.claude/agents/README.md`.
 They are **advisory by default**: most are read-only and return analysis, designs,
 or specs as text that the main loop then implements. Only `refactoring-expert`
 (code) and `technical-writer` (docs) can mutate files. `security-engineer` and
