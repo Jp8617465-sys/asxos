@@ -9,6 +9,18 @@ verbatim from its transcript after a dropped completion notification (see
 `docs/product/memory/working/competitive-gap-transcript-report-2026-07-11.md`)
 **Superseded by:** N/A
 
+## Calibration note (added 2026-07-11, James)
+
+**"No competitor does X" is not a reason to build X.** James's correction, verbatim: *"Just
+because we have something built that no one else does, doesn't mean this is right — never take
+what we have as an advantage."* The `[DIFFERENTIATION]` tags below describe competitive
+*absence*, not validated user *value* — a capability can be rare because competitors missed it,
+or because it isn't actually wanted, or because the specific implementation is wrong even if the
+underlying idea is sound. Read every `[DIFFERENTIATION]` tag as **"investigate whether this is
+actually right for James,"** not as a build-priority signal on its own. This applies retroactively
+to this document's own P1–P6 roadmap implications below — none of them should be sequenced on
+"nobody else has this" alone.
+
 ## Method & confidence note
 
 Findings are from vendor documentation, help centres, independent review sites, Australian
