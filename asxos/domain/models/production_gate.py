@@ -17,6 +17,23 @@ from __future__ import annotations
 from typing import Any, Literal, overload
 
 
+class ModelGateDormant(RuntimeError):
+    """Raised by ``resolve_production_model(required=True)`` when 0 models are
+    both active and approved_for_allocation.
+
+    This is the mechanical shape of rule #11 (Model A quarantine, standing
+    policy since 2026-07-11 — see docs/product/ml-engine-shelf-2026-07-11.md):
+    a deliberate, durable dormant state, not a crash or data problem. Mirrors
+    ``asxos.jobs._helpers.UpstreamBlocked`` — ``JobMonitor.__aexit__`` inspects
+    ``exc_type.__name__`` and maps this to ``job_runs.status='blocked'``
+    (not 'failure'); Healthchecks is NOT pinged for blocked runs, so the
+    weekly build_portfolio dormancy doesn't page as if something broke.
+
+    Deliberately NOT raised for the >1-rows case (multi-sleeve blending) —
+    that IS a real misconfiguration and should keep alerting as 'failure'.
+    """
+
+
 @overload
 def resolve_production_model(
     model_rows: list[Any], *, required: Literal[True] = ...
@@ -53,7 +70,7 @@ def resolve_production_model(
     if len(model_rows) == 0:
         if not required:
             return None
-        raise RuntimeError(
+        raise ModelGateDormant(
             "no model_version is both active and approved_for_allocation; "
             "run `asx model approve <model> <version>` first "
             "(plan H.1 CRITICAL-4)"

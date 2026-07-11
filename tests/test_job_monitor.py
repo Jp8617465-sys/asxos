@@ -3,6 +3,7 @@ Tests for asxos/jobs/utils/job_monitor.py — P0-2 additions.
 
 Covers:
   - UpstreamBlocked exception is mapped to status='blocked'
+  - ModelGateDormant exception is mapped to status='blocked' (rule #11)
   - override_reason kwarg persists through INSERT and UPDATE
   - 'blocked' runs do NOT ping the healthcheck (so the deadman misses)
   - Normal failure maps to status='failure' AND pings healthcheck_url + '/fail'
@@ -18,6 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from asxos.domain.models.production_gate import ModelGateDormant
 from asxos.jobs._helpers import UpstreamBlocked
 from asxos.jobs.utils.job_monitor import JobMonitor
 
@@ -83,6 +85,31 @@ async def test_upstream_blocked_records_blocked_status() -> None:
     assert update_call.args[1] == "blocked"
     # Error message captured
     assert "sync_prices stale" in update_call.args[4]
+
+
+@pytest.mark.asyncio
+async def test_model_gate_dormant_records_blocked_status() -> None:
+    """ModelGateDormant (rule #11, 0 approved models) → status='blocked', not
+    'failure' — build_portfolio hitting the standing quarantine every week is
+    an expected policy state, not a new crash each time. Exception propagates
+    (JobMonitor never suppresses)."""
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    with _patch_pool(conn):
+        with pytest.raises(ModelGateDormant, match="approved_for_allocation"):
+            async with JobMonitor(
+                job_name="build_portfolio",
+                as_of=date(2026, 7, 11),
+                healthcheck_url="http://hc/ping",
+            ):
+                raise ModelGateDormant(
+                    "no model_version is both active and approved_for_allocation"
+                )
+
+    update_call = conn.execute.await_args_list[2]
+    assert update_call.args[1] == "blocked"
+    assert "approved_for_allocation" in update_call.args[4]
 
 
 @pytest.mark.asyncio
