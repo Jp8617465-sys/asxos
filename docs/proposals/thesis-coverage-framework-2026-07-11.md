@@ -14,7 +14,10 @@ redesigned here)
 
 Triggered by James (2026-07-11): "the thesis tracking is an issue — I want coverage on all ASX
 universe and we only have 13 or so. we should start and break down from universe, to segment to
-stock at a high level."
+stock at a high level." Extended same-day: "one thing to add into your equities like we want also
+the etf's etc included in our investment plan not just individual equities" — Tier 0 and Tier 1
+below are revised to make instrument kind (not just equity sector) a first-class dimension of
+"universe" and "segment" from the start, not a later add-on.
 
 ---
 
@@ -25,13 +28,20 @@ Live numbers (verified this session, ground truth):
 | Metric | Value |
 |---|---|
 | `universe` total rows | 2,403 |
-| `universe` active `au_equity` | 1,872 |
-| `theses` total / distinct symbols | 13 / 13 |
-| `theses` coverage of active universe | 13 / 1,872 = **0.69%** |
+| `universe` active, all `security_kind` | **2,377** — au_equity 1,872 · ETF 471 · hybrid 21 · LIC 13 |
+| `theses` total / distinct symbols | 13 / 13 (all `au_equity`; zero ETF/LIC/hybrid coverage) |
+| `theses` coverage of active universe | 13 / 2,377 = **0.55%** (13 / 1,872 au_equity-only = 0.69%) |
 | `theses.status` breakdown | research 11, active 1 (HUBS, ~100% capital), watching 1 |
 | `themes` rows | 1 |
 | `theme_holdings` rows / distinct symbols | 1 / 1 |
 | `macro_theses` rows | 0 |
+
+**ETFs are not a rounding error on top of equities — they're a quarter of the tracked universe
+(471 of 2,377, before hybrids/LICs).** `security_kind` (migration `0037`) already disambiguates
+them from `au_equity`, and ETF/LIC ingestion is already wired (ETF Phase-1 `security_kind`
+keystone, PR #24; ETF Slice 2a kind-aware ingestion, PR #26) — this framework's job is to make
+sure the *coverage* tiers below don't silently mean "equities only" the way the first draft of
+this document (and the underlying `theses`/`themes` schema itself) implicitly did.
 
 The 0.7% number, read in isolation, invites the wrong fix ("write more theses"). North-star.md is
 explicit that the product is "a small number of opinionated, explainable ideas — not 50 screener
@@ -107,13 +117,28 @@ context.
 
 ## 4. The phased tier framework
 
-### Tier 0 — Universe (exists, no work)
+### Tier 0 — Universe (exists, no work) — spans all instrument kinds, not just equities
 
-2,403 rows, 1,872 active `au_equity`. `universe.sector`/`fundamentals.sector` already populated
-and already load-bearing elsewhere: it's "the cache the portfolio allocator's sector cap
-(`constraints.apply_sector_cap`) groups on" (`migrations/0023_fundamentals_add_sector.sql:6-7`).
-`universe.security_kind` (migration `0037`) already disambiguates `au_equity` from `us_equity`/
-`index`, so this tier is scoped correctly today.
+2,403 rows, 2,377 active across `au_equity` (1,872), `etf` (471), `hybrid` (21), `lic` (13).
+`universe.sector`/`fundamentals.sector` already populated for equities and already load-bearing
+elsewhere: it's "the cache the portfolio allocator's sector cap (`constraints.apply_sector_cap`)
+groups on" (`migrations/0023_fundamentals_add_sector.sql:6-7`). `universe.security_kind`
+(migration `0037`) already disambiguates `au_equity` from `etf`/`lic`/`hybrid`/`us_equity`/
+`index`, so this tier's raw data is scoped correctly today — the gap is downstream, in Tier 1's
+segmentation logic and every later tier, silently assuming "symbol" means "ordinary share."
+
+**Every tier below applies to the full 2,377, not the 1,872-equity subset.** Concretely:
+Tier 1a's sector rollup must report an explicit non-equity bucket (ETF/LIC/hybrid have no GICS
+sector); Tier 1b's theme→holding mapping is already instrument-kind-agnostic
+(`theme_holdings.symbol` has no kind filter — an ETF can sit in a theme today, e.g. a "broad
+market beta" theme holding VAS/VGS, exactly as naturally as a stock); Tier 2's screening
+evaluator needs kind-appropriate criteria (below); Tier 3's full-thesis mechanism already works
+for any `security_kind` — `enter_thesis()` has no equity-only constraint, it's simply never been
+used for a fund because nothing upstream ever surfaced one as a candidate. This framework does
+not re-decide *how* ETFs/LICs are ingested, valued, or held — that mechanics is
+`docs/proposals/multi-instrument-expansion-2026-07-11.md` and the ETF Slice 1/2 roadmap items
+(migration 0037, PR #24/#26). This framework only ensures the *discovery/coverage* pipeline
+treats them as first-class citizens from Tier 0 up, not a special case bolted on later.
 
 ### Tier 1 — Segment: sector *and* theme, as a hybrid, not a choice between them
 
@@ -148,6 +173,19 @@ is the narrative, human-approved unit that's the actual product surface (Tier 1b
 Sector-scoping is what lets an agent (or James) work with ~24-780 names instead of 1,872 in one
 pass — matching how the 5 existing investment-analysis agents are already scoped per-symbol,
 never universe-wide.
+
+**Sector doesn't apply to the 505 non-equity instruments (ETF/hybrid/LIC) — they need a
+different Tier 1a lens.** A fund has no GICS sector of its own; its relevant segment is *what it
+holds/tracks*: asset class (equity / fixed income / commodity / currency), geography (domestic /
+international developed / emerging), and breadth (broad-market beta vs sector/thematic-specific,
+e.g. VAS/VGS vs a lithium-miners ETF). This is standard ETF-industry taxonomy, not a new
+invention, and it composes cleanly with Tier 1b: a thematic ETF (e.g. a battery-metals ETF)
+naturally attaches to the *same* `themes` row as the individual miners it overlaps with — one
+theme, mixed-instrument-kind holdings, which `theme_holdings` already supports schema-wise
+(no kind filter on `symbol`). **This asset-class/geography/breadth taxonomy is not designed
+here** — it's a small, well-scoped follow-on (a lookup table or an enum on `universe`/
+`fundamentals` for non-equity rows), flagged for `backend-architect` alongside the Tier 2a
+evaluator design, since both land in the same migration/module.
 
 | | Tier 1a — Sector | Tier 1b — Theme |
 |---|---|---|
@@ -248,10 +286,13 @@ touch no investment content — they're data groupings and filters, the same cat
 
 **Buildable now — no dependency on agent DB role scoping, no new agent:**
 
-1. **Tier 1a sector-coverage rollup.** Pure SQL against existing, fully-populated columns
-   (`universe.sector`, `theme_holdings`, `theses`). This is literally the picture James asked
-   for ("break down from universe, to segment... understand what's happening") and needs zero
-   migration, zero agent.
+1. **Tier 1a coverage rollup — sector for equities, an explicit non-equity bucket for
+   ETF/hybrid/LIC.** Pure SQL against existing, fully-populated columns (`universe.sector`,
+   `universe.security_kind`, `theme_holdings`, `theses`). This is literally the picture James
+   asked for ("break down from universe, to segment... understand what's happening," extended to
+   "ETFs etc, not just individual equities") and needs zero migration, zero agent — the
+   non-equity rows just report as one "ETF/LIC/hybrid — 505 symbols, 0 theme/thesis coverage"
+   line until the asset-class/geography taxonomy (Tier 1, above) lands.
 2. **Tier 2a mechanical screen.** Wire `screening_rules` (unwired since migration 0001) to a real
    evaluator + a lightweight, non-governed results log; tighten `source_method` away from its
    ML-flavored comment vocabulary. Route the schema/module design through `backend-architect`
