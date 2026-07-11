@@ -1,4 +1,26 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__supabase-ro__execute_sql",
+      "mcp__github__get_me",
+      "mcp__github__list_pull_requests",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_commits",
+      "mcp__github__list_branches",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git rev-list:*)",
+      "Bash(git merge-base:*)",
+      "Bash(git fetch:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git remote -v)",
+      "Bash(pytest:*)",
+      "Bash(ls:*)",
+      "Bash(curl -s --max-time 25 -H \"Authorization: Bearer $RENDER_API_KEY\" \"https://api.render.com/v1/services?limit=50\")"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
