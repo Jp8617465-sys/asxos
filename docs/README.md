@@ -16,8 +16,8 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 ---
 
 ## Read first, in order
-1. `../CLAUDE.md` — agent guide + non-negotiables (note temporary rule **#11**: Model A quarantine)
-2. `session-handoff-2026-07-04.md` — the live Model A reliability dispute (P0, unresolved)
+1. `../CLAUDE.md` — agent guide + non-negotiables (note **standing** rule **#11**: Model A quarantine — resolved 2026-07-11 *against* Model A; the quarantine stands as policy)
+2. `product/roadmap-state.md` — the living reconciled state (**current authority**); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. `session-handoff-2026-07-04.md` is the last dated handoff (its "P0 unresolved" framing is superseded by the resolution above)
 3. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
 4. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
 5. `next-session-backlog.md` — itemized backlog (top half current; the 2026-06-28 half is partially stale — see its banners)
@@ -33,7 +33,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Tax math | `foundation/spec/tax-alpha.md` (v1.5 — TC-20 is implemented; spec-first per non-negotiable #8) |
 | Governance | `proposals/governance-first-architecture-2026-06-30.md` + `../.claude/rules/portfolio-conventions.md` |
 | Research store | `../migrations/0027_research_store.sql` for schema; the **live DB** for state (`research/research-store-schema.md`'s "applied-empty" header is a 2026-06-22 snapshot) |
-| Model A / alpha evidence | live `signals` + `../asxos/domain/research/alpha_eval.py`; audit design in `model-a-audit-and-extension-plan-2026-07-04.md` Part A; dispute status in `session-handoff-2026-07-04.md`; `research/alpha-research-audit.md` is the pre-training-period diagnosis (not live-signal truth) |
+| Model A / alpha evidence | **`model-a-decay-analysis-2026-07-11.md`** (the resolution — no usable edge on 19,032 matured signals) + **`product/ml-engine-shelf-2026-07-11.md`** (James's shelve decision + how it plays out) are authoritative on status; live `signals`/`signal_outcomes` + `../asxos/domain/research/alpha_eval.py` for the data; audit design in `model-a-audit-and-extension-plan-2026-07-04.md` Part A; `research/alpha-research-audit.md` is the pre-training-period diagnosis (not live-signal truth) |
 | Portfolio invariants | `../.claude/rules/portfolio-conventions.md` |
 | Risk | none built (v1 is risk-blind by design — `../.claude/rules/portfolio-conventions.md`); design notes in `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
 | Backlog / session state | `next-session-backlog.md` + the newest `session-handoff-*.md` (handoff outranks backlog on priority; backlog outranks handoff on itemized detail) |
@@ -55,7 +55,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Decide what to work on next / start a session | `/arbi` ("wake up") — reconciles the roadmaps + live state; reads `product/north-star.md` + `product/roadmap-state.md` |
 
 ## Current audits / plans (2026-07-04 → 07-05)
-- `session-handoff-2026-07-04.md` — the P0 Model A dispute + what to do next
+- `session-handoff-2026-07-04.md` — session state as of 2026-07-04. **Its P0 (Model A dispute) is RESOLVED 2026-07-11** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`; read it for session context, not for current Model A status
 - `live-readiness-audit-plan-2026-07-04.md` — live-state audit + docs-cleanup plan
 - `model-a-audit-and-extension-plan-2026-07-04.md` — Model A audit design + agent DB scoping (Part B) + Rust/Go RFC (Part C); holds the verbatim detail the roadmap only sequences
 - `executable-roadmap-2026-07-04.md` — the sequencer (5 workstreams + PR plan)

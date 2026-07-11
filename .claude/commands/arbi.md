@@ -82,8 +82,10 @@ or start work.** Wait for James's explicit go.
 
 - Brief + state refresh only. No trades, no order placement, no real-capital
   recommendation — the personal-advice firewall (s766B) is structural.
-- **Model A quarantine (rule #11):** never recommend acting on Model A output for real
-  capital until the dispute resolves. Recommending we *resolve* it is the whole point.
+- **Model A quarantine (rule #11), now standing:** never recommend acting on Model A output
+  for real capital. The dispute is **resolved** (2026-07-11, against Model A — no usable edge;
+  ML engine shelved); the quarantine holds as standing policy. Do **not** re-propose "run the
+  decay check" — that P0 is closed; re-issuing it is recency overfit (`arbi-red-team`).
 - Every figure in the brief traces to a probe or a cited doc line — never training
   knowledge or a guess. If ≥2 live probes are unavailable, say the read is state-thin and
   name the gaps rather than forcing a confident picture.

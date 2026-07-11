@@ -127,10 +127,14 @@ scheduled portfolio path is deliberately the same boring read-and-observe shape 
 
 Before arbi earns standing autonomy at a higher reversible tier (either ladder), all must hold:
 
-1. **Model A dispute resolved** — CLAUDE.md rule #11 lifted (you cannot autonomously operate
-   a project whose core engine is under dispute). For the P-ladder this is doubly binding: an
-   unattended memo could not even be *model-independent-verified* without a human while the
-   dispute is live.
+1. ✅ **MET 2026-07-11 — Model A dispute resolved** (you cannot autonomously operate a project
+   whose core engine is *under dispute*; that uncertainty is now gone — Model A has **no usable
+   edge** and the ML engine is **shelved**). Note rule #11 is **not lifted** — it resolved
+   *against* Model A and now stands as permanent policy, so the product is model-independent by
+   design. For the P-ladder a residual gate remains: an unattended memo's `model_independence`
+   assertion still needs human verification per-memo (the reason the scheduled P-path stays the
+   boring read-and-observe 7a shape) — but that is a track-record/role-scoping gate below, not
+   a live-dispute blocker.
 2. **Agent DB role scoping landed** (`m14_candidate_agent_db_role_scoping`) — a read-only
    Postgres role so an unattended agent physically cannot write.
 3. **Track record** — the `arbi-scorecard.md` trend + `arbi-run-ledger.md` + eval suite show
