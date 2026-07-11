@@ -62,13 +62,16 @@ concentration must state this caveat, not imply the caps protect against co-move
 
 ## The Model A quarantine (rule #11) — binds allocation
 
-While CLAUDE.md rule #11 stands, **no allocation decision or memo may use Model A output**
+Rule #11 is now **standing policy**: **no allocation decision or memo may use Model A output**
 (signals, allocator, candidate scans, opportunity-cost ranking). Allocation memos are
 **model-independent** — driven by thesis discipline, realised benchmark gap, tax/CGT state,
-concentration vs the caps above, and theme stewardship. The signal-driven allocator path is
-quarantined until the decay dispute resolves (`docs/model-a-decay-analysis-2026-07-10.md`;
-`decision-log.md`). This is the single most important constraint on the portfolio capacity
-today.
+concentration vs the caps above, and theme stewardship. The decay dispute is **resolved
+(2026-07-11, against Model A** — no usable edge on 19,032 matured signals,
+`docs/model-a-decay-analysis-2026-07-11.md`), and James **shelved** the ML engine
+(`ml-engine-shelf-2026-07-11.md`); the signal-driven allocator path stays **dormant by
+standing policy**, not pending a resolution. Model-independence is therefore not a temporary
+constraint on the portfolio — it is the permanent shape of every memo until a *new* model
+passes a pre-registered decay bar.
 
 ## Tax discipline (governor intent; spec is authoritative)
 
