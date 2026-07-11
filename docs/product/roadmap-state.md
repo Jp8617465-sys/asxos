@@ -125,26 +125,37 @@ new agents — not a signal engine.*
 
 ## In flight
 
-- **Branch `claude/asxos-product-manager-agent-tzszlv`** (ahead of merged main `3f3dbcf`) —
-  the post-shelf reconciliation + arbi operating docs + **ETF Slice 2a** kind-aware ingestion
-  (`asxos/ingestion/universe.py`, the branch's only production code, now with `refresh_universe`
-  test coverage). In merge-readiness review (arbi-red-team + technical-writer audited
-  2026-07-11). Awaiting James's merge call. ETF Slice 2 (VGS/VAS holdings) is **not started** —
-  it is gated on James's holding-lot data (`james-inbox.md`) and on this branch merging first.
+- **MERGED 2026-07-11 — PR #25 → `main` (`eff3732`):** ML-shelf decision + post-shelf
+  reconciliation + arbi operating docs + **ETF Slice 2a** kind-aware ingestion (with
+  `refresh_universe` tests) + the merge-readiness fixes. CI green. This is now on `main`.
+- **On the branch, UNMERGED (3 commits `97c2cd5`/`aa28db0`/`b5ca66e`):** the reversible-remit
+  **permission allow-list** (`.claude/settings.json`) + its draft + governance sync. Applied
+  by James via `/fewer-permission-prompts`; **caveat:** the running remote session does not
+  hot-reload `.claude/settings.json`, so it takes effect only in a *fresh* session. Needs
+  merging to `main` (or these commits carry into the next branch).
+- **Product Reality Sweep — PAUSED, resumable.** Launched as `wf_23a6e2ea-b23` (5 read-only
+  domain auditors + synthesis: crons/services, data tables, brief/dark-launch, docs, theses);
+  **stopped** mid-run because its read-only SQL was flooding James with per-query approval
+  prompts (the allow-list not being honored in-session). Relaunch in a fresh session with
+  `Workflow({scriptPath: ".../product-reality-sweep-wf_23a6e2ea-b23.js", resumeFromRunId:
+  "wf_23a6e2ea-b23"})` — completed agents return cached results.
+- **ETF Slice 2 (VGS/VAS holdings) — not started;** gated on James's holding-lot data
+  (`james-inbox.md`).
 
 ## Ranked next-action queue
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-1. **~~Run the Model A decay check~~ — DONE 2026-07-11, P0 RESOLVED against Model A**
-   (`docs/model-a-decay-analysis-2026-07-11.md`; 19,032 matured signals; no usable edge;
-   rule #11 standing). **The remaining decision is James's (not arbi's):** retrain a new
-   model version to a pre-registered decay bar, shelve the ML engine and lean fully into the
-   model-independent product, or both — this is what actually unblocks Phase 2c. Until then,
-   the highest-leverage arbi-actionable work is the model-independent product (ETF Slice 2)
-   + fixing the broken monitoring crons the health scorecard surfaced (`check_cron_health`,
-   `check_model_staleness`, `retrain_model_a`, `track_signal_outcomes` staleness).
+1. **Relaunch the Product Reality Sweep (fresh session), then triage its findings.** The
+   sweep (`wf_23a6e2ea-b23`) was launched then paused mid-run; resume it from cache in a
+   fresh session (where the permission allow-list loads and its read-only SQL won't prompt),
+   read the ship/fix/quarantine/delete synthesis, then act on the **genuine cron issues** it
+   was scoping: `check_model_staleness` (quiet the post-shelve noise), `sync_financial_statements`
+   (zombie `running` row from 07-04), `validate_price_data` (anomalies), `track_signal_outcomes`
+   (absent from `job_runs` — the shelf's one active ML-monitor task). North-star: discipline
+   events reach James before they cost money; owner: main loop. _(The Model A P0 is RESOLVED
+   and the ML engine SHELVED — that strategic call is made; do not re-open it.)_
 2. **Agent DB read-only role scoping (PR2 / `m14_candidate_agent_db_role_scoping`).**
    North-star: non-negotiable #2 (firewall integrity) before more agents sit next to
    governed tables. Owner: `backend-architect`. Prereq for Phase 2c.
@@ -263,12 +274,17 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Not yet established. The first `/arbi` run records: timestamp, current branch, ahead-of-
-main count, open PRs, latest commit sha, test pass/fail count, latest on-disk migration,
-and data-feed freshness (`prices.dt`, `signals.as_of`, recent `job_runs`). Subsequent
-`/arbi` runs diff against this block to surface "what changed / new bugs" and then
-overwrite it._
+_Refreshed by `/arbi` and `/arbi-close`. Subsequent runs diff against this block to surface
+"what changed / new bugs" and then overwrite it._
 
 ```
-(baseline pending — run /arbi)
+snapshot:            2026-07-11 (/arbi-close)
+main tip:            eff3732  (PR #25 merged: ML shelf + ETF Slice 2a + operating docs)
+working branch:      claude/asxos-product-manager-agent-tzszlv @ b5ca66e (3 commits ahead of main — the permission allow-list, UNMERGED)
+open PRs:            none open (PR #25 merged; PR #5 quant-benchmarking docs still open, untouched)
+latest migration:    0037_security_kind.sql  (REQUIRED_MIGRATIONS = 91)
+tests:               refresh_universe suite added (test_ingestion.py 39→44); full suite runs in CI (sandbox lacks py3.12 + ML deps)
+data feeds:          prices/signals/fundamentals fresh to ~2026-07-09/10; signal_outcomes 19,032 matured (decay basis)
+genuine cron issues: check_model_staleness FAIL (noise post-shelve), sync_financial_statements zombie 'running' row (07-04), validate_price_data FAIL (anomalies), track_signal_outcomes absent from job_runs
+in flight:           Product Reality Sweep wf_23a6e2ea-b23 PAUSED (resumable from cache)
 ```
