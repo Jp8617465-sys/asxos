@@ -131,10 +131,15 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   now on main. No longer awaiting a merge call.
 - **ETF Slice 2 (VGS/VAS holdings) — not started.** Code side is unblocked (Slice 2a merged);
   it is now gated only on James's holding-lot data (`james-inbox.md` VGS/VAS row).
-- **This session's branch `claude/wake-up-arbi-jeww8p`** carries one branch-only commit
-  (`7752f7b`) — a read-only `/arbi` probe-tool permissions allowlist in `.claude/settings.json`
-  (supabase-ro execute_sql, read-only git, pytest, ls, GitHub read tools, the Render /services
-  curl). Committed so it survives the ephemeral remote container; not yet on main.
+- **This session's branch `claude/wake-up-arbi-jeww8p` → PR #26** (open, draft-track). Carries
+  the 2026-07-11 wake + the 8-hour autonomy window (James granted reversible-work autonomy;
+  hourly loop `trig_01M5mWFrgZBmqbinLK12F6iU` runs to ~20:08Z, `decision-log.md` autonomy-2026-07-11).
+  Landed: (1) read-only `/arbi` probe permissions allowlist; (2) **monitoring lane restored** —
+  `check_model_staleness` shelf-aware, `track_signal_outcomes` revived (init-pool fix), both from
+  the wake; (3) `validate_price_data` $0.02 price floor (prod-verified 15→5 anomalies); (4)
+  `sync_financial_statements` 512Mi-OOM fix (bounded-worker pool; Render-event root-caused). In
+  flight: agent DB read-only role scoping (design→draft migration), competitive gap analysis.
+  **Nothing merged/deployed — all draft for James.**
 
 ## Ranked next-action queue
 

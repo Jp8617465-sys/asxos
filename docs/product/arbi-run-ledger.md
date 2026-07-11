@@ -47,7 +47,8 @@ A run always writes the ledger; it writes the decision log only when it made a r
 
 | run_id | date | trigger | task_type | tier | gate | score | outcome |
 |---|---|---|---|---|---|---|---|
-| _(none yet — first scored run appends here)_ | | | | | | | |
+| wake-2026-07-11 | 2026-07-11 | manual (/arbi "wake up") | daily-brief + state-refresh | I0-I2 | passed | — | done — baseline snapshot recorded; PR #25 reconciled; queue re-ranked (monitoring lane = THE ONE THING); red-team PASS w/ scope caveat |
+| autonomy-2026-07-11 | 2026-07-11 | manual (James granted 8h reversible-work autonomy) | build-loop (attended) | I2-I3 (reversible; draft-PR-only) | passed | — | in progress — PR #26: check_model_staleness shelf-aware, track_signal_outcomes revived, validate_price_data $0.02 floor (prod-verified 15→5), sync_financial_statements 512Mi-OOM fix (bounded-worker pool). Dispatched: backend-architect (agent DB read-only role), deep-research (competitive gap analysis). Hard lines held (no merge/deploy/DB-write/Render/capital/Model-A/self-edit). Hourly loop trig_01M5mWFrgZBmqbinLK12F6iU armed to ~20:08Z; stand-down trig_01Qg9BPG3KYvAeKQRxmYAMPA @20:18Z |
 
 ## Today vs the platform
 
