@@ -54,3 +54,22 @@ distrust of agents.
   broken (RC2), conviction NULL everywhere (R11), market_context feed gaps (RC3), `.NYSE`
   discipline-coverage hole (RC5, confirms existing R7). The product's discipline layer is only
   as good as the data under it — and the data has real holes.
+
+## Follow-up: verify-against-code caught TWO more stale assumptions (2026-07-11, same run)
+
+The same discipline that caught the −29% error, applied to the findings' *own* premises before
+"fixing" them, dissolved two of them:
+
+- **RC5/R7 (`.NYSE` discipline-coverage "hole") — not a bug.** `jobs/check_us_positions.py`
+  already matches every `FOREIGN_SUFFIXES` exchange via `foreign_symbol_sql` (HUBS.NYSE named in
+  its docstring) and is scheduled (`render.yaml:643`). That is *how* the stop breach fired
+  2026-07-03. The R7 backlog item predated that job. Marked resolved — no code written.
+- **HUBS acquisition FX — not an error.** James confirmed 0.6450 matches the brokerage statement;
+  an ESPP fill FX differing from spot is expected. R10 narrowed to currency *labeling* only.
+
+**Reinforces L-cand-1, generalised:** reconcile-at-source applies to a finding's *premise*, not
+just its numbers. A backlog/agent claim ("X is a coverage hole", "the FX is unresolved") is a
+hypothesis to check against the code/owner, not a work-order to execute. Two of five pm-review
+"bugs" were stale premises; "fixing" them would have written needless code or re-flagged a
+confirmed value. Only ONE code bug survived verification: RC3 (`rba_cash_rate` FRED series
+`AUCBCNTO` → HTTP 400). Genuinely-actionable finding rate this run: ~1 code + ~1 doc of 5.
