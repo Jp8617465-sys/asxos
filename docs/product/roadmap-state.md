@@ -93,6 +93,11 @@ role scoping — not another layer on top.*
   (retrain a new version to a pre-registered decay bar / shelve the ML engine / both). The
   model-independent product (discipline, tax, themes, ETFs) was never blocked and is the path
   forward.
+- **Strategic call MADE (James, 2026-07-11): SHELVE the ML engine.** Model A is demoted from
+  product alpha-engine → dormant passive monitor; the product IS the model-independent moat.
+  How it plays out (crons, allocator, brief, Phase 2c reframe, the revival decay-bar):
+  **`docs/product/ml-engine-shelf-2026-07-11.md`**. Phase 2c is now the model-independent
+  discovery/discipline/ETF expansion — it no longer waits on a trusted signal engine.
 - **Blocked-by-P0 (narrow, corrected 2026-07-10):** the signal-driven **allocator** capital
   path + the peripheral `compute_opportunity_cost` ranking; governance Phase 2c (needs a
   trusted signal engine); real *signal-driven* capital deployment. **NOT blocked:** the
