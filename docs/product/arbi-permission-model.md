@@ -47,6 +47,18 @@ are irreversible → always human-approved, never standing, regardless of track 
 `.claude/hooks/unattended-guard.sh` hook is the mechanical pre-filter for I5–I6 under
 unattended runs (push/merge to main, DB writes, Render, migrations).
 
+**Mechanical realization for *attended* runs (2026-07-11, governor-directed):** the reversible
+tiers are encoded as the `permissions.allow` list in `.claude/settings.json` — read-only
+Supabase (`supabase-ro`), GitHub read methods, reversible git incl. push to `claude/*`,
+test/lint tooling, `make check-drift` — so James is not re-prompted for what he'd always
+approve. The irreversible tiers stay in `permissions.ask` / default-prompt (main push, RW
+Supabase, migrations, PR create/merge, GitHub file-writes; raw Render curl left gated because
+a prefix rule can't separate GET from POST). arbi **cannot** write this file itself — the
+harness auto-mode classifier denies editing the permission config (self-permission-grant = the
+remit-expansion firewall); James applied it via `/fewer-permission-prompts`. This is the
+attended analogue of the unattended-guard: allow-list reduces friction on reversible ops; the
+guard hardens the irreversible ones. See `docs/product/proposed-permission-allowlist.md`.
+
 ## Portfolio decision-support ladder (P0–P6) — operating the portfolio
 
 Every P-tier below P6 produces a **memo** (`recommendation-schema.md`), inside James's
