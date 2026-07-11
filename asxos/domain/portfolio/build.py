@@ -45,16 +45,18 @@ def forced_sell_inactive_symbols(universe_rows: list[Any]) -> frozenset[str]:
     Feeds ``compute_deltas(universe_inactive_symbols=...)`` in rebalance.py,
     where a held symbol in this set is force-sold (drift threshold ignored).
 
-    An AU equity that has gone is_active=FALSE is a real delisting → still
-    force-sold. Held US holdings (.US/.NYSE/.NASDAQ/.AMEX) are is_active=FALSE by
-    design — they are not ASX-equity-universe members (the AXJO.INDX precedent),
-    NOT delisted — so they are excluded here and never auto-liquidated. `.INDX`
-    benchmark rows are likewise never held, so they don't reach the forced-sell.
+    Only ``security_kind = 'au_equity'`` rows are eligible: an AU equity (incl.
+    A-REITs, which stay au_equity) that has gone is_active=FALSE is a real
+    delisting → still force-sold. Every fund/foreign kind (etf/lic/hybrid/index/
+    us_equity) is excluded and never auto-liquidated — a held ETF or US holding is
+    not an ASX-equity delisting. (Pre-0037 this keyed on ``not is_foreign_symbol``;
+    security_kind now carries that meaning directly, and also excludes .AU-suffixed
+    ETFs — e.g. VGS.AU — which the suffix check could not.)
     """
     return frozenset(
         r["symbol"]
         for r in universe_rows
-        if not r["is_active"] and not is_foreign_symbol(r["symbol"])
+        if r["security_kind"] == "au_equity" and not r["is_active"]
     )
 
 
@@ -220,7 +222,7 @@ class PortfolioService:
 
         # Step 3: universe.
         universe_rows = await conn.fetch(
-            "SELECT symbol, sector, market_cap, is_active FROM universe ORDER BY symbol"
+            "SELECT symbol, sector, market_cap, is_active, security_kind FROM universe ORDER BY symbol"
         )
         universe_by_symbol = {r["symbol"]: r for r in universe_rows}
         inactive_symbols = forced_sell_inactive_symbols(universe_rows)

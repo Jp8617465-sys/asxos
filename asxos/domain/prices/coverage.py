@@ -204,7 +204,7 @@ async def latest_observed_price_date(conn: asyncpg.Connection) -> date | None:
             SELECT MAX(p.dt)
             FROM prices p
             JOIN universe u ON u.symbol = p.symbol
-            WHERE u.is_active = TRUE
+            WHERE u.is_active = TRUE AND u.security_kind = 'au_equity'
             """
         ),
     )
@@ -226,13 +226,13 @@ async def fetch_recent_coverage(
             SELECT MAX(p.dt) AS mx
             FROM prices p
             JOIN universe u ON u.symbol = p.symbol
-            WHERE u.is_active = TRUE
+            WHERE u.is_active = TRUE AND u.security_kind = 'au_equity'
         )
         SELECT p.dt AS dt, COUNT(*) AS row_count
         FROM prices p
         JOIN universe u ON u.symbol = p.symbol
         CROSS JOIN latest
-        WHERE u.is_active = TRUE
+        WHERE u.is_active = TRUE AND u.security_kind = 'au_equity'
           AND latest.mx IS NOT NULL
           AND p.dt >= latest.mx - $1::int
         GROUP BY p.dt

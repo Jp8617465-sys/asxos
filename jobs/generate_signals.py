@@ -70,7 +70,7 @@ async def _last_price_date(conn: "asyncpg.Connection") -> date | None:
         SELECT MAX(p.dt)
         FROM prices p
         JOIN universe u ON u.symbol = p.symbol
-        WHERE u.is_active = TRUE
+        WHERE u.is_active = TRUE AND u.security_kind = 'au_equity'
         """
     )
 
@@ -83,7 +83,7 @@ async def _top_liquid_symbols(conn: "asyncpg.Connection", as_of: date, n: int = 
         FROM prices p
         JOIN universe u ON u.symbol = p.symbol
         WHERE p.dt BETWEEN $1 AND $2
-          AND u.is_active = TRUE
+          AND u.is_active = TRUE AND u.security_kind = 'au_equity'
         GROUP BY p.symbol
         ORDER BY AVG(p.close * p.volume) DESC
         LIMIT $3
@@ -247,7 +247,7 @@ async def main(
             # then concatenate. Keeps peak memory ~100MB vs ~450MB for a single pass.
             async with acquire() as conn:
                 sym_rows = await conn.fetch(
-                    "SELECT symbol FROM universe WHERE is_active = TRUE ORDER BY symbol"
+                    "SELECT symbol FROM universe WHERE is_active = TRUE AND security_kind = 'au_equity' ORDER BY symbol"
                 )
             all_symbols = [r["symbol"] for r in sym_rows]
 

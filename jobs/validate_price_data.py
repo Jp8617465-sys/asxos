@@ -71,7 +71,7 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
             LIMIT  1
         ) prev ON TRUE
         WHERE p.dt = $1
-          AND u.is_active = TRUE
+          AND u.is_active = TRUE AND u.security_kind = 'au_equity'
           AND ABS(p.close / NULLIF(prev.close, 0) - 1) > $2
         ORDER BY move_pct DESC
         """,
@@ -91,7 +91,7 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
         SELECT u.symbol
         FROM   universe u
         LEFT JOIN prices p ON p.symbol = u.symbol AND p.dt = $1
-        WHERE  u.is_active = TRUE
+        WHERE  u.is_active = TRUE AND u.security_kind = 'au_equity'
           AND  p.symbol IS NULL
         ORDER  BY u.symbol
         """,
@@ -110,7 +110,7 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
         SELECT p.symbol, p.dt, p.close
         FROM prices p
         JOIN universe u ON u.symbol = p.symbol
-        WHERE u.is_active = TRUE
+        WHERE u.is_active = TRUE AND u.security_kind = 'au_equity'
           AND p.close <= 0
           AND p.dt >= $1::date - 7
         ORDER BY p.dt DESC, p.symbol

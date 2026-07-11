@@ -60,14 +60,14 @@ async def _compute_breadth(conn, as_of: date) -> dict[str, Decimal | None]:
                    p.close,
                    p.dt
             FROM   prices p
-            JOIN   universe u ON u.symbol = p.symbol AND u.is_active
+            JOIN   universe u ON u.symbol = p.symbol AND u.is_active AND u.security_kind = 'au_equity'
             WHERE  p.dt <= $1
             ORDER  BY p.symbol, p.dt DESC
         ),
         ma50 AS (
             SELECT p.symbol, AVG(p.close) AS avg_close
             FROM   prices p
-            JOIN   universe u ON u.symbol = p.symbol AND u.is_active
+            JOIN   universe u ON u.symbol = p.symbol AND u.is_active AND u.security_kind = 'au_equity'
             WHERE  p.dt BETWEEN ($1 - INTERVAL '70 days')::date AND $1
             GROUP  BY p.symbol
             HAVING COUNT(*) >= 40
@@ -75,7 +75,7 @@ async def _compute_breadth(conn, as_of: date) -> dict[str, Decimal | None]:
         ma200 AS (
             SELECT p.symbol, AVG(p.close) AS avg_close
             FROM   prices p
-            JOIN   universe u ON u.symbol = p.symbol AND u.is_active
+            JOIN   universe u ON u.symbol = p.symbol AND u.is_active AND u.security_kind = 'au_equity'
             WHERE  p.dt BETWEEN ($1 - INTERVAL '290 days')::date AND $1
             GROUP  BY p.symbol
             HAVING COUNT(*) >= 180
@@ -89,7 +89,7 @@ async def _compute_breadth(conn, as_of: date) -> dict[str, Decimal | None]:
                    MAX(p.high) AS win_high,
                    MIN(p.low)  AS win_low
             FROM   prices p
-            JOIN   universe u ON u.symbol = p.symbol AND u.is_active
+            JOIN   universe u ON u.symbol = p.symbol AND u.is_active AND u.security_kind = 'au_equity'
             WHERE  p.dt BETWEEN ($1 - INTERVAL '10 days')::date AND $1
             GROUP  BY p.symbol
         )

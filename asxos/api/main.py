@@ -12,7 +12,7 @@ _brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
 from asxos.domain.models.cache import get_cache  # noqa: E402
 
-REQUIRED_MIGRATIONS = 90  # bump each time a new migration is applied; 0035/0036 (governance schema Phase 2a — macro_theses table, themes/theme_holdings governance_status/source_run_id + theme_holdings.holding_id surrogate, governed_active_* views, 3 per-table audit triggers) applied 2026-07-01
+REQUIRED_MIGRATIONS = 91  # bump each time a new migration is applied; 0037 (security_kind on universe — multi-instrument Phase 1 keystone; additive + behavior-preserving) applied 2026-07-11
 
 
 async def _check_migration_drift() -> None:
