@@ -37,6 +37,19 @@ top-down; check items off in this file as they land.
 | R9 | Resolve the two parallel brief trees (`asxos/brief` V1 live vs `asxos/domain/brief` V2 dark) — pick ship-or-abandon, delete the loser; the composer keeps both via a runtime fallback (`composer.py:89-98`). Architectural — decide first | [GATED] (architectural) | system-architect → James |
 | R10 | Batch the P3 DB tidy-ups as one migration — drop `archive_dropped_20260628`, orphaned trigger functions, `public.schema_migrations` | [GATED] (irreversible migration) | backend-architect → James |
 
+## Portfolio-review findings (2026-07-11 `/pm-review` HUBS + CBA)
+
+Surfaced by the first live P2 review (5 model-independent analysis agents, adversarially
+reconciled). Cited in `portfolio-outcome-ledger.md` (2026-07-11) and risk-register R10/R11.
+
+| # | Item | Tag | Owner |
+|---|---|---|---|
+| RC1 | **Disambiguate `cost_base_normal` currency** (risk R10) — it holds the AUD tax base for foreign lots but reads like a native cost; 2/5 agents misread HUBS as −29%. Add a `cost_base_ccy` marker or split `_aud`/`_usd`; reconcile HUBS acq-FX (0.6450 vs 0.7171). Interim [REV] doc note in `portfolio-conventions.md`; clean fix is a migration | [GATED] (schema/migration) | backend-architect → James |
+| RC2 | **Fix or retire CBA.AU thesis #1 price ladder** — entry/stop/target 42–45/38/60 vs live 168.11 (~4× detached, never < 142 in 18mo); would spuriously classify ABOVE TARGET. Correcting the levels is a governed thesis revision (service + `governance_events`) | [GATED] (governed-table write) | backend-architect → James |
+| RC3 | **Repair `market_context_current` feed gaps** — `rba_cash_rate` NULL (the bank rate-cycle thesis's own trigger isn't populated) + ingest 404s: iron ore `IRON.COMM`, `VIX.US`, `AUCBCNTO` (400) | [REV] (code+review) | backend-architect |
+| RC4 | **Backfill `conviction_level`** (risk R11) — NULL on all 13 theses disables the conviction-vs-size check portfolio-wide; consider requiring it on `enter_thesis()` | [GATED] (data backfill) + [REV] (guard) | backend-architect → James |
+| RC5 | **Suffix-aware discipline coverage** — confirms existing **R7**: HUBS.NYSE is missed by `check_au_positions`' `%.AU` filter, so a `.NYSE` holding gets no discipline alerts (its stop breach only surfaced via this manual review). Also flag the thesis-construction oddity (stop 230 *above* entry 187.54) and benchmark-appropriateness (XJO is wrong for a single USD tech name — no US benchmark in DB) | [REV] (code+review) | backend-architect |
+
 ## Suggested execution order
 
 1. **Now, arbi-dispatchable (reversible docs):** RM2–RM6, R2 → one `/arbi-run` pass to

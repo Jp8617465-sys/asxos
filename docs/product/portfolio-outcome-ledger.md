@@ -28,7 +28,8 @@ chooses to log appends the first row.
 
 | Date | Rec ref | Type · verdict | Model-independent? | James's decision | Execution note | Outcome (realised vs thesis · did the memo help?) |
 |---|---|---|---|---|---|---|
-| _(first logged `/pm-review` or allocation proposal appends here)_ | | | | | | |
+| 2026-07-11 | `rec-2026-07-11-HUBS` | single-position · **REVIEW** | yes — HUBS has 0 Model A signal rows (US equity outside the ASX universe); confirmed | _pending James_ | none — ESPP-locked / non-disposable, monitor-only (thesis_revision #13) | _pending._ Verdict is data-integrity + framework, **not** performance: position ≈ flat (entry US$187.54 in-band → 205.95, +9.8% USD / ~+2% AUD), **not −29%**. The −29%/"stop violated" read was a `cost_base_normal` AUD-base-as-USD misread (→ risk R10). Real items: 100% single-name concentration (~10× per-name cap); open acq-FX (0.6450 vs 0.7171) + lock-end date; conviction_level NULL; stop 230 sits above entry 187.54. |
+| 2026-07-11 | `rec-2026-07-11-CBA` | single-position (watchlist) · **REVIEW** | yes — no Model A signal/SHAP read for CBA | _pending James_ | none — `watching`, not held | _pending._ **DATA-BROKEN**: entry/stop/target 42–45/38/60 vs live 168.11 (~4× detached; never < 142 in 18mo) → would spuriously classify ABOVE TARGET. Revisit **14 days overdue** (due 2026-06-27). Rate-cycle idea coherent but not actionable (still watching; `rba_cash_rate` NULL in DB); `big-4-banks` theme holds zero exposure. |
 
 Row shape: date · `recommendation_id` (→ the memo, per `recommendation-schema.md`) · type +
 verdict · model-independence assertion (must be `model-independent` while rule #11 stands) ·
