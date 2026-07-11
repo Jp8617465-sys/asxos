@@ -100,6 +100,20 @@ def test_snapshot_excludes_foreign_holding_even_with_price() -> None:
     assert {h.symbol for h in out} == {"BHP.AU"}
 
 
+def test_snapshot_excludes_held_etf() -> None:
+    # A held ETF (security_kind != au_equity, passed via non_equity_symbols) is excluded from
+    # the rebalance snapshot — so it never reaches compute_deltas and is never proposed for an
+    # 'exited_universe' full-sell. Mirror of the foreign-holding guard; this is the path that
+    # catches a .AU-suffixed ETF (VGS.AU), which is_foreign_symbol cannot.
+    rows = [_hrow("BHP.AU", 1), _hrow("VGS.AU", 2)]
+    prices = {"BHP.AU": Decimal("45.20"), "VGS.AU": Decimal("110.00")}
+    out = rebalance_holding_snapshots(
+        rows, prices, "individual", date(2026, 6, 1),
+        non_equity_symbols=frozenset({"VGS.AU"}),
+    )
+    assert {h.symbol for h in out} == {"BHP.AU"}
+
+
 def test_snapshot_omits_symbol_without_price() -> None:
     out = rebalance_holding_snapshots([_hrow("CBA.AU")], {}, "individual", date(2026, 6, 1))
     assert out == []
