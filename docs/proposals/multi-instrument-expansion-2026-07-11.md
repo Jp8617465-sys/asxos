@@ -105,12 +105,27 @@ expansion advances the discipline/valuation/tax product (north-star moat layers 
 **structurally independent of the Model A signal-reliability dispute.** It's real product progress
 that does not wait on the P0.
 
-## 7. Open questions for James (before build)
+## 7. Decisions (arbi, as lead — 2026-07-11)
 
-1. Which funds first? (Confirm VGS.AU + VAS.AU; any LIC — triggers the premium/discount path?)
-2. Distributions in Phase 1: manual cash entry (recommended) vs modelled AMIT attribution (needs the `tax-alpha.md` amendment first)?
-3. REIT policy: audit which A-REITs are already in as `Common Stock` — keep `au_equity` (retain ML/thesis) or reclassify `au_reit`?
-4. Governance: does a passive mandate go through the same `governance_status` approval as a single-name thesis, or auto-approve (as human-authored theses default today)?
+James delegated scoping ("you scope the best build based on the product's goals"). These are
+decided; only the prod-migration apply and the merge remain his (irreversible I5/I6).
+
+1. **Funds first: VGS.AU + VAS.AU** (global + domestic core). No LIC in the first cut, so the
+   premium/discount-to-NTA path is Phase-1.x, not now.
+2. **Distributions: manual cash entry in Phase 1.** AMIT/LIC attribution (cost-base
+   adjustments, LIC cap-gain deduction) is Phase 1b, behind a `tax-alpha.md` amendment — I will
+   not free-hand tax law (non-negotiable #8).
+3. **REITs stay `au_equity`.** Audit (2026-07-11): **59** active A-REITs are already in the
+   universe with fundamentals + Model A coverage. Reclassifying to `au_reit` would strip that
+   coverage — a real regression for zero Phase-1 benefit. They keep single-name thesis + ML
+   eligibility; a per-name `reit` reclassification is a deliberate later decision if ever wanted.
+4. **Passive mandates auto-approve** (`governance_status='approved'`, same as human-authored
+   theses) — the governance gate is load-bearing only for *agent-originated* drafts; a mandate
+   James authors is his own conviction, zero-friction.
+
+**The one checkpoint that stays James's:** applying migration 0037 to prod Supabase (I5) and
+merging to `main` (I6). The migration is additive + behavior-preserving (backfill proven: all
+1,873 active rows are `.AU` → `au_equity`, so the reader filter is a no-op today).
 
 **Non-goals:** warrants/options/instalment warrants; running Model A on funds; allocator-
 optimising fund weights; intraday NAV; marking LICs at NTA; unlisted managed funds.
