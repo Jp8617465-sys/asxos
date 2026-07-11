@@ -4,7 +4,12 @@ Daily price validation — runs at 20:33 UTC (Sun-Thu) after sync_prices (20:30)
 and before snapshot_portfolio (20:40).
 
 Three checks:
-  1. Large daily moves (>25%) — potential splits or data errors.
+  1. Large daily moves (>25%) on stocks priced >= $0.02 — potential splits or
+     data errors. The price floor excludes sub-2-cent nano-caps: at a $0.001 tick
+     a single-tick move is 25-100%+, which is quantization noise, not a split or
+     data error (2026-07-09: 14 of 14 large-move flags were sub-cent nano-caps,
+     hard-failing the job daily and masking real issues — see the arbi wake
+     2026-07-11 triage).
   2. Active symbols missing a price row for as_of — data gaps.
   3. Any close <= 0 in the last 7 days — corrupt rows.
 
@@ -25,6 +30,10 @@ from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "validate_price_data"
 _LARGE_MOVE_THRESHOLD = 0.25
+# Ignore large %-moves on sub-2-cent nano-caps: at a $0.001 tick, a single-tick move
+# is 25-100%+ (price quantization, not a split/data error). Applied to the PRIOR close
+# so a genuine crash from a meaningful price (e.g. $0.06 -> $0.001) is still flagged.
+_LARGE_MOVE_MIN_PRICE = 0.02
 _HARD_FAIL_THRESHOLD = 10
 
 
@@ -72,11 +81,13 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
         ) prev ON TRUE
         WHERE p.dt = $1
           AND u.is_active = TRUE AND u.security_kind = 'au_equity'
+          AND prev.close >= $3
           AND ABS(p.close / NULLIF(prev.close, 0) - 1) > $2
         ORDER BY move_pct DESC
         """,
         as_of,
         _LARGE_MOVE_THRESHOLD,
+        _LARGE_MOVE_MIN_PRICE,
     )
     for r in large_moves:
         pct = float(r["move_pct"]) * 100
