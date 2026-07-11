@@ -21,7 +21,7 @@ product's shape until a *new* model earns its way back (conditions below).
 |---|---|---|
 | **`retrain_model_a`** (weekly walk-forward) | iterating v1_5 | **stays SUSPENDED** (already suspended on Render since ~June). v1_5 is not iterated further. |
 | **`generate_signals`** (daily inference) | product signal source | **kept running as a passive signal-quality MONITOR only** — feeds `signal_outcomes` so any future model (or v1_5 drift) is always measurable at ~zero cost. NOT product-critical; nothing acts on it. |
-| **`track_signal_outcomes`** | (broken — `signal_outcomes` stale past 2026-03-25) | **FIX IT** — the one active follow-up. It's what makes the monitor lane real and turns the decay check into a one-query standing check. |
+| **`track_signal_outcomes`** | (broken — `signal_outcomes` stale past 2026-03-25) | **FIX COMMITTED** (branch `claude/wake-up-arbi-jeww8p` / PR #26), **pending merge + Render deploy — NOT live in prod yet.** Root cause: the Phase 2B init-pool ordering bug (`init_pool()` inside the `JobMonitor` block → silent crash in `__aenter__`, no `job_runs` row written, `signal_outcomes` frozen from 2026-04-15); the fix restores the canonical init_pool-before-JobMonitor structure and lifts the test quarantine. The weekly cron (Sun 03:00 UTC) only resumes writing **post-deploy** — and even then the ~2026-03-26..04-11 signal window has aged past the job's 90-day lookback and never backfills. Once live this is what makes the monitor lane real and turns the decay check into a one-query standing check. |
 | **Signal-driven allocator** (`build.py`) | gated on `approved_for_allocation` | **stays DORMANT.** `approved_for_allocation` stays 0; rule #11's gate (0 approved → allocator refuses) is now permanent policy, not a temporary block. Allocation is conviction/rules/discipline-driven, not signal-driven. |
 | **Daily brief** | had a Model A driver line | **fully model-independent** already (R9 made the model reads best-effort; with the shelf they're permanently omitted). Thesis/tax/discipline/regulatory cards are the brief. |
 | **`compute_opportunity_cost`** (signal ranking) | peripheral Model A read | dormant / label non-authoritative (cleanup R4). |
@@ -79,7 +79,12 @@ arithmetic + NUMERIC(18,6); rule #11 (now *standing*, not temporary); the discip
 
 ## Next actions this implies (arbi drives; capital/merge stay James's)
 
-1. **Fix `track_signal_outcomes`** so the monitor lane is live (cleanup) — the one active ML task.
+1. **`track_signal_outcomes` — FIX COMMITTED, pending merge + Render deploy** (branch
+   `claude/wake-up-arbi-jeww8p` / PR #26). The init-pool ordering fix is on the branch, not yet
+   in prod; the monitor lane goes live only once PR #26 merges and the weekly cron
+   (Sun 03:00 UTC) next fires post-deploy. `signal_outcomes` stays frozen (last populated
+   2026-04-15) until then, and the ~2026-03-26..04-11 gap has aged past the 90-day lookback and
+   will not backfill.
 2. **ETF Slice 2** (ingest VGS/VAS + passive mandates) — the model-independent product's next build.
 3. **Fix the broken monitoring crons** the health scorecard surfaced (`check_cron_health`,
    `check_model_staleness`).
