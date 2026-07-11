@@ -133,9 +133,15 @@ async def _insert_outcome(conn, sig: dict, as_of: date) -> bool:  # type: ignore
 
 async def _run(as_of: date) -> None:
     healthcheck_url = settings.healthcheck_url_track_signal_outcomes
-    async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
-        await init_pool()
-        try:
+    # init_pool() BEFORE entering JobMonitor — JobMonitor.__aenter__ acquires a
+    # connection to write the 'running' row, so the pool must already exist. The
+    # pre-fix ordering (init_pool INSIDE the JobMonitor block) crashed in __aenter__
+    # before any row was written, so the job silently vanished from job_runs and
+    # signal_outcomes froze from 2026-04-15. This is the Phase 2B init-pool class;
+    # the canonical structure is enforced by tests/test_cron_pool_init.py.
+    await init_pool()
+    try:
+        async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
             async with acquire() as conn:
                 signals = await _fetch_signals_to_evaluate(conn, as_of)
 
@@ -161,8 +167,8 @@ async def _run(as_of: date) -> None:
                 skipped,
             )
             monitor.rows_written = inserted
-        finally:
-            await close_pool()
+    finally:
+        await close_pool()
 
 
 if __name__ == "__main__":

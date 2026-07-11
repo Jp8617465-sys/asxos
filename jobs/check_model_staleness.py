@@ -2,11 +2,18 @@
 """
 Daily ML health monitor — runs at 21:05 UTC after the full daily pipeline.
 
-Detects four ML-specific failure modes that check_cron_health cannot see:
+The ML engine is SHELVED (docs/product/ml-engine-shelf-2026-07-11.md): retrain_model_a
+is deliberately suspended and v1_5 is not iterated; generate_signals is kept running
+ONLY as a passive signal-quality monitor. So this job now watches only the two failure
+modes that still matter for that passive monitor lane:
   1. Signals are stale (as_of > 3 days ago).
   2. generate_signals has >=2 consecutive failures in last 5 runs.
-  3. No successful retrain_model_a in >14 days.
-  4. Active model is effectively >60 days old (proxy: last successful retrain).
+
+The retrain-staleness (>14d) and model-age (>60d) checks were REMOVED 2026-07-11:
+monitoring "is the retrain fresh?" for an engine we have intentionally stopped
+retraining is red-by-design — it fired [RETRAIN NEVER SUCCEEDED] every day and
+polluted check_cron_health's deadman (this job is in its _EXPECTED_DAILY). They
+return only alongside a NEW model version under the shelf-doc revival conditions.
 
 On any finding: sends a labelled email alert and raises RuntimeError
 (JobMonitor records status='failure'; Healthchecks.io deadman fires on missed ping).
@@ -25,8 +32,6 @@ from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "check_model_staleness"
 _SIGNAL_STALE_DAYS = 3
-_RETRAIN_STALE_DAYS = 14
-_MODEL_AGE_DAYS = 60
 _CONSEC_FAIL_THRESHOLD = 2
 
 
@@ -98,36 +103,12 @@ async def _query_issues(conn, as_of: date) -> list[tuple[str, str]]:  # type: ig
             f"{leading_fails} leading failures/blocks.",
         ))
 
-    # 3. Retrain staleness + 4. Model age proxy
-    retrain_row = await conn.fetchrow(
-        """
-        SELECT MAX(started_at) AS last_retrain
-        FROM job_runs
-        WHERE job_name = 'retrain_model_a'
-          AND status = 'success'
-        """
-    )
-    if retrain_row["last_retrain"] is None:
-        issues.append((
-            "[RETRAIN NEVER SUCCEEDED] no successful retrain on record",
-            "No successful retrain_model_a found in job_runs.",
-        ))
-    else:
-        last_retrain_dt = retrain_row["last_retrain"]
-        last_retrain_date = last_retrain_dt.date() if hasattr(last_retrain_dt, "date") else last_retrain_dt
-        retrain_age = (as_of - last_retrain_date).days
-        if retrain_age > _RETRAIN_STALE_DAYS:
-            issues.append((
-                f"[RETRAIN STUCK] no successful retrain in {retrain_age}d",
-                f"Last successful retrain_model_a: {last_retrain_date} ({retrain_age}d ago). "
-                f"Threshold: {_RETRAIN_STALE_DAYS}d.",
-            ))
-        if retrain_age > _MODEL_AGE_DAYS:
-            issues.append((
-                f"[MODEL AGED] active model is effectively >{retrain_age}d old",
-                f"Last retrain was {retrain_age}d ago (>{_MODEL_AGE_DAYS}d threshold). "
-                "Consider manual retrain.",
-            ))
+    # Retrain-staleness (>14d) + model-age (>60d) checks REMOVED 2026-07-11 — the ML
+    # engine is shelved (docs/product/ml-engine-shelf-2026-07-11.md): retrain_model_a is
+    # deliberately suspended, so "no successful retrain in N days" is red-by-design, not a
+    # health signal. Leaving them in fired [RETRAIN NEVER SUCCEEDED] daily and polluted
+    # check_cron_health's deadman. Restore them only alongside a NEW model version under
+    # the shelf-doc revival conditions (a re-added retrain cadence to monitor against).
 
     return issues
 

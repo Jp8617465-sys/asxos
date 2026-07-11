@@ -2,9 +2,9 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-11 (post-shelf reconciliation — header + cross-walk updated to the
-P0 resolution + ML-shelf decision; the *Last wake snapshot* at the bottom is still doc-derived
-until an interactive `/arbi` writes it)
+**Last verified:** 2026-07-11 (first interactive `/arbi` wake — *Last wake snapshot* now
+probe-based baseline; In flight reconciled to PR #25 merged; queue re-ranked with the monitoring
+lane as THE ONE THING)
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
 **Superseded by:** N/A
 
@@ -25,24 +25,24 @@ detail behind these lines.
   autonomy* (not the product): agent DB role-scoping + a scorecard track record. What gates
   *specific capital/policy moves*: the `james-inbox.md` items.
 - **Current workstream:** post-shelf model-independent build — fix the broken monitoring
-  crons + `track_signal_outcomes` (the one live ML monitor task); then multi-instrument
-  (ETF) expansion (Slice 2).
-- **Open PRs:** _run `/arbi` to populate from live GitHub. PR #24 merged 2026-07-11 (arbi
-  operating layer + P0 resolution + ETF Phase-1 + product health); current branch
-  `claude/asxos-product-manager-agent-tzszlv` ahead of main with the shelf + ETF Slice 2a +
-  operating docs._
-- **Recently completed (on `main`):** P0 decay resolution + ML shelf (2026-07-11); ETF
-  Phase-1 `security_kind` (migration 0037, merged PR #24); product-health scorecard + data
-  contracts; governance Phase 0.5–2b (PR #11). **(Built-not-yet-released, on this branch —
-  see In flight):** ETF Slice 2a kind-aware ingestion; arbi operating docs (`james-inbox`,
-  `dark-launch-exit-plan`, `arbi-red-team`) — do not count these as delivered until the
-  branch merges + deploys.
+  crons; `track_signal_outcomes` (the one live ML monitor task) has its **fix committed on
+  branch `claude/wake-up-arbi-jeww8p` / PR #26, pending merge + Render deploy**; then
+  multi-instrument (ETF) expansion (Slice 2).
+- **Open PRs (as of 2026-07-11 wake):** none tracked. PR #25 merged 2026-07-11 (shelve ML +
+  ETF Slice 2a + arbi operating docs); PR #24 merged 2026-07-11 (arbi operating layer + P0
+  resolution + ETF Phase-1 + product health). This session's branch `claude/wake-up-arbi-jeww8p`
+  is even with main and carries only the read-only-probe permissions commit `7752f7b`.
+- **Recently completed (on `main`):** shelve ML + ETF Slice 2a kind-aware ingestion + arbi
+  operating docs (`james-inbox`, `dark-launch-exit-plan`, `arbi-red-team`) — **merged PR #25**,
+  2026-07-11; P0 decay resolution + ML shelf; ETF Phase-1 `security_kind` (migration 0037,
+  merged PR #24); product-health scorecard + data contracts; governance Phase 0.5–2b (PR #11).
 - **Blocked items:** real *signal-driven* capital deployment stays **dormant by standing
   policy** (rule #11), not by an open dispute. Phase 2c is **reframed** model-independent
   (discovery/discipline/ETF) and no longer waits on a signal engine
   (`ml-engine-shelf-2026-07-11.md`).
-- **Next actions:** see the ranked queue below. #1 = fix the broken monitoring crons +
-  `track_signal_outcomes`; then ETF Slice 2.
+- **Next actions:** see the ranked queue below. #1 = fix the broken monitoring crons
+  (`track_signal_outcomes`'s fix is already committed on PR #26 — pending merge + deploy);
+  then ETF Slice 2.
 - **Decisions needed from James:** see **`james-inbox.md`** — HUBS `conviction_level`; CBA
   thesis #1 fix-or-retire; VGS/VAS holding-lot data.
 - **Known risks:** (1) `m14_candidate_agent_db_role_scoping` — agent SELECT-only is
@@ -91,8 +91,8 @@ engine** — the signal-driven allocator + opportunity-cost ranking stay **dorma
 policy** (rule #11), and the product IS the model-independent moat (thesis/discipline
 scaffolding, tax engine, theme stewardship, governance, ETFs) — all authoritative and
 shippable today. The cleanest forward move is the model-independent build: fix the monitoring
-crons + `track_signal_outcomes`, then ETF Slice 2, with agent DB role scoping ahead of any
-new agents — not a signal engine.*
+crons (`track_signal_outcomes`'s fix is committed on PR #26, pending merge + deploy), then ETF
+Slice 2, with agent DB role scoping ahead of any new agents — not a signal engine.*
 
 ---
 
@@ -125,26 +125,43 @@ new agents — not a signal engine.*
 
 ## In flight
 
-- **Branch `claude/asxos-product-manager-agent-tzszlv`** (ahead of merged main `3f3dbcf`) —
-  the post-shelf reconciliation + arbi operating docs + **ETF Slice 2a** kind-aware ingestion
-  (`asxos/ingestion/universe.py`, the branch's only production code, now with `refresh_universe`
-  test coverage). In merge-readiness review (arbi-red-team + technical-writer audited
-  2026-07-11). Awaiting James's merge call. ETF Slice 2 (VGS/VAS holdings) is **not started** —
-  it is gated on James's holding-lot data (`james-inbox.md`) and on this branch merging first.
+- **MERGED 2026-07-11 as PR #25 (`eff3732`):** the post-shelf reconciliation + arbi operating
+  docs + **ETF Slice 2a** kind-aware ingestion (`asxos/ingestion/universe.py`, with
+  `refresh_universe` test coverage) — formerly branch `claude/asxos-product-manager-agent-tzszlv`,
+  now on main. No longer awaiting a merge call.
+- **ETF Slice 2 (VGS/VAS holdings) — not started.** Code side is unblocked (Slice 2a merged);
+  it is now gated only on James's holding-lot data (`james-inbox.md` VGS/VAS row).
+- **This session's branch `claude/wake-up-arbi-jeww8p` → PR #26** (open, draft-track). Carries
+  the 2026-07-11 wake + the 8-hour autonomy window (James granted reversible-work autonomy;
+  hourly loop `trig_01M5mWFrgZBmqbinLK12F6iU` runs to ~20:08Z, `decision-log.md` autonomy-2026-07-11).
+  Landed: (1) read-only `/arbi` probe permissions allowlist; (2) **monitoring lane restored** —
+  `check_model_staleness` shelf-aware, `track_signal_outcomes` revived (init-pool fix), both from
+  the wake; (3) `validate_price_data` $0.02 price floor (prod-verified 15→5 anomalies); (4)
+  `sync_financial_statements` 512Mi-OOM fix (bounded-worker pool; Render-event root-caused). In
+  flight: agent DB read-only role scoping (design→draft migration), competitive gap analysis.
+  **Nothing merged/deployed — all draft for James.**
 
 ## Ranked next-action queue
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-1. **~~Run the Model A decay check~~ — DONE 2026-07-11, P0 RESOLVED against Model A**
-   (`docs/model-a-decay-analysis-2026-07-11.md`; 19,032 matured signals; no usable edge;
-   rule #11 standing). **The remaining decision is James's (not arbi's):** retrain a new
-   model version to a pre-registered decay bar, shelve the ML engine and lean fully into the
-   model-independent product, or both — this is what actually unblocks Phase 2c. Until then,
-   the highest-leverage arbi-actionable work is the model-independent product (ETF Slice 2)
-   + fixing the broken monitoring crons the health scorecard surfaced (`check_cron_health`,
-   `check_model_staleness`, `retrain_model_a`, `track_signal_outcomes` staleness).
+1. **THE ONE THING (2026-07-11): Restore the monitoring lane.** Fix the two failing crons
+   `check_cron_health` (FAILURE 07-10) and `check_model_staleness` (FAILURE 07-10) — both
+   live-verified this wake. `track_signal_outcomes` is now **diagnosed and fixed on branch**:
+   it crashed silently on the Phase 2B init-pool ordering bug (`init_pool()` inside the
+   `JobMonitor` block), vanished from `job_runs`, and froze `signal_outcomes` from 2026-04-15 —
+   **fix committed on `claude/wake-up-arbi-jeww8p` / PR #26, pending merge + Render deploy;** the
+   weekly cron (Sun 03:00 UTC) only resumes writing post-deploy (and the ~2026-03-26..04-11
+   window is past the 90-day lookback and won't backfill). North-star tie: discipline events
+   must reach James before they cost money (`north-star.md:64–67` — the HUBS-stop failure class).
+   Roadmap: post-shelf model-independent live-ops lane (`ml-engine-shelf-2026-07-11.md:82–85`).
+   Owner: main loop. _Note: `retrain_model_a` FAILURE(06-06)+SUSPENDED is expected (shelved),
+   not part of this fix._
+   - **(context) Model A decay check — DONE 2026-07-11, P0 RESOLVED against Model A**
+     (`docs/model-a-decay-analysis-2026-07-11.md`; 19,032 matured signals; no usable edge; rule
+     #11 standing; James SHELVED the ML engine). Do **not** re-run it — that is recency overfit,
+     not diligence (`arbi-red-team`).
 2. **Agent DB read-only role scoping (PR2 / `m14_candidate_agent_db_role_scoping`).**
    North-star: non-negotiable #2 (firewall integrity) before more agents sit next to
    governed tables. Owner: `backend-architect`. Prereq for Phase 2c.
@@ -263,12 +280,24 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Not yet established. The first `/arbi` run records: timestamp, current branch, ahead-of-
-main count, open PRs, latest commit sha, test pass/fail count, latest on-disk migration,
-and data-feed freshness (`prices.dt`, `signals.as_of`, recent `job_runs`). Subsequent
-`/arbi` runs diff against this block to surface "what changed / new bugs" and then
-overwrite it._
+_Recorded by the first interactive `/arbi` wake (2026-07-11) — this is the baseline; later
+runs diff against it._
 
 ```
-(baseline pending — run /arbi)
+Last wake: 2026-07-11 (first interactive /arbi — BASELINE)
+- branch: claude/wake-up-arbi-jeww8p — EVEN with origin/main (0 ahead / 0 behind)
+- latest main commit: eff3732 "Shelve the ML engine + ETF Slice 2a + arbi operating docs (#25)"
+- open PRs: none tracked this wake (PR #25 merged to main pre-wake)
+- branch-only commit: 7752f7b (read-only /arbi probe permissions allowlist; not on main)
+- tests: STATE-THIN — sandbox venv missing base deps (numpy/asyncpg/fastapi/pydantic/typer/…);
+  raw 39 failed / 503 passed / 63 errors are import errors, not regressions. No pass/fail delta.
+- latest on-disk migration: 0037_security_kind (REQUIRED_MIGRATIONS=91, satisfied)
+- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED
+  (expected post-shelf); asxos-api live
+- freshness: prices.dt=2026-07-09 · signals.as_of=2026-07-09 · portfolio_snap.as_of=2026-07-08
+  · signal_outcomes=24,454 rows (was ~19,032 at the 2026-07-11 decay analysis; growing)
+- job_runs (latest): check_cron_health=FAILURE(07-10) · check_model_staleness=FAILURE(07-10)
+  · retrain_model_a=FAILURE(06-06, dormant/expected) · sync_prices/generate_signals/
+  ingest_market_context/compose_brief=success(07-09) · snapshot_portfolio=success(as_of 07-08)
+  · build_portfolio=success(as_of 07-04, weekly)
 ```

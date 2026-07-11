@@ -224,33 +224,65 @@ async def refresh_financial_statements(
     fetch errors is counted failed and skipped, never aborting the run. The same
     payload back-fills rs_security_master.gics_sector/gics_industry (enrichment pass).
     """
-    sem = asyncio.Semaphore(concurrency)
-
-    async def fetch(sym: str) -> tuple[str, Any]:
-        async with sem:
-            try:
-                return sym, await client.fundamentals(sym)
-            except Exception:
-                return sym, None
-
     counts = {
         "symbols": len(symbols), "statements": 0, "symbols_with_statements": 0,
         "failed": 0, "sectors_enriched": 0,
     }
-    tasks = [asyncio.ensure_future(fetch(s)) for s in symbols]
-    for coro in asyncio.as_completed(tasks):
-        sym, fund = await coro
-        if fund is None:
-            counts["failed"] += 1
-            continue
-        sector, industry = _sector_industry(fund)
-        if sector or industry:
-            await conn.execute(_SECTOR_UPDATE, sym, sector, industry)
-            counts["sectors_enriched"] += 1
-        rows = to_statement_rows(fund, sym, as_of=as_of)
-        if rows:
-            counts["symbols_with_statements"] += 1
-        for row in rows:
-            await conn.execute(_UPSERT, *row)
-            counts["statements"] += 1
+
+    # Bounded-worker pool: exactly `concurrency` workers pull from a shared queue,
+    # each fetching -> parsing -> writing ONE symbol before its payload goes out of
+    # scope. This caps resident memory at ~`concurrency` fundamentals payloads.
+    #
+    # The previous form — `asyncio.as_completed([ensure_future(fetch(s)) for s in
+    # symbols])` — retained EVERY completed task's full payload (each task in the
+    # list holds its result) for the whole run, so memory grew linearly with
+    # symbols processed and OOM-killed the job at 512Mi (confirmed via Render event
+    # 2026-07-11: oomKilled ~78s into the run). The Semaphore bounded fetching, not
+    # retention. asyncpg forbids concurrent ops on one connection, so all DB writes
+    # are serialised behind write_lock; only the HTTP fetches run concurrently.
+    queue: asyncio.Queue[str] = asyncio.Queue()
+    for s in symbols:
+        queue.put_nowait(s)
+    write_lock = asyncio.Lock()
+
+    async def worker() -> None:
+        while True:
+            try:
+                sym = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                try:
+                    fund: Any = await client.fundamentals(sym)
+                except Exception:
+                    fund = None
+                if fund is None:
+                    counts["failed"] += 1
+                    continue
+                sector, industry = _sector_industry(fund)
+                rows = to_statement_rows(fund, sym, as_of=as_of)
+                async with write_lock:
+                    if sector or industry:
+                        await conn.execute(_SECTOR_UPDATE, sym, sector, industry)
+                        counts["sectors_enriched"] += 1
+                    if rows:
+                        counts["symbols_with_statements"] += 1
+                    for row in rows:
+                        await conn.execute(_UPSERT, *row)
+                        counts["statements"] += 1
+            finally:
+                queue.task_done()
+
+    workers = [asyncio.ensure_future(worker()) for _ in range(concurrency)]
+    try:
+        await asyncio.gather(*workers)
+    except BaseException:
+        # A parse/write error in one worker aborts the run (original contract).
+        # Cancel the siblings and await them BEFORE unwinding past the caller's
+        # `async with acquire() as conn` block — otherwise an orphaned worker
+        # could call conn.execute after the connection is released to the pool.
+        for w in workers:
+            w.cancel()
+        await asyncio.gather(*workers, return_exceptions=True)
+        raise
     return counts
