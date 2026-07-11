@@ -2,8 +2,9 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-10 (seeded from docs; **live snapshot not yet established** —
-the first `/arbi` run fills it)
+**Last verified:** 2026-07-11 (post-shelf reconciliation — header + cross-walk updated to the
+P0 resolution + ML-shelf decision; the *Last wake snapshot* at the bottom is still doc-derived
+until an interactive `/arbi` writes it)
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
 **Superseded by:** N/A
 
@@ -15,30 +16,41 @@ The at-a-glance fields `/arbi` reads and `/arbi-close` refreshes. Everything bel
 detail behind these lines.
 
 - **Current status:** M1–M14a built (M13/M14a **dark-launched**); governance through
-  Phase 2b; the V2 thesis product and Phase 2c are **blocked** on the P0 Model A dispute.
-  The arbi program-management layer landed 2026-07-10.
-- **Top blocker:** **P0 — Model A signal reliability in dispute** (CLAUDE.md rule #11
-  quarantine). Blocks Phase 2c and all real-capital deployment.
-- **Current workstream:** the arbi PM layer (this change). Next substantive workstream:
-  the Model A decay check.
-- **Open PRs:** _run `/arbi` to populate from live GitHub; none tracked at seeding beyond
-  this branch (`claude/asxos-product-manager-agent-tzszlv`)._
-- **Recently completed:** governance Phase 0.5–2b (PR #11); `ingest_market_context` fixes
-  (#12/#13); 12 Render crons provisioned; first `/discover-macro` cycle. (handoff §Session
-  summary)
-- **Blocked items:** Phase 2c (`theme-researcher`, `instrument-selector`); V2 thesis
-  product; real-capital deployment — all downstream of P0.
-- **Next actions:** see the ranked queue below. #1 = Model A decay check.
-- **Decisions needed from James:** the ChatGPT Model A audit; HUBS lock-window end date;
-  HUBS acquisition FX rate (0.6450 est. vs vendor 0.7171 — sign-flips AUD P&L); approve or
-  reject `agent_runs` #3 & #4; Healthchecks.io API key for the 12 new crons. (handoff
-  §Pending)
-- **Known risks:** (1) Model A horizon mismatch — the foundation risk; (2)
-  `m14_candidate_agent_db_role_scoping` — agent SELECT-only is prompt-enforced only;
-  (3) v1 allocator risk-blindness to ASX beta clustering (`m14_candidate_beta_cap`);
-  (4) built-but-dark-launched layers are unreleased, not done.
-- **Last verified:** 2026-07-10 (state as of the 2026-07-04 handoff; live snapshot pending
-  the first `/arbi`).
+  Phase 2b. **P0 Model A dispute RESOLVED 2026-07-11 (no usable edge); James SHELVED the ML
+  engine** — the product is now explicitly the **model-independent moat** (discipline, tax,
+  themes, ETFs). arbi PM layer + operating stack (constitution/authority/permission/
+  scorecard/memory/dream + operating docs) landed 2026-07-10–11.
+- **Top blocker:** **None at the product level** — the 6-month P0 is closed. Rule #11 (Model
+  A quarantine) is now **standing policy**, not a blocker to lift. What gates *further
+  autonomy* (not the product): agent DB role-scoping + a scorecard track record. What gates
+  *specific capital/policy moves*: the `james-inbox.md` items.
+- **Current workstream:** post-shelf model-independent build — fix the broken monitoring
+  crons + `track_signal_outcomes` (the one live ML monitor task); then multi-instrument
+  (ETF) expansion (Slice 2).
+- **Open PRs:** _run `/arbi` to populate from live GitHub. PR #24 merged 2026-07-11 (arbi
+  operating layer + P0 resolution + ETF Phase-1 + product health); current branch
+  `claude/asxos-product-manager-agent-tzszlv` ahead of main with the shelf + ETF Slice 2a +
+  operating docs._
+- **Recently completed (on `main`):** P0 decay resolution + ML shelf (2026-07-11); ETF
+  Phase-1 `security_kind` (migration 0037, merged PR #24); product-health scorecard + data
+  contracts; governance Phase 0.5–2b (PR #11). **(Built-not-yet-released, on this branch —
+  see In flight):** ETF Slice 2a kind-aware ingestion; arbi operating docs (`james-inbox`,
+  `dark-launch-exit-plan`, `arbi-red-team`) — do not count these as delivered until the
+  branch merges + deploys.
+- **Blocked items:** real *signal-driven* capital deployment stays **dormant by standing
+  policy** (rule #11), not by an open dispute. Phase 2c is **reframed** model-independent
+  (discovery/discipline/ETF) and no longer waits on a signal engine
+  (`ml-engine-shelf-2026-07-11.md`).
+- **Next actions:** see the ranked queue below. #1 = fix the broken monitoring crons +
+  `track_signal_outcomes`; then ETF Slice 2.
+- **Decisions needed from James:** see **`james-inbox.md`** — HUBS `conviction_level`; CBA
+  thesis #1 fix-or-retire; VGS/VAS holding-lot data.
+- **Known risks:** (1) `m14_candidate_agent_db_role_scoping` — agent SELECT-only is
+  prompt-enforced only; (2) v1 allocator risk-blindness to ASX beta clustering
+  (`m14_candidate_beta_cap`); (3) built-but-dark-launched layers are unreleased, not done
+  (`dark-launch-exit-plan.md`); (4) R5 — the scheduled 7a brief's read-only guarantee is
+  prompt-enforced only.
+- **Last verified:** 2026-07-11 (post-shelf; reflects the P0 resolution + ML-shelf decision).
 
 ---
 
@@ -66,19 +78,21 @@ doc-derived, not live-probed.
 | Governance Phase 0 / 0.5 | model-filtering + `approved_for_allocation` gate | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 1 | governance schema + first Postgres trigger | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 2a+2b | `macro_theses`, per-table audit triggers, `macro-economist`, `/discover-macro` | **Done** (PR #11). First live `/discover-macro` cycle run 2026-07-04. | handoff §Session summary |
-| Governance Phase 2c | `theme-researcher` + `instrument-selector` | **Not started — BLOCKED** on Model A + agent DB role scoping. | handoff §5 |
+| Governance Phase 2c | `theme-researcher` + `instrument-selector` | **Not started — reframed model-independent** (`ml-engine-shelf-2026-07-11.md`); the sole remaining prereq is agent DB role scoping, not Model A. | handoff §5 |
 | Governance Phase 3 | executable thesis invalidation | **Not started.** | `next-session-backlog.md` |
 | Governance Phase 4 | `/pm-review` 5→7 agents | **Not started.** | `next-session-backlog.md` |
-| V2 product `M-Thesis-*` | `V2_..._BRIEF_SPEC.md` Part 8 | **Blocked** at the foundation — the thesis layer rests on a signal engine under dispute. | V2 spec Part 8 |
+| V2 product `M-Thesis-*` | `V2_..._BRIEF_SPEC.md` Part 8 | **Re-scoped model-independent** — the thesis/discipline/tax layer is authoritative and shippable today; the signal-engine framing is retired (ML shelved 2026-07-11). | V2 spec Part 8 |
 | Executable roadmap PR1–8 | `executable-roadmap-2026-07-04.md` §D | PR1 (docs cleanup) partly landed; **PR2 (agent DB read-only scoping) is the near-term unblocker**; PR5 = the Model A audit job. | executable-roadmap §D |
 
-**One-line reconciled read (corrected 2026-07-10, scan `wf_f54323f5-d7d`):** *M1–M14a are
-built (M13/M14a dark-launched); governance is through Phase 2b. The Model A dispute gates
-only the signal-driven **allocator** path (`PortfolioService.build` → `allocator.py`) + the
-peripheral opportunity-cost ranking — NOT the thesis/discipline scaffolding, tax engine,
-theme stewardship, or governance, which are **authoritative and shippable today**. The
-cleanest forward move is the Model A decay check (measuring, not deploying), then agent DB
-role scoping — not another layer on top.*
+**One-line reconciled read (updated 2026-07-11 — P0 resolved, ML shelved):** *M1–M14a are
+built (M13/M14a dark-launched); governance is through Phase 2b. The Model A P0 is **resolved
+against Model A** (no usable edge on 19,032 matured signals) and James has **shelved the ML
+engine** — the signal-driven allocator + opportunity-cost ranking stay **dormant by standing
+policy** (rule #11), and the product IS the model-independent moat (thesis/discipline
+scaffolding, tax engine, theme stewardship, governance, ETFs) — all authoritative and
+shippable today. The cleanest forward move is the model-independent build: fix the monitoring
+crons + `track_signal_outcomes`, then ETF Slice 2, with agent DB role scoping ahead of any
+new agents — not a signal engine.*
 
 ---
 
@@ -93,18 +107,30 @@ role scoping — not another layer on top.*
   (retrain a new version to a pre-registered decay bar / shelve the ML engine / both). The
   model-independent product (discipline, tax, themes, ETFs) was never blocked and is the path
   forward.
-- **Blocked-by-P0 (narrow, corrected 2026-07-10):** the signal-driven **allocator** capital
-  path + the peripheral `compute_opportunity_cost` ranking; governance Phase 2c (needs a
-  trusted signal engine); real *signal-driven* capital deployment. **NOT blocked:** the
-  thesis/discipline scaffolding, tax engine, theme stewardship, governance, and the brief's
-  non-signal sections — all authoritative today (scan `wf_f54323f5-d7d`, verdict supported).
+- **Strategic call MADE (James, 2026-07-11): SHELVE the ML engine.** Model A is demoted from
+  product alpha-engine → dormant passive monitor; the product IS the model-independent moat.
+  How it plays out (crons, allocator, brief, Phase 2c reframe, the revival decay-bar):
+  **`docs/product/ml-engine-shelf-2026-07-11.md`**. Phase 2c is now the model-independent
+  discovery/discipline/ETF expansion — it no longer waits on a trusted signal engine.
+- **Dormant-by-standing-policy (narrow, updated 2026-07-11):** the signal-driven
+  **allocator** capital path + the peripheral `compute_opportunity_cost` ranking; real
+  *signal-driven* capital deployment. These are dormant under rule #11 (standing), not
+  "blocked pending a fix." **Governance Phase 2c is NOT in this list** — it is reframed
+  model-independent (`ml-engine-shelf-2026-07-11.md`) and its only remaining prereq is agent
+  DB role scoping, not a signal engine. **NOT affected at all:** the thesis/discipline
+  scaffolding, tax engine, theme stewardship, governance, and the brief's non-signal sections
+  — all authoritative today (scan `wf_f54323f5-d7d`, verdict supported).
 - **Second-order unblocker:** agent DB role scoping (`m14_candidate_agent_db_role_scoping`
   / PR2) — a prerequisite the roadmap places *before* Phase 2c regardless of Model A.
 
 ## In flight
 
-- Nothing committed in-flight as of seeding. (The first `/arbi` fills this from live
-  git/PR/`TaskList` state.)
+- **Branch `claude/asxos-product-manager-agent-tzszlv`** (ahead of merged main `3f3dbcf`) —
+  the post-shelf reconciliation + arbi operating docs + **ETF Slice 2a** kind-aware ingestion
+  (`asxos/ingestion/universe.py`, the branch's only production code, now with `refresh_universe`
+  test coverage). In merge-readiness review (arbi-red-team + technical-writer audited
+  2026-07-11). Awaiting James's merge call. ETF Slice 2 (VGS/VAS holdings) is **not started** —
+  it is gated on James's holding-lot data (`james-inbox.md`) and on this branch merging first.
 
 ## Ranked next-action queue
 
@@ -220,15 +246,18 @@ standing activation stays gated. Managed Agents is an optional hosted backend,
 not a prerequisite.
 
 **Preconditions before PR 7b+ (standing / writing scheduled autonomy — NOT required for the
-7a read-only dry run):** (1) the P0 Model A dispute resolved; (2)
-`m14_candidate_agent_db_role_scoping` landed (read-only DB role); (3) the scorecard trend +
-decision log + eval suite showing arbi's calls hold up
-(`arbi-permission-model.md` §promotion preconditions).
+7a read-only dry run):** (1) ✅ **MET 2026-07-11** — the P0 Model A dispute is resolved (rule
+#11 is now standing policy, not an open question); (2) `m14_candidate_agent_db_role_scoping`
+landed (read-only DB role); (3) the scorecard trend + decision log + eval suite showing
+arbi's calls hold up (`arbi-permission-model.md` §promotion preconditions). Preconditions (2)
+and (3) remain open — resolving the dispute did not by itself unlock standing autonomy.
 
 **Never lifts, at any PR:** the personal-advice firewall (s766B) — arbi automates *what gets
-built*, never *what to trade*; the Model A quarantine (rule #11) until resolved; and the
-irreversible tiers (5–7) stay `always_ask`/disabled regardless of track record. Autonomy
-expands only on the reversible dev/ops side.
+built*, never *what to trade*; the Model A quarantine (rule #11), now **standing policy** —
+it lifts only when a *new* model version passes a pre-registered decay bar AND earns
+`approved_for_allocation`, never on the basis of v1_5; and the irreversible tiers (5–7) stay
+`always_ask`/disabled regardless of track record. Autonomy expands only on the reversible
+dev/ops side.
 
 ---
 

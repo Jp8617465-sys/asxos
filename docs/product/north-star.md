@@ -52,10 +52,13 @@ thing gating the layers above it, outranks work that polishes a lower one.
 
 ## Success criteria (how we know we hit it)
 
-- A position James holds is backed by a signal whose edge actually persists over the
-  **weeks-to-months** horizon the thesis assumes — the open question the handoff pins as
-  P0 (see `roadmap-state.md` §Blocked). Until that's answered, nothing else here is
-  load-bearing.
+- A position James holds is backed by his **own conviction and discipline** (a structured
+  thesis: entry/stop/target/timeline/invalidation) — **not** a Model A signal. The P0 "does
+  the ML edge persist over the weeks-to-months horizon?" question is **answered (2026-07-11):
+  it does not** (`model-a-decay-analysis-2026-07-11.md` — no usable edge on 19,032 matured
+  signals), so James **shelved** the ML engine and the product is now explicitly the
+  model-independent moat. The success criterion became: the discipline/tax/theme product is
+  faithful to James's thinking and surfaces the right thing before it costs money.
 - The morning brief runs end-to-end, un-dark-launched, and James reads it as *his own
   thinking, sharper* — not a data dump.
 - Discipline events (stop breach, revisit-due, invalidation) reach him **before** they
@@ -103,18 +106,21 @@ broker) · mobile app (CLI + email is v1; web UI is v2) · real-time anything (d
 
 ## The honest frame arbi must hold
 
-The handoff is explicit and arbi privileges it over any rosier roadmap doc: *"we've been
-building for 6 months and still aren't at a point where we can use this to start building
-toward financial freedom."* Infrastructure maturity does not substitute for answering
-whether the engine works. arbi does not cheerlead feature velocity; it keeps the P0
-foundation question in front of James until it is resolved one way or the other.
+The 2026-07-04 handoff was explicit: *"we've been building for 6 months and still aren't at
+a point where we can use this to start building toward financial freedom."* That P0 question —
+does the engine work? — is now **answered (2026-07-11)**: the decay analysis showed Model A
+has **no usable edge**, so James **shelved** it. Infrastructure maturity never substituted
+for that answer; getting the answer is what unblocked the product. arbi still does not
+cheerlead feature velocity — it now holds James to the *model-independent* moat (discipline,
+tax, themes, ETFs) being genuinely faithful and shippable, not to a signal engine that isn't.
 
-**Correction (2026-07-10, arbi multi-agent scan `wf_f54323f5-d7d`, verdict *supported*):**
-the honest frame is *not* "nothing works until Model A." A large, defensible slice of the
-product — the discipline scaffolding (moat layer 2) and theme stewardship (layer 3), plus
-the tax engine and governance — is **already authoritative and shippable**, because a thesis
-is James's own conviction (entry/stop/target/timeline), not a Model A output. What the
-dispute actually gates is narrow: the signal-driven **allocator** (and a peripheral
-opportunity-cost ranking). So the honest frame is sharper: *the discipline product works
-today; only the signal-driven allocation is quarantined, and resolving Model A is what
-lets that one path out.*
+**The resolved frame (2026-07-11; supersedes the earlier "narrow quarantine" correction of
+2026-07-10, scan `wf_f54323f5-d7d`):** the product was never "nothing works until Model A."
+The large, defensible slice — discipline scaffolding (moat layer 2), theme stewardship
+(layer 3), the tax engine, governance — is **authoritative and shippable today**, because a
+thesis is James's own conviction, not a Model A output. The decay analysis then showed the
+signal engine itself has no edge, so it is **shelved** (not merely quarantined): the
+signal-driven allocator + opportunity-cost ranking stay **dormant by standing policy**
+(rule #11), and there is no "resolve Model A to let that path out" any more — the path out is
+the model-independent product. The revival door is a *new* model past a pre-registered decay
+bar (`ml-engine-shelf-2026-07-11.md`), not v1_5.

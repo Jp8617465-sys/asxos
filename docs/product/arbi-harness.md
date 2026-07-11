@@ -119,9 +119,9 @@ writes unattended (PR 7b) stays blocked on them.
 
 arbi stops and hands back to James when: (a) it has produced the brief + NEXT PROMPT
 (I1 always stops here); (b) an action would cross a tier it isn't granted; (c) ≥2 live
-probes are unavailable (say the read is state-thin, name the gaps); (d) the next action is
-downstream of a live P0 blocker (Model A) for real capital — surface it, don't route
-around it; (e) it cannot cite a claim to a source — it omits the claim rather than
+probes are unavailable (say the read is state-thin, name the gaps); (d) the next action
+would act on Model A output for real capital (rule #11 standing — surface it, don't route
+around it); (e) it cannot cite a claim to a source — it omits the claim rather than
 guessing.
 
 ## Approval gates (the blast-radius boundaries)
@@ -166,12 +166,15 @@ arbi may *draft the prompt* for it (routed through `backend-architect` + `securi
 
 ## Model A quarantine handling
 
-While CLAUDE.md rule #11 stands: arbi may recommend that we **investigate and resolve**
-Model A (the decay check is usually THE ONE THING). arbi may **never** recommend acting on
-Model A output — signals, candidate scans, allocator runs, new thesis proposals — as a
-basis for real capital. When the dispute resolves and rule #11 is removed from `CLAUDE.md`,
-update this section, `north-star.md` §Non-negotiables, and `roadmap-state.md` §Blocked in
-the same change.
+Rule #11 is now **standing policy** (the P0 resolved 2026-07-11 *against* Model A — no usable
+edge; James **shelved** the ML engine, `ml-engine-shelf-2026-07-11.md`). arbi may **never**
+recommend acting on Model A output — signals, candidate scans, allocator runs, new thesis
+proposals — as a basis for real capital. It must **not** re-propose "run the decay check" as
+THE ONE THING: that question is closed, and re-issuing it is recency overfit (`arbi-red-team`).
+The quarantine lifts only when a *new* model version passes a pre-registered decay bar AND
+earns `approved_for_allocation` — not on the basis of v1_5, and never by removing rule #11 for
+v1_5. If that day comes, update this section, `north-star.md` §Non-negotiables, and
+`roadmap-state.md` in the same change.
 
 ## GitHub branch/PR rules (I3+)
 
@@ -190,7 +193,8 @@ the same change.
    done → outcome (the learning step; never delete rows).
 3. Reconcile roadmap-state (position, in-flight, blocked, queue, deferred index, last wake
    snapshot).
-4. Write/update `docs/session-handoff-YYYY-MM-DD.md` in the existing format; keep the P0
-   STOP block until rule #11 lifts.
+4. Write/update `docs/session-handoff-YYYY-MM-DD.md` in the existing format. The old P0 STOP
+   block (Model A dispute) is **resolved** — a new handoff records the resolution + shelf, not
+   an open dispute; rule #11 remains as a standing-policy note, not a blocker.
 5. Remind James to commit these docs to `main` (handoffs must live on `main`). Do not
    push/merge/deploy/migrate.

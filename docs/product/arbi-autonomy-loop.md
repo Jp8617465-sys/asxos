@@ -57,9 +57,10 @@ tool being mounted).
 Standing unattended autonomy (the loop writing/dispatching on a schedule) is **PR 7b/8**,
 gated. Turn it on only when ALL hold:
 
-1. **Model A dispute resolved** (or explicitly accepted) — decay first-pass says *keep the
-   quarantine* (`docs/model-a-decay-analysis-2026-07-10.md`); the loop must not act on Model
-   A for capital regardless.
+1. ✅ **MET 2026-07-11 — Model A dispute resolved** *against* Model A (no usable edge on
+   19,032 matured signals, `docs/model-a-decay-analysis-2026-07-11.md`); James **shelved the
+   ML engine** (`ml-engine-shelf-2026-07-11.md`). Rule #11 now **stands as policy** (not
+   lifted) — the loop must never act on Model A for capital regardless.
 2. **Branch protection** configured on `main` (layer 2 above).
 3. **R2 read-only DB role** landed (layer 3 above).
 4. **Track record** — several attended cycles logged in the run-ledger with clean scorecards.

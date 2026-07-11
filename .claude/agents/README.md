@@ -3,13 +3,14 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**,
-**five investment-analysis agents**, **one discovery agent**, and **one
-program-management orchestrator** (`arbi`, see bottom). The
+**five investment-analysis agents**, **one discovery agent**, and **two
+program-management agents** (`arbi` + `arbi-red-team`, see bottom). The
 dev agents help build and maintain the codebase; the conformance agents guard
 spec↔test↔code correctness; the investment-analysis agents surface evidence-grounded
 views on the live portfolio; the discovery agent proposes new investment content for
 governance review; arbi sits above them all and prioritises what gets built toward the
-product's north star. All twenty are advisory by default; none is a runtime
+product's north star, with arbi-red-team as its adversarial check. All twenty-one are
+advisory by default; none is a runtime
 in-product agent (a runtime tax/portfolio LLM is a structural NO — it would collide
 with the personal-advice firewall and Decimal-only determinism). The investment-
 analysis and discovery agents run in Claude Code sessions only, querying Supabase
@@ -156,7 +157,7 @@ Not yet built (Phase 2c): **theme-researcher** (given a macro thesis, proposes
 ASX-investable themes) and **instrument-selector** (given a theme, proposes 3-5
 ASX instruments/ETFs — the first real use of `theme_holdings.source='llm_inferred'`).
 
-## Program-management orchestrator (1)
+## Program-management agents (2)
 
 **arbi** sits above every other agent: the arbiter of *what gets built*. It reconciles
 the scattered roadmaps and the live repo/deploy state into one honest picture, then names
@@ -174,3 +175,11 @@ gates, and the Model A / financial-decision boundaries — is
 is `docs/product/roadmap-state.md`; how it's scored is `docs/product/arbi-evals.md`. It
 never crosses the personal-advice firewall (s766B) or CLAUDE.md rule #11 (Model A
 quarantine).
+
+**arbi-red-team** is arbi's adversarial critic — a gate, not a second brief. Before a
+`/arbi` brief's single next-action is acted on, it stress-tests that call against five
+failure modes (recency overfit, task-switching, cleanup-mistaken-for-progress, low-trust
+memory overriding repo truth, perfectionism blocking a shippable build) and returns a
+PASS / CHALLENGE verdict with a file-cited reason for each. Same read-only tool boundary
+(`Read, Glob, Grep`); it never proposes its own "one thing," never dispatches, and never
+waves through a call that crosses the firewall or rule #11.

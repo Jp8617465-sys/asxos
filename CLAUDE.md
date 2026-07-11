@@ -4,7 +4,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Read first
 
-- **`docs/model-a-decay-analysis-2026-07-11.md` — READ THIS FIRST, before anything else.** The Model A signal-reliability dispute is **RESOLVED (2026-07-11), against Model A**: on 19,032 matured `signal_outcomes`, `corr(ml_prob, 21d return) = −0.03` and its STRONG_BUY signals returned −0.09% at 21d vs HOLD's +5.07% — conviction is inverted at the top; no usable edge over the weeks-to-months horizon the theses hold for. The quarantine (rule #11) is **vindicated and stands as standing policy for v1_5** (NOT removed — removal would mean Model A is fine, which the evidence refutes). What's still open is James's strategic call (retrain to a decay bar / shelve the ML engine / both) and thereby how Phase 2c unblocks.
+- **`docs/model-a-decay-analysis-2026-07-11.md` — READ THIS FIRST, before anything else.** The Model A signal-reliability dispute is **RESOLVED (2026-07-11), against Model A**: on 19,032 matured `signal_outcomes`, `corr(ml_prob, 21d return) = −0.03` and its STRONG_BUY signals returned −0.09% at 21d vs HOLD's +5.07% — conviction is inverted at the top; no usable edge over the weeks-to-months horizon the theses hold for. The quarantine (rule #11) is **vindicated and stands as standing policy for v1_5** (NOT removed — removal would mean Model A is fine, which the evidence refutes). James's strategic call is **MADE (2026-07-11): SHELVE the ML engine** — Model A is demoted to a dormant passive monitor and the product is explicitly the model-independent moat (discipline, tax, themes, ETFs); see `docs/product/ml-engine-shelf-2026-07-11.md`. Phase 2c is **reframed model-independent** (discovery/discipline/ETF expansion) and no longer waits on a signal engine.
 - `docs/foundation/BUILD_GUIDE.md` — the executable manual for M1 through M12.
 - `docs/foundation/phase-b-failure-postmortem.md` — the lessons. The previous repo died of these; this repo encodes the fixes.
 - `docs/foundation/spec/tax-alpha.md` — tax-module source of truth. Implementation reads from this; tests cite section numbers.
@@ -37,7 +37,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0036) is the canonical schema** — roughly 40
+**`migrations/` (currently through 0037) is the canonical schema** — roughly 40
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -144,12 +144,13 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 20 subagents — 11 dev-side (architecture/quality/docs), 2
+`.claude/agents/` holds 21 subagents — 11 dev-side (architecture/quality/docs), 2
 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`),
 5 investment-analysis agents (the evidence layer behind `/pm-review`), 1 discovery
-agent (`macro-economist`; 2 more planned in Phase 2c), and 1 program-management
-orchestrator (`arbi`, the PM / "wake up" agent — see below), all routed in the tables
-below; see `.claude/agents/README.md`.
+agent (`macro-economist`; 2 more planned in Phase 2c), and 2 program-management agents
+(`arbi`, the PM / "wake up" agent — see below — plus `arbi-red-team`, the adversarial
+critic that stress-tests arbi's "one thing" before it's acted on), all routed in the
+tables below; see `.claude/agents/README.md`.
 They are **advisory by default**: most are read-only and return analysis, designs,
 or specs as text that the main loop then implements. Only `refactoring-expert`
 (code) and `technical-writer` (docs) can mutate files. `security-engineer` and
