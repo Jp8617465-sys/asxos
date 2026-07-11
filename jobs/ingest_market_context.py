@@ -159,11 +159,19 @@ async def _fetch_eodhd_indicators(
             warnings.append({"source": symbol, "status": "fetch_failed", "detail": _safe_exc_detail(exc)})
             return []
 
+    # VIX on EODHD is an index (.INDX), not a US-listed security — "VIX.US" 404s
+    # (same class of bug as the AVIX symbol above). "VIX.INDX" follows the documented
+    # .INDX convention (cf. AXVI.INDX). Researched 2026-07-11; confirm with a live
+    # EODHD probe on first run (no EODHD key in the authoring env).
+    # IRON.COMM is likely invalid — EODHD may not carry iron ore 62% Fe natively
+    # (probe candidates: TIO.COMM, then FEF.COMM). Left unchanged deliberately: it
+    # soft-degrades to a null iron_ore_62fe + warning; do NOT swap in an unverified
+    # symbol. Resolve via a live probe (mirroring the AVIX fix), or leave null.
     asx200_rows, avix_rows, audusd_rows, vix_rows, iron_rows = await asyncio.gather(
         _latest("AXJO.INDX"),
         _latest(_AVIX_SYMBOL),
         _latest("AUDUSD.FOREX"),
-        _latest("VIX.US"),
+        _latest("VIX.INDX"),
         _latest("IRON.COMM"),
         return_exceptions=False,
     )
@@ -238,11 +246,18 @@ async def _fetch_fred_indicators(as_of: date) -> tuple[dict[str, Decimal | None]
         except Exception as exc:
             warnings.append({"source": series_id, "status": "fetch_failed", "detail": _safe_exc_detail(exc)})
 
+    # RBA cash rate: "AUCBCNTO" is not a real FRED series (HTTP 400 → rba_cash_rate
+    # was permanently null). IRSTCI01AUM156N = OECD MEI "Immediate Rates (<24h):
+    # Call Money/Interbank Rate: Australia" — the standard FRED proxy for the RBA
+    # cash-rate target (monthly, percent; the realised call rate tracks the target
+    # to within a basis point or two). Researched 2026-07-11; confirm the first live
+    # value on Render (no FRED key in the authoring env). Soft-degrade: rba_cash_rate
+    # is not in the hard-fail set, so an id error only nulls the column + warns.
     await asyncio.gather(
         _get("BAMLH0A0HYM2", "us_hy_oas"),
         _get("T10Y2Y", "us_10y_2y_spread"),
         _get("IRLTLT01AUM156N", "aus_10y_yield"),
-        _get("AUCBCNTO", "rba_cash_rate"),
+        _get("IRSTCI01AUM156N", "rba_cash_rate"),
     )
 
     return result, warnings
