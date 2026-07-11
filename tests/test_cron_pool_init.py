@@ -31,8 +31,10 @@ import pytest
 
 JOBS_DIR = pathlib.Path(__file__).resolve().parent.parent / "jobs"
 
-# The ten jobs fixed in Phase 2B. These must follow the full canonical
-# structure: init_pool() before JobMonitor AND close_pool() in a finally block.
+# The ten jobs fixed in Phase 2B, plus track_signal_outcomes (quarantine lifted
+# 2026-07-11 — its init-pool ordering was fixed in the same class). These must
+# follow the full canonical structure: init_pool() before JobMonitor AND
+# close_pool() in a finally block.
 AFFECTED_JOBS = [
     "validate_price_data.py",
     "check_au_positions.py",
@@ -44,6 +46,7 @@ AFFECTED_JOBS = [
     "detect_theme_stages.py",
     "ingest_market_context.py",
     "ingest_underlyings.py",
+    "track_signal_outcomes.py",
 ]
 
 # Jobs intentionally excluded from the universal init-before-JobMonitor scan,
@@ -56,10 +59,9 @@ ALLOWLIST = {
     # (tests/test_ingest_news_job.py, tests/test_ingest_sentiment_job.py).
     "ingest_news.py",
     "ingest_sentiment.py",
-    # Operational quarantine: Phase 2B explicitly does not modify this job.
-    # It still uses the pre-fix ordering (init_pool inside the JobMonitor
-    # block) and is tracked as a separate quarantine item, not a Phase 2B fix.
-    "track_signal_outcomes.py",
+    # (track_signal_outcomes.py quarantine LIFTED 2026-07-11 — its pre-fix
+    # init_pool-inside-JobMonitor ordering was corrected, so it now follows the
+    # canonical structure and is covered by the scan + AFFECTED_JOBS above.)
 }
 
 
