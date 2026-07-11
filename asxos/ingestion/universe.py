@@ -40,9 +40,14 @@ async def refresh_universe(client: EODHDClient, conn: asyncpg.Connection) -> dic
     for sym, r in incoming.items():
         if sym not in existing:
             await conn.execute(
+                # security_kind is NOT NULL with no default (migration 0037) — every writer
+                # must classify explicitly. This branch only ingests `Type == "Common Stock"`
+                # (see the filter above), so 'au_equity' is correct. When this grows to ingest
+                # ETF/FUND types (multi-instrument Phase 2), replace the literal with a
+                # Type->kind map.
                 """
-                INSERT INTO universe (symbol, name, sector, currency)
-                VALUES ($1, $2, $3, 'AUD')
+                INSERT INTO universe (symbol, name, sector, currency, security_kind)
+                VALUES ($1, $2, $3, 'AUD', 'au_equity')
                 """,
                 sym,
                 r.get("Name") or "",
