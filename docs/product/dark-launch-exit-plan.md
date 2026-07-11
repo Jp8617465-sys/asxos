@@ -33,17 +33,40 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 - **Owner of the flip:** James (firewall gate 1 + capital-adjacent) — a `james-inbox.md` item when
   the paper-trade window closes.
 
-### 2. News / sentiment brief — `ASXOS_NEWS_BRIEF_ENABLED=0`
+### 2. News / sentiment brief — `ASXOS_NEWS_BRIEF_ENABLED=1` (SHIPPED 2026-07-11, draft-PR pending merge)
 
-- **Verdict: SHIP · on the freshness+coverage condition below.**
+- **Verdict: SHIP · both conditions verified 2026-07-11.**
 - **Why:** News/sentiment (`asxos/ingestion/{news,sentiment}.py`, M14a/b) is fully
   model-independent — it feeds the market-context and discipline narrative, not a signal. It
   directly serves the "know the backdrop before it costs money" moat layer and has no rule-#11
   exposure. This is exactly the kind of surface the post-shelf product should turn on.
-- **Gate to ship:** `ASXOS_NEWS_BRIEF_ENABLED=1`, once (a) the ingestion cron is green and fresh
-  (no stale-feed hard-fail), and (b) `market-context-narrator` confirms the section reads as
-  context, never as an implied buy/sell. No capital or firewall gate — arbi-actionable.
-- **Owner of the flip:** arbi proposes; main loop flips (reversible ops, no capital).
+- **Ship conditions — both verified 2026-07-11 (arbi wake + autonomy window):**
+  (a) **ingestion cron green + fresh** — `job_runs` shows `ingest_news` status='success' every
+  scheduled business day for 3+ weeks (2026-06-21 through 2026-07-09, zero failures); the
+  `check_cron_health` deadman that watches it was itself fixed this session (shelf-aware
+  `check_model_staleness`, no longer polluting the deadman).
+  (b) **reads as context, never implied buy/sell** — verified by direct read + a `security-engineer`
+  s766B pass (PASS): `brief.html.j2`'s `news_items` block (lines 106-118) renders only symbol,
+  linked article title, publish date, and an optional sentiment tag — zero generated advisory
+  text; `compose.py`'s `NewsItem`/`_holding_news` is a pure passthrough of the `holding_news`
+  table (no LLM call, no synthesis); `sentiment` is EODHD's third-party article-tone classifier,
+  structurally decoupled from `signal_sentiment` (the Model A feature-engineering table) — no
+  path from quarantined Model A output into this section. `ASXOS_PERSONAL_USE=1` gates first,
+  ahead of the feature flag, in both branches.
+- **Flipped:** `render.yaml` `ASXOS_NEWS_BRIEF_ENABLED` `"0"→"1"` — git-tracked (CLAUDE.md #2:
+  Render changes go through `render.yaml` + git push, never a direct dashboard/API mutation).
+  Takes effect only once this branch's PR merges and Render redeploys — no live change yet.
+- **Still pending (James's go, mirroring the R8 pattern):** the `asx news signoff` CLI command
+  (`asxos/cli/news.py`) records this decision as a `[m14_news_signoff]` row in the `decisions`
+  table — a production DB write, so it wasn't run unprompted. Its own printed next-step (a raw
+  `curl -X PUT` to the Render API) was **not** followed either — that would bypass `render.yaml`
+  as source of truth and desync `make check-drift`; the git-tracked edit above is the correct
+  path per CLAUDE.md #2. The CLI's coverage pre-check (`ingest_news` success within 7 days) was
+  independently re-verified via live `job_runs` before this edit, so the signoff INSERT is a
+  formality, not a blocking prerequisite — but it's still a DB write awaiting James's word.
+- **Owner of the flip:** arbi proposes; main loop flips (reversible ops, no capital). ✅ done —
+  git-tracked flip drafted; live effect gated on PR merge + redeploy, same as every other change
+  this session.
 
 ### 3. V2 brief tree
 
@@ -82,7 +105,7 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 | Surface | Verdict | Gate | Expiry / condition | Flip owner |
 |---|---|---|---|---|
 | Portfolio brief | KEEP-DARK | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | 2026-08-31 · re-scope to model-independent cards + 4wk sign-off | James |
-| News/sentiment brief | **SHIP** | `ASXOS_NEWS_BRIEF_ENABLED=1` | cron green + reads as context | arbi/main loop |
+| News/sentiment brief | **SHIPPED 2026-07-11** | `ASXOS_NEWS_BRIEF_ENABLED=1` (drafted, pending PR merge) | both conditions verified | arbi/main loop |
 | V2 brief tree | KEEP-DARK | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 · descope to model-independent collectors | arbi / James |
 | Paper-trade evaluator | KEEP-DARK | start the 4wk run (internal) | 2026-08-31 · re-raise with surface #1 | James |
 
