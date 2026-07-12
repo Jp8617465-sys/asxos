@@ -110,3 +110,25 @@ class ThemeHolding:
     holding_id: int | None = None
     governance_status: str = "approved"
     source_run_id: int | None = None
+
+
+@dataclass(frozen=True)
+class CoverageSegment:
+    """One row of the universe->segment coverage rollup (`asx theme coverage`).
+
+    A segment is (security_kind, sector) — sector is populated for
+    'au_equity' rows (from universe.sector) and None for every other
+    security_kind (ETF/LIC/hybrid/index/us_equity have no GICS sector; they
+    are reported as one bucket per kind instead). See
+    docs/proposals/thesis-coverage-framework-2026-07-11.md Tier 1a.
+
+    symbol_count: active universe symbols in this segment.
+    theme_covered_count: of those, how many appear in >=1 theme_holdings row.
+    thesis_covered_count: of those, how many appear in >=1 theses row.
+    """
+
+    security_kind: str
+    sector: str | None
+    symbol_count: int
+    theme_covered_count: int
+    thesis_covered_count: int

@@ -467,3 +467,53 @@ async def test_row_to_theme_holding_defaults_governance_status_when_absent() -> 
     holdings = await svc.list_theme_holdings(conn, "big-4-banks")
     assert holdings[0].governance_status == "approved"
     assert holdings[0].holding_id is None
+
+
+# ---------------------------------------------------------------------------
+# get_coverage_rollup — universe -> segment coverage (thesis-coverage-
+# framework-2026-07-11.md Tier 1a)
+# ---------------------------------------------------------------------------
+
+def _make_coverage_row(
+    security_kind: str = "au_equity",
+    sector: str | None = "Financial Services",
+    symbol_count: int = 193,
+    theme_covered_count: int = 4,
+    thesis_covered_count: int = 1,
+) -> dict:
+    return {
+        "security_kind": security_kind,
+        "sector": sector,
+        "symbol_count": symbol_count,
+        "theme_covered_count": theme_covered_count,
+        "thesis_covered_count": thesis_covered_count,
+    }
+
+
+async def test_get_coverage_rollup_maps_rows_to_coverage_segments() -> None:
+    rows = [
+        _make_coverage_row(security_kind="au_equity", sector="Basic Materials",
+                            symbol_count=779, theme_covered_count=0, thesis_covered_count=0),
+        _make_coverage_row(security_kind="au_equity", sector="Financial Services",
+                            symbol_count=193, theme_covered_count=1, thesis_covered_count=1),
+        _make_coverage_row(security_kind="etf", sector=None,
+                            symbol_count=471, theme_covered_count=0, thesis_covered_count=0),
+    ]
+    conn = _make_conn(fetch_returns=[rows])
+    segments = await svc.get_coverage_rollup(conn)
+
+    assert len(segments) == 3
+    assert segments[0].security_kind == "au_equity"
+    assert segments[0].sector == "Basic Materials"
+    assert segments[0].symbol_count == 779
+    assert segments[0].theme_covered_count == 0
+    # Non-equity kinds report sector=None, matching universe.security_kind != 'au_equity'.
+    assert segments[2].security_kind == "etf"
+    assert segments[2].sector is None
+    assert segments[2].symbol_count == 471
+
+
+async def test_get_coverage_rollup_empty_universe_returns_empty_list() -> None:
+    conn = _make_conn(fetch_returns=[[]])
+    segments = await svc.get_coverage_rollup(conn)
+    assert segments == []
