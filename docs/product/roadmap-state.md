@@ -189,7 +189,14 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
    `0038_screening_evaluator_wiring.sql` (**NOT yet applied**, tightens `source_method` to
    `curated_composite` only, adds the non-governed `screening_runs` audit log); the ETF/LIC
    kind-appropriate criteria (asset-class/geography/breadth for funds — a small net-new taxonomy)
-   is still not designed; (3) wire the missing `asx theme approve|reject|open
+   — **scoped 2026-07-12**: `docs/proposals/etf-lic-screening-criteria-2026-07-12.md`
+   (`requirements-analyst`-researched, EODHD field availability checked against real docs, not
+   assumed). Phase-1 recommendation: liquidity (`prices`-derived) + distribution yield/franking
+   (`rs_corporate_actions`-derived) only — zero new external ingestion, zero unresolved
+   vendor-availability risk. Everything else (asset class, geography, cost, AUM, tracking error,
+   NAV premium/discount for LICs) waits on a live EODHD probe against a real ASX ETF/LIC symbol
+   before further scoping is trusted. Not yet built — needs James's sign-off since it touches
+   already-shipped, review-gated evaluator code; (3) wire the missing `asx theme approve|reject|open
    --from-agent-run` CLI verbs onto `themes/service.py`'s already-built governance functions
    (`theme_holdings.symbol` already supports mixed equity+ETF holdings in one theme, no schema
    change needed); (4) clear the 2 pending `macro_theses` `agent_runs` proposals (item 3 above)
