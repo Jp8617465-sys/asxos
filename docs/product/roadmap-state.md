@@ -183,9 +183,13 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
    now, no agent DB role scoping dependency: (1) coverage rollup — sector for equities, an
    explicit non-equity bucket for ETF/hybrid/LIC (pure SQL, zero schema — answers "where am I
    structurally blind" directly); (2) wire `screening_rules` — schema-only since migration 0001,
-   zero readers, confirmed unwired — to a real `curated_composite` evaluator, kind-appropriate
-   criteria (fundamentals for equities; asset-class/geography/breadth for funds — a small
-   net-new taxonomy, not designed yet); (3) wire the missing `asx theme approve|reject|open
+   zero readers, confirmed unwired — to a real `curated_composite` evaluator — **LANDED
+   2026-07-12 for the au_equity/fundamentals path**: `asxos/domain/screening/{types,evaluator}.py`
+   + `asx screen list`/`run` (`asxos/cli/screen.py`), draft migration
+   `0038_screening_evaluator_wiring.sql` (**NOT yet applied**, tightens `source_method` to
+   `curated_composite` only, adds the non-governed `screening_runs` audit log); the ETF/LIC
+   kind-appropriate criteria (asset-class/geography/breadth for funds — a small net-new taxonomy)
+   is still not designed; (3) wire the missing `asx theme approve|reject|open
    --from-agent-run` CLI verbs onto `themes/service.py`'s already-built governance functions
    (`theme_holdings.symbol` already supports mixed equity+ETF holdings in one theme, no schema
    change needed); (4) clear the 2 pending `macro_theses` `agent_runs` proposals (item 3 above)

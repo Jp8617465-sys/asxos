@@ -286,18 +286,26 @@ touch no investment content — they're data groupings and filters, the same cat
 
 **Buildable now — no dependency on agent DB role scoping, no new agent:**
 
-1. **Tier 1a coverage rollup — sector for equities, an explicit non-equity bucket for
-   ETF/hybrid/LIC.** Pure SQL against existing, fully-populated columns (`universe.sector`,
-   `universe.security_kind`, `theme_holdings`, `theses`). This is literally the picture James
-   asked for ("break down from universe, to segment... understand what's happening," extended to
-   "ETFs etc, not just individual equities") and needs zero migration, zero agent — the
-   non-equity rows just report as one "ETF/LIC/hybrid — 505 symbols, 0 theme/thesis coverage"
-   line until the asset-class/geography taxonomy (Tier 1, above) lands.
-2. **Tier 2a mechanical screen.** Wire `screening_rules` (unwired since migration 0001) to a real
-   evaluator + a lightweight, non-governed results log; tighten `source_method` away from its
-   ML-flavored comment vocabulary. Route the schema/module design through `backend-architect`
-   per `CLAUDE.md`'s routing table ("Design or change... a DB schema/migration... or write-path
-   job").
+1. **Tier 1a coverage rollup — LANDED 2026-07-11.** `asx theme coverage`
+   (`asxos/domain/themes/service.py::get_coverage_rollup` + `asxos/cli/theme.py`, 29 tests) —
+   sector for equities, an explicit non-equity bucket for ETF/hybrid/LIC, pure SQL against
+   existing columns (`universe.sector`, `universe.security_kind`, `theme_holdings`, `theses`).
+   This is literally the picture James asked for ("break down from universe, to segment...
+   understand what's happening," extended to "ETFs etc, not just individual equities") — the
+   non-equity rows report as one `(non-equity)` bucket per `security_kind` until the
+   asset-class/geography taxonomy (Tier 1, above) lands as its own follow-on.
+2. **Tier 2a mechanical screen — LANDED 2026-07-12 (au_equity path).** `screening_rules`
+   (unwired since migration 0001) is now wired to a real, SQL-injection-safe evaluator:
+   `asxos/domain/screening/{types,evaluator}.py` + `asx screen list`/`asx screen run`
+   (`asxos/cli/screen.py`), 38 tests in `tests/test_screening_evaluator.py`. Draft migration
+   `migrations/0038_screening_evaluator_wiring.sql` (**NOT yet applied** — James applies via
+   `mcp__supabase__apply_migration`) tightens `source_method` to `curated_composite` only via a
+   real `CHECK` and adds the `screening_runs` audit log (non-governed, re-derivable — same
+   category as `prices`/`fundamentals`). Routed through `backend-architect` per `CLAUDE.md`'s
+   routing table as planned. Scope note: the evaluator's base query is `au_equity`-only by
+   design (hardcoded `security_kind` filter, not author-controlled) — kind-appropriate
+   ETF/LIC/hybrid criteria (asset-class/geography/breadth, not PE/PB fundamentals) remains
+   undesigned, per Tier 1's non-equity segmentation note above.
 3. **CLI governance verbs for themes.** `asxos/domain/themes/service.py::approve_theme`/
    `reject_theme`/`approve_theme_holding`/`reject_theme_holding` **exist today, confirmed**
    (lines 356, 395, 428, 465) but are **unreachable from any CLI** — `asxos/cli/theme.py` has no
