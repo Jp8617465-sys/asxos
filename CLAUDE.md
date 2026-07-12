@@ -54,7 +54,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `regulatory_events` — daily ingest from RBA + Treasury RSS (`jobs/ingest_regulatory.py`); ASIC/ASX were never wired, ATO removed (dead feed — re-add is a backlog item)
 - `job_runs` — completion tracking
 - `model_versions` — active model flag via `is_active` column
-- `screening_rules` — JSON rule definitions
+- `screening_rules` — JSON rule definitions; wired 2026-07-12 to a real Tier 2a evaluator (`asxos/domain/screening/`, `asx screen list`/`run`) — draft migration `0038` (not yet applied) tightens `source_method` to `curated_composite` only and adds a non-governed `screening_runs` audit log
 - `portfolio_daily_snapshots` — (as_of) PK, capital_aud, holdings_mv_aud, cash_aud, benchmark columns; re-derivable, NOT in backup_irreplaceable.sh
 - `themes` — (theme_id BIGSERIAL) PK; theme_code UNIQUE slug, stage/conviction/adjacency, governance_status; irreplaceable
 - `theses` — (thesis_id BIGSERIAL) PK; per-symbol investment thesis with entry band, stop, target, timeline, audit trail, governance_status; irreplaceable

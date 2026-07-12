@@ -412,7 +412,14 @@ services:
       - key: ASXOS_PORTFOLIO_BRIEF_ENABLED
         value: "0"        # flip to "1" via: asx portfolio signoff (M13.8)
       - key: ASXOS_NEWS_BRIEF_ENABLED
-        value: "0"        # flip to "1" via: asx news signoff (M14a)
+        value: "1"        # SHIPPED 2026-07-11 — dark-launch-exit-plan.md surface #2:
+        # ingest_news 100% success daily for 3+ weeks (job_runs, verified);
+        # brief.html.j2 news_items block is pure factual passthrough (symbol,
+        # linked title, date, sentiment tag) — no generated advisory text
+        # (security-engineer PASS, s766B check). Pre-authorized: "arbi
+        # proposes; main loop flips (reversible ops, no capital)" — not a
+        # james-inbox item. The `asx news signoff` decisions-journal entry
+        # is a separate, still-pending production DB write (James's go).
       - key: ASXOS_NEWS_ALLOCATOR_ENABLED
         value: "0"        # flip to "1" via: asx allocator-news signoff (M14c)
 

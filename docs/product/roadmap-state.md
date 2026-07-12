@@ -172,7 +172,73 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
    `0.6450` **confirmed** = brokerage statement, James 2026-07-11 — an ESPP fill FX ≠ spot;
    HUBS is ~flat, not −29%. See `portfolio-outcome-ledger.md`.) Owner: James supplies the
    lock date; main loop records.
-5. **Multi-instrument expansion (ETFs / LICs / all ASX vehicles).** North-star: moat
+5. **Universe→segment→stock coverage framework — ALL instrument kinds, not just equities.**
+   2,377 active tracked instruments (au_equity 1,872 · ETF 471 · hybrid 21 · LIC 13), 13 theses
+   (0.55%), 1 theme, 0 macro_theses, **zero ETF/LIC/hybrid coverage at all** — the gap is a
+   missing narrowing layer (universe → segment → screen → thesis), not too few theses
+   (north-star.md explicitly wants a small opinionated set, not universal coverage). James, same
+   day: "the etf's etc [need to be] included in our investment plan not just individual
+   equities" — the framework treats instrument kind as first-class from Tier 0, not a later
+   add-on. Full framework: `docs/proposals/thesis-coverage-framework-2026-07-11.md`. Buildable
+   now, no agent DB role scoping dependency: (1) coverage rollup — sector for equities, an
+   explicit non-equity bucket for ETF/hybrid/LIC (pure SQL, zero schema — answers "where am I
+   structurally blind" directly); (2) wire `screening_rules` — schema-only since migration 0001,
+   zero readers, confirmed unwired — to a real `curated_composite` evaluator — **LANDED
+   2026-07-12 for the au_equity/fundamentals path**: `asxos/domain/screening/{types,evaluator}.py`
+   + `asx screen list`/`run` (`asxos/cli/screen.py`), draft migration
+   `0038_screening_evaluator_wiring.sql` (**NOT yet applied**, tightens `source_method` to
+   `curated_composite` only, adds the non-governed `screening_runs` audit log); the ETF/LIC
+   kind-appropriate criteria (asset-class/geography/breadth for funds — a small net-new taxonomy)
+   — **scoped 2026-07-12**: `docs/proposals/etf-lic-screening-criteria-2026-07-12.md`
+   (`requirements-analyst`-researched, EODHD field availability checked against real docs, not
+   assumed). Phase-1 recommendation: liquidity (`prices`-derived) + distribution yield/franking
+   (`rs_corporate_actions`-derived) only — zero new external ingestion, zero unresolved
+   vendor-availability risk. Everything else (asset class, geography, cost, AUM, tracking error,
+   NAV premium/discount for LICs) waits on a live EODHD probe against a real ASX ETF/LIC symbol
+   before further scoping is trusted. Not yet built — needs James's sign-off since it touches
+   already-shipped, review-gated evaluator code; (3) wire the missing `asx theme approve|reject|open
+   --from-agent-run` CLI verbs onto `themes/service.py`'s already-built governance functions
+   (`theme_holdings.symbol` already supports mixed equity+ETF holdings in one theme, no schema
+   change needed); (4) clear the 2 pending `macro_theses` `agent_runs` proposals (item 3 above)
+   before adding a 4th discovery agent to the queue. Blocked on agent DB role scoping (item 2
+   above): a new `sector-screener` discovery agent (bottom-up, coverage-driven — sibling to, not
+   a mode of, `theme-researcher`'s top-down macro-conditioned design), sharing
+   `theme-researcher`/`instrument-selector`'s not-yet-built `create_theme_from_agent_run()`/
+   `create_theme_holding_from_agent_run()` service functions. Governance path identical to
+   `macro-economist` at every step — no direct agent writes, ever. Triggered by James,
+   2026-07-11. **Spec drafted 2026-07-12**: `docs/proposals/sector-screener-agent-spec-2026-07-12.md`
+   — full frontmatter, data sources, 4-step invocation procedure, `ThemeProposal`/
+   `ThemeHoldingProposal` JSON output schema, boundaries, and a 6-stage pre-go-live checklist.
+   Deliberately NOT materialized as a live `.claude/agents/*.md` file — that step waits on item 6
+   (DB role scoping applied) so the agent is never invocable next to governed tables under
+   prompt-level-only SELECT enforcement. Owner: `requirements-analyst` (drafted) →
+   `system-architect`/`backend-architect` (design) → James (scope sign-off, then apply item 6 to
+   unblock materialization).
+6. **Agent DB read-only role — design drafted, ready to apply.**
+   `docs/proposals/agent-db-readonly-role-design-2026-07-11.md`: a full draft migration
+   (`0038_agent_readonly_role.sql`, NOT applied) creating `asxos_agent_ro` — LOGIN, default-deny
+   writes (no INSERT/UPDATE/DELETE/TRUNCATE grant, no sequence privileges), `SELECT` on
+   everything, `ALTER DEFAULT PRIVILEGES` so future tables auto-grant. Two corrections to the
+   original brief: `approve_object`/`reject_object` are Python, not Postgres functions (nothing
+   to `REVOKE EXECUTE`); `nextval`/`setval` are `pg_catalog` built-ins (the real control is no
+   sequence grant, not a function revoke). Honest limit: whether the role becomes load-bearing
+   depends on whether `supabase-ro` is a connection-string MCP (can point at the role via the
+   Supavisor pooler — strong) or the hosted Supabase MCP (can't accept a custom role — the
+   migration stays defense-in-depth only). Pre-apply checks, post-apply acceptance test, and a
+   rollback script are included. **Next: James applies the migration + re-points the MCP
+   connection (infra, outside this repo) — this is what actually satisfies autonomy
+   precondition (2).**
+7. **Competitive gap analysis — Div 296 is a time-boxed opportunity, not just a backlog item.**
+   `docs/product/competitive-gap-analysis-2026-07-11.md` (deep-research-agent, cited/confidence-
+   rated). Headline: no consumer AU tool models Division 296 (Sharesight explicitly cannot) or
+   enforces thesis discipline — asxos already has both built; the gap is surfacing, not engine
+   work. **Time-sensitive finding worth weighing against ETF Slice 2 sequencing:** the s296-50
+   cost-base-reset election hinges on **market values at 30 June 2026** (already ~11 days past at
+   time of writing) — capturing those reset-date valuations now, while fresh, is a concrete,
+   perishable, on-moat feature no competitor offers. Full prioritized P1-P6 roadmap (each tagged
+   DIFFERENTIATION or TABLE-STAKES) in the doc. Owner: James — decide whether P1 (Div 296 reset
+   workflow) jumps the queue ahead of ETF Slice 2 given the perishability.
+8. **Multi-instrument expansion (ETFs / LICs / all ASX vehicles).** North-star: moat
    layers 2–3 (discipline + theme stewardship), and it advances **independent of the Model
    A P0** (rule #11 is moot for passive funds — no signal attaches). James: *"I want ETFs
    and all investment vehicles on the ASX involved."* Full plan (valuation = market price;

@@ -7,6 +7,18 @@ Commands:
   asx theme adjacency add CODE_A CODE_B — add bidirectional adjacency
   asx theme stage CODE STAGE -- set lifecycle stage (user-confirmed)
   asx theme attach CODE SYMBOL -- set symbol exposure to theme
+  asx theme coverage           — universe -> segment coverage rollup
+  asx theme approve ID         — governance_status pending_review -> approved
+  asx theme reject ID          — governance_status draft/evidence_complete/
+                                  pending_review -> rejected
+  asx theme holding approve ID — same, for one theme_holdings row (holding_id)
+  asx theme holding reject ID  — same, for one theme_holdings row (holding_id)
+
+Note: 'open --from-agent-run' has no theme equivalent yet — no
+create_theme_from_agent_run() exists (unlike theses/macro_theses); it lands
+alongside the theme-researcher/instrument-selector agents (Phase 2c). These
+approve/reject verbs exist now so that dependency chain has one fewer link
+to build when those agents ship.
 """
 from __future__ import annotations
 
@@ -17,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 import typer
 from rich.table import Table
 
-from asxos.cli._common import console
+from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.themes import service as svc
 from asxos.domain.themes.types import Theme
@@ -30,6 +42,9 @@ theme_app = typer.Typer(
 
 adjacency_app = typer.Typer(help="Theme adjacency management.", no_args_is_help=True)
 theme_app.add_typer(adjacency_app, name="adjacency")
+
+holding_app = typer.Typer(help="Theme-holding governance.", no_args_is_help=True)
+theme_app.add_typer(holding_app, name="holding")
 
 _VALID_STAGES = (
     "early", "early-institutional", "broad-institutional",
@@ -114,6 +129,59 @@ async def _list_themes() -> None:
         console.print(table)
     finally:
         await close_pool()
+
+
+@theme_app.command("coverage")
+def theme_coverage() -> None:
+    """Universe -> segment coverage rollup: where are we structurally blind?
+
+    Sector for au_equity; one bucket per non-equity security_kind
+    (ETF/LIC/hybrid have no GICS sector). See docs/proposals/
+    thesis-coverage-framework-2026-07-11.md Tier 1a.
+    """
+    asyncio.run(_show_coverage())
+
+
+async def _show_coverage() -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            segments = await svc.get_coverage_rollup(conn)
+        if not segments:
+            console.print("[yellow]No active universe symbols found.[/yellow]")
+            return
+
+        total_symbols = sum(s.symbol_count for s in segments)
+        total_theme = sum(s.theme_covered_count for s in segments)
+        total_thesis = sum(s.thesis_covered_count for s in segments)
+
+        table = Table(title="Universe coverage", show_header=True)
+        for col in ("Kind", "Segment", "Symbols", "Theme-covered", "Thesis-covered"):
+            table.add_column(col)
+        for s in segments:
+            segment_label = s.sector if s.sector is not None else "(non-equity)"
+            theme_cell = _coverage_cell(s.theme_covered_count, s.symbol_count)
+            thesis_cell = _coverage_cell(s.thesis_covered_count, s.symbol_count)
+            table.add_row(
+                s.security_kind, segment_label, str(s.symbol_count),
+                theme_cell, thesis_cell,
+            )
+        console.print(table)
+        console.print(
+            f"\n[bold]Total:[/bold] {total_symbols} active symbols · "
+            f"{total_theme} theme-covered ({total_theme / total_symbols:.1%}) · "
+            f"{total_thesis} thesis-covered ({total_thesis / total_symbols:.1%})"
+        )
+    finally:
+        await close_pool()
+
+
+def _coverage_cell(covered: int, total: int) -> str:
+    if covered == 0:
+        return "[red]0[/red]"
+    if covered == total:
+        return f"[green]{covered}[/green]"
+    return f"[yellow]{covered}[/yellow]"
 
 
 @theme_app.command("review")
@@ -286,6 +354,105 @@ async def _attach_thesis(
         console.print(
             f"[green]✓[/green] {symbol} → {code}: "
             f"exposure {holding.exposure_strength} ({holding.direction})"
+        )
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@theme_app.command("approve")
+def theme_approve(
+    theme_id: int = typer.Argument(..., help="Theme ID"),
+    reason: str = typer.Option(..., "--reason", help="Why you are approving this"),
+) -> None:
+    """Approve a theme pending review — governance_status -> 'approved'."""
+    _require_personal_use()
+    asyncio.run(_approve_theme(theme_id, reason))
+
+
+async def _approve_theme(theme_id: int, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            theme = await svc.approve_theme(conn, theme_id, reasoning=reason)
+        console.print(f"[green]✓[/green] Approved theme [bold]{theme.theme_code}[/bold] (#{theme.theme_id})")
+        _print_theme_detail(theme)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@theme_app.command("reject")
+def theme_reject(
+    theme_id: int = typer.Argument(..., help="Theme ID"),
+    reason: str = typer.Option(..., "--reason", help="Why you are rejecting this"),
+) -> None:
+    """Reject a theme — governance_status -> 'rejected'."""
+    _require_personal_use()
+    asyncio.run(_reject_theme(theme_id, reason))
+
+
+async def _reject_theme(theme_id: int, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            theme = await svc.reject_theme(conn, theme_id, reasoning=reason)
+        console.print(f"[yellow]✗[/yellow] Rejected theme [bold]{theme.theme_code}[/bold] (#{theme.theme_id})")
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@holding_app.command("approve")
+def theme_holding_approve(
+    holding_id: int = typer.Argument(..., help="theme_holdings.holding_id (surrogate key)"),
+    reason: str = typer.Option(..., "--reason", help="Why you are approving this"),
+) -> None:
+    """Approve a theme_holdings row pending review — governance_status -> 'approved'."""
+    _require_personal_use()
+    asyncio.run(_approve_theme_holding(holding_id, reason))
+
+
+async def _approve_theme_holding(holding_id: int, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            holding = await svc.approve_theme_holding(conn, holding_id, reasoning=reason)
+        console.print(
+            f"[green]✓[/green] Approved theme holding #{holding_id} "
+            f"({holding.symbol} -> theme #{holding.theme_id})"
+        )
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@holding_app.command("reject")
+def theme_holding_reject(
+    holding_id: int = typer.Argument(..., help="theme_holdings.holding_id (surrogate key)"),
+    reason: str = typer.Option(..., "--reason", help="Why you are rejecting this"),
+) -> None:
+    """Reject a theme_holdings row — governance_status -> 'rejected'."""
+    _require_personal_use()
+    asyncio.run(_reject_theme_holding(holding_id, reason))
+
+
+async def _reject_theme_holding(holding_id: int, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            holding = await svc.reject_theme_holding(conn, holding_id, reasoning=reason)
+        console.print(
+            f"[yellow]✗[/yellow] Rejected theme holding #{holding_id} "
+            f"({holding.symbol} -> theme #{holding.theme_id})"
         )
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")

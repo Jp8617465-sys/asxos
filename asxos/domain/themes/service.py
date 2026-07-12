@@ -18,7 +18,7 @@ from decimal import Decimal
 import asyncpg
 
 from asxos.domain.governance import transitions as governance_transitions
-from asxos.domain.themes.types import Theme, ThemeHolding
+from asxos.domain.themes.types import CoverageSegment, Theme, ThemeHolding
 
 _VALID_STAGES = frozenset(
     ("early", "early-institutional", "broad-institutional", "mainstream", "late-retail", "mature")
@@ -155,6 +155,58 @@ async def list_theme_holdings(
         theme_code,
     )
     return [_row_to_theme_holding(r) for r in rows]
+
+
+async def get_coverage_rollup(conn: asyncpg.Connection) -> list[CoverageSegment]:
+    """Universe -> segment coverage rollup (`asx theme coverage`).
+
+    Answers "where am I structurally blind" directly (docs/proposals/
+    thesis-coverage-framework-2026-07-11.md Tier 1a): for every segment —
+    (security_kind, sector) for au_equity, one bucket per non-equity
+    security_kind — how many active universe symbols exist, and how many of
+    those have >=1 theme_holdings row / >=1 theses row.
+
+    Read-only rollup over existing, fully-populated columns
+    (universe.security_kind, universe.sector, theme_holdings, theses) — no
+    migration, no new table. Pure SELECT; safe on the read-only DB role.
+    """
+    rows = await conn.fetch(
+        """
+        WITH base AS (
+            SELECT
+                u.symbol,
+                u.security_kind,
+                CASE WHEN u.security_kind = 'au_equity'
+                     THEN COALESCE(NULLIF(u.sector, ''), 'Unclassified')
+                     ELSE NULL END AS sector
+            FROM universe u
+            WHERE u.is_active
+        ),
+        theme_covered AS (SELECT DISTINCT symbol FROM theme_holdings),
+        thesis_covered AS (SELECT DISTINCT symbol FROM theses)
+        SELECT
+            b.security_kind,
+            b.sector,
+            COUNT(*) AS symbol_count,
+            COUNT(*) FILTER (WHERE tc.symbol IS NOT NULL) AS theme_covered_count,
+            COUNT(*) FILTER (WHERE hc.symbol IS NOT NULL) AS thesis_covered_count
+        FROM base b
+        LEFT JOIN theme_covered tc ON tc.symbol = b.symbol
+        LEFT JOIN thesis_covered hc ON hc.symbol = b.symbol
+        GROUP BY b.security_kind, b.sector
+        ORDER BY b.security_kind, symbol_count DESC
+        """
+    )
+    return [
+        CoverageSegment(
+            security_kind=r["security_kind"],
+            sector=r["sector"],
+            symbol_count=r["symbol_count"],
+            theme_covered_count=r["theme_covered_count"],
+            thesis_covered_count=r["thesis_covered_count"],
+        )
+        for r in rows
+    ]
 
 
 async def add_adjacency(

@@ -11,17 +11,25 @@ class JobMonitor:
     Never suppresses exceptions. Failure is recorded then re-raised.
 
     Status mapping (set in __aexit__):
-      - no exception              → 'success' (pings the Healthchecks URL)
-      - UpstreamBlocked raised    → 'blocked' (distinct from failure;
-                                    upstream not ready, retry later;
-                                    Healthchecks NOT pinged)
-      - any other exception       → 'failure' (pings healthcheck_url + '/fail'
-                                    — Healthchecks' explicit-failure signal;
-                                    also marks the check for deadman purposes)
+      - no exception                    → 'success' (pings the Healthchecks URL)
+      - UpstreamBlocked raised          → 'blocked' (distinct from failure;
+                                          upstream not ready, retry later;
+                                          Healthchecks NOT pinged)
+      - ModelGateDormant raised         → 'blocked' (distinct from failure;
+                                          rule #11 standing quarantine — 0
+                                          approved models is a deliberate
+                                          durable policy state, not a crash;
+                                          Healthchecks NOT pinged)
+      - any other exception             → 'failure' (pings healthcheck_url + '/fail'
+                                          — Healthchecks' explicit-failure signal;
+                                          also marks the check for deadman purposes)
 
     The 'blocked' distinction prevents alert fatigue: the P0-1/P0-2 guards
     will generate many runs where the right operator response is "wait for
-    the upstream to retry" rather than "page me, something is broken."
+    the upstream to retry" rather than "page me, something is broken" — and
+    the same is true of build_portfolio hitting the model-approval gate while
+    rule #11 stands: it is expected to recur every week until a model is
+    re-approved, not a new bug each time.
 
     The override_reason kwarg captures the audit trail when an operator
     bypasses a guard (e.g. --allow-stale-upstream). NULL on normal runs.
@@ -95,12 +103,14 @@ class JobMonitor:
         finished_at = datetime.utcnow()
         duration_ms = int((finished_at - self._started_at).total_seconds() * 1000)
 
-        # Status mapping: UpstreamBlocked → 'blocked' (distinct from 'failure').
-        # Check by __name__ to avoid importing job-specific exception types
-        # into the shared monitor (would create a circular dep risk).
+        # Status mapping: UpstreamBlocked / ModelGateDormant → 'blocked'
+        # (distinct from 'failure'). Check by __name__ to avoid importing
+        # job-specific exception types into the shared monitor (would create
+        # a circular dep risk — UpstreamBlocked lives in asxos.jobs._helpers,
+        # ModelGateDormant in asxos.domain.models.production_gate).
         if exc_type is None:
             status = "success"
-        elif exc_type.__name__ == "UpstreamBlocked":
+        elif exc_type.__name__ in ("UpstreamBlocked", "ModelGateDormant"):
             status = "blocked"
         else:
             status = "failure"

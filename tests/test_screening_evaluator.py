@@ -1,0 +1,471 @@
+"""Tests for asxos/domain/screening/evaluator.py — Tier 2a mechanical screen.
+
+Layer 1: pure-function tests (parse_rule, compile_where_clause) — no DB, no
+mocks. Layer 2: async tests with a mocked asyncpg.Connection.
+
+The SQL these functions generate was additionally verified against a real
+throwaway local Postgres 16 instance with adversarial seed data (dirty
+sector values, duplicate/missing fundamentals rows, NULL fields, sector-
+scope conflicts) — mocked tests prove the Python call shape is right, not
+that the emitted SQL is semantically correct against a real planner (see
+.claude/rules/portfolio-conventions.md's "Verification lesson").
+
+asyncio_mode = "auto" in pyproject.toml — no @pytest.mark.asyncio needed.
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from asxos.domain.screening import evaluator as ev
+from asxos.domain.screening.types import (
+    ScreenCondition,
+    ScreenGroup,
+    ScreeningRule,
+)
+
+# ---------------------------------------------------------------------------
+# parse_rule
+# ---------------------------------------------------------------------------
+
+
+def test_parse_rule_flat_and() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {
+            "logic": "AND",
+            "items": [
+                {"field": "pe_ratio", "op": "lte", "value": 15},
+                {"field": "market_cap", "op": "gte", "value": 500000000},
+            ],
+        },
+    }
+    tree = ev.parse_rule(rule_json)
+    assert isinstance(tree, ScreenGroup)
+    assert tree.logic == "AND"
+    assert len(tree.items) == 2
+    assert tree.items[0] == ScreenCondition(field="pe_ratio", op="lte", value=15)
+
+
+def test_parse_rule_nested_and_or() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {
+            "logic": "AND",
+            "items": [
+                {"field": "pe_ratio", "op": "lte", "value": 15},
+                {
+                    "logic": "OR",
+                    "items": [
+                        {"field": "dividend_yield", "op": "gte", "value": 0.04},
+                        {"field": "roe", "op": "gte", "value": 0.15},
+                    ],
+                },
+            ],
+        },
+    }
+    tree = ev.parse_rule(rule_json)
+    assert isinstance(tree.items[1], ScreenGroup)
+    assert tree.items[1].logic == "OR"
+    assert len(tree.items[1].items) == 2
+
+
+def test_parse_rule_rejects_wrong_version() -> None:
+    with pytest.raises(ValueError, match="version"):
+        ev.parse_rule({"version": 2, "conditions": {"logic": "AND", "items": []}})
+
+
+def test_parse_rule_rejects_missing_version() -> None:
+    with pytest.raises(ValueError, match="version"):
+        ev.parse_rule({"conditions": {"logic": "AND", "items": []}})
+
+
+def test_parse_rule_rejects_unknown_top_level_key() -> None:
+    with pytest.raises(ValueError, match="unknown top-level key"):
+        ev.parse_rule({
+            "version": 1, "conditions": {"logic": "AND", "items": []},
+            "extra_field": "nope",
+        })
+
+
+def test_parse_rule_rejects_missing_conditions() -> None:
+    with pytest.raises(ValueError, match="conditions"):
+        ev.parse_rule({"version": 1})
+
+
+def test_parse_rule_rejects_bare_top_level_condition() -> None:
+    """The top-level `conditions` must itself be a logic group ({"logic":
+    ..., "items": [...]}), not a bare condition — even a single-condition
+    rule must wrap it in a one-item group. This is what keeps parse_rule's
+    declared return type (ScreenGroup) honest; a bare top-level condition
+    would otherwise construct a ScreenCondition where a ScreenGroup was
+    promised. Found as a real type-contract gap during implementation
+    (caught by mypy --strict, not by a test) — this test closes that gap."""
+    rule_json = {
+        "version": 1,
+        "conditions": {"field": "pe_ratio", "op": "lte", "value": 15},
+    }
+    with pytest.raises(ValueError, match="logic group"):
+        ev.parse_rule(rule_json)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "signal_label",           # a Model A / signals field — must never be reachable
+        "prob_up",                # Model A field
+        "expected_return",        # Model A field
+        "shap_factors",           # Model A field
+        "pe_ratio; DROP TABLE fundamentals--",  # injection attempt via field name
+        "nonexistent_field",
+    ],
+)
+def test_parse_rule_rejects_non_whitelisted_field(field: str) -> None:
+    """Every non-whitelisted field is rejected, including every Model A /
+    signals field (rule #11 — this evaluator must never be able to reach
+    ML-derived data) and SQL-injection attempts via the field name itself."""
+    rule_json = {
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [{"field": field, "op": "eq", "value": 1}]},
+    }
+    with pytest.raises(ValueError, match="unknown field"):
+        ev.parse_rule(rule_json)
+
+
+def test_parse_rule_rejects_unknown_op() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [
+            {"field": "pe_ratio", "op": "'; DELETE FROM screening_rules--", "value": 1}
+        ]},
+    }
+    with pytest.raises(ValueError, match="unknown op"):
+        ev.parse_rule(rule_json)
+
+
+def test_parse_rule_rejects_lt_on_sector_text_field() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [
+            {"field": "sector", "op": "lt", "value": "Financials"}
+        ]},
+    }
+    with pytest.raises(ValueError, match="not permitted on text field"):
+        ev.parse_rule(rule_json)
+
+
+def test_parse_rule_allows_eq_and_in_on_sector() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {"logic": "OR", "items": [
+            {"field": "sector", "op": "eq", "value": "Financial Services"},
+            {"field": "sector", "op": "in", "value": ["Basic Materials", "Energy"]},
+        ]},
+    }
+    tree = ev.parse_rule(rule_json)
+    assert len(tree.items) == 2
+
+
+def test_parse_rule_rejects_in_with_empty_list() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [
+            {"field": "sector", "op": "in", "value": []}
+        ]},
+    }
+    with pytest.raises(ValueError, match="non-empty list"):
+        ev.parse_rule(rule_json)
+
+
+def test_parse_rule_allows_is_null_without_value() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [
+            {"field": "pe_ratio", "op": "is_null"}
+        ]},
+    }
+    tree = ev.parse_rule(rule_json)
+    assert tree.items[0].op == "is_null"
+
+
+def test_parse_rule_rejects_group_with_unknown_key() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {
+            "logic": "AND",
+            "items": [{"field": "pe_ratio", "op": "is_null"}],
+            "weird": 1,
+        },
+    }
+    with pytest.raises(ValueError, match="unknown key"):
+        ev.parse_rule(rule_json)
+
+
+def test_parse_rule_rejects_empty_items_list() -> None:
+    rule_json = {
+        "version": 1,
+        "conditions": {"logic": "AND", "items": []},
+    }
+    with pytest.raises(ValueError, match="non-empty list"):
+        ev.parse_rule(rule_json)
+
+
+def test_parse_rule_rejects_invalid_sector_scope_shape() -> None:
+    rule_json = {
+        "version": 1, "sector_scope": "Financials",  # should be a list, not a str
+        "conditions": {"logic": "AND", "items": [{"field": "pe_ratio", "op": "is_null"}]},
+    }
+    with pytest.raises(ValueError, match="sector_scope must be a list"):
+        ev.parse_rule(rule_json)
+
+
+# ---------------------------------------------------------------------------
+# compile_where_clause
+# ---------------------------------------------------------------------------
+
+
+def test_compile_flat_and_default_param_start() -> None:
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="pe_ratio", op="lte", value=15),
+        ScreenCondition(field="market_cap", op="gte", value=500000000),
+    ))
+    sql, params = ev.compile_where_clause(tree)
+    assert sql == "(f.pe_ratio <= $1 AND u.market_cap >= $2)"
+    assert params == [15, 500000000]
+
+
+def test_compile_nested_and_or_sequential_numbering() -> None:
+    """The bug this test guards against: nested-group param numbering must
+    stay sequential across the whole tree, not restart or skip inside a
+    nested group. Caught via manual live-Postgres tracing during
+    implementation, not by a mocked test alone — this test pins the fix."""
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="pe_ratio", op="lte", value=15),
+        ScreenGroup(logic="OR", items=(
+            ScreenCondition(field="dividend_yield", op="gte", value=Decimal("0.04")),
+            ScreenCondition(field="roe", op="gte", value=Decimal("0.10")),
+        )),
+    ))
+    sql, params = ev.compile_where_clause(tree)
+    assert sql == "(f.pe_ratio <= $1 AND (f.dividend_yield >= $2 OR f.roe >= $3))"
+    assert params == [15, Decimal("0.04"), Decimal("0.10")]
+
+
+def test_compile_with_nonzero_param_start_offsets_correctly() -> None:
+    """Mirrors evaluate_rule's sector-scoped case: a sector param occupies
+    $1, so the rule's own placeholders must start at $2."""
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="market_cap", op="gte", value=50000000),
+    ))
+    sql, params = ev.compile_where_clause(tree, param_start=2)
+    assert sql == "(u.market_cap >= $2)"
+    assert params == [50000000]
+
+
+def test_compile_in_uses_any() -> None:
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="sector", op="in", value=["Financial Services", "Basic Materials"]),
+    ))
+    sql, params = ev.compile_where_clause(tree)
+    assert sql == "(u.sector = ANY ($1))"
+    assert params == [["Financial Services", "Basic Materials"]]
+
+
+def test_compile_not_in_uses_all() -> None:
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="sector", op="not_in", value=["Utilities"]),
+    ))
+    sql, _params = ev.compile_where_clause(tree)
+    assert sql == "(u.sector != ALL ($1))"
+
+
+def test_compile_is_null_binds_no_param() -> None:
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="pe_ratio", op="is_null", value=None),
+        ScreenCondition(field="market_cap", op="gte", value=1000),
+    ))
+    sql, params = ev.compile_where_clause(tree)
+    # is_null binds nothing, so market_cap correctly gets $1, not $2.
+    assert sql == "(f.pe_ratio IS NULL AND u.market_cap >= $1)"
+    assert params == [1000]
+
+
+def test_compile_where_clause_binds_malicious_value_not_interpolated() -> None:
+    """SQL-injection safety at the VALUE layer, not just the field/op layer.
+    test_parse_rule_rejects_non_whitelisted_field already proves injection
+    attempts via the field/op NAME are rejected at parse time. This proves
+    the complementary case: a legitimate string-comparison VALUE that
+    happens to contain SQL metacharacters is safely BOUND as a parameter,
+    never string-interpolated into the emitted SQL text. Flagged as a gap
+    by both refactoring-expert and security-engineer review passes on this
+    feature (2026-07-11) — both independently verified this held true by
+    hand/adversarial probe, but neither was pinned by an actual test."""
+    malicious = "'; DROP TABLE fundamentals--"
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="sector", op="eq", value=malicious),
+    ))
+    sql, params = ev.compile_where_clause(tree)
+    assert malicious not in sql
+    assert sql == "(u.sector = $1)"
+    assert params == [malicious]
+
+
+def test_compile_deeply_nested_three_levels() -> None:
+    tree = ScreenGroup(logic="AND", items=(
+        ScreenCondition(field="pe_ratio", op="lte", value=20),
+        ScreenGroup(logic="OR", items=(
+            ScreenCondition(field="roe", op="gte", value=Decimal("0.10")),
+            ScreenGroup(logic="AND", items=(
+                ScreenCondition(field="dividend_yield", op="gte", value=Decimal("0.03")),
+                ScreenCondition(field="franking_pct", op="gte", value=Decimal("0.5")),
+            )),
+        )),
+    ))
+    sql, params = ev.compile_where_clause(tree)
+    assert sql == (
+        "(f.pe_ratio <= $1 AND "
+        "(f.roe >= $2 OR (f.dividend_yield >= $3 AND f.franking_pct >= $4)))"
+    )
+    assert params == [20, Decimal("0.10"), Decimal("0.03"), Decimal("0.5")]
+
+
+# ---------------------------------------------------------------------------
+# decode_rule_json
+# ---------------------------------------------------------------------------
+
+
+def test_decode_rule_json_uses_decimal_not_float() -> None:
+    raw = '{"version": 1, "conditions": {"logic": "AND", "items": [{"field": "pe_ratio", "op": "lte", "value": 15.5}]}}'
+    decoded = ev.decode_rule_json(raw)
+    value = decoded["conditions"]["items"][0]["value"]
+    assert isinstance(value, Decimal)
+    assert value == Decimal("15.5")
+
+
+# ---------------------------------------------------------------------------
+# evaluate_rule — mocked asyncpg.Connection
+# ---------------------------------------------------------------------------
+
+
+def _make_rule(
+    id: int = 1,
+    name: str = "value-screen",
+    source_method: str = "curated_composite",
+    rule_json: dict | None = None,
+    is_active: bool = True,
+) -> ScreeningRule:
+    return ScreeningRule(
+        id=id, name=name, source_method=source_method,
+        rule_json=rule_json or {
+            "version": 1,
+            "conditions": {"logic": "AND", "items": [
+                {"field": "pe_ratio", "op": "lte", "value": 15}
+            ]},
+        },
+        is_active=is_active,
+    )
+
+
+def _make_conn(universe_size: int, match_rows: list[dict]) -> MagicMock:
+    conn = MagicMock()
+    conn.fetchval = AsyncMock(return_value=universe_size)
+    conn.fetch = AsyncMock(return_value=match_rows)
+    conn.fetchrow = AsyncMock(return_value={"id": 99})
+    return conn
+
+
+async def test_evaluate_rule_rejects_non_curated_composite() -> None:
+    rule = _make_rule(source_method="shap_threshold")
+    conn = _make_conn(10, [])
+    with pytest.raises(RuntimeError, match="curated_composite"):
+        await ev.evaluate_rule(conn, rule)
+    conn.fetchval.assert_not_awaited()
+
+
+async def test_evaluate_rule_rejects_inactive_rule() -> None:
+    rule = _make_rule(is_active=False)
+    conn = _make_conn(10, [])
+    with pytest.raises(RuntimeError, match="not active"):
+        await ev.evaluate_rule(conn, rule)
+    conn.fetchval.assert_not_awaited()
+
+
+async def test_evaluate_rule_rejects_empty_universe() -> None:
+    rule = _make_rule()
+    conn = _make_conn(0, [])
+    with pytest.raises(RuntimeError, match="empty"):
+        await ev.evaluate_rule(conn, rule)
+
+
+async def test_evaluate_rule_rejects_sector_conflict() -> None:
+    rule = _make_rule(rule_json={
+        "version": 1, "sector_scope": ["Financial Services"],
+        "conditions": {"logic": "AND", "items": [{"field": "pe_ratio", "op": "is_null"}]},
+    })
+    conn = _make_conn(10, [])
+    with pytest.raises(RuntimeError, match="conflicting scope"):
+        await ev.evaluate_rule(conn, rule, sector="Basic Materials")
+
+
+async def test_evaluate_rule_returns_bounded_matches_with_true_total() -> None:
+    rule = _make_rule()
+    rows = [
+        {"symbol": f"SYM{i}.AU", "sector": "Financial Services",
+         "pe_ratio": Decimal("10"), "pb_ratio": None, "eps": None,
+         "dividend_yield": None, "franking_pct": None, "roe": None,
+         "debt_to_equity": None, "revenue": None, "net_income": None,
+         "market_cap": Decimal("1000000"), "latest_close": Decimal("5.00")}
+        for i in range(30)
+    ]
+    conn = _make_conn(universe_size=100, match_rows=rows)
+    result = await ev.evaluate_rule(conn, rule, limit=20)
+    assert result.match_count == 30  # true total, unbounded
+    assert len(result.matches) == 20  # shortlist, bounded by limit
+    assert result.universe_size == 100
+    assert result.matches[0].symbol == "SYM0.AU"
+
+
+async def test_evaluate_rule_no_sector_scope_returns_none() -> None:
+    rule = _make_rule()
+    conn = _make_conn(10, [])
+    result = await ev.evaluate_rule(conn, rule)
+    assert result.sector_scope is None
+
+
+async def test_evaluate_rule_single_rule_sector_used_when_runtime_sector_absent() -> None:
+    rule = _make_rule(rule_json={
+        "version": 1, "sector_scope": ["Financial Services"],
+        "conditions": {"logic": "AND", "items": [{"field": "pe_ratio", "op": "is_null"}]},
+    })
+    conn = _make_conn(10, [])
+    result = await ev.evaluate_rule(conn, rule)
+    assert result.sector_scope == "Financial Services"
+
+
+# ---------------------------------------------------------------------------
+# log_run
+# ---------------------------------------------------------------------------
+
+
+async def test_log_run_inserts_snapshot_not_live_rule() -> None:
+    from asxos.domain.screening.types import ScreenMatch, ScreenRunResult
+
+    result = ScreenRunResult(
+        rule_id=1, rule_name="value-screen", sector_scope=None,
+        universe_size=100, matches=(ScreenMatch(symbol="CBA.AU", sector="Financial Services", values={}),),
+        match_count=1, duration_ms=42,
+    )
+    conn = MagicMock()
+    conn.fetchrow = AsyncMock(return_value={"id": 7})
+    snapshot = {"version": 1, "conditions": {"logic": "AND", "items": []}}
+
+    run_id = await ev.log_run(conn, result, snapshot)
+
+    assert run_id == 7
+    call_args = conn.fetchrow.await_args.args
+    # positional: query, rule_id, sector_scope, universe_size, match_count, matched_symbols, rule_json_snapshot, duration_ms
+    assert call_args[1] == 1
+    assert call_args[4] == 1  # match_count
+    assert call_args[5] == ["CBA.AU"]  # matched_symbols from result.matches, not a live re-fetch
