@@ -199,8 +199,14 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
    `theme-researcher`/`instrument-selector`'s not-yet-built `create_theme_from_agent_run()`/
    `create_theme_holding_from_agent_run()` service functions. Governance path identical to
    `macro-economist` at every step — no direct agent writes, ever. Triggered by James,
-   2026-07-11. Owner: `requirements-analyst` (drafted) → `system-architect`/`backend-architect`
-   (design) → James (scope sign-off).
+   2026-07-11. **Spec drafted 2026-07-12**: `docs/proposals/sector-screener-agent-spec-2026-07-12.md`
+   — full frontmatter, data sources, 4-step invocation procedure, `ThemeProposal`/
+   `ThemeHoldingProposal` JSON output schema, boundaries, and a 6-stage pre-go-live checklist.
+   Deliberately NOT materialized as a live `.claude/agents/*.md` file — that step waits on item 6
+   (DB role scoping applied) so the agent is never invocable next to governed tables under
+   prompt-level-only SELECT enforcement. Owner: `requirements-analyst` (drafted) →
+   `system-architect`/`backend-architect` (design) → James (scope sign-off, then apply item 6 to
+   unblock materialization).
 6. **Agent DB read-only role — design drafted, ready to apply.**
    `docs/proposals/agent-db-readonly-role-design-2026-07-11.md`: a full draft migration
    (`0038_agent_readonly_role.sql`, NOT applied) creating `asxos_agent_ro` — LOGIN, default-deny
