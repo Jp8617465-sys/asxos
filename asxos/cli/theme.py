@@ -66,6 +66,7 @@ def theme_create(
     started: str = typer.Option("", "--started", help="Start date YYYY-MM-DD (default today)"),
 ) -> None:
     """Create a new investment theme."""
+    _require_personal_use()
     started_date: date | None = None
     if started:
         try:
@@ -102,6 +103,7 @@ async def _create_theme(
 @theme_app.command("list")
 def theme_list() -> None:
     """List all themes."""
+    _require_personal_use()
     asyncio.run(_list_themes())
 
 
@@ -139,6 +141,7 @@ def theme_coverage() -> None:
     (ETF/LIC/hybrid have no GICS sector). See docs/proposals/
     thesis-coverage-framework-2026-07-11.md Tier 1a.
     """
+    _require_personal_use()
     asyncio.run(_show_coverage())
 
 
@@ -189,6 +192,7 @@ def theme_review(
     code: str = typer.Argument(..., help="Theme code"),
 ) -> None:
     """Detailed view: theme metadata + linked theses + adjacencies."""
+    _require_personal_use()
     asyncio.run(_review_theme(code))
 
 
@@ -261,6 +265,7 @@ def adjacency_add(
     code_b: str = typer.Argument(..., help="Second theme code"),
 ) -> None:
     """Add a bidirectional adjacency between two themes."""
+    _require_personal_use()
     asyncio.run(_add_adjacency(code_a, code_b))
 
 
@@ -290,6 +295,7 @@ def theme_stage(
 
     If stage_suggested differs from stage, the divergence is shown.
     """
+    _require_personal_use()
     asyncio.run(_set_stage(code, stage, note))
 
 
@@ -329,6 +335,7 @@ def theme_attach(
     Upserts the theme_holdings row: (theme_id, symbol) PK.
     Also syncs the denormalised theses.themes TEXT[] for open theses.
     """
+    _require_personal_use()
     try:
         strength_d = Decimal(strength)
     except InvalidOperation as exc:
