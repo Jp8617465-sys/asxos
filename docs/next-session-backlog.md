@@ -8,6 +8,21 @@
 
 ---
 
+## Follow-ups logged 2026-07-13 (/arbi wake — monitoring-lane fixes, PR #30)
+
+- **`wealth_state` staleness transparency** (security-engineer Low, PR #30 review). The
+  brief's wealth line now reads the latest snapshot on/before the brief date
+  (`as_of <= $1 ... LIMIT 1`, `asxos/domain/brief/collectors/wealth_state.py`) — a
+  correctness fix, but it carries no snapshot `as_of` or staleness marker, so a stalled
+  `snapshot_portfolio` could silently render an old figure as current. Mitigated (a
+  stalled job is deadman-alerted, and the complete-day anchor stops a *succeeding* job
+  from writing stale-plausible data), so it is a hardening, not a blocker. Follow-up:
+  surface the snapshot `as_of` in the wealth line, or mark the section `degraded` when
+  `(brief_date − snapshot.as_of)` exceeds a small bound (`asxos/domain/prices/coverage.py::is_stale`
+  already exists). Owner: `backend-architect` scope → main loop.
+
+---
+
 ## P(-1) — ~~STOP~~ RESOLVED 2026-07-11 (this section is now historical)
 
 > **UPDATE 2026-07-11 — the dispute below is RESOLVED, against Model A.** The decay check ran
