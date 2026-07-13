@@ -43,8 +43,19 @@ detail behind these lines.
 - **Next actions:** see the ranked queue below. #1 = fix the broken monitoring crons
   (`track_signal_outcomes`'s fix is already committed on PR #26 — pending merge + deploy);
   then ETF Slice 2.
-- **Decisions needed from James:** see **`james-inbox.md`** — HUBS `conviction_level`; CBA
-  thesis #1 fix-or-retire; VGS/VAS holding-lot data.
+- **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
+  2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
+- **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
+  auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
+  cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
+  KEEP-DARK), and the `/pm-review` LLM findings die in markdown. Reversible fix proposed (3
+  specialists): a model-independent deterministic discipline **section in the brief James already
+  reads** (no gate flip, `ASXOS_PERSONAL_USE` only), then a findings-sink table, then a later gated
+  LLM `/pm-review` Routine. Full: `docs/proposals/portfolio-team-visibility-2026-07-12.md`.
+  Corrects an earlier arbi error: M13.8 paper-trade sign-off **is** scoped in code
+  (`paper_trade.py:294`), not unscoped. Honest scope note: this fixes the *flagging-visibility*
+  half; automated *stock rating / thesis generation* is the shelved-ML (rule #11) + unbuilt
+  discovery-agent track, a separate conversation.
 - **Known risks:** (1) `m14_candidate_agent_db_role_scoping` — agent SELECT-only is
   prompt-enforced only; (2) v1 allocator risk-blindness to ASX beta clustering
   (`m14_candidate_beta_cap`); (3) built-but-dark-launched layers are unreleased, not done
