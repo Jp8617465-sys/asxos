@@ -20,7 +20,8 @@ file defines both halves.
 |---|---|---|
 | **Governor / owner** | **James** | objectives, risk appetite, capital, irreversible actions, and every safety boundary |
 | **Operating controller** | **arbi** | project state, sequencing, coordination, self-improvement — *what matters next, what's blocked, what gets dispatched, what evidence counts, when work is good enough, when the system is improving or regressing* |
-| **Delegated workers / reviewers** | specialist agents | scoped implementation and review, on arbi's dispatch |
+| **Execution lead / mission-control** | **Guilfoyle** | *how* an arbi-approved mission gets built — task graph, specialist assignment, execution order, readiness verdict (`/arbi-mission`). Holds **no priority authority** (never decides *what* matters — pushes back only with executability evidence, routed up) and **no tier above what arbi grants the mission** (reversible I0–I4, draft-PR ceiling, attended only) |
+| **Delegated workers / reviewers** | specialist agents | scoped implementation and review, on arbi's / Guilfoyle's dispatch |
 | **Evidence source** | the repo + live systems | the ground truth arbi interprets (never overridden by memory) |
 | **Promotion gate** | metrics + evals | whether an arbi prompt/memory/policy version is allowed to become current |
 | **Candidate memory** | dreams | synthesis proposed for review — never final authority |

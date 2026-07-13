@@ -318,7 +318,7 @@ just repeats mistakes faster. Each PR is a deliberate, separate change.
 | 6 | Dream policy + promotion gate (`arbi-dream-policy.md`, `arbi-promotion-gate.md`) | **done (docs)** |
 | **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | **WIRED 2026-07-10** — daily 20:30 UTC (06:30 AEST), fresh session, push+email to James; Routine `trig_01PiLVYg2GHAKpW8Xy43z5JN` |
 | **7b** | **Standing** scheduled autonomy (arbi writes/acts unattended on a schedule) | **blocked** on the 3 preconditions below |
-| 8 | Multi-agent delegation (arbi coordinates specialists) | **attended bridge `/arbi-run` shipped 2026-07-10** (governor-invoked, reversible: arbi plans → main loop fans out named specialists); *standing/unattended* dispatch still gated on preconditions + runtime |
+| 8 | Multi-agent delegation (arbi coordinates specialists) | **`/arbi-run` shipped 2026-07-10** (thin attended bridge); **`/arbi-mission` + `guilfoyle` mission-control drafted 2026-07-13** — its graph-driven, readiness-gated evolution (task graph → specialists → draft PR), still attended + reversible (Guilfoyle plans/judges, never prioritises/spawns/merges); *standing/unattended* dispatch still gated on the 3 preconditions + runtime |
 | 9 | GitHub operator mode (docs-only draft PRs) | not started |
 | 10 | Live read-only watchdog (reacts to CI/PR/data events) | not started |
 

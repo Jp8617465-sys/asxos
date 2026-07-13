@@ -3,13 +3,15 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**,
-**five investment-analysis agents**, **one discovery agent**, and **two
-program-management agents** (`arbi` + `arbi-red-team`, see bottom). The
+**five investment-analysis agents**, **one discovery agent**, and **three
+program-management agents** (`arbi` + `arbi-red-team` + `guilfoyle`, see bottom). The
 dev agents help build and maintain the codebase; the conformance agents guard
 spec↔test↔code correctness; the investment-analysis agents surface evidence-grounded
 views on the live portfolio; the discovery agent proposes new investment content for
 governance review; arbi sits above them all and prioritises what gets built toward the
-product's north star, with arbi-red-team as its adversarial check. All twenty-one are
+product's north star, with arbi-red-team as its adversarial check and `guilfoyle` as
+its execution lead (mission-control under arbi via `/arbi-mission` — plans/judges a
+mission's task graph, never prioritises). All twenty-two are
 advisory by default; none is a runtime
 in-product agent (a runtime tax/portfolio LLM is a structural NO — it would collide
 with the personal-advice firewall and Decimal-only determinism). The investment-
@@ -183,3 +185,14 @@ memory overriding repo truth, perfectionism blocking a shippable build) and retu
 PASS / CHALLENGE verdict with a file-cited reason for each. Same read-only tool boundary
 (`Read, Glob, Grep`); it never proposes its own "one thing," never dispatches, and never
 waves through a call that crosses the firewall or rule #11.
+
+**guilfoyle** is arbi's execution lead — mission-control, *under* arbi, invoked via
+`/arbi-mission`. arbi decides *what matters*; guilfoyle decides *how* an arbi-approved
+mission gets built: it turns a mission envelope into a task graph, assigns each node to a
+specialist, sets the execution order, and returns one readiness verdict before the draft
+PR. It **plans and judges only** — same read-only boundary (`Read, Glob, Grep`, no `Agent`
+tool, because a subagent's `Agent(...)` allowlist is ignored at runtime); the
+`/arbi-mission` command's main loop does the spawning, testing, review loop, and draft PR.
+It holds no tier above what arbi grants a mission (reversible I0–I4, draft-PR ceiling,
+attended only), never sets priority (its only pushback is executability evidence, routed
+up), and never merges/deploys/migrates or acts on Model A output for capital.

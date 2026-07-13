@@ -14,14 +14,16 @@ correction is a new row that references the old one.
 
 ## What a run record captures
 
-One row per run (`/arbi`, `/arbi-close`, a scheduled brief, a dispatched task):
+One row per run (`/arbi`, `/arbi-close`, a scheduled brief, a dispatched task, an
+`/arbi-mission` execution):
 
 ```yaml
 run_id:            # monotonic or timestamp-derived
 date:
 trigger:           # manual | scheduled | github-event | ci-failure
 goal:              # the one thing this run was for
-task_type:         # daily-brief | roadmap-update | pr-review | session-close | dream | ...
+task_type:         # daily-brief | roadmap-update | pr-review | session-close | dream | mission | ...
+                   # (mission = an /arbi-mission run; also record its task-graph size + readiness verdict in notes)
 authority_level:   # tier acted at (0-1 today)
 hard_gate_passed:  true/false
 episode_score:     # from arbi-scorecard.md, if gates passed

@@ -47,6 +47,15 @@ are irreversible → always human-approved, never standing, regardless of track 
 `.claude/hooks/unattended-guard.sh` hook is the mechanical pre-filter for I5–I6 under
 unattended runs (push/merge to main, DB writes, Render, migrations).
 
+**`/arbi-mission` (Guilfoyle) is the structured, attended form of I3–I4** — the graph-driven,
+readiness-gated successor to `/arbi-run` (`.claude/commands/arbi-mission.md`, `.claude/agents/guilfoyle.md`).
+It is **not a new ladder**: Guilfoyle is an *execution role* on this same infra ladder. It holds
+**no tier above what arbi grants a mission** (reversible I0–I4, draft-PR ceiling); I5–I6 (and
+P5–P6) still STOP for James; and *standing/unattended* mission dispatch stays gated on the same
+PR 7b/8 promotion preconditions below. Guilfoyle plans and judges — it never spawns, merges, or
+reprioritises (a subagent's `Agent(...)` allowlist is ignored at runtime, so the `/arbi-mission`
+command's main loop does the fan-out, exactly like `/arbi-run`).
+
 ## Portfolio decision-support ladder (P0–P6) — operating the portfolio
 
 Every P-tier below P6 produces a **memo** (`recommendation-schema.md`), inside James's
