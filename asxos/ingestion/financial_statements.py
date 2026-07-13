@@ -208,6 +208,16 @@ ON CONFLICT (symbol, period_end, period_type, statement_type) DO UPDATE SET
 """
 
 
+# Whole-run wall-clock deadline for the bounded-worker pool (CLAUDE.md #10: fail
+# loud). Each fetch is already bounded (httpx 60s x 3 tenacity attempts, ~185s worst
+# case), but a systemic EODHD outage would make every symbol hit that ceiling and the
+# full run hang for many hours until Render kills it — orphaning a 'running' row that
+# only self-heals on the NEXT run (a week away for this weekly cron). The deadline
+# converts a silent hang into a loud JobMonitor 'failure' inside the window.
+# ~60 min is well above the expected tens-of-minutes runtime for ~2,382 active names.
+_RUN_DEADLINE_S = 3600
+
+
 async def refresh_financial_statements(
     client: EODHDClient,
     conn: asyncpg.Connection,
@@ -261,6 +271,11 @@ async def refresh_financial_statements(
                     continue
                 sector, industry = _sector_industry(fund)
                 rows = to_statement_rows(fund, sym, as_of=as_of)
+                # Drop the large raw payload before contending for write_lock —
+                # sector/industry/rows are already extracted, so a worker blocked
+                # on the serialised write no longer pins the multi-MB fundamentals
+                # dict (belt-and-braces under the ~2.5x headroom at 512Mi).
+                del fund
                 async with write_lock:
                     if sector or industry:
                         await conn.execute(_SECTOR_UPDATE, sym, sector, industry)
@@ -275,12 +290,15 @@ async def refresh_financial_statements(
 
     workers = [asyncio.ensure_future(worker()) for _ in range(concurrency)]
     try:
-        await asyncio.gather(*workers)
+        # Hard wall-clock deadline (see _RUN_DEADLINE_S) so a systemic upstream
+        # stall fails loud in-window instead of hanging until Render kills it.
+        await asyncio.wait_for(asyncio.gather(*workers), timeout=_RUN_DEADLINE_S)
     except BaseException:
-        # A parse/write error in one worker aborts the run (original contract).
-        # Cancel the siblings and await them BEFORE unwinding past the caller's
-        # `async with acquire() as conn` block — otherwise an orphaned worker
-        # could call conn.execute after the connection is released to the pool.
+        # A parse/write error, a TimeoutError from the deadline, or cancellation
+        # aborts the run (original contract). Cancel the siblings and await them
+        # BEFORE unwinding past the caller's `async with acquire() as conn` block
+        # — otherwise an orphaned worker could call conn.execute after the
+        # connection is released to the pool.
         for w in workers:
             w.cancel()
         await asyncio.gather(*workers, return_exceptions=True)

@@ -1,9 +1,11 @@
 """
 Section 1: Wealth state — M-Brief-Skeleton.
 
-Reads portfolio_daily_snapshots for the as_of date. Returns no_data if the
-snapshot table is empty or has no row for this date (portfolio cron may not
-have run yet, or M13 is not enabled).
+Reads the latest portfolio_daily_snapshots row on or before the as_of date (an
+exact match is not required: the snapshot's as_of is anchored to the latest
+complete trading day, so it rarely equals the brief's calendar as_of). Returns
+no_data only if no snapshot exists on or before this date (portfolio cron may
+not have run yet, or M13 is not enabled).
 
 SeverityItems produced:
   - green: cash ratio, portfolio MV, capital AUD (informational)
@@ -27,6 +29,11 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
     import time
     start_ms = int(time.monotonic() * 1000)
 
+    # Latest snapshot on or before the brief date, not an exact match. The brief
+    # calendar as_of (date.today()) never equals the snapshot's as_of, which is now
+    # anchored to the latest COMPLETE trading day (e.g. Friday) by snapshot_portfolio.
+    # An exact `= $1` returned no_data on every weekend/holiday brief; `<= $1 ... LIMIT 1`
+    # self-heals, matching how peak_row/inception_row below already scope to `<= $1`.
     row = await conn.fetchrow(
         """
         SELECT capital_aud, holdings_mv_aud, cash_aud,
@@ -34,7 +41,9 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
                fx_rate_audusd, unrealised_fx_pnl_aud,
                benchmark_tr_level, trailing_div_yield_pct
         FROM portfolio_daily_snapshots
-        WHERE as_of = $1
+        WHERE as_of <= $1
+        ORDER BY as_of DESC
+        LIMIT 1
         """,
         as_of,
     )
