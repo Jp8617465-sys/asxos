@@ -473,3 +473,103 @@ def test_upsert_on_conflict(monkeypatch):
     assert all("ON CONFLICT" in q for q in execute_calls)
     assert monitor1.rows_written == 1
     assert monitor2.rows_written == 1
+
+
+# ---------------------------------------------------------------------------
+# 7. Auto daily path — trading-day anchor + latest-run gate (weekend false-block fix)
+# ---------------------------------------------------------------------------
+
+def test_latest_sync_ok_true_when_latest_success():
+    """_latest_sync_ok reads the most-recent sync_prices run (not an exact date)."""
+    conn = MagicMock()
+
+    async def _fetchrow(query, *args):
+        assert "ORDER BY as_of DESC" in query  # latest-run form...
+        assert "as_of = $1" not in query       # ...not the exact-date form
+        return {"status": "success"}
+
+    conn.fetchrow = _fetchrow
+    assert asyncio.run(job_mod._latest_sync_ok(conn)) is True
+
+
+def test_latest_sync_ok_false_when_latest_failed_or_absent():
+    """False when the latest sync failed, and when there is no sync row at all."""
+    conn_fail = MagicMock()
+
+    async def _fail(query, *args):
+        return {"status": "failure"}
+
+    conn_fail.fetchrow = _fail
+    assert asyncio.run(job_mod._latest_sync_ok(conn_fail)) is False
+
+    conn_none = MagicMock()
+
+    async def _none(query, *args):
+        return None
+
+    conn_none.fetchrow = _none
+    assert asyncio.run(job_mod._latest_sync_ok(conn_none)) is False
+
+
+def test_snapshot_one_day_latest_run_gate_blocks_on_failed_sync():
+    """gate_exact_date=False routes through _latest_sync_ok; a failed latest sync
+    raises UpstreamBlocked (still fail-loud, CLAUDE.md #10)."""
+    conn = MagicMock()
+
+    async def _fetchrow(query, *args):
+        return {"status": "failure"}
+
+    conn.fetchrow = _fetchrow
+    monitor = MagicMock()
+    monitor.rows_written = 0
+
+    with patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)):
+        with pytest.raises(UpstreamBlocked):
+            asyncio.run(
+                job_mod._snapshot_one_day(AS_OF, monitor, gate_exact_date=False)
+            )
+
+
+def test_auto_daily_path_anchors_to_latest_complete_trading_day():
+    """main() with no --as-of/--from anchors as_of to latest_complete_trading_day
+    and uses the latest-run gate (gate_exact_date=False), not naive today-1."""
+    anchor = _dt.date(2026, 5, 22)  # a Friday
+    captured: dict = {}
+
+    async def _fake_snapshot_one_day(as_of, monitor, *, gate_exact_date=True):
+        captured["as_of"] = as_of
+        captured["gate_exact_date"] = gate_exact_date
+
+    async def _fake_latest(conn):
+        return anchor
+
+    conn = _make_conn()
+    with (
+        patch.object(job_mod, "init_pool", AsyncMock()),
+        patch.object(job_mod, "close_pool", AsyncMock()),
+        patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)),
+        patch.object(job_mod, "latest_complete_trading_day", _fake_latest),
+        patch.object(job_mod, "_snapshot_one_day", _fake_snapshot_one_day),
+        patch.object(job_mod, "JobMonitor", _FakeJobMonitor),
+    ):
+        asyncio.run(job_mod.main(None, None))
+
+    assert captured["as_of"] == anchor           # trading-date anchor, not Sat/Sun
+    assert captured["gate_exact_date"] is False   # auto path uses the latest-run gate
+
+
+def test_auto_daily_path_raises_when_no_complete_trading_day():
+    """main() hard-fails (RuntimeError) rather than snapshotting off missing prices
+    when latest_complete_trading_day returns None (CLAUDE.md #10)."""
+    async def _fake_latest(conn):
+        return None
+
+    conn = _make_conn()
+    with (
+        patch.object(job_mod, "init_pool", AsyncMock()),
+        patch.object(job_mod, "close_pool", AsyncMock()),
+        patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)),
+        patch.object(job_mod, "latest_complete_trading_day", _fake_latest),
+    ):
+        with pytest.raises(RuntimeError, match="complete trading day"):
+            asyncio.run(job_mod.main(None, None))

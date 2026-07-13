@@ -7,11 +7,18 @@ benchmark_tr_level, trailing_div_yield_pct, holdings_count) and UPSERTs
 into portfolio_daily_snapshots.
 
 Schedule: weekdays 20:40 UTC (after sync_prices 20:30, before compose_brief 21:00).
+The auto daily run anchors as_of to the latest COMPLETE trading day in `prices`
+(via latest_complete_trading_day), not today-1 — matching the data-date anchor
+generate_signals and compose_brief use. Explicit --as-of/--from use the given date.
 
 Hard-fail conditions (CLAUDE.md non-negotiable #10):
   - No active profile in profiles table (RuntimeError)
-  - sync_prices job_runs.status != 'success' for as_of (UpstreamBlocked);
-    --from backfill skips missing days instead of aborting (see main())
+  - Auto path with no complete trading day in `prices` — as_of cannot be
+    anchored (RuntimeError; fail loud rather than snapshot off missing prices)
+  - sync_prices upstream not ready (UpstreamBlocked). The auto path uses the
+    latest-run gate (most-recent sync_prices run succeeded); explicit --as-of
+    and --from use the exact-date gate (success row for that exact as_of).
+    --from backfill skips missing days instead of aborting (see main()).
   - holdings_mv_aud computation fails (e.g. asyncpg error) (unhandled exception)
 
 Soft-degrade conditions (NULL column instead of failure):
@@ -31,8 +38,8 @@ approximation on the price close (see _accumulation_tr_level). trailing_div_yiel
 records which path ran (NULL = real index, assumed % = approximation).
 
 Usage:
-    python jobs/snapshot_portfolio.py                         # yesterday
-    python jobs/snapshot_portfolio.py --as-of 2026-05-27
+    python jobs/snapshot_portfolio.py                         # auto: latest complete trading day
+    python jobs/snapshot_portfolio.py --as-of 2026-05-27      # exact-date gate
     python jobs/snapshot_portfolio.py --from 2026-01-01       # backfill; days without a sync_prices success row are skipped, not hard-failed
 """
 import argparse
@@ -43,6 +50,7 @@ from decimal import Decimal
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.prices.fx import foreign_symbol_sql, is_foreign_symbol
 from asxos.jobs._helpers import UpstreamBlocked
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -90,9 +98,33 @@ def _accumulation_tr_level(xjo_close: Decimal, as_of: date) -> Decimal:
 
 
 async def _upstream_ok(conn, as_of: date) -> bool:
+    """Exact-date gate: sync_prices has a success row for this exact as_of.
+
+    Used by the explicit --as-of and --from backfill paths, where the operator
+    supplies authoritative dates and a per-date check is meaningful.
+    """
     row = await conn.fetchrow(
         "SELECT status FROM job_runs WHERE job_name = 'sync_prices' AND as_of = $1",
         as_of,
+    )
+    return row is not None and row["status"] == "success"
+
+
+async def _latest_sync_ok(conn) -> bool:
+    """Latest-run gate: the most-recent sync_prices run succeeded.
+
+    Used by the auto daily path, whose as_of is anchored to
+    latest_complete_trading_day() (real price data) rather than to a sync_prices
+    run-date. The exact-date _upstream_ok cannot be used there: sync_prices
+    records job_runs.as_of = its UTC RUN date (Sun-Thu), which never equals a
+    trading-session date like Friday, so an exact match would false-block every
+    weekend. Because the auto as_of is derived FROM the prices table, the price
+    joins are satisfied by construction; this gate's only remaining job is to
+    refuse snapshotting when the latest sync itself failed (partial/broken prices).
+    """
+    row = await conn.fetchrow(
+        "SELECT status FROM job_runs WHERE job_name = 'sync_prices' "
+        "ORDER BY as_of DESC LIMIT 1"
     )
     return row is not None and row["status"] == "success"
 
@@ -210,13 +242,19 @@ async def _fetch_accum_close(conn, as_of: date) -> Decimal | None:
     return Decimal(str(row["close"])) if row else None
 
 
-async def _snapshot_one_day(as_of: date, monitor: JobMonitor) -> None:
+async def _snapshot_one_day(
+    as_of: date, monitor: JobMonitor, *, gate_exact_date: bool = True
+) -> None:
     async with acquire() as conn:
-        upstream_ok = await _upstream_ok(conn, as_of)
+        if gate_exact_date:
+            upstream_ok = await _upstream_ok(conn, as_of)
+        else:
+            upstream_ok = await _latest_sync_ok(conn)
 
     if not upstream_ok:
+        gate = "exact-date" if gate_exact_date else "latest-run"
         raise UpstreamBlocked(
-            f"sync_prices has no success row for {as_of}. "
+            f"sync_prices upstream not ready for {as_of} ({gate} gate). "
             "Snapshot requires fresh prices. Retry after sync_prices completes."
         )
 
@@ -339,13 +377,35 @@ async def main(as_of_arg: date | None, from_date: date | None) -> None:
                 current += timedelta(days=1)
             log.info("backfill complete through %s", current - timedelta(days=1))
         else:
-            as_of = as_of_arg or date.today() - timedelta(days=1)
+            # Explicit --as-of stays operator-authoritative with the exact-date
+            # gate. The auto daily path anchors as_of to the latest COMPLETE
+            # trading day in `prices` (the same data-date anchor generate_signals
+            # and compose_brief use) instead of naive today-1 — which on the
+            # Sun/Mon UTC runs pointed at Sat/Sun, non-trading dates with no
+            # prices: the Sunday run false-blocked (as_of=Sat, no sync_prices row)
+            # and the Monday run wrote an MV=0 corrupt snapshot (as_of=Sun, the
+            # prices INNER JOIN dropped every holding). Anchoring to real price
+            # data fixes both; the auto path uses the latest-run gate accordingly.
+            if as_of_arg is not None:
+                as_of = as_of_arg
+                gate_exact_date = True
+            else:
+                async with acquire() as conn:
+                    anchor = await latest_complete_trading_day(conn)
+                if anchor is None:
+                    raise RuntimeError(
+                        "No complete trading day found in prices — cannot anchor "
+                        "the snapshot (CLAUDE.md #10: fail loud rather than "
+                        "snapshot off missing price data). Run sync_prices first."
+                    )
+                as_of = anchor
+                gate_exact_date = False
             async with JobMonitor(
                 job_name=JOB_NAME,
                 as_of=as_of,
                 healthcheck_url=settings.healthcheck_url_snapshot_portfolio,
             ) as monitor:
-                await _snapshot_one_day(as_of, monitor)
+                await _snapshot_one_day(as_of, monitor, gate_exact_date=gate_exact_date)
     finally:
         await close_pool()
 
@@ -355,7 +415,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--as-of",
         metavar="YYYY-MM-DD",
-        help="Snapshot date (default: yesterday)",
+        help="Snapshot date (default: latest complete trading day)",
     )
     parser.add_argument(
         "--from",
