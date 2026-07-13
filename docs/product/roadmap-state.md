@@ -279,6 +279,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 | `m14_candidate_conviction_weighted_cadence` | Conviction-weighted revisit cadence not built | `governance-first-architecture-2026-06-30.md:310` |
 | `m14_candidate_beta_cap` | Market-beta cap (v1 allocator is risk-blind to ASX beta clustering) | `portfolio-conventions.md:204` |
 | `m14_candidate_security_kind_enum` | `security_kind` enum to disambiguate overloaded `universe.is_active` | `portfolio-conventions.md:208,222` |
+| `m14_candidate_espp_employer_concentration` | ESPP/employer-stock treatment: a lot marker (`acquisition_source='espp_employer'` + `tradeable_from`), an `employer_concentration_cap_pct` policy, and the **10% soft-flag / 20% hard-trim** rule James set 2026-07-13 — fold into the `security_kind` build, "build later when it matters." Excludes HUBS from conviction checks; applies the tighter employer cap; gates trim on the lock. | `james-inbox.md` (HUBS resolved 2026-07-13); portfolio-coherence-reviewer 2026-07-13 |
 
 ## Dark-launch gate status (the hidden release state)
 
