@@ -209,13 +209,20 @@ ON CONFLICT (symbol, period_end, period_type, statement_type) DO UPDATE SET
 
 
 # Whole-run wall-clock deadline for the bounded-worker pool (CLAUDE.md #10: fail
-# loud). Each fetch is already bounded (httpx 60s x 3 tenacity attempts, ~185s worst
-# case), but a systemic EODHD outage would make every symbol hit that ceiling and the
-# full run hang for many hours until Render kills it — orphaning a 'running' row that
-# only self-heals on the NEXT run (a week away for this weekly cron). The deadline
-# converts a silent hang into a loud JobMonitor 'failure' inside the window.
-# ~60 min is well above the expected tens-of-minutes runtime for ~2,382 active names.
-_RUN_DEADLINE_S = 3600
+# loud). It is a HANG detector, not a throughput budget: a systemic EODHD outage makes
+# every fetch burn ~185s (httpx 60s x 3 tenacity attempts); across ~2,382 names / 8
+# workers that hangs the run for ~15h, orphaning a 'running' row that only self-heals on
+# the NEXT weekly run. The deadline converts that silent hang into a loud JobMonitor
+# 'failure' inside the window.
+# Sizing (revised 2026-07-13): the healthy run's cost is the per-symbol batched writes
+# (see executemany in the worker). Post-batching the full run is estimated ~15-30 min —
+# round-trips collapse ~160x (from ~380k per-row to ~2,382 per-symbol); 90 min leaves
+# generous headroom for that (still-unvalidated-in-prod) estimate while catching the
+# ~15h hang by a wide margin. The prior 3600s/"tens of minutes" sizing predated the
+# 2026-07-13 smoke, which measured 77 min for just 200 symbols on the per-row path — so
+# 3600 would have killed even a healthy full run. Real validation = first post-merge
+# weekly run (Sat); watch its duration_ms and tighten if it lands well under 30 min.
+_RUN_DEADLINE_S = 5400
 
 
 async def refresh_financial_statements(
@@ -282,9 +289,21 @@ async def refresh_financial_statements(
                         counts["sectors_enriched"] += 1
                     if rows:
                         counts["symbols_with_statements"] += 1
-                    for row in rows:
-                        await conn.execute(_UPSERT, *row)
-                        counts["statements"] += 1
+                        # Batch the per-symbol UPSERTs into ONE executemany round-trip
+                        # (house style — asxos/domain/signals/writer.py:69). The prior
+                        # per-row loop issued one network round-trip per statement row:
+                        # the 2026-07-13 --limit 200 smoke wrote 32,095 rows in 77 min
+                        # (round-trip-bound), extrapolating to ~15h for the full ~2,382-
+                        # name weekly run — well past _RUN_DEADLINE_S. executemany prepares
+                        # _UPSERT once and sends all rows in one round-trip, so the
+                        # ON CONFLICT idempotency and the $14::jsonb cast are unchanged.
+                        # NOT strictly behavior-preserving: writes shift from per-row-
+                        # persist to per-symbol-atomic (asyncpg executemany is one implicit
+                        # transaction) — a mid-symbol write error rolls back that symbol's
+                        # batch and aborts the run (siblings cancelled below). Safe because
+                        # the UPSERT is idempotent and the run is resumable on re-fetch.
+                        await conn.executemany(_UPSERT, rows)
+                        counts["statements"] += len(rows)
             finally:
                 queue.task_done()
 
