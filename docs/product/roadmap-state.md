@@ -2,9 +2,10 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-11 (first interactive `/arbi` wake — *Last wake snapshot* now
-probe-based baseline; In flight reconciled to PR #25 merged; queue re-ranked with the monitoring
-lane as THE ONE THING)
+**Last verified:** 2026-07-13 (interactive `/arbi` wake — monitoring lane found HALF-HEALED:
+`check_model_staleness` fixed, but `check_cron_health` red on a 40h-stuck `sync_financial_statements`,
+`snapshot_portfolio` weekend-false-blocked since 07-08, `track_signal_outcomes` on a new param-type
+bug; THE ONE THING = finish the monitoring lane to green; draft PR #29 discipline evaluator open)
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
 **Superseded by:** N/A
 
@@ -157,18 +158,25 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-1. **THE ONE THING (2026-07-11): Restore the monitoring lane.** Fix the two failing crons
-   `check_cron_health` (FAILURE 07-10) and `check_model_staleness` (FAILURE 07-10) — both
-   live-verified this wake. `track_signal_outcomes` is now **diagnosed and fixed on branch**:
-   it crashed silently on the Phase 2B init-pool ordering bug (`init_pool()` inside the
-   `JobMonitor` block), vanished from `job_runs`, and froze `signal_outcomes` from 2026-04-15 —
-   **fix committed on `claude/wake-up-arbi-jeww8p` / PR #26, pending merge + Render deploy;** the
-   weekly cron (Sun 03:00 UTC) only resumes writing post-deploy (and the ~2026-03-26..04-11
-   window is past the 90-day lookback and won't backfill). North-star tie: discipline events
-   must reach James before they cost money (`north-star.md:64–67` — the HUBS-stop failure class).
-   Roadmap: post-shelf model-independent live-ops lane (`ml-engine-shelf-2026-07-11.md:82–85`).
-   Owner: main loop. _Note: `retrain_model_a` FAILURE(06-06)+SUSPENDED is expected (shelved),
-   not part of this fix._
+1. **THE ONE THING (updated 2026-07-13): Finish restoring the monitoring lane to green.** PR #26
+   half-healed it — `check_model_staleness` is now SUCCESS(07-12). Three live failures remain
+   (live-verified this wake via `job_runs` + Render events): (a) `sync_financial_statements` shows an
+   **orphaned `running` row** from a Render `oomKilled(512Mi, ~78s)` at 07-11 16:50Z — that was the
+   **PRE-fix** code; PR #26's bounded-worker fix deployed ~07-11 21:10 but is UNEXERCISED (weekly job,
+   next run Sat 07-18), so the stale row persists and holds `check_cron_health` red. Action = validate
+   the deployed fix with one manual trigger (heals the row + tests it under load); harden concurrency
+   first if `performance-engineer` flags 8 workers as unsafe at 512Mi. (b) `snapshot_portfolio`
+   **false-blocked** (`UpstreamBlocked: sync_prices has no success row for 2026-07-11` — a Saturday;
+   `portfolio_daily_snapshots` frozen since 07-08); make its freshness gate business-day/calendar-aware,
+   mirroring how `check_model_staleness` was made shelf-aware. (c) `track_signal_outcomes`
+   FAILURE(07-12) on `AmbiguousParameterError` ($1 text vs varchar) — one-line explicit cast
+   (monitor-hygiene for the shelved-Model-A passive monitor, NOT a rule #11 re-enable).
+   `check_cron_health` (FAILURE 07-12) is failing **correctly** — it is reporting the stuck job;
+   it goes green once (a) clears. North-star tie: discipline/health events must reach James before
+   they cost money (`north-star.md:64–67` — the HUBS-stop failure class). Roadmap: post-shelf
+   model-independent live-ops lane (`ml-engine-shelf-2026-07-11.md:82–90`). Owner: main loop
+   (consult `performance-engineer` + `backend-architect`); land as a draft PR for James's merge.
+   _Note: `retrain_model_a` FAILURE(06-06)+SUSPENDED is expected (shelved), not part of this fix._
    - **(context) Model A decay check — DONE 2026-07-11, P0 RESOLVED against Model A**
      (`docs/model-a-decay-analysis-2026-07-11.md`; 19,032 matured signals; no usable edge; rule
      #11 standing; James SHELVED the ML engine). Do **not** re-run it — that is recency overfit,
@@ -357,24 +365,30 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the first interactive `/arbi` wake (2026-07-11) — this is the baseline; later
-runs diff against it._
+_Recorded by the 2026-07-13 interactive `/arbi` wake — supersedes the 07-11 baseline; later
+runs diff against this. (An earlier-today wake on branch `jeww8p` carries its own 07-13 refresh
+inside draft PR #29, not yet on main; this snapshot is the more current one — it has the live
+`job_runs` errors that wake did not surface.)_
 
 ```
-Last wake: 2026-07-11 (first interactive /arbi — BASELINE)
-- branch: claude/wake-up-arbi-jeww8p — EVEN with origin/main (0 ahead / 0 behind)
-- latest main commit: eff3732 "Shelve the ML engine + ETF Slice 2a + arbi operating docs (#25)"
-- open PRs: none tracked this wake (PR #25 merged to main pre-wake)
-- branch-only commit: 7752f7b (read-only /arbi probe permissions allowlist; not on main)
-- tests: STATE-THIN — sandbox venv missing base deps (numpy/asyncpg/fastapi/pydantic/typer/…);
-  raw 39 failed / 503 passed / 63 errors are import errors, not regressions. No pass/fail delta.
-- latest on-disk migration: 0037_security_kind (REQUIRED_MIGRATIONS=91, satisfied)
-- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED
-  (expected post-shelf); asxos-api live
-- freshness: prices.dt=2026-07-09 · signals.as_of=2026-07-09 · portfolio_snap.as_of=2026-07-08
-  · signal_outcomes=24,454 rows (was ~19,032 at the 2026-07-11 decay analysis; growing)
-- job_runs (latest): check_cron_health=FAILURE(07-10) · check_model_staleness=FAILURE(07-10)
-  · retrain_model_a=FAILURE(06-06, dormant/expected) · sync_prices/generate_signals/
-  ingest_market_context/compose_brief=success(07-09) · snapshot_portfolio=success(as_of 07-08)
-  · build_portfolio=success(as_of 07-04, weekly)
+Last wake: 2026-07-13 (interactive /arbi — supersedes the 07-11 baseline)
+- branch: claude/wake-up-arbi-x1ehyc — EVEN with origin/main (0 ahead / 0 behind), clean tree
+- latest main commit: c9b522c "Merge pull request #28 from ...jeww8p" (PRs #26/#27/#28 landed since baseline)
+- open PRs: #29 (DRAFT — deterministic discipline evaluator, PR1 of the portfolio-visibility lane;
+  wired to nothing, review-loop clean; carries an earlier-today 07-13 refresh not on main) ·
+  #5 (stale pre-shelf Model A research docs — close candidate)
+- tests: STATE-THIN — pytest not installed in sandbox venv. No pass/fail delta (same as baseline).
+- latest on-disk migration: 0038_screening_evaluator_wiring.sql (DRAFT, NOT applied; REQUIRED_MIGRATIONS=91
+  still references 0037). NB numbering-collision risk with the 0038_agent_readonly_role draft → renumber to 0039.
+- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED (expected post-shelf)
+- freshness: prices.dt=2026-07-10 (Fri, weekend-fresh) · signals.as_of=2026-07-10 ·
+  portfolio_snap.as_of=2026-07-08 (FROZEN — snapshot_portfolio blocked) · signal_outcomes=24,454 (unchanged;
+  track_signal_outcomes still not writing) · theses=13 · macro_theses pending_review=0
+- job_runs (latest): check_model_staleness=SUCCESS(07-12, FIXED vs baseline) · check_cron_health=FAILURE(07-12,
+  correctly reporting a stale row — not a bug in itself) · sync_financial_statements=orphaned RUNNING row from a
+  Render oomKilled(512Mi, ~78s) at 07-11 16:50Z — that was the PRE-fix code; PR #26's bounded-worker fix deployed
+  ~07-11 21:10 but is UNEXERCISED (weekly job `50 16 * * 6`, next run Sat 07-18; the orphaned row persists because
+  nothing has rerun to heal it) · track_signal_outcomes=FAILURE(07-12, AmbiguousParameterError: $1 text vs varchar —
+  one-line cast, root-cause reproduced) · snapshot_portfolio=BLOCKED(07-12, Sunday-run gate mismatch: as_of=Sat but
+  sync_prices records as_of=run-date and skips Sat) · retrain_model_a=FAILURE(06-06, dormant/expected) · all others success
 ```

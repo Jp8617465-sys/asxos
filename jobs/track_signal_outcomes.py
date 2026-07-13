@@ -111,10 +111,15 @@ async def _insert_outcome(conn, sig: dict, as_of: date) -> bool:  # type: ignore
         INSERT INTO signal_outcomes
             (symbol, signal_date, model, ml_prob, ml_expected_return, signal_label,
              actual_return_5d, actual_return_21d, was_direction_correct, evaluation_date)
-        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+        -- $1 (symbol) and $3 (model) are cast to varchar explicitly: they flow from
+        -- `signals` (text columns) into `signal_outcomes` (varchar columns) AND are
+        -- reused in the NOT EXISTS predicate below. Without the cast Postgres deduces
+        -- the same parameter as both text (source) and varchar (target/predicate) and
+        -- aborts prepare with 42P08 "inconsistent types deduced for parameter $1".
+        SELECT $1::varchar, $2, $3::varchar, $4, $5, $6, $7, $8, $9, $10
         WHERE NOT EXISTS (
             SELECT 1 FROM signal_outcomes
-            WHERE symbol = $1 AND signal_date = $2 AND model = $3
+            WHERE symbol = $1::varchar AND signal_date = $2 AND model = $3::varchar
         )
         """,
         sig["symbol"],
