@@ -16,10 +16,11 @@ allowed-tools:
 
 **One pass, no polling.** Guilfoyle (or the main loop applying Guilfoyle's criteria) scores
 the finished mission against this checklist; READY → hand back; NOT-READY twice → stop and
-hand James the gap list — do not grind (anti-perfectionism, `guilfoyle.md` stop conditions).
+hand James the gap list — do not grind (anti-perfectionism, `.claude/agents/guilfoyle.md`
+stop conditions).
 
-Hard gates are `rubrics/arbi-safety-boundary.md` — reference them, never restate. On top,
-verify:
+Hard gates are `docs/product/rubrics/arbi-safety-boundary.md` — reference them, never
+restate. On top, verify:
 
 1. **Diff ⊆ scope** — the PR's changed-file list is exactly (or within) the mission
    envelope's scope. Any file outside scope = NOT-READY, no exceptions.
@@ -41,5 +42,5 @@ verify:
 8. **Follow-ups recorded, not pursued** — anything discovered lands in the
    backlog/ledger/risk-register, not in the PR.
 
-Then append the mission row to `docs/product/arbi-run-ledger.md` (`task_type: mission`) and
-stop.
+Then append the mission row to `docs/product/arbi-run-ledger.md` (`task_type: mission`, or
+`team-mission` when ending an `/arbi-team` run) and stop.

@@ -18,8 +18,6 @@ allowed-tools:
   - Bash(git switch -c claude/*)
   - Bash(git add:*)
   - Bash(git commit:*)
-  - Bash(git push -u origin claude/*)
-  - Bash(git push --force-with-lease -u origin claude/*)
   - Bash(make check:*)
   - Bash(pytest:*)
   - Bash(python -m pytest:*)
@@ -41,21 +39,39 @@ prompts or is denied exactly as before.
 
 Only I0–I4 actions (`docs/product/arbi-permission-model.md` — the authority): read/search,
 edit, tests/linters, staging/commits (the `review-gate.sh` hook still gates every commit with
-staged `.py`, including the R13 same-step-staging denial), and push **only to `claude/**`
-branches** (`git push -u origin claude/...` — the pattern binds the ref).
+staged `.py`, including the R13 same-step-staging denial).
 
 ## What deliberately stays outside this skill
 
-- **Bare `git push`** — not listed, so it asks. A glob cannot see the current branch's
-  upstream, so an unqualified push cannot be mechanically proven safe; type the explicit
-  `claude/**` form instead. **This is honest pattern-granularity: a glob is a convenience
-  filter, not a boundary.**
-- Anything I5/I6: merge, push to `main`, `gh pr merge`, migrations, every `mcp__supabase__*`
-  write, Render API mutation, secrets. Not pre-allowed here and still denied/asked at the
-  settings/hook layer — the hard floor is unchanged by this skill.
+- **EVERY `git push`** — pushes always ask. The red-team (2026-07-14) proved a
+  `claude/*`-glob push pattern is a FALSE boundary: a refspec like
+  `git push origin claude/x:main` matches the glob and lands on remote `main`. And
+  `--force-with-lease` is exactly the operation behind the #29 auto-close incident
+  (L-cand-4 §2) — it earns a prompt every time. One ask per push is the price of an honest
+  floor.
+- **PR creation** — the GitHub tools ask. If a window run has a ready artifact and the
+  PR-creation prompt cannot be answered (operator asleep), "ready + PR queued, surfaced
+  first in the morning report" satisfies L-cand-3 (`docs/product/memory/working/2026-07-12-scope-reversible-without-asking.md`) — see `docs/product/arbi-goal-recipes.md`.
+- Anything I5/I6: merge, push to `main`, migrations, every `mcp__supabase__*` write, Render
+  API mutation, secrets. Not pre-allowed here; at the settings layer these **ask** (there is
+  currently no `deny` array in `.claude/settings.json` — ask-while-unattended means
+  blocked-until-morning, which is safe but should be said honestly). A mechanical deny list
+  + unconditional authority-path guard is **PR-2 (Permission Friction Pack)** territory —
+  James's build order — not this pack.
 - `AskUserQuestion` for reversible choices — inside a window, make the reversible call and
-  log it (governor correction L-cand-2, 2026-07-13); ask only at real James-boundaries
-  (I5/I6/P5/P6, capital, policy).
+  log it (governor correction L-cand-2, 2026-07-12,
+  `docs/product/memory/working/2026-07-12-scope-reversible-without-asking.md`); ask only at
+  real James-boundaries (I5/I6/P5/P6, capital, policy).
+
+## Known limitation (red-team 2026-07-14 — accepted, gated)
+
+`Edit`/`Write` here are unscoped, and pre-allowed executors (`pytest`, `make check`, `mypy`)
+run whatever the tree contains — so an edited `conftest.py`/`Makefile` is an arbitrary-code
+path that bypasses the Bash allowlist, and unscoped Write can reach `.claude/**` itself.
+Attended, the operator sees the edits; the review gate covers what gets committed. Until
+PR-2 lands the mechanical guards (settings `deny` for authority paths; authority-path
+Edit/Write check in the guard hook running attended too), **this skill must not be active in
+an unmonitored window without the operator accepting this residual** — the runbook states it.
 
 ## Binding conduct while active
 

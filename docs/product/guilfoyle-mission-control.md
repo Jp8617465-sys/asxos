@@ -39,7 +39,8 @@ Two structural facts keep this honest:
 1. **No live nested spawn.** A subagent's `Agent(...)` allowlist is inert at runtime, so
    "arbi spawns Guilfoyle spawns a team" cannot be a live call chain. The command's **main
    loop** does every fan-out; Guilfoyle plans and judges only. Decide→do is bridged by a
-   written mission envelope, not a handoff call (`orchestrator-mode-2026-07-13.md`).
+   written mission envelope, not a handoff call
+   (`docs/proposals/orchestrator-mode-2026-07-13.md`).
 2. **Orchestration and mutation never share a process.** Guilfoyle holds `Read, Glob, Grep` —
    no Bash, no Edit. Mutations live on `reversible-work-builder` (and teammates built on its
    conduct), where the review gate and the PR-transaction-discipline block apply.
@@ -59,14 +60,14 @@ env `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` — never a repo default.
 
 ## What Guilfoyle owns vs what it must never own
 
-| Owns (the *how*) | Never owns (routes up) |
+| Owns — plans and judges (the main loop executes each) | Never owns (routes up) |
 |---|---|
 | task graph + dependency order | product priority / THE ONE THING |
 | teammate/specialist selection + file-area ownership | the north star |
-| plan approval (tests present, no boundary crossed, ownership + artifact stated) | risk appetite, capital policy |
+| plan-approval criteria application (tests present, no boundary crossed, ownership + artifact stated — James's affirmative approval when attended-live) | risk appetite, capital policy |
 | parallel-work tracking, conflict detection | merge / deploy (I6 = James) |
-| test/review orchestration, draft-PR prep | DB / Render mutations (I5 = James) |
-| the readiness pass + morning report | its own charter (draft-via-PR only) |
+| the plan for test/review orchestration and draft-PR prep (main-loop steps 3–4 of `/arbi-mission`) | DB / Render mutations (I5 = James) |
+| the readiness verdict (the window's morning report is assembled by the main loop from it) | its own charter (draft-via-PR only) |
 
 Its single pushback channel is **executability evidence** routed to arbi/`arbi-red-team` —
 never a competing priority call. This is the line that keeps arbi the authority: *arbi

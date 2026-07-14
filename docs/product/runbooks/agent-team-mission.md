@@ -31,10 +31,15 @@
 4. Provide the envelope to `/arbi-team` (objective, scope, boundaries, stop condition). The
    flow enforces: red-team vet → Guilfoyle team topology (max 4 teammates, disjoint file
    ownership, expected artifact each) → **plan-approval gate**.
-5. **The plan-approval gate is yours.** You see the team plan before any teammate implements.
-   Approve only if it: includes tests · crosses no DB/Render/merge/deploy/capital boundary ·
-   states file ownership per teammate · states each teammate's expected artifact. Anything
-   missing → send it back; implementation must not start.
+5. **The plan-approval gate — attended-live it is yours.** You see the team plan before any
+   teammate implements; approve only if it: includes tests · crosses no
+   DB/Render/merge/deploy/capital boundary · states file ownership per teammate · states each
+   teammate's expected artifact. Anything missing → send it back; implementation must not
+   start. **Inside a window you granted** (a `/goal` recipe run while you're away), the
+   lead/Guilfoyle applies those same four criteria mechanically — a failing plan never
+   proceeds — and the full approved plan appears **verbatim in the morning report**;
+   borderline plans become JAMES_NEEDED pivots. If you don't want in-window teams at all,
+   say so in the window grant (the recipe is the envelope).
 
 ## During
 

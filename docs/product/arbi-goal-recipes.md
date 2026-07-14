@@ -22,9 +22,10 @@ Launch (after the prerequisites in `runbooks/reversible-work-window.md`):
 
 Use arbi to choose THE ONE THING.
 Run arbi-red-team.
-Then hand execution to Guilfoyle.
+Then hand execution to Guilfoyle (Guilfoyle plans and judges; the main loop
+executes under its plan).
 
-Guilfoyle may use:
+The main loop, under Guilfoyle's plan, may use:
 - reversible-work-window skill
 - arbi-mission skill
 - agent teams only when the mission benefits from parallel work (agent-team-mission skill)
@@ -46,7 +47,9 @@ Hard floor:
 - no secrets
 - no capital/broker execution
 - no authority-file change as active truth
-- no branch-only artifact once ready
+- no branch-only artifact once ready (draft-PR it; if PR creation prompts while
+  unattended, "ready + PR queued" satisfies this — surface it FIRST in the
+  morning report)
 
 PR transaction discipline:
 - After any rebase, force-push, or branch reconstruction, immediately verify PR state.
@@ -90,7 +93,7 @@ when the queue has one clear lane rather than a broad target.
 
 1. **arbi decides, red-team challenges, Guilfoyle orchestrates, builders mutate** — the roles
    never blur mid-window (`guilfoyle-mission-control.md`).
-2. Reversible I0–I4 only; **the draft PR is the durable stopping point** (L-cand-3). Never
+2. Reversible I0–I4 only; **the draft PR is the durable stopping point** (L-cand-3, `memory/working/2026-07-12-scope-reversible-without-asking.md`). Never
    merge/ready-for-review inside a window without explicit James instruction.
 3. On any slip: stop, verify-safe with live reads, log, then continue (L-cand-5).
 4. The window ends with a ledger row (`arbi-run-ledger.md`) and the morning report — the

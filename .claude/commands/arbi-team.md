@@ -14,7 +14,9 @@ governor/arbi invoked, never standing/unattended (the PR 7b/8 promotion precondi
 
 ## Qualifying gate — refuse and reroute if the mission is not team-shaped
 
-Run the test from `.claude/skills/agent-team-mission/SKILL.md` first:
+**This list is canonical** — other files (the `agent-team-mission` skill, the runbook,
+`guilfoyle-mission-control.md`, `/arbi-mission`'s routing note) summarise or link here;
+edits happen here first:
 
 - **GOOD:** whole-project mining pass · product reality sweep · cross-layer feature
   (DB + domain + CLI + brief + tests) · competing debugging hypotheses · large parallel
@@ -36,11 +38,16 @@ task graph, its team plan states: teammates (**max 4 by default** — more requi
 James approval in the envelope), each teammate's **file-area ownership** (disjoint wherever
 possible), each teammate's **expected artifact**, and the readiness criteria.
 
-**2 — Plan-approval gate (before ANY implementation).** The team plan is surfaced to James.
-Approval criteria (the lead/Guilfoyle applies them; James sees the plan): the plan **includes
-tests** · **crosses no DB/Render/merge/deploy/capital boundary** · **states file ownership**
-· **states the expected artifact** per teammate. No teammate implements before this gate
-passes.
+**2 — Plan-approval gate (before ANY implementation).** Approval criteria: the plan
+**includes tests** · **crosses no DB/Render/merge/deploy/capital boundary** · **states file
+ownership** · **states the expected artifact** per teammate. **Who approves (canonical
+resolution, red-team 2026-07-14):** the lead/Guilfoyle *applies the four criteria*
+mechanically — a plan failing any criterion never proceeds, no one can waive that. On top:
+**attended-live**, James sees and approves the plan before implementation; **inside a
+James-granted window** (the recipe grant is the standing authorisation), Guilfoyle's
+criteria-application is the gate and the full approved plan lands **verbatim in the morning
+report** — a borderline plan is a JAMES_NEEDED pivot, not a judgement call. No teammate
+implements before this gate passes.
 
 **3 — Teammates execute in owned areas.** Each teammate is the builder pattern
 (`reversible-work-builder` conduct): `claude/**` branches, review gate on commits, and the

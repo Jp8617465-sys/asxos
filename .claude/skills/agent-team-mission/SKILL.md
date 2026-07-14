@@ -32,9 +32,12 @@ Teams are for missions where **parallelism has real value**:
 - **Teammates own separate file areas** wherever possible — the plan states each teammate's
   file ownership and expected artifact.
 - **Plan approval before implementation.** The team plan (topology, ownership, artifacts) is
-  approved before any teammate implements. The lead/Guilfoyle approves **only** plans that:
-  include tests · cross no DB/Render/merge/deploy/capital boundary · state file ownership ·
-  state the expected artifact. James sees the plan at this gate.
+  approved before any teammate implements. The four criteria (the lead/Guilfoyle applies them
+  mechanically — a failing plan never proceeds): include tests · cross no
+  DB/Render/merge/deploy/capital boundary · state file ownership · state the expected
+  artifact. **Attended-live, James's affirmative approval gates implementation; inside a
+  James-granted window, the criteria-gate stands in and the approved plan lands verbatim in
+  the morning report** (canonical resolution: `.claude/commands/arbi-team.md` step 2).
 - Every teammate is bound by: the reversible I0–I4 ceiling + draft-PR stopping point, the
   review gate on commits, and the **PR transaction discipline** block
   (`docs/product/memory/working/2026-07-14-pr-transaction-discipline.md`) — the lessons apply
