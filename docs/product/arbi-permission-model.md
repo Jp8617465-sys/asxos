@@ -3,7 +3,8 @@
 **Status:** current
 **Scope:** the authoritative permission model for arbi (the `arbi-harness.md` tier table
 points here)
-**Last verified:** 2026-07-14 (autonomy unlock pack — skills / builder / `/arbi-team` placed
+**Last verified:** 2026-07-14 (PR-2 Permission Friction Pack — settings `deny` array +
+authority-guard/push-guard/pr-draft-guard hooks; see §Runtime enforcement honesty) · (autonomy unlock pack — skills / builder / `/arbi-team` placed
 on the existing ladder; no grant changed)
 **Owner:** James (governor); changing a grant is a boundary change (constitution §reserved)
 **Superseded by:** N/A
@@ -204,11 +205,72 @@ ladders, and they are the same nine listed in `arbi-scorecard.md` §Layer 1 and
 
 ## Runtime enforcement honesty
 
-Today every grant here is **prompt + doc enforced** — arbi is instructed to obey it; the
-`.claude/hooks/unattended-guard.sh` pre-filter mechanically blocks the I5–I6 categories under
-unattended runs, but it is a same-process filter, not a boundary (the same limitation the
-security-engineer flagged for agent DB access). On the Managed Agents platform these map to
-real **permission policies** (`always_allow` / `always_ask`) and disabled toolsets; **P6
-(execution) is trivially enforced because no broker/execution tool is ever mounted** — arbi
-physically cannot place an order. Until the platform lands, the harness + this doc + the guard
-hook are the enforcement, and I5–I6 / P5–P6 must be treated as if disabled.
+Today every grant here is **prompt + doc enforced**, with a growing mechanical floor beneath
+it. `.claude/hooks/unattended-guard.sh` mechanically blocks the I5–I6 categories under
+unattended runs; the **PR-2 Permission Friction Pack (2026-07-14)** added a second, always-on
+mechanical layer that holds attended too:
+
+- **`.claude/settings.json`'s `deny` array** — authority/boundary files (`CLAUDE.md`,
+  `.claude/**`, `.github/**`, `migrations/**`, `render.yaml`, the constitution/authority/
+  permission-model/harness/scorecard/promotion-gate/memory-policy/dream-policy/charter/
+  policy/rubrics set, the promoted-memory files) are `Edit(...)` denied — per Claude Code's
+  documented behavior, one `Edit(...)` rule covers Write/MultiEdit/NotebookEdit and the
+  Bash file-commands it recognizes (`cat`/`head`/`tail`/`sed`). `mcp__github__merge_pull_request`
+  and `mcp__github__enable_pr_auto_merge` are denied outright (bare tool-name deny — removed
+  from context entirely, not just blocked on attempt).
+- **`authority-guard.sh`** (always-on) closes the one gap the settings layer's own docs admit:
+  "arbitrary subprocesses that read or write files indirectly, like a Python or Node script
+  that opens files itself." It also re-resolves `Edit`/`Write`/`NotebookEdit` paths via
+  `realpath` so a symlink alias can't present a non-authority name for an authority target.
+- **`push-guard.sh`** (always-on) hard-denies dangerous `git push`/`gh` shapes (force/delete/
+  mirror to `main`, `claude/x:main`-style refspec tricks, `gh pr merge`/`ready`/non-draft
+  `create`) regardless of how a human might answer the interactive prompt.
+- **`pr-draft-guard.sh`** (always-on) hard-denies `create_pull_request` without `draft:true`
+  and `update_pull_request` with `draft:false` or a `state` transition — the draft-PR ceiling
+  as a mechanical rule, not just an instruction.
+
+**Honest about what this does NOT do — corrected 2026-07-14 (security-engineer caught the
+main loop's own drafting error via a raw docs fetch, not the WebFetch summarizer both had
+first relied on):** `permissionDecision:"allow"` **IS** documented (code.claude.com/docs/en/hooks
+§PreToolUse decision control) to suppress Claude Code's native prompt, with a narrow carve-out
+for tools that require user interaction (`AskUserQuestion`/`ExitPlanMode`) — Bash and the
+GitHub MCP write tools are not in that carve-out. (Confirmed for the Claude Code CLI the docs
+describe; this session runs under the Claude Agent SDK harness, where the identical mechanism
+is assumed, not independently re-verified.) So an allow-emitting hook for a verified-safe
+shape would in fact have worked.
+
+**None of PR-2's hooks are deny-only because that mechanism was unconfirmed — they are
+deny-only for a better, independent reason: asymmetric risk.** A false-negative in a regex
+meant to *allow* a safe shape silently executes a dangerous action with zero human check. A
+false-negative in a regex meant to *deny* a dangerous shape merely falls through to the
+existing prompt — a human still gets a chance to catch it. Given every regex here is
+admittedly imperfect (see Residual limits below), only the fail-safe direction is acceptable
+for anything push/merge-adjacent. So **push and PR-creation still prompt, exactly as
+before** — PR-2 makes the dangerous shapes mechanically un-approvable (a human clicking "yes"
+to a push that secretly targets `main` can no longer succeed), it does not eliminate the
+prompts themselves. Push/PR-creation friction reduction remains open, gated on GitHub branch
+protection on `main` being configured (still NOT done, confirmed 2026-07-11) — a narrow,
+`allow`-emitting hook for verified-safe shapes becomes a *reasonable* follow-up once that
+backstop exists, given `allow` is now confirmed to work; it does not become safe merely
+because it's technically possible.
+
+Residual limits, same class as `unattended-guard.sh`'s — named explicitly per
+security-engineer's 2026-07-14 review rather than folded into a generic caveat: variable
+indirection (`r=main; git push origin HEAD:$r`), command substitution, and git aliases can
+still defeat `push-guard.sh`'s regexes (falls through to the existing prompt, not a silent
+allow — the asymmetric-risk property holds). **Closed in the same review round:** a bare
+shell redirect to an authority path (`echo x > CLAUDE.md` — no "recognized file command" is
+involved, so the settings-level `Edit(...)` carve-out didn't apply and `authority-guard.sh`
+had dropped this check versus `unattended-guard.sh`'s own A4 pattern — now restored);
+wildcard-refspec (`refs/heads/*:refs/heads/*`) and `remote.*.push` config-injection pushes
+(the flag-free equivalents of `--all`/`--mirror`); and `git -C`/`--git-dir`/`--work-tree`
+redirecting `push-guard.sh`'s branch check at a repo it never inspects. **Still open:** the
+executor-arbitrary-code path (a pre-allowed test runner like `pytest`/`make check` executing
+code that calls the GitHub/git API directly, never producing a `git push` or `gh` command
+string) is invisible to `push-guard.sh` entirely — the real backstop for that path is GitHub
+branch protection, not any client-side hook. `docs/README.md` was missing from the authority
+list (same source-of-truth ladder level as `CLAUDE.md` per `arbi-authority.md`) — added. On
+the Managed Agents platform these map to real **permission policies**
+(`always_allow`/`always_ask`) and disabled toolsets; **P6 (execution) is trivially enforced
+because no broker/execution tool is ever mounted** — arbi physically cannot place an order.
+I5–I6 / P5–P6 must still be treated as if disabled.
