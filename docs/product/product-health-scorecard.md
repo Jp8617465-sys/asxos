@@ -1,90 +1,116 @@
 # ASXOS Product Health Scorecard
 
-**Generated:** 2026-07-11 (hand-assembled from live read-only queries this run;
-`scripts/product_health.py --write` regenerates it against `docs/product/data-contracts.md`).
-**Top line:** 🔴 **3 FAIL · 🟡 ~6 WARN** — the data pipeline is fresh and the brief renders
-(the discipline/tax/valuation product *works*), but the **monitoring + model-maintenance layer
-is degraded**, and `signal_outcomes` is unexpectedly **populated** (possible P0 unblock).
+**Generated:** 2026-07-14 (hand-assembled from live read-only queries this run, via the
+read-only Supabase MCP role — `scripts/product_health.py --write` cannot reach the DB directly
+from this sandbox, its own `asyncpg`/`DATABASE_URL` connection times out on this network; the
+queries below mirror `_freshness`/`_cron_reality`/`_investment_readiness`,
+`scripts/product_health.py:53-138`, exactly).
+**Top line:** 🔴 **2 FAIL · 🟡 3 WARN** — the data pipeline is fresh and the monitoring lane
+that was degraded on 2026-07-11 has **substantially recovered** (see below), but one **new**
+FAIL appeared (`track_signal_outcomes`) and `retrain_model_a` is still broken (mitigated by
+rule #11, not a live-ops emergency).
 
 > Answers *is ASXOS actually working?* — not *did tests pass?*.
 
 ---
 
-## 🔴 The three things that are actually broken
+## 🔴 What's actually broken today
 
-1. **`check_cron_health` — 0/7 success, failing every run.** The monitor that's supposed to
-   detect cron failures is itself down — so the deadman is blind. Fix this first; it's the
-   instrument everything else is watched by.
-2. **`check_model_staleness` — 0/7, failing every run.** No model-staleness signal.
-3. **`retrain_model_a` — 0/2, last attempt 2026-06-06 (35 days ago).** Model A has not
-   retrained in over a month. (Mitigated by rule #11 quarantine — but the job is broken.)
+1. **`track_signal_outcomes` — NEW finding, failed on its only run (0/1, last 2026-07-12).**
+   This is the exact "next Sun 03:00 UTC `track_signal_outcomes` cron" residual watch-item
+   `roadmap-state.md` flagged after the PR #30/#32 monitoring-lane fix — it ran and failed.
+   Not fixed as part of this doc-only regeneration; flagged as a follow-up candidate (see
+   ranked actions below).
+2. **`retrain_model_a` — still 0/2, last attempt 2026-06-06 (now 5+ weeks stale).** Mitigated
+   by the rule #11 quarantine (Model A is dormant by standing policy since 2026-07-11, not by
+   broken-job accident) — this is a stale job, not a live-ops emergency.
 
-## 🟢 The big positive finding — reconcile this
+## 🟢 Recovered since 2026-07-11 (reconciling the last scorecard's three FAILs)
 
-**`signal_outcomes` has 24,454 rows.** The 2026-07-10 decay analysis recorded it as *empty* and
-had to compute forward returns from `prices` by hand. It is now populated. **This likely means
-the Model A decay check (the P0) is directly runnable from `signal_outcomes`** instead of
-reconstructed — a real potential unblock of `the_one_thing`. Verify what populated it (a
-`track_signal_outcomes` run?) and whether the columns support the 5d/21d horizon decay directly.
+- **`check_cron_health`** — was 0/7 FAIL ("the deadman is blind"); **now last-run SUCCESS**
+  (2026-07-13), though the all-time track record is still thin (1/10) — the monitor just came
+  back online, watch it for a few more days before calling it stable.
+- **`check_model_staleness`** — was 0/7 FAIL; **now last-run SUCCESS** (2026-07-13, 2/10
+  all-time) — same "just recovered, thin track record" caveat.
+- **`sync_financial_statements`** — was stuck in a `running` state since 07-04 (an
+  `oomKilled` orphan); **fixed by PR #32**'s `executemany` batching — last run SUCCESS
+  (2026-07-13, 1/4 all-time).
+- **`signal_outcomes` (24,454 rows, unchanged from 07-11)** — the 2026-07-10 decay analysis
+  question this raised is **answered, not still open**: the P0 Model A decay check ran
+  against these 19,032 matured rows and concluded **RESOLVED, against Model A** (`corr(ml_prob,
+  21d) = −0.03`; see `docs/model-a-decay-analysis-2026-07-11.md`). ML is shelved (rule #11);
+  this table's presence no longer represents an unblock question to chase.
 
 ---
 
-## Data freshness (as of 2026-07-11)
+## 🟡 Still worth watching
 
-| metric | value | grade |
-|---|---|---|
-| `prices` | 2026-07-09 · 692,416 rows | 🟢 PASS (2d) |
-| `signals` | 2026-07-09 · 33,932 | 🟢 PASS (2d) |
-| `fundamentals` | 2026-07-10 · 87,475 | 🟢 PASS (1d) |
-| `portfolio_daily_snapshots` | 2026-07-08 · 30 | 🟢 PASS (3d) |
-| `market_context` | 2026-07-09 · **6 rows total** | 🟡 WARN — fresh but sparse; `rba_cash_rate`/iron/vix NULL (RC3) |
-| `signal_outcomes` | **24,454** | 🟢 PASS — populated (was reported empty 2026-07-10) |
-| `regulatory_events` | **2 rows** | 🟡 WARN — RSS ingest flaky (9/43); card near-empty |
+- **`ingest_regulatory` / `regulatory_events`** — the job itself succeeds (last SUCCESS
+  2026-07-13, 12/46 all-time) but the table it feeds is still near-empty: **2 rows, latest
+  2026-07-08** (6 days stale) — unchanged from the 07-11 scorecard. The RSS ingest is flaky
+  enough that job-level success doesn't mean fresh regulatory content is landing.
+- **`revisit overdue`** (Investment readiness): 1 of 2 active/watching theses (CBA) is past
+  its revisit-due date — same CBA thesis flagged in `james-inbox.md` as fix-or-retire.
+- **`conviction_level NULL`** (Investment readiness, R11): both of the 2 live active/watching
+  theses have no `conviction_level` set — the size-vs-conviction coherence check, and the new
+  PR2 discipline digest's conviction-unset summary line, can't run until this is set.
 
-## Cron reality (job_runs, all-time)
+---
+
+## Data freshness (as of 2026-07-14)
+
+| metric | value | grade | note |
+|---|---|---|---|
+| `prices` | 2026-07-13 (697,034 rows) | 🟢 PASS | 1d old |
+| `signals` | 2026-07-13 (37,301 rows) | 🟢 PASS | 1d old |
+| `market_context` | 2026-07-13 (8 rows) | 🟢 PASS | 1d old — RC3 (RBA/iron/VIX null) already resolved 2026-07-12; row count up from 6 |
+| `portfolio_daily_snapshots` | 2026-07-13 (31 rows) | 🟢 PASS | 1d old |
+| `fundamentals` | 2026-07-14 (94,963 rows) | 🟢 PASS | 0d old |
+| `signal_outcomes` | 24,454 rows | 🟢 PASS | populated — decay check already run (P0 resolved 2026-07-11) |
+| `regulatory_events` | 2 rows, latest 2026-07-08 | 🟡 WARN | RSS ingest flaky; card near-empty (unchanged since 07-11) |
+
+## Cron reality (job_runs, all-time, as of 2026-07-14)
 
 | grade | jobs |
 |---|---|
-| 🔴 FAIL (never succeeded) | `check_cron_health` (0/7), `check_model_staleness` (0/7), `retrain_model_a` (0/2, last 06-06) |
-| 🟡 WARN | `validate_price_data` (1/5, last fail), `sync_financial_statements` (**stuck `running`** since 07-04), `ingest_regulatory` (9/43), `generate_signals` (20/30), `ingest_sentiment` (19/27) |
-| 🟢 PASS | `compose_brief` (24/24), `sync_prices` (36/36), `sync_fundamentals` (47/47), `snapshot_portfolio` (30/36), `check_au_positions` (5/5), `check_us_positions` (6/6), `check_thesis_invalidations` (8/8), `ingest_market_context` (6/6), `sync_universe` (6/6), `ingest_news` (24/26), `detect_theme_stages`, `ingest_underlyings`, + 6 one-offs |
-
-## Product surfaces
-
-| surface | state |
-|---|---|
-| daily brief | 🟢 renders (`compose_brief` 24/24) |
-| thesis cards w/o Model A | 🟢 yes (R9 shipped — best-effort model gate) |
-| portfolio brief | ⚪ dark (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`) |
-| news/sentiment brief | ⚪ dark (`ASXOS_NEWS_BRIEF_ENABLED=0`) |
-| ETF/multi-instrument | 🟡 Slice 1 built + `security_kind` live in prod; readers deploy on PR #24 merge; not yet holdable (Slice 2) |
+| 🔴 FAIL | `track_signal_outcomes` (0/1, last failure 07-12, NEW); `retrain_model_a` (0/2, last failure 06-06, dormant/expected) |
+| 🟢 PASS (last run succeeded) | `build_portfolio` (6/8), `check_au_positions` (7/7), `check_cron_health` (1/10, just recovered), `check_model_staleness` (2/10, just recovered), `check_thesis_invalidations` (11/11), `check_us_positions` (8/8), `compose_brief` (26/26), `compute_factor_scores` (2/2), `compute_opportunity_cost` (2/2), `derive_fundamentals_pit` (3/3), `detect_theme_stages` (7/7), `generate_signals` (22/32), `ingest_market_context` (8/8), `ingest_news` (26/28), `ingest_regulatory` (12/46, flaky but last run ok), `ingest_sentiment` (21/29), `ingest_underlyings` (8/8), `snapshot_portfolio` (31/38), `sync_corporate_actions` (3/3), `sync_financial_statements` (1/4, just recovered), `sync_fundamentals` (51/51), `sync_prices` (38/38), `sync_security_master` (3/3), `sync_universe` (7/7), `validate_price_data` (3/7) |
 
 ## Investment readiness
 
 | metric | value | grade |
 |---|---|---|
-| active theses | 1 (HUBS) | 🟡 thin |
-| watching theses | 1 (CBA — **DATA-BROKEN** ladder + revisit 14d overdue) | 🔴 |
-| open holdings | 1 (HUBS.NYSE) | ⚪ |
-| holdings without active thesis | 0 | 🟢 |
-| theses missing stop/target | 0 | 🟢 |
-| revisit overdue | 1 (CBA) | 🟡 |
-| conviction_level NULL | 2 of 2 live | 🟡 (R11) |
+| active theses | 1 (HUBS) | 🟢 PASS |
+| watching theses | 1 (CBA — data-broken ladder + revisit overdue) | ⚪ INFO |
+| open holdings | 1 (HUBS.NYSE) | ⚪ INFO |
+| holdings without active thesis | 0 | 🟢 PASS |
+| theses missing stop/target | 0 | 🟢 PASS |
+| revisit overdue | 1 (CBA) | 🟡 WARN |
+| conviction_level NULL | 2 of 2 | 🟡 WARN (R11) |
 
-## Autonomy health
+## Product surfaces
 
-| metric | value |
+| surface | state |
 |---|---|
-| guard tests | 🟢 59/59 (`unattended-guard.sh`) |
-| open P0/P1 risks | R1 (Model A P0), R2 (agent DB role), R5 (prompt-only enforce), R8, R10 (cost-base ccy), R11 (conviction NULL) |
-| memory | second brain live (`memory/`); working notes for this session's runs; `/arbi-dream` cadence pending |
+| daily brief | 🟢 renders (`compose_brief` 26/26) |
+| portfolio discipline digest | 🟡 **new this session** — PR2a (loader, #40) + PR2b (render, #41) landed as draft PRs; not yet merged/live |
+| thesis cards w/o Model A | 🟢 yes (R9 shipped — best-effort model gate) |
+| portfolio brief | ⚪ dark (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`) |
+| news/sentiment brief | 🟢 shipped (`ASXOS_NEWS_BRIEF_ENABLED=1`, per PR #38) |
+| ETF/multi-instrument | 🟡 Slice 1 built + `security_kind` live in prod; Slice 2 blocked on James's VGS/VAS holding-lot data |
 
 ---
 
 ## The ranked next actions this scorecard surfaces
 
-1. **Verify `signal_outcomes` (24k) → run the Model A decay check directly** — this may unblock the P0.
-2. **Fix `check_cron_health`** — the blind watcher; everything else's early-warning depends on it.
-3. **Fix `check_model_staleness` + `retrain_model_a`** (broken every run) and the stuck `sync_financial_statements`.
-4. **Reduce `ingest_regulatory`/`validate_price_data`/`generate_signals` failure rates.**
-5. **Fix CBA data-broken thesis** (RC2) + the market_context feed NULLs (RC3, RBA/iron/vix).
+1. **Diagnose `track_signal_outcomes`'s 07-12 failure** — new, unexamined; the exact residual
+   watch-item `roadmap-state.md` was already tracking, now confirmed as a real failure rather
+   than just "hasn't run yet."
+2. **Keep watching `check_cron_health`/`check_model_staleness`** for a few more days before
+   trusting the "recovered" verdict — both have only 1-2 successful runs so far.
+3. **`retrain_model_a`** stays broken but is correctly dormant under rule #11 — no action
+   needed unless/until a new model version is proposed for the promotion gate.
+4. **`ingest_regulatory`/`regulatory_events`** — still flaky at the data layer even though the
+   job reports success; the RSS-feed-level investigation from 07-11 was never completed.
+5. **CBA thesis (revisit overdue, data-broken ladder)** — `james-inbox.md`'s existing
+   fix-or-retire item; James-owned, not independently actionable.
