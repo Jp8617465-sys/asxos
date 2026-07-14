@@ -24,7 +24,8 @@ detail behind these lines.
   Phase 2b. **P0 Model A dispute RESOLVED 2026-07-11 (no usable edge); James SHELVED the ML
   engine** — the product is now explicitly the **model-independent moat** (discipline, tax,
   themes, ETFs). arbi PM layer + operating stack (constitution/authority/permission/
-  scorecard/memory/dream + operating docs) landed 2026-07-10–11.
+  scorecard/memory/dream + operating docs) landed 2026-07-10–11. Portfolio-team-visibility
+  PR2 (both halves — PR2a loader + PR2b render) is now landing this session (2026-07-14).
 - **Top blocker:** **None at the product level** — the 6-month P0 is closed. Rule #11 (Model
   A quarantine) is now **standing policy**, not a blocker to lift. What gates *further
   autonomy* (not the product): agent DB role-scoping + a scorecard track record. What gates
@@ -33,14 +34,15 @@ detail behind these lines.
   merged** (PRs #26, #30, #32) — remaining validation is the first post-merge Saturday
   `sync_financial_statements` run (`duration_ms` watch-item) and the next Sun 03:00 UTC
   `track_signal_outcomes` cron. **#29 (discipline evaluator) is MERGED** (`2a49df9`) — next
-  product lane is portfolio-team-visibility **PR2a** (the `_discipline_findings()` loader +
-  `BriefData` field, landing this session as a draft PR) and **PR2b** (the remaining
-  `brief.html.j2` render block, not yet started); then ETF Slice 2 (gated on VGS/VAS lot data).
+  product lane, portfolio-team-visibility **PR2 (both halves)**, is also landing this
+  session: **PR2a** (the `_discipline_findings()` loader + `BriefData` field) and **PR2b**
+  (the `brief.html.j2` "Portfolio discipline" render block — the increment that actually
+  changes James's emailed brief); then ETF Slice 2 (gated on VGS/VAS lot data).
 - **Open PRs (as of 2026-07-14 reconciliation):** **#29** (discipline evaluator) is **MERGED**
   (`2a49df9`) — no longer open. Remaining open: **#5** (June quant-benchmarking research —
   recommend CLOSE as superseded by the 07-11 decay analysis + ML shelf; merging it would import
-  pre-shelf ML-roadmap guidance as if current), and this session's PR2a (loader + `BriefData`
-  field, landing as a new draft PR) with PR2b (the `brief.html.j2` render block) still to come.
+  pre-shelf ML-roadmap guidance as if current), and this session's PR2 (both PR2a loader +
+  `BriefData` field, and PR2b `brief.html.j2` render block), landing as a draft PR.
 - **Recently completed (on `main`, 2026-07-13/14 merge train):** monitoring lane restored +
   batched (`track_signal_outcomes` cast, `snapshot_portfolio` trading-day anchor,
   `sync_financial_statements` OOM fix + `executemany` batching — PRs #30/#32); **R12 resolved**
@@ -55,9 +57,9 @@ detail behind these lines.
   (`ml-engine-shelf-2026-07-11.md`).
 - **Next actions:** see the ranked queue below. Monitoring lane is merged (queue #1 done —
   residual = watch the first post-merge Sat run). **#29 (discipline evaluator) is MERGED**
-  (`2a49df9`); candidate new #1 (2026-07-14) is now portfolio-team-visibility **PR2a** (the
-  `_discipline_findings()` loader, landing this session as a draft PR) followed by **PR2b**
-  (the `brief.html.j2` render block, not yet started).
+  (`2a49df9`); candidate new #1 (2026-07-14) is portfolio-team-visibility **PR2, both
+  halves** — **PR2a** (the `_discipline_findings()` loader) and **PR2b** (the
+  `brief.html.j2` render block) — landing together this session as a draft PR.
 - **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
   2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
@@ -167,9 +169,10 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   reframe + HUBS 10/20 record (#31); overnight governance record (#34); orchestrator-mode
   lean sketch (#36).
 - **MERGED 2026-07-14: PR #29** (discipline evaluator, `2a49df9`) — `discipline.py` + 19 tests
-  landed on main. Follow-on for this lane is now PR2a (`_discipline_findings()` loader +
-  `BriefData` field, landing this session as a draft PR) and PR2b (the `brief.html.j2` render
-  block, not yet started) from the portfolio-team-visibility proposal.
+  landed on main. Follow-on for this lane, portfolio-team-visibility PR2, is landing this
+  session as a draft PR with both halves done: PR2a (`_discipline_findings()` loader +
+  `BriefData` field) and PR2b (the `brief.html.j2` "Portfolio discipline" render block —
+  the increment that changes what James's emailed brief shows).
 - **Still open: PR #5** (June quant-platform benchmarking research, 25 files) — superseded by
   the 2026-07-11 decay analysis + ML-shelf decision; recommend CLOSE (not merge-as-historical).
 
@@ -183,8 +186,8 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
    first post-merge Sat `sync_financial_statements` run (`duration_ms` vs the 5400s deadline)
    and next Sun `track_signal_outcomes` cron. **#29 (discipline evaluator) is MERGED**
    (`2a49df9`) — see In flight. Candidate replacement #1 is now portfolio-team-visibility
-   **PR2a** (loader, landing this session as a draft PR) + **PR2b** (render block, not yet
-   started). _Historical detail of the original item kept below for audit:_ PR #26
+   **PR2, both halves** — **PR2a** (loader) + **PR2b** (render block) — landing together
+   this session as a draft PR. _Historical detail of the original item kept below for audit:_ PR #26
    half-healed it — `check_model_staleness` is now SUCCESS(07-12). Three live failures remain
    (live-verified this wake via `job_runs` + Render events): (a) `sync_financial_statements` shows an
    **orphaned `running` row** from a Render `oomKilled(512Mi, ~78s)` at 07-11 16:50Z — that was the

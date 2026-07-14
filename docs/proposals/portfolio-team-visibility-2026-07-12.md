@@ -150,6 +150,12 @@ it delivers automated selection, because it doesn't.
 - **Gated on `ASXOS_PERSONAL_USE=1`** (not `ASXOS_PORTFOLIO_BRIEF_ENABLED`).
 - **Evidence-only wording** (§7 rules); Decimal-only, no numpy.
 
+**Status (2026-07-14): all of the above are now met end-to-end** with PR2b landing —
+CBA revisit+data-sanity, the conviction-unset summary line, quiet-by-default, fail-loud
+error banner, model-independence, R10 FX-correctness, the `ASXOS_PERSONAL_USE` gate, and
+evidence-only wording are all live in `_discipline_findings()` (`asxos/brief/compose.py`)
+and now actually rendered by `brief.html.j2`, not just computed and discarded.
+
 ## 7. What must NOT be touched (boundaries — from `portfolio-invariant-guard`)
 
 - **Rule #11 / Model A quarantine.** No `signals`/SHAP reads; never call `resolve_production_model()`;
@@ -201,10 +207,13 @@ it delivers automated selection, because it doesn't.
     (its siblings `_news_section()`/`_portfolio_section()` both have it) — closed with the gate
     plus test coverage, no scope change; PR2a now fully meets §6's acceptance criteria as
     originally written.
-  - **PR2b — the render half (remaining).** The `brief.html.j2` discipline block that actually
-    renders `BriefData`'s new field into the email James reads. Not yet started. *(Alternative:
-    A-cron `jobs/check_thesis_discipline.py` mirroring `check_au_positions` + a `render.yaml` block +
-    `HEALTHCHECK_URL_*`, added to `check_cron_health._EXPECTED_DAILY`.)*
+  - **PR2b — the render half. ✅ DONE, landing this session.** The `brief.html.j2` "Portfolio
+    discipline" block now renders `BriefData.discipline_findings`: a fail-loud error banner for
+    `level="error"` findings (separated via `selectattr`) plus a quiet `disc-red`/`disc-yellow`/
+    `disc-info` list for the rest, empty-section-omitted (quiet-by-default) matching §6. This is
+    the increment that actually changes what James's emailed brief shows — PR2a only wired the
+    loader. *(A-cron `jobs/check_thesis_discipline.py` remains the documented fallback, not
+    needed now that A-brief has landed.)*
 - **PR3 — persistence sink (root-cause fix for cause #3; James-gated: migration).** A queryable
   `portfolio_review_findings` table so **both** the deterministic digest **and** any future
   pm-review Routine write to **one** place the brief reads — closing the "findings die in markdown"

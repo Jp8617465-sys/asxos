@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from asxos.brief.compose import (
     BriefData,
+    DisciplineFinding,
     DisciplineLevel,
     JobFailure,
     NewsItem,
@@ -178,6 +179,87 @@ def test_render_html_renders_failures_banner() -> None:
     )
     assert "Job failures in the last 24h" in html
     assert "sync_prices" in html
+
+
+# ---------------------------------------------------------------------------
+# PR2b — discipline section render (brief.html.j2)
+# ---------------------------------------------------------------------------
+
+_REVISIT_OVERDUE_FINDING = DisciplineFinding(
+    check="revisit_overdue",
+    level=DisciplineLevel.red,
+    message="CBA.AU: review overdue by 16d (due 2026-06-27)",
+    symbol="CBA.AU",
+)
+_TRAJECTORY_ERROR_FINDING = DisciplineFinding(
+    check="trajectory",
+    level=DisciplineLevel.error,
+    message="⚠ trajectory could not run for BHP.AU: bad data",
+    symbol="BHP.AU",
+)
+
+
+def test_render_html_discipline_section_absent_when_empty() -> None:
+    """Quiet by default (proposal §6): no findings -> no section header at all."""
+    html = render_html(_brief(discipline_findings=[]))
+    assert "Portfolio discipline" not in html
+
+
+def test_render_html_discipline_section_shows_findings() -> None:
+    html = render_html(
+        _brief(
+            discipline_findings=[
+                _REVISIT_OVERDUE_FINDING,
+                DisciplineFinding(
+                    check="conviction_unset",
+                    level=DisciplineLevel.yellow,
+                    message="conviction unset on 13/13 theses — size-vs-conviction check disabled (R11)",
+                ),
+            ]
+        )
+    )
+    assert "Portfolio discipline" in html
+    assert "CBA.AU: review overdue by 16d" in html
+    assert 'class="disc-red"' in html
+    assert "conviction unset on 13/13 theses" in html
+    assert 'class="disc-yellow"' in html
+
+
+def test_render_html_discipline_error_finding_shows_banner() -> None:
+    """A check that could not run (CLAUDE.md #10) renders loudly in its own
+    banner, distinct from the plain findings list."""
+    html = render_html(_brief(discipline_findings=[_TRAJECTORY_ERROR_FINDING]))
+    assert "Discipline checks that could not run" in html
+    assert "⚠ trajectory could not run for BHP.AU" in html
+
+
+def test_render_html_discipline_errors_and_items_both_present() -> None:
+    """A findings list mixing an error with clean findings shows both: the
+    error in its own banner, the rest in the plain list — neither hides the
+    other (CLAUDE.md #10, a check failure must not obscure other findings)."""
+    html = render_html(
+        _brief(discipline_findings=[_REVISIT_OVERDUE_FINDING, _TRAJECTORY_ERROR_FINDING])
+    )
+    assert "Discipline checks that could not run" in html
+    assert "⚠ trajectory could not run for BHP.AU" in html
+    assert "CBA.AU: review overdue by 16d" in html
+    assert 'class="disc-red"' in html
+
+
+def test_render_html_discipline_section_escapes_user_content() -> None:
+    html = render_html(
+        _brief(
+            discipline_findings=[
+                DisciplineFinding(
+                    check="data_sanity",
+                    level=DisciplineLevel.red,
+                    message="<script>alert(1)</script>",
+                ),
+            ]
+        )
+    )
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
 
 
 def test_render_html_escapes_user_content() -> None:

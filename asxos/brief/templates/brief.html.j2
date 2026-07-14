@@ -21,6 +21,9 @@
     .label-STRONG_SELL   { color: #c00; font-weight: 600; }
     .sentiment-positive  { color: #0a6; }
     .sentiment-negative  { color: #c00; }
+    .disc-red            { color: #c00; font-weight: 600; }
+    .disc-yellow         { color: #c50; }
+    .disc-info           { color: #666; }
   </style>
 </head>
 <body>
@@ -56,6 +59,29 @@
       {% endfor %}
     </ul>
   </div>
+  {% endif %}
+
+  {% if d.discipline_findings %}
+  <h2>Portfolio discipline</h2>
+  {% set disc_errors = d.discipline_findings | selectattr("level", "equalto", "error") | list %}
+  {% set disc_items = d.discipline_findings | rejectattr("level", "equalto", "error") | list %}
+  {% if disc_errors %}
+  <div class="banner">
+    <strong>Discipline checks that could not run.</strong>
+    <ul>
+      {% for f in disc_errors %}
+      <li>{{ f.message }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if disc_items %}
+  <ul>
+    {% for f in disc_items %}
+    <li class="disc-{{ f.level }}">{{ f.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
   {% endif %}
 
   <h2>Signal changes on holdings</h2>
