@@ -2,10 +2,11 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-13 (interactive `/arbi` wake — monitoring lane found HALF-HEALED:
-`check_model_staleness` fixed, but `check_cron_health` red on a 40h-stuck `sync_financial_statements`,
-`snapshot_portfolio` weekend-false-blocked since 07-08, `track_signal_outcomes` on a new param-type
-bug; THE ONE THING = finish the monitoring lane to green; draft PR #29 discipline evaluator open)
+**Last verified:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
+#32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
+hardening, Guilfoyle mission-control, overnight governance record, orchestrator-mode sketch.
+Monitoring lane fixes all on main. Remaining open: #29 — roadmap-state-only conflict, code merges
+clean; #5 — recommend close, superseded by the ML shelf)
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
 **Superseded by:** N/A
 
@@ -25,25 +26,32 @@ detail behind these lines.
   A quarantine) is now **standing policy**, not a blocker to lift. What gates *further
   autonomy* (not the product): agent DB role-scoping + a scorecard track record. What gates
   *specific capital/policy moves*: the `james-inbox.md` items.
-- **Current workstream:** post-shelf model-independent build — fix the broken monitoring
-  crons; `track_signal_outcomes` (the one live ML monitor task) has its **fix committed on
-  branch `claude/wake-up-arbi-jeww8p` / PR #26, pending merge + Render deploy**; then
-  multi-instrument (ETF) expansion (Slice 2).
-- **Open PRs (as of 2026-07-11 wake):** none tracked. PR #25 merged 2026-07-11 (shelve ML +
-  ETF Slice 2a + arbi operating docs); PR #24 merged 2026-07-11 (arbi operating layer + P0
-  resolution + ETF Phase-1 + product health). This session's branch `claude/wake-up-arbi-jeww8p`
-  is even with main and carries only the read-only-probe permissions commit `7752f7b`.
-- **Recently completed (on `main`):** shelve ML + ETF Slice 2a kind-aware ingestion + arbi
-  operating docs (`james-inbox`, `dark-launch-exit-plan`, `arbi-red-team`) — **merged PR #25**,
-  2026-07-11; P0 decay resolution + ML shelf; ETF Phase-1 `security_kind` (migration 0037,
-  merged PR #24); product-health scorecard + data contracts; governance Phase 0.5–2b (PR #11).
+- **Current workstream:** post-shelf model-independent build. The monitoring lane is **fully
+  merged** (PRs #26, #30, #32) — remaining validation is the first post-merge Saturday
+  `sync_financial_statements` run (`duration_ms` watch-item) and the next Sun 03:00 UTC
+  `track_signal_outcomes` cron. Next product lane: land the discipline evaluator (#29 rebase)
+  → portfolio-team-visibility PR2 surface; then ETF Slice 2 (gated on VGS/VAS lot data).
+- **Open PRs (as of 2026-07-14 reconciliation):** **#29** (discipline evaluator — needs a
+  `roadmap-state.md`-only rebase; `discipline.py` + tests merge clean against main) and
+  **#5** (June quant-benchmarking research — recommend CLOSE as superseded by the 07-11
+  decay analysis + ML shelf; merging it would import pre-shelf ML-roadmap guidance as if
+  current).
+- **Recently completed (on `main`, 2026-07-13/14 merge train):** monitoring lane restored +
+  batched (`track_signal_outcomes` cast, `snapshot_portfolio` trading-day anchor,
+  `sync_financial_statements` OOM fix + `executemany` batching — PRs #30/#32); **R12 resolved**
+  (s766B gate on all 11 theme CLI entry points, #33); **R13 resolved** (review-gate same-step
+  staging bypass hardened + 15 hook tests, #35); **Guilfoyle mission-control landed**
+  (charter + `/arbi-mission`, thesis-as-broker-report reframe, HUBS 10/20 recorded, #31);
+  overnight governance record (#34); orchestrator-mode lean sketch (#36). Earlier: shelve ML +
+  ETF Slice 2a (#25); P0 decay resolution; ETF Phase-1 `security_kind` (migration 0037, #24).
 - **Blocked items:** real *signal-driven* capital deployment stays **dormant by standing
   policy** (rule #11), not by an open dispute. Phase 2c is **reframed** model-independent
   (discovery/discipline/ETF) and no longer waits on a signal engine
   (`ml-engine-shelf-2026-07-11.md`).
-- **Next actions:** see the ranked queue below. #1 = fix the broken monitoring crons
-  (`track_signal_outcomes`'s fix is already committed on PR #26 — pending merge + deploy);
-  then ETF Slice 2.
+- **Next actions:** see the ranked queue below. Monitoring lane is merged (queue #1 done —
+  residual = watch the first post-merge Sat run). Candidate new #1 (2026-07-14, pending
+  red-team): rebase #29 and land the discipline evaluator — the portfolio-visibility moat
+  work, fully built + review-looped, blocked only by a stale doc hunk.
 - **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
   2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
@@ -143,22 +151,34 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   now on main. No longer awaiting a merge call.
 - **ETF Slice 2 (VGS/VAS holdings) — not started.** Code side is unblocked (Slice 2a merged);
   it is now gated only on James's holding-lot data (`james-inbox.md` VGS/VAS row).
-- **This session's branch `claude/wake-up-arbi-jeww8p` → PR #26** (open, draft-track). Carries
-  the 2026-07-11 wake + the 8-hour autonomy window (James granted reversible-work autonomy;
-  hourly loop `trig_01M5mWFrgZBmqbinLK12F6iU` runs to ~20:08Z, `decision-log.md` autonomy-2026-07-11).
-  Landed: (1) read-only `/arbi` probe permissions allowlist; (2) **monitoring lane restored** —
-  `check_model_staleness` shelf-aware, `track_signal_outcomes` revived (init-pool fix), both from
-  the wake; (3) `validate_price_data` $0.02 price floor (prod-verified 15→5 anomalies); (4)
-  `sync_financial_statements` 512Mi-OOM fix (bounded-worker pool; Render-event root-caused). In
-  flight: agent DB read-only role scoping (design→draft migration), competitive gap analysis.
-  **Nothing merged/deployed — all draft for James.**
+- **MERGED 2026-07-11 as PR #26:** the 2026-07-11 wake + 8-hour autonomy window output —
+  read-only probe allowlist, monitoring lane first pass (`check_model_staleness` shelf-aware,
+  `track_signal_outcomes` init-pool fix), `validate_price_data` $0.02 floor,
+  `sync_financial_statements` 512Mi-OOM bounded-worker fix.
+- **MERGED 2026-07-13/14 (six-PR train, James-ordered #32→#33→#35→#31→#34→#36):** monitoring
+  lane finished + batched (#30 earlier same day, then #32); R12 s766B theme-CLI gate (#33);
+  R13 review-gate hardening (#35); Guilfoyle mission-control + thesis-as-broker-report
+  reframe + HUBS 10/20 record (#31); overnight governance record (#34); orchestrator-mode
+  lean sketch (#36).
+- **Still open: PR #29** (discipline evaluator) — base is stale (`c9b522c`); test-merge
+  2026-07-14 shows the **only** conflict is `docs/product/roadmap-state.md` (this file);
+  `discipline.py` + 19 tests + the proposal/handoff docs merge clean. Rebase plan: restart the
+  branch from current main, keep the code/tests/proposal commits, drop the stale
+  roadmap-state hunk (this reconciliation supersedes it).
+- **Still open: PR #5** (June quant-platform benchmarking research, 25 files) — superseded by
+  the 2026-07-11 decay analysis + ML-shelf decision; recommend CLOSE (not merge-as-historical).
 
 ## Ranked next-action queue
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-1. **THE ONE THING (updated 2026-07-13): Finish restoring the monitoring lane to green.** PR #26
+1. **DONE 2026-07-13/14 — monitoring lane restored and merged** (PRs #30 + #32: cast fix,
+   trading-day snapshot anchor, OOM fix, batched writes). Residual watch-items, not work:
+   first post-merge Sat `sync_financial_statements` run (`duration_ms` vs the 5400s deadline)
+   and next Sun `track_signal_outcomes` cron. Candidate replacement #1 (pending red-team):
+   **rebase + land #29 (discipline evaluator)** — see In flight. _Historical detail of the
+   original item kept below for audit:_ PR #26
    half-healed it — `check_model_staleness` is now SUCCESS(07-12). Three live failures remain
    (live-verified this wake via `job_runs` + Render events): (a) `sync_financial_statements` shows an
    **orphaned `running` row** from a Render `oomKilled(512Mi, ~78s)` at 07-11 16:50Z — that was the

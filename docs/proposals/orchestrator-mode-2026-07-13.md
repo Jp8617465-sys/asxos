@@ -79,7 +79,7 @@ From the security review of this design:
 
 ## Prerequisites (gates) — none of this goes standing until these land
 
-1. **R13 (PR #35)** — the review gate no longer races same-step staging. *In flight.*
+1. **R13 (PR #35)** — the review gate no longer races same-step staging. *Closed — merged 2026-07-14.*
 2. **Branch protection on `main`** — currently NOT configured (confirmed when PR #26 merged with no
    required-review block). This is the layer-2 backstop for any merge authority; must exist before any
    standing dispatch.
