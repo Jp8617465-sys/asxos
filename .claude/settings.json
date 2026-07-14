@@ -34,7 +34,7 @@
       "Edit(/.claude/commands/**)",
       "Edit(/.claude/hooks/**)",
       "Edit(/.claude/rules/**)",
-      "Edit(/.claude/skills/**)"
+      "Edit(/.claude/skills/**)",
       "Edit(/.github/**)",
       "Edit(/migrations/**)",
       "Edit(/CLAUDE.md)",
