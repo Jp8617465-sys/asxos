@@ -196,3 +196,11 @@ tool, because a subagent's `Agent(...)` allowlist is ignored at runtime); the
 It holds no tier above what arbi grants a mission (reversible I0–I4, draft-PR ceiling,
 attended only), never sets priority (its only pushback is executability evidence, routed
 up), and never merges/deploys/migrates or acts on Model A output for capital.
+
+**reversible-work-builder** (autonomy unlock pack, 2026-07-14) is the mutation counterpart
+to guilfoyle's read-only planning: it holds `Edit, Write, Bash` for reversible branch work
+only (edit → test → commit through the review gate → `claude/**` push prep), executing one
+scoped build node of a guilfoyle-planned mission at a time. Orchestration and mutation never
+share a process. Bound by the PR-transaction-discipline block, I5/I6/P5/P6 STOPs, and rule
+#11; its charter states honestly that a subagent tools list is not containment — the hooks,
+deny/ask rules, branch protection, and James's merge are.

@@ -3,7 +3,8 @@
 **Status:** current
 **Scope:** the authoritative permission model for arbi (the `arbi-harness.md` tier table
 points here)
-**Last verified:** 2026-07-10
+**Last verified:** 2026-07-14 (autonomy unlock pack — skills / builder / `/arbi-team` placed
+on the existing ladder; no grant changed)
 **Owner:** James (governor); changing a grant is a boundary change (constitution §reserved)
 **Superseded by:** N/A
 
@@ -55,6 +56,38 @@ P5–P6) still STOP for James; and *standing/unattended* mission dispatch stays 
 PR 7b/8 promotion preconditions below. Guilfoyle plans and judges — it never spawns, merges, or
 reprioritises (a subagent's `Agent(...)` allowlist is ignored at runtime, so the `/arbi-mission`
 command's main loop does the fan-out, exactly like `/arbi-run`).
+
+### The autonomy unlock pack (2026-07-14) — three attended I0–I4 forms, zero grant changes
+
+The pack (this section + `.claude/skills/`, `.claude/agents/reversible-work-builder.md`,
+`.claude/commands/arbi-team.md`, `docs/product/guilfoyle-mission-control.md`,
+`docs/product/arbi-goal-recipes.md`, `docs/product/runbooks/`) adds **structured forms of the
+tiers that already exist** — it changes **no grant** on either ladder:
+
+- **Skill-scoped pre-allowed actions** (`.claude/skills/*/SKILL.md`, the prototype of
+  orchestrator-mode R-A4). A skill's `allowed-tools` frontmatter pre-allows, *while that skill
+  is active*, ONLY safe reversible I0–I4 actions: read/search, edit on a `claude/**` branch,
+  test/lint/type-check, `git add`/`commit`, push to `claude/**`, open a **draft** PR. Nothing
+  in any skill pre-allows merge, push to `main`, migrations, DB writes, Render mutation,
+  secrets, or capital actions — those stay `ask`/denied/not-mounted exactly as before.
+  **Skill `allowed-tools` is convenience, not a security boundary**: the hard floor remains
+  the deny rules + hooks (`review-gate.sh`, `unattended-guard.sh`) + branch protection +
+  James's merge. `.claude/settings.json`'s `allow`/`deny` lists are **not** broadened by the
+  pack.
+- **`reversible-work-builder`** (`.claude/agents/reversible-work-builder.md`) — the mutation
+  hands of a mission. It holds Edit/Write/Bash for reversible branch work only; Guilfoyle
+  stays read-only (orchestration and mutation never share a process). Same I0–I4 ceiling,
+  same STOPs, review gate applies to its commits.
+- **`/arbi-team`** (`.claude/commands/arbi-team.md`) — the agent-teams form of `/arbi-mission`,
+  for **large parallel missions only**. Same envelope, same red-team vet, plus a **plan-approval
+  gate** (James sees the team plan before implementation). Teams require the **local/user**
+  env `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` — never a repo-committed default. Max 4
+  teammates by default; each teammate is bound by the same ceiling, the review gate, and the
+  PR-transaction-discipline block (`memory/working/2026-07-14-pr-transaction-discipline.md`).
+
+All three are **attended** (governor/arbi-invoked per mission). None is standing/unattended
+autonomy — that promotion still requires the preconditions below and an explicit James
+decision, unchanged. `bypassPermissions` remains forbidden for every launch.
 
 ## Portfolio decision-support ladder (P0–P6) — operating the portfolio
 

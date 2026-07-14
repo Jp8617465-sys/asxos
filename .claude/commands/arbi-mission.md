@@ -83,5 +83,11 @@ authorised because you invoked this). Hand back to James (merge is his) or to ar
   interactive prompts + branch protection + the review gate. It adds no `allow` rules and never
   runs unattended.
 
-<!-- Future: `/arbi-team` (agent-teams, big parallel work) and standing/unattended mission
-     dispatch are separate, later changes — gated on the PR 7b/8 preconditions. Not built here. -->
+## Routing to `/arbi-team`
+
+**Large parallel missions route to `/arbi-team`** (agent teams, plan-approval gate, max 4
+teammates — `.claude/commands/arbi-team.md`): whole-project mining, product reality sweeps,
+cross-layer features, competing debug hypotheses, large parallel reviews. Everything else —
+single features, bounded fixes, 1–2-PR missions — stays here. Never team-ify small or
+sequential work. The `arbi-mission` skill (`.claude/skills/arbi-mission/SKILL.md`) wraps this
+flow; standing/unattended mission dispatch remains gated on the PR 7b/8 preconditions.

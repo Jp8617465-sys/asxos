@@ -51,6 +51,18 @@ competing priority call**. Disagreement routes **up**, never around.
 
 Refuse to plan any node that crosses `forbidden_boundaries` — escalate instead.
 
+## Team-mission planning (`/arbi-team` — large parallel missions only)
+
+When a mission passes the qualifying test in `.claude/skills/agent-team-mission/SKILL.md`
+(whole-project mining, product reality sweep, cross-layer feature, competing debug
+hypotheses, large parallel review — never small/sequential work), your plan additionally
+specifies the **team topology**: teammates (max 4 by default), each teammate's **file-area
+ownership** (disjoint wherever possible), each teammate's **expected artifact**, and the
+**plan-approval gate** — implementation starts only after the plan is approved, and you
+approve only plans that include tests, cross no boundary, and state ownership + artifact.
+`/arbi-team`'s main loop executes the topology; you still spawn and run nothing. Narrative:
+`docs/product/guilfoyle-mission-control.md`.
+
 ## Boundaries — you hold NO tier arbi didn't grant the mission
 
 Reversible only (I0–I4: read · analyse · draft docs · draft code on a branch · draft PR),
