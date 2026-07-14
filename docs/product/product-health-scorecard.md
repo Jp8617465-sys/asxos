@@ -6,9 +6,10 @@ from this sandbox, its own `asyncpg`/`DATABASE_URL` connection times out on this
 queries below mirror `_freshness`/`_cron_reality`/`_investment_readiness`,
 `scripts/product_health.py:53-138`, exactly).
 **Top line:** 🔴 **2 FAIL · 🟡 3 WARN** — the data pipeline is fresh and the monitoring lane
-that was degraded on 2026-07-11 has **substantially recovered** (see below), but one **new**
-FAIL appeared (`track_signal_outcomes`) and `retrain_model_a` is still broken (mitigated by
-rule #11, not a live-ops emergency).
+that was degraded on 2026-07-11 has **substantially recovered** (see below). `track_signal_outcomes`
+still shows FAIL, but that's stale pre-fix data awaiting revalidation, not a new break (corrected
+below — an earlier draft of this doc mis-framed it as new); `retrain_model_a` is still broken
+(mitigated by rule #11, not a live-ops emergency).
 
 > Answers *is ASXOS actually working?* — not *did tests pass?*.
 
@@ -16,11 +17,12 @@ rule #11, not a live-ops emergency).
 
 ## 🔴 What's actually broken today
 
-1. **`track_signal_outcomes` — NEW finding, failed on its only run (0/1, last 2026-07-12).**
-   This is the exact "next Sun 03:00 UTC `track_signal_outcomes` cron" residual watch-item
-   `roadmap-state.md` flagged after the PR #30/#32 monitoring-lane fix — it ran and failed.
-   Not fixed as part of this doc-only regeneration; flagged as a follow-up candidate (see
-   ranked actions below).
+1. **`track_signal_outcomes` — 0/1, but this is stale pre-fix data, not a new failure.**
+   Its only recorded run was 2026-07-12 and failed; the cast fix (PR #30, commit `db5a3ff`)
+   landed 2026-07-13 11:13:44 UTC — *after* that failure, and the job hasn't run again since.
+   This is exactly the "next Sun 03:00 UTC `track_signal_outcomes` cron" residual watch-item
+   `roadmap-state.md` already tracks as a pending *validation*, not an unfixed bug. Nothing to
+   diagnose here yet — the row will only mean something once it runs again post-fix.
 2. **`retrain_model_a` — still 0/2, last attempt 2026-06-06 (now 5+ weeks stale).** Mitigated
    by the rule #11 quarantine (Model A is dormant by standing policy since 2026-07-11, not by
    broken-job accident) — this is a stale job, not a live-ops emergency.
@@ -73,7 +75,7 @@ rule #11, not a live-ops emergency).
 
 | grade | jobs |
 |---|---|
-| 🔴 FAIL | `track_signal_outcomes` (0/1, last failure 07-12, NEW); `retrain_model_a` (0/2, last failure 06-06, dormant/expected) |
+| 🔴 FAIL | `track_signal_outcomes` (0/1, last failure 07-12 — predates the 07-13 cast fix `db5a3ff`, hasn't re-run since; not a new break); `retrain_model_a` (0/2, last failure 06-06, dormant/expected) |
 | 🟢 PASS (last run succeeded) | `build_portfolio` (6/8), `check_au_positions` (7/7), `check_cron_health` (1/10, just recovered), `check_model_staleness` (2/10, just recovered), `check_thesis_invalidations` (11/11), `check_us_positions` (8/8), `compose_brief` (26/26), `compute_factor_scores` (2/2), `compute_opportunity_cost` (2/2), `derive_fundamentals_pit` (3/3), `detect_theme_stages` (7/7), `generate_signals` (22/32), `ingest_market_context` (8/8), `ingest_news` (26/28), `ingest_regulatory` (12/46, flaky but last run ok), `ingest_sentiment` (21/29), `ingest_underlyings` (8/8), `snapshot_portfolio` (31/38), `sync_corporate_actions` (3/3), `sync_financial_statements` (1/4, just recovered), `sync_fundamentals` (51/51), `sync_prices` (38/38), `sync_security_master` (3/3), `sync_universe` (7/7), `validate_price_data` (3/7) |
 
 ## Investment readiness
@@ -103,9 +105,9 @@ rule #11, not a live-ops emergency).
 
 ## The ranked next actions this scorecard surfaces
 
-1. **Diagnose `track_signal_outcomes`'s 07-12 failure** — new, unexamined; the exact residual
-   watch-item `roadmap-state.md` was already tracking, now confirmed as a real failure rather
-   than just "hasn't run yet."
+1. **Watch for `track_signal_outcomes`'s next run (Sun 03:00 UTC)** — its only recorded run
+   predates the 07-13 fix, so there's nothing to diagnose yet; confirm it goes green post-fix
+   rather than re-investigating pre-fix data.
 2. **Keep watching `check_cron_health`/`check_model_staleness`** for a few more days before
    trusting the "recovered" verdict — both have only 1-2 successful runs so far.
 3. **`retrain_model_a`** stays broken but is correctly dormant under rule #11 — no action
