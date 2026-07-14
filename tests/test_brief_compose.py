@@ -12,16 +12,19 @@ from __future__ import annotations
 import asyncio
 import os
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from asxos.brief.compose import (
     BriefData,
+    DisciplineLevel,
     JobFailure,
     NewsItem,
     RegulatoryHit,
     SignalChange,
     TaxAction,
+    _discipline_findings,
     collect,
     render_html,
 )
@@ -630,3 +633,263 @@ def test_collect_news_absent_when_ingest_stale() -> None:
         data = asyncio.run(collect(today))
 
     assert data.news_items == []
+
+
+# ---------------------------------------------------------------------------
+# PR2a — _discipline_findings loader (collected, not yet rendered)
+# ---------------------------------------------------------------------------
+
+
+def _disc_conn(
+    *,
+    thesis_rows=None,
+    holding_rows=None,
+    price_rows=None,
+    fx_rows=None,
+    snap_rows=None,
+    inception_rows=None,
+):
+    thesis_rows = thesis_rows or []
+    holding_rows = holding_rows or []
+    price_rows = price_rows or []
+    fx_rows = fx_rows or []
+    snap_rows = snap_rows or []
+    inception_rows = inception_rows or []
+
+    async def _fetch(query, *args, **kwargs):
+        q = " ".join(query.split())
+        if "FROM theses" in q:
+            return thesis_rows
+        if "SELECT symbol, quantity FROM current_holdings" in q:
+            return holding_rows
+        if "FROM prices" in q:
+            return price_rows
+        if "fx_rate_audusd IS NOT NULL" in q:
+            return fx_rows
+        if "benchmark_tr_level IS NOT NULL" in q:
+            return inception_rows
+        if "FROM portfolio_daily_snapshots" in q:
+            return snap_rows
+        return []
+
+    conn = MagicMock()
+    conn.fetch = AsyncMock(side_effect=_fetch)
+    return conn
+
+
+_PERSONAL_USE_ON = {"ASXOS_PERSONAL_USE": "1"}
+
+
+def test_discipline_findings_gated_off_by_default() -> None:
+    """Proposal §6: gated on ASXOS_PERSONAL_USE=1 — off (the test-suite default
+    unset state) means quiet, even with findings that would otherwise fire."""
+    thesis_rows = [
+        {
+            "symbol": "CBA.AU",
+            "revisit_due_at": datetime(2026, 6, 27),
+            "opened_at": datetime(2026, 1, 10),
+            "timeline_days": None,
+            "actual_entry_price": Decimal("50"),
+            "target_price": Decimal("60"),
+            "stop_price": Decimal("42"),
+            "conviction_level": 3,
+        }
+    ]
+    price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "0"}):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert findings == []
+    conn.fetch.assert_not_called()  # gate short-circuits before any query
+
+
+def test_discipline_findings_quiet_when_no_theses_or_holdings() -> None:
+    conn = _disc_conn()
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+    assert findings == []
+
+
+def test_discipline_findings_cba_revisit_and_data_sanity() -> None:
+    """Acceptance criterion (proposal §6): CBA's stale ladder (target 60 vs
+    live 168) emits both a REVISIT OVERDUE and a DATA-SANITY line."""
+    thesis_rows = [
+        {
+            "symbol": "CBA.AU",
+            "revisit_due_at": datetime(2026, 6, 27),
+            "opened_at": datetime(2026, 1, 10),
+            "timeline_days": None,
+            "actual_entry_price": Decimal("50"),
+            "target_price": Decimal("60"),
+            "stop_price": Decimal("42"),
+            "conviction_level": 3,
+        }
+    ]
+    price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    checks = {f.check for f in findings}
+    assert "revisit_overdue" in checks
+    assert "data_sanity" in checks
+    sanity = next(f for f in findings if f.check == "data_sanity")
+    assert sanity.level == DisciplineLevel.red
+    assert "CBA.AU" in sanity.message
+
+
+def test_discipline_findings_conviction_unset_summary() -> None:
+    """Acceptance criterion (proposal §6, R11): N/N conviction-unset theses
+    yield one portfolio-level summary line, not per-thesis noise."""
+    row = {
+        "revisit_due_at": datetime(2026, 8, 1),
+        "opened_at": datetime(2026, 6, 1),
+        "timeline_days": 180,
+        "actual_entry_price": Decimal("10"),
+        "target_price": Decimal("15"),
+        "stop_price": Decimal("9"),
+        "conviction_level": None,
+    }
+    thesis_rows = [{"symbol": "A.AU", **row}, {"symbol": "B.AU", **row}]
+    price_rows = [
+        {"symbol": "A.AU", "close": Decimal("11")},
+        {"symbol": "B.AU", "close": Decimal("11")},
+    ]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 1)))
+
+    conv = next(f for f in findings if f.check == "conviction_unset")
+    assert "2/2" in conv.message
+    assert conv.symbol is None
+
+
+def test_discipline_findings_foreign_thesis_uses_native_prices_not_aud() -> None:
+    """R10 regression: a foreign thesis's entry/target/current all stay in the
+    holding's native currency (USD) — no AUD/native mixing, so a HUBS-style
+    false −29% from dividing an AUD cost base cannot recur here."""
+    thesis_rows = [
+        {
+            "symbol": "HUBS.NYSE",
+            "revisit_due_at": datetime(2026, 8, 1),
+            "opened_at": datetime(2026, 1, 1),
+            "timeline_days": 365,
+            "actual_entry_price": Decimal("187.54"),
+            "target_price": Decimal("260"),
+            "stop_price": Decimal("150"),
+            "conviction_level": 4,
+        }
+    ]
+    price_rows = [{"symbol": "HUBS.NYSE", "close": Decimal("205.79")}]  # native USD, ~+9.8%
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert not any(f.check == "data_sanity" for f in findings)
+
+
+def test_discipline_findings_concentration_uses_fx_converted_market_value() -> None:
+    """A foreign holding's market value is converted forward (native / FX ->
+    AUD) before the concentration check, never AUD / quantity backward (R10)."""
+    holding_rows = [
+        {"symbol": "BHP.AU", "quantity": Decimal("50")},
+        {"symbol": "HUBS.NYSE", "quantity": Decimal("24")},
+    ]
+    price_rows = [
+        {"symbol": "BHP.AU", "close": Decimal("10")},
+        {"symbol": "HUBS.NYSE", "close": Decimal("205")},
+    ]
+    fx_rows = [{"fx_rate_audusd": Decimal("0.6450")}]
+    conn = _disc_conn(holding_rows=holding_rows, price_rows=price_rows, fx_rows=fx_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    # BHP: 50 * $10 = $500 AUD (~6% of the converted total) -> no finding.
+    # HUBS: 24 * $205 / 0.6450 ~= $7,627.91 AUD (~94% of total) -> red.
+    hubs_conc = next(
+        f for f in findings if f.check == "concentration" and f.symbol == "HUBS.NYSE"
+    )
+    assert hubs_conc.level == DisciplineLevel.red
+    assert not any(
+        f.check == "concentration" and f.symbol == "BHP.AU" for f in findings
+    )
+
+
+def test_discipline_findings_no_fx_rate_skips_foreign_holding() -> None:
+    """No AUDUSD rate available -> the foreign holding is omitted from the
+    concentration weighting rather than mis-converted (silent omission is
+    preferable to a wrong-currency figure here, mirroring wealth_state.py)."""
+    holding_rows = [{"symbol": "HUBS.NYSE", "quantity": Decimal("24")}]
+    price_rows = [{"symbol": "HUBS.NYSE", "close": Decimal("205")}]
+    conn = _disc_conn(holding_rows=holding_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert not any(f.check == "concentration" for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# collect() wiring for discipline_findings (PR2a)
+# ---------------------------------------------------------------------------
+
+
+def test_collect_discipline_findings_quiet_by_default() -> None:
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        regime_row={"regime": "bear"},
+        holdings_count=0,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[],
+        fail_rows=[],
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with patch("asxos.brief.compose.acquire", fake_acquire):
+        data = asyncio.run(collect(today))
+
+    assert data.discipline_findings == []
+
+
+def test_collect_discipline_section_failure_isolated() -> None:
+    """A broken discipline query must not take the rest of the brief down with
+    it (CLAUDE.md #10) — it surfaces as one loud error finding instead."""
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        regime_row={"regime": "bear"},
+        holdings_count=1,
+        signal_rows=[],
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[],
+        fail_rows=[],
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        patch(
+            "asxos.brief.compose._discipline_findings",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+    ):
+        data = asyncio.run(collect(today))
+
+    assert data.holdings_count == 1  # sibling sections unaffected
+    assert len(data.discipline_findings) == 1
+    assert data.discipline_findings[0].level == DisciplineLevel.error
+    assert "boom" in data.discipline_findings[0].message
