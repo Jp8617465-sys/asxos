@@ -251,10 +251,21 @@ denies with instructions → run `security-engineer` / `refactoring-expert` /
 hook prints the exact marker path) → retry the commit. The marker is keyed to the
 staged-diff hash, so any further change re-arms the gate.
 
+As of R13 (2026-07-13) the gate also blocks commands that stage Python in the
+*same step* as the commit — a compound `git add … && git commit`, or an
+auto-staging `git commit -a`/`-am`/`--all` — which previously slipped past
+because the gate inspects the staged diff and the staging hadn't happened yet.
+Those now deny up front (whenever the working tree carries pending `.py`) with a
+"stage the Python separately, then commit through the gate" message; a bare
+`git commit --amend` is not caught. `tests/test_review_gate_hook.py` drives the
+shell hook via subprocess to pin both the bypass-denials and the allow paths.
+
 Honest limit: the hook cannot itself spawn an agent or verify one ran — it forces a
 deliberate step (write the marker) rather than guaranteeing the review happened.
 Writing the marker without running the loop is an explicit, visible bypass. Doc-only
-and config-only commits (no staged `*.py`) are not gated.
+and config-only commits (no staged `*.py`) are not gated. It remains advisory +
+fail-open (jq missing / bad project dir → no deny) and the marker stays forgeable
+by design — R13 closes a same-command race, not the intentional bypass surface.
 
 ## Custom slash commands
 
