@@ -180,9 +180,15 @@ class FakeClient:
 class FakeConn:
     def __init__(self) -> None:
         self.executed: list[tuple[str, tuple]] = []
+        self.executed_many: list[tuple[str, list]] = []
 
     async def execute(self, sql: str, *args):
         self.executed.append((sql, args))
+
+    async def executemany(self, sql: str, args):
+        # asyncpg executemany takes (sql, iterable_of_arg_sequences); materialise the
+        # rows so tests can assert the batched (one-round-trip-per-symbol) shape.
+        self.executed_many.append((sql, list(args)))
 
 
 @pytest.mark.asyncio
@@ -195,10 +201,17 @@ async def test_refresh_counts_and_idempotent_upsert():
     assert counts["statements"] == 3
     assert counts["symbols_with_statements"] == 1
     assert counts["failed"] == 0
-    assert all(
-        "ON CONFLICT (symbol, period_end, period_type, statement_type) DO UPDATE" in s
-        for s, _ in conn.executed
+    # UPSERTs are batched: exactly one executemany per symbol-with-statements, carrying
+    # all of that symbol's rows in a single round-trip (not a per-row execute loop).
+    assert len(conn.executed_many) == 1
+    upsert_sql, upsert_rows = conn.executed_many[0]
+    assert (
+        "ON CONFLICT (symbol, period_end, period_type, statement_type) DO UPDATE"
+        in upsert_sql
     )
+    assert len(upsert_rows) == 3  # HUBS.US has 3 statements; counts["statements"] == len(rows)
+    # No statement UPSERT leaks onto the per-row execute() path.
+    assert not any("rs_financial_statements" in s for s, _ in conn.executed)
 
 
 @pytest.mark.asyncio
@@ -210,8 +223,11 @@ async def test_refresh_tolerates_errors_and_avoids_prod_tables():
     )
     assert counts["failed"] == 1
     assert counts["statements"] == 3
-    for sql, _ in conn.executed:
+    # No write — single (sector enrich) or batched (statements) — touches a production
+    # table; statements are UPSERTed via executemany into rs_financial_statements only.
+    all_sql = [s for s, _ in conn.executed] + [s for s, _ in conn.executed_many]
+    for sql in all_sql:
         low = sql.lower()
         assert "universe" not in low
         assert " prices" not in low
-        assert "rs_financial_statements" in low
+    assert any("rs_financial_statements" in s.lower() for s, _ in conn.executed_many)
