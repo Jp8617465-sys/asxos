@@ -677,9 +677,38 @@ def _disc_conn(
     return conn
 
 
+_PERSONAL_USE_ON = {"ASXOS_PERSONAL_USE": "1"}
+
+
+def test_discipline_findings_gated_off_by_default() -> None:
+    """Proposal §6: gated on ASXOS_PERSONAL_USE=1 — off (the test-suite default
+    unset state) means quiet, even with findings that would otherwise fire."""
+    thesis_rows = [
+        {
+            "symbol": "CBA.AU",
+            "revisit_due_at": datetime(2026, 6, 27),
+            "opened_at": datetime(2026, 1, 10),
+            "timeline_days": None,
+            "actual_entry_price": Decimal("50"),
+            "target_price": Decimal("60"),
+            "stop_price": Decimal("42"),
+            "conviction_level": 3,
+        }
+    ]
+    price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "0"}):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert findings == []
+    conn.fetch.assert_not_called()  # gate short-circuits before any query
+
+
 def test_discipline_findings_quiet_when_no_theses_or_holdings() -> None:
     conn = _disc_conn()
-    findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
     assert findings == []
 
 
@@ -701,7 +730,8 @@ def test_discipline_findings_cba_revisit_and_data_sanity() -> None:
     price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
     conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
 
-    findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
 
     checks = {f.check for f in findings}
     assert "revisit_overdue" in checks
@@ -730,7 +760,8 @@ def test_discipline_findings_conviction_unset_summary() -> None:
     ]
     conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
 
-    findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 1)))
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 1)))
 
     conv = next(f for f in findings if f.check == "conviction_unset")
     assert "2/2" in conv.message
@@ -756,7 +787,8 @@ def test_discipline_findings_foreign_thesis_uses_native_prices_not_aud() -> None
     price_rows = [{"symbol": "HUBS.NYSE", "close": Decimal("205.79")}]  # native USD, ~+9.8%
     conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
 
-    findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
 
     assert not any(f.check == "data_sanity" for f in findings)
 
@@ -775,7 +807,8 @@ def test_discipline_findings_concentration_uses_fx_converted_market_value() -> N
     fx_rows = [{"fx_rate_audusd": Decimal("0.6450")}]
     conn = _disc_conn(holding_rows=holding_rows, price_rows=price_rows, fx_rows=fx_rows)
 
-    findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
 
     # BHP: 50 * $10 = $500 AUD (~6% of the converted total) -> no finding.
     # HUBS: 24 * $205 / 0.6450 ~= $7,627.91 AUD (~94% of total) -> red.
@@ -796,7 +829,8 @@ def test_discipline_findings_no_fx_rate_skips_foreign_holding() -> None:
     price_rows = [{"symbol": "HUBS.NYSE", "close": Decimal("205")}]
     conn = _disc_conn(holding_rows=holding_rows, price_rows=price_rows)
 
-    findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
 
     assert not any(f.check == "concentration" for f in findings)
 

@@ -196,6 +196,11 @@ it delivers automated selection, because it doesn't.
     populates; implemented, unit-tested, and taken through the full review loop
     (`security-engineer`, `refactoring-expert`, `technical-writer`). Wired to nothing user-visible
     yet — no `brief.html.j2` change in this PR, so the emailed brief is unchanged until PR2b lands.
+    **Follow-up fix (second commit, same PR, 2026-07-14):** the initial cut of
+    `_discipline_findings()` shipped without the `ASXOS_PERSONAL_USE=1` gate §6 already required
+    (its siblings `_news_section()`/`_portfolio_section()` both have it) — closed with the gate
+    plus test coverage, no scope change; PR2a now fully meets §6's acceptance criteria as
+    originally written.
   - **PR2b — the render half (remaining).** The `brief.html.j2` discipline block that actually
     renders `BriefData`'s new field into the email James reads. Not yet started. *(Alternative:
     A-cron `jobs/check_thesis_discipline.py` mirroring `check_au_positions` + a `render.yaml` block +

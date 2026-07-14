@@ -720,7 +720,16 @@ async def _discipline_findings(
     build to `_holding_weights`, and the since-inception benchmark comparison
     to `_since_inception_returns` (R10 currency-safety notes live on those
     helpers, next to the arithmetic they govern).
+
+    Gated on ``ASXOS_PERSONAL_USE=1`` only (proposal §6 acceptance criteria) —
+    deliberately not ``ASXOS_PORTFOLIO_BRIEF_ENABLED``, which gates the
+    allocator's trade suggestions and is orthogonal to this model-independent
+    digest (§4). Matches the same gate `_news_section`/`_portfolio_section`
+    already apply to their own display-only data.
     """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return []
+
     thesis_rows = await conn.fetch(
         """
         SELECT symbol, revisit_due_at, opened_at, timeline_days,
