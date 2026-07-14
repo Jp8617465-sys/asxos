@@ -28,7 +28,13 @@
       "mcp__github__merge_pull_request",
       "mcp__github__enable_pr_auto_merge",
 
-      "Edit(/.claude/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/settings.local.json)",
+      "Edit(/.claude/agents/**)",
+      "Edit(/.claude/commands/**)",
+      "Edit(/.claude/hooks/**)",
+      "Edit(/.claude/rules/**)",
+      "Edit(/.claude/skills/**)"
       "Edit(/.github/**)",
       "Edit(/migrations/**)",
       "Edit(/CLAUDE.md)",
