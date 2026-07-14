@@ -190,9 +190,16 @@ it delivers automated selection, because it doesn't.
   checks — closing the exact silent-omission pattern this lane exists to fix.
 - **PR2 — surface it (the increment that changes what James sees).** A-brief: a model-independent
   discipline section — `BriefData` field + `brief.html.j2` block + collector, gated
-  `ASXOS_PERSONAL_USE`, fail-closed-on-error. Reversible by removing the section. *(Alternative:
-  A-cron `jobs/check_thesis_discipline.py` mirroring `check_au_positions` + a `render.yaml` block +
-  `HEALTHCHECK_URL_*`, added to `check_cron_health._EXPECTED_DAILY`.)*
+  `ASXOS_PERSONAL_USE`, fail-closed-on-error. Reversible by removing the section. Split in two:
+  - **PR2a — the loader half. ✅ DONE, landing as a draft PR (this session).** The
+    `_discipline_findings()` collector in `asxos/brief/compose.py` + the `BriefData` field it
+    populates; implemented, unit-tested, and taken through the full review loop
+    (`security-engineer`, `refactoring-expert`, `technical-writer`). Wired to nothing user-visible
+    yet — no `brief.html.j2` change in this PR, so the emailed brief is unchanged until PR2b lands.
+  - **PR2b — the render half (remaining).** The `brief.html.j2` discipline block that actually
+    renders `BriefData`'s new field into the email James reads. Not yet started. *(Alternative:
+    A-cron `jobs/check_thesis_discipline.py` mirroring `check_au_positions` + a `render.yaml` block +
+    `HEALTHCHECK_URL_*`, added to `check_cron_health._EXPECTED_DAILY`.)*
 - **PR3 — persistence sink (root-cause fix for cause #3; James-gated: migration).** A queryable
   `portfolio_review_findings` table so **both** the deterministic digest **and** any future
   pm-review Routine write to **one** place the brief reads — closing the "findings die in markdown"

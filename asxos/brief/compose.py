@@ -20,6 +20,12 @@ Sections (in order):
        ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
      Omitted entirely when either flag is unset, or when no successful
      build_portfolio run exists with as_of >= today - 2 (plan I.7 freshness gate).
+
+`discipline_findings` (PR2a of the portfolio-visibility lane,
+`docs/proposals/portfolio-team-visibility-2026-07-12.md` §8) is collected here
+but **not yet rendered** — PR2b adds the `brief.html.j2` block. Model-independent
+by construction (rule #11): the loader never reads `signals`/`shap_factors` and
+never calls `resolve_production_model()`.
 """
 from __future__ import annotations
 
@@ -33,10 +39,20 @@ from typing import TYPE_CHECKING, Any
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.domain.benchmark.returns import period_return
 from asxos.domain.brief.shap import format_top_factors
 from asxos.domain.models.production_gate import resolve_production_model
 from asxos.domain.prices.coverage import latest_complete_trading_day
+from asxos.domain.prices.fx import is_foreign_symbol
 from asxos.domain.tax.cgt import days_to_eligibility
+from asxos.domain.theses.discipline import (
+    DisciplineFinding,
+    DisciplineLevel,
+    HoldingWeight,
+    PortfolioDisciplineInput,
+    ThesisDisciplineInput,
+    evaluate_discipline,
+)
 
 if TYPE_CHECKING:
     import asyncpg
@@ -133,6 +149,8 @@ class BriefData:
     job_failures: list[JobFailure] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
     portfolio_section: PortfolioSection | None = None
+    # PR2a: collected, not yet rendered (PR2b adds the brief.html.j2 block).
+    discipline_findings: list[DisciplineFinding] = field(default_factory=list)
     latest_signal_date: date | None = None
     latest_price_date: date | None = None
     # Latest *complete* trading day the regime/signal queries were anchored to
@@ -250,6 +268,21 @@ async def collect(as_of: date) -> BriefData:
         news_items = await _news_section(conn, as_of)
         portfolio_section = await _portfolio_section(conn, as_of)
 
+        # Fail-loud isolation (CLAUDE.md #10): a broken discipline query must
+        # never take down the rest of the brief. Surface it as a single loud
+        # error finding instead — the same "never silently vanish" contract
+        # evaluate_discipline() already enforces for its own per-check errors.
+        try:
+            discipline_findings = await _discipline_findings(conn, as_of)
+        except Exception as exc:
+            discipline_findings = [
+                DisciplineFinding(
+                    check="discipline_section",
+                    level=DisciplineLevel.error,
+                    message=f"⚠ discipline section could not run: {exc}",
+                )
+            ]
+
     return BriefData(
         as_of=as_of,
         regime=regime,
@@ -260,6 +293,7 @@ async def collect(as_of: date) -> BriefData:
         job_failures=job_failures,
         news_items=news_items,
         portfolio_section=portfolio_section,
+        discipline_findings=discipline_findings,
         latest_signal_date=latest_signal_date,
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
@@ -577,6 +611,168 @@ async def _portfolio_section(
         total_sell_aud=total_sell_aud,
         turnover_aud=total_buy_aud + total_sell_aud,
     )
+
+
+def _thesis_discipline_inputs(
+    thesis_rows: list[asyncpg.Record], prices: dict[str, Decimal]
+) -> tuple[ThesisDisciplineInput, ...]:
+    """Build per-thesis inputs, native-currency-against-native throughout.
+
+    Currency safety (R10, `.claude/rules/portfolio-conventions.md`): entry/
+    target/stop come straight from `theses` (authored in the holding's own
+    native currency) and current comes from `prices.close` (also native) —
+    all four legs are native-against-native, no FX step needed here.
+    """
+    return tuple(
+        ThesisDisciplineInput(
+            symbol=r["symbol"],
+            currency="USD" if is_foreign_symbol(r["symbol"]) else "AUD",
+            revisit_due_at=r["revisit_due_at"].date(),
+            opened_at=r["opened_at"].date(),
+            timeline_days=r["timeline_days"],
+            entry_price_native=r["actual_entry_price"],
+            current_price_native=prices.get(r["symbol"]),
+            target_price_native=r["target_price"],
+            stop_price_native=r["stop_price"],
+            conviction_level=r["conviction_level"],
+        )
+        for r in thesis_rows
+    )
+
+
+def _holding_weights(
+    holding_rows: list[asyncpg.Record],
+    prices: dict[str, Decimal],
+    fx_rate: Decimal | None,
+) -> tuple[HoldingWeight, ...]:
+    """Market value per holding, converted to AUD for the concentration check.
+
+    Foreign (USD) holdings need AUDUSD to convert their native market value
+    to AUD (R10) — never divide an AUD figure by quantity to get back to
+    native, always convert forward from native. A foreign holding with no
+    FX rate available is omitted rather than mis-converted.
+    """
+    holdings: list[HoldingWeight] = []
+    for r in holding_rows:
+        close = prices.get(r["symbol"])
+        if close is None:
+            continue
+        mv_native = Decimal(str(r["quantity"])) * close
+        if is_foreign_symbol(r["symbol"]):
+            if fx_rate is None:
+                continue
+            mv_aud = mv_native / fx_rate
+        else:
+            mv_aud = mv_native
+        holdings.append(HoldingWeight(symbol=r["symbol"], market_value_aud=mv_aud))
+    return tuple(holdings)
+
+
+async def _since_inception_returns(
+    conn: asyncpg.Connection, as_of: date
+) -> tuple[Decimal | None, Decimal | None]:
+    """Since-inception portfolio vs. benchmark total return (both as +/-%).
+
+    Same framing as `wealth_state.py`'s alpha line: `period_return` over
+    `capital_aud` vs `benchmark_tr_level`, anchored on the earliest snapshot
+    carrying a benchmark level. Returns (None, None) until Stage 1 backfills
+    `benchmark_tr_level`.
+    """
+    snap_rows = await conn.fetch(
+        """
+        SELECT capital_aud, benchmark_tr_level
+        FROM portfolio_daily_snapshots
+        WHERE as_of <= $1
+        ORDER BY as_of DESC
+        LIMIT 1
+        """,
+        as_of,
+    )
+    inception_rows = await conn.fetch(
+        """
+        SELECT capital_aud, benchmark_tr_level
+        FROM portfolio_daily_snapshots
+        WHERE benchmark_tr_level IS NOT NULL AND as_of <= $1
+        ORDER BY as_of ASC
+        LIMIT 1
+        """,
+        as_of,
+    )
+    if not snap_rows or not inception_rows or snap_rows[0]["benchmark_tr_level"] is None:
+        return None, None
+
+    inc_cap = Decimal(str(inception_rows[0]["capital_aud"]))
+    inc_tr = Decimal(str(inception_rows[0]["benchmark_tr_level"]))
+    cur_cap = Decimal(str(snap_rows[0]["capital_aud"]))
+    cur_tr = Decimal(str(snap_rows[0]["benchmark_tr_level"]))
+    if inc_cap <= 0 or inc_tr <= 0:
+        return None, None
+    return period_return(inc_cap, cur_cap) * 100, period_return(inc_tr, cur_tr) * 100
+
+
+async def _discipline_findings(
+    conn: asyncpg.Connection, as_of: date
+) -> list[DisciplineFinding]:
+    """Loader for `asxos.domain.theses.discipline.evaluate_discipline()` (PR2a).
+
+    Fetches thesis/holding/price rows, then delegates the native-currency
+    thesis-input build to `_thesis_discipline_inputs`, the AUD holding-weight
+    build to `_holding_weights`, and the since-inception benchmark comparison
+    to `_since_inception_returns` (R10 currency-safety notes live on those
+    helpers, next to the arithmetic they govern).
+    """
+    thesis_rows = await conn.fetch(
+        """
+        SELECT symbol, revisit_due_at, opened_at, timeline_days,
+               actual_entry_price, target_price, stop_price, conviction_level
+        FROM theses
+        WHERE status = 'active'
+        ORDER BY opened_at
+        """
+    )
+    holding_rows = await conn.fetch("SELECT symbol, quantity FROM current_holdings")
+
+    symbols = sorted({r["symbol"] for r in thesis_rows} | {r["symbol"] for r in holding_rows})
+    prices: dict[str, Decimal] = {}
+    if symbols:
+        price_rows = await conn.fetch(
+            """
+            SELECT DISTINCT ON (symbol) symbol, close
+            FROM prices
+            WHERE symbol = ANY($1) AND dt <= $2
+            ORDER BY symbol, dt DESC
+            """,
+            symbols,
+            as_of,
+        )
+        prices = {r["symbol"]: Decimal(str(r["close"])) for r in price_rows}
+
+    # Deliberately a separate query from `_since_inception_returns`'s latest-
+    # snapshot lookup below: this one filters to the latest snapshot that
+    # actually carries an FX rate, which need not be the same row as the
+    # latest snapshot overall.
+    fx_rows = await conn.fetch(
+        """
+        SELECT fx_rate_audusd
+        FROM portfolio_daily_snapshots
+        WHERE as_of <= $1 AND fx_rate_audusd IS NOT NULL
+        ORDER BY as_of DESC
+        LIMIT 1
+        """,
+        as_of,
+    )
+    fx_rate = Decimal(str(fx_rows[0]["fx_rate_audusd"])) if fx_rows else None
+
+    thesis_inputs = _thesis_discipline_inputs(thesis_rows, prices)
+    holdings = _holding_weights(holding_rows, prices, fx_rate)
+    portfolio_tr_aud, benchmark_tr_aud = await _since_inception_returns(conn, as_of)
+
+    port_input = PortfolioDisciplineInput(
+        holdings=holdings,
+        portfolio_tr_aud=portfolio_tr_aud,
+        benchmark_tr_aud=benchmark_tr_aud,
+    )
+    return evaluate_discipline(thesis_inputs, port_input, as_of)
 
 
 def render_html(data: BriefData) -> str:

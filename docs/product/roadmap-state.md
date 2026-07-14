@@ -5,8 +5,11 @@
 **Last verified:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
 #32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
 hardening, Guilfoyle mission-control, overnight governance record, orchestrator-mode sketch.
-Monitoring lane fixes all on main. Remaining open: #29 — roadmap-state-only conflict, code merges
-clean; #5 — recommend close, superseded by the ML shelf)
+Monitoring lane fixes all on main. **Confirmed (2026-07-14, later same day): #29 (discipline
+evaluator) and #38 (autonomy unlock pack) are both MERGED to main** (`2a49df9`, `1af76e4`) — all
+"#29 open/draft" references below have been corrected to reflect this. Remaining open: #5 —
+recommend close, superseded by the ML shelf; #39 (permission-friction/guard pack) — open draft,
+`full-check` CI failing.)
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
 **Superseded by:** N/A
 
@@ -29,13 +32,15 @@ detail behind these lines.
 - **Current workstream:** post-shelf model-independent build. The monitoring lane is **fully
   merged** (PRs #26, #30, #32) — remaining validation is the first post-merge Saturday
   `sync_financial_statements` run (`duration_ms` watch-item) and the next Sun 03:00 UTC
-  `track_signal_outcomes` cron. Next product lane: land the discipline evaluator (#29 rebase)
-  → portfolio-team-visibility PR2 surface; then ETF Slice 2 (gated on VGS/VAS lot data).
-- **Open PRs (as of 2026-07-14 reconciliation):** **#29** (discipline evaluator — needs a
-  `roadmap-state.md`-only rebase; `discipline.py` + tests merge clean against main) and
-  **#5** (June quant-benchmarking research — recommend CLOSE as superseded by the 07-11
-  decay analysis + ML shelf; merging it would import pre-shelf ML-roadmap guidance as if
-  current).
+  `track_signal_outcomes` cron. **#29 (discipline evaluator) is MERGED** (`2a49df9`) — next
+  product lane is portfolio-team-visibility **PR2a** (the `_discipline_findings()` loader +
+  `BriefData` field, landing this session as a draft PR) and **PR2b** (the remaining
+  `brief.html.j2` render block, not yet started); then ETF Slice 2 (gated on VGS/VAS lot data).
+- **Open PRs (as of 2026-07-14 reconciliation):** **#29** (discipline evaluator) is **MERGED**
+  (`2a49df9`) — no longer open. Remaining open: **#5** (June quant-benchmarking research —
+  recommend CLOSE as superseded by the 07-11 decay analysis + ML shelf; merging it would import
+  pre-shelf ML-roadmap guidance as if current), and this session's PR2a (loader + `BriefData`
+  field, landing as a new draft PR) with PR2b (the `brief.html.j2` render block) still to come.
 - **Recently completed (on `main`, 2026-07-13/14 merge train):** monitoring lane restored +
   batched (`track_signal_outcomes` cast, `snapshot_portfolio` trading-day anchor,
   `sync_financial_statements` OOM fix + `executemany` batching — PRs #30/#32); **R12 resolved**
@@ -49,9 +54,10 @@ detail behind these lines.
   (discovery/discipline/ETF) and no longer waits on a signal engine
   (`ml-engine-shelf-2026-07-11.md`).
 - **Next actions:** see the ranked queue below. Monitoring lane is merged (queue #1 done —
-  residual = watch the first post-merge Sat run). Candidate new #1 (2026-07-14, pending
-  red-team): rebase #29 and land the discipline evaluator — the portfolio-visibility moat
-  work, fully built + review-looped, blocked only by a stale doc hunk.
+  residual = watch the first post-merge Sat run). **#29 (discipline evaluator) is MERGED**
+  (`2a49df9`); candidate new #1 (2026-07-14) is now portfolio-team-visibility **PR2a** (the
+  `_discipline_findings()` loader, landing this session as a draft PR) followed by **PR2b**
+  (the `brief.html.j2` render block, not yet started).
 - **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
   2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
@@ -160,11 +166,10 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   R13 review-gate hardening (#35); Guilfoyle mission-control + thesis-as-broker-report
   reframe + HUBS 10/20 record (#31); overnight governance record (#34); orchestrator-mode
   lean sketch (#36).
-- **Still open: PR #29** (discipline evaluator) — base is stale (`c9b522c`); test-merge
-  2026-07-14 shows the **only** conflict is `docs/product/roadmap-state.md` (this file);
-  `discipline.py` + 19 tests + the proposal/handoff docs merge clean. Rebase plan: restart the
-  branch from current main, keep the code/tests/proposal commits, drop the stale
-  roadmap-state hunk (this reconciliation supersedes it).
+- **MERGED 2026-07-14: PR #29** (discipline evaluator, `2a49df9`) — `discipline.py` + 19 tests
+  landed on main. Follow-on for this lane is now PR2a (`_discipline_findings()` loader +
+  `BriefData` field, landing this session as a draft PR) and PR2b (the `brief.html.j2` render
+  block, not yet started) from the portfolio-team-visibility proposal.
 - **Still open: PR #5** (June quant-platform benchmarking research, 25 files) — superseded by
   the 2026-07-11 decay analysis + ML-shelf decision; recommend CLOSE (not merge-as-historical).
 
@@ -176,9 +181,10 @@ agent/command. arbi keeps this ranked; it is brief-only and does not execute the
 1. **DONE 2026-07-13/14 — monitoring lane restored and merged** (PRs #30 + #32: cast fix,
    trading-day snapshot anchor, OOM fix, batched writes). Residual watch-items, not work:
    first post-merge Sat `sync_financial_statements` run (`duration_ms` vs the 5400s deadline)
-   and next Sun `track_signal_outcomes` cron. Candidate replacement #1 (pending red-team):
-   **rebase + land #29 (discipline evaluator)** — see In flight. _Historical detail of the
-   original item kept below for audit:_ PR #26
+   and next Sun `track_signal_outcomes` cron. **#29 (discipline evaluator) is MERGED**
+   (`2a49df9`) — see In flight. Candidate replacement #1 is now portfolio-team-visibility
+   **PR2a** (loader, landing this session as a draft PR) + **PR2b** (render block, not yet
+   started). _Historical detail of the original item kept below for audit:_ PR #26
    half-healed it — `check_model_staleness` is now SUCCESS(07-12). Three live failures remain
    (live-verified this wake via `job_runs` + Render events): (a) `sync_financial_statements` shows an
    **orphaned `running` row** from a Render `oomKilled(512Mi, ~78s)` at 07-11 16:50Z — that was the
@@ -387,9 +393,10 @@ dev/ops side.
 ## Last wake snapshot
 
 _Recorded by the 2026-07-13 interactive `/arbi` wake — supersedes the 07-11 baseline; later
-runs diff against this. (An earlier-today wake on branch `jeww8p` carries its own 07-13 refresh
-inside draft PR #29, not yet on main; this snapshot is the more current one — it has the live
-`job_runs` errors that wake did not surface.)_
+runs diff against this. (An earlier-today wake on branch `jeww8p` carried its own 07-13 refresh
+inside draft PR #29 — since **MERGED to main** as `2a49df9` on 2026-07-14 — this snapshot was
+the more current one at the time it was recorded; it has the live `job_runs` errors that wake
+did not surface.)_
 
 ```
 Last wake: 2026-07-13 (interactive /arbi — supersedes the 07-11 baseline)
@@ -413,3 +420,7 @@ Last wake: 2026-07-13 (interactive /arbi — supersedes the 07-11 baseline)
   one-line cast, root-cause reproduced) · snapshot_portfolio=BLOCKED(07-12, Sunday-run gate mismatch: as_of=Sat but
   sync_prices records as_of=run-date and skips Sat) · retrain_model_a=FAILURE(06-06, dormant/expected) · all others success
 ```
+
+_Verbatim as recorded 2026-07-13 — do not edit the snapshot text above. Status update: the
+"open PRs" line's **#29 is now MERGED to main** (`2a49df9`, 2026-07-14); only #5 remains open
+from that list._
