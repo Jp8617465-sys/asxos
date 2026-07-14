@@ -23,6 +23,46 @@
       "Bash(python -m py_compile:*)",
       "Bash(git add:*)",
       "Bash(curl -s --max-time 25 -H \"Authorization: Bearer $RENDER_API_KEY\" \"https://api.render.com/v1/:*)"
+    ],
+    "deny": [
+      "mcp__github__merge_pull_request",
+      "mcp__github__enable_pr_auto_merge",
+
+      "Edit(/.claude/**)",
+      "Edit(/.github/**)",
+      "Edit(/migrations/**)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/render.yaml)",
+      "Edit(/docs/README.md)",
+
+      "Edit(/docs/product/north-star.md)",
+      "Edit(/docs/product/arbi-constitution.md)",
+      "Edit(/docs/product/arbi-authority.md)",
+      "Edit(/docs/product/arbi-permission-model.md)",
+      "Edit(/docs/product/arbi-harness.md)",
+      "Edit(/docs/product/arbi-scorecard.md)",
+      "Edit(/docs/product/arbi-promotion-gate.md)",
+      "Edit(/docs/product/arbi-memory-policy.md)",
+      "Edit(/docs/product/arbi-dream-policy.md)",
+      "Edit(/docs/product/arbi-managed-agent-spec.md)",
+      "Edit(/docs/product/arbi-autonomy-loop.md)",
+      "Edit(/docs/product/arbi-goal-recipes.md)",
+      "Edit(/docs/product/arbi-evals.md)",
+      "Edit(/docs/product/guilfoyle-mission-control.md)",
+      "Edit(/docs/product/portfolio-manager-charter.md)",
+      "Edit(/docs/product/portfolio-policy.md)",
+      "Edit(/docs/product/recommendation-schema.md)",
+      "Edit(/docs/product/data-contracts.md)",
+      "Edit(/docs/product/rubrics/**)",
+
+      "Edit(/docs/product/memory/approved-lessons.md)",
+      "Edit(/docs/product/memory/authority-lessons.md)",
+      "Edit(/docs/product/memory/project-facts.md)",
+      "Edit(/docs/product/memory/promotion-log.md)",
+      "Edit(/docs/product/memory/rejected-candidates.md)",
+
+      "Read(.env)",
+      "Edit(.env)"
     ]
   },
   "hooks": {
@@ -33,12 +73,24 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/review-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/push-guard.sh"
           }
         ]
       },
       {
         "matcher": ".*",
         "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pr-draft-guard.sh"
+          },
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
