@@ -35,6 +35,28 @@ timeline · thesis statement · theme attribution · invalidation conditions · 
 state · opportunity-cost framing. A small number of opinionated, explainable ideas — not
 "BHP went up 2%," not 50 screener matches.
 
+## What a thesis IS — a broker report (governor reframe, 2026-07-13)
+
+James's framing: **a thesis is a broker report, not just a trade-setup row.** The
+entry/stop/target/timeline scaffolding above is the *discipline wrapper*; the thesis itself is
+a broker-report-quality analysis with a point of view. It comes in three flavours, and the
+product covers **all instrument kinds** — not only individual equities:
+
+- **Macro / segment** — a regime or sector view (the backdrop a position sits in).
+- **Individual investment** — a single-name thesis (the classic case).
+- **ETF / fund** — the *breakdown of the fund*: what it holds, its exposures, and why it earns
+  a place (e.g. real VGS/VAS coverage, not just a ticker).
+
+And the product is the **identify → monitor → change** loop over these theses. A thesis can be
+correct when it's written and *stop* being correct as macro, announcements, or news move — so
+the system's job is not to author a thesis once but to **monitor it and change it when the
+world changes** (the discipline moat, layer 2, made dynamic). A stale thesis that no longer
+matches reality is the failure mode this loop exists to catch — the CBA thesis (recorded
+entry/stop/target detached ~4× from a live ~168) is the worked example.
+
+*(Drafted by arbi as a governor-directed reframe for James's approval — north-star amendments
+are James's to ratify on merge, per `arbi-constitution.md`.)*
+
 ## The three-layer moat (§1.3) — the ranking arbi prioritises against
 
 1. **Integration with thought-process** — the morning ritual that thinks the way James

@@ -144,13 +144,15 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 21 subagents — 11 dev-side (architecture/quality/docs), 2
+`.claude/agents/` holds 22 subagents — 11 dev-side (architecture/quality/docs), 2
 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`),
 5 investment-analysis agents (the evidence layer behind `/pm-review`), 1 discovery
-agent (`macro-economist`; 2 more planned in Phase 2c), and 2 program-management agents
-(`arbi`, the PM / "wake up" agent — see below — plus `arbi-red-team`, the adversarial
-critic that stress-tests arbi's "one thing" before it's acted on), all routed in the
-tables below; see `.claude/agents/README.md`.
+agent (`macro-economist`; 2 more planned in Phase 2c), and 3 program-management agents
+(`arbi`, the PM / "wake up" agent — see below; `arbi-red-team`, the adversarial
+critic that stress-tests arbi's "one thing" before it's acted on; and `guilfoyle`,
+the mission-control / execution lead **under** arbi that turns an arbi-approved mission
+into a task graph and readiness verdict via `/arbi-mission` — it plans and judges, never
+prioritises or spawns), all routed in the tables below; see `.claude/agents/README.md`.
 They are **advisory by default**: most are read-only and return analysis, designs,
 or specs as text that the main loop then implements. Only `refactoring-expert`
 (code) and `technical-writer` (docs) can mutate files. `security-engineer` and
@@ -179,6 +181,7 @@ Before acting, consult the relevant agent:
 | About to… | Consult first |
 |---|---|
 | Decide what to work on next / prioritise across the roadmap / "wake up" | `arbi` (via `/arbi`) |
+| Execute an arbi-approved reversible mission (task graph → specialists → draft PR) | `guilfoyle` (via `/arbi-mission`) |
 | Start a feature whose scope isn't already a written spec | `requirements-analyst` |
 | Add a module / cross-domain dependency / structural change | `system-architect` |
 | Design or change an API route, DB schema/migration, auth, or write-path job | `backend-architect` |
@@ -269,4 +272,4 @@ by design — R13 closes a same-command race, not the intentional bypass surface
 
 ## Custom slash commands
 
-`.claude/commands/` has 27 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `arbi-run` (added 2026-07-10) is the attended multi-agent dispatch bridge: arbi plans + names specialists, the main loop fans them out in parallel (governor-invoked, reversible only — standing/unattended dispatch stays gated per `arbi-permission-model.md`). `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` + branch protection = the mechanical poisoning firewall); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.
+`.claude/commands/` has 28 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `arbi-run` (added 2026-07-10) is the attended multi-agent dispatch bridge: arbi plans + names specialists, the main loop fans them out in parallel (governor-invoked, reversible only — standing/unattended dispatch stays gated per `arbi-permission-model.md`). `arbi-mission` (added 2026-07-13) is its graph-driven, readiness-gated successor: **`guilfoyle`** (mission-control, read-only planner under arbi) turns an arbi-approved mission envelope into a task graph + specialist assignments + one readiness verdict, and the main loop executes the reversible fan-out to a draft PR — attended only, draft-PR ceiling, Guilfoyle plans/judges but never prioritises, spawns, or merges. `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` + branch protection = the mechanical poisoning firewall); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.
