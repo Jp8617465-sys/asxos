@@ -175,10 +175,19 @@ it delivers automated selection, because it doesn't.
 
 ## 8. Implementation PR plan (all reversible unless marked James-gated)
 
-- **PR1 — pure evaluator, no infra.** `asxos/domain/theses/discipline.py` composing existing
-  `severity.py` + `trajectory.py` + `wealth_state` benchmark-lag + net-new conviction-NULL check +
-  data-sanity check; full unit tests (CBA + conviction-NULL fixtures from §6). Ships behind nothing,
-  wired to nothing.
+- **PR1 — pure evaluator, no infra. ✅ LANDED 2026-07-12/07-13 (this branch).**
+  `asxos/domain/theses/discipline.py` composing existing `severity.py` + `trajectory.py` +
+  `wealth_state` benchmark-lag + net-new conviction-NULL check + data-sanity check; full unit tests
+  (`tests/test_thesis_discipline.py`, 19 tests, `mypy --strict` clean). Ships behind nothing, wired
+  to nothing (no cron, no brief section, no DB) — PR2 wires a loader + surface. Security-review
+  deltas incorporated as-built: (a) the timeline finding is **discipline-owned evidence-only
+  wording** — it drops `severity.thesis_timeline_expired`'s "— review or close" tail because "close"
+  reads as a trade direction (s766B, §7), re-deriving the same red/yellow classification with date
+  arithmetic only; (b) **every per-check `except` is broad** (not narrow Decimal-only) so a mistyped
+  loader input surfaces as a loud per-check `error` finding and isolates rather than aborting the
+  batch (fail-loud, §6); (c) **missing price legs surface as an `incomplete_price_data` info
+  finding** (symmetric with `no_stop_set`) rather than silently no-op'ing the trajectory/data-sanity
+  checks — closing the exact silent-omission pattern this lane exists to fix.
 - **PR2 — surface it (the increment that changes what James sees).** A-brief: a model-independent
   discipline section — `BriefData` field + `brief.html.j2` block + collector, gated
   `ASXOS_PERSONAL_USE`, fail-closed-on-error. Reversible by removing the section. *(Alternative:
