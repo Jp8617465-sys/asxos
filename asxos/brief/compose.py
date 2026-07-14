@@ -7,25 +7,28 @@ Keep the prose under 200 words — this brief is consumed daily, so density matt
 Sections (in order):
   1. Job failures banner (if any in the last 24h)
   2. Market regime
-  3. Signal label changes on current holdings (today vs yesterday)
-  4. Tax actions: lots crossing the 12-month CGT boundary in next 30 days
-  5. Regulatory hits on holdings in the last 24h
-  6. Market news on holdings (M14a) — gated by ALL of:
+  3. Portfolio discipline (portfolio-team-visibility lane, PR2a/PR2b —
+     `docs/proposals/portfolio-team-visibility-2026-07-12.md` §8): revisit-
+     overdue, stop/target trajectory, conviction-unset, concentration,
+     benchmark lag. Model-independent by construction (rule #11) — the loader
+     never reads `signals`/`shap_factors` and never calls
+     `resolve_production_model()`. Gated on ASXOS_PERSONAL_USE=1 only (not
+     ASXOS_PORTFOLIO_BRIEF_ENABLED, which is orthogonal — §4). Quiet when
+     every check is clean; a check that errors renders a loud "could not run"
+     line rather than vanishing (CLAUDE.md #10).
+  4. Signal label changes on current holdings (today vs yesterday)
+  5. Tax actions: lots crossing the 12-month CGT boundary in next 30 days
+  6. Regulatory hits on holdings in the last 24h
+  7. Market news on holdings (M14a) — gated by ALL of:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_NEWS_BRIEF_ENABLED=1 (paper-trade dark gate, plan M14a)
        ingest_news job_runs success within 24h (freshness gate)
      Section absent entirely when any gate fails.
-  7. Portfolio adjustments (M13.7) — gated by BOTH:
+  8. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
      Omitted entirely when either flag is unset, or when no successful
      build_portfolio run exists with as_of >= today - 2 (plan I.7 freshness gate).
-
-`discipline_findings` (PR2a of the portfolio-visibility lane,
-`docs/proposals/portfolio-team-visibility-2026-07-12.md` §8) is collected here
-but **not yet rendered** — PR2b adds the `brief.html.j2` block. Model-independent
-by construction (rule #11): the loader never reads `signals`/`shap_factors` and
-never calls `resolve_production_model()`.
 """
 from __future__ import annotations
 
