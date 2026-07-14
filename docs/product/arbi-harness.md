@@ -2,7 +2,7 @@
 
 **Status:** current
 **Scope:** the bounded operating contract for arbi, the asxos program-manager agent
-**Last verified:** 2026-07-10
+**Last verified:** 2026-07-14 (autonomy unlock pack cross-reference added; tiers unchanged)
 **Owner:** humans amend the tiers/boundaries; arbi obeys them
 **Superseded by:** N/A
 
@@ -107,6 +107,14 @@ it — **not** unattended standing autonomy. I3–I6 (and, on the Portfolio ladd
 dispatcher) means arbi decides *what/who/success/must-not-touch* and hands the specialist the
 scoped NEXT PROMPT — it never implements the code itself, and the *result* still climbs the
 tiers above for approval.
+
+**Structured attended forms of I3–I4 (autonomy unlock pack, 2026-07-14):** `/arbi-mission`
+(Guilfoyle graph), `/arbi-team` (agent teams, large parallel missions, plan-approval gate),
+the `reversible-work-builder` agent, and the `.claude/skills/` reversible-work skills are
+**attended** executions of the tiers above — they change no grant in this table and no
+`.claude/settings.json` rule. `arbi-permission-model.md` §"The autonomy unlock pack" is
+authoritative; skills pre-allow only reversible I0–I4 actions and are convenience, not a
+boundary.
 
 **Scheduled runs** are classified separately (`arbi-permission-model.md` §Scheduled/unattended
 runs): a *scheduled* `/arbi` (PR 7a) is **read-only, I0–I1, output-only** — it emits a draft
