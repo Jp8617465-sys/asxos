@@ -211,13 +211,19 @@ unattended runs; the **PR-2 Permission Friction Pack (2026-07-14)** added a seco
 mechanical layer that holds attended too:
 
 - **`.claude/settings.json`'s `deny` array** — authority/boundary files (`CLAUDE.md`,
-  `.claude/**`, `.github/**`, `migrations/**`, `render.yaml`, the constitution/authority/
-  permission-model/harness/scorecard/promotion-gate/memory-policy/dream-policy/charter/
-  policy/rubrics set, the promoted-memory files) are `Edit(...)` denied — per Claude Code's
-  documented behavior, one `Edit(...)` rule covers Write/MultiEdit/NotebookEdit and the
-  Bash file-commands it recognizes (`cat`/`head`/`tail`/`sed`). `mcp__github__merge_pull_request`
-  and `mcp__github__enable_pr_auto_merge` are denied outright (bare tool-name deny — removed
-  from context entirely, not just blocked on attempt).
+  selected `.claude/` authority surfaces, `.github/**`, `migrations/**`, `render.yaml`,
+  `docs/README.md`, the constitution/authority/permission-model/harness/scorecard/
+  promotion-gate/memory-policy/dream-policy/charter/policy/rubrics set, the promoted-memory
+  files) are `Edit(...)` denied — per Claude Code's documented behavior, one `Edit(...)` rule
+  covers Write/MultiEdit/NotebookEdit and the Bash file-commands it recognizes
+  (`cat`/`head`/`tail`/`sed`). The `.claude/` deny is deliberately **not** a blanket
+  `.claude/**` deny: it protects `.claude/settings.json`, `.claude/settings.local.json`,
+  `.claude/agents/**`, `.claude/commands/**`, `.claude/hooks/**`, `.claude/rules/**`, and
+  `.claude/skills/**`, while leaving loose root-level review-gate marker files such as
+  `.claude/.review-passed-*` writable. Those markers are not authority files; they are the
+  review-gate's operational speed-bump and are intentionally forgeable by design.
+  `mcp__github__merge_pull_request` and `mcp__github__enable_pr_auto_merge` are denied
+  outright (bare tool-name deny — removed from context entirely, not just blocked on attempt).
 - **`authority-guard.sh`** (always-on) closes the one gap the settings layer's own docs admit:
   "arbitrary subprocesses that read or write files indirectly, like a Python or Node script
   that opens files itself." It also re-resolves `Edit`/`Write`/`NotebookEdit` paths via
