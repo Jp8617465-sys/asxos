@@ -56,11 +56,26 @@ case "$tool" in
     esac
     exit 0
     ;;
-  *merge_pull_request|*enable_pr_auto_merge)
-    # Redundant with the settings.json bare-tool-name deny (which removes these tools from
-    # context entirely) — kept here too so removing that settings line doesn't silently
-    # re-open merge/auto-merge; a second, independent layer.
-    deny "pr-draft-guard: merge / auto-merge is blocked. Merge is James's step, never the agent's."
+  *enable_pr_auto_merge)
+    # Auto-merge is forbidden in EVERY mode, attended or unattended — it removes the
+    # per-PR, James-instructed merge decision this policy exists to preserve. Redundant
+    # with the settings.json bare-tool-name deny (which removes the tool from context
+    # entirely) — kept here too so a settings edit can't silently re-open auto-merge;
+    # a second, independent layer.
+    deny "pr-draft-guard: enable_pr_auto_merge is blocked in every mode. Auto-merge removes James's per-PR merge decision."
+    ;;
+  *merge_pull_request)
+    # Attended/unattended split (2026-07-14 follow-up: PR #39 overcorrected by denying
+    # merge everywhere, which also removed James-INSTRUCTED merge execution in live
+    # attended sessions — re-check green/clean, confirm not draft, James names the PR,
+    # agent calls the tool). Policy: agent-INITIATED merge stays forbidden (an
+    # instruction-level rule — the agent only calls this when James explicitly named
+    # the PR and said merge); unattended merge stays mechanically denied here. In an
+    # attended session this falls through SILENTLY — no hook-level allow is emitted,
+    # so the normal tool-permission prompt / user-instruction flow still applies.
+    [ "${ARBI_UNATTENDED:-0}" = "1" ] \
+      && deny "pr-draft-guard: merge_pull_request is blocked in unattended mode (ARBI_UNATTENDED=1). Merges happen only in live attended sessions on James's explicit per-PR instruction."
+    exit 0
     ;;
   *)
     exit 0
