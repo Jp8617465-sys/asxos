@@ -211,13 +211,30 @@ unattended runs; the **PR-2 Permission Friction Pack (2026-07-14)** added a seco
 mechanical layer that holds attended too:
 
 - **`.claude/settings.json`'s `deny` array** — authority/boundary files (`CLAUDE.md`,
-  `.claude/**`, `.github/**`, `migrations/**`, `render.yaml`, the constitution/authority/
-  permission-model/harness/scorecard/promotion-gate/memory-policy/dream-policy/charter/
-  policy/rubrics set, the promoted-memory files) are `Edit(...)` denied — per Claude Code's
-  documented behavior, one `Edit(...)` rule covers Write/MultiEdit/NotebookEdit and the
-  Bash file-commands it recognizes (`cat`/`head`/`tail`/`sed`). `mcp__github__merge_pull_request`
-  and `mcp__github__enable_pr_auto_merge` are denied outright (bare tool-name deny — removed
-  from context entirely, not just blocked on attempt).
+  **selected `.claude/` authority surfaces** — `settings.json`, `settings.local.json`, and
+  the `agents/`, `commands/`, `hooks/`, `rules/`, `skills/` directories, enumerated
+  explicitly rather than a broad `.claude/**` — plus `.github/**`, `migrations/**`,
+  `render.yaml`, the constitution/authority/permission-model/harness/scorecard/
+  promotion-gate/memory-policy/dream-policy/charter/policy/rubrics set, and the
+  promoted-memory files) are `Edit(...)` denied — per Claude Code's documented behavior,
+  one `Edit(...)` rule covers Write/MultiEdit/NotebookEdit and the Bash file-commands it
+  recognizes (`cat`/`head`/`tail`/`sed`). **Root-level `.claude/` operational files are
+  intentionally writable** — most importantly the review-gate's `.claude/.review-passed-*`
+  markers: the original PR-2 draft shipped a broad `Edit(/.claude/**)` deny that covered its
+  own review-gate marker and `settings.json` itself, deadlocking every future `.py` commit
+  (the self-inflicted lockout recorded in `arbi-run-ledger.md`, 2026-07-14); it was narrowed
+  same-day to the explicit surfaces above so the commit flow keeps working.
+  `mcp__github__enable_pr_auto_merge` is denied outright (bare tool-name deny — removed from
+  context entirely, not just blocked on attempt). `mcp__github__merge_pull_request` was ALSO
+  bare-denied in the original PR-2 — an overcorrection walked back 2026-07-14: that deny
+  removed **James-instructed attended merge execution** (James names a PR, the agent
+  re-checks CI green + `mergeable_state: clean` + not-draft, then merges — the PR #26 /
+  six-PR-train precedent). Corrected three-case policy: **agent-initiated merge = forbidden**
+  (any mode); **James-instructed attended merge execution = allowed** via the normal
+  tool-permission flow after that re-check (no standing allow, no hook-level allow);
+  **unattended merge / auto-merge = forbidden** mechanically (`pr-draft-guard.sh` denies
+  `merge_pull_request` under `ARBI_UNATTENDED=1`, and `enable_pr_auto_merge` in every mode).
+  I6 in the tier table is unchanged: merge is `always_ask`, never standing.
 - **`authority-guard.sh`** (always-on) closes the one gap the settings layer's own docs admit:
   "arbitrary subprocesses that read or write files indirectly, like a Python or Node script
   that opens files itself." It also re-resolves `Edit`/`Write`/`NotebookEdit` paths via
