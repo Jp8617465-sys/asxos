@@ -25,7 +25,6 @@
       "Bash(curl -s --max-time 25 -H \"Authorization: Bearer $RENDER_API_KEY\" \"https://api.render.com/v1/:*)"
     ],
     "deny": [
-      "mcp__github__merge_pull_request",
       "mcp__github__enable_pr_auto_merge",
 
       "Edit(/.claude/settings.json)",
