@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -92,7 +93,9 @@ def test_deny_direct_edit_of_authority_path(repo: Path, tool: str, path: str) ->
 
 
 def test_deny_notebook_edit_authority_path(repo: Path) -> None:
-    assert _is_deny(run_hook(repo, "NotebookEdit", {"notebook_path": ".claude/x.ipynb"}))
+    # A notebook under a protected .claude/ subdirectory (agents/) is authority.
+    # (A loose root-level .claude/x.ipynb is NOT — see the review-marker tests below.)
+    assert _is_deny(run_hook(repo, "NotebookEdit", {"notebook_path": ".claude/agents/x.ipynb"}))
 
 
 @pytest.mark.parametrize("tool", ["Edit", "Write"])
@@ -147,3 +150,72 @@ def test_deny_direct_edit_of_docs_readme(repo: Path) -> None:
 )
 def test_allow_bash_without_authority_write(repo: Path, command: str) -> None:
     assert run_hook(repo, "Bash", {"command": command}) == {}
+
+
+# --- Review-gate markers: loose .claude/ root files are NOT authority (writable) -------
+# The fragment list was narrowed from a broad ".claude/" prefix to explicit subpaths so it
+# mirrors the settings.json deny array; a broad ".claude/" fragment would deadlock the
+# review-gate commit flow by treating its own ".claude/.review-passed-*" markers as
+# authority. These pins keep that lockout from silently returning.
+
+_MARKER = ".claude/.review-passed-abc123"
+
+
+@pytest.mark.parametrize("tool", ["Edit", "Write", "MultiEdit"])
+def test_allow_edit_of_review_marker(repo: Path, tool: str) -> None:
+    assert run_hook(repo, tool, {"file_path": _MARKER}) == {}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"touch {_MARKER}",  # how the review gate actually creates the marker
+        f"echo x > {_MARKER}",  # redirect write
+        f"python3 -c \"open('{_MARKER}','w').write('x')\"",  # interpreter write
+    ],
+)
+def test_allow_bash_write_to_review_marker(repo: Path, command: str) -> None:
+    assert run_hook(repo, "Bash", {"command": command}) == {}
+
+
+# --- Protected .claude/ surfaces still denied (regression: narrowing didn't over-open) --
+
+
+@pytest.mark.parametrize("tool", ["Edit", "Write", "MultiEdit"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        # One per enumerated .claude/ surface, so dropping ANY single subpath from the
+        # narrowed AUTHORITY_FRAGMENTS array is caught (the no-broad-prefix regex only
+        # guards against RE-broadening, not against over-narrowing an individual entry).
+        ".claude/settings.json",
+        ".claude/settings.local.json",
+        ".claude/agents/x.md",
+        ".claude/commands/x.md",
+        ".claude/hooks/review-gate.sh",
+        ".claude/rules/x.md",
+        ".claude/skills/x.md",
+    ],
+)
+def test_deny_edit_of_protected_claude_surface(repo: Path, tool: str, path: str) -> None:
+    assert _is_deny(run_hook(repo, tool, {"file_path": path}))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo x > .claude/settings.json",  # redirect write to a protected file
+        "python3 -c \"open('.claude/hooks/review-gate.sh','w').write('x')\"",  # interpreter write to hooks/
+    ],
+)
+def test_deny_bash_write_to_protected_claude_surface(repo: Path, command: str) -> None:
+    assert _is_deny(run_hook(repo, "Bash", {"command": command}))
+
+
+def test_authority_fragments_has_no_broad_claude_prefix() -> None:
+    """Regression: the bare broad ``".claude/"`` fragment (which over-blocked the
+    review-gate markers and self-locked the config edits) must never return — only the
+    enumerated subpaths. Matches the literal quoted array element, so ``.claude/agents/``
+    etc. (whose closing quote follows a subpath, not the ``/``) do not trip it."""
+    src = HOOK.read_text()
+    assert re.search(r'"\.claude/"', src) is None
