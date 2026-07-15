@@ -40,15 +40,25 @@ command -v jq >/dev/null 2>&1 || exit 0
 payload="$(cat)"
 tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
 
-# Single source of truth for the authority-path set — kept in sync with the `Edit(...)`
+# Single source of truth for the authority-path set — mirrors the narrowed `Edit(...)`
 # entries in .claude/settings.json's deny array (same set; this hook's job is the residual,
 # not a restatement, but it needs its own copy). A fragment ending in "/" is a directory
 # prefix; anything else is an exact repo-relative file. Both is_authority_path() (glob/exact
 # match on a resolved path) and the Bash-command regex below are generated from this ONE
 # array, so the two matching mechanisms (different by necessity — one tests a resolved path,
 # the other substring-scans raw command text) can't silently drift apart.
+#
+# The `.claude/` entries are enumerated EXPLICITLY — settings.json / settings.local.json plus
+# the agents/commands/hooks/rules/skills directories — NOT a broad `.claude/` prefix, mirroring
+# the narrowed settings.json deny array. A broad `.claude/` fragment here would re-create the
+# self-inflicted lockout the settings.json narrowing already fixed (arbi-run-ledger.md,
+# 2026-07-14): it would treat the review-gate's own `.claude/.review-passed-*` markers as
+# authority and block every future `.py` commit. Those loose root-level markers are
+# INTENTIONALLY absent from this list and MUST remain writable.
 AUTHORITY_FRAGMENTS=(
-  ".claude/" ".github/" "migrations/" "docs/product/rubrics/"
+  ".claude/settings.json" ".claude/settings.local.json"
+  ".claude/agents/" ".claude/commands/" ".claude/hooks/" ".claude/rules/" ".claude/skills/"
+  ".github/" "migrations/" "docs/product/rubrics/"
   "CLAUDE.md" "render.yaml" "docs/README.md"
   "docs/product/north-star.md" "docs/product/arbi-constitution.md" "docs/product/arbi-authority.md"
   "docs/product/arbi-permission-model.md" "docs/product/arbi-harness.md" "docs/product/arbi-scorecard.md"
