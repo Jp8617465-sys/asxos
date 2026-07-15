@@ -217,6 +217,12 @@ Items 1–4 are hook/settings edits = authority files → draft via PR, route th
 
 ## 11. Read-only interim posture (LIVE-SAFE now)
 
+**LIVE as of 2026-07-15** — Routine `trig_01T8xWxKqjmruzSUrvryf7TH`, cron `30 23,7,15 * * *`
+(09:30 / 17:30 / 01:30 AEST), fresh session, push+email. Kill:
+`delete_trigger trig_01T8xWxKqjmruzSUrvryf7TH`. Flips to the write loop only when the §10
+mechanical pack is merged AND `ARBI_UNATTENDED=1` is set (then create the write Routine and
+retire this one).
+
 Until §10 lands, the loop runs **read-only**: it scans (security-engineer ∥ performance-engineer),
 ranks, appends findings to the `secperf-ledger`, and emits a per-fire brief + a ready-to-run
 mission envelope for James to execute attended via `/arbi-mission`. It writes no code, opens no
