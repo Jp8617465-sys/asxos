@@ -2,7 +2,7 @@
 
 **Status:** current (machinery built; **standing activation gated — see §Activation**)
 **Scope:** how arbi runs the observe→decide→act→learn loop on a schedule, in Claude Code
-**Last verified:** 2026-07-10
+**Last verified:** 2026-07-15 (live `list_triggers` probe; 7a re-wired — see §The Routine)
 **Owner:** James enables standing autonomy; arbi runs within the guardrails
 **Superseded by:** N/A
 
@@ -44,7 +44,9 @@ Not prompt-hope — mechanical, defense-in-depth:
    unbypassable from a session): require PR + `full-check` green + CODEOWNERS approval; no
    direct pushes; arbi's identity cannot self-approve. *Config step for James/backend-architect.*
 3. **R2 read-only Postgres role** for agent MCP sessions (`m14_candidate_agent_db_role_scoping`):
-   the real DB-write backstop. *Not yet landed — the guard is the interim.*
+   the real DB-write backstop. *Migration drafted as `migrations/0039_agent_readonly_role.sql`
+   (2026-07-15, NOT applied) — apply + re-point `supabase-ro` are James's steps; the guard is
+   the interim.*
 
 The hook reduces risk **R5** (prompt-only enforcement) from total to partial; (2) and (3)
 are what actually bound the irreversible tiers. See `arbi-permission-model.md §Runtime
@@ -69,14 +71,25 @@ gated. Turn it on only when ALL hold:
 Until then: **run it attended** — you invoke `/arbi` → `/arbi-run` → review → PR, exactly
 as this session did (the loop's inner cycle, run by hand). That already works today.
 
-## The Routine (ready to enable — do NOT enable before the gate)
+**The step-by-step path from here to the flip — including who owns each precondition, the
+one-action activation procedure, and every kill switch — is
+`arbi-full-auto-activation-2026-07-15.md`.**
+
+## The Routine (7a live; 7b ready to enable — do NOT enable before the gate)
 
 A daily/weekly Claude Code Routine (`create_trigger`) firing a fresh session whose prompt:
 sets the loop, runs `/arbi` → (if a clear reversible #1) `/arbi-run` → implement on a branch
 → test → review → open a **draft** PR → report; **never merges**. The session env carries
 `ARBI_UNATTENDED=1` so the guard is armed. Cadence suggestion: a **weekly `/arbi-dream`**
 first (lowest-risk write — candidate on a branch), then a daily build-loop once the gate
-clears. PR 7a (the read-only morning brief) is already live (`trig_01PiLVYg…`).
+clears.
+
+PR 7a (the read-only morning brief) is live as Routine `trig_01BA3VmfzoRMtjKnt6XNpgPH`
+(**re-wired 2026-07-15**, daily 20:30 UTC = 06:30 AEST, fresh session, push+email).
+**History lesson:** the original 2026-07-10 Routine (`trig_01PiLVYg…`) was found **absent
+from the live trigger list** on 2026-07-15 while this doc still claimed it live — the brief
+had silently stopped. A Routine is live state, not doc state: verify with `list_triggers`
+before repeating the claim.
 
 ## Cost
 

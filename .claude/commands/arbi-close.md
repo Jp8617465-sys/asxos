@@ -32,6 +32,20 @@ Edit `docs/product/roadmap-state.md`:
   (re-grep with `grep -rn m14_candidate_ .`).
 - **Last wake snapshot** — refresh the fenced block with the Step 1 figures.
 
+## Step 2b — Score the session (the track-record step, added 2026-07-15)
+
+Compute this session's **episode score** per `docs/product/arbi-scorecard.md` (the
+`episode_score` formula and layer rubric) and record it in the session's row in
+`docs/product/arbi-run-ledger.md` — replace the `—` placeholder, never leave one. Show the
+per-layer sub-scores and one line of justification each, so James can spot-check the
+grading (a self-score is provisional: it becomes track-record evidence only when the
+ledger review — James's — doesn't reverse it; `arbi-promotion-gate.md` grader≠producer).
+If the session had no wake (`/arbi-close` without `/arbi`), score only the layers that
+apply and say so. **Why this step exists:** autonomy precondition (3)
+(`arbi-permission-model.md §promotion preconditions`) requires a scorecard trend, and as
+of 2026-07-15 every ledger score was a `—` — the track record cannot accrue unless every
+close actually computes one (`arbi-full-auto-activation-2026-07-15.md §3.4`).
+
 ## Step 3 — Write the session handoff
 
 Create or update `docs/session-handoff-YYYY-MM-DD.md` for today's date, following the
