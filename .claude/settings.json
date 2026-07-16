@@ -7,6 +7,7 @@
       "mcp__github__pull_request_read",
       "mcp__github__list_commits",
       "mcp__github__list_branches",
+      "mcp__github__get_job_logs",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git branch:*)",
@@ -16,17 +17,31 @@
       "Bash(git diff:*)",
       "Bash(git show:*)",
       "Bash(git remote -v)",
+      "Bash(git add:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(git rebase:*)",
+      "Bash(git merge:*)",
+      "Bash(git commit:*)",
       "Bash(pytest:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(python3 -m ruff:*)",
+      "Bash(ruff:*)",
       "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
       "Bash(grep:*)",
       "Bash(echo:*)",
-      "Bash(python -m py_compile:*)",
-      "Bash(git add:*)",
+      "Bash(date:*)",
+      "Bash(which:*)",
+      "Bash(mkdir:*)",
       "Bash(curl -s --max-time 25 -H \"Authorization: Bearer $RENDER_API_KEY\" \"https://api.render.com/v1/:*)"
     ],
     "deny": [
       "mcp__github__enable_pr_auto_merge",
-
       "Edit(/.claude/settings.json)",
       "Edit(/.claude/settings.local.json)",
       "Edit(/.claude/agents/**)",
@@ -39,7 +54,6 @@
       "Edit(/CLAUDE.md)",
       "Edit(/render.yaml)",
       "Edit(/docs/README.md)",
-
       "Edit(/docs/product/north-star.md)",
       "Edit(/docs/product/arbi-constitution.md)",
       "Edit(/docs/product/arbi-authority.md)",
@@ -59,13 +73,11 @@
       "Edit(/docs/product/recommendation-schema.md)",
       "Edit(/docs/product/data-contracts.md)",
       "Edit(/docs/product/rubrics/**)",
-
       "Edit(/docs/product/memory/approved-lessons.md)",
       "Edit(/docs/product/memory/authority-lessons.md)",
       "Edit(/docs/product/memory/project-facts.md)",
       "Edit(/docs/product/memory/promotion-log.md)",
       "Edit(/docs/product/memory/rejected-candidates.md)",
-
       "Read(.env)",
       "Edit(.env)"
     ]
@@ -82,12 +94,7 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/push-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": ".*",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
@@ -99,6 +106,78 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '[\"ASK\", (now|gmtime|strftime(\"%Y-%m-%dT%H:%M:%SZ\")), (.tool_name // \"?\"), (.tool_input.command // .tool_input.file_path // .tool_input.query // .tool_input.url // \"\")] | @tsv' >> \"$CLAUDE_PROJECT_DIR/.claude/permission-requests.log\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '[\"DENY\", (now|gmtime|strftime(\"%Y-%m-%dT%H:%M:%SZ\")), (.tool_name // \"?\"), (.tool_input.command // .tool_input.file_path // .tool_input.query // .tool_input.url // \"\")] | @tsv' >> \"$CLAUDE_PROJECT_DIR/.claude/permission-requests.log\" 2>/dev/null || true"
           }
         ]
       }
