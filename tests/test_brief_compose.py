@@ -164,7 +164,8 @@ def test_render_html_caveat_near_signal_section_not_buried() -> None:
 def test_render_html_renders_empty_states() -> None:
     html = render_html(_brief())
     assert "No label changes overnight" in html
-    assert "No lots crossing" in html
+    # "No lots crossing" retired with the standalone tax-actions table —
+    # CGT boundary facts now render as gated discipline findings.
     assert "No regulatory hits" in html
 
 
