@@ -345,7 +345,7 @@ just repeats mistakes faster. Each PR is a deliberate, separate change.
 | 4 | Docs-write `/arbi-close` | **done** |
 | 5 | Memory policy + run ledger (`arbi-memory-policy.md`, `arbi-run-ledger.md`, `decision-log.md`) | **done (docs)** |
 | 6 | Dream policy + promotion gate (`arbi-dream-policy.md`, `arbi-promotion-gate.md`) | **done (docs)** |
-| **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | **WIRED 2026-07-10** — daily 20:30 UTC (06:30 AEST), fresh session, push+email to James; Routine `trig_01PiLVYg2GHAKpW8Xy43z5JN` |
+| **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | **RE-WIRED 2026-07-15** — daily 20:30 UTC (06:30 AEST), fresh session, push+email to James; Routine `trig_01BA3VmfzoRMtjKnt6XNpgPH`. The 2026-07-10 Routine (`trig_01PiLVYg…`) was found **absent from the live trigger list** on 2026-07-15 while these docs still claimed it live — the brief had silently stopped. Standing lesson: verify with `list_triggers` on wake; never trust this cell alone |
 | **7b** | **Standing** scheduled autonomy (arbi writes/acts unattended on a schedule) | **blocked** on the 3 preconditions below |
 | 8 | Multi-agent delegation (arbi coordinates specialists) | **`/arbi-run` shipped 2026-07-10** (thin attended bridge); **`/arbi-mission` + `guilfoyle` mission-control drafted 2026-07-13** — its graph-driven, readiness-gated evolution (task graph → specialists → draft PR), still attended + reversible (Guilfoyle plans/judges, never prioritises/spawns/merges); *standing/unattended* dispatch still gated on the 3 preconditions + runtime |
 | 9 | GitHub operator mode (docs-only draft PRs) | not started |
@@ -365,11 +365,14 @@ recommendation. It is **I0–I1 only** — deliberately boring, read-only, and i
 confuse with real autonomy. **PR 7b onward** (standing scheduled autonomy that writes/acts
 unattended) stays blocked on the preconditions.
 
-**As wired** (Routine `trig_01PiLVYg2GHAKpW8Xy43z5JN`, daily 20:30 UTC = 06:30 AEST, fresh
-session, push+email to James): the read-only guarantee is **prompt-enforced only** — the fresh
-session holds write tools but the trigger instructs it to emit the brief and never write
-(risk **R5**; a role-scoped runtime would enforce it mechanically). Pause/stop it any time by
-disabling or deleting that trigger. To promote to PR 7b (unattended writes), clear the
+**As wired** (Routine `trig_01BA3VmfzoRMtjKnt6XNpgPH`, re-created 2026-07-15 — the original
+2026-07-10 Routine was found missing from the live trigger list; daily 20:30 UTC = 06:30 AEST,
+fresh session, push+email to James): the read-only guarantee is **prompt-enforced only** — the
+fresh session holds write tools but the trigger instructs it to emit the brief and never write
+(risk **R5**; setting `ARBI_UNATTENDED=1` in the environment config would arm
+`unattended-guard.sh` mechanically for these runs — see
+`arbi-full-auto-activation-2026-07-15.md`). Pause/stop it any time by disabling or deleting
+that trigger. To promote to PR 7b (unattended writes), clear the
 preconditions below first. PRs 7–10 run **git-native** — Claude Code Routines
 (schedule) + git (memory: `memory/`) + GitHub branch-protection/PRs/CI + the
 `unattended-guard.sh` hook. The loop machinery is **built** (guard hook, memory
