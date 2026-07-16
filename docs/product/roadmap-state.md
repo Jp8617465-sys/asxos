@@ -169,17 +169,27 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   reframe + HUBS 10/20 record (#31); overnight governance record (#34); orchestrator-mode
   lean sketch (#36).
 - **MERGED 2026-07-14: PR #29** (discipline evaluator, `2a49df9`) — `discipline.py` + 19 tests
-  landed on main. Follow-on for this lane, portfolio-team-visibility PR2, is landing this
-  session as a draft PR with both halves done: PR2a (`_discipline_findings()` loader +
-  `BriefData` field) and PR2b (the `brief.html.j2` "Portfolio discipline" render block —
-  the increment that changes what James's emailed brief shows).
-- **Still open: PR #5** (June quant-platform benchmarking research, 25 files) — superseded by
-  the 2026-07-11 decay analysis + ML-shelf decision; recommend CLOSE (not merge-as-historical).
+  landed on main. The follow-on PR2a/PR2b (loader + `brief.html.j2` render block) is also
+  **MERGED** (#41, plus companion tests #44) — the emailed brief now renders discipline findings.
+- **PR #5 no longer open** (resolved since the 07-13 wake, per the 2026-07-16 open-PR probe).
+- **Open drafts awaiting James's merge train (2026-07-16):** #47 (regulatory degraded-note
+  visibility + CGT tax-actions folded into the gated discipline digest — merge first: closes a
+  firewall-parity gap) · #46 (dream candidate + automation plan; promote manually as Phase 0) ·
+  #42 (product-health scorecard regen). CI green not yet verified on any of the three.
 
 ## Ranked next-action queue
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
+
+**Current #1 (2026-07-16 wake): root-cause and fix the `regulatory_events` starvation** —
+2 rows, latest 2026-07-08, while `ingest_regulatory` reports green daily (Treasury source
+dead behind `assert_partial_success(0.5)` passing on RBA alone). Draft PR #47 ships the
+*visibility* layer (DEGRADED-note surfacing); this action is the *feed* root-cause — live-probe
+the Treasury URL, fix/replace/retire per fail-loud (CLAUDE.md #1/#10), regression-test the
+degraded path. North-star: backdrop events reach James before they cost money. Owner: main
+loop, consulting `backend-architect`; draft PR for James's merge. Close behind: probe CI on
+#47/#46/#42 and stage the merge train; James applies 0038+0039 and re-points the MCP (item 6).
 
 1. **DONE 2026-07-13/14 — monitoring lane restored and merged** (PRs #30 + #32: cast fix,
    trading-day snapshot anchor, OOM fix, batched writes). Residual watch-items, not work:
@@ -398,35 +408,34 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-07-13 interactive `/arbi` wake — supersedes the 07-11 baseline; later
-runs diff against this. (An earlier-today wake on branch `jeww8p` carried its own 07-13 refresh
-inside draft PR #29 — since **MERGED to main** as `2a49df9` on 2026-07-14 — this snapshot was
-the more current one at the time it was recorded; it has the live `job_runs` errors that wake
-did not surface.)_
+_Recorded by the 2026-07-16 interactive `/arbi` wake — supersedes the 07-13 snapshot; later
+runs diff against this._
 
 ```
-Last wake: 2026-07-13 (interactive /arbi — supersedes the 07-11 baseline)
-- branch: claude/wake-up-arbi-x1ehyc — EVEN with origin/main (0 ahead / 0 behind), clean tree
-- latest main commit: c9b522c "Merge pull request #28 from ...jeww8p" (PRs #26/#27/#28 landed since baseline)
-- open PRs: #29 (DRAFT — deterministic discipline evaluator, PR1 of the portfolio-visibility lane;
-  wired to nothing, review-loop clean; carries an earlier-today 07-13 refresh not on main) ·
-  #5 (stale pre-shelf Model A research docs — close candidate)
-- tests: STATE-THIN — pytest not installed in sandbox venv. No pass/fail delta (same as baseline).
-- latest on-disk migration: 0038_screening_evaluator_wiring.sql (DRAFT, NOT applied; REQUIRED_MIGRATIONS=91
-  still references 0037). NB numbering-collision risk with the 0038_agent_readonly_role draft → renumber to 0039.
-- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED (expected post-shelf)
-- freshness: prices.dt=2026-07-10 (Fri, weekend-fresh) · signals.as_of=2026-07-10 ·
-  portfolio_snap.as_of=2026-07-08 (FROZEN — snapshot_portfolio blocked) · signal_outcomes=24,454 (unchanged;
-  track_signal_outcomes still not writing) · theses=13 · macro_theses pending_review=0
-- job_runs (latest): check_model_staleness=SUCCESS(07-12, FIXED vs baseline) · check_cron_health=FAILURE(07-12,
-  correctly reporting a stale row — not a bug in itself) · sync_financial_statements=orphaned RUNNING row from a
-  Render oomKilled(512Mi, ~78s) at 07-11 16:50Z — that was the PRE-fix code; PR #26's bounded-worker fix deployed
-  ~07-11 21:10 but is UNEXERCISED (weekly job `50 16 * * 6`, next run Sat 07-18; the orphaned row persists because
-  nothing has rerun to heal it) · track_signal_outcomes=FAILURE(07-12, AmbiguousParameterError: $1 text vs varchar —
-  one-line cast, root-cause reproduced) · snapshot_portfolio=BLOCKED(07-12, Sunday-run gate mismatch: as_of=Sat but
-  sync_prices records as_of=run-date and skips Sat) · retrain_model_a=FAILURE(06-06, dormant/expected) · all others success
+Last wake: 2026-07-16 (interactive /arbi)
+- branch: claude/wake-up-arbi-yq98tv — EVEN with origin/main (0 ahead), clean tree
+- latest main commit: f89f77f "arbi full-auto activation pack: 7a re-wire, secperf mission loop +
+  hardened guard, 0039 agent-ro migration, scorecard accrual (#45)". Landed since 07-13 wake:
+  #29 (2a49df9), #39, #41, #44, #45.
+- open PRs (all DRAFT): #47 (regulatory degraded-note visibility + CGT tax-actions folded into
+  gated discipline digest — closes the ungated tax-actions render) · #46 (dream candidate
+  2026-07-15 + dream-automation plan; its own rec: promote MANUALLY as Phase 0, no unattended
+  switch) · #42 (product-health scorecard regen). #5 no longer open. CI status NOT probed.
+- tests (sandbox): 756 passed / 39 failed / 65 errors — ALL failures+errors are sandbox-env gaps
+  (uv-isolated pytest lacks pytest-asyncio, asyncpg, dateutil, joblib; pip can't reach it).
+  WORSE than CLAUDE.md's documented 16 — the gap list has rotted again. CI full-check is authority.
+- migrations: on-disk through 0039_agent_readonly_role.sql; DB applied=91, latest 2026-07-11
+  → 0038 AND 0039 are drafts, NOT applied. REQUIRED_MIGRATIONS=91 consistent.
+- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED (expected)
+- freshness: prices.dt=2026-07-15 · signals.as_of=2026-07-15 · portfolio_snap.as_of=2026-07-15
+  (UNFROZEN — recovered vs 07-13) · signal_outcomes=24,454 (post-fix run due Sun 07-19) ·
+  regulatory_events=2 rows latest 2026-07-08 (STILL STARVED — Treasury dead behind green cron) ·
+  macro_theses pending_review=0 · active theses=1
+- job_runs (last 3d): ALL 18 recently-run jobs SUCCESS — check_cron_health 3/3, staleness 3/3,
+  snapshot_portfolio 3/3 (recovered), sync_financial_statements SUCCESS 07-13 (PR #26 OOM fix
+  exercised, orphan healed), compose_brief 3/3. The 07-13 error list is fully cleared except
+  regulatory starvation. Healthchecks.io not probed this session.
 ```
 
-_Verbatim as recorded 2026-07-13 — do not edit the snapshot text above. Status update: the
-"open PRs" line's **#29 is now MERGED to main** (`2a49df9`, 2026-07-14); only #5 remains open
-from that list._
+_The 2026-07-16 wake's ONE THING: root-cause + fix the dead Treasury regulatory feed
+(`jobs/ingest_regulatory.py`), riding behind draft PR #47's visibility layer._
