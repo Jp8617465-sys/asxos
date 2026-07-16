@@ -3,10 +3,12 @@ hardening pack (capital-adjacent path-deny, pytest secret-scrub, ad-hoc interpre
 
 Every check under test lives BELOW the hook's arming gate (the
 ``[ \"${ARBI_UNATTENDED:-}\" = \"1\" ] || exit 0`` line), so each deny must fire only when
-``ARBI_UNATTENDED=1`` is present and be a total no-op otherwise. The GitHub-MCP-write
-hardening is settings-level and always-on, so it is asserted statically against
-``.claude/settings.json``. This case matrix was verified against the candidate hook before
-it shipped (backend-architect design + security-engineer GO-WITH-FIXES review).
+``ARBI_UNATTENDED=1`` is present and be a total no-op otherwise. The GitHub-MCP write tools
+stay AVAILABLE in attended sessions (James's call, 2026-07-16 — an always-on settings deny
+would sever the authority-file draft-via-PR channel); unattended, they are denied by the
+hook's ``mcp__github__*`` default-deny catch-all, asserted here at both layers. This case
+matrix was verified against the candidate hook before it shipped (backend-architect design
++ security-engineer GO-WITH-FIXES review, then a PASS-WITH-NITS re-review of the inversion).
 
 Mirrors the subprocess-driven pattern in ``test_authority_guard_hook.py`` /
 ``test_push_guard_hook.py``.
@@ -166,13 +168,44 @@ def test_new_denies_are_noop_when_attended(repo, tool, tool_input):
     assert run_hook(repo, tool, tool_input, unattended=False) == {}
 
 
-def test_settings_denies_github_write_mcp():
+def test_settings_github_mcp_write_tools_stay_available_attended():
+    """James's call (2026-07-16): the GitHub MCP write tools stay AVAILABLE in attended
+    sessions — an always-on deny would sever the only draft-via-PR channel agents have for
+    authority files (settings/hooks/migrations/governance docs cannot be edited locally).
+    The unattended loop is still blocked from all of them by unattended-guard.sh's
+    ``mcp__github__*`` default-deny catch-all when armed (asserted below). Auto-merge
+    stays denied in every mode."""
     deny = json.loads(SETTINGS.read_text())["permissions"]["deny"]
     for tool in (
         "mcp__github__create_or_update_file",
         "mcp__github__push_files",
         "mcp__github__create_branch",
         "mcp__github__delete_file",
+        "mcp__github__merge_pull_request",
     ):
-        assert tool in deny, f"{tool} must be denied always-on (security MED-HIGH-4)"
-    assert "mcp__github__merge_pull_request" not in deny
+        assert tool not in deny, (
+            f"{tool} must NOT be always-on denied — it would lock attended agents out of "
+            "the authority-file draft-via-PR route (James, 2026-07-16). Unattended is "
+            "covered by unattended-guard.sh's mcp__github__* catch-all."
+        )
+    assert "mcp__github__enable_pr_auto_merge" in deny, (
+        "auto-merge must stay denied in every mode (R15 / pr-draft-guard)"
+    )
+
+
+@pytest.mark.parametrize("tool", [
+    "mcp__github__create_or_update_file",
+    "mcp__github__push_files",
+    "mcp__github__create_branch",
+    "mcp__github__delete_file",
+    # Synthetic name: pins that the deny is a DEFAULT-DENY catch-all (mcp__github__*),
+    # not an enumerated list of today's write tools — the docs rely on that semantics.
+    "mcp__github__some_future_write_tool",
+])
+def test_unattended_guard_still_denies_github_writes_when_armed(repo, tool):
+    """The mechanical backstop James's decision relies on: with ARBI_UNATTENDED=1, the
+    guard's mcp__github__* default-deny blocks every GitHub write tool regardless of the
+    settings deny list."""
+    assert _is_deny(run_hook(repo, tool, {}))
+    # and attended (guard disarmed) falls through to the normal permission flow (no hook deny)
+    assert run_hook(repo, tool, {}, unattended=False) == {}

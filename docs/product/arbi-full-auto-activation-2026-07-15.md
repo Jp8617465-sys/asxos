@@ -58,16 +58,20 @@ James's steps, in order:
 5. Run the design doc's **post-apply acceptance test** (SELECT works; INSERT/UPDATE/DDL fail).
 6. Bump `REQUIRED_MIGRATIONS` in `asxos/api/main.py` to the observed migration count.
 
-### 3.3 ❌ Branch protection on `main` — James (~5 min, GitHub settings)
-The real merge/deploy backstop; currently **not configured** (confirmed: PR #26 merged via
-API with `mergeable_state=clean` and no required-review block — `decision-log.md`,
-2026-07-11 row). GitHub → Settings → Branches → add rule for `main`:
-- Require a pull request before merging; require review from Code Owners
-  (activates `.github/CODEOWNERS`, which is currently paper-only).
-- Require status checks: `full-check`.
-- Block force pushes and direct pushes.
-Until this is set, "arbi cannot self-approve its own constitution" has no server-side
-enforcement.
+### 3.3 ❌ Branch protection on `main` — BLOCKED on the GitHub plan (James, 2026-07-16)
+The real merge/deploy backstop; currently **not configured**, and — James confirmed
+2026-07-16 — **cannot be configured on the current setup**: branch protection (and ruleset
+*enforcement*) on **private** repos requires a paid GitHub plan; the account is Free and the
+repo must stay private (personal financial system). Options, in order of preference:
+1. **GitHub Pro (~US$4/mo)** — unlocks protected branches + CODEOWNERS enforcement on
+   private repos. The only way to get the true server-side backstop. Recommended if/when
+   standing write autonomy expands beyond the secperf loop (daily build loop, dreams).
+2. **Accept as a documented residual** (current posture): merge/push-to-main protection is
+   client-side only (`push-guard`/`pr-draft-guard`/`unattended-guard` + the draft-PR
+   ceiling). Single-user blast radius; Render deploys from `main` are the exposure. The 7b
+   "branch protection" precondition is then consciously waived by the governor, not met.
+Until one of these, "arbi cannot self-approve its own constitution" has no server-side
+enforcement and CODEOWNERS stays paper-only.
 
 ### 3.4 ❌ Track record — accrues from now (weeks, not an action)
 `arbi-permission-model.md` precondition (3): scorecard trend + decision log + evals showing

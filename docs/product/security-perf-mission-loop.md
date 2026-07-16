@@ -200,18 +200,27 @@ Status as of 2026-07-15 — the hook/settings edits are **drafted in PR #45** (b
 designed, security-engineer reviewed GO-WITH-FIXES, 64/64 case matrix verified against the
 hook before push); the env/infra items remain James's:
 
-1. ⏳ **Mechanical arming** (security HIGH-1): set `ARBI_UNATTENDED=1` in the environment
-   config for the scheduled session. The Routine API exposes no per-session env, so a literal
-   pre-agent wrapper isn't wireable — arming is env-config + STEP 0 as the in-session backstop
-   (worst case if unset = the loop degrades to read-only, never an unguarded write). **James's
-   infra step.**
+1. ⏳ **Mechanical arming** (security HIGH-1): set `ARBI_UNATTENDED=1` on a **dedicated
+   unattended environment**, NOT the shared interactive one — the guard arms off process env,
+   so setting it on the environment James's own sessions use would cage his attended work too
+   (pytest scrub, interpreter denies, capital-path denies would all bind him). Correct shape:
+   clone the asxos environment (same repo/setup/network policy) as e.g. `asxos-unattended`,
+   add `ARBI_UNATTENDED=1` there, and point the write-loop Routine's `environment_id` at it.
+   The Routine API exposes no per-session env, so arming is environment-config + STEP 0 as
+   the in-session backstop (worst case if unset = read-only degrade). **James creates the
+   environment; the session re-points the Routine.**
 2. 🟡 **Secret-scrubbed test env** (security HIGH-2): **partial — landed in PR #45.**
    `unattended-guard.sh` A6 now denies any `pytest` not fronted by an `env -i` scrub (belt).
-   The **durable** fix is launching the scheduled session with secrets absent from its process
-   env (a wrapper like `make check` bypasses in-command parsing) — **James's infra step.**
-3. ✅ **GitHub-MCP-write always-on deny** (security MED-HIGH-4): **landed in PR #45** —
-   `create_or_update_file` / `push_files` / `create_branch` / `delete_file` in the settings
-   deny array (`merge_pull_request` left out per R15).
+   The **durable** fix: give the dedicated unattended environment (item 1) **no secrets at
+   all** — the loop reads code and opens draft PRs; it needs no `SUPABASE*`/`RENDER_API_KEY`/
+   `RESEND*` env vars. One environment solves items 1+2 together. **James's infra step.**
+3. ❌ **GitHub-MCP-write always-on deny — DROPPED (James, 2026-07-16).** Landed in PR #45,
+   then reverted by James: an always-on deny severed the only draft-via-PR channel attended
+   agents have for authority files (which cannot be edited locally). The unattended loop
+   remains blocked from all GitHub write tools by `unattended-guard.sh`'s `mcp__github__*`
+   default-deny catch-all when armed — now pinned by
+   `test_unattended_guard_secperf.py::test_unattended_guard_still_denies_github_writes_when_armed`.
+   `enable_pr_auto_merge` stays denied in every mode.
 4. ✅ **Capital-adjacent path deny** (red-team #1 / security LOW-8): **landed in PR #45** —
    `ARBI_UNATTENDED`-gated deny in `unattended-guard.sh` over
    `asxos/domain/{portfolio,tax,models,theses}/` (Edit/Write/MultiEdit/NotebookEdit + Bash
