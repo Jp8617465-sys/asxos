@@ -101,23 +101,6 @@
   <p class="empty">No label changes overnight.</p>
   {% endif %}
 
-  <h2>Tax actions (next 30 days)</h2>
-  {% if d.tax_actions %}
-  <table>
-    <tr><th>symbol</th><th>lot</th><th>days</th><th>eligible</th></tr>
-    {% for t in d.tax_actions %}
-    <tr>
-      <td>{{ t.symbol }}</td>
-      <td>{{ t.lot_id }}</td>
-      <td>{{ t.days }}</td>
-      <td>{{ t.eligible_at }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}
-  <p class="empty">No lots crossing the 12-month CGT boundary in the next 30 days.</p>
-  {% endif %}
-
   <h2>Regulatory hits on holdings (last 24h)</h2>
   {% if d.regulatory_hits %}
   <ul>

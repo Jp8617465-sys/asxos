@@ -24,7 +24,7 @@ from asxos.brief.compose import (
     NewsItem,
     RegulatoryHit,
     SignalChange,
-    TaxAction,
+    _cgt_boundary_findings,
     _discipline_findings,
     collect,
     render_html,
@@ -42,7 +42,6 @@ def _brief(**overrides) -> BriefData:
         "latest_price_date": date(2026, 5, 22),
         "holdings_count": 3,
         "signal_changes": [],
-        "tax_actions": [],
         "regulatory_hits": [],
         "job_failures": [],
     }
@@ -281,17 +280,79 @@ def test_render_html_escapes_user_content() -> None:
     assert "&lt;script&gt;" in html
 
 
-def test_render_html_shows_tax_actions() -> None:
+def test_render_html_shows_cgt_boundary_finding() -> None:
+    """The CGT-boundary fact now renders as an info discipline line, folded from
+    the retired standalone 'Tax actions' table."""
     html = render_html(
         _brief(
-            tax_actions=[
-                TaxAction(symbol="CBA.AU", lot_id=42, eligible_at=date(2026, 6, 1), days=10),
+            discipline_findings=[
+                DisciplineFinding(
+                    check="cgt_discount_boundary",
+                    level=DisciplineLevel.info,
+                    symbol="CBA.AU",
+                    message=(
+                        "CBA.AU: lot 42 (acquired 2025-06-01) reaches the 12-month "
+                        "CGT-discount threshold on 2026-06-02 — 10 day(s) away "
+                        "(s 115-25(1) ITAA 1997)."
+                    ),
+                )
             ]
         )
     )
     assert "CBA.AU" in html
-    assert "10" in html
-    assert "2026-06-01" in html
+    assert "12-month CGT-discount threshold" in html
+    assert 'class="disc-info"' in html
+    # The standalone "Tax actions" table is retired — the fact lives in the digest.
+    assert "Tax actions" not in html
+
+
+def test_cgt_boundary_gate_off_returns_empty() -> None:
+    conn = MagicMock()
+    conn.fetch = AsyncMock(return_value=[])
+    with patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "0"}):
+        out = asyncio.run(_cgt_boundary_findings(conn, date(2026, 7, 16)))
+    assert out == []
+    conn.fetch.assert_not_awaited()  # short-circuits before any DB read
+
+
+def test_cgt_boundary_flags_only_in_window_lots() -> None:
+    conn = MagicMock()
+    conn.fetch = AsyncMock(
+        return_value=[
+            {"id": 42, "symbol": "CBA.AU", "acquired_at": date(2025, 8, 1)},  # eligible 2026-08-02 → 17d (in window)
+            {"id": 7, "symbol": "BHP.AU", "acquired_at": date(2025, 7, 1)},   # eligible 2026-07-02 → already (0, skip)
+            {"id": 9, "symbol": "WES.AU", "acquired_at": date(2026, 1, 1)},   # eligible 2027-01-02 → ~170d (skip)
+        ]
+    )
+    with patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}):
+        out = asyncio.run(_cgt_boundary_findings(conn, date(2026, 7, 16)))
+    assert len(out) == 1
+    f = out[0]
+    assert f.check == "cgt_discount_boundary"
+    assert f.level == DisciplineLevel.info
+    assert f.symbol == "CBA.AU"
+    assert "12-month CGT-discount threshold" in f.message
+    assert "17 day(s)" in f.message
+    # s766B: evidence-only — no trade direction. Word-boundary match so that
+    # "threshold" does not falsely trip on "hold".
+    import re
+
+    assert not re.search(
+        r"\b(sell|trim|exit|hold|defer|recommend|should)\b", f.message.lower()
+    )
+
+
+def test_cgt_boundary_malformed_acquired_at_is_loud_error() -> None:
+    conn = MagicMock()
+    conn.fetch = AsyncMock(
+        return_value=[{"id": 1, "symbol": "XYZ.AU", "acquired_at": None}]
+    )
+    with patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}):
+        out = asyncio.run(_cgt_boundary_findings(conn, date(2026, 7, 16)))
+    assert len(out) == 1
+    assert out[0].level == DisciplineLevel.error
+    assert out[0].symbol == "XYZ.AU"
+    assert "could not run" in out[0].message
 
 
 # ---------------------------------------------------------------------------
@@ -415,9 +476,6 @@ def test_collect_assembles_brief_data() -> None:
     assert data.holdings_count == 2
     assert len(data.signal_changes) == 1
     assert data.signal_changes[0].top_factor.startswith("mom_12_1")
-    # Tax action: acquired_at ~yesterday-of-last-year → far from boundary, skip
-    # (the days_to_eligibility check filters within 30 days).
-    assert isinstance(data.tax_actions, list)
     assert len(data.regulatory_hits) == 1
     assert data.regulatory_hits[0].symbol == "BHP.AU"
     assert data.has_failures
