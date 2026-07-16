@@ -43,6 +43,16 @@ detail behind these lines.
   recommend CLOSE as superseded by the 07-11 decay analysis + ML shelf; merging it would import
   pre-shelf ML-roadmap guidance as if current), and this session's PR2 (both PR2a loader +
   `BriefData` field, and PR2b `brief.html.j2` render block), landing as a draft PR.
+  **Update 2026-07-16: draft PR #46 opened** — the first live `/arbi-dream` candidate
+  (`memory/dream-candidates/2026-07-15-dream.md`, lessons L8–L17) + the dream-automation plan
+  (`docs/proposals/arbi-dream-automation-2026-07-15.md`) + risk-register R5 amendment.
+  Promoting #46 via `/arbi-promote` is the first-ever exercise of the promotion gate (Phase 0
+  of the automation plan) — James's action. **Also learned 2026-07-15: branch protection on
+  `main` is PLAN-GATED** (free private repo — paid feature, no API workaround; upgrade
+  declined), so CODEOWNERS is inert on this plan; substitute = detective `main-push-guard`
+  Action (James to add; YAML in the plan's §Amendment) + fork/machine-identity model for any
+  future unattended-write tier. Every "configure branch protection" reference in this file's
+  autonomy section should be read through that amendment.
 - **Recently completed (on `main`, 2026-07-13/14 merge train):** monitoring lane restored +
   batched (`track_signal_outcomes` cast, `snapshot_portfolio` trading-day anchor,
   `sync_financial_statements` OOM fix + `executemany` batching — PRs #30/#32); **R12 resolved**
