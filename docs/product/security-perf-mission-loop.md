@@ -195,25 +195,36 @@ framing — the draft-PR ceiling means the whole residual is James spotting it.)
 
 ## 10. Enablement gates for the WRITE loop (James / mechanical — required before write goes live)
 
-The write loop stays gated until these land (each is a mechanical fix for a HIGH/MED finding):
+The write loop stays gated until these land (each is a mechanical fix for a HIGH/MED finding).
+Status as of 2026-07-15 — the hook/settings edits are **drafted in PR #45** (backend-architect
+designed, security-engineer reviewed GO-WITH-FIXES, 64/64 case matrix verified against the
+hook before push); the env/infra items remain James's:
 
-1. **Mechanical arming** (security HIGH-1): set `ARBI_UNATTENDED=1` in the environment config,
-   AND a fire wrapper / SessionStart hook that hard-exits when it is not `1`. Until both, STEP 0
-   is the only arming check — insufficient.
-2. **Secret-scrubbed test env** (security HIGH-2): the test-run path scrubs `SUPABASE*`,
-   `RENDER_API_KEY`, `RESEND*`, `DATABASE_URL`, and any `*_KEY`/`*_TOKEN`/`*_SECRET`
-   (e.g. `env -u … pytest`).
-3. **GitHub-MCP-write always-on deny** (security MED-HIGH-4): add
-   `mcp__github__create_or_update_file`, `push_files`, `create_branch`, `delete_file` to the
-   `.claude/settings.json` deny array (leave `merge_pull_request` out — R15 attended exception).
-4. **Capital-adjacent path deny** (red-team #1 / security LOW-8): add the §1 carve-out subtrees
-   to an `ARBI_UNATTENDED`-gated path-deny in `unattended-guard.sh` (not settings — attended
-   edits must stay allowed).
-5. **Healthchecks.io ping URL** for the deadman (§6).
-6. **(Recommended, not blocking) the `0039` read-only DB role** (PR #45) — belt for MED-7.
+1. ⏳ **Mechanical arming** (security HIGH-1): set `ARBI_UNATTENDED=1` in the environment
+   config for the scheduled session. The Routine API exposes no per-session env, so a literal
+   pre-agent wrapper isn't wireable — arming is env-config + STEP 0 as the in-session backstop
+   (worst case if unset = the loop degrades to read-only, never an unguarded write). **James's
+   infra step.**
+2. 🟡 **Secret-scrubbed test env** (security HIGH-2): **partial — landed in PR #45.**
+   `unattended-guard.sh` A6 now denies any `pytest` not fronted by an `env -i` scrub (belt).
+   The **durable** fix is launching the scheduled session with secrets absent from its process
+   env (a wrapper like `make check` bypasses in-command parsing) — **James's infra step.**
+3. ✅ **GitHub-MCP-write always-on deny** (security MED-HIGH-4): **landed in PR #45** —
+   `create_or_update_file` / `push_files` / `create_branch` / `delete_file` in the settings
+   deny array (`merge_pull_request` left out per R15).
+4. ✅ **Capital-adjacent path deny** (red-team #1 / security LOW-8): **landed in PR #45** —
+   `ARBI_UNATTENDED`-gated deny in `unattended-guard.sh` over
+   `asxos/domain/{portfolio,tax,models,theses}/` (Edit/Write/MultiEdit/NotebookEdit + Bash
+   write verbs). Attended edits stay allowed.
+5. ⏳ **Healthchecks.io ping URL** for the deadman (§6). **James's infra step.**
+6. ⏳ **(Recommended, not blocking) the `0039` read-only DB role** (PR #45, drafted) — belt
+   for MED-7. **James applies.**
 
-Items 1–4 are hook/settings edits = authority files → draft via PR, route through
-`backend-architect` + `security-engineer`, James merges. This loop cannot edit them itself.
+The landed hook/settings edits are authority files — drafted via PR #45 (the loop cannot edit
+them itself), reviewed by `backend-architect` + `security-engineer`, for James to merge.
+**Remaining to flip the write loop live: James merges PR #45, sets `ARBI_UNATTENDED=1` (item
+1), provides the deadman URL (item 5); then create the write Routine and retire the read-only
+one.** A6/A7 are belt-only (`unattended-guard.sh` header records the honest limit).
 
 ## 11. Read-only interim posture (LIVE-SAFE now)
 
