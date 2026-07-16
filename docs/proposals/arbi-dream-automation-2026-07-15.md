@@ -2,7 +2,8 @@
 
 **Status:** draft proposal (reversible artifact; no Routine created — switching on standing
 unattended write authority is James's PR-7b enactment)
-**Date:** 2026-07-15
+**Date:** 2026-07-15 · **Amended same day** — branch protection is unavailable on this plan;
+see §Amendment, which supersedes every "branch protection" reference below
 **Author:** arbi main loop, synthesizing a 4-agent fan-out (requirements-analyst,
 backend-architect, security-engineer, arbi-red-team)
 **Scope:** should `/arbi-dream` run on an unattended weekly schedule, and if so, how — the
@@ -68,13 +69,17 @@ end-to-end, produces the first data point for the track-record precondition, and
 candidate→approved flow works mechanically. *Nothing about automation should precede one manual
 promotion.*
 
-### Phase 1 — land the one hard prerequisite: branch protection on `main`
-Require PR + CODEOWNER review + `full-check` green; no direct pushes; arbi's identity cannot
-self-approve. This is a James repo-settings action, independently valuable: it's the mechanical
-firewall the **entire** memory ladder + CODEOWNERS + `/arbi-promote` already assume, and it's
-flagged in every ledger and in the dream's own safety block. Without it, "promotion is
-CODEOWNER-gated" is prompt-enforced only (risk R5) — the firewall the design leans on is
-currently **inert** (`.github/CODEOWNERS:7-9` enforces only under branch protection).
+### Phase 1 — ~~branch protection on `main`~~ SUPERSEDED (2026-07-15): unavailable on this plan
+The original Phase 1 was: require PR + CODEOWNER review + `full-check` green; no direct pushes.
+**James attempted it same-day and GitHub gates branch protection (and rulesets) to paid plans on
+private repos** — verified against the docs: the REST API returns the same 403 as the UI, so
+there is no API workaround, and rulesets are free on *public* repos only. James declined the
+upgrade (a reasonable call — the alternative below is adequate for a single-user repo).
+**Replacement: the two-step substitute in §Amendment** — a detective `main-push-guard` Action
+now, and the fork/machine-identity model as the Phase-3 precondition. The honest consequence
+stands regardless: `.github/CODEOWNERS` is **inert on this plan** — "arbi mechanically cannot
+self-approve" is not achievable for free; promotion stays a disciplined-process gate (James is
+the one clicking merge), not a mechanical one.
 
 ### Phase 2 — a cadence NOW without unattended write: the POKE Routine
 A PR-7a-shaped weekly reminder (emit-only — **no** branch, PR, or write) that nudges James / an
@@ -157,7 +162,7 @@ achievable now (greenfield — no dream Routine exists yet); bake them into prov
 | 3 | **A dedicated asxos-repo GitHub write token** as a credential helper / `GH_TOKEN` (repo + PR-write scope), never inline on the command line (or `unattended-guard.sh` A3 secret-check denies it) | The GitHub MCP write path is denied unattended → the session must `git push` + `gh pr create --draft` itself. `BACKUP_GITHUB_TOKEN` is the wrong repo scope | **to build (new infra)** |
 | 4 | **Author the candidate via the Write tool only** (never a Bash heredoc/redirect), fixed generic commit message, PR body via `--body-file` | L16-class false-deny: the candidate legitimately quotes `approved-lessons.md`/`CLAUDE.md`, so `authority-guard.sh`'s command-text scan denies it if authored via Bash; a secret-name in a commit msg trips `unattended-guard.sh` A3 | **pin in `arbi-dream.md`** |
 | 5 | **`gh pr create --draft` for the PR; forbid the MCP PR tool fallback** | MCP `create_pull_request` is default-denied unattended; a silent fallback ends with a pushed branch and no PR | **pin in `arbi-dream.md`** |
-| 6 | **Branch protection on `main`** (require PR + CODEOWNER + `full-check`; no direct push) | The only *server-side* backstop for the subprocess/executor bypass the client-side hooks can't see, and the thing that makes the CODEOWNER promotion-gate mechanical. **Hard prerequisite** | **Phase 1 — James** |
+| 6 | ~~Branch protection on `main`~~ **SUPERSEDED — plan-gated (see §Amendment).** Replacement: **fork/machine-identity model** (the bot has zero write on the canonical repo; cross-fork PRs only) + the detective `main-push-guard` Action in the interim | The fork model delivers the same *server-side* property (the automation physically cannot push to or merge `main`) via identity separation instead of the paid feature — arguably stronger. The detective Action converts any direct push into a same-minute alarm (detection, not prevention). **Fork model = hard prerequisite for Phase 3** | **Amendment — James** |
 | 7 | **A subprocess regression test** pinning the guard boundary: under `ARBI_UNATTENDED=1`, Write to `dream-candidates/*` allowed, Write to `approved-lessons.md` denied, `merge_pull_request` denied | So a future guard edit can't silently break the boundary either way (mirrors `test_review_gate_hook.py`) | **to build** |
 
 ### The DB-role finding (worth recording on its own)
@@ -194,10 +199,136 @@ the promotion rubric's evidence-diff step.
 
 ## Open decisions for James
 1. **Phase 0 now:** promote PR #46 to exercise the gate? (Recommended — prerequisite to everything.)
-2. **Phase 1:** configure branch protection on `main`? (Recommended regardless — it's overdue and
-   unblocks all autonomy, not just the dream.)
+2. **~~Phase 1: branch protection~~ RESOLVED 2026-07-15: unavailable on this plan (James declined
+   the upgrade).** Replacement decisions: (a) add the `main-push-guard` detective Action —
+   **arbi's Write to `.github/workflows/` was permission-denied this session** (correct: workflow
+   files control CI execution), so the ready-to-apply YAML is embedded in §Amendment for James to
+   add; (b) adopt the fork/machine-identity model at Phase 3.
 3. **Phase 2:** want the **poke** Routine armed now (demand-gated), or hold until there's a real
    cadence of work to consolidate?
 4. **Re-scope precondition (2):** record that the DB-role precondition is moot for the dream slice
    (replaced by "no DB mount")? A one-line amendment to `arbi-permission-model.md` — arbi drafts,
    James approves.
+
+---
+
+## Amendment (2026-07-15, same day) — branch protection is plan-gated; the substitute
+
+**Finding.** James attempted to enable branch protection and hit GitHub's plan gate: on a
+**free-plan private repo**, branch protection and rulesets are paid features (rulesets are free
+on public repos only), and the REST API enforces the same entitlement — `PUT
+/repos/.../branches/main/protection` returns 403, so **there is no API workaround**. The only
+paths to the server-side feature are upgrading (~US$4/mo GitHub Pro — James declined) or making
+the repo public (hard no: it holds portfolio/financial data). Sources: GitHub REST branch-
+protection docs; "About rulesets" plan matrix; community discussions #174400/#190190.
+
+**What this does and does not change.**
+- **Phase 0 (promote #46) and Phase 2 (poke Routine): unaffected.** Neither needs protection.
+- **CODEOWNERS is inert on this plan** — mechanical "grader ≠ producer" via required CODEOWNER
+  review is not achievable for free. Promotion remains a disciplined-process gate (James clicks
+  merge), which is acceptable single-user but must be stated honestly, not implied away.
+- **Phase 3 (unattended RUN):** the control-set requirement — a *server-side* backstop the
+  client-side hooks can't provide — stands, but is now satisfied by **identity separation**
+  instead of the paid feature.
+
+**The two-step substitute:**
+
+1. **Now — a detective Action (`main-push-guard`).** Cannot BLOCK a direct push (that is the
+   paid feature) but converts one into a same-minute alarm: on every push to `main`, check via
+   the API whether the commit is associated with a merged PR; if not, fail the run and auto-open
+   an alert issue. Honest limits: detection not prevention; it alarms on James's own deliberate
+   direct pushes too (close the issue with a note — that closure is the audit trail); an actor
+   with write could delete the workflow (its integrity is visibility, not a boundary).
+   **arbi could not write this file** — `.github/workflows/` is permission-denied in-session
+   (stopped per the lockout lesson rather than routing around via Bash) — so the ready-to-apply
+   YAML is below; James adds it at `.github/workflows/main-push-guard.yml`.
+
+2. **At Phase 3 — the fork / machine-identity model** (replaces branch protection in control #6).
+   Create a **machine account** (GitHub ToS explicitly permits one machine account alongside a
+   personal account for automation — verify current wording before creating); it gets **zero
+   write access to `Jp8617465-sys/asxos`** and works in its own **fork**: pushes `claude/**`
+   branches there, opens cross-fork PRs into the canonical repo. Only James's account can merge
+   or push anything — the automation identity has no write bit at all. This is *stronger* than
+   branch protection in one respect (it removes the writer from the repo rather than restricting
+   one branch) and it genuinely delivers grader ≠ producer: PR author (bot) and merger (James)
+   are different identities, mechanically. Setup cost (second account, fork remote, bot
+   `GH_TOKEN`) is paid only if/when Phase 3 is earned — and that bot token is the *same*
+   dedicated credential control #3 already requires, so the two efforts converge.
+
+**Ready-to-apply workflow** (James: save as `.github/workflows/main-push-guard.yml` — the full
+header comment explaining why/limits is included):
+
+```yaml
+# main-push-guard — detective control for direct pushes to main
+#
+# WHY: GitHub gates branch protection (and rulesets) to paid plans on private
+# repos (verified 2026-07-15; the API returns the same 403 as the UI). This is
+# the free-plan SUBSTITUTE: it cannot BLOCK a direct push, but it converts one
+# into a loud, same-minute alarm — a failed run plus an auto-opened issue —
+# instead of a silent boundary violation (the failure mode the 2026-07-11
+# PR #26 merge demonstrated: "no required-review block").
+#
+# HOW: on every push to main, ask the API whether the pushed commit is
+# associated with a MERGED pull request (true for merge/squash/rebase merges).
+# No associated merged PR => direct push => fail + open an alert issue.
+#
+# HONEST LIMITS:
+# - Detection, not prevention. The push has already landed when this runs.
+# - It alarms on James's OWN direct pushes too (by design — the convention is
+#   "everything reaches main via a PR"). Deliberate direct push? Close the
+#   alert issue with a note; that closure is the audit trail.
+# - An actor with write could delete this file. Its integrity is convention +
+#   visibility (the deletion is itself a diff), not a boundary.
+#
+# See docs/proposals/arbi-dream-automation-2026-07-15.md (§Amendment).
+
+name: main-push-guard
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  verify-merged-via-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify the pushed commit landed via a merged PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          # Commits that landed through a PR (merge, squash, or rebase) are
+          # associated with >=1 pull request whose merged_at is set.
+          merged_prs=$(gh api "repos/$REPO/commits/$SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null)] | length')
+          if [ "$merged_prs" -ge 1 ]; then
+            echo "OK: $SHA reached main via a merged PR."
+            exit 0
+          fi
+          echo "::error::Direct push to main detected: $SHA by $ACTOR (no associated merged PR)."
+          # Open the alarm issue (best-effort — the failed run is the primary signal).
+          gh issue create \
+            --repo "$REPO" \
+            --title "ALERT: direct push to main ($SHA)" \
+            --body "A commit reached \`main\` without a merged PR.
+
+          - **Commit:** $SHA
+          - **Actor:** $ACTOR
+          - **Detected by:** main-push-guard (detective control — see the workflow header for why this is detection, not prevention)
+
+          If this was a deliberate direct push by James, close this issue with a one-line note (that closure is the audit trail). Otherwise investigate, and if unexpected, revert via a PR." \
+            || echo "::warning::Could not open the alert issue; the failed run is the alarm."
+          exit 1
+```
+
+**Also skipped (recorded for completeness):** fine-grained PATs / deploy keys (cannot scope to a
+branch); pre-receive hooks (not on github.com); migrating to GitLab for its free protected
+branches (disproportionate — the whole governance stack is GitHub-native).
