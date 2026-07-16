@@ -5,7 +5,10 @@ Daily regulatory ingest.
 Fetches two RSS sources, parses each, UPSERTs into regulatory_events.
 Per-source failure is logged, then gated by assert_partial_success with
 threshold=0.5: with N=2 sources, 2/2 or 1/2 healthy passes (ratio >= 0.5);
-0/2 hard-fails the run.
+0/2 hard-fails the run. When a source hard-fails but the run still clears the
+threshold, _degraded_note attaches a one-line marker to the success run's
+job_runs.error_message so check_cron_health surfaces the otherwise-hidden dead
+feed (fail-loud, CLAUDE.md #10).
 
 Sources:
   RBA      — https://www.rba.gov.au/rss/rss-cb-media-releases.xml (RSS 1.0/RDF)
@@ -23,6 +26,7 @@ Usage:
 import argparse
 import asyncio
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -109,6 +113,30 @@ async def _fetch_and_upsert(client: httpx.AsyncClient, source: SourceSpec) -> in
     return n
 
 
+def _degraded_note(
+    sources: Sequence[SourceSpec], totals: Sequence[int | None]
+) -> str | None:
+    """Return a one-line degraded note when a source hard-failed (returned
+    ``None``) but the run still cleared the partial-success threshold — else
+    ``None``.
+
+    A ``None`` total means that source's fetch/parse failed after retry (see
+    ``_fetch_and_upsert``); because RBA alone clears the 0.5 threshold the run
+    is still recorded ``success``, so a dead source (e.g. Treasury WAF-403 from
+    Render egress) would otherwise vanish. This note rides
+    ``job_runs.error_message`` on the success row and is surfaced daily by
+    ``check_cron_health`` (fail-loud, CLAUDE.md #10). ``0`` rows is a healthy
+    slow-news-day outcome, not a dead feed — only ``None`` counts as dead.
+    """
+    dead = [s.name for s, t in zip(sources, totals, strict=True) if t is None]
+    if not dead:
+        return None
+    return (
+        f"degraded: {len(dead)}/{len(sources)} source(s) returned no data "
+        f"after retry (dead feed): {dead}"
+    )
+
+
 async def main() -> None:
     today = date.today()
     await init_pool()
@@ -138,6 +166,7 @@ async def main() -> None:
             )
             written = sum(t for t in totals if t is not None)
             monitor.rows_written = written
+            monitor.note = _degraded_note(SOURCES, totals)
             log.info(
                 f"ingest_regulatory done: {written} total events "
                 f"across {n_ok}/{len(SOURCES)} healthy sources"

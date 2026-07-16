@@ -1,10 +1,14 @@
 """
 Daily pipeline health check — runs at 22:00 UTC after the full pipeline completes.
 
-Detects three failure modes:
+Detects four failure modes:
   1. Jobs stuck in 'running' for >2 hours (process crash, __aexit__ never ran)
   2. Expected-daily jobs with no 'success' row in the last 36 hours
   3. Jobs that have recorded 'failure' on their last 2+ consecutive runs
+  4. Jobs that recorded 'success' but attached a degraded note — a
+     partial-success run that cleared its threshold while a source hard-failed
+     (e.g. ingest_regulatory with Treasury dead), which would otherwise hide
+     behind a green cron
 
 On any finding: sends an alert email via Resend AND raises RuntimeError
 (JobMonitor records 'failure'; Healthchecks.io deadman fires on missed ping).
@@ -14,6 +18,7 @@ On clean pipeline: records 'success' and pings Healthchecks.io.
 from __future__ import annotations
 
 import asyncio
+import html
 import os
 import textwrap
 from datetime import UTC, date, datetime
@@ -102,6 +107,26 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
                 f"runs all failed (statuses: {statuses})"
             )
 
+    # 4 — 'success' runs carrying a degraded note: a partial-success job that
+    # cleared its threshold while a source hard-failed, so status='success'
+    # hides a dead feed. JobMonitor writes the note into error_message on
+    # success; surface it here so it is not invisible (fail-loud, CLAUDE.md #10).
+    degraded = await conn.fetch(
+        """
+        SELECT job_name, as_of, error_message
+        FROM job_runs
+        WHERE status = 'success'
+          AND error_message IS NOT NULL
+          AND started_at > NOW() - INTERVAL '36 hours'
+        ORDER BY started_at
+        """
+    )
+    for row in degraded:
+        issues.append(
+            f"DEGRADED: {row['job_name']} as_of={row['as_of']} "
+            f"succeeded but reported: {row['error_message']}"
+        )
+
     return issues
 
 
@@ -117,7 +142,12 @@ def _send_alert(issues: list[str]) -> None:
         if not (api_key and to and sender):
             return
 
-        body = "\n".join(f"• {i}" for i in issues)
+        # html.escape each issue before it enters the unescaped <pre> below:
+        # check #4 is the first path routing the free-text job_runs.error_message
+        # into this email, so a future note carrying external text can't break
+        # out of the markup (defense-in-depth; today all interpolated content is
+        # hardcoded). Escaping the controlled #1-#3 lines is a harmless no-op.
+        body = "\n".join(f"• {html.escape(i)}" for i in issues)
         html = f"<pre>{body}</pre>"
         resend.api_key = api_key
         resend.Emails.send(
