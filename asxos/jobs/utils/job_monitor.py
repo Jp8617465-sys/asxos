@@ -24,6 +24,11 @@ class JobMonitor:
                                           — Healthchecks' explicit-failure signal;
                                           also marks the check for deadman purposes)
 
+    On a 'success' run, self.note (if set) is written to error_message — a
+    degraded partial-success marker (e.g. one RSS source dead but the run still
+    cleared its threshold) that check_cron_health surfaces so a green cron can't
+    hide a dead feed.
+
     The 'blocked' distinction prevents alert fatigue: the P0-1/P0-2 guards
     will generate many runs where the right operator response is "wait for
     the upstream to retry" rather than "page me, something is broken" — and
@@ -47,6 +52,13 @@ class JobMonitor:
         self.healthcheck_url = healthcheck_url
         self.override_reason = override_reason
         self.rows_written: int = 0
+        # Optional degraded note attached to a *success* run — e.g. a
+        # partial-success job where one source hard-failed but the run still
+        # cleared its threshold (ingest_regulatory: Treasury dead, RBA alone
+        # clears 0.5). Written into job_runs.error_message on success so
+        # check_cron_health can surface an otherwise-invisible dead feed
+        # (fail-loud, CLAUDE.md #10). None on the vast majority of runs.
+        self.note: str | None = None
         self._started_at: datetime | None = None
 
     async def __aenter__(self) -> "JobMonitor":
@@ -115,7 +127,10 @@ class JobMonitor:
         else:
             status = "failure"
 
-        error_message = f"{exc_type.__name__}: {exc_val}" if exc_type else None
+        # On success, carry any degraded note (self.note) into error_message so
+        # a partial-success run that hid a dead source is not invisible; on
+        # failure/blocked, the exception string wins.
+        error_message = f"{exc_type.__name__}: {exc_val}" if exc_type else self.note
 
         async with acquire() as conn:
             await conn.execute(

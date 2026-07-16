@@ -10,21 +10,23 @@ Sections (in order):
   3. Portfolio discipline (portfolio-team-visibility lane, PR2a/PR2b —
      `docs/proposals/portfolio-team-visibility-2026-07-12.md` §8): revisit-
      overdue, stop/target trajectory, conviction-unset, concentration,
-     benchmark lag. Model-independent by construction (rule #11) — the loader
+     benchmark lag, and lots approaching the 12-month CGT-discount threshold
+     within 30 days (spec §5.1) — the last folded here from the former
+     standalone "Tax actions" table so the fact lives on one gated surface.
+     Model-independent by construction (rule #11) — the loader
      never reads `signals`/`shap_factors` and never calls
      `resolve_production_model()`. Gated on ASXOS_PERSONAL_USE=1 only (not
      ASXOS_PORTFOLIO_BRIEF_ENABLED, which is orthogonal — §4). Quiet when
      every check is clean; a check that errors renders a loud "could not run"
      line rather than vanishing (CLAUDE.md #10).
   4. Signal label changes on current holdings (today vs yesterday)
-  5. Tax actions: lots crossing the 12-month CGT boundary in next 30 days
-  6. Regulatory hits on holdings in the last 24h
-  7. Market news on holdings (M14a) — gated by ALL of:
+  5. Regulatory hits on holdings in the last 24h
+  6. Market news on holdings (M14a) — gated by ALL of:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_NEWS_BRIEF_ENABLED=1 (paper-trade dark gate, plan M14a)
        ingest_news job_runs success within 24h (freshness gate)
      Section absent entirely when any gate fails.
-  8. Portfolio adjustments (M13.7) — gated by BOTH:
+  7. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
      Omitted entirely when either flag is unset, or when no successful
@@ -72,14 +74,6 @@ class SignalChange:
     old_label: str
     new_label: str
     top_factor: str  # e.g. "mom_12_1+0.953"
-
-
-@dataclass(frozen=True)
-class TaxAction:
-    symbol: str
-    lot_id: int
-    eligible_at: date
-    days: int
 
 
 @dataclass(frozen=True)
@@ -147,7 +141,6 @@ class BriefData:
     regime: str | None          # None when no signal row exists for as_of
     holdings_count: int
     signal_changes: list[SignalChange] = field(default_factory=list)
-    tax_actions: list[TaxAction] = field(default_factory=list)
     regulatory_hits: list[RegulatoryHit] = field(default_factory=list)
     job_failures: list[JobFailure] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
@@ -265,7 +258,6 @@ async def collect(as_of: date) -> BriefData:
             """
         )
 
-        tax_actions = await _tax_actions(conn, as_of)
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
         news_items = await _news_section(conn, as_of)
@@ -285,13 +277,26 @@ async def collect(as_of: date) -> BriefData:
                     message=f"⚠ discipline section could not run: {exc}",
                 )
             ]
+        # CGT-boundary facts are folded into the discipline section (one gated
+        # surface, replacing the former standalone "Tax actions" table).
+        # Isolated separately so a holdings-query failure surfaces loudly
+        # without taking down the thesis findings above.
+        try:
+            discipline_findings.extend(await _cgt_boundary_findings(conn, as_of))
+        except Exception as exc:
+            discipline_findings.append(
+                DisciplineFinding(
+                    check="cgt_discount_boundary",
+                    level=DisciplineLevel.error,
+                    message=f"⚠ cgt_discount_boundary section could not run: {exc}",
+                )
+            )
 
     return BriefData(
         as_of=as_of,
         regime=regime,
         holdings_count=int(holdings_count),
         signal_changes=signal_changes,
-        tax_actions=tax_actions,
         regulatory_hits=regulatory_hits,
         job_failures=job_failures,
         news_items=news_items,
@@ -354,9 +359,25 @@ async def _signal_changes(
     return out
 
 
-async def _tax_actions(
+async def _cgt_boundary_findings(
     conn: asyncpg.Connection, as_of: date, window_days: int = 30
-) -> list[TaxAction]:
+) -> list[DisciplineFinding]:
+    """Held lots approaching the 12-month CGT-discount threshold, as evidence-
+    only discipline findings (spec §5.1). Folded from the retired standalone
+    "Tax actions" table so the fact lives on ONE gated surface.
+
+    Gated on ``ASXOS_PERSONAL_USE=1`` — parity with ``_discipline_findings`` /
+    ``_news_section`` / ``_portfolio_section``, closing the gap the old ungated
+    ``_tax_actions`` left open (portfolio-team-visibility §7/R12).
+
+    s766B firewall: states the user's own acquisition date + calendar
+    arithmetic on it (reusing ``days_to_eligibility``, §5.1 — never day-count) —
+    no trade direction, no benefit/discount-rate opinion. Quiet by default; a
+    malformed ``acquired_at`` surfaces LOUDLY as an ``error`` finding rather than
+    silently dropping the lot (CLAUDE.md #10).
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return []
     rows = await conn.fetch(
         """
         SELECT id, symbol, acquired_at
@@ -364,19 +385,35 @@ async def _tax_actions(
         ORDER BY acquired_at
         """
     )
-    out: list[TaxAction] = []
+    findings: list[DisciplineFinding] = []
     for r in rows:
-        days = days_to_eligibility(r["acquired_at"], as_of)
-        if 0 < days <= window_days:
-            out.append(
-                TaxAction(
+        try:
+            days = days_to_eligibility(r["acquired_at"], as_of)
+            if not (0 < days <= window_days):
+                continue
+            eligible_at = r["acquired_at"] + relativedelta(years=1) + timedelta(days=1)
+            findings.append(
+                DisciplineFinding(
+                    check="cgt_discount_boundary",
+                    level=DisciplineLevel.info,
                     symbol=r["symbol"],
-                    lot_id=r["id"],
-                    eligible_at=r["acquired_at"] + relativedelta(years=1) + timedelta(days=1),
-                    days=days,
+                    message=(
+                        f"{r['symbol']}: lot {r['id']} (acquired {r['acquired_at']}) "
+                        f"reaches the 12-month CGT-discount threshold on "
+                        f"{eligible_at} — {days} day(s) away (s 115-25(1) ITAA 1997)."
+                    ),
                 )
             )
-    return out
+        except Exception as exc:  # fail-loud: never silently drop a lot (CLAUDE.md #10)
+            findings.append(
+                DisciplineFinding(
+                    check="cgt_discount_boundary",
+                    level=DisciplineLevel.error,
+                    symbol=r["symbol"],
+                    message=f"⚠ cgt_discount_boundary could not run for {r['symbol']}: {exc}",
+                )
+            )
+    return findings
 
 
 async def _regulatory_hits(
