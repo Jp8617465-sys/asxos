@@ -172,10 +172,16 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   landed on main. The follow-on PR2a/PR2b (loader + `brief.html.j2` render block) is also
   **MERGED** (#41, plus companion tests #44) — the emailed brief now renders discipline findings.
 - **PR #5 no longer open** (resolved since the 07-13 wake, per the 2026-07-16 open-PR probe).
-- **Open drafts awaiting James's merge train (2026-07-16):** #47 (regulatory degraded-note
-  visibility + CGT tax-actions folded into the gated discipline digest — merge first: closes a
-  firewall-parity gap) · #46 (dream candidate + automation plan; promote manually as Phase 0) ·
-  #42 (product-health scorecard regen). CI green not yet verified on any of the three.
+- **MERGED 2026-07-16 (James-instructed "merge all PRs if green" train, executed same wake):**
+  **#42** (`8154b7b`, scorecard regen — clean+green, merged as-is) · **#46** (`e7401b9`, dream
+  candidate + automation plan — was conflicted with main's decision-log; resolved append-only
+  keep-both, CI re-verified green, then merged; the dream candidate is now on main as a
+  *candidate* — `/arbi-promote` Phase 0 remains James's separate act) · **#47** (`f1eb5d1`,
+  regulatory degraded-note visibility + gated CGT fold — was CI-red on one stale assertion,
+  `test_render_html_renders_empty_states` still expecting the retired tax-actions empty-state
+  string; dropped the assertion (review-loop PASS), resolved a second main-merge conflict
+  (decision-log + add/add same-day handoffs, both kept), CI green 1652+ tests, merged).
+  Zero open PRs remain as of the merge train.
 
 ## Ranked next-action queue
 
