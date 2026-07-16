@@ -13,12 +13,15 @@ Commands:
                                   pending_review -> rejected
   asx theme holding approve ID — same, for one theme_holdings row (holding_id)
   asx theme holding reject ID  — same, for one theme_holdings row (holding_id)
+  asx theme open --from-agent-run ID         — create a draft theme from a
+                                  logged agent_runs 'theme' proposal
+  asx theme holding open --from-agent-run ID — create a draft theme_holdings
+                                  row from a logged 'theme_holding' proposal
 
-Note: 'open --from-agent-run' has no theme equivalent yet — no
-create_theme_from_agent_run() exists (unlike theses/macro_theses); it lands
-alongside the theme-researcher/instrument-selector agents (Phase 2c). These
-approve/reject verbs exist now so that dependency chain has one fewer link
-to build when those agents ship.
+The open verbs mirror `asx macro-thesis open --from-agent-run` exactly; a
+same-run ThemeProposal must be opened BEFORE its ThemeHoldingProposals
+(holdings resolve their theme by theme_code and never create themes
+implicitly).
 """
 from __future__ import annotations
 
@@ -491,3 +494,78 @@ def _print_theme_detail(theme: Theme) -> None:
     for key, val in rows:
         table.add_row(key, val)
     console.print(table)
+
+
+@theme_app.command("open")
+def theme_open(
+    from_agent_run: int = typer.Option(
+        0, "--from-agent-run",
+        help="agent_runs.run_id to create a draft theme from (required)",
+    ),
+) -> None:
+    """Create a theme draft from a logged agent_runs 'theme' proposal.
+
+    Auto-advances draft -> evidence_complete -> pending_review in the same
+    transaction (evidence citations were validated at log time — see
+    asxos/domain/themes/service.py::create_theme_from_agent_run).
+    """
+    _require_personal_use()
+    if not from_agent_run:
+        console.print("[red]Error:[/red] --from-agent-run is required")
+        raise typer.Exit(1)
+    asyncio.run(_open_theme_from_agent_run(from_agent_run))
+
+
+async def _open_theme_from_agent_run(run_id: int) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            theme = await svc.create_theme_from_agent_run(conn, run_id)
+        console.print(
+            f"[green]✓[/green] Opened draft theme '{theme.theme_code}' "
+            f"(theme_id={theme.theme_id}) from agent run #{run_id} "
+            f"(governance_status={theme.governance_status})"
+        )
+        _print_theme_detail(theme)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@holding_app.command("open")
+def holding_open(
+    from_agent_run: int = typer.Option(
+        0, "--from-agent-run",
+        help="agent_runs.run_id to create a draft theme_holdings row from (required)",
+    ),
+) -> None:
+    """Create a theme_holdings draft from a logged 'theme_holding' proposal.
+
+    The proposal's theme_code must already resolve — open a same-run
+    ThemeProposal first (asx theme open --from-agent-run). Never overwrites
+    an existing (theme, symbol) exposure; that raises instead (fail-loud).
+    """
+    _require_personal_use()
+    if not from_agent_run:
+        console.print("[red]Error:[/red] --from-agent-run is required")
+        raise typer.Exit(1)
+    asyncio.run(_open_holding_from_agent_run(from_agent_run))
+
+
+async def _open_holding_from_agent_run(run_id: int) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            holding = await svc.create_theme_holding_from_agent_run(conn, run_id)
+        console.print(
+            f"[green]✓[/green] Opened draft theme holding {holding.symbol} "
+            f"(holding_id={holding.holding_id}, theme_id={holding.theme_id}) "
+            f"from agent run #{run_id} (governance_status={holding.governance_status})"
+        )
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
