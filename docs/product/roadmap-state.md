@@ -408,35 +408,25 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-07-13 interactive `/arbi` wake — supersedes the 07-11 baseline; later
-runs diff against this. (An earlier-today wake on branch `jeww8p` carried its own 07-13 refresh
-inside draft PR #29 — since **MERGED to main** as `2a49df9` on 2026-07-14 — this snapshot was
-the more current one at the time it was recorded; it has the live `job_runs` errors that wake
-did not surface.)_
+_Recorded by the 2026-07-16 `/arbi-close` (7-hour dev-mode session). Supersedes the 07-13
+snapshot; later runs diff against this. Prior snapshots live in git history + the decision log._
 
 ```
-Last wake: 2026-07-13 (interactive /arbi — supersedes the 07-11 baseline)
-- branch: claude/wake-up-arbi-x1ehyc — EVEN with origin/main (0 ahead / 0 behind), clean tree
-- latest main commit: c9b522c "Merge pull request #28 from ...jeww8p" (PRs #26/#27/#28 landed since baseline)
-- open PRs: #29 (DRAFT — deterministic discipline evaluator, PR1 of the portfolio-visibility lane;
-  wired to nothing, review-loop clean; carries an earlier-today 07-13 refresh not on main) ·
-  #5 (stale pre-shelf Model A research docs — close candidate)
-- tests: STATE-THIN — pytest not installed in sandbox venv. No pass/fail delta (same as baseline).
-- latest on-disk migration: 0038_screening_evaluator_wiring.sql (DRAFT, NOT applied; REQUIRED_MIGRATIONS=91
-  still references 0037). NB numbering-collision risk with the 0038_agent_readonly_role draft → renumber to 0039.
+Last wake: 2026-07-16 (interactive /arbi → 7-hour dev-mode build → /arbi-close)
+- branch: claude/dev-mode-planning-gz83bh — 2 commits ahead of origin/main, pushed; clean tree
+- latest main commit: 91495a4 (#44) — UNCHANGED this session (nothing merged to main; all work is draft PR #47)
+- open PRs: #47 (DRAFT — this session: reg-feed degraded-note visibility d11a570 + CGT tax-actions fold b4baf5e; both fully reviewed) ·
+  #46 (arbi dream candidate + dream-automation, docs) · #45 (arbi full-auto activation pack; migration 0039 agent-ro NOT applied) ·
+  #42 (product-health scorecard regen, docs)
+- tests: STATE-THIN — no project venv in the sandbox (httpx/jinja2/asyncpg/joblib unimportable). ruff + py_compile + mypy
+  clean on all changed files; new unit tests run in CI (full-check) only
+- latest on-disk migration: 0038_screening_evaluator_wiring.sql (DRAFT, NOT applied); 0039_agent_readonly_role drafted in #45
+  (NOT applied); REQUIRED_MIGRATIONS=91 (references 0037)
 - Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED (expected post-shelf)
-- freshness: prices.dt=2026-07-10 (Fri, weekend-fresh) · signals.as_of=2026-07-10 ·
-  portfolio_snap.as_of=2026-07-08 (FROZEN — snapshot_portfolio blocked) · signal_outcomes=24,454 (unchanged;
-  track_signal_outcomes still not writing) · theses=13 · macro_theses pending_review=0
-- job_runs (latest): check_model_staleness=SUCCESS(07-12, FIXED vs baseline) · check_cron_health=FAILURE(07-12,
-  correctly reporting a stale row — not a bug in itself) · sync_financial_statements=orphaned RUNNING row from a
-  Render oomKilled(512Mi, ~78s) at 07-11 16:50Z — that was the PRE-fix code; PR #26's bounded-worker fix deployed
-  ~07-11 21:10 but is UNEXERCISED (weekly job `50 16 * * 6`, next run Sat 07-18; the orphaned row persists because
-  nothing has rerun to heal it) · track_signal_outcomes=FAILURE(07-12, AmbiguousParameterError: $1 text vs varchar —
-  one-line cast, root-cause reproduced) · snapshot_portfolio=BLOCKED(07-12, Sunday-run gate mismatch: as_of=Sat but
-  sync_prices records as_of=run-date and skips Sat) · retrain_model_a=FAILURE(06-06, dormant/expected) · all others success
+- freshness: STATE-THIN — Supabase RO MCP not grantable this session (RW server returned "requires approval" repeatedly;
+  supabase-ro not connected). Per PR #42 (07-14): regulatory_events starved (~2 rows; Treasury WAF-403 from Render egress).
+  This session shipped the VISIBILITY fix (PR #47), not the feed remediation
+- job_runs: not re-probed (MCP gated). ingest_regulatory reports green-while-starved — the exact bug PR #47 surfaces via a DEGRADED alert
 ```
 
-_Verbatim as recorded 2026-07-13 — do not edit the snapshot text above. Status update: the
-"open PRs" line's **#29 is now MERGED to main** (`2a49df9`, 2026-07-14); only #5 remains open
-from that list._
+_Verbatim as recorded 2026-07-16 by /arbi-close._

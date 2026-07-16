@@ -325,3 +325,66 @@ async def test_healthcheck_ping_failure_does_not_break_success() -> None:
     # Status was still recorded as success
     update_call = conn.execute.await_args_list[2]
     assert update_call.args[1] == "success"
+
+
+@pytest.mark.asyncio
+async def test_success_note_persisted_into_error_message() -> None:
+    """A degraded note on a *success* run rides into error_message so a
+    partial-success job that hid a dead source (ingest_regulatory: Treasury
+    dead, RBA alone clears the 0.5 threshold) is visible to check_cron_health.
+    Status stays 'success' — data DID land — and the base URL is still pinged."""
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    fake_get = AsyncMock()
+    fake_client = MagicMock()
+    fake_client.get = fake_get
+
+    @asynccontextmanager
+    async def fake_async_client(*a, **kw):
+        yield fake_client
+
+    with _patch_pool(conn), patch(
+        "asxos.jobs.utils.job_monitor.httpx.AsyncClient", new=fake_async_client
+    ):
+        async with JobMonitor(
+            job_name="ingest_regulatory",
+            as_of=date(2026, 7, 15),
+            healthcheck_url="http://hc/ping",
+        ) as monitor:
+            monitor.note = "degraded: 1/2 source(s) returned no data (dead feed): ['Treasury']"
+
+    update_call = conn.execute.await_args_list[2]
+    assert update_call.args[1] == "success"  # data landed — still a success
+    assert update_call.args[4] is not None
+    assert "Treasury" in update_call.args[4]  # note rode into error_message ($4)
+    # A degraded-but-successful run still pings the base URL, not /fail.
+    fake_get.assert_awaited_once_with("http://hc/ping")
+
+
+@pytest.mark.asyncio
+async def test_success_without_note_leaves_error_message_null() -> None:
+    """Default path: no note set → error_message stays NULL on success. Pins
+    byte-identical behaviour for the ~28 jobs that never touch .note."""
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    fake_get = AsyncMock()
+    fake_client = MagicMock()
+    fake_client.get = fake_get
+
+    @asynccontextmanager
+    async def fake_async_client(*a, **kw):
+        yield fake_client
+
+    with _patch_pool(conn), patch(
+        "asxos.jobs.utils.job_monitor.httpx.AsyncClient", new=fake_async_client
+    ):
+        async with JobMonitor(
+            job_name="t", as_of=date(2026, 5, 28), healthcheck_url="http://hc/ping"
+        ):
+            pass
+
+    update_call = conn.execute.await_args_list[2]
+    assert update_call.args[1] == "success"
+    assert update_call.args[4] is None  # error_message NULL when no note
