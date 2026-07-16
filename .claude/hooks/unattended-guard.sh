@@ -9,6 +9,8 @@
 #   - edits to authority/boundary files (constitution self-edit)
 #   - secret exposure
 #   - write-capable / side-effecting MCP tools (GitHub/Supabase/external) — default-deny
+#   - capital/portfolio/tax/model/thesis code edits (security-perf loop carve-out)
+#   - unscrubbed pytest / ad-hoc interpreter code-exec (security-perf loop, HIGH-2/MED-5)
 #
 # Fail-CLOSED for gated categories: a false deny just stops the run (the harness's own
 # "when unsure, stop" behavior); a false allow is an irreversible crossing with no one
@@ -25,7 +27,10 @@
 # leak (SELECT some_writer_fn()) is only partially blacklisted. The REAL mechanical backstops
 # are GitHub branch protection (merge/deploy/push-to-main) and the R2 read-only Postgres role
 # (DB writes). This reduces risk R5 (prompt-only enforcement) from total to partial; it does
-# not close it.
+# not close it. The A6 pytest / A7 interpreter checks are belt-only (a wrapper like `make
+# check` or string indirection bypasses them) — the durable fix is launching the scheduled
+# session with secrets absent from its process env (docs/product/security-perf-mission-loop.md
+# §10 item 2).
 set -uo pipefail
 
 # --- 1.0 arm only for unattended runs; attended → allow everything, instantly -----------
@@ -66,6 +71,38 @@ rel_path() {
   p="$(realpath -m -- "$p" 2>/dev/null || printf '%s' "$p")"
   root="$(realpath -m -- "$root" 2>/dev/null || printf '%s' "$root")"
   printf '%s' "${p#"$root"/}"
+}
+
+# --- Capital-adjacent carve-out (security-perf-mission-loop.md §1, red-team #1 / LOW-8) ----
+# Modeled on authority-guard.sh's is_authority_path/_authority_regex_alt idiom: a fragment
+# ending in "/" is a directory prefix; anything else is an exact repo-relative file. The
+# security/perf loop is model/tax/portfolio/thesis READ-only — it may read these to log a
+# `deferred: capital-adjacent, human-only` finding, never draft a change to them. The three
+# named files (allocator/rebalance/tax_overlay) live under asxos/domain/portfolio/, so the
+# directory prefixes already cover them.
+CAPITAL_FRAGMENTS=(
+  "asxos/domain/portfolio/" "asxos/domain/tax/"
+  "asxos/domain/models/" "asxos/domain/theses/"
+)
+
+is_capital_path() {
+  local p="$1" frag
+  for frag in "${CAPITAL_FRAGMENTS[@]}"; do
+    case "$frag" in
+      */) [ "${p#"$frag"}" != "$p" ] && return 0 ;;   # directory-prefix fragment
+      *)  [ "$p" = "$frag" ] && return 0 ;;             # exact-file fragment
+    esac
+  done
+  return 1
+}
+
+_capital_regex_alt() {
+  local frag esc out=""
+  for frag in "${CAPITAL_FRAGMENTS[@]}"; do
+    esc="${frag//./\\.}"
+    out="${out:+$out|}$esc"
+  done
+  printf '%s' "$out"
 }
 
 case "$tool" in
@@ -111,18 +148,51 @@ case "$tool" in
        && printf '%s' "$cmd" | grep -Eq '(>>?|tee|sed[[:space:]]+-i|perl[[:space:]]|python[0-9.]*[[:space:]]|ruby[[:space:]]|node[[:space:]]|awk[^|;&]*inplace|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'; then
       deny "unattended-guard: writing an authority/boundary file via Bash is blocked. arbi may only DRAFT these via a PR for James."
     fi
+    # A5 — capital-adjacent writes via Bash (red-team #1 / LOW-8). Same interpreter/redirect
+    # write-verb idiom as authority-guard.sh, applied to the §1 capital carve-out subtrees.
+    capital_ref="(^|[^A-Za-z0-9_./-])($(_capital_regex_alt))"
+    write_verb='(>>?|tee\b|sed[[:space:]]+-i|python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'
+    if printf '%s' "$cmd" | grep -Eiq "$capital_ref" && printf '%s' "$cmd" | grep -Eiq "$write_verb"; then
+      deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
+    fi
+    # Command-position preamble (mirrors A3's env/set anchor): start-of-string or a command
+    # separator, then any run of VAR=val / env … prefixes. Anchoring here keeps a finder's
+    # `grep "pytest" …` / `grep "python -c" …` (token mid-command, not command-position) safe.
+    cmd_start='(^|[;&|`(]|&&|\|\|)[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+|env[[:space:]]+([^;&|]*[[:space:]]+)?)*'
+    # A6 — pytest is an allowlisted arbitrary-code-execution path (settings.json Bash(pytest:*));
+    # unattended it MUST run secret-scrubbed (security HIGH-2 + MED-5). Accept ONLY an `env -i`
+    # scrub in front of pytest; deny a pytest reachable at a command boundary or after VAR=val
+    # prefixes (bare, `FOO=x pytest`, or a compound `env -i true; pytest`). `env -u` is NOT a
+    # complete scrub (can't wildcard *_KEY/*_TOKEN/*_SECRET) and is intentionally not accepted.
+    # BELT-ONLY: a wrapper (`make check`, `tox`) bypasses this — the durable fix is a
+    # secret-free session env (§10 item 2). `python -m py_compile`, ruff, mypy, `grep pytest`
+    # are not matched (no `-m pytest`, not in command position).
+    unscrubbed_pytest='(^|[;&|`(]|&&|\|\|)[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(pytest\b|python[0-9.]*[[:space:]]+-m[[:space:]]+pytest\b)'
+    printf '%s' "$cmd" | grep -Eiq "$unscrubbed_pytest" \
+      && deny "unattended-guard: pytest must run env-scrubbed unattended (e.g.  env -i PATH=\"\$PATH\" HOME=\"\$HOME\" pytest …); bare or compound pytest is blocked (HIGH-2/MED-5)."
+    # A7 — ad-hoc interpreter code-exec that can read secrets or open a network/DB connection
+    # outside the guarded surface is forbidden by §1: python -c/- , node -e, perl/ruby -e,
+    # bash/sh/dash/zsh/ksh -c, php -r, awk BEGIN. Command-position anchored (cmd_start) so a
+    # grep/ruff/mypy that merely NAMES one of these forms as a search string is untouched.
+    interp_exec='(python[0-9.]*[[:space:]]+(-c\b|-([[:space:]]|$))|node[[:space:]]+(-e|-p|--eval|--print)\b|perl[[:space:]]+-[eE]\b|ruby[[:space:]]+-e\b|(bash|sh|dash|zsh|ksh)[[:space:]]+[^|;&]*-[A-Za-z]*c\b|php[[:space:]]+-r\b|awk[[:space:]]+[^|;&]*BEGIN)'
+    printf '%s' "$cmd" | grep -Eiq "${cmd_start}${interp_exec}" \
+      && deny "unattended-guard: ad-hoc interpreter code-exec (python -c/-, node -e, perl/ruby -e, bash/sh -c, php -r, awk BEGIN) is blocked unattended — it can read secrets or reach the network/DB outside the guarded surface (§1 / MED-5)."
     exit 0
     ;;
   Edit|Write|MultiEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')"
     [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
       && deny "unattended-guard: editing an authority/boundary file is blocked for unattended runs. arbi may only DRAFT it via a PR (route through backend-architect + security-engineer for James to merge)."
+    [ -n "$fp" ] && is_capital_path "$(rel_path "$fp")" \
+      && deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
     exit 0
     ;;
   NotebookEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.notebook_path // empty')"
     [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
       && deny "unattended-guard: editing an authority/boundary file is blocked for unattended runs."
+    [ -n "$fp" ] && is_capital_path "$(rel_path "$fp")" \
+      && deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
     exit 0
     ;;
   *apply_migration)
