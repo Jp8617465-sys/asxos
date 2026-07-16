@@ -455,3 +455,14 @@ Last wake: 2026-07-16 (interactive /arbi)
 
 _The 2026-07-16 wake's ONE THING: root-cause + fix the dead Treasury regulatory feed
 (`jobs/ingest_regulatory.py`), riding behind draft PR #47's visibility layer._
+
+_Status updates later the same day (do not edit the snapshot block above): (1) the merge
+train landed — #42/#46/#47 all merged, zero open PRs at that point; (2) **migrations 0038 +
+0039 APPLIED 2026-07-16** (James-instructed, via Supabase MCP; observed count 93;
+`REQUIRED_MIGRATIONS` bumped 91→93); (3) the read-only Supabase MCP (`supabase-ro`) verified
+live this session, connecting as `supabase_read_only_user` — the agent-DB-role autonomy
+precondition is now satisfied at the MCP layer (0039's `asxos_agent_ro` adds the
+connection-string/Supavisor path as defense-in-depth); (4) promotion PR #48 opened
+(dream L8–L16 fold) — James's merge = the promotion; (5) James rulings: CBA thesis hygiene
+to be AUTOMATED (price-detachment discipline check backlogged), VGS/VAS are NOT HELD —
+ETF Slice 2 reframed to demo/paper lots, unblocked (see `james-inbox.md`)._

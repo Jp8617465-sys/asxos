@@ -12,7 +12,7 @@ _brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
 from asxos.domain.models.cache import get_cache  # noqa: E402
 
-REQUIRED_MIGRATIONS = 91  # bump each time a new migration is applied; 0037 (security_kind on universe — multi-instrument Phase 1 keystone; additive + behavior-preserving) applied 2026-07-11
+REQUIRED_MIGRATIONS = 93  # bump each time a new migration is applied; 0038 (screening evaluator wiring) + 0039 (asxos_agent_ro read-only role) applied 2026-07-16 — observed count from supabase_migrations.schema_migrations
 
 
 async def _check_migration_drift() -> None:
