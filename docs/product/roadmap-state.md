@@ -179,17 +179,33 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   reframe + HUBS 10/20 record (#31); overnight governance record (#34); orchestrator-mode
   lean sketch (#36).
 - **MERGED 2026-07-14: PR #29** (discipline evaluator, `2a49df9`) — `discipline.py` + 19 tests
-  landed on main. Follow-on for this lane, portfolio-team-visibility PR2, is landing this
-  session as a draft PR with both halves done: PR2a (`_discipline_findings()` loader +
-  `BriefData` field) and PR2b (the `brief.html.j2` "Portfolio discipline" render block —
-  the increment that changes what James's emailed brief shows).
-- **Still open: PR #5** (June quant-platform benchmarking research, 25 files) — superseded by
-  the 2026-07-11 decay analysis + ML-shelf decision; recommend CLOSE (not merge-as-historical).
+  landed on main. The follow-on PR2a/PR2b (loader + `brief.html.j2` render block) is also
+  **MERGED** (#41, plus companion tests #44) — the emailed brief now renders discipline findings.
+- **PR #5 no longer open** (resolved since the 07-13 wake, per the 2026-07-16 open-PR probe).
+- **MERGED 2026-07-16 (James-instructed "merge all PRs if green" train, executed same wake):**
+  **#42** (`8154b7b`, scorecard regen — clean+green, merged as-is) · **#46** (`e7401b9`, dream
+  candidate + automation plan — was conflicted with main's decision-log; resolved append-only
+  keep-both, CI re-verified green, then merged; the dream candidate is now on main as a
+  *candidate* — `/arbi-promote` Phase 0 remains James's separate act) · **#47** (`f1eb5d1`,
+  regulatory degraded-note visibility + gated CGT fold — was CI-red on one stale assertion,
+  `test_render_html_renders_empty_states` still expecting the retired tax-actions empty-state
+  string; dropped the assertion (review-loop PASS), resolved a second main-merge conflict
+  (decision-log + add/add same-day handoffs, both kept), CI green 1652+ tests, merged).
+  Zero open PRs remain as of the merge train.
 
 ## Ranked next-action queue
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
+
+**Current #1 (2026-07-16 wake): root-cause and fix the `regulatory_events` starvation** —
+2 rows, latest 2026-07-08, while `ingest_regulatory` reports green daily (Treasury source
+dead behind `assert_partial_success(0.5)` passing on RBA alone). Draft PR #47 ships the
+*visibility* layer (DEGRADED-note surfacing); this action is the *feed* root-cause — live-probe
+the Treasury URL, fix/replace/retire per fail-loud (CLAUDE.md #1/#10), regression-test the
+degraded path. North-star: backdrop events reach James before they cost money. Owner: main
+loop, consulting `backend-architect`; draft PR for James's merge. Close behind: probe CI on
+#47/#46/#42 and stage the merge train; James applies 0038+0039 and re-points the MCP (item 6).
 
 1. **DONE 2026-07-13/14 — monitoring lane restored and merged** (PRs #30 + #32: cast fix,
    trading-day snapshot anchor, OOM fix, batched writes). Residual watch-items, not work:
@@ -408,25 +424,45 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-07-16 `/arbi-close` (7-hour dev-mode session). Supersedes the 07-13
-snapshot; later runs diff against this. Prior snapshots live in git history + the decision log._
+_Recorded by the 2026-07-16 interactive `/arbi` wake — supersedes the 07-13 snapshot; later
+runs diff against this._
 
 ```
-Last wake: 2026-07-16 (interactive /arbi → 7-hour dev-mode build → /arbi-close)
-- branch: claude/dev-mode-planning-gz83bh — 2 commits ahead of origin/main, pushed; clean tree
-- latest main commit: 91495a4 (#44) — UNCHANGED this session (nothing merged to main; all work is draft PR #47)
-- open PRs: #47 (DRAFT — this session: reg-feed degraded-note visibility d11a570 + CGT tax-actions fold b4baf5e; both fully reviewed) ·
-  #46 (arbi dream candidate + dream-automation, docs) · #45 (arbi full-auto activation pack; migration 0039 agent-ro NOT applied) ·
-  #42 (product-health scorecard regen, docs)
-- tests: STATE-THIN — no project venv in the sandbox (httpx/jinja2/asyncpg/joblib unimportable). ruff + py_compile + mypy
-  clean on all changed files; new unit tests run in CI (full-check) only
-- latest on-disk migration: 0038_screening_evaluator_wiring.sql (DRAFT, NOT applied); 0039_agent_readonly_role drafted in #45
-  (NOT applied); REQUIRED_MIGRATIONS=91 (references 0037)
-- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED (expected post-shelf)
-- freshness: STATE-THIN — Supabase RO MCP not grantable this session (RW server returned "requires approval" repeatedly;
-  supabase-ro not connected). Per PR #42 (07-14): regulatory_events starved (~2 rows; Treasury WAF-403 from Render egress).
-  This session shipped the VISIBILITY fix (PR #47), not the feed remediation
-- job_runs: not re-probed (MCP gated). ingest_regulatory reports green-while-starved — the exact bug PR #47 surfaces via a DEGRADED alert
+Last wake: 2026-07-16 (interactive /arbi)
+- branch: claude/wake-up-arbi-yq98tv — EVEN with origin/main (0 ahead), clean tree
+- latest main commit: f89f77f "arbi full-auto activation pack: 7a re-wire, secperf mission loop +
+  hardened guard, 0039 agent-ro migration, scorecard accrual (#45)". Landed since 07-13 wake:
+  #29 (2a49df9), #39, #41, #44, #45.
+- open PRs (all DRAFT): #47 (regulatory degraded-note visibility + CGT tax-actions folded into
+  gated discipline digest — closes the ungated tax-actions render) · #46 (dream candidate
+  2026-07-15 + dream-automation plan; its own rec: promote MANUALLY as Phase 0, no unattended
+  switch) · #42 (product-health scorecard regen). #5 no longer open. CI status NOT probed.
+- tests (sandbox): 756 passed / 39 failed / 65 errors — ALL failures+errors are sandbox-env gaps
+  (uv-isolated pytest lacks pytest-asyncio, asyncpg, dateutil, joblib; pip can't reach it).
+  WORSE than CLAUDE.md's documented 16 — the gap list has rotted again. CI full-check is authority.
+- migrations: on-disk through 0039_agent_readonly_role.sql; DB applied=91, latest 2026-07-11
+  → 0038 AND 0039 are drafts, NOT applied. REQUIRED_MIGRATIONS=91 consistent.
+- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED (expected)
+- freshness: prices.dt=2026-07-15 · signals.as_of=2026-07-15 · portfolio_snap.as_of=2026-07-15
+  (UNFROZEN — recovered vs 07-13) · signal_outcomes=24,454 (post-fix run due Sun 07-19) ·
+  regulatory_events=2 rows latest 2026-07-08 (STILL STARVED — Treasury dead behind green cron) ·
+  macro_theses pending_review=0 · active theses=1
+- job_runs (last 3d): ALL 18 recently-run jobs SUCCESS — check_cron_health 3/3, staleness 3/3,
+  snapshot_portfolio 3/3 (recovered), sync_financial_statements SUCCESS 07-13 (PR #26 OOM fix
+  exercised, orphan healed), compose_brief 3/3. The 07-13 error list is fully cleared except
+  regulatory starvation. Healthchecks.io not probed this session.
 ```
 
-_Verbatim as recorded 2026-07-16 by /arbi-close._
+_The 2026-07-16 wake's ONE THING: root-cause + fix the dead Treasury regulatory feed
+(`jobs/ingest_regulatory.py`), riding behind draft PR #47's visibility layer._
+
+_Status updates later the same day (do not edit the snapshot block above): (1) the merge
+train landed — #42/#46/#47 all merged, zero open PRs at that point; (2) **migrations 0038 +
+0039 APPLIED 2026-07-16** (James-instructed, via Supabase MCP; observed count 93;
+`REQUIRED_MIGRATIONS` bumped 91→93); (3) the read-only Supabase MCP (`supabase-ro`) verified
+live this session, connecting as `supabase_read_only_user` — the agent-DB-role autonomy
+precondition is now satisfied at the MCP layer (0039's `asxos_agent_ro` adds the
+connection-string/Supavisor path as defense-in-depth); (4) promotion PR #48 opened
+(dream L8–L16 fold) — James's merge = the promotion; (5) James rulings: CBA thesis hygiene
+to be AUTOMATED (price-detachment discipline check backlogged), VGS/VAS are NOT HELD —
+ETF Slice 2 reframed to demo/paper lots, unblocked (see `james-inbox.md`)._
