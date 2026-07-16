@@ -117,6 +117,31 @@ re-point) land. This is a design task for the 7b slice, flagged here, not built 
 
 ---
 
+## Update 2026-07-16 (live test — two corrections)
+
+Applying v3 and re-running the probe in the SAME session **did not** work, and the reason
+matters for anyone continuing this:
+
+1. **A running container cannot hot-reload `.claude/settings.json`.** James committed v3 to
+   this branch (`1ff57f9 "Update settings.json"`, a GitHub web edit) — confirmed present on
+   `origin/claude/hook-matcher-fix-2026-07-16` (allow=38, `PermissionRequest` hook). But the
+   session that was already running had loaded the OLD settings at start and never picked up
+   the push, so the probe still saw `.*`. **The mechanism works; the test just needs a FRESH
+   session that clones the branch with the new settings already in place.**
+2. **The pipe-alternation matcher (`Edit|Write|MultiEdit|NotebookEdit|Bash`) is UNPROVEN in
+   this harness.** The only matcher form confirmed to fire is an **exact single tool name**
+   (`"Bash"`, via `review-gate`). If this harness does exact-name matching only, both `.*`
+   AND the pipe form fail. → **Use exact per-tool matcher ENTRIES** — one entry each for
+   `"Bash"`, `"Edit"`, `"Write"`, `"MultiEdit"`, `"NotebookEdit"`, with the relevant guards
+   listed under each. That is **v4** (`proposed-settings-v4.json`), which supersedes v3.
+
+**Decisive next-session test:** start a fresh session on
+`claude/hook-matcher-fix-2026-07-16` with **v4** committed to `.claude/settings.json`, then:
+(a) `jq '.permissions.allow|length' .claude/settings.json` → 38 confirms committed settings
+reach a new container; (b) `python3 -c "print('render.yaml')"` → **denies** confirms exact
+matchers revive `authority-guard`. If (a)=38 but (b) still prints, the problem is deeper than
+the matcher (multi-hook arrays not firing, or a hook erroring) — dig there next.
+
 ## Scope of this PR
 
 - `docs/product/risk-register.md` — adds **R16** (cross-referenced to R5).
