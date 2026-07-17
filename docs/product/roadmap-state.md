@@ -70,8 +70,11 @@ detail behind these lines.
   (`2a49df9`); candidate new #1 (2026-07-14) is portfolio-team-visibility **PR2, both
   halves** — **PR2a** (the `_discipline_findings()` loader) and **PR2b** (the
   `brief.html.j2` render block) — landing together this session as a draft PR.
-- **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
-  2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
+- **Decisions needed from James:** the three `james-inbox.md` items are now RESOLVED/RULED (HUBS
+  2026-07-13; CBA 2026-07-16 — automate, not fix-or-retire; VGS/VAS 2026-07-16 — not held, ETF
+  Slice 2 reframed to demo lots). Current open decisions (2026-07-17): merge/reject PR #48
+  (dream promotion) and PR #54 (this session's handoff); approve/reject/re-run `agent_runs` #3/#4
+  (two macro theses, unreviewed 13+ days as of 07-16).
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
   auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
   cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
@@ -192,20 +195,30 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   string; dropped the assertion (review-loop PASS), resolved a second main-merge conflict
   (decision-log + add/add same-day handoffs, both kept), CI green 1652+ tests, merged).
   Zero open PRs remain as of the merge train.
+- **MERGED 2026-07-16/17 (post-merge-train reconciliation + R16 guard repair):** **#49**
+  (`aeeada0`, REQUIRED_MIGRATIONS 91→93 + 07-16 wake state + James rulings) · **#51**
+  (`d90e986`, R16 exact-matcher fix v4) · **#53** (`a56670f`, R16 bash-wrap fix — the real R16
+  blocker; live-verified 2026-07-17 via a fresh-session canary, see Last wake snapshot). **Open,
+  awaiting James (none block further build work):** #54 (this session's 07-17 handoff, docs-only,
+  off-`main`) · #50 (idea-generation lane, draft — branch `claude/idea-lane-2026-07-16`, do not
+  delete) · #48 (dream promotion L8-16, open since 07-16 — his merge = the promotion).
 
 ## Ranked next-action queue
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-**Current #1 (2026-07-16 wake): root-cause and fix the `regulatory_events` starvation** —
-2 rows, latest 2026-07-08, while `ingest_regulatory` reports green daily (Treasury source
-dead behind `assert_partial_success(0.5)` passing on RBA alone). Draft PR #47 ships the
-*visibility* layer (DEGRADED-note surfacing); this action is the *feed* root-cause — live-probe
-the Treasury URL, fix/replace/retire per fail-loud (CLAUDE.md #1/#10), regression-test the
+**Current #1 (unstarted since 2026-07-16, reaffirmed 2026-07-17 — two guard-focused wakes have
+now passed without touching it): root-cause and fix the `regulatory_events` starvation** — as of
+07-16, 2 rows, latest 2026-07-08 (would be 9 days stale today if unchanged; not re-probed the
+07-17 wake — live-reprobe first), while `ingest_regulatory` reports green daily (Treasury source
+dead behind `assert_partial_success(0.5)` passing on RBA alone). PR #47 (merged 07-16) shipped
+the *visibility* layer (DEGRADED-note surfacing); this action is the *feed* root-cause —
+live-probe the Treasury URL from Render's actual egress (gov.au WAF behaviour isn't observable
+from the sandbox), fix/replace/retire per fail-loud (CLAUDE.md #1/#10), regression-test the
 degraded path. North-star: backdrop events reach James before they cost money. Owner: main
-loop, consulting `backend-architect`; draft PR for James's merge. Close behind: probe CI on
-#47/#46/#42 and stage the merge train; James applies 0038+0039 and re-points the MCP (item 6).
+loop, consulting `backend-architect`; draft PR for James's merge. Full mission brief (success
+criteria, required citations, do-not-touch list) is in the 2026-07-17 `/arbi` wake record.
 
 1. **DONE 2026-07-13/14 — monitoring lane restored and merged** (PRs #30 + #32: cast fix,
    trading-day snapshot anchor, OOM fix, batched writes). Residual watch-items, not work:
@@ -321,6 +334,15 @@ loop, consulting `backend-architect`; draft PR for James's merge. Close behind: 
    multi-instrument-expansion-2026-07-11.md`**. Owner: `system-architect` +
    `backend-architect` (specs done this session); needs James's 4 scope answers before build.
 
+9. **Authority-lane rework (deferred, teed up) — move yellow-lane files (`migrations/**`,
+   `render.yaml`, `.github/**`, `CLAUDE.md`, `docs/product/**`, `.claude/**`) out of hard-deny
+   into an attended/branch-only "authority-maintenance" gate**, now that `main` branch
+   protection is confirmed live (GitHub Pro active) — the premise this rework depends on.
+   Proposed as the 2026-07-17 session's candidate ONE THING; deliberately deferred behind item 1
+   above rather than taken by default, to avoid a third consecutive guard-tooling wake ahead of
+   the aging north-star-facing item. Attended-only (touches `.claude/**`), draft PR only. Owner:
+   main loop, once item 1 lands.
+
 ## Deferred index — `m14_candidate_*` (aggregated; grep to refresh)
 
 Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
@@ -424,45 +446,51 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-07-16 interactive `/arbi` wake — supersedes the 07-13 snapshot; later
+_Recorded by the 2026-07-17 interactive `/arbi` wake — supersedes the 07-16 snapshot; later
 runs diff against this._
 
 ```
-Last wake: 2026-07-16 (interactive /arbi)
-- branch: claude/wake-up-arbi-yq98tv — EVEN with origin/main (0 ahead), clean tree
-- latest main commit: f89f77f "arbi full-auto activation pack: 7a re-wire, secperf mission loop +
-  hardened guard, 0039 agent-ro migration, scorecard accrual (#45)". Landed since 07-13 wake:
-  #29 (2a49df9), #39, #41, #44, #45.
-- open PRs (all DRAFT): #47 (regulatory degraded-note visibility + CGT tax-actions folded into
-  gated discipline digest — closes the ungated tax-actions render) · #46 (dream candidate
-  2026-07-15 + dream-automation plan; its own rec: promote MANUALLY as Phase 0, no unattended
-  switch) · #42 (product-health scorecard regen). #5 no longer open. CI status NOT probed.
-- tests (sandbox): 756 passed / 39 failed / 65 errors — ALL failures+errors are sandbox-env gaps
-  (uv-isolated pytest lacks pytest-asyncio, asyncpg, dateutil, joblib; pip can't reach it).
-  WORSE than CLAUDE.md's documented 16 — the gap list has rotted again. CI full-check is authority.
-- migrations: on-disk through 0039_agent_readonly_role.sql; DB applied=91, latest 2026-07-11
-  → 0038 AND 0039 are drafts, NOT applied. REQUIRED_MIGRATIONS=91 consistent.
-- Render: 29 asxos services — all not_suspended EXCEPT asxos-retrain-model-a=SUSPENDED (expected)
-- freshness: prices.dt=2026-07-15 · signals.as_of=2026-07-15 · portfolio_snap.as_of=2026-07-15
-  (UNFROZEN — recovered vs 07-13) · signal_outcomes=24,454 (post-fix run due Sun 07-19) ·
-  regulatory_events=2 rows latest 2026-07-08 (STILL STARVED — Treasury dead behind green cron) ·
-  macro_theses pending_review=0 · active theses=1
-- job_runs (last 3d): ALL 18 recently-run jobs SUCCESS — check_cron_health 3/3, staleness 3/3,
-  snapshot_portfolio 3/3 (recovered), sync_financial_statements SUCCESS 07-13 (PR #26 OOM fix
-  exercised, orphan healed), compose_brief 3/3. The 07-13 error list is fully cleared except
-  regulatory starvation. Healthchecks.io not probed this session.
+Last wake: 2026-07-17 (interactive /arbi, guardrail-verification session)
+- branch: claude/asxos-guardrails-verify-q6h8xo — EVEN with origin/main (0 truly ahead after
+  `git fetch`; an initial rev-list=1 was a stale local-main-ref artifact), clean tree
+- latest main commit: a56670f "Bootstrap R16 hook fix — bash-wrap PreToolUse hook invocations
+  (#53)". Landed since 07-16 EOD: #49 (REQUIRED_MIGRATIONS 91→93 + wake state + James rulings),
+  #51 (R16 exact-matcher fix v4), #53 (R16 bash-wrap fix — the real R16 blocker).
+- R16 guard canary LIVE-VERIFIED for the first time: `python3 -c "print('render.yaml')"` in
+  this fresh session was correctly DENIED by authority-guard. Confirms the Bash/Edit-hookable
+  half of R16 is fixed, not just merged. R16's other two sub-items (MCP tools un-hookable by
+  platform limit; a dedicated unattended settings profile for a future 7b tier) remain open —
+  do not record R16 as fully closed.
+- open PRs (all unmerged, only #50 draft): #54 (this session's own handoff doc, off-main — a
+  docs/README.md "handoffs must live on main" process-hygiene gap until merged) · #50
+  (idea-generation lane, draft — DO NOT delete branch claude/idea-lane-2026-07-16) · #48 (dream
+  promotion L8-16, open ~1 day — James's merge = the promotion). Zero open GitHub issues.
+- tests (sandbox): 756 passed / 39 failed / 67 errors (vs 65 errors 07-16) — same documented
+  sandbox-env gap (pytest-asyncio/asyncpg/dateutil/joblib missing), not a regression; CLAUDE.md's
+  documented-16 list is now a ~4x undercount (67 actual) — worth a docs refresh (low pri).
+- migrations: on-disk latest 0039_agent_readonly_role.sql (38 files). DB applied=93 via
+  supabase-ro (read-only role, reconfirmed working) = REQUIRED_MIGRATIONS=93, exact match, zero
+  drift.
+- Render: 29 asxos services, unchanged composition — all not_suspended except
+  asxos-retrain-model-a (expected, ML shelved). asxos-api redeployed 2026-07-17 02:01 UTC
+  (consistent with #53 reaching main).
+- `main` branch protection: confirmed LIVE (ruleset enforcing: require PR, require full-check,
+  block force-push, restrict deletions) — GitHub Pro is now active on the account, which
+  unblocked this (previously plan-gated per R5's 07-15 finding on the free tier). #53's PR sat
+  at mergeable_state=blocked until full-check went green, proving enforcement live.
+- DB content freshness: NOT re-probed this wake (two supabase-ro content queries were declined
+  this session). Carried from 07-16, NOT verified today: prices.dt/signals.as_of=2026-07-15,
+  portfolio_snap.as_of=2026-07-15, signal_outcomes=24,454, regulatory_events=2 rows/latest
+  2026-07-08 (would be 9 days stale if unchanged — likely, since no commit since #47 touches
+  ingest_regulatory.py), macro_theses pending_review=0, active theses=1. Re-probe next wake.
+- james-inbox.md: all three previously-open rows are now RESOLVED/RULED (HUBS 07-13, CBA
+  07-16, VGS/VAS 07-16) — the state-header "Decisions needed from James" line has been
+  corrected to match; no open james-inbox rows remain as of this wake.
 ```
 
-_The 2026-07-16 wake's ONE THING: root-cause + fix the dead Treasury regulatory feed
-(`jobs/ingest_regulatory.py`), riding behind draft PR #47's visibility layer._
-
-_Status updates later the same day (do not edit the snapshot block above): (1) the merge
-train landed — #42/#46/#47 all merged, zero open PRs at that point; (2) **migrations 0038 +
-0039 APPLIED 2026-07-16** (James-instructed, via Supabase MCP; observed count 93;
-`REQUIRED_MIGRATIONS` bumped 91→93); (3) the read-only Supabase MCP (`supabase-ro`) verified
-live this session, connecting as `supabase_read_only_user` — the agent-DB-role autonomy
-precondition is now satisfied at the MCP layer (0039's `asxos_agent_ro` adds the
-connection-string/Supavisor path as defense-in-depth); (4) promotion PR #48 opened
-(dream L8–L16 fold) — James's merge = the promotion; (5) James rulings: CBA thesis hygiene
-to be AUTOMATED (price-detachment discipline check backlogged), VGS/VAS are NOT HELD —
-ETF Slice 2 reframed to demo/paper lots, unblocked (see `james-inbox.md`)._
+_The 2026-07-17 wake's ONE THING: root-cause and resolve the dead Treasury `regulatory_events`
+feed (`jobs/ingest_regulatory.py`) — unstarted since it became ranked #1 on 2026-07-16, through
+two intervening guard-focused sessions. Full mission brief (live-reprobe first, then diagnose
+from Render's actual egress, fix/retire/replace per fail-loud, regression test, draft PR) is in
+this wake's arbi-subagent record; do not re-derive from scratch. The lane-rework raised by this
+session's own kickoff is a valid but deliberately deferred alternative — see ranked-queue item 9._
