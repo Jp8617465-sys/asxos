@@ -89,23 +89,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/review-gate.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/review-gate.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/push-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/push-guard.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pr-draft-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/pr-draft-guard.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
           }
         ]
       },
@@ -114,11 +114,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
           }
         ]
       },
@@ -127,11 +127,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
           }
         ]
       },
@@ -140,11 +140,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
           }
         ]
       },
@@ -153,11 +153,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
           }
         ]
       }
