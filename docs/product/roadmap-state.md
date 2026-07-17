@@ -198,10 +198,24 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 - **MERGED 2026-07-16/17 (post-merge-train reconciliation + R16 guard repair):** **#49**
   (`aeeada0`, REQUIRED_MIGRATIONS 91→93 + 07-16 wake state + James rulings) · **#51**
   (`d90e986`, R16 exact-matcher fix v4) · **#53** (`a56670f`, R16 bash-wrap fix — the real R16
-  blocker; live-verified 2026-07-17 via a fresh-session canary, see Last wake snapshot). **Open,
-  awaiting James (none block further build work):** #54 (this session's 07-17 handoff, docs-only,
-  off-`main`) · #50 (idea-generation lane, draft — branch `claude/idea-lane-2026-07-16`, do not
-  delete) · #48 (dream promotion L8-16, open since 07-16 — his merge = the promotion).
+  blocker; live-verified 2026-07-17 via a fresh-session canary, see Last wake snapshot). **#54
+  MERGED by James** (2026-07-17T02:23Z) — the prior session's handoff, at the non-standard path
+  `docs/product/session-handoff-2026-07-17.md` (established convention is root `docs/`; this
+  session's own handoff uses the correct path — a small docs-hygiene item to reconcile later,
+  not urgent). **Still open, awaiting James (neither blocks further build work):** #50
+  (idea-generation lane, draft — branch `claude/idea-lane-2026-07-16`, do not delete) · #48
+  (dream promotion L8-16, open since 07-16 — his merge = the promotion).
+- **2026-07-17 dev-autonomy window: planned, not executed.** James granted 3 hours of attended
+  dev autonomy; `arbi-red-team` PASSED the regulatory-feed-fix mission and `guilfoyle` produced
+  a full task graph + a verified second lane (authority-lane rework), but Wave 1 (live reprobe)
+  never ran — every live-probe tool call this window was rejected. Investigated via
+  `.claude/permission-requests.log`: 4 logged `ASK` events, zero `DENY`, and
+  `mcp__supabase-ro__execute_sql` (already in `settings.json`'s `allow` array) still prompted
+  every time — evidence this session cached a permission config older than what's on disk, the
+  same failure class as R16 but a distinct facet (permission arrays, not hooks). Zero code
+  shipped. James is starting a fresh session to resume — the mission plan is ready to execute
+  immediately there. Full detail: `docs/session-handoff-2026-07-17.md`, `decision-log.md`
+  (`close-2026-07-17` row).
 
 ## Ranked next-action queue
 
@@ -219,6 +233,13 @@ from the sandbox), fix/replace/retire per fail-loud (CLAUDE.md #1/#10), regressi
 degraded path. North-star: backdrop events reach James before they cost money. Owner: main
 loop, consulting `backend-architect`; draft PR for James's merge. Full mission brief (success
 criteria, required citations, do-not-touch list) is in the 2026-07-17 `/arbi` wake record.
+**Status 2026-07-17 close: planning complete and ready to execute** — `arbi-red-team` PASSED,
+`guilfoyle` produced the full task graph (default outcome: retire Treasury like ATO, since the
+existing UA-header mitigation live since ~07-04 hasn't moved the needle) plus a verified
+second lane (ranked item 9) for slack time. Execution was blocked this wake by a session-level
+permission-config-staleness bug (see In flight), not by the mission itself — the very first
+action for the next session is to resume Wave 1 (live reprobe) of the already-approved plan,
+not re-plan from scratch.
 
 1. **DONE 2026-07-13/14 — monitoring lane restored and merged** (PRs #30 + #32: cast fix,
    trading-day snapshot anchor, OOM fix, batched writes). Residual watch-items, not work:
@@ -461,10 +482,12 @@ Last wake: 2026-07-17 (interactive /arbi, guardrail-verification session)
   half of R16 is fixed, not just merged. R16's other two sub-items (MCP tools un-hookable by
   platform limit; a dedicated unattended settings profile for a future 7b tier) remain open —
   do not record R16 as fully closed.
-- open PRs (all unmerged, only #50 draft): #54 (this session's own handoff doc, off-main — a
-  docs/README.md "handoffs must live on main" process-hygiene gap until merged) · #50
-  (idea-generation lane, draft — DO NOT delete branch claude/idea-lane-2026-07-16) · #48 (dream
-  promotion L8-16, open ~1 day — James's merge = the promotion). Zero open GitHub issues.
+- open PRs at wake time: #54 (this session's own handoff doc, off-main), #50 (idea-generation
+  lane, draft — DO NOT delete branch claude/idea-lane-2026-07-16), #48 (dream promotion L8-16,
+  open ~1 day — James's merge = the promotion). Zero open GitHub issues.
+  **Update at close: #54 MERGED by James (2026-07-17T02:23Z)** — landed at the non-standard
+  path `docs/product/session-handoff-2026-07-17.md` (convention is root `docs/`; reconcile
+  later, not urgent). #50 and #48 still open.
 - tests (sandbox): 756 passed / 39 failed / 67 errors (vs 65 errors 07-16) — same documented
   sandbox-env gap (pytest-asyncio/asyncpg/dateutil/joblib missing), not a regression; CLAUDE.md's
   documented-16 list is now a ~4x undercount (67 actual) — worth a docs refresh (low pri).
@@ -494,3 +517,18 @@ two intervening guard-focused sessions. Full mission brief (live-reprobe first, 
 from Render's actual egress, fix/retire/replace per fail-loud, regression test, draft PR) is in
 this wake's arbi-subagent record; do not re-derive from scratch. The lane-rework raised by this
 session's own kickoff is a valid but deliberately deferred alternative — see ranked-queue item 9._
+
+_Status update at close (2026-07-17, do not edit the snapshot block above): James granted a
+3-hour attended dev-autonomy window mid-session. `arbi-red-team` PASSED the regulatory-feed-fix
+mission; `guilfoyle` produced a complete, ready-to-execute task graph (default outcome: retire
+Treasury like ATO) plus a verified second lane. Execution never reached Wave 1 (live reprobe) —
+every live-probe tool call this window (2× `supabase-ro.execute_sql`, 2× Render API read, 1×
+diagnostic fetch) was rejected. Root cause, found via direct inspection of
+`.claude/permission-requests.log` (a real hook-populated log, not previously known to exist):
+4 logged `ASK` events, zero matching `DENY`, and `mcp__supabase-ro__execute_sql` — already in
+`settings.json`'s `allow` array — still prompted every time. Best-evidenced read: this running
+session cached a permission config older than current `settings.json`, the same failure class
+as R16 but a distinct facet (permission arrays, not hooks) that R16's fix does not cover.
+roadmap-state.md, decision-log.md, and arbi-run-ledger.md all updated same-close (this pass).
+James is starting a fresh session — see `docs/session-handoff-2026-07-17.md` for the full
+handoff and the ready-to-paste resume prompt._
