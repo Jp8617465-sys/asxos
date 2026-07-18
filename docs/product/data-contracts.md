@@ -24,7 +24,7 @@ failing. These contracts turn that class of hidden failure into a graded scoreca
 | `theses` | per-symbol structured thesis (entry/stop/target/…) | — | ≥1 active | human/CLI + agents | discipline crons, pm-review, brief cards | no discipline coverage | `asx thesis open` |
 | `holding_lots` / `current_holdings` | lot-level positions (CGT base, AUD) | — | James's real book | `asx holdings add` | tax, allocator, discipline, brief | portfolio not represented | James enters lots |
 | `agent_runs` / `agent_evidence` | discovery-agent audit trail (governance) | — | grows | `asx agent-run log` | governance review, `/discover-macro` | proposals lost | n/a |
-| `regulatory_events` | RBA/Treasury RSS ingest | 4d | grows | `ingest_regulatory` (flaky — 9/43) | brief regulatory card, narrator | regulatory card empty (only 2 rows live) | fix RSS feed reliability |
+| `regulatory_events` | RBA RSS ingest only (Treasury retired 2026-07-18 — deterministic gov.au WAF 403, no code-level fix exists) | 4d | grows | `ingest_regulatory` | brief regulatory card, narrator | regulatory card thin if RBA itself is slow/down; fail-loud since 2026-07-18 (solo-source threshold=1.0 hard-fails instead of degrading silently) | re-run `ingest_regulatory`; check RBA's own feed health — Treasury is no longer a recovery path |
 
 ## How arbi uses these
 

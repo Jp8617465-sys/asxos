@@ -238,6 +238,10 @@ been deployed. **2 remain suspended pending `FRED_API_KEY`:**
 - (c) Verify the next scheduled `ingest_regulatory` run writes rows (RBA at
   minimum) and confirm whether Treasury now passes with the browser
   User-Agent — the Treasury failure mode is only observable from Render.
+  **CLOSED (2026-07-18):** confirmed, negative result — 13+ days of live
+  Render runs (2026-07-04 to 2026-07-17) produced zero Treasury rows with
+  the UA mitigation active; Treasury has been removed from `SOURCES` (see
+  `jobs/ingest_regulatory.py`); this item is closed.
 - (d) ATO re-add decision: small open item — the operator must pick a feed
   URL from https://www.ato.gov.au/about-ato/subscriptions in a browser (no
   stable public feed URL exists to hardcode), then re-add it to `SOURCES`.
