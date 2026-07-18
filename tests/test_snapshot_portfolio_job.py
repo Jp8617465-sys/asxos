@@ -73,6 +73,15 @@ _PRICES_ROWS = [
 _FX_ROW = {"rate": "0.625100"}  # AUDUSD: 1 AUD = 0.6251 USD
 
 
+@pytest.fixture(autouse=True)
+def _enable_personal_use(monkeypatch: pytest.MonkeyPatch) -> None:
+    """snapshot_portfolio.main() is firewall-gated (ASXOS_PERSONAL_USE=1) as of the
+    2026-07-18 R14 audit fix. Set it for every test here so main() exercises its
+    logic, not the gate — the gate itself is covered by
+    tests/test_jobs_personal_use_gate.py."""
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+
+
 # ---------------------------------------------------------------------------
 # 1. Happy path — holdings + prices + FX, no XJO yet (soft degrade)
 # ---------------------------------------------------------------------------

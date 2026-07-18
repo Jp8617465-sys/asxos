@@ -16,11 +16,21 @@ from datetime import date
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from typer.testing import CliRunner
 
 from asxos.cli import journal as journal_mod
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _enable_personal_use(monkeypatch: pytest.MonkeyPatch) -> None:
+    """journal commands are firewall-gated (ASXOS_PERSONAL_USE=1) as of the
+    2026-07-18 R14 audit fix. Set it for every test here so the commands exercise
+    their logic, not the gate — the gate itself is covered by
+    tests/test_cli_journal_firewall.py."""
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
 
 
 def _make_conn() -> MagicMock:
