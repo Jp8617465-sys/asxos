@@ -198,6 +198,16 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
+**CURRENT queue (2026-07-18 `/arbi-close`) → `docs/session-handoff-2026-07-18.md`.** The 6-lens
+security/refactoring/performance/behaviour-simplification audit re-ran clean (**P0 empty**), and
+its backlog is the live queue: **#1 = P1 `compute_opportunity_cost` firewall gate + its paired
+`render.yaml` env** (the one personal-data job #59 didn't cover); then the quick-fix batch (RSS
+`title` cap, `defusedxml`, `security_master` executemany, `_portfolio_section`/`active_theses`/
+`upsert_events` simplifications, `/health` 503 body, dead params); then the RED-ZONE decisions
+(agent-RO frontmatter repoint — 0039 applied + supabase-ro live, frontmatter is all that's left;
+`ASXOS_API_TOKEN` enforcement-or-doc; curl-wildcard tighten). The historical entries below are the
+**pre-audit** queue, kept for audit trail.
+
 **DONE 2026-07-18 — root-caused and retired the dead `regulatory_events` Treasury feed.**
 Draft PR #55 (`claude/asxos-guardrails-regulatory-feed-r7ghjt` → `main`): `SOURCES` reduced
 to RBA only; `assert_partial_success` threshold raised 0.5→1.0 (N=2→N=1) so a future
@@ -436,6 +446,34 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-07-18 `/arbi-close` — supersedes the 07-16 snapshot; later runs diff
+against this. Full session record: `docs/session-handoff-2026-07-18.md`._
+
+```
+Close: 2026-07-18 (arbi operating session — continuation of 2026-07-17)
+- branch: arbi-close-2026-07-18 (= origin/main @ 0099756), clean tree
+- latest main: 0099756 "fix(security): redact EODHD/FRED API keys ... (#62)"
+- merged this session (post-#54): #55 #56 #57 #58 #50 #48 #59 #61 #62 — 9 PRs
+- open PRs: 0 (all merged or closed; #60 closed as superseded by the handoff backlog)
+- tests: ~1681 collected; local 1678 passed / 2 xfail. The test_train_walk_forward failure +
+  16 collection ERRORs are the documented sandbox lightgbm/joblib gaps — pass on CI.
+- migrations: 39 on disk through 0039_agent_readonly_role.sql; 0038+0039 APPLIED (DB count 93,
+  REQUIRED_MIGRATIONS=93). supabase-ro MCP live (connects as supabase_read_only_user) — the
+  agent-RO precondition is satisfied at the MCP layer; REMAINING = repoint the 6 discovery/
+  analysis agents' frontmatter (.claude/agents/*.md) to mcp__supabase-ro__execute_sql.
+- audit: security + refactoring + performance + behaviour-simplification RE-RUN COMPLETE
+  (6 lenses, 8 agents, 0 errors). P0 EMPTY (genuine). Backlog (P1 compute_opportunity_cost +
+  quick-fixes; P2 agent-RO frontmatter · API-token enforcement · curl-wildcard) in the handoff.
+- Model A: shelved; rule #11 STANDS (quarantine in the handoff STOP block).
+```
+
+_The 2026-07-18 close's ONE THING (inherited from the 07-16 wake): retire the dead Treasury
+regulatory feed → **DONE as #55**, then James redirected into the broker-report arc + the full
+audit. **Next wake's ONE THING:** P1 `compute_opportunity_cost` firewall gate + its paired
+`render.yaml` env (the one personal-data job #59 didn't cover)._
+
+_Prior snapshot (2026-07-16) retained below for diffing._
 
 _Recorded by the 2026-07-16 interactive `/arbi` wake — supersedes the 07-13 snapshot; later
 runs diff against this._
