@@ -12,6 +12,7 @@ References:
 """
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -19,6 +20,7 @@ import asyncpg
 
 from asxos.domain.governance import transitions as governance_transitions
 from asxos.domain.themes.types import CoverageSegment, Theme, ThemeHolding
+from asxos.domain.theses.schemas import ThemeHoldingProposal, ThemeProposal
 
 _VALID_STAGES = frozenset(
     ("early", "early-institutional", "broad-institutional", "mainstream", "late-retail", "mature")
@@ -545,4 +547,233 @@ async def reject_theme_holding(
             to_status="rejected",
             reasoning=reasoning,
         )
+        return _row_to_theme_holding(row)
+
+
+async def create_theme_from_agent_run(
+    conn: asyncpg.Connection,
+    run_id: int,
+    *,
+    reasoning: str = "Draft created from agent run",
+) -> Theme:
+    """Validate agent_runs.proposed_object against ThemeProposal and insert a
+    themes row, then advance draft -> evidence_complete -> pending_review in
+    the SAME transaction — mirrors
+    asxos/domain/macro_theses/service.py::create_macro_thesis_from_agent_run(),
+    the reference implementation for every --from-agent-run path.
+
+    One deliberate divergence from that reference: themes.governance_status
+    DEFAULTs to 'approved' (migration 0035 grandfathers pre-existing
+    human-authored rows), unlike macro_theses' DEFAULT 'draft' — so the
+    INSERT here must set governance_status='draft' EXPLICITLY, or an
+    agent-originated theme would be born approved and bypass the entire
+    human-review gate this function exists to feed.
+
+    proposed_object round-trips as JSONB text (no asyncpg codec registered —
+    asxos/db.py) — parsed with parse_float=Decimal per theses/schemas.py's
+    documented hazard. evidence_citation_ids' tier/existence check ran at log
+    time (agent_run_service.log_agent_run); agent_evidence rows are
+    append-only, so it is not repeated here.
+
+    Raises ValueError if run_id does not exist, was already acted_on, or has
+    object_type != 'theme'.
+    """
+    async with conn.transaction():
+        run = await conn.fetchrow(
+            "SELECT * FROM agent_runs WHERE run_id = $1 FOR UPDATE", run_id
+        )
+        if run is None:
+            raise ValueError(f"agent_runs row {run_id} not found")
+        if run["acted_on"]:
+            raise ValueError(f"agent_runs row {run_id} was already acted on")
+        if run["object_type"] != "theme":
+            raise ValueError(
+                f"agent_runs row {run_id} has object_type={run['object_type']!r} "
+                "— create_theme_from_agent_run() only accepts object_type='theme' rows."
+            )
+
+        proposal_dict = json.loads(run["proposed_object"], parse_float=Decimal)
+        proposal = ThemeProposal(**proposal_dict)
+
+        existing = await conn.fetchrow(
+            "SELECT theme_id FROM themes WHERE theme_code = $1", proposal.theme_code
+        )
+        if existing is not None:
+            raise ValueError(
+                f"theme_code {proposal.theme_code!r} already exists "
+                f"(theme_id={existing['theme_id']}) — the agent re-proposed an "
+                "existing theme; review that theme instead of duplicating it."
+            )
+
+        now = _now_utc()
+        row = await conn.fetchrow(
+            """
+            INSERT INTO themes
+                (theme_code, name, description, conviction_band, stage,
+                 started_at, last_reviewed_at, macro_thesis_id,
+                 governance_status, source_run_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9)
+            RETURNING *
+            """,
+            proposal.theme_code,
+            proposal.name,
+            proposal.description,
+            proposal.conviction_band,
+            proposal.stage,
+            date.today(),
+            now,
+            proposal.macro_thesis_id,
+            run_id,
+        )
+        theme_id = row["theme_id"]
+
+        await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="themes",
+            id_column="theme_id",
+            object_type="theme",
+            object_id=theme_id,
+            from_status="draft",
+            to_status="evidence_complete",
+            reasoning=reasoning,
+            actor="agent",
+        )
+        row = await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="themes",
+            id_column="theme_id",
+            object_type="theme",
+            object_id=theme_id,
+            from_status="evidence_complete",
+            to_status="pending_review",
+            reasoning=reasoning,
+            actor="agent",
+        )
+
+        await conn.execute(
+            "UPDATE agent_runs SET acted_on = TRUE, resulting_object_id = $1 WHERE run_id = $2",
+            theme_id,
+            run_id,
+        )
+
+        return _row_to_theme(row)
+
+
+async def create_theme_holding_from_agent_run(
+    conn: asyncpg.Connection,
+    run_id: int,
+    *,
+    reasoning: str = "Draft created from agent run",
+) -> ThemeHolding:
+    """Validate agent_runs.proposed_object against ThemeHoldingProposal and
+    insert a theme_holdings row (source='llm_inferred' — the first real use
+    of that migration-0012 enum value), then advance draft ->
+    evidence_complete -> pending_review in the SAME transaction.
+
+    The proposal references its theme by theme_code; the theme row must
+    already exist (a same-run ThemeProposal is materialised FIRST by the
+    orchestrating command — this function never creates themes implicitly).
+
+    Deliberately a plain INSERT, never ON CONFLICT DO UPDATE: an existing
+    (theme_id, symbol) row means the agent re-proposed already-covered
+    exposure, and silently overwriting human-reviewed content with agent
+    content would bypass the review gate. Fail loudly instead (CLAUDE.md #10).
+
+    Same governance_status='draft' explicitness as create_theme_from_agent_run
+    (theme_holdings also DEFAULTs to 'approved', migration 0035).
+
+    Raises ValueError if run_id does not exist / was acted_on / has
+    object_type != 'theme_holding', if the theme_code does not resolve, or if
+    the (theme, symbol) exposure already exists.
+    """
+    async with conn.transaction():
+        run = await conn.fetchrow(
+            "SELECT * FROM agent_runs WHERE run_id = $1 FOR UPDATE", run_id
+        )
+        if run is None:
+            raise ValueError(f"agent_runs row {run_id} not found")
+        if run["acted_on"]:
+            raise ValueError(f"agent_runs row {run_id} was already acted on")
+        if run["object_type"] != "theme_holding":
+            raise ValueError(
+                f"agent_runs row {run_id} has object_type={run['object_type']!r} "
+                "— create_theme_holding_from_agent_run() only accepts "
+                "object_type='theme_holding' rows."
+            )
+
+        proposal_dict = json.loads(run["proposed_object"], parse_float=Decimal)
+        proposal = ThemeHoldingProposal(**proposal_dict)
+
+        theme = await conn.fetchrow(
+            "SELECT theme_id FROM themes WHERE theme_code = $1", proposal.theme_code
+        )
+        if theme is None:
+            raise ValueError(
+                f"theme_code {proposal.theme_code!r} does not resolve to a themes row "
+                "— a same-run ThemeProposal must be materialised (asx theme open "
+                "--from-agent-run) before its holdings."
+            )
+        theme_id = theme["theme_id"]
+
+        existing = await conn.fetchrow(
+            "SELECT holding_id FROM theme_holdings WHERE theme_id = $1 AND symbol = $2",
+            theme_id,
+            proposal.symbol,
+        )
+        if existing is not None:
+            raise ValueError(
+                f"theme_holdings already has ({proposal.theme_code}, {proposal.symbol}) "
+                f"(holding_id={existing['holding_id']}) — the agent re-proposed covered "
+                "exposure; review the existing row instead of overwriting it."
+            )
+
+        now = _now_utc()
+        row = await conn.fetchrow(
+            """
+            INSERT INTO theme_holdings
+                (theme_id, symbol, exposure_strength, direction, mechanism_text,
+                 source, last_validated_at, created_at, governance_status,
+                 source_run_id)
+            VALUES ($1, $2, $3, $4, $5, 'llm_inferred', $6, $6, 'draft', $7)
+            RETURNING *
+            """,
+            theme_id,
+            proposal.symbol,
+            proposal.exposure_strength,
+            proposal.direction,
+            proposal.mechanism_text,
+            now,
+            run_id,
+        )
+        holding_id = row["holding_id"]
+
+        await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="theme_holdings",
+            id_column="holding_id",
+            object_type="theme_holding",
+            object_id=holding_id,
+            from_status="draft",
+            to_status="evidence_complete",
+            reasoning=reasoning,
+            actor="agent",
+        )
+        row = await governance_transitions.apply_governance_transition(
+            conn,
+            table_name="theme_holdings",
+            id_column="holding_id",
+            object_type="theme_holding",
+            object_id=holding_id,
+            from_status="evidence_complete",
+            to_status="pending_review",
+            reasoning=reasoning,
+            actor="agent",
+        )
+
+        await conn.execute(
+            "UPDATE agent_runs SET acted_on = TRUE, resulting_object_id = $1 WHERE run_id = $2",
+            holding_id,
+            run_id,
+        )
+
         return _row_to_theme_holding(row)
