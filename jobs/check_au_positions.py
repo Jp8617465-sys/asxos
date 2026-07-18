@@ -24,6 +24,7 @@ from datetime import date
 from decimal import Decimal
 
 from asxos.db import acquire, close_pool, init_pool
+from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "check_au_positions"
@@ -147,6 +148,9 @@ def _send_alert(subject: str, body: str) -> None:
 
 
 async def _run(as_of: date) -> None:
+    # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
+    # missing flag fails loud rather than relying on render.yaml alone.
+    require_personal_use_job()
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_CHECK_AU_POSITIONS", "")
     await init_pool()
     try:

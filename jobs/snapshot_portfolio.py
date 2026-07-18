@@ -52,7 +52,7 @@ from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.prices.fx import foreign_symbol_sql, is_foreign_symbol
-from asxos.jobs._helpers import UpstreamBlocked
+from asxos.jobs._helpers import UpstreamBlocked, require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -347,6 +347,9 @@ async def _snapshot_one_day(
 
 
 async def main(as_of_arg: date | None, from_date: date | None) -> None:
+    # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
+    # missing flag fails loud rather than relying on render.yaml alone.
+    require_personal_use_job()
     await init_pool()
     try:
         if from_date is not None:

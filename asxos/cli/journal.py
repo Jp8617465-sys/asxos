@@ -5,7 +5,7 @@ import asyncio
 import typer
 from rich.table import Table
 
-from asxos.cli._common import console
+from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
 journal_app = typer.Typer(help="Decisions journal.", no_args_is_help=True)
@@ -21,6 +21,7 @@ def journal_add(
     tax_note: str = typer.Option("", "--tax-note", help="CGT/franking notes"),
 ) -> None:
     """Record a portfolio decision against today's signal context."""
+    _require_personal_use()
     action = action.upper()
     if action not in _VALID_ACTIONS:
         raise typer.BadParameter(f"action must be one of {sorted(_VALID_ACTIONS)}")
@@ -79,6 +80,7 @@ def journal_list(
     symbol: str | None = typer.Option(None, "--symbol", help="Filter to one symbol"),
 ) -> None:
     """Show the most recent decisions."""
+    _require_personal_use()
     asyncio.run(_run_journal_list(days, symbol))
 
 
@@ -145,6 +147,7 @@ def journal_review(
     stale_days: int = typer.Option(60, "--stale-days", help="Flag decisions older than N days"),
 ) -> None:
     """Flag decisions older than `--stale-days` that may warrant a follow-up."""
+    _require_personal_use()
     asyncio.run(_run_journal_review(stale_days))
 
 

@@ -7,11 +7,35 @@ Currently exports:
   - assert_partial_success: aggregate failure threshold for gather-pattern jobs
   - UpstreamBlocked: exception class mapped to job_runs.status='blocked' by
     JobMonitor (distinct from 'failure' to avoid alert fatigue on upstream waits)
+  - require_personal_use_job: personal-use firewall gate for job entry points
 """
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Sequence
 from typing import Any
+
+
+def require_personal_use_job() -> None:
+    """Hard-fail a job entry point if the personal-use firewall flag isn't set.
+
+    Jobs analog of ``asxos.cli._common._require_personal_use``. Part 0 Q1 /
+    CLAUDE.md non-negotiable #10: any job that reads or writes portfolio /
+    thesis / tax data generates personal-advice output under s766B
+    (Corporations Act 2001) and must run only in single-user mode.
+
+    Raising ``RuntimeError`` (not a silent ``log.warning``) means a missing
+    flag fails loud rather than relying on ``render.yaml`` setting the env var
+    externally — the env-only-protection gap the R14 audit surfaced across the
+    position/snapshot/thesis-check jobs. Call this as the first statement of the
+    job's entry point, before ``init_pool()`` / ``JobMonitor`` opens.
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        raise RuntimeError(
+            "ASXOS_PERSONAL_USE is not set to '1'. This job generates "
+            "personal-advice outputs under s766B (Corporations Act 2001) and "
+            "must only run in single-user mode. Set ASXOS_PERSONAL_USE=1."
+        )
 
 
 class UpstreamBlocked(RuntimeError):
