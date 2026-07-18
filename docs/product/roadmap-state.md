@@ -224,6 +224,42 @@ probe initially flagged as urgent is **debunked** — those 11 jobs run Sun-Thu 
 by design; Thu 07-16 was the last correct firing before the weekend, next is Sun 07-19. No brief
 was missed. Do not re-investigate.
 
+**ENGINE-FIRST RE-RANK (2026-07-18, James-directed — supersedes the safety-first order for the
+EDGE work).** James rejected leading with the `compute_opportunity_cost` firewall gate as
+"building software for its own sake" and directed an absolute focus on the product edge: *better
+thesis, better brief, better ideas, automated progression.* Three code-grounded scouts (thesis /
+brief / idea-generation) + an arbi re-rank converged on one finding: the platform has built rich
+machinery around pipelines that carry **ZERO content to James** (broker-report schema #56 = dark
+keystone, no producer/consumer/renderer; the discover→govern idea loop fully wired but **never
+closed once**, `agent_runs` #3/#4 15-day-stale; the V2 brief with its "one thing today" triage
+runs daily and is discarded), while the **daily brief actively shows a FALSE −75.7% portfolio
+loss** when James is up (~+2.8–10.5%). Engine-first queue:
+1. **THE ONE THING [better-brief · Layer 1] — make the brief true + calm.** Kill the false −75.7%
+   (`asxos/brief/compose.py:711-750` `_since_inception_returns` differences flow-affected
+   `capital_aud`; re-anchor on cost-base per R10) + suppress the dead-Model-A regime / signals-stale
+   banners (shelf display artifacts — **display suppression only, NOT a rule #11 re-enable, does not
+   touch `build.py`'s allocator gate**). Same bug also in `wealth_state.py:122-141`. Draft PR. S–M.
+2. **[better-thesis · Layer 2] Phase C broker-report thesis render + persist** (reuse #56 as the
+   contract; `james_input`-anchored figures first). Genuinely close to #1; arbi chose #1 on moat
+   order (integration > discipline), the daily-active-falsehood argument, and #1 being a soft-prereq
+   for #2's render surface. **Governor override legitimate:** James may flip #1↔#2.
+3. **[better-thesis/brief] un-dark the thesis cards** — fix `active_theses.py:169` `.date()` crash
+   (DATE column, failing 10+ days) + show the stop on the STOP-VIOLATED line.
+4. **[better-brief] extend discipline to watching/research theses + CBA price-detach auto-flag**
+   (James ruled "automate" 07-16; tagged monitoring-hygiene, below the content-depth work).
+5. **[better-ideas/automation · DECISION] run the idea loop once** — James reviews `agent_runs`
+   #3/#4 (never-closed loop; decision packet ready), then promote the dark sector-screener
+   staging→live (RED-ZONE frontmatter repoint).
+6. **[automation] schedule idea-generation into the gated queue** — only behind a review-throughput
+   mechanism + quality rubric; premature until #5 drains once (else it automates backlog).
+
+**DEMOTED to the hygiene batch (below the edge, not deleted):** the `compute_opportunity_cost`
+s766B gate (still a real firewall gap), `derive_fundamentals_pit` timeout, `check_cron_health`
+Saturday-lane gap, the audit quick-fix batch, R16 permission ASK/abort (graduates out the moment
+the idea loop (#5/#6) is the priority, since it gates agent DB reads). Full re-rank + an
+implementation-ready NEXT PROMPT for THE ONE THING: this session's arbi output. **Pending James's
+pick: #1-first (recommended) vs the governor-override flip to #2.**
+
 **DONE 2026-07-18 — root-caused and retired the dead `regulatory_events` Treasury feed.**
 Draft PR #55 (`claude/asxos-guardrails-regulatory-feed-r7ghjt` → `main`): `SOURCES` reduced
 to RBA only; `assert_partial_success` threshold raised 0.5→1.0 (N=2→N=1) so a future
@@ -493,10 +529,16 @@ Wake: 2026-07-18 continuation (same-day interactive /arbi after the 07-18 close)
   (permission/hook plumbing unreliable in this web/remote harness) but a distinct symptom
   (allow-list not auto-approving, vs. R16's guard-hook-inert) — track both under R16 rather
   than losing this one.
-- ONE THING re-verified, not carried forward by default: compute_opportunity_cost's s766B
-  firewall gate + paired render.yaml env — still the correct #1 (live gap in non-negotiable
-  #2, fully scoped: exact insertion point, exact render.yaml block, exact test to extend)
-  after weighing it against both new findings above.
+- ONE THING (pre-redirect): compute_opportunity_cost's s766B firewall gate — re-verified as the
+  correct safety-first #1. THEN James redirected: rejected leading with a compliance gate ("don't
+  build software for its own sake") and directed an ENGINE-FIRST re-rank around the product edge.
+- ENGINE-FIRST re-rank (James-directed, 3 scouts + arbi): NEW ONE THING = "make the brief true +
+  calm" — the daily brief shows a FALSE −75.7% portfolio loss (flow-affected capital_aud diff,
+  compose.py:711-750) when James is up ~+2.8–10.5%; also suppress dead-Model-A shelf banners
+  (display-only). #2 (genuinely close) = Phase C broker-report thesis render+persist. The
+  compute_opportunity_cost gate is DEMOTED to the hygiene batch (real firewall gap, not deleted).
+  Full engine-first queue in the ranked-queue section above. Pending James's #1-vs-#2 pick;
+  arbi-red-team gate runs before any build starts.
 ```
 
 _Prior snapshot (2026-07-18 close) retained below for diffing._
