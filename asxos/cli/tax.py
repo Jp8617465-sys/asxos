@@ -5,7 +5,7 @@ import asyncio
 import typer
 from rich.table import Table
 
-from asxos.cli._common import console
+from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
 
@@ -19,6 +19,7 @@ def tax_view(
     tsb_ref: float = typer.Option(0.0, "--tsb-ref", help="SMSF total super balance ref (max open/close)"),
 ) -> None:
     """Print a tax-view summary from current_holdings."""
+    _require_personal_use()
     if account_type not in ("individual", "smsf"):
         raise typer.BadParameter("account must be 'individual' or 'smsf'")
     asyncio.run(
@@ -146,6 +147,7 @@ def tax_action(
     days_ahead: int = typer.Option(30, "--days", help="Window for crossing-boundary alerts"),
 ) -> None:
     """Surface tax actions: lots crossing the 12-month CGT boundary soon."""
+    _require_personal_use()
     asyncio.run(_run_tax_action(days_ahead))
 
 
