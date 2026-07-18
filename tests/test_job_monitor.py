@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from asxos.domain.models.production_gate import ModelGateDormant
@@ -388,3 +389,32 @@ async def test_success_without_note_leaves_error_message_null() -> None:
     update_call = conn.execute.await_args_list[2]
     assert update_call.args[1] == "success"
     assert update_call.args[4] is None  # error_message NULL when no note
+
+
+@pytest.mark.asyncio
+async def test_error_message_redacts_leaked_api_key() -> None:
+    """An httpx error carrying ?api_token=<KEY> must be scrubbed before it lands
+    in job_runs.error_message (CWE-532). The EODHD/FRED clients pass the key as a
+    URL query param, so a routine 402/401 would otherwise persist the secret in a
+    queryable, agent-readable column. Diagnostic status is preserved."""
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    url = "https://eodhd.com/api/eod/BHP.AU?api_token=SECRETKEY123&fmt=json"
+    req = httpx.Request("GET", url)
+    resp = httpx.Response(402, request=req)
+    exc = httpx.HTTPStatusError(
+        f"Client error '402 Payment Required' for url '{url}'", request=req, response=resp
+    )
+
+    with _patch_pool(conn):
+        with pytest.raises(httpx.HTTPStatusError):
+            async with JobMonitor(
+                job_name="sync_prices", as_of=date(2026, 5, 28)
+            ):
+                raise exc
+
+    persisted = conn.execute.await_args_list[2].args[4]  # error_message
+    assert "SECRETKEY123" not in persisted
+    assert "api_token=***" in persisted
+    assert "402" in persisted  # status kept for diagnosis

@@ -3,6 +3,7 @@ from datetime import date, datetime
 import httpx
 
 from asxos.db import acquire
+from asxos.redaction import redact_secrets
 
 
 class JobMonitor:
@@ -131,6 +132,12 @@ class JobMonitor:
         # a partial-success run that hid a dead source is not invisible; on
         # failure/blocked, the exception string wins.
         error_message = f"{exc_type.__name__}: {exc_val}" if exc_type else self.note
+        # Redact API keys before they reach job_runs: an httpx error embeds the
+        # full request URL, and the EODHD/FRED clients carry the key as a query
+        # param, so an upstream 401/402 would otherwise persist ?api_token=<KEY>
+        # here (queryable + agent-readable). CWE-532. Only the secret is stripped.
+        if error_message is not None:
+            error_message = redact_secrets(error_message)
 
         async with acquire() as conn:
             await conn.execute(

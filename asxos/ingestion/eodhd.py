@@ -17,6 +17,7 @@ from tenacity import (
 )
 
 from asxos.config import settings
+from asxos.redaction import sanitized_http_error
 
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
@@ -50,7 +51,14 @@ class EODHDClient:
                 f"{self.BASE}{path}",
                 params={"api_token": self._api_key, "fmt": "json", **params},
             )
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                # Strip the api_token before the error can reach any log or
+                # job_runs (CWE-532). `from None` suppresses the original in
+                # tracebacks; type + response are preserved so the tenacity
+                # retry predicate still classifies the status.
+                raise sanitized_http_error(exc) from None
             return r.json()
 
     async def exchange_symbols(self, exchange: str = "AU") -> list[dict[str, Any]]:

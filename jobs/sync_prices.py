@@ -39,6 +39,7 @@ from asxos.ingestion.prices import (
     upsert_fx_rates,
 )
 from asxos.jobs.utils.job_monitor import JobMonitor
+from asxos.redaction import redact_secrets
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -193,7 +194,8 @@ async def _sync_us_prices(
     total = 0
     for sym, res in zip(us_symbols, results, strict=False):
         if isinstance(res, Exception):
-            log.warning("sync_prices US: %s failed: %s", sym, res)
+            # redact_secrets: an httpx error embeds the ?api_token=<KEY> URL.
+            log.warning("sync_prices US: %s failed: %s", sym, redact_secrets(str(res)))
         else:
             total += res
     return total
@@ -223,7 +225,8 @@ async def _sync_index_prices(
     total = 0
     for sym, res in zip(index_symbols, results, strict=False):
         if isinstance(res, Exception):
-            log.warning("sync_prices index: %s failed: %s", sym, res)
+            # redact_secrets: an httpx error embeds the ?api_token=<KEY> URL.
+            log.warning("sync_prices index: %s failed: %s", sym, redact_secrets(str(res)))
         else:
             total += res
     return total
