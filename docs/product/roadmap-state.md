@@ -88,7 +88,77 @@ detail behind these lines.
   (`m14_candidate_beta_cap`); (3) built-but-dark-launched layers are unreleased, not done
   (`dark-launch-exit-plan.md`); (4) R5 — the scheduled 7a brief's read-only guarantee is
   prompt-enforced only.
-- **Last verified:** 2026-07-11 (post-shelf; reflects the P0 resolution + ML-shelf decision).
+- **Last verified:** 2026-07-18 (this session — merge train + firewall audit; see the
+  2026-07-18 block immediately below for the current picture).
+
+---
+
+## 2026-07-18 session — merge train, security audit, firewall hardening
+
+**Merged this session** (James: "merge all PRs if green"): **#55** (retire dead Treasury
+RSS feed, harden fail-loud N=1), **#56** (ThesisProposal keystone schema — broker-report
+Phase B), **#57** (tax-view/tax-action firewall gate), **#58** (personal-advice firewall
+amendment — PROPOSAL doc for ratification; enacting 15-file edit still gated on James),
+**#50** (idea-generation lane — theme `--from-agent-run` + sector-screener + first dry run).
+
+**Held for James (governance):** **#48** (dream promotion L8–L16) — `mergeable_state: clean`,
+ready to merge; arbi never self-approves a dream promotion (`arbi-promotion-gate.md`), so
+this is James's own click.
+
+**Security + refactoring audit (James asked).** Ran read-only via multi-agent workflow.
+**Two of five lenses completed** (firewall-gate coverage; governance/injection) before the
+**account monthly spend limit** halted the rest (secrets, refactoring, synthesis — and it
+blocks re-dispatch of the perf/behaviour-simplification lenses James asked to add). Findings
+were banked and are being executed directly.
+
+**Shipped from the audit — PR #59 (draft):** firewall-gate hardening. Closed the HIGH R14
+recurrence (`asxos/cli/journal.py` add/list/review ungated) + 4 personal-data jobs that
+relied only on `render.yaml` for `ASXOS_PERSONAL_USE` (snapshot_portfolio, check_au_positions,
+check_us_positions, check_thesis_invalidations) via a new shared
+`asxos/jobs/_helpers.py::require_personal_use_job()` in-code backstop. 14 tests, ruff/mypy
+green, security-engineer PASS.
+
+### Audit-derived prioritized backlog (the plan)
+
+**P0 — done:** #59 firewall-gate hardening (above).
+
+**P1 — reversible, mostly editable (execute in order):**
+1. `compute_opportunity_cost.py` — the audit's "worst case" (neither `render.yaml` env var
+   NOR in-code gate). Needs a **paired** `render.yaml` env-var add; the in-code guard alone
+   would break its Saturday cron on deploy → attended (render.yaml is deploy config).
+2. `compose_brief.py` — no top-level `ASXOS_PERSONAL_USE` hard-fail (security-engineer flag).
+   Already self-gates each personal section at the data layer, so not exposed today; a
+   top-level gate is defense-in-depth.
+3. `theme_dashboard.py` collector — no `governance_status`/`retired_at` filter: retired themes
+   render as active and draft placeholders show as approved. Point at `governed_active_themes`/
+   `governed_active_theme_holdings` (created for exactly this, currently zero consumers). Also
+   closes #50's known LOW follow-up #1.
+4. brief thesis collectors (active_theses/watchlist/new_ideas/_discipline_findings) — add
+   `AND governance_status='approved'` defense-in-depth.
+5. `regulatory.py` — cap `title[:500]` like `summary` (untrusted RSS text; prompt-injection
+   amplifier). LOW, ~1 line + test.
+
+**P2 — RED ZONE / needs James (draft or decision only):**
+6. Repoint 6 discovery/analysis agents' frontmatter `mcp__Supabase__execute_sql` →
+   `mcp__supabase-ro__execute_sql` **and verify supabase-ro is a real GRANT-restricted RO
+   role**, not naming-only. This is the mechanical fix for `m14_candidate_agent_db_role_scoping`
+   — the RO backstop now EXISTS in settings.json but the exposed agents were never repointed.
+7. INSERT-side governance provenance (migration): triggers are UPDATE-only; a direct
+   `INSERT ... governance_status='approved'` bypasses the audit. Real fix = #6 (RO role);
+   this is DB defense-in-depth.
+8. Render curl allow-pattern trailing `:*` wildcard (`.claude/settings.json`) — auto-approves
+   state-changing Render verbs + shell metachars behind a read-only-looking entry. Human action.
+9. `signal.py`/`predict.py` — make the general-vs-personal-advice exemption explicit (doc note
+   like `screen.py`) or gate. Rule #11 surfaces (Model A output).
+
+**Blocked:** perf + behaviour optimisation/simplification audit lenses — the workflow's
+refactor + synthesis agents died on the monthly spend limit; re-run when it resets, or do
+inline. Not re-dispatchable as subagents right now (would fail fast).
+
+**Governance note preserved:** the #58 firewall amendment is ratified in **approach** only
+(proposal doc merged). The enacting ~15-file RED-ZONE edit (all synchronized circuit-breaker
+copies together, per red-team) remains gated on James's explicit go-ahead. The
+model-independent sizer (unblocks sized-order staging) is unbuilt.
 
 ---
 
