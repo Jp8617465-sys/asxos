@@ -4,6 +4,13 @@ Section 8: Theme dashboard — M-Brief-V2-Sections.
 Reads active themes + their holdings + linked theses. Flags when
 stage_suggested diverges from stage (AI classifier has a new recommendation).
 
+Governance (2026-07-18 audit fix): reads the ``governed_active_*`` views
+(migration 0035) rather than the base ``themes`` / ``theme_holdings`` tables, so
+the brief never surfaces retired themes (``retired_at IS NOT NULL``) or
+unreviewed rows (``governance_status != 'approved'`` — e.g. ``system_default``
+placeholder holdings, or future agent-authored ``draft``/``pending_review``
+themes) as if they were approved content.
+
 SeverityItem levels:
   - yellow: stage_suggested != stage (AI disagrees with user-confirmed stage)
   - green:  all ok — theme summary
@@ -32,8 +39,8 @@ async def collect_theme_dashboard(as_of: date) -> SectionResult:
                    t.conviction_band,
                    COUNT(DISTINCT th.symbol) AS holding_count,
                    COUNT(DISTINCT theses.thesis_id) AS thesis_count
-            FROM themes t
-            LEFT JOIN theme_holdings th ON th.theme_id = t.theme_id
+            FROM governed_active_themes t
+            LEFT JOIN governed_active_theme_holdings th ON th.theme_id = t.theme_id
             LEFT JOIN theses ON theses.symbol = th.symbol
                 AND theses.status IN ('active', 'watching', 'research')
             GROUP BY t.theme_id, t.theme_code, t.stage, t.stage_suggested,

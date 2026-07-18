@@ -279,6 +279,27 @@ class TestCollectThemeDashboard:
 
         _run(_run_test())
 
+    def test_reads_governed_views_not_base_tables(self):
+        # Governance (2026-07-18 audit fix): the collector MUST read the
+        # governed_active_* views, never the base themes/theme_holdings tables —
+        # otherwise retired themes and unreviewed (draft / system_default) rows
+        # surface in the brief as if they were approved content.
+        async def _run_test():
+            conn = AsyncMock()
+            conn.fetch.return_value = []
+            with patch("asxos.domain.brief.collectors.theme_dashboard.acquire") as mock_acquire:
+                mock_acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+                mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+                await collect_theme_dashboard(AS_OF)
+            sql = conn.fetch.call_args[0][0]
+            assert "governed_active_themes" in sql
+            assert "governed_active_theme_holdings" in sql
+            # Revert guard: the ungoverned base tables must not reappear.
+            assert "FROM themes" not in sql
+            assert "JOIN theme_holdings" not in sql
+
+        _run(_run_test())
+
 
 # ── opportunity_cost ───────────────────────────────────────────────────────────
 
