@@ -198,7 +198,20 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-**Current #1 (2026-07-16 wake): root-cause and fix the `regulatory_events` starvation** —
+**DONE 2026-07-18 — root-caused and retired the dead `regulatory_events` Treasury feed.**
+Draft PR #55 (`claude/asxos-guardrails-regulatory-feed-r7ghjt` → `main`): `SOURCES` reduced
+to RBA only; `assert_partial_success` threshold raised 0.5→1.0 (N=2→N=1) so a future
+solo-source failure hard-fails instead of degrading silently the way Treasury did for weeks
+behind a green cron. Diagnosed RETIRE (`backend-architect`) after live evidence confirmed the
+2026-07-02 UA-mitigation ran 13+ live days with zero effect and a fresh diagnostic fetch
+reproduced the same 403 — same dead-feed class as the already-removed ATO source, no
+pure-code fix available. Full review loop + Guilfoyle readiness pass (READY-WITH-NOTES, hard
+floor clean) done; also caught and fixed a stale `docs/product/data-contracts.md` row in the
+same pass. Pending CI + James's merge. Full record: `arbi-run-ledger.md`
+(`regulatory-feed-retire-2026-07-18`). Next `/arbi` wake should re-rank the queue now that
+this item is resolved. _Historical detail of the original item kept below for audit:_
+
+Current #1 (2026-07-16 wake): root-cause and fix the `regulatory_events` starvation —
 2 rows, latest 2026-07-08, while `ingest_regulatory` reports green daily (Treasury source
 dead behind `assert_partial_success(0.5)` passing on RBA alone). Draft PR #47 ships the
 *visibility* layer (DEGRADED-note surfacing); this action is the *feed* root-cause — live-probe
