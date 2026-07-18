@@ -2,23 +2,27 @@
 """
 Daily regulatory ingest.
 
-Fetches two RSS sources, parses each, UPSERTs into regulatory_events.
+Fetches one RSS source (RBA), parses, UPSERTs into regulatory_events.
 Per-source failure is logged, then gated by assert_partial_success with
-threshold=0.5: with N=2 sources, 2/2 or 1/2 healthy passes (ratio >= 0.5);
-0/2 hard-fails the run. When a source hard-fails but the run still clears the
-threshold, _degraded_note attaches a one-line marker to the success run's
-job_runs.error_message so check_cron_health surfaces the otherwise-hidden dead
-feed (fail-loud, CLAUDE.md #10).
+threshold=1.0: with N=1 source, only 1/1 (ratio 1.0) passes; 0/1 hard-fails
+the run outright — at N=1 there is no partial-success ratio in between.
+_degraded_note (see its docstring) exists for N>1, where some sources can
+fail while the run still clears the threshold and is recorded success; it
+attaches a one-line marker to that success run's job_runs.error_message so
+check_cron_health surfaces the otherwise-hidden dead feed (fail-loud,
+CLAUDE.md #10). It is presently dormant with SOURCES at N=1.
 
 Sources:
-  RBA      — https://www.rba.gov.au/rss/rss-cb-media-releases.xml (RSS 1.0/RDF)
-  Treasury — https://treasury.gov.au/news/rss (RSS 2.0)
+  RBA — https://www.rba.gov.au/rss/rss-cb-media-releases.xml (RSS 1.0/RDF)
 
 ATO was removed: the ATO site redesign killed the old Newsroom feed URL
 (https://www.ato.gov.au/Newsroom/Newsroom-feeds/ is now a dead HTML index
 page) and there is no stable public replacement — RSS only exists behind a
 per-user subscription wizard. Re-add conditions are tracked in
 docs/next-session-backlog.md.
+
+Treasury was also removed (2026-07-18) — see the SOURCES comment below for
+the full removal history.
 
 Usage:
     python jobs/ingest_regulatory.py
@@ -54,16 +58,28 @@ class SourceSpec:
 # page after the ATO site redesign, and there is no stable public replacement
 # (RSS only exists behind a per-user subscription wizard). Re-add conditions
 # are tracked in docs/next-session-backlog.md.
+#
+# Treasury is deliberately absent: gov.au's WAF returns 403 to non-browser
+# HTTP clients regardless of header content. A browser User-Agent + Accept
+# header mitigation (added 2026-07-02, see _CLIENT_HEADERS below) ran in
+# production for 13+ consecutive days (2026-07-04 to 2026-07-17) with zero
+# Treasury rows ingested — the identical failure signature as before the
+# mitigation. This is consistent with a TLS-fingerprint / IP-reputation
+# block, which no HTTP-header change can defeat; the known workarounds
+# (TLS-impersonating clients, headless-browser automation) are new external
+# dependencies, out of scope for a pure-code fix. No stable alternate public
+# Treasury RSS endpoint was found. Re-add conditions are tracked in
+# docs/next-session-backlog.md.
 SOURCES: list[SourceSpec] = [
     SourceSpec("RBA", "https://www.rba.gov.au/rss/rss-cb-media-releases.xml", "monetary_policy"),
-    SourceSpec("Treasury", "https://treasury.gov.au/news/rss", "other"),
 ]
 
-# gov.au WAFs 403 default python User-Agents: from Render, Treasury was
-# blocked on every run while RBA happened to pass without a UA. A mainstream
-# desktop-browser UA plus an explicit feed Accept header is the cheap,
-# portable mitigation — final confirmation is only possible from Render
-# egress, since the WAF behaviour differs by client IP reputation.
+# Historical: added 2026-07-02 as a mitigation attempt for the (now-removed)
+# Treasury feed's WAF block. Confirmed 2026-07-18 that header-only spoofing
+# did not defeat it (13+ live Render days, zero effect) — see the SOURCES
+# comment above. RBA, the sole remaining source, passes with or without
+# these headers; they're kept as a harmless, generically well-behaved
+# client identity, not because RBA requires them.
 _CLIENT_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -121,12 +137,18 @@ def _degraded_note(
     ``None``.
 
     A ``None`` total means that source's fetch/parse failed after retry (see
-    ``_fetch_and_upsert``); because RBA alone clears the 0.5 threshold the run
-    is still recorded ``success``, so a dead source (e.g. Treasury WAF-403 from
-    Render egress) would otherwise vanish. This note rides
-    ``job_runs.error_message`` on the success row and is surfaced daily by
-    ``check_cron_health`` (fail-loud, CLAUDE.md #10). ``0`` rows is a healthy
-    slow-news-day outcome, not a dead feed — only ``None`` counts as dead.
+    ``_fetch_and_upsert``). This only has an effect when the caller's
+    threshold lets some sources fail without the run itself hard-failing —
+    e.g. the pre-2026-07-18 N=2/threshold=0.5 config, where a lone Treasury
+    WAF-403 would otherwise vanish behind a ``success`` job run. At the
+    current SOURCES/threshold=1.0 (see the module docstring), a hard-failed
+    source always breaches the threshold first, so this function is
+    presently dormant in production — exercised directly by tests, not by
+    ``main()`` — and reactivates if a second source is re-added at
+    threshold < 1.0. When live, this note rides ``job_runs.error_message``
+    on the success row and is surfaced daily by ``check_cron_health``
+    (fail-loud, CLAUDE.md #10). ``0`` rows is a healthy slow-news-day
+    outcome, not a dead feed — only ``None`` counts as dead.
     """
     dead = [s.name for s, t in zip(sources, totals, strict=True) if t is None]
     if not dead:
@@ -151,15 +173,18 @@ async def main() -> None:
                     *[_fetch_and_upsert(client, s) for s in SOURCES]
                 )
 
-            # Threshold 0.5 with N=2 sources: 2/2 (1.0) and 1/2 (0.5) pass
-            # the >= comparison; 0/2 hard-fails. One feed may be down without
-            # aborting the run, but both failing means nothing ingested and
-            # the job must fail loudly. Per-source SLA tracking is a separate
-            # (deferred) improvement.
+            # Threshold 1.0 with N=1 source (RBA only — Treasury removed 2026-07-18,
+            # see SOURCES comment above): the only two possible ratios at N=1 are 0/1
+            # and 1/1, so 1.0 is the only threshold value that expresses "the single
+            # remaining source is mandatory" rather than a stale carry-over from when
+            # N=2 partial credit was legitimate. Any future re-add of a second source
+            # (e.g. ATO, ASIC/ASX) MUST come with a deliberate re-review of this
+            # constant — a stale <1.0 threshold silently tolerating 1 dead source out
+            # of N is exactly how the Treasury feed stayed invisible for weeks.
             n_ok = assert_partial_success(
                 totals,
                 is_ok=lambda r: r is not None,
-                threshold=0.5,
+                threshold=1.0,
                 label="ingest_regulatory",
                 identifiers=[s.name for s in SOURCES],
                 allow_empty=False,  # SOURCES is hardcoded; empty == bug
