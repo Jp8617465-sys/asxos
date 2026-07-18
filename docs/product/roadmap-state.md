@@ -2,14 +2,14 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
-#32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
-hardening, Guilfoyle mission-control, overnight governance record, orchestrator-mode sketch.
-Monitoring lane fixes all on main. **Confirmed (2026-07-14, later same day): #29 (discipline
-evaluator) and #38 (autonomy unlock pack) are both MERGED to main** (`2a49df9`, `1af76e4`) — all
-"#29 open/draft" references below have been corrected to reflect this. Remaining open: #5 —
-recommend close, superseded by the ML shelf; #39 (permission-friction/guard pack) — open draft,
-`full-check` CI failing.)
+**Last verified:** 2026-07-18, continuation wake (same-day interactive `/arbi`, after the 07-18
+close). HEAD and `origin/main` both at `9dd5443` (PR #63, the close's own handoff commit) — 0
+open PRs, migrations 93=93, zero drift. This wake re-verified rather than defaulted on the queued
+ONE THING (`compute_opportunity_cost` firewall gate — confirmed still correct), debunked a
+false-alarm "pipeline stall" (Sun-Thu-UTC/Mon-Fri-AEST weekend cron schedule working as designed),
+and surfaced one new real bug (`derive_fundamentals_pit` TimeoutError) plus one monitoring
+coverage gap (`check_cron_health`'s missing-daily check is Mon-Fri-gated, missing the Saturday
+factor/PIT lane). Full detail: Last wake snapshot below.
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
 **Superseded by:** N/A
 
@@ -70,8 +70,11 @@ detail behind these lines.
   (`2a49df9`); candidate new #1 (2026-07-14) is portfolio-team-visibility **PR2, both
   halves** — **PR2a** (the `_discipline_findings()` loader) and **PR2b** (the
   `brief.html.j2` render block) — landing together this session as a draft PR.
-- **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
-  2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
+- **Decisions needed from James:** **none outstanding** in `james-inbox.md`'s open-items table as
+  of the 2026-07-18 continuation wake — HUBS (resolved 2026-07-13), CBA thesis #1 (ruled
+  2026-07-16: automate), VGS/VAS (resolved 2026-07-16: not held, ETF Slice 2 reframed to demo/paper
+  lots). This line had drifted stale, still listing all three as open; `james-inbox.md` is the
+  authoritative source.
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
   auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
   cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
@@ -88,7 +91,8 @@ detail behind these lines.
   (`m14_candidate_beta_cap`); (3) built-but-dark-launched layers are unreleased, not done
   (`dark-launch-exit-plan.md`); (4) R5 — the scheduled 7a brief's read-only guarantee is
   prompt-enforced only.
-- **Last verified:** 2026-07-11 (post-shelf; reflects the P0 resolution + ML-shelf decision).
+- **Last verified:** 2026-07-18, continuation wake (re-verified the queued ONE THING against fresh
+  live-ops evidence rather than carrying it forward by default; see Last wake snapshot).
 
 ---
 
@@ -207,6 +211,18 @@ its backlog is the live queue: **#1 = P1 `compute_opportunity_cost` firewall gat
 (agent-RO frontmatter repoint — 0039 applied + supabase-ro live, frontmatter is all that's left;
 `ASXOS_API_TOKEN` enforcement-or-doc; curl-wildcard tighten). The historical entries below are the
 **pre-audit** queue, kept for audit trail.
+
+**Continuation wake same day (2026-07-18, interactive, post-close):** re-verified #1 against fresh
+`job_runs` evidence instead of defaulting — it holds (non-negotiable #2, the personal-advice
+firewall, outranks an unscoped data-quality bug). Two items added, sequenced after #1, both owned
+by `backend-architect` for diagnosis: **`derive_fundamentals_pit` scheduling race** (TimeoutError
+07-18 17:10 UTC; the job has no upstream gate and fired before `sync_corporate_actions` finished
+at 18:09) and **`check_cron_health`'s Saturday-lane monitoring gap** (its missing-daily check is
+Mon-Fri-gated only, so the factor/PIT lane can fail silently for ~2 weeks before the
+2-consecutive-failures check would catch it). The "Cluster B pipeline stall" this wake's live
+probe initially flagged as urgent is **debunked** — those 11 jobs run Sun-Thu UTC (= Mon-Fri AEST)
+by design; Thu 07-16 was the last correct firing before the weekend, next is Sun 07-19. No brief
+was missed. Do not re-investigate.
 
 **DONE 2026-07-18 — root-caused and retired the dead `regulatory_events` Treasury feed.**
 Draft PR #55 (`claude/asxos-guardrails-regulatory-feed-r7ghjt` → `main`): `SOURCES` reduced
@@ -446,6 +462,44 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-07-18 interactive `/arbi` continuation wake (same day, after the close) —
+supersedes the close snapshot below; later runs diff against this._
+
+```
+Wake: 2026-07-18 continuation (same-day interactive /arbi after the 07-18 close)
+- branch: claude/whats-new-yemcl4 = origin/main @ 9dd5443 (PR #63, the close's own handoff
+  commit), clean tree
+- open PRs: 0. migrations: 93=93, zero drift (38 files on disk, numbered 0001-0039, 0018
+  missing from the sequence — pre-existing, harmless).
+- tests (this sandbox): 759 passed / 43 failed / 72 errors / 1 skipped / 2 xfailed — every
+  failure/error traces to this sandbox missing joblib/lightgbm/asyncpg/pytest_asyncio, same
+  class as CLAUDE.md's documented gap (now undercounted there: 72 ERROR files vs. 16
+  documented — doc needs a refresh). Not a regression; CI full-check remains authority, not
+  probed this session.
+- job_runs live-probe: "Cluster B" (sync_prices/generate_signals/compose_brief + 8 siblings)
+  DEBUNKED as a false alarm — Sun-Thu-UTC cron schedule (= Mon-Fri AEST); last permitted firing
+  Thu 07-16 was correct, next is Sun 07-19. No missed brief. NEW real bug:
+  derive_fundamentals_pit failed 07-18 17:10 UTC (TimeoutError), likely an upstream race with
+  sync_corporate_actions (finished 18:09, after the 17:10 fire) — no upstream gate on this job.
+  NEW monitoring gap: check_cron_health's missing-daily check is Mon-Fri-gated only, so the
+  Saturday factor/PIT lane (derive_fundamentals_pit + 5 siblings) can silently fail for ~2
+  weeks before the 2-consecutive-failures check catches it.
+- permission-harness finding: mcp__supabase-ro__execute_sql (explicitly allowlisted in
+  .claude/settings.json) generated an ASK on all 4 calls this wake, each then failing
+  "AbortError: Tool permission stream closed before response received" (log:
+  .claude/permission-requests.log). Worked around via the full read-write Supabase connection
+  for the same SELECT-only queries. Plausibly the same root class as risk-register R16
+  (permission/hook plumbing unreliable in this web/remote harness) but a distinct symptom
+  (allow-list not auto-approving, vs. R16's guard-hook-inert) — track both under R16 rather
+  than losing this one.
+- ONE THING re-verified, not carried forward by default: compute_opportunity_cost's s766B
+  firewall gate + paired render.yaml env — still the correct #1 (live gap in non-negotiable
+  #2, fully scoped: exact insertion point, exact render.yaml block, exact test to extend)
+  after weighing it against both new findings above.
+```
+
+_Prior snapshot (2026-07-18 close) retained below for diffing._
 
 _Recorded by the 2026-07-18 `/arbi-close` — supersedes the 07-16 snapshot; later runs diff
 against this. Full session record: `docs/session-handoff-2026-07-18.md`._
