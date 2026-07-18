@@ -1,10 +1,14 @@
 """
 Regulatory event ingestion.
 
-Two live sources: RBA (RSS 1.0/RDF — the "RSS-CB" central-bank profile) and
-Treasury (RSS 2.0). ATO was removed — its site redesign killed the Newsroom
-feed and there is no stable public replacement. ASIC was never wired. ASX
-market announcements (JSON) is a stretch goal once an authenticated endpoint
+One live source: RBA (RSS 1.0/RDF — the "RSS-CB" central-bank profile).
+Treasury (RSS 2.0) was removed 2026-07-18 — gov.au's WAF returned a
+deterministic 403 to every fetch regardless of client headers, confirmed
+across 13+ consecutive days of live production runs (see the SOURCES
+comment in jobs/ingest_regulatory.py for the full diagnosis). ATO was
+removed earlier — its site redesign killed the Newsroom feed and there is
+no stable public replacement. ASIC was never wired. ASX market
+announcements (JSON) is a stretch goal once an authenticated endpoint
 exists; `parse_json_announcements` is kept for that path.
 
 Each source has a parser that turns the upstream payload (RSS XML, JSON)

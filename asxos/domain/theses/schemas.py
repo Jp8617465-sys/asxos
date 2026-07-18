@@ -8,17 +8,16 @@ thesis_evidence row with tier != 'speculative' -- validated by the service
 function (create_thesis_from_agent_run), not by the schema itself, since
 that check requires a DB round-trip the schema layer doesn't have.
 
-No ThesisProposal type -- no Phase 1/2 agent produces a full instrument
-thesis (entry band/stop/target/timeline). MacroThesisProposal/ThemeProposal/
-ThemeHoldingProposal are landed now (Phase 1) as pure schema even though the
-agents that would produce them (macro-economist, theme-researcher,
-instrument-selector) are Phase 2 -- the schemas have no DB dependency and
-Phase 1's `--from-agent-run` CLI flag needs at least one to validate against
-end-to-end in the Phase 1 done-criteria synthetic test.
+MacroThesisProposal/ThemeProposal/ThemeHoldingProposal were landed in Phase 1
+as pure schema even though the agents that would produce them (macro-economist,
+theme-researcher, instrument-selector) are Phase 2 -- the schemas have no DB
+dependency and Phase 1's `--from-agent-run` CLI flag needs at least one to
+validate against end-to-end in the Phase 1 done-criteria synthetic test.
 
-ThesisProposal itself is deliberately NOT defined here -- see
-asxos/domain/theses/service.py::create_thesis_from_agent_run() for the
-documented Phase 1/2 gap this creates (m14_candidate_agentic_thesis_drafter).
+ThesisProposal (the full instrument thesis -- entry band/stop/target/timeline)
+lands in Phase B below, closing the gap that still stubs
+asxos/domain/theses/service.py::create_thesis_from_agent_run()
+(m14_candidate_agentic_thesis_drafter); wiring that consumer is Phase E.
 
 Deserialisation hazard for the implementer of whichever code first turns
 agent_runs.proposed_object (raw JSONB) into one of these models: use
@@ -35,10 +34,11 @@ References:
 """
 from __future__ import annotations
 
+import re
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal, get_args
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class MacroThesisProposal(BaseModel):
@@ -91,3 +91,219 @@ class ThemeHoldingProposal(BaseModel):
     direction: Literal["positive", "negative"]
     mechanism_text: str = Field(min_length=1)
     evidence_citation_ids: list[int] = Field(min_length=1)
+
+
+# ---------------------------------------------------------------------------
+# Phase B — the ThesisProposal keystone (m14_candidate_agentic_thesis_drafter)
+#
+# The individual-investment broker-report thesis. Closes the deliberately-absent
+# ThesisProposal gap named in this module's docstring and in
+# theses/service.py::create_thesis_from_agent_run() (a stub until Phase E wires
+# it). Design refs: the Phase A spec + architecture and the 2026-07-18
+# design-hardening workflow.
+#
+# This validates SHAPE, not advice -- a data structure + provenance guard -- so
+# it ships regardless of the personal-advice firewall register. Its load-bearing
+# job: make an LLM-invented or uncited capital-relevant number structurally
+# unrepresentable as trustworthy. Every number is a ReportFigure with explicit
+# provenance, and prose bodies cannot carry inline capital-relevant literals.
+# (north-star.md: every capital-relevant number is Decimal-exact and traces to a
+# cited source, never a model guess; CLAUDE.md #5.)
+# ---------------------------------------------------------------------------
+
+ReportSectionKind = Literal[
+    "identity_classification",
+    "business",
+    "moat",
+    "capital_allocation",
+    "strategy_catalysts",
+    "risks_bear",
+    "valuation",
+    "position_plan",
+    "verdict_conviction",
+    "evidence_ledger",
+]
+
+# The full ordered set of section kinds, derived from the Literal so the two can
+# never drift. Public for Phase C (renderer) + the rubric + tests to reuse.
+REPORT_SECTION_KINDS: tuple[str, ...] = get_args(ReportSectionKind)
+
+# Basis sections state the thesis's point of view; a rule #11 Model A datapoint
+# (a monitor_only figure) may never appear in one. The schema enforces exactly
+# that -- "not in a basis section" -- not "evidence_ledger only": a monitor
+# figure is still accepted in the non-basis narrative sections, so confining it
+# to the ledger (its intended home) is a render/review bar.
+_BASIS_SECTION_KINDS = frozenset(
+    {"moat", "capital_allocation", "strategy_catalysts", "valuation", "verdict_conviction"}
+)
+
+# A semantic subset, not derivable from the Literal -- so a rename in
+# ReportSectionKind could silently drop a kind from the basis set and let a
+# monitor_only (rule #11 Model A) figure leak into a basis section. Fail at
+# import (a raise, not an assert -- assert is stripped under `python -O`).
+if not _BASIS_SECTION_KINDS.issubset(REPORT_SECTION_KINDS):
+    raise RuntimeError("_BASIS_SECTION_KINDS drifted from ReportSectionKind")
+
+# Capital-relevant numeric literals that must NOT appear inline in a prose body --
+# they belong in a ReportFigure so provenance is explicit. Catches leading
+# currency ($/EUR/GBP/JPY), percentages, thousands-separated numbers, and
+# multiples. This is a PARTIAL guard, honestly: bare digits with a word/symbol
+# unit ("130 dollars", "4.64 EPS", "trades at 28 times"), spelled-out numbers,
+# and trailing-cent forms ("130c") still slip -- too ambiguous to catch without
+# false positives (years like FY26 / 2050, "20-year moat", "13 theses"). That
+# residual is the Phase C render + review backstop, not a schema guarantee.
+# The leading `\b` on the %, thousands, and multiple branches is load-bearing
+# for ReDoS resistance (bounds backtracking on long digit runs) -- do not remove.
+_CAPITAL_NUMBER_RE = re.compile(
+    r"(?x)"
+    r"(?: [$€£¥] \s? \d )"  # $130, EUR/GBP/JPY 130
+    r"| (?: \b \d+ (?:\.\d+)? \s? % )"     # 12%, 12.5 %
+    r"| (?: \b \d{1,3} (?:,\d{3})+ \b )"   # 1,234 (thousands separator)
+    r"| (?: \b \d+ (?:\.\d+)? x \b )"      # 28x, 3.5x (multiple)
+)
+
+
+class ReportFigure(BaseModel):
+    """A single capital-relevant number in a broker-report thesis.
+
+    A number enters a report ONLY as one of these, never as a bare literal in a
+    section body -- so provenance is always explicit and an LLM-invented or
+    uncited number is structurally unrepresentable as trustworthy:
+
+    - ``cited``       -- read directly from a source; requires >=1 evidence ref.
+    - ``derived``     -- computed by a shown ``formula`` over cited inputs;
+                         requires the formula AND >=1 evidence ref (the inputs).
+    - ``james_input`` -- James's own stated number (his target/band); no ref needed.
+
+    ``monitor_only`` flags a rule #11 Model A datapoint. The schema bars such a
+    figure from every basis section (see ``ReportSection``); its intended home is
+    the evidence_ledger, as a labelled, non-load-bearing monitor line. The
+    guarantee is "not in a basis section," not "evidence_ledger only" -- a
+    monitor figure is not rejected in the non-basis narrative sections.
+    """
+
+    label: str = Field(min_length=1)
+    value: Decimal
+    provenance: Literal["cited", "derived", "james_input"]
+    evidence_citation_ids: list[int] = Field(default_factory=list)
+    formula: str | None = None
+    monitor_only: bool = False
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _reject_float_value(cls, v: object) -> object:
+        # A JSON number deserialised via model_validate_json() arrives as a float
+        # and loses precision before Decimal ever sees it (CLAUDE.md #5). Reject
+        # float outright so a lossy value fails loud; a decimal string ("130.15")
+        # or a real Decimal/int stays exact. Matches service.py's Decimals-as-str
+        # JSONB contract, and makes model_validate_json() safe by construction.
+        if isinstance(v, float):
+            raise ValueError(
+                "value must be a Decimal or a decimal string, not float "
+                "(float loses precision; serialise numbers as strings)"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _check_provenance(self) -> ReportFigure:
+        if self.provenance == "derived":
+            if not (self.formula and self.formula.strip()):
+                raise ValueError("provenance='derived' requires a non-empty formula")
+            if not self.evidence_citation_ids:
+                raise ValueError(
+                    "provenance='derived' requires >=1 evidence_citation_ids "
+                    "(the cited inputs the formula computes over)"
+                )
+        elif self.formula is not None:
+            raise ValueError(
+                f"formula is only valid for provenance='derived', not '{self.provenance}'"
+            )
+        if self.provenance == "cited" and not self.evidence_citation_ids:
+            raise ValueError("provenance='cited' requires >=1 evidence_citation_ids")
+        return self
+
+
+class ReportSection(BaseModel):
+    """One section of a broker-report thesis. ``body`` is PROSE ONLY --
+    capital-relevant numbers live in ``figures`` (each a ReportFigure), never
+    inline, so every number's provenance is explicit and checkable."""
+
+    kind: ReportSectionKind
+    body: str = Field(min_length=1)
+    figures: list[ReportFigure] = Field(default_factory=list)
+    evidence_citation_ids: list[int] = Field(default_factory=list)
+
+    @field_validator("body")
+    @classmethod
+    def _body_prose_only(cls, v: str) -> str:
+        m = _CAPITAL_NUMBER_RE.search(v)
+        if m:
+            raise ValueError(
+                "section body is prose-only; capital-relevant number "
+                f"{m.group(0)!r} must be a ReportFigure, not inline prose"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _check_monitor_placement(self) -> ReportSection:
+        if self.kind in _BASIS_SECTION_KINDS:
+            for fig in self.figures:
+                if fig.monitor_only:
+                    raise ValueError(
+                        f"monitor_only (rule #11 Model A) figure {fig.label!r} may not "
+                        f"appear in basis section '{self.kind}'; only in evidence_ledger"
+                    )
+        return self
+
+
+class ThesisProposal(BaseModel):
+    """Individual-investment broker-report thesis -- the keystone whose absence
+    stubbed ``create_thesis_from_agent_run()`` and blocked coverage-framework
+    Tier 3 (``m14_candidate_agentic_thesis_drafter``).
+
+    Mirrors ``MacroThesisProposal``'s citation contract and adds the
+    ReportFigure/ReportSection depth + capital-relevant Decimals no prior
+    proposal type carried. Discipline-wrapper prices are ReportFigures so an
+    agent can never propose an unprovenanced price. ``evidence_citation_ids``
+    reference ``agent_evidence.evidence_id`` rows (tier != 'speculative',
+    enforced by the service layer, not here -- needs a DB round-trip, per the
+    module docstring). Deserialise with ``json.loads(raw, parse_float=Decimal)``.
+    """
+
+    symbol: str = Field(pattern=r"^[A-Z0-9]+\.(AU|US)$")
+    flavour: Literal["individual_equity", "etf_fund"] = "individual_equity"
+    thesis_text: str = Field(min_length=1)
+    conviction_level: int | None = Field(default=None, ge=1, le=5)
+    themes: list[str] = Field(default_factory=list)
+    entry_band_lower: ReportFigure | None = None
+    entry_band_upper: ReportFigure | None = None
+    stop_price: ReportFigure | None = None
+    target_price: ReportFigure | None = None
+    timeline_days: int | None = Field(default=None, gt=0)
+    invalidation_conditions: list[dict[str, Any]] = Field(default_factory=list)
+    sections: list[ReportSection] = Field(default_factory=list)
+    evidence_citation_ids: list[int] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> ThesisProposal:
+        if (
+            self.entry_band_lower is not None
+            and self.entry_band_upper is not None
+            and self.entry_band_lower.value > self.entry_band_upper.value
+        ):
+            raise ValueError("entry_band_lower must be <= entry_band_upper")
+        # A rule #11 Model A datapoint (monitor_only) may never BE a capital lever
+        # -- the entry band, stop, or target that drives enter_thesis() / the
+        # position monitor. _check_monitor_placement guards sections; these four
+        # top-level discipline-wrapper figures need the same guard, more sharply.
+        for _name in ("entry_band_lower", "entry_band_upper", "stop_price", "target_price"):
+            _fig = getattr(self, _name)
+            if _fig is not None and _fig.monitor_only:
+                raise ValueError(
+                    f"{_name} may not be a monitor_only (rule #11 Model A) figure -- "
+                    "a stop/target/entry level must be a real, non-monitor number"
+                )
+        kinds = [s.kind for s in self.sections]
+        if len(kinds) != len(set(kinds)):
+            raise ValueError("duplicate section kinds are not allowed")
+        return self
