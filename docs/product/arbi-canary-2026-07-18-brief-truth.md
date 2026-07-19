@@ -28,9 +28,23 @@ shelved" state.
 | 2 | GATE (act-time) | 2026-07-18T23:57Z→2026-07-19T00:1xZ | `arbi-red-team` **PASS** on all 5 failure modes (closest: banner-suppression edges toward hygiene, survives on Layer-1 primacy). Scope guardrail issued: keep the metric to the honest cost-base/unrealised-P&L line; do NOT escalate to a TWR engine (a shippable S–M truth-fix would become a blocked M–L build). No s766B / rule #11 crossing (display-suppression only, `required=False` path separate from the allocator's hard-fail). |
 | 3 | INVESTIGATE | 2026-07-18T23:57Z | Read `compose.py:711-750` + `returns.py` — bug confirmed: portfolio leg differences flow-affected `capital_aud` as if a level. Same logic mirrored in `wealth_state.py:122-141`. Benchmark leg (`benchmark_tr_level`) is a valid index — untouched. |
 | 4 | INVESTIGATE (data) | 2026-07-19T00:0xZ | DB probe complete — the −75.7% is a data/composition artifact, not loss or a genuine withdrawal. See "Data investigation finding" below. |
-| 5 | DESIGN | 2026-07-19T00:1xZ | Gate PASS → `backend-architect` dispatched to design the honest metric + banner-shelf-state (James's instruction: architect designs, main loop implements). |
+| 5 | DESIGN | 2026-07-19T00:1xZ | Gate PASS → `backend-architect` dispatched to design the honest metric + banner-shelf-state (James's instruction: architect designs, main loop implements). Design returned: unrealised P&L vs AUD cost base (+10.3%), calm shelf banners. |
+| 6 | DESIGN-INPUT (decision required) | 2026-07-19T00:2xZ | James supplied his live brokerage position mid-build → revealed the metric is a governor choice, not a lookup (broker +19.57% USD/local vs asxos +10.3% AUD-incl-FX). Build PAUSED. |
+| 7 | DECISION | 2026-07-19T00:3xZ | James: **"show the broker."** Metric = USD/local return `(current − entry)/entry`, native, FX-neutral — reconciles with Fidelity. DB-verified: HUBS entry 187.54 → close 224.57 = +19.75% (= broker +19.57% up to the day's price). This is SIMPLER than the architect's cost-base design and involves no tax cost base at all (sidesteps the R10/tax concern). Separate non-blocking flag raised to James: CGT cost base A$6,978 (0.6450 ESPP fill) vs broker A$6,448 is a tax-data question for later, not this PR. |
+| 8 | BUILDING | 2026-07-19T00:3xZ | Implementing: per-thesis native `unrealised_return` (loader-appended, like cgt_boundary — keeps evaluate_discipline quiet-by-default); delete `_since_inception_returns` + `_benchmark_lag`; calm `model_shelved` banners; delete the false block in the dark V2 `wealth_state.py`; regression tests. |
+| 9 | TESTING (local) | 2026-07-19T00:4xZ | py_compile + ruff clean on all 6 changed files. `pytest tests/test_thesis_discipline.py` = **19 passed** (incl. the new broker-matching +19.7% test). Standalone Jinja render check = **4/4** (calm shelf; shelved-but-prices-stale still warns; normal path intact; genuine signal-stale still loud). Async `test_brief_compose`/`test_wealth_state` are CI-gated (sandbox lacks asyncpg + pytest-asyncio — documented gap) — written, not locally runnable. |
+| 10 | REVIEW | 2026-07-19T00:4xZ | Dispatched `security-engineer` + `portfolio-invariant-guard` + `refactoring-expert` on the staged diff (review-gate requirement before commit). |
 
 _(appended as the mission proceeds — planning → building → testing → review → PR → CI → repair → ready)_
+
+**Local-vs-CI verification split (canary datapoint for the overnight controller):** a fresh
+unattended session in THIS sandbox can run py_compile, ruff, and pure-sync tests
+(test_thesis_discipline) + standalone template renders — but CANNOT run the async collector
+tests (asyncpg/pytest-asyncio absent) or `make check` in full. So an overnight loop here would
+need to (a) treat CI `full-check` as the authority for the async/DB suite and gate "ready" on the
+GitHub check, not a local green, and (b) carry a documented allowlist of what local verification
+does/doesn't cover so it doesn't false-claim "tests pass". This is a concrete input to the
+dossier's Stage-5 (CI-event repair) design.
 
 ---
 
