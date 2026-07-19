@@ -164,6 +164,21 @@ def test_stop_violated_is_red() -> None:
     traj = _by_check(evaluate_thesis(t, AS_OF), "trajectory")
     assert traj and traj[0].level is DisciplineLevel.red
     assert "STOP VIOLATED" in traj[0].message
+    # Stop price itself must be visible on the finding, not just the trajectory
+    # label -- a red discipline alert with no stop value forces a lookup elsewhere.
+    assert "stop 9" in traj[0].message
+
+
+def test_behind_pace_does_not_show_stop_note() -> None:
+    # Stop price is only relevant context for STOP_VIOLATED -- BEHIND/STALLED/
+    # ABOVE_TARGET findings should stay focused on current vs target.
+    t = _thesis(
+        opened_at=date(2026, 1, 1), timeline_days=200,
+        entry="10", current="12", target="20", stop="8",
+    )
+    traj = _by_check(evaluate_thesis(t, AS_OF), "trajectory")
+    assert traj and traj[0].level is DisciplineLevel.yellow
+    assert "stop" not in traj[0].message.lower()
 
 
 def test_behind_pace_is_yellow() -> None:

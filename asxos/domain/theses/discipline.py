@@ -209,10 +209,15 @@ def _trajectory(inp: ThesisDisciplineInput, as_of: date) -> DisciplineFinding | 
         if traj in (Trajectory.STOP_VIOLATED, Trajectory.STALLED)
         else DisciplineLevel.yellow
     )
+    stop_note = (
+        f", stop {inp.stop_price_native}"
+        if traj is Trajectory.STOP_VIOLATED and inp.stop_price_native is not None
+        else ""
+    )
     return DisciplineFinding(
         check="trajectory",
         level=level,
-        message=f"{inp.symbol}: {traj} (current {current}, target {target})",
+        message=f"{inp.symbol}: {traj} (current {current}, target {target}{stop_note})",
         symbol=inp.symbol,
     )
 

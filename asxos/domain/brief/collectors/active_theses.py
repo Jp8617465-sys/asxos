@@ -166,7 +166,7 @@ async def collect_active_theses(as_of: date) -> SectionResult:
             next_ed = row.get("next_earnings_date")
             earnings_item = earnings_risk(
                 symbol,
-                next_ed.date() if next_ed is not None else None,
+                next_ed,
                 cgt_date=None,
                 as_of=as_of,
                 section=_SECTION,

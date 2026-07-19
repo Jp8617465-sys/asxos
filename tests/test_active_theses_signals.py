@@ -6,6 +6,7 @@ a "Model A: <label> | Top drivers: …" line to each card. Helper functions
 """
 from __future__ import annotations
 
+import contextlib
 from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -39,7 +40,11 @@ def _thesis_row(symbol: str = "BHP.AU") -> dict:
 
 
 async def _run_collector(
-    theses_rows, signal_rows, as_of=date(2026, 6, 1), model_gate_rows=None
+    theses_rows,
+    signal_rows,
+    as_of=date(2026, 6, 1),
+    model_gate_rows=None,
+    patch_earnings_risk=True,
 ):
     conn = MagicMock()
     # conn.fetch: 1st call = theses query, 2nd = the contamination-isolation
@@ -54,16 +59,19 @@ async def _run_collector(
     score.label = "confirming"
     score.weighted_movement = Decimal("0.0")
 
-    with (
-        patch(f"{_MODULE}.acquire") as mock_acquire,
-        patch(f"{_MODULE}.bulk_list_thesis_underlyings", AsyncMock(return_value={})),
-        patch(f"{_MODULE}.get_5d_moves", AsyncMock(return_value={})),
-        patch(f"{_MODULE}.score_thesis_underlying", return_value=score),
-        patch(f"{_MODULE}.thesis_revisit_overdue", return_value=None),
-        patch(f"{_MODULE}.thesis_timeline_expired", return_value=None),
-        patch(f"{_MODULE}.earnings_risk", return_value=None),
-        patch(f"{_MODULE}.detect_hidden_risk", return_value=None),
-    ):
+    with contextlib.ExitStack() as stack:
+        mock_acquire = stack.enter_context(patch(f"{_MODULE}.acquire"))
+        stack.enter_context(
+            patch(f"{_MODULE}.bulk_list_thesis_underlyings", AsyncMock(return_value={}))
+        )
+        stack.enter_context(patch(f"{_MODULE}.get_5d_moves", AsyncMock(return_value={})))
+        stack.enter_context(patch(f"{_MODULE}.score_thesis_underlying", return_value=score))
+        stack.enter_context(patch(f"{_MODULE}.thesis_revisit_overdue", return_value=None))
+        stack.enter_context(patch(f"{_MODULE}.thesis_timeline_expired", return_value=None))
+        if patch_earnings_risk:
+            stack.enter_context(patch(f"{_MODULE}.earnings_risk", return_value=None))
+        stack.enter_context(patch(f"{_MODULE}.detect_hidden_risk", return_value=None))
+
         mock_acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
         mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
         from asxos.domain.brief.collectors.active_theses import collect_active_theses
@@ -113,6 +121,23 @@ async def test_no_approved_model_skips_driver_line():
     result = await _run_collector([_thesis_row()], [], model_gate_rows=[])
     assert result.status == SectionStatus.ok
     assert "Model A:" not in result.items[0].message
+
+
+@pytest.mark.asyncio
+async def test_next_earnings_date_survives_real_earnings_risk_check():
+    # Regression: next_earnings_date is a plain DATE column (migration 0021), so
+    # asyncpg returns a datetime.date -- not datetime.datetime. The collector used
+    # to call next_ed.date() on it, which raises AttributeError on any real
+    # datetime.date (dates have no .date() method) for every active thesis with a
+    # set earnings date. This test does NOT patch earnings_risk, so it exercises
+    # the real function with a non-None date and would have crashed pre-fix.
+    as_of = date(2026, 6, 1)
+    row = _thesis_row()
+    row["next_earnings_date"] = date(2026, 6, 10)  # within 30d of as_of -> yellow
+    result = await _run_collector([row], [], as_of=as_of, patch_earnings_risk=False)
+    assert result.status == SectionStatus.ok
+    messages = [item.message for item in result.items]
+    assert any("earnings in 9d" in m for m in messages)
 
 
 @pytest.mark.asyncio
