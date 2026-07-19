@@ -616,6 +616,36 @@ originally-scoped items) is COMPLETE.
   second security-engineer pass rather than taken on faith.
 - Full suite through Wave 4: 1848 passed, 2 xfail (unrelated), 0 errors. mypy asxos/ clean.
 - PR #64 body updated after every wave to stay a complete, current record of all 6 units.
+
+WAVE 5 (commit 6fec88d): R18 CLOSED, same session. backend-architect designed a minimal fix --
+`_gated_collect()` in composer.py wraps the 8 V2 collectors so their coroutine is never even
+constructed when ungated, reusing the already-wired SectionStatus.suppressed (zero collector
+files touched, zero migration, provably behaviour-neutral for the current production config
+since ASXOS_PERSONAL_USE=1 is already set there). The SECOND security-engineer review of that
+fix (a third reviewer dispatch on this one risk) found something worse than the original
+finding: compose() falls back to V1 (asxos/brief/compose.py::collect()) whenever
+ASXOS_V2_BRIEF_ENABLED is unset -- which is ALWAYS in production today -- and V1 had 3 reads
+with no gate at all (holdings_count inline query, _signal_changes(), _regulatory_hits()),
+flowing straight into rendered_html -- the actual content compose_brief.py emails. The V2 fix
+alone only protected a brief_runs DB log row; this V1 fix protects the real email. Closed same
+day: the 3 V1 reads now gate identically to their 4 already-gated siblings
+(_discipline_findings/_cgt_boundary_findings/_news_section/_portfolio_section), and
+_persist_brief_run()'s redaction was extended to rendered_html (previously only
+one_thing/health_line). A THIRD security-engineer pass re-audited collect() from scratch --
+not trusting the first "exactly 3" count -- and confirmed nothing else is ungated. 10 new/
+extended tests prove the actual code path: 8 collector functions replaced with
+assertion-raising stubs that fail loudly if _gated_collect ever lets one through (not mocks
+that assume the gate works), plus real conn.execute() call-arg inspection proving
+rendered_html is genuinely redacted, not just snapshot_json.
+- This is the THIRD time this session a background reviewer caught a real, would-have-shipped
+  gap on a security-adjacent change before commit (Wave 2's unrealised_return contradiction,
+  Wave 3's retrain_model_a false-alarm, now this one) -- and the second-order finding here
+  (V1 > V2 in actual severity) is the deepest catch of the three: a shallower review pass
+  would have shipped Wave 5 declaring R18 "fixed" while the branch that actually runs in
+  production stayed exposed.
+- Full suite through Wave 5: 1856 passed, 2 xfail (unrelated), 0 errors. mypy asxos/ clean.
+- Sprint (all 7 originally-scoped items, waves 1-4) plus this same-session R18 discovery-and-
+  close (wave 5) is COMPLETE. PR #64 body reflects all 7 units.
 ```
 
 _Recorded by the 2026-07-18 interactive `/arbi` continuation wake (same day, after the close) —
