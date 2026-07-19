@@ -15,8 +15,15 @@ Covers:
 from __future__ import annotations
 
 import asyncio
+import json
+from contextlib import asynccontextmanager
 from datetime import date
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+import asxos.domain.brief.composer as composer_mod
+from asxos.domain.brief import composer
 from asxos.domain.brief._runner import safe_collect
 from asxos.domain.brief.collectors.section_health import collect_section_health
 from asxos.domain.brief.renderer import render_html
@@ -323,3 +330,272 @@ def test_render_html_fallback_when_no_rendered_html() -> None:
     html = render_html(brief)
     assert "asxos brief" in html.lower() or "2026-06-01" in html
     assert "All systems green" in html
+
+
+# ---------------------------------------------------------------------------
+# _gated_collect / _personal_use_enabled — risk-register R18 s766B gate
+#
+# jobs/compose_brief.py calls composer.compose(), which ran 8 personal-data
+# collectors (theses/current_holdings/portfolio_daily_snapshots) with NO
+# ASXOS_PERSONAL_USE check anywhere, masked only by render.yaml. These tests
+# exercise the REAL compose()/_gated_collect()/_persist_brief_run() code, not
+# a mock of compose() itself (test_brief_fallback.py's patch("jobs.
+# compose_brief.v2_compose", ...) is the anti-pattern this deliberately
+# avoids -- that proves nothing about compose()'s own internals). The 8
+# leaf collector functions are mocked (patched at the names composer.py
+# imports them under) so this doesn't need a full DB fixture per collector;
+# the assertion that matters -- and the one that actually proves the fix --
+# is that the mocked collector is never CALLED at all when gated off, which
+# is exactly equivalent in strength to "the DB was never touched" since
+# those collector functions are the sole gateway to that DB access.
+# ---------------------------------------------------------------------------
+
+
+def test_personal_use_enabled_exact_match_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
+    assert composer._personal_use_enabled() is False
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "0")
+    assert composer._personal_use_enabled() is False
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    assert composer._personal_use_enabled() is True
+
+
+def test_gated_collect_never_constructs_coroutine_when_gated_off() -> None:
+    """The core safety property: coro_factory() itself must never be called."""
+    called = {"n": 0}
+
+    def factory():
+        called["n"] += 1
+        raise AssertionError("coro_factory must not be invoked when gated off")
+
+    result = asyncio.run(
+        composer._gated_collect(factory, "wealth_state", 60.0, personal_use_ok=False)
+    )
+    assert called["n"] == 0
+    assert result.status == SectionStatus.suppressed
+    assert result.name == "wealth_state"
+    assert result.items == ()
+
+
+def test_gated_collect_passes_through_when_gated_on() -> None:
+    async def _inner() -> SectionResult:
+        return _sr("wealth_state", SectionStatus.ok)
+
+    result = asyncio.run(
+        composer._gated_collect(_inner, "wealth_state", 60.0, personal_use_ok=True)
+    )
+    assert result.status == SectionStatus.ok
+
+
+def _compose_mocks():
+    """Patch composer.py's own bound names for all 10 collectors + acquire.
+
+    Each personal-data collector mock raises if awaited, so a test only
+    passes if the gate genuinely prevented the call -- not merely returned
+    an unused value.
+    """
+    def _raising_mock(name):
+        m = AsyncMock(side_effect=AssertionError(f"{name} must not run when gated off"))
+        return m
+
+    conn = MagicMock()
+
+    @asynccontextmanager
+    async def _acquire_ctx():
+        yield conn
+
+    patches = {
+        "acquire": patch.object(composer_mod, "acquire", new=_acquire_ctx),
+        # compose() falls back to V1's asxos.brief.compose.collect()/render_html()
+        # when ASXOS_V2_BRIEF_ENABLED is unset (matching production, V2 is
+        # KEEP-DARK) -- irrelevant to what these tests exercise (V2 collector
+        # gating), so stubbed out rather than hitting a real, uninitialised
+        # DB pool via V1's own (separately s766B-gated, but not personal-data-
+        # free) collect().
+        "v1_collect": patch("asxos.brief.compose.collect", new=AsyncMock(return_value=None)),
+        "v1_render_html": patch("asxos.brief.compose.render_html", return_value="<html></html>"),
+        "collect_wealth_state": patch.object(
+            composer_mod, "collect_wealth_state", new=_raising_mock("wealth_state")
+        ),
+        "collect_tax_operational": patch.object(
+            composer_mod, "collect_tax_operational", new=_raising_mock("tax_operational")
+        ),
+        "collect_active_theses": patch.object(
+            composer_mod, "collect_active_theses", new=_raising_mock("active_theses")
+        ),
+        "collect_watchlist": patch.object(
+            composer_mod, "collect_watchlist", new=_raising_mock("watchlist")
+        ),
+        "collect_underlying_drivers": patch.object(
+            composer_mod, "collect_underlying_drivers", new=_raising_mock("underlying_drivers")
+        ),
+        "collect_new_ideas": patch.object(
+            composer_mod, "collect_new_ideas", new=_raising_mock("new_ideas")
+        ),
+        "collect_theme_dashboard": patch.object(
+            composer_mod, "collect_theme_dashboard", new=_raising_mock("theme_dashboard")
+        ),
+        "collect_opportunity_cost": patch.object(
+            composer_mod, "collect_opportunity_cost", new=_raising_mock("opportunity_cost")
+        ),
+        "collect_market_context": patch.object(
+            composer_mod,
+            "collect_market_context",
+            new=AsyncMock(
+                return_value=SectionResult(
+                    name="market_context", status=SectionStatus.ok, items=(),
+                    elapsed_ms=0, metadata={"regime_label": "neutral_mixed"},
+                )
+            ),
+        ),
+        "_persist_brief_run": patch.object(
+            composer_mod, "_persist_brief_run", new=AsyncMock(return_value=None)
+        ),
+    }
+    return patches
+
+
+_PERSONAL_COLLECTOR_SECTIONS = (
+    "wealth_state", "tax_operational", "active_theses", "watchlist",
+    "underlying_drivers", "new_ideas", "theme_dashboard", "opportunity_cost",
+)
+
+
+@pytest.mark.asyncio
+async def test_compose_suppresses_all_personal_collectors_when_gate_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
+    patches = _compose_mocks()
+    with patches["acquire"], patches["v1_collect"], patches["v1_render_html"], \
+         patches["collect_wealth_state"], patches["collect_tax_operational"], \
+         patches["collect_active_theses"], patches["collect_watchlist"], \
+         patches["collect_underlying_drivers"], patches["collect_new_ideas"], \
+         patches["collect_theme_dashboard"], patches["collect_opportunity_cost"], \
+         patches["collect_market_context"], patches["_persist_brief_run"]:
+        brief = await composer.compose(date(2026, 7, 19))
+
+    by_name = {s.name: s for s in brief.sections}
+    for name in _PERSONAL_COLLECTOR_SECTIONS:
+        assert by_name[name].status == SectionStatus.suppressed, name
+    # market_context carries no personal data and must NOT be suppressed.
+    assert by_name["market_context"].status == SectionStatus.ok
+    # section_health (footer) is pure/synchronous and always runs.
+    assert "section_health" in by_name
+
+
+@pytest.mark.asyncio
+async def test_compose_runs_all_personal_collectors_when_gate_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    ok_result = {
+        name: AsyncMock(
+            return_value=SectionResult(name=name, status=SectionStatus.ok, items=(), elapsed_ms=0)
+        )
+        for name in _PERSONAL_COLLECTOR_SECTIONS
+    }
+    conn = MagicMock()
+
+    @asynccontextmanager
+    async def _acquire_ctx():
+        yield conn
+
+    with patch.object(composer_mod, "acquire", new=_acquire_ctx), \
+         patch("asxos.brief.compose.collect", new=AsyncMock(return_value=None)), \
+         patch("asxos.brief.compose.render_html", return_value="<html></html>"), \
+         patch.object(composer_mod, "collect_wealth_state", new=ok_result["wealth_state"]), \
+         patch.object(composer_mod, "collect_tax_operational", new=ok_result["tax_operational"]), \
+         patch.object(composer_mod, "collect_active_theses", new=ok_result["active_theses"]), \
+         patch.object(composer_mod, "collect_watchlist", new=ok_result["watchlist"]), \
+         patch.object(
+             composer_mod, "collect_underlying_drivers", new=ok_result["underlying_drivers"]
+         ), \
+         patch.object(composer_mod, "collect_new_ideas", new=ok_result["new_ideas"]), \
+         patch.object(composer_mod, "collect_theme_dashboard", new=ok_result["theme_dashboard"]), \
+         patch.object(
+             composer_mod, "collect_opportunity_cost", new=ok_result["opportunity_cost"]
+         ), \
+         patch.object(
+             composer_mod,
+             "collect_market_context",
+             new=AsyncMock(
+                 return_value=SectionResult(
+                     name="market_context", status=SectionStatus.ok, items=(),
+                     elapsed_ms=0, metadata={"regime_label": "neutral_mixed"},
+                 )
+             ),
+         ), \
+         patch.object(composer_mod, "_persist_brief_run", new=AsyncMock(return_value=None)):
+        brief = await composer.compose(date(2026, 7, 19))
+
+    by_name = {s.name: s for s in brief.sections}
+    for name in _PERSONAL_COLLECTOR_SECTIONS:
+        assert by_name[name].status == SectionStatus.ok, name
+        ok_result[name].assert_awaited()
+
+
+# ---------------------------------------------------------------------------
+# _persist_brief_run — defense-in-depth redaction
+# ---------------------------------------------------------------------------
+
+
+_SENSITIVE_HTML = "<html><body>BHP.AU: 50 shares, cost base $4,200</body></html>"
+
+
+def _brief_with_sensitive_one_thing() -> Brief:
+    snap = _snapshot(
+        one_thing="BHP.AU: STOP BREACH at $41.20, lot 7",
+        health_line="1 red item: BHP.AU stop violated",
+    )
+    return Brief(as_of=date(2026, 7, 19), sections=(), snapshot=snap, rendered_html=_SENSITIVE_HTML)
+
+
+@pytest.mark.asyncio
+async def test_persist_brief_run_redacts_when_gate_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
+    conn = MagicMock()
+    conn.execute = AsyncMock(return_value=None)
+
+    @asynccontextmanager
+    async def _acquire_ctx():
+        yield conn
+
+    with patch.object(composer_mod, "acquire", new=_acquire_ctx):
+        await composer._persist_brief_run(_brief_with_sensitive_one_thing())
+
+    call_args = conn.execute.call_args[0]
+    snapshot_json = json.loads(call_args[3])
+    assert "BHP.AU" not in snapshot_json["one_thing"]
+    assert "BHP.AU" not in snapshot_json["health_line"]
+    assert snapshot_json["one_thing"] == composer._REDACTED
+    assert snapshot_json["health_line"] == composer._REDACTED
+    # rendered_html (security-engineer finding, 2026-07-19): the currently-
+    # active V1-fallback branch's HTML must also be redacted, not just the
+    # snapshot_json fields -- it's the 2nd positional arg (index 2) after sql.
+    rendered_html_arg = call_args[2]
+    assert "BHP.AU" not in rendered_html_arg
+    assert rendered_html_arg == composer._REDACTED
+
+
+@pytest.mark.asyncio
+async def test_persist_brief_run_passes_through_when_gate_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    conn = MagicMock()
+    conn.execute = AsyncMock(return_value=None)
+
+    @asynccontextmanager
+    async def _acquire_ctx():
+        yield conn
+
+    with patch.object(composer_mod, "acquire", new=_acquire_ctx):
+        await composer._persist_brief_run(_brief_with_sensitive_one_thing())
+
+    call_args = conn.execute.call_args[0]
+    snapshot_json = json.loads(call_args[3])
+    assert snapshot_json["one_thing"] == "BHP.AU: STOP BREACH at $41.20, lot 7"
+    assert call_args[2] == _SENSITIVE_HTML

@@ -77,22 +77,31 @@ _GATED_INLINE = {
 # explicitly), not an oversight -- do not "fix" V1 into a hard fail without
 # re-reading R9 first.
 #
-# KNOWN GAP, NOT covered by this bucket (security-engineer audit, 2026-07-19,
-# risk-register R18): jobs/compose_brief.py actually calls the V2 path
-# (asxos/domain/brief/composer.py::compose()), which is a DIFFERENT tree --
-# its 8 collectors (wealth_state, tax_operational, active_theses, watchlist,
-# underlying_drivers, new_ideas, theme_dashboard, opportunity_cost) read
-# theses/current_holdings/portfolio_daily_snapshots with NO ASXOS_PERSONAL_USE
-# check anywhere (not hard-fail, not graceful-degrade -- unconditional), and
-# _persist_brief_run() unconditionally INSERTs a personal-data-derived
-# one_thing/health_line into brief_runs regardless of the flag. Currently
-# masked only by render.yaml setting the flag on the compose-brief cron --
-# exactly the "render.yaml-only enforcement, no in-code backstop" pattern
-# this whole file exists to close. Not fixed here: needs its own
-# backend-architect-scoped design pass (gate placement across 8 files +
-# what _persist_brief_run should do when ungated), not a one-line patch, and
-# the V2 tree is KEEP-DARK (ASXOS_V2_BRIEF_ENABLED unset in production) so
-# nothing is rendered/emailed today -- see R18 before scoping the fix.
+# RESOLVED (was a known gap, security-engineer audit 2026-07-19, risk-register
+# R18; fixed same day, backend-architect-designed): jobs/compose_brief.py
+# actually calls the V2 path (asxos/domain/brief/composer.py::compose()),
+# which is a DIFFERENT tree from V1 above -- its 8 collectors (wealth_state,
+# tax_operational, active_theses, watchlist, underlying_drivers, new_ideas,
+# theme_dashboard, opportunity_cost) read theses/current_holdings/
+# portfolio_daily_snapshots. They previously ran unconditionally with no
+# ASXOS_PERSONAL_USE check anywhere, and _persist_brief_run() unconditionally
+# INSERTed a personal-data-derived one_thing/health_line into brief_runs
+# regardless of the flag -- masked only by render.yaml, and unconditional
+# regardless of ASXOS_V2_BRIEF_ENABLED too (the snapshot is built before the
+# V1-vs-V2 render branch is chosen).
+#
+# Fix lives entirely in composer.py, mirroring V1's graceful-degrade
+# philosophy (not compute_opportunity_cost.py's hard-fail-the-whole-job
+# pattern, which would also kill the non-personal market_context/
+# section_health sections): `_gated_collect()` wraps the 8 personal
+# collectors so their collect_*() coroutine is never even constructed when
+# ASXOS_PERSONAL_USE is unset -- reusing the already-wired
+# SectionStatus.suppressed (new_ideas.py already used it for risk-off
+# suppression) rather than inventing new status handling. `_persist_brief_run`
+# separately redacts one_thing/health_line as defense-in-depth, independent
+# of the collector gate. See tests/test_brief_composer.py's
+# test_compose_suppresses_all_personal_collectors_when_gate_off and siblings
+# for the real (not mocked-away) end-to-end proof.
 _GATED_INTERNAL_GRACEFUL = {
     "compose_brief.py",
 }

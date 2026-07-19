@@ -255,9 +255,14 @@ async def collect(as_of: date) -> BriefData:
                 conn, signals_as_of, production_model
             )
 
-        holdings_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM current_holdings"
-        ) or 0
+        # Personal data (risk-register R18 follow-up, 2026-07-19) -- was the
+        # one inline query in this function with no gate at all, unlike every
+        # other current_holdings-touching read here.
+        holdings_count = 0
+        if os.environ.get("ASXOS_PERSONAL_USE") == "1":
+            holdings_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM current_holdings"
+            ) or 0
 
         latest_price_date: date | None = await conn.fetchval(
             """
@@ -322,6 +327,21 @@ async def collect(as_of: date) -> BriefData:
 async def _signal_changes(
     conn: asyncpg.Connection, as_of: date, production_model: str
 ) -> list[SignalChange]:
+    """Signal-label changes on held symbols since yesterday — personal data
+    (joins against ``current_holdings``).
+
+    Gated on ``ASXOS_PERSONAL_USE=1`` — parity with ``_discipline_findings``/
+    ``_cgt_boundary_findings``/``_news_section``/``_portfolio_section``
+    (risk-register R18 follow-up, 2026-07-19). Previously relied only on the
+    caller's `if production_model is not None:` guard, which is a Model A
+    governance gate (rule #11), not a personal-use gate — coincidentally
+    dormant today only because the Model A shelf leaves 0 approved models; a
+    future un-shelved model would have made this ungated read live again with
+    no code-level backstop, the exact anti-pattern this whole line of R18
+    work exists to close.
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return []
     rows = await conn.fetch(
         """
         WITH today AS (
@@ -430,6 +450,17 @@ async def _cgt_boundary_findings(
 async def _regulatory_hits(
     conn: asyncpg.Connection, as_of: date, lookback_hours: int = 24
 ) -> list[RegulatoryHit]:
+    """Regulatory events matching held symbols — personal data (reveals which
+    specific symbols the user holds via the ``current_holdings`` join, even
+    though ``regulatory_events`` itself is public/model-independent data).
+
+    Gated on ``ASXOS_PERSONAL_USE=1`` — parity with ``_signal_changes``/
+    ``_discipline_findings``/``_cgt_boundary_findings``/``_news_section``/
+    ``_portfolio_section`` (risk-register R18 follow-up, 2026-07-19). Was
+    previously the one collector in this file with no gate of any kind.
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return []
     rows = await conn.fetch(
         """
         SELECT r.source, r.title, r.published_at, r.relevance_tags

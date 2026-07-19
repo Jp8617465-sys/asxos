@@ -16,6 +16,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from asxos.brief.compose import (
     BriefData,
     DisciplineFinding,
@@ -503,7 +505,11 @@ def test_collect_assembles_brief_data() -> None:
     async def fake_acquire():
         yield conn
 
-    with patch("asxos.brief.compose.acquire", fake_acquire):
+    # holdings_count/signal_changes/regulatory_hits are personal data
+    # (risk-register R18 follow-up, 2026-07-19) -- require the flag now,
+    # like every other current_holdings-touching read in this file.
+    with patch("asxos.brief.compose.acquire", fake_acquire), \
+         patch.dict(os.environ, _PERSONAL_USE_ON):
         data = asyncio.run(collect(today))
 
     assert data.regime == "bear"
@@ -512,6 +518,58 @@ def test_collect_assembles_brief_data() -> None:
     assert data.signal_changes[0].top_factor.startswith("mom_12_1")
     assert len(data.regulatory_hits) == 1
     assert data.regulatory_hits[0].symbol == "BHP.AU"
+    assert data.has_failures
+    assert data.job_failures[0].job_name == "sync_fundamentals"
+
+
+def test_collect_gates_personal_data_despite_real_rows_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression (security-engineer finding, 2026-07-19, risk-register R18
+    follow-up): holdings_count/signal_changes/regulatory_hits must come back
+    empty/zero when ASXOS_PERSONAL_USE is unset -- even though the exact same
+    mock connection as test_collect_assembles_brief_data is wired to return
+    real, non-empty rows for all three if queried. This proves suppression is
+    a genuine gate, not a coincidence of empty test fixtures: job_failures
+    (not personal) must still come through unaffected."""
+    today = date(2026, 5, 22)
+    signal_rows = [
+        {
+            "symbol": "BHP.AU", "old_label": "BUY", "new_label": "STRONG_SELL",
+            "shap_factors": {"mom_12_1": -0.420, "market_cap": -0.310, "bias": 0.05},
+        }
+    ]
+    reg_rows = [
+        {
+            "source": "ATO", "title": "Tax determination", "published_at": today,
+            "relevance_tags": {"symbols": ["BHP.AU"], "kind": "tax"},
+        }
+    ]
+    fail_rows = [
+        {"job_name": "sync_fundamentals", "as_of": today, "error_message": "timeout"},
+    ]
+    conn = _make_conn(
+        regime_row={"regime": "bear"},
+        holdings_count=2,
+        signal_rows=signal_rows,
+        tax_rows=[],
+        reg_rows=reg_rows,
+        hold_syms=[{"symbol": "BHP.AU"}, {"symbol": "CBA.AU"}],
+        fail_rows=fail_rows,
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
+    with patch("asxos.brief.compose.acquire", fake_acquire):
+        data = asyncio.run(collect(today))
+
+    assert data.holdings_count == 0
+    assert data.signal_changes == []
+    assert data.regulatory_hits == []
+    # job_failures reads job_runs only -- not personal data, unaffected.
     assert data.has_failures
     assert data.job_failures[0].job_name == "sync_fundamentals"
 
@@ -564,7 +622,9 @@ def test_collect_no_approved_model_renders_without_model_sections() -> None:
     async def fake_acquire():
         yield conn
 
-    with patch("asxos.brief.compose.acquire", fake_acquire):
+    # holdings_count is personal data (risk-register R18 follow-up, 2026-07-19).
+    with patch("asxos.brief.compose.acquire", fake_acquire), \
+         patch.dict(os.environ, _PERSONAL_USE_ON):
         data = asyncio.run(collect(today))
 
     assert data.regime is None          # model-derived → skipped under quarantine
@@ -595,7 +655,9 @@ def test_collect_multiple_approved_models_renders_without_model_sections() -> No
     async def fake_acquire():
         yield conn
 
-    with patch("asxos.brief.compose.acquire", fake_acquire):
+    # holdings_count is personal data (risk-register R18 follow-up, 2026-07-19).
+    with patch("asxos.brief.compose.acquire", fake_acquire), \
+         patch.dict(os.environ, _PERSONAL_USE_ON):
         data = asyncio.run(collect(today))
 
     assert data.regime is None
@@ -1153,6 +1215,8 @@ def test_collect_discipline_section_failure_isolated() -> None:
             "asxos.brief.compose._discipline_findings",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
+        # holdings_count is personal data (risk-register R18 follow-up, 2026-07-19).
+        patch.dict(os.environ, _PERSONAL_USE_ON),
     ):
         data = asyncio.run(collect(today))
 
