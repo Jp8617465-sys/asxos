@@ -43,6 +43,44 @@ _EXPECTED_DAILY = [
     "check_model_staleness",
 ]
 
+# Jobs that only run on the Saturday weekly lane and must have a 'success' row
+# by the time this check itself runs on Saturday (22:00 UTC daily --
+# job-conventions.md). Before this list existed, a missed/failed Saturday run
+# had NO "missing" detection at all -- only check #3 (2+ CONSECUTIVE failures)
+# could catch it, meaning a single bad Saturday stayed silent for a full week
+# (until the following Saturday's run also failed) before surfacing. Diagnosed
+# 2026-07-18 alongside the derive_fundamentals_pit race (see
+# _missing_upstreams there).
+#
+# render.yaml has 9 distinct Saturday-only (`* * 6`) crons, 16:00-20:05 UTC:
+# sync_universe (16:00), sync_security_master (16:10), retrain_model_a (16:00,
+# EXCLUDED -- see below), sync_corporate_actions (16:30),
+# sync_financial_statements (16:50), derive_fundamentals_pit (17:10),
+# compute_factor_scores (17:30), build_portfolio (20:00),
+# compute_opportunity_cost (20:05). All 8 non-excluded jobs finish well before
+# this check's own 22:00 UTC run.
+#
+# retrain_model_a is deliberately NOT in this list even though render.yaml
+# still declares its schedule: the ML engine is SHELVED (rule #11,
+# docs/product/ml-engine-shelf-2026-07-11.md) and the job is SUSPENDED on
+# Render -- it will never produce a fresh 'success' row. Including it would
+# make check #2b fire "MISSING: retrain_model_a" every single Saturday,
+# forever -- the exact alert-fatigue pattern check_model_staleness.py's own
+# docstring already documents hitting and removing for this identical model-
+# shelf reason ("red-by-design, not a health signal... polluted
+# check_cron_health's deadman"). Restore it only alongside a NEW model version
+# under the shelf-doc revival conditions.
+_EXPECTED_WEEKLY_SATURDAY = [
+    "sync_universe",
+    "sync_security_master",
+    "sync_corporate_actions",
+    "sync_financial_statements",
+    "derive_fundamentals_pit",
+    "compute_factor_scores",
+    "build_portfolio",
+    "compute_opportunity_cost",
+]
+
 
 async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
     issues: list[str] = []
@@ -82,6 +120,28 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
             if row["last_success"] is None:
                 issues.append(
                     f"MISSING: {job_name} has no 'success' row in the last 36 hours"
+                )
+
+    # 2b — expected-weekly (Saturday lane) jobs missing a success. All of
+    # render.yaml's `* * 6` jobs run 16:00-20:05 UTC same day, well before
+    # this check's own 22:00 UTC Saturday run, so a 30h window comfortably
+    # covers same-day timing without reaching back into Friday's daily lane.
+    if today_utc.weekday() == 5:  # Saturday UTC
+        for job_name in _EXPECTED_WEEKLY_SATURDAY:
+            row = await conn.fetchrow(
+                """
+                SELECT MAX(started_at) AS last_success
+                FROM job_runs
+                WHERE job_name = $1
+                  AND status   = 'success'
+                  AND started_at > NOW() - INTERVAL '30 hours'
+                """,
+                job_name,
+            )
+            if row["last_success"] is None:
+                issues.append(
+                    f"MISSING: {job_name} has no 'success' row in the last 30 hours "
+                    "(weekly Saturday lane)"
                 )
 
     # 3 — consecutive failures (last 2+ runs all failed, no success between them)
