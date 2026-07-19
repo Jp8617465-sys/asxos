@@ -23,16 +23,38 @@ test_model_a_predict.py, test_model_cache.py) — it passes on Render where
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import typer
 from typer.testing import CliRunner
 
 from asxos.cli import main as cli_main
 from asxos.cli import thesis as thesis_mod
+from asxos.domain.theses.schemas import ReportSection
+from asxos.domain.theses.types import Thesis
 
 runner = CliRunner()
+
+
+def _thesis(report_sections: tuple[ReportSection, ...] = ()) -> Thesis:
+    """Minimal, fully-real Thesis for render tests — every other field is a
+    plain placeholder; only report_sections varies per test."""
+    now = datetime(2026, 7, 13, tzinfo=UTC)
+    return Thesis(
+        thesis_id=1, symbol="CBA.AU", status="watching",
+        thesis_text="Rate cycle play — NIM expansion when RBA cuts",
+        entry_band_lower=None, entry_band_upper=None,
+        stop_price=None, target_price=None, timeline_days=None,
+        invalidation_conditions=(), themes=(),
+        actual_entry_price=None, actual_entry_at=None,
+        actual_exit_price=None, actual_exit_at=None,
+        last_revisited_at=now, revisit_due_at=now, opened_at=now, closed_at=None,
+        report_sections=report_sections,
+    )
 
 
 def _make_conn() -> MagicMock:
@@ -321,3 +343,167 @@ def test_open_without_from_agent_run_uses_normal_path(
     assert result.exit_code == 0, result.output
     normal_open_patch.assert_awaited_once()
     agent_run_patch.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# add-section — Phase C broker-report thesis (migration 0040)
+# ---------------------------------------------------------------------------
+
+def test_add_section_without_personal_use_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
+    with (
+        patch.object(thesis_mod, "init_pool", new=AsyncMock()) as init_patch,
+        patch.object(thesis_mod, "acquire") as acquire_patch,
+    ):
+        result = runner.invoke(
+            cli_main.app,
+            ["thesis", "add-section", "CBA.AU", "--kind", "moat", "--body", "Text."],
+        )
+
+    assert result.exit_code != 0
+    assert "ASXOS_PERSONAL_USE=1" in result.output
+    init_patch.assert_not_awaited()
+    acquire_patch.assert_not_called()
+
+
+def test_add_section_invalid_kind_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    with patch.object(thesis_mod, "init_pool", new=AsyncMock()) as init_patch:
+        result = runner.invoke(
+            cli_main.app,
+            ["thesis", "add-section", "CBA.AU", "--kind", "not_a_real_kind", "--body", "Text."],
+        )
+
+    assert result.exit_code != 0
+    init_patch.assert_not_awaited()  # BadParameter fires before touching the DB
+
+
+def test_add_section_requires_exactly_one_of_body_or_body_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    with patch.object(thesis_mod, "init_pool", new=AsyncMock()) as init_patch:
+        result = runner.invoke(
+            cli_main.app, ["thesis", "add-section", "CBA.AU", "--kind", "moat"],
+        )
+
+    assert result.exit_code != 0
+    assert "exactly one" in result.output
+    init_patch.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# _parse_figure — pure function
+# ---------------------------------------------------------------------------
+
+def test_parse_figure_valid() -> None:
+    fig = thesis_mod._parse_figure("Fair value=130.50")
+    assert fig.label == "Fair value"
+    assert fig.value == Decimal("130.50")
+    assert fig.provenance == "james_input"
+
+
+def test_parse_figure_missing_equals() -> None:
+    with pytest.raises(typer.BadParameter):
+        thesis_mod._parse_figure("no equals sign here")
+
+
+def test_parse_figure_bad_decimal() -> None:
+    with pytest.raises(typer.BadParameter):
+        thesis_mod._parse_figure("Label=not_a_number")
+
+
+def test_parse_figure_empty_label() -> None:
+    with pytest.raises(typer.BadParameter):
+        thesis_mod._parse_figure("=130.50")
+
+
+# ---------------------------------------------------------------------------
+# show --full-report — section rendering
+# ---------------------------------------------------------------------------
+
+def test_show_full_report_renders_sections_in_fixed_kind_order(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    # Deliberately out of REPORT_SECTION_KINDS order: valuation before moat.
+    sections = (
+        ReportSection(kind="valuation", body="Valuation text."),
+        ReportSection(kind="moat", body="Moat text."),
+    )
+    with patch.object(
+        thesis_mod.svc, "get_thesis_by_symbol",
+        new=AsyncMock(return_value=_thesis(report_sections=sections)),
+    ):
+        result = runner.invoke(cli_main.app, ["thesis", "show", "CBA.AU", "--full-report"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output.index("Moat") < result.output.index("Valuation")
+
+
+def test_show_full_report_skips_absent_kinds(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    sections = (ReportSection(kind="moat", body="Moat text."),)
+    with patch.object(
+        thesis_mod.svc, "get_thesis_by_symbol",
+        new=AsyncMock(return_value=_thesis(report_sections=sections)),
+    ):
+        result = runner.invoke(cli_main.app, ["thesis", "show", "CBA.AU", "--full-report"])
+
+    assert result.exit_code == 0, result.output
+    assert "Moat" in result.output
+    for title in ("Business", "Valuation", "Risks / Bear Case"):
+        assert title not in result.output
+
+
+def test_show_without_full_report_flag_unchanged_for_empty_sections(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    """Backward compatibility: a thesis with no sections renders byte-
+    identical to pre-Phase-C output — no hint, no section block."""
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    with patch.object(
+        thesis_mod.svc, "get_thesis_by_symbol",
+        new=AsyncMock(return_value=_thesis(report_sections=())),
+    ):
+        result = runner.invoke(cli_main.app, ["thesis", "show", "CBA.AU"])
+
+    assert result.exit_code == 0, result.output
+    assert "Full report" not in result.output
+
+
+def test_show_hint_appears_when_sections_present_but_flag_omitted(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    sections = (ReportSection(kind="moat", body="Moat text."),)
+    with patch.object(
+        thesis_mod.svc, "get_thesis_by_symbol",
+        new=AsyncMock(return_value=_thesis(report_sections=sections)),
+    ):
+        result = runner.invoke(cli_main.app, ["thesis", "show", "CBA.AU"])
+
+    assert result.exit_code == 0, result.output
+    assert "Full report:" in result.output  # the hint
+    assert "Moat text." not in result.output  # section body itself not rendered without the flag
+
+
+def test_show_full_report_with_no_sections_shows_hint(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    """--full-report on a thesis with zero sections shows the
+    add-section-to-get-started hint, not an empty/blank render."""
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    with patch.object(
+        thesis_mod.svc, "get_thesis_by_symbol",
+        new=AsyncMock(return_value=_thesis(report_sections=())),
+    ):
+        result = runner.invoke(cli_main.app, ["thesis", "show", "CBA.AU", "--full-report"])
+
+    assert result.exit_code == 0, result.output
+    assert "No report sections yet" in result.output
+    assert "add-section" in result.output

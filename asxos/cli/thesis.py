@@ -16,6 +16,8 @@ Commands:
   asx thesis hold SYMBOL   — alias for review
   asx thesis exit SYMBOL   — close the position
   asx thesis history SYMBOL — full revision log
+  asx thesis add-section SYMBOL — add/replace a broker-report section (Phase C)
+  asx thesis show SYMBOL --full-report — render the broker-report sections
 """
 from __future__ import annotations
 
@@ -23,14 +25,18 @@ import asyncio
 import re
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 import typer
+from pydantic import ValidationError as PydanticValidationError
+from rich.markup import escape
 from rich.table import Table
 
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.theses import service as svc
+from asxos.domain.theses.schemas import REPORT_SECTION_KINDS, ReportFigure, ReportSectionKind
 from asxos.domain.theses.types import REVISABLE_FIELDS, Thesis
 from asxos.domain.underlyings import service as underlying_svc
 
@@ -83,6 +89,30 @@ def _parse_decimal(value: str, label: str) -> Decimal:
         return Decimal(value)
     except InvalidOperation as exc:
         raise typer.BadParameter(f"Invalid {label}: {value!r}") from exc
+
+
+def _parse_figure(raw: str) -> ReportFigure:
+    """Parse a repeatable '--figure Label=Value' into a james_input ReportFigure.
+
+    Phase C's first cut is human-authored only, so every figure this parser
+    produces is provenance='james_input' — no evidence_citation_ids needed
+    (James is the source). Value is a raw decimal (e.g. '0.99' for 99%, not
+    '99%') — ReportFigure carries no unit, the Label should say what it means.
+    """
+    if "=" not in raw:
+        raise typer.BadParameter(f"Invalid --figure {raw!r}. Use 'Label=Value'.")
+    label, _, value_str = raw.partition("=")
+    label = label.strip()
+    if not label:
+        raise typer.BadParameter(f"Invalid --figure {raw!r}: label is empty")
+    try:
+        value = Decimal(value_str.strip())
+    except InvalidOperation as exc:
+        raise typer.BadParameter(f"Invalid --figure {raw!r}: {value_str!r} is not a decimal") from exc
+    try:
+        return ReportFigure(label=label, value=value, provenance="james_input")
+    except PydanticValidationError as exc:
+        raise typer.BadParameter(f"Invalid --figure {raw!r}: {exc}") from exc
 
 
 def _thesis_summary_row(t: Thesis) -> tuple[str, ...]:
@@ -230,13 +260,16 @@ async def _open_thesis_from_agent_run(symbol: str, run_id: int) -> None:
 @thesis_app.command("show")
 def thesis_show(
     symbol: str = typer.Argument(..., help="Symbol, e.g. CBA.AU"),
+    full_report: bool = typer.Option(
+        False, "--full-report", help="Also render broker-report sections (Phase C)"
+    ),
 ) -> None:
     """Show the most recent thesis for a symbol (all fields)."""
     _require_personal_use()
-    asyncio.run(_show_thesis(symbol))
+    asyncio.run(_show_thesis(symbol, full_report))
 
 
-async def _show_thesis(symbol: str) -> None:
+async def _show_thesis(symbol: str, full_report: bool = False) -> None:
     await init_pool()
     try:
         async with acquire() as conn:
@@ -245,6 +278,8 @@ async def _show_thesis(symbol: str) -> None:
             console.print(f"[yellow]No thesis found for {symbol}[/yellow]")
             raise typer.Exit(1)
         _print_thesis_detail(t)
+        if full_report:
+            _print_report_sections(t)
     finally:
         await close_pool()
 
@@ -440,6 +475,76 @@ async def _revise_thesis(symbol: str, changes: dict[str, Any], reason: str) -> N
 
         console.print(f"[green]✓[/green] Revised thesis #{t.thesis_id} for {symbol}")
         _print_thesis_detail(t)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+# ---------------------------------------------------------------------------
+# add-section — Phase C broker-report thesis (migration 0040)
+# ---------------------------------------------------------------------------
+
+@thesis_app.command("add-section")
+def thesis_add_section(
+    symbol: str = typer.Argument(..., help="Symbol, e.g. CBA.AU"),
+    kind: str = typer.Option(..., "--kind", help=f"One of: {', '.join(REPORT_SECTION_KINDS)}"),
+    body: str = typer.Option("", "--body", help="Section prose — no inline $/%/x numbers, use --figure"),
+    body_file: str = typer.Option("", "--body-file", help="Read body from a file instead of --body"),
+    # Typer's repeatable-option pattern; default is None (not a mutable []),
+    # and Typer's OptionInfo is a descriptor, not the classic shared-mutable-
+    # default bug bugbear's B008 exists to catch — suppressed below.
+    figure: list[str] | None = typer.Option(  # noqa: B008
+        None, "--figure",
+        help="Repeatable: 'Label=Value' (Value is a raw decimal, e.g. '0.99' for 99%, not '99%')",
+    ),
+    reason: str = typer.Option("", "--reason", help="Why this section/figures (optional)"),
+) -> None:
+    """Add or replace one broker-report section (by --kind) on the most recent thesis for SYMBOL.
+
+    Every figure is recorded with provenance='james_input' — Phase C's first
+    cut has no cited/derived recompute engine; this is your own conviction,
+    not a computed or agent-sourced number. Replaces any existing section of
+    the same --kind wholesale — the prior content is never silently
+    discarded, it survives in `asx thesis history`.
+    """
+    _require_personal_use()
+    if kind not in REPORT_SECTION_KINDS:
+        raise typer.BadParameter(f"--kind must be one of: {', '.join(REPORT_SECTION_KINDS)}")
+    # Strip before the exactly-one check (matches --thesis/--tax-notes elsewhere
+    # in this file) so a whitespace-only --body ("   ") is treated as absent,
+    # not silently persisted as an invisible section body.
+    body = body.strip()
+    if bool(body) == bool(body_file):
+        raise typer.BadParameter("Specify exactly one of --body or --body-file")
+    if body_file:
+        try:
+            body = Path(body_file).read_text().strip()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise typer.BadParameter(f"Could not read --body-file {body_file!r}: {exc}") from exc
+    figures = [_parse_figure(f) for f in (figure or [])]
+    asyncio.run(_add_report_section(symbol, kind, body, figures, reason.strip()))
+
+
+async def _add_report_section(
+    symbol: str, kind: str, body: str, figures: list[ReportFigure], reason: str
+) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.get_thesis_by_symbol(conn, symbol)
+            if t is None:
+                console.print(f"[red]No thesis found for {symbol}[/red]")
+                raise typer.Exit(1)
+            t = await svc.add_report_section(
+                conn, t.thesis_id, kind, body, figures, reasoning=reason
+            )
+        console.print(
+            f"[green]✓[/green] Section '{kind}' recorded on thesis #{t.thesis_id} "
+            f"({symbol}) — {len(t.report_sections)}/{len(REPORT_SECTION_KINDS)} sections. "
+            f"View with: asx thesis show {symbol} --full-report"
+        )
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
@@ -837,3 +942,63 @@ def _print_thesis_detail(t: Thesis) -> None:
             colour = {"active": "yellow", "triggered": "red", "resolved": "green"}.get(ic.status, "white")
             note = f" — {ic.note}" if ic.note else ""
             console.print(f"  [{colour}][{ic.status}][/{colour}] {ic.condition}{note}")
+
+    if t.report_sections:
+        console.print(
+            f"\n[dim]Full report: {len({s.kind for s in t.report_sections})}/"
+            f"{len(REPORT_SECTION_KINDS)} sections — use --full-report to view[/dim]"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Broker-report section rendering — Phase C (migration 0040)
+# ---------------------------------------------------------------------------
+
+_SECTION_TITLES: dict[str, str] = {
+    "identity_classification": "Identity & Classification",
+    "business": "Business",
+    "moat": "Moat",
+    "capital_allocation": "Capital Allocation",
+    "strategy_catalysts": "Strategy & Catalysts",
+    "risks_bear": "Risks / Bear Case",
+    "valuation": "Valuation",
+    "position_plan": "Position Plan",
+    "verdict_conviction": "Verdict & Conviction",
+    "evidence_ledger": "Evidence Ledger",
+}
+
+
+def _print_report_sections(t: Thesis) -> None:
+    """Render report_sections in the fixed REPORT_SECTION_KINDS order (not
+    insertion order) — freeform per-thesis, absent kinds are skipped.
+
+    section.body and fig.label are free text from --body/--body-file/
+    --figure — Pydantic validates them for the numeric-literal/monitor-only
+    rules only, nothing excludes Rich markup syntax ('[...]'). Console.print
+    interprets '[...]' as style/link markup by default, so unescaped user
+    text can silently drop content (an unrecognised '[...]' span swallows
+    everything until end-of-string), crash on a mismatched closing tag
+    (rich.errors.MarkupError — and since the bad text is already durably
+    persisted, every future --full-report view of that thesis crashes the
+    same way until overwritten), or spoof a clickable terminal hyperlink via
+    '[link=URL]'. body renders with markup=False (verbatim, no styling
+    needed); fig.label is escaped since it sits inside a real markup
+    template (security-engineer review, 2026-07-19).
+    """
+    if not t.report_sections:
+        console.print(
+            "\n[dim]No report sections yet. "
+            f"asx thesis add-section {t.symbol} --kind ... --body ...[/dim]"
+        )
+        return
+    by_kind = {s.kind: s for s in t.report_sections}
+    console.print(f"\n[bold]Full report — {t.symbol}[/bold]")
+    for kind in REPORT_SECTION_KINDS:
+        section = by_kind.get(cast(ReportSectionKind, kind))
+        if section is None:
+            continue
+        console.print(f"\n[bold underline]{_SECTION_TITLES[kind]}[/bold underline]")
+        console.print(section.body, markup=False)
+        for fig in section.figures:
+            tag = "monitor only, " if fig.monitor_only else ""
+            console.print(f"  • {escape(fig.label)}: {fig.value}  [dim]({tag}{fig.provenance})[/dim]")
