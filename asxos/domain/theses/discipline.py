@@ -99,6 +99,12 @@ class ThesisDisciplineInput:
     # arithmetic. Native-consistency across the four price legs is the loader's
     # (PR2's) contract, not something this pure module can enforce (R10).
     currency: str
+    # 'research' | 'watching' | 'active' | 'exited' | 'expired' (migration 0012).
+    # Only ``_watching_stale`` branches on it; every other check applies uniformly
+    # regardless of status (a watching thesis's revisit/timeline/stop-hygiene are
+    # just as real as an active one's — see James's 2026-07-16 CBA ruling,
+    # `docs/product/james-inbox.md`).
+    status: str
     revisit_due_at: date
     opened_at: date
     timeline_days: int | None
@@ -176,6 +182,51 @@ def _data_sanity(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
             symbol=inp.symbol,
         )
     return None
+
+
+def _watching_stale(
+    inp: ThesisDisciplineInput, as_of: date, price_detached: bool
+) -> DisciplineFinding | None:
+    """Watching-status hygiene: surface a stale, unanswered ``watching`` row.
+
+    James's 2026-07-16 ruling on the CBA #1 thesis (`docs/product/james-inbox.md`):
+    a ``watching`` thesis (no capital deployed — schema has no 'retired' status,
+    only 'expired', migration 0012) with a badly stale price ladder should not
+    sit silently until he happens to notice it. This is the model-independent,
+    evidence-only automation the ruling asked for.
+
+    Fires when EITHER the price ladder is already flagged broken
+    (``price_detached``, from ``_data_sanity``) OR the revisit cadence has lapsed
+    a full extra cycle past its due date (30d, matching the default revisit
+    window — migration 0012) — i.e. genuinely "unanswered", not merely overdue
+    (plain overdue is already the separate, immediate ``revisit_overdue`` red
+    finding; duplicating that at day 1 would be noise, not new signal).
+
+    s766B (evidence-only, security-engineer-tightened 2026-07-19): pure state
+    description only, no verb at all — not even "review" (``_timeline``'s own
+    docstring already rejects "review or close" as one step too directive; a
+    freestanding "consider a status review" is a step further still).
+    """
+    if inp.status != "watching":
+        return None
+    days_overdue = (as_of - inp.revisit_due_at).days
+    long_overdue = days_overdue > 30
+    if not price_detached and not long_overdue:
+        return None
+    reason = (
+        "price detached from the recorded ladder"
+        if price_detached
+        else f"revisit overdue by {days_overdue}d"
+    )
+    return DisciplineFinding(
+        check="watching_stale",
+        level=DisciplineLevel.yellow,
+        message=(
+            f"{inp.symbol}: watching thesis stale ({reason}) — "
+            "no capital deployed, status unresolved"
+        ),
+        symbol=inp.symbol,
+    )
 
 
 def _trajectory(inp: ThesisDisciplineInput, as_of: date) -> DisciplineFinding | None:
@@ -328,6 +379,15 @@ def evaluate_thesis(
     except Exception as exc:
         findings.append(_err("data_sanity", inp.symbol, exc))
 
+    # 3b. Watching-status hygiene (2026-07-16 CBA ruling) — depends on data_sanity's
+    #     outcome, so it runs immediately after.
+    try:
+        stale = _watching_stale(inp, as_of, broken_ladder)
+        if stale is not None:
+            findings.append(stale)
+    except Exception as exc:
+        findings.append(_err("watching_stale", inp.symbol, exc))
+
     # 4. Trajectory / pace — suppressed when the ladder is already flagged broken.
     if not broken_ladder:
         try:
@@ -400,7 +460,20 @@ def unrealised_return(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
     and it carries no trade direction (s766B). Emitted for display, so the loader
     appends it rather than folding it into the quiet-by-default per-thesis problem
     checks (mirrors how the CGT-boundary info line is appended, not evaluated).
+
+    ``status`` must be ``'active'`` (security-engineer finding, 2026-07-19): a
+    thesis's ``actual_entry_price`` is set once by ``enter_thesis()`` and never
+    cleared, but ``status`` is independently revisable backward (e.g.
+    ``asx thesis revise SYMBOL --status watching``, no from-state guard) — so a
+    stale entry price can survive a thesis moving back off ``active``. Without
+    this guard a ``watching`` thesis (no capital deployed) could show a
+    concrete "+N% unrealised since entry" line directly beside
+    ``_watching_stale``'s "no capital deployed" — a direct, user-visible
+    contradiction in the same brief, the same class of misleading figure R10's
+    HUBS −29% incident was about.
     """
+    if inp.status != "active":
+        return None
     entry = inp.entry_price_native
     current = inp.current_price_native
     if entry is None or current is None or entry <= 0:

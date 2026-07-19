@@ -886,6 +886,7 @@ def test_discipline_findings_cba_revisit_and_data_sanity() -> None:
     thesis_rows = [
         {
             "symbol": "CBA.AU",
+            "status": "active",
             "revisit_due_at": datetime(2026, 6, 27),
             "opened_at": datetime(2026, 1, 10),
             "timeline_days": None,
@@ -909,10 +910,74 @@ def test_discipline_findings_cba_revisit_and_data_sanity() -> None:
     assert "CBA.AU" in sanity.message
 
 
+def test_discipline_findings_query_scope_includes_watching() -> None:
+    """Regression: the loader's WHERE clause silently excluded 'watching' theses
+    (only 'active'), so a watching thesis with a badly stale ladder -- like the
+    real CBA #1 row, James's 2026-07-16 ruling -- was never even loaded, and no
+    check (however good) could fire on data it never saw. This asserts the
+    actual SQL text, not just the downstream evaluator, since a mocked
+    conn.fetch does not enforce a WHERE clause on its own."""
+    captured_queries: list[str] = []
+
+    async def _fetch(query, *args, **kwargs):
+        captured_queries.append(" ".join(query.split()))
+        return []
+
+    conn = MagicMock()
+    conn.fetch = AsyncMock(side_effect=_fetch)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    thesis_query = next(q for q in captured_queries if "FROM theses" in q)
+    assert "status IN ('active', 'watching')" in thesis_query
+
+
+def test_discipline_findings_watching_cba_surfaces_stale_finding() -> None:
+    """End-to-end reproduction of the actual CBA #1 bug: a 'watching' thesis
+    with James's real recorded numbers (target 60, live ~168) now surfaces
+    BOTH data_sanity (status-independent) and the new watching_stale finding
+    (status='watching' specific) -- the exact gap the 2026-07-16 ruling in
+    james-inbox.md asked to close."""
+    thesis_rows = [
+        {
+            "symbol": "CBA.AU",
+            "status": "watching",
+            "revisit_due_at": datetime(2026, 6, 27),
+            "opened_at": datetime(2026, 1, 10),
+            "timeline_days": None,
+            "actual_entry_price": Decimal("50"),
+            "target_price": Decimal("60"),
+            "stop_price": Decimal("42"),
+            "conviction_level": 3,
+        }
+    ]
+    price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    checks = {f.check for f in findings}
+    assert "data_sanity" in checks
+    assert "watching_stale" in checks
+    stale = next(f for f in findings if f.check == "watching_stale")
+    assert stale.level == DisciplineLevel.yellow
+    assert "CBA.AU" in stale.message
+    assert "no capital deployed" in stale.message
+    # security-engineer finding (2026-07-19): this fixture's actual_entry_price
+    # (set once by enter_thesis(), never cleared) must NOT also produce an
+    # unrealised_return line -- "no capital deployed" beside a concrete "+N%
+    # unrealised since entry" figure would be a direct, user-visible
+    # contradiction in the same brief.
+    assert "unrealised_return" not in checks
+
+
 def test_discipline_findings_conviction_unset_summary() -> None:
     """Acceptance criterion (proposal §6, R11): N/N conviction-unset theses
     yield one portfolio-level summary line, not per-thesis noise."""
     row = {
+        "status": "active",
         "revisit_due_at": datetime(2026, 8, 1),
         "opened_at": datetime(2026, 6, 1),
         "timeline_days": 180,
@@ -943,6 +1008,7 @@ def test_discipline_findings_foreign_thesis_uses_native_prices_not_aud() -> None
     thesis_rows = [
         {
             "symbol": "HUBS.NYSE",
+            "status": "active",
             "revisit_due_at": datetime(2026, 8, 1),
             "opened_at": datetime(2026, 1, 1),
             "timeline_days": 365,
@@ -1010,6 +1076,7 @@ def test_discipline_findings_appends_broker_matching_unrealised_return() -> None
     thesis_rows = [
         {
             "symbol": "HUBS.NYSE",
+            "status": "active",
             "revisit_due_at": datetime(2026, 8, 1),
             "opened_at": datetime(2026, 1, 1),
             "timeline_days": 365,

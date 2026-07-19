@@ -30,6 +30,7 @@ def _thesis(
     symbol: str = "TST.AU",
     *,
     currency: str = "AUD",
+    status: str = "active",
     revisit_due_at: date = date(2026, 8, 1),
     opened_at: date = date(2026, 6, 1),
     timeline_days: int | None = 180,
@@ -45,6 +46,7 @@ def _thesis(
     return ThesisDisciplineInput(
         symbol=symbol,
         currency=currency,
+        status=status,
         revisit_due_at=revisit_due_at,
         opened_at=opened_at,
         timeline_days=timeline_days,
@@ -197,6 +199,52 @@ def test_behind_pace_is_yellow() -> None:
     assert "BEHIND" in traj[0].message
 
 
+# --- Watching-status hygiene (2026-07-16 CBA ruling, james-inbox.md) -------
+
+
+def test_watching_stale_fires_on_price_detached() -> None:
+    # CBA's real numbers (recorded target 60, live ~168 = 2.8x) -- data_sanity
+    # fires (broken ladder), and because status is 'watching' (no capital
+    # deployed), watching_stale should fire alongside it with that reason.
+    t = _thesis(status="watching", entry="50", current="168", target="60", stop="42")
+    findings = evaluate_thesis(t, AS_OF)
+    stale = _by_check(findings, "watching_stale")
+    assert stale and stale[0].level is DisciplineLevel.yellow
+    assert "price detached" in stale[0].message
+    assert "no capital deployed" in stale[0].message
+
+
+def test_watching_stale_fires_on_long_overdue() -> None:
+    # Sane price (no data_sanity trigger), but revisit_due_at is 73d before
+    # AS_OF (2026-07-13) -- more than a full extra 30d cycle unanswered.
+    t = _thesis(
+        status="watching", revisit_due_at=date(2026, 5, 1),
+        entry="10", current="11", target="15", stop="9",
+    )
+    findings = evaluate_thesis(t, AS_OF)
+    assert not _by_check(findings, "data_sanity")
+    stale = _by_check(findings, "watching_stale")
+    assert stale and "revisit overdue by 73d" in stale[0].message
+
+
+def test_watching_stale_silent_when_fresh() -> None:
+    # Watching, sane price, revisit not yet due -- no stale finding.
+    t = _thesis(status="watching", entry="10", current="11", target="15", stop="9")
+    findings = evaluate_thesis(t, AS_OF)
+    assert not _by_check(findings, "watching_stale")
+
+
+def test_watching_stale_does_not_fire_for_active() -> None:
+    # Same detached-price conditions as the first test, but status='active' --
+    # data_sanity still fires (status-independent), watching_stale must not:
+    # an active thesis has real capital deployed, so "no capital deployed" would
+    # be a false statement about it.
+    t = _thesis(status="active", entry="50", current="168", target="60", stop="42")
+    findings = evaluate_thesis(t, AS_OF)
+    assert _by_check(findings, "data_sanity")
+    assert not _by_check(findings, "watching_stale")
+
+
 def test_no_stop_set_is_info() -> None:
     t = _thesis(stop=None)
     no_stop = _by_check(evaluate_thesis(t, AS_OF), "no_stop_set")
@@ -286,6 +334,17 @@ def test_unrealised_return_none_without_prices() -> None:
     assert unrealised_return(_thesis(entry=None)) is None
     assert unrealised_return(_thesis(current=None)) is None
     assert unrealised_return(_thesis(entry="0")) is None
+
+
+def test_unrealised_return_none_for_non_active_status() -> None:
+    # security-engineer finding (2026-07-19): actual_entry_price is set once by
+    # enter_thesis() and never cleared, but status is independently revisable
+    # backward (asx thesis revise --status watching). Without this guard a
+    # watching thesis could show a concrete "+N% unrealised since entry" line
+    # directly beside _watching_stale's "no capital deployed" -- a direct,
+    # user-visible contradiction in the same brief.
+    stale_entry = _thesis(status="watching", entry="50", current="168")
+    assert unrealised_return(stale_entry) is None
 
 
 # --- Ordering + composition -------------------------------------------------

@@ -673,11 +673,20 @@ def _thesis_discipline_inputs(
     target/stop come straight from `theses` (authored in the holding's own
     native currency) and current comes from `prices.close` (also native) —
     all four legs are native-against-native, no FX step needed here.
+
+    Covers ``active`` + ``watching`` theses (the caller's query) — not
+    ``research`` (no price plan exists yet to evaluate; schema comment on
+    `theses.stop_price`/`target_price` confirms those are only meaningfully
+    populated from watching onward) and not ``exited``/``expired`` (closed,
+    nothing to monitor). ``r["status"]`` is strict like every other field here:
+    a loader whose SELECT ever drops the column must fail loudly (#10), not
+    silently default.
     """
     return tuple(
         ThesisDisciplineInput(
             symbol=r["symbol"],
             currency="USD" if is_foreign_symbol(r["symbol"]) else "AUD",
+            status=r["status"],
             revisit_due_at=r["revisit_due_at"].date(),
             opened_at=r["opened_at"].date(),
             timeline_days=r["timeline_days"],
@@ -741,10 +750,10 @@ async def _discipline_findings(
 
     thesis_rows = await conn.fetch(
         """
-        SELECT symbol, revisit_due_at, opened_at, timeline_days,
+        SELECT symbol, status, revisit_due_at, opened_at, timeline_days,
                actual_entry_price, target_price, stop_price, conviction_level
         FROM theses
-        WHERE status = 'active'
+        WHERE status IN ('active', 'watching')
         ORDER BY opened_at
         """
     )
