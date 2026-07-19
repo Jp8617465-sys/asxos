@@ -95,16 +95,18 @@ async def refresh_security_master(
         "skipped_no_code": skipped_no_code,
     }
 
+    # Batched: one round-trip for ~4,368 rows (active + delisted) instead of one
+    # execute() per symbol. Counting is a separate, DB-free pass over the same
+    # `incoming`/`existing` maps already in memory -- identical results, since
+    # `existing` was snapshotted before this write either way.
+    await conn.executemany(
+        _UPSERT,
+        [
+            (sym, v["name"], v["currency"], v["security_type"], v["isin"], v["is_active"])
+            for sym, v in incoming.items()
+        ],
+    )
     for sym, v in incoming.items():
-        await conn.execute(
-            _UPSERT,
-            sym,
-            v["name"],
-            v["currency"],
-            v["security_type"],
-            v["isin"],
-            v["is_active"],
-        )
         if sym not in existing:
             counts["inserted"] += 1
         else:

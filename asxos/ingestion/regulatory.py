@@ -54,7 +54,23 @@ class RegulatoryEvent:
 
 
 def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> list[RegulatoryEvent]:
-    """Parse an RSS 2.0 / RSS 1.0 (RDF) / Atom-ish feed into RegulatoryEvent rows."""
+    """Parse an RSS 2.0 / RSS 1.0 (RDF) / Atom-ish feed into RegulatoryEvent rows.
+
+    Uses stdlib ``ElementTree.fromstring``, not ``defusedxml``, by deliberate
+    choice (tech-stack-researcher evaluation, 2026-07-19, independently
+    re-verified by security-engineer): stdlib ``ElementTree`` has never
+    resolved external entities (XXE) regardless of Expat version, and
+    CPython's bundled Expat additionally enforces amplification limits
+    (billion-laughs) by default since 2.4.0 -- verified 2.6.1 here
+    (`python -c "import pyexpat; print(pyexpat.EXPAT_VERSION)"`), no flags
+    needed. ``defusedxml`` itself is unmaintained (last release 0.7.1, March
+    2021, no Python 3.12+ support signal) and is a thin policy wrapper around
+    the same Expat binding -- it would add a stale dependency for no
+    protection beyond what stdlib already provides. The actual threat model
+    is also narrow: the only live source is one hardcoded HTTPS RBA (gov.au)
+    feed (see module docstring), not arbitrary/user-supplied XML. Revisit
+    only if a lower-trust source is wired in.
+    """
     root = ET.fromstring(xml_bytes)
     items = root.findall(".//item") or root.findall(f"./{_ATOM_NS}entry")
     ns = ""
@@ -81,7 +97,7 @@ def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> 
         out.append(
             RegulatoryEvent(
                 source=source,
-                title=title,
+                title=title[:500],
                 url=link,
                 published_at=_parse_date(pub_str) or date.today(),
                 summary=summary[:2000],
@@ -115,7 +131,7 @@ def parse_json_announcements(payload: list[dict[str, Any]], *, source: str = "AS
         out.append(
             RegulatoryEvent(
                 source=source,
-                title=title,
+                title=title[:500],
                 url=url,
                 published_at=_parse_date(released) or date.today(),
                 summary=(item.get("description") or "")[:2000],
@@ -195,19 +211,18 @@ async def upsert_events(
     """Idempotent UPSERT on (source, url). Returns rows affected."""
     if not events:
         return 0
-    payload = []
-    for e in events:
-        payload.append(
-            (
-                e.source,
-                e.published_at,
-                e.title,
-                e.url,
-                e.summary,
-                # relevance_tags JSONB — store symbols + kind
-                {"symbols": e.symbols, "kind": e.kind},
-            )
+    payload = [
+        (
+            e.source,
+            e.published_at,
+            e.title,
+            e.url,
+            e.summary,
+            # relevance_tags JSONB — store symbols + kind
+            {"symbols": e.symbols, "kind": e.kind},
         )
+        for e in events
+    ]
     await conn.executemany(
         """
         INSERT INTO regulatory_events (source, published_at, title, url, summary, relevance_tags)

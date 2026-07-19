@@ -39,6 +39,13 @@ class FakeConn:
     async def execute(self, sql: str, *args):
         self.executed.append((sql, args))
 
+    async def executemany(self, sql: str, args_list):
+        # Record one (sql, args) entry per row, matching the per-call shape
+        # execute() records -- existing assertions against conn.executed
+        # stay valid whether the code batches via executemany or not.
+        for args in args_list:
+            self.executed.append((sql, tuple(args)))
+
 
 def _row(code, name="X", typ="Common Stock", currency="AUD", isin="AU000X"):
     return {"Code": code, "Name": name, "Type": typ, "Currency": currency, "Isin": isin}

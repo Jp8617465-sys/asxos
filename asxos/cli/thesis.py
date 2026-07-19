@@ -625,7 +625,7 @@ async def _exit_thesis(
         )
 
         if show_redeploy:
-            await _show_redeploy_candidates(symbol, price)
+            await _show_redeploy_candidates(symbol)
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
@@ -633,7 +633,7 @@ async def _exit_thesis(
         await close_pool()
 
 
-async def _show_redeploy_candidates(symbol: str, exit_price: Decimal) -> None:
+async def _show_redeploy_candidates(symbol: str) -> None:
     """Print CGT-adjusted redeployment candidates from opportunity_cost_scenarios."""
     try:
         async with acquire() as conn:

@@ -612,7 +612,7 @@ async def _portfolio_section(
     run_id = run_row["run_id"]
     run_as_of = run_row["as_of"]
 
-    # Top 3 buys and top 3 sells (by |delta_aud|).
+    # Top 3 buys and top 3 sells (by |delta_aud|), already ordered by the query.
     trade_rows = await conn.fetch(
         """
         SELECT symbol, side, delta_aud
@@ -623,25 +623,14 @@ async def _portfolio_section(
         run_id,
     )
 
-    top_buys = [
-        PortfolioTradeSummary(
-            symbol=r["symbol"],
-            side="buy",
-            delta_aud=Decimal(str(r["delta_aud"])),
-        )
-        for r in trade_rows
-        if r["side"] == "buy"
-    ][:3]
-
-    top_sells = [
-        PortfolioTradeSummary(
-            symbol=r["symbol"],
-            side="sell",
-            delta_aud=Decimal(str(r["delta_aud"])),
-        )
-        for r in trade_rows
-        if r["side"] == "sell"
-    ][:3]
+    top_buys: list[PortfolioTradeSummary] = []
+    top_sells: list[PortfolioTradeSummary] = []
+    for r in trade_rows:
+        delta_aud = Decimal(str(r["delta_aud"]))
+        if r["side"] == "buy" and len(top_buys) < 3:
+            top_buys.append(PortfolioTradeSummary(symbol=r["symbol"], side="buy", delta_aud=delta_aud))
+        elif r["side"] == "sell" and len(top_sells) < 3:
+            top_sells.append(PortfolioTradeSummary(symbol=r["symbol"], side="sell", delta_aud=delta_aud))
 
     # Aggregate AUD totals.
     total_buy_aud = sum(

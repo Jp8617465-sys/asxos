@@ -37,7 +37,7 @@ from asxos.jobs.utils.job_monitor import JobMonitor
 _JOB = "detect_theme_stages"
 
 
-async def _build_classifier_input(conn, theme_id: int, symbols: list[str], as_of: date) -> ClassifierInput:
+async def _build_classifier_input(conn, symbols: list[str], as_of: date) -> ClassifierInput:
     """Compute breadth and momentum signals for a theme's holdings."""
     if not symbols:
         return ClassifierInput(price_history_days=0)
@@ -138,7 +138,7 @@ async def _process_theme(conn, theme_id: int, theme_code: str, current_suggested
     )
     symbols = [r["symbol"] for r in symbol_rows]
 
-    inputs = await _build_classifier_input(conn, theme_id, symbols, as_of)
+    inputs = await _build_classifier_input(conn, symbols, as_of)
     result = classify_stage(inputs, THRESHOLDS)
 
     if result is None:
