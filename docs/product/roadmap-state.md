@@ -167,16 +167,27 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
-- **DRAFT PR #64, CI GREEN (2026-07-19), engine-first ONE THING:** brief-truth fix — killed the
-  false −75.7% portfolio-return figure (a flow-affected `capital_aud` diff over a corrupted
-  snapshot series) and replaced it with a native, broker-matching unrealised-return line, verified
-  against James's live brokerage statement mid-build (the metric was a governor choice — broker's
-  USD/local +19.57% vs a naive AUD-incl-FX +10.3% — James called "show the broker"). Calmed the
-  dead Model-A shelf banners without hiding genuine health signal. Both `portfolio-invariant-guard`
-  and `security-engineer` PASS. Full instrumented run-record:
-  `docs/product/arbi-canary-2026-07-18-brief-truth.md` — first deliberately-instrumented canary of
-  the attended dev loop, feeding `docs/product/automation-dossier-reconciliation-2026-07-19.md`.
-  **Ready for James's merge.**
+- **DRAFT PR #64, CI GREEN (2026-07-19), both engine-first missions landed on one branch:**
+  **Mission 1 (ONE THING)** — brief-truth fix: killed the false −75.7% portfolio-return figure (a
+  flow-affected `capital_aud` diff over a corrupted snapshot series), replaced it with a native,
+  broker-matching unrealised-return line, verified against James's live brokerage statement
+  mid-build (the metric was a governor choice — broker's USD/local +19.57% vs a naive AUD-incl-FX
+  +10.3% — James called "show the broker"). Calmed the dead Model-A shelf banners without hiding
+  genuine health signal. `portfolio-invariant-guard` + `security-engineer` both PASS. Full
+  instrumented run-record: `docs/product/arbi-canary-2026-07-18-brief-truth.md` — first
+  deliberately-instrumented canary of the attended dev loop, feeding
+  `docs/product/automation-dossier-reconciliation-2026-07-19.md`.
+  **Mission 2 (queue #2)** — Phase C broker-report thesis persist + render: `Thesis.report_sections`
+  + `service.add_report_section()` (upsert-by-kind, reuses `ReportSection`'s own prose-only/
+  monitor-only Pydantic guards, verified against the live migration-0034 trigger that it can't fire
+  governance audit) + `asx thesis add-section`/`show --full-report` CLI. `refactoring-expert` PASS
+  (2 mechanical fixes + 2 findings fixed); `security-engineer` found and fixed one MEDIUM
+  (unescaped user text into Rich markup — could silently drop content or durably crash every future
+  render of a thesis) — it also built a venv and ran the real suite (84 passed) and caught 2
+  `mypy --strict` findings, fixed via `cast()`. Requires a migration, not included (authority-guard);
+  SQL in `docs/proposals/phase-c-thesis-report-sections-migration-2026-07-19.md`.
+  Both missions independently reviewed, gated through the review-loop marker separately.
+  **Ready for James's merge** (as one unit, or cherry-picked — disjoint files).
 - **Operating-latitude expansion (2026-07-19, James, in-session):** "you have control here, you
   have our new north star, run this session unattended." Taken as: stop pausing for permission on
   reversible steps (build/test/review/commit/draft-PR) and execute the engine-first queue
@@ -193,11 +204,6 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   `m14_candidate_agent_db_role_scoping` mechanically once applied. Honest caveat: doesn't fix R16
   (a harness-level issue, not a repo bug) — the connector will be correctly-scoped but not
   necessarily reliable yet.
-- **Phase C (broker-report thesis persist + render) — IN PROGRESS, `backend-architect` dispatched.**
-  Engine-first re-rank #2 (genuinely close to #1). Gives the dark `#56` `ThesisProposal`/
-  `ReportSection` keystone schema somewhere to live and a render James can read. Requires a
-  migration (no existing JSONB slot on `theses` for sections) — same authority-guard constraint as
-  above; will land as a draft PR with the migration SQL as content for James to apply.
 - **MERGED 2026-07-11 as PR #25 (`eff3732`):** the post-shelf reconciliation + arbi operating
   docs + **ETF Slice 2a** kind-aware ingestion (`asxos/ingestion/universe.py`, with
   `refresh_universe` test coverage) — formerly branch `claude/asxos-product-manager-agent-tzszlv`,
