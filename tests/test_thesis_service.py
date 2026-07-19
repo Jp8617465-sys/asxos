@@ -756,6 +756,203 @@ def test_row_to_thesis_maps_governance_status_when_present():
 
 
 # ---------------------------------------------------------------------------
+# Migration 0040 — report_sections (Phase C broker-report thesis)
+# ---------------------------------------------------------------------------
+
+def test_row_to_thesis_without_report_sections_key_defaults_empty():
+    """Backward compatibility: a pre-migration-0040 row (no report_sections
+    key at all — _make_thesis_row() is not modified for this test) parses
+    to an empty tuple, not an error."""
+    row = _make_thesis_row()
+    assert "report_sections" not in row
+    t = svc._row_to_thesis(row)
+    assert t.report_sections == ()
+
+
+def test_parse_report_sections_none_returns_empty_tuple() -> None:
+    assert svc._parse_report_sections(None) == ()
+
+
+def test_parse_report_sections_roundtrip_preserves_decimal_exactness() -> None:
+    """The exact write serializer (model_dump(mode='json') -> json.dumps)
+    piped through the exact read parser must not lose Decimal precision —
+    this is the regression the brief-truth mission's −75.7% bug (a different
+    module, but the same class of silent-precision-loss risk) exists to
+    guard against here too."""
+    from asxos.domain.theses.schemas import ReportFigure, ReportSection
+
+    section = ReportSection(
+        kind="valuation",
+        body="DCF-derived fair value.",
+        figures=[
+            ReportFigure(
+                label="Fair value",
+                value=Decimal("123456789012.123456"),
+                provenance="james_input",
+            )
+        ],
+    )
+    import json
+
+    sections_json = json.dumps([section.model_dump(mode="json")])
+    result = svc._parse_report_sections(sections_json)
+
+    assert len(result) == 1
+    assert result[0].figures[0].value == Decimal("123456789012.123456")
+
+
+async def test_add_report_section_new_kind_happy_path() -> None:
+    existing = _make_thesis_row()
+    updated = {
+        **_make_thesis_row(),
+        "report_sections": [
+            {
+                "kind": "moat",
+                "body": "Durable network effects in the CRM ecosystem.",
+                "figures": [],
+                "evidence_citation_ids": [],
+            }
+        ],
+    }
+    conn = _make_conn(fetchrow_returns=[existing, updated])
+
+    t = await svc.add_report_section(
+        conn, thesis_id=1, kind="moat",
+        body="Durable network effects in the CRM ecosystem.",
+        figures=[],
+        reasoning="Initial moat write-up",
+    )
+
+    assert len(t.report_sections) == 1
+    assert t.report_sections[0].kind == "moat"
+
+
+async def test_add_report_section_replaces_existing_kind() -> None:
+    """Upsert by kind, not append — a second write to the same kind replaces
+    it wholesale; the prior content survives only in the revision diff."""
+    old_moat = {
+        "kind": "moat", "body": "Old moat text.", "figures": [], "evidence_citation_ids": [],
+    }
+    new_moat_body = "New, sharper moat text."
+    existing = {**_make_thesis_row(), "report_sections": [old_moat]}
+    updated = {
+        **_make_thesis_row(),
+        "report_sections": [
+            {"kind": "moat", "body": new_moat_body, "figures": [], "evidence_citation_ids": []}
+        ],
+    }
+    execute_calls: list = []
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    fr_returns = iter([existing, updated])
+
+    async def _fetchrow(_q, *_args):
+        return next(fr_returns, None)
+
+    async def _execute(query, *args):
+        execute_calls.append((query, args))
+
+    conn.fetchrow = _fetchrow
+    conn.execute = _execute
+
+    t = await svc.add_report_section(
+        conn, thesis_id=1, kind="moat", body=new_moat_body, figures=[], reasoning="Sharpened",
+    )
+
+    assert len(t.report_sections) == 1
+    assert t.report_sections[0].body == new_moat_body
+
+    import json
+
+    revision_calls = [(q, a) for q, a in execute_calls if "thesis_revisions" in q]
+    assert revision_calls
+    diff = json.loads(revision_calls[0][1][3])
+    assert diff["report_sections"]["old"]["body"] == "Old moat text."
+    assert diff["report_sections"]["new"]["body"] == new_moat_body
+
+
+async def test_add_report_section_invalid_kind_raises_value_error() -> None:
+    conn = _make_conn()
+    with pytest.raises(ValueError, match="not a valid section kind"):
+        await svc.add_report_section(conn, thesis_id=1, kind="not_a_real_kind", body="Text.")
+
+
+async def test_add_report_section_thesis_not_found_raises_value_error() -> None:
+    conn = _make_conn()  # empty fetchrow_returns -> first call returns None
+    with pytest.raises(ValueError, match="not found"):
+        await svc.add_report_section(conn, thesis_id=999, kind="moat", body="Text.")
+
+
+async def test_add_report_section_reuses_prose_only_guard() -> None:
+    """Proves reuse, not reimplementation, of schemas.py's _body_prose_only —
+    a capital-relevant number inline in prose must be rejected."""
+    conn = _make_conn()
+    with pytest.raises(ValueError, match="prose-only"):
+        await svc.add_report_section(
+            conn, thesis_id=1, kind="valuation", body="Fair value is $130 per share.",
+        )
+
+
+async def test_add_report_section_advances_revisit_due() -> None:
+    """Recording a section is a discipline event like revise_thesis()/
+    review_thesis() — it computes and writes fresh last_revisited_at/
+    revisit_due_at, same as every other thesis-content mutator in this
+    module. Inspects the actual UPDATE call args (not just the mocked
+    RETURNING row) so this proves the function computed the values, not
+    just that _row_to_thesis can map them back."""
+    existing = _make_thesis_row()
+    updated = {**_make_thesis_row(), "report_sections": []}
+    fetchrow_calls: list = []
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    fr_returns = iter([existing, updated])
+
+    async def _fetchrow(query, *args):
+        fetchrow_calls.append((query, args))
+        return next(fr_returns, None)
+
+    conn.fetchrow = _fetchrow
+    conn.execute = AsyncMock(return_value=None)
+
+    await svc.add_report_section(conn, thesis_id=1, kind="moat", body="Text.", figures=[])
+
+    update_calls = [(q, a) for q, a in fetchrow_calls if "UPDATE theses" in q]
+    assert update_calls
+    # args = (sections_json, now, due, thesis_id) per the UPDATE's $1..$4.
+    _sections_json, now, due, _thesis_id = update_calls[0][1]
+    assert isinstance(now, datetime)
+    assert isinstance(due, datetime)
+    assert due - now == timedelta(days=30)  # _REVISIT_INTERVAL_DAYS
+
+
+async def test_add_report_section_reuses_monitor_only_basis_guard() -> None:
+    """Proves reuse, not reimplementation, of schemas.py's
+    _check_monitor_placement — a rule #11 Model A monitor_only figure may
+    never land in a basis section (moat is one)."""
+    from asxos.domain.theses.schemas import ReportFigure
+
+    conn = _make_conn()
+    monitor_fig = ReportFigure(
+        label="Model A prob_up", value=Decimal("0.6"),
+        provenance="james_input", monitor_only=True,
+    )
+    with pytest.raises(ValueError, match="monitor_only"):
+        await svc.add_report_section(
+            conn, thesis_id=1, kind="moat", body="Text.", figures=[monitor_fig],
+        )
+
+
+# ---------------------------------------------------------------------------
 # Migration 0033/0034 — create_thesis_from_agent_run() documented stub
 # ---------------------------------------------------------------------------
 

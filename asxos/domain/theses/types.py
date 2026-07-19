@@ -28,6 +28,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from asxos.domain.theses.schemas import ReportSection
+
 
 @dataclass(frozen=True)
 class InvalidationCondition:
@@ -107,6 +109,13 @@ class Thesis:
     # Governance provenance/approval field (migration 0033)
     governance_status: str = "approved"  # 'draft'|'evidence_complete'|'pending_review'|
                                           # 'approved'|'rejected'|'retired'; matches DB DEFAULT
+    # Broker-report sections (migration 0040, Phase C). Each element is a
+    # ReportSection (asxos/domain/theses/schemas.py) — kind + prose body +
+    # figures, each figure provenance-tagged. Populated only via
+    # service.add_report_section(), which re-validates through
+    # ReportSection/ReportFigure on every write (see that function's
+    # docstring). Empty for every pre-migration-0040 thesis.
+    report_sections: tuple[ReportSection, ...] = ()
 
 
 @dataclass(frozen=True)
