@@ -75,6 +75,20 @@ The −75.7% is **neither investment loss nor a genuine withdrawal of invested c
    not be safely chosen without governor guidance — arbi's original "re-anchor on cost base" spec
    was financially naive; James caught it). **This is a human-judgment dependency an unattended
    loop could not have satisfied alone** — see outer-controller notes.
+2. **Mid-build, James supplied his live brokerage position (Fidelity screenshot) — which
+   revealed the "honest metric" is itself a governor choice, not a lookup.** The broker headlines
+   HUBS at **+19.57%** (cost basis A$6,448.37, value A$7,710.95); asxos's CGT cost base is
+   A$6,978.23 → **+10.3%**. Both are internally correct; they differ purely by **FX convention**:
+   the broker converts BOTH cost and value at *today's* FX (≈0.698) so the currency cancels and
+   its "+19.57% AUD" is really the **USD/local return**; asxos's cost base is AUD at the
+   *acquisition* FX (0.6450), so +10.3% is the **AUD return including the FX translation** (AUDUSD
+   rose 0.645→0.698 since purchase, trimming the USD gain in AUD terms). **An unattended loop
+   would have shipped +10.3% "vs cost base" and it would have looked WRONG next to the broker's
+   +19.57% — only James's domain knowledge + the screenshot caught it.** This is the single
+   strongest canary datapoint for "what an overnight controller cannot do alone": the choice of
+   *which* return to display (USD/local vs AUD-incl-FX vs both) is a preference only the governor
+   can set. Build paused pending his call. (Cost-base divergence A$6,978 vs A$6,448 is the same
+   FX-convention artifact, NOT a data error — the CGT base stays as-is; it is correct for tax.)
 
 _(more appended as they occur)_
 
