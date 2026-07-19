@@ -576,6 +576,46 @@ Supersedes the 07-18 continuation snapshot below; later runs diff against this._
   productivity friction this session, workaround = one command per Bash call, already in use).
 - Continuing through remaining sprint waves without per-step approval, per the operating-latitude
   grant; each wave gets the same review-gate + push treatment. See TaskList for live queue state.
+
+UPDATE (same session, continued): Waves 2-4 all landed, reviewed, pushed. Sprint (all 7
+originally-scoped items) is COMPLETE.
+- Wave 2 (commit 9b138cb): CBA discipline auto-flag (2026-07-16 ruling) -- loader only queried
+  status='active', so watching-status theses (the real CBA row) never reached ANY discipline
+  check. Widened to active+watching, added `_watching_stale`. security-engineer caught a real
+  contradiction pre-commit: `unrealised_return` was status-blind, could show a concrete "+236%
+  unrealised" line beside "no capital deployed" for the same thesis -- fixed (guarded to
+  status='active'). Wording also tightened off "consider a status review" (too directive per
+  s766B) to pure state description.
+- Wave 2 R14 lint (commit 34fa00e): classifies all 28 jobs/*.py by firewall status so a job
+  silently missing the gate (the exact compute_opportunity_cost bug) can't recur unnoticed.
+  Verification pass (a SECOND security-engineer dispatch specifically auditing the classification
+  itself, not just that the test passes) surfaced risk-register **R18 (P1, NEW)**: compose_brief.py
+  actually runs the V2 composer path (asxos/domain/brief/composer.py), whose 8 collectors read
+  theses/current_holdings/portfolio_daily_snapshots with NO ASXOS_PERSONAL_USE gate anywhere --
+  masked only by render.yaml. Not fixed same-session (genuine architecture decision, 8 files) --
+  backend-architect design pass dispatched, in progress as of this snapshot.
+- Wave 3 (commits bde6dd4, e67695c): derive_fundamentals_pit upstream race (fired at 17:10 UTC
+  while sync_corporate_actions, started 16:30, was still running until 18:09 -- TimeoutError with
+  no diagnostic value) -- added `_missing_upstreams()` mirroring generate_signals.py's established
+  gate pattern exactly, incl. `override_reason` threading (security-engineer caught this was
+  missing vs. the precedent, fixed). check_cron_health Saturday-lane coverage -- refactoring-expert
+  caught a real bug BEFORE commit: first list included retrain_model_a, permanently SUSPENDED
+  under the Model A shelf (rule #11), which would have false-alarmed "MISSING" every Saturday
+  forever -- corrected (dropped it, added 3 jobs the first pass missed: sync_security_master,
+  compute_factor_scores, compute_opportunity_cost) with a regression test pinning the exclusion.
+  This is the second time this session a background reviewer caught a real, would-have-shipped
+  bug before commit (Wave 2's unrealised_return contradiction was the first) -- the review-gate
+  loop is earning its cost, not just process theatre.
+- Wave 4 (commit 6229fe1): 8-item quick-fix batch from the 2026-07-18 audit backlog (RSS title
+  cap, 2 comprehension simplifications, N-round-trips-to-executemany batch write, 2 dead params
+  removed via `ruff --select ARG`, and a real info-disclosure fix on public /health -- was leaking
+  raw exception strings to any unauthenticated caller). One item (defusedxml swap) investigated via
+  tech-stack-researcher and deliberately NOT implemented: stdlib Python 3.12 already closes
+  XXE/billion-laughs by default (verified Expat 2.6.1 in this container), defusedxml itself
+  unmaintained since 2021 -- documented as a rationale comment, independently re-verified by a
+  second security-engineer pass rather than taken on faith.
+- Full suite through Wave 4: 1848 passed, 2 xfail (unrelated), 0 errors. mypy asxos/ clean.
+- PR #64 body updated after every wave to stay a complete, current record of all 6 units.
 ```
 
 _Recorded by the 2026-07-18 interactive `/arbi` continuation wake (same day, after the close) —
