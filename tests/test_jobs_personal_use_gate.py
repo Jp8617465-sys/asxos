@@ -6,6 +6,10 @@ check_us_positions and check_thesis_invalidations read/write holdings + theses
 render.yaml setting the env var -- no in-code backstop like build_portfolio.py
 has, so a manual run or render.yaml drift would silently process personal data.
 
+compute_opportunity_cost (sprint follow-up, 2026-07-19) ranks redeployment
+candidates against active theses -- same personal-advice-data class -- and had
+the same gap: render.yaml-only enforcement, no in-code backstop.
+
 ``require_personal_use_job()`` is that backstop. These tests pin (a) the helper's
 own behaviour and (b) that each entry point calls it BEFORE any DB access, so a
 missing flag fails loud (CLAUDE.md #10) rather than reaching init_pool().
@@ -45,6 +49,7 @@ def test_helper_passes_when_flag_set(monkeypatch: pytest.MonkeyPatch) -> None:
         ("jobs.check_au_positions", lambda m: m._run(date(2026, 7, 18))),
         ("jobs.check_us_positions", lambda m: m._run(date(2026, 7, 18))),
         ("jobs.check_thesis_invalidations", lambda m: m._run(date(2026, 7, 18))),
+        ("jobs.compute_opportunity_cost", lambda m: m.main()),
     ],
 )
 def test_job_entry_point_gated(

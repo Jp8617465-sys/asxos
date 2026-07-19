@@ -27,6 +27,7 @@ from asxos.domain.brief.opportunity_cost import rank_by_opportunity_cost
 from asxos.domain.portfolio.types import AllocationCandidate, HoldingSnapshot
 from asxos.domain.tax.cgt import days_to_eligibility
 from asxos.domain.tax.types import AccountType
+from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 _JOB = "compute_opportunity_cost"
@@ -166,6 +167,9 @@ async def _process_thesis(conn, thesis_id: int, symbol: str, as_of: date,
 
 
 async def main() -> None:
+    # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
+    # missing flag fails loud rather than relying on render.yaml alone.
+    require_personal_use_job()
     as_of = date.today()
     total_scenarios = 0
 
