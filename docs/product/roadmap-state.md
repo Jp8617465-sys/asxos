@@ -536,6 +536,48 @@ dev/ops side.
 
 ## Last wake snapshot
 
+_Recorded 2026-07-19, continuing the same session under the "run this session unattended"
+operating-latitude grant (within the explicitly-agreed hard boundaries — see the operating docs).
+Supersedes the 07-18 continuation snapshot below; later runs diff against this._
+
+```
+2026-07-19 sprint execution (same session, post PR #64 mission consolidation)
+- MAJOR sandbox finding: this container's .venv now has EVERY dependency CLAUDE.md's "Known
+  test environment gaps" section documents as missing (pydantic, joblib, lightgbm, asyncpg,
+  pytest-asyncio, mypy all present and working). `.venv/bin/python -m pytest tests/ -q`: 1827
+  passed, 2 xfailed, 0 errors, 0 failures (26.33s) -- zero collection errors, vs. the 16
+  documented (and the 07-18 snapshot's WORSE 72-error reading two paragraphs below -- that was
+  the same class of gap, just a different day's container). `mypy asxos/`: clean, 152 files.
+  Root cause not diagnosed (a fresh container for this session was presumably provisioned with
+  `pip install -e ".[ml]"` where the 07-18 one wasn't) -- not assumed durable across future
+  sessions/containers. Actionable now: `.venv/bin/python -m pytest`/`mypy` is the new default
+  local verification step for the rest of THIS session (real test results, not just
+  py_compile+ruff); still don't chase or "fix" CLAUDE.md's documented-gaps section itself off
+  one session's reading (CLAUDE.md is authority-guarded, and the doc's own text already warns
+  the count rots -- worth a human refresh, not an urgent one).
+- Sprint plan executed via /sprint-plan (James: "continue this loop... automate until we finish
+  sprints/stories"). Wave 1 landed on claude/whats-new-yemcl4, both reviewed
+  (security-engineer + refactoring-expert) and pushed:
+  - compute_opportunity_cost s766B firewall gate (commit 5e0d49a) -- the ONE THING demoted to
+    hygiene batch in the 07-18 engine-first re-rank, now closed. render.yaml itself is
+    authority-guarded (arbi can't edit it directly) -- companion proposal doc
+    `docs/proposals/render-yaml-compute-opportunity-cost-firewall-2026-07-19.md` has the
+    verified (`git apply --check`, zero offset) diff. FLAGGED MERGE-BLOCKING: if PR #64 reaches
+    main before this render.yaml line lands, the Sat 20:05 UTC cron hard-fails until it does --
+    correct fail-loud behaviour, but a real sequencing risk James needs to action.
+  - active_theses.py next_earnings_date crash + discipline.py STOP-VIOLATED stop-price display
+    (commit c7df7d8) -- next_earnings_date is DATE not TIMESTAMPTZ (migration 0021 vs 0012), so
+    `.date()` on it raised AttributeError for any active thesis with a set earnings date, 100%
+    reproducible, previously untested (the one test file exercising this collector hardcoded
+    next_earnings_date=None and mocked earnings_risk() away entirely). Regression tests added
+    for both fixes.
+- risk-register R17 logged and pushed separately (commit 0a9bb1e): permission-stream aborts on
+  an allowlisted RO tool, and authority-guard.sh's no-statement-boundary regex scan (real
+  productivity friction this session, workaround = one command per Bash call, already in use).
+- Continuing through remaining sprint waves without per-step approval, per the operating-latitude
+  grant; each wave gets the same review-gate + push treatment. See TaskList for live queue state.
+```
+
 _Recorded by the 2026-07-18 interactive `/arbi` continuation wake (same day, after the close) —
 supersedes the close snapshot below; later runs diff against this._
 
