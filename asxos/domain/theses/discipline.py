@@ -4,7 +4,7 @@ PR1 of the portfolio-team-visibility lane
 (`docs/proposals/portfolio-team-visibility-2026-07-12.md`). This module is the
 compute core the `/pm-review` analysis agents' *deterministic* dimensions reduce
 to (~80-90% of what "the portfolio team flags"): revisit cadence, trajectory
-pace, stop/target, conviction coherence, concentration, benchmark lag. It takes
+pace, stop/target, conviction coherence, concentration, unrealised return. It takes
 already-loaded thesis + portfolio data and returns an ordered list of discipline
 findings. It composes the existing pure functions in
 `asxos.domain.brief.severity` and `asxos.domain.theses.trajectory`, adds two
@@ -119,16 +119,9 @@ class HoldingWeight:
 
 @dataclass(frozen=True)
 class PortfolioDisciplineInput:
-    """Portfolio-level inputs (all AUD, from ``portfolio_daily_snapshots``)."""
+    """Portfolio-level inputs (holdings' AUD market values, for concentration)."""
 
     holdings: tuple[HoldingWeight, ...]
-    portfolio_tr_aud: Decimal | None
-    benchmark_tr_aud: Decimal | None
-
-
-# Portfolio lags its benchmark by more than this (percentage points of total
-# return) → surface it. A starting prior, not a calibrated threshold.
-_BENCHMARK_LAG_PP = Decimal("5")
 
 
 def _err(check: str, symbol: str | None, exc: Exception) -> DisciplineFinding:
@@ -384,26 +377,40 @@ def _conviction_summary(
     )
 
 
-def _benchmark_lag(port: PortfolioDisciplineInput) -> DisciplineFinding | None:
-    """Yellow when the portfolio lags its benchmark by > ``_BENCHMARK_LAG_PP`` pp.
+def unrealised_return(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
+    """Unrealised return since thesis entry — native price only (R10, s766B).
 
-    Both legs are AUD total-return levels from ``portfolio_daily_snapshots`` —
-    no per-lot FX (R10 does not apply at this level)."""
-    p = port.portfolio_tr_aud
-    b = port.benchmark_tr_aud
-    if p is None or b is None:
+    ``(current − entry) / entry`` in the holding's native currency (both legs
+    native, exactly like the trajectory check — no FX step, so the
+    ``cost_base_normal`` ÷ quantity currency trap is structurally impossible).
+    This is the local, currency-neutral return a broker headlines: for a USD
+    holding it is the USD price return (the FX cancels), which is why it
+    reconciles with the brokerage line. It REPLACES the removed portfolio-level
+    "total return vs benchmark" line, which differenced a flow-affected
+    ``capital_aud`` snapshot balance (a static cash placeholder that later
+    vanished) and reported a false −75.7% loss.
+
+    Price-only ``info`` fact: excludes dividends, realised gains, and the AUD/FX
+    translation — deliberately NOT a total return and NOT a benchmark comparison,
+    and it carries no trade direction (s766B). Emitted for display, so the loader
+    appends it rather than folding it into the quiet-by-default per-thesis problem
+    checks (mirrors how the CGT-boundary info line is appended, not evaluated).
+    """
+    entry = inp.entry_price_native
+    current = inp.current_price_native
+    if entry is None or current is None or entry <= 0:
         return None
-    lag = b - p
-    if lag > _BENCHMARK_LAG_PP:
-        return DisciplineFinding(
-            check="benchmark_lag",
-            level=DisciplineLevel.yellow,
-            message=(
-                f"portfolio total return {p:.1f}% vs benchmark {b:.1f}% — "
-                f"lagging by {lag:.1f}pp"
-            ),
-        )
-    return None
+    pct = (current - entry) / entry * Decimal("100")
+    return DisciplineFinding(
+        check="unrealised_return",
+        level=DisciplineLevel.info,
+        message=(
+            f"{inp.symbol}: {pct:+.1f}% unrealised since entry "
+            f"({inp.currency} {entry:.2f} → {current:.2f}; price only, "
+            f"excludes dividends & FX — not a total return)"
+        ),
+        symbol=inp.symbol,
+    )
 
 
 def evaluate_portfolio(
@@ -411,7 +418,7 @@ def evaluate_portfolio(
     port: PortfolioDisciplineInput,
     as_of: date,
 ) -> list[DisciplineFinding]:
-    """Portfolio-level discipline findings (conviction, concentration, benchmark)."""
+    """Portfolio-level discipline findings (conviction, concentration)."""
     findings: list[DisciplineFinding] = []
 
     try:
@@ -434,13 +441,6 @@ def evaluate_portfolio(
                 )
     except Exception as exc:  # broad (M2): isolate a mistyped holding, fail loud
         findings.append(_err("concentration", None, exc))
-
-    try:
-        lag = _benchmark_lag(port)
-        if lag is not None:
-            findings.append(lag)
-    except Exception as exc:  # broad (M2): isolate a mistyped input, fail loud
-        findings.append(_err("benchmark_lag", None, exc))
 
     return findings
 

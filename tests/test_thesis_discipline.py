@@ -20,6 +20,7 @@ from asxos.domain.theses.discipline import (
     evaluate_discipline,
     evaluate_portfolio,
     evaluate_thesis,
+    unrealised_return,
 )
 
 AS_OF = date(2026, 7, 13)
@@ -55,9 +56,7 @@ def _thesis(
     )
 
 
-_EMPTY_PORT = PortfolioDisciplineInput(
-    holdings=(), portfolio_tr_aud=None, benchmark_tr_aud=None
-)
+_EMPTY_PORT = PortfolioDisciplineInput(holdings=())
 
 
 def _checks(findings: list) -> set[str]:
@@ -223,7 +222,7 @@ def test_revisit_overdue_message_has_days() -> None:
     assert r and "16d" in r[0].message
 
 
-# --- Portfolio-level: concentration + benchmark lag -------------------------
+# --- Portfolio-level: concentration -----------------------------------------
 
 
 def test_concentration_red_over_20pct() -> None:
@@ -232,8 +231,6 @@ def test_concentration_red_over_20pct() -> None:
             HoldingWeight("HUBS.NYSE", Decimal("9000")),
             HoldingWeight("VAS.AU", Decimal("1000")),
         ),
-        portfolio_tr_aud=None,
-        benchmark_tr_aud=None,
     )
     findings = evaluate_portfolio((), port, AS_OF)
     conc = _by_check(findings, "concentration")
@@ -241,24 +238,39 @@ def test_concentration_red_over_20pct() -> None:
     assert conc[0].level is DisciplineLevel.red
 
 
-def test_benchmark_lag_yellow() -> None:
-    port = PortfolioDisciplineInput(
-        holdings=(),
-        portfolio_tr_aud=Decimal("2.0"),
-        benchmark_tr_aud=Decimal("9.0"),  # lags by 7pp > 5pp threshold
-    )
-    lag = _by_check(evaluate_portfolio((), port, AS_OF), "benchmark_lag")
-    assert lag and lag[0].level is DisciplineLevel.yellow
-    assert "7.0pp" in lag[0].message
+# --- Unrealised return (broker-matching, native price only) -----------------
 
 
-def test_benchmark_no_lag_when_ahead() -> None:
-    port = PortfolioDisciplineInput(
-        holdings=(),
-        portfolio_tr_aud=Decimal("9.0"),
-        benchmark_tr_aud=Decimal("2.0"),
+def test_unrealised_return_native_matches_broker() -> None:
+    # HUBS-like: USD entry 187.54 → current 224.57 = +19.7% local (the broker's
+    # FX-neutral headline). Native-against-native, no cost base, no FX.
+    hubs = _thesis(
+        symbol="HUBS.NYSE",
+        currency="USD",
+        entry="187.54",
+        current="224.57",
+        target="318",
+        stop="150",
     )
-    assert not _by_check(evaluate_portfolio((), port, AS_OF), "benchmark_lag")
+    f = unrealised_return(hubs)
+    assert f is not None
+    assert f.check == "unrealised_return"
+    assert f.level is DisciplineLevel.info
+    assert "+19.7% unrealised since entry" in f.message
+    assert "USD 187.54 → 224.57" in f.message
+    assert "not a total return" in f.message
+    # s766B: evidence-only — no trade direction, no benchmark/alpha framing.
+    low = f.message.lower()
+    for banned in ("sell", "trim", "exit", "benchmark", "alpha", "lagging"):
+        assert banned not in low
+
+
+def test_unrealised_return_none_without_prices() -> None:
+    # Missing entry/current, or a non-positive base → no line (the loader's
+    # incomplete-price info finding covers the gap separately).
+    assert unrealised_return(_thesis(entry=None)) is None
+    assert unrealised_return(_thesis(current=None)) is None
+    assert unrealised_return(_thesis(entry="0")) is None
 
 
 # --- Ordering + composition -------------------------------------------------
@@ -274,14 +286,14 @@ def test_evaluate_discipline_orders_thesis_then_portfolio() -> None:
     )
     port = PortfolioDisciplineInput(
         holdings=(HoldingWeight("CBA.AU", Decimal("5000")),),
-        portfolio_tr_aud=Decimal("1.0"),
-        benchmark_tr_aud=Decimal("8.0"),
     )
     findings = evaluate_discipline((cba,), port, AS_OF)
     checks = [f.check for f in findings]
     # per-thesis checks precede portfolio-level ones
     assert checks.index("revisit_overdue") < checks.index("conviction_unset")
-    assert "benchmark_lag" in checks
+    # benchmark_lag is removed; concentration is the portfolio-level check that
+    # fires for the single 100%-weighted holding.
+    assert "concentration" in checks
 
 
 # --- Structural guard: model-independence (rule #11) ------------------------

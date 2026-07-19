@@ -10,7 +10,8 @@ Sections (in order):
   3. Portfolio discipline (portfolio-team-visibility lane, PR2a/PR2b —
      `docs/proposals/portfolio-team-visibility-2026-07-12.md` §8): revisit-
      overdue, stop/target trajectory, conviction-unset, concentration,
-     benchmark lag, and lots approaching the 12-month CGT-discount threshold
+     unrealised return (native, broker-matching), and lots approaching the
+     12-month CGT-discount threshold
      within 30 days (spec §5.1) — the last folded here from the former
      standalone "Tax actions" table so the fact lives on one gated surface.
      Model-independent by construction (rule #11) — the loader
@@ -44,7 +45,6 @@ from typing import TYPE_CHECKING, Any
 import jinja2
 from dateutil.relativedelta import relativedelta
 
-from asxos.domain.benchmark.returns import period_return
 from asxos.domain.brief.shap import format_top_factors
 from asxos.domain.models.production_gate import resolve_production_model
 from asxos.domain.prices.coverage import latest_complete_trading_day
@@ -57,6 +57,7 @@ from asxos.domain.theses.discipline import (
     PortfolioDisciplineInput,
     ThesisDisciplineInput,
     evaluate_discipline,
+    unrealised_return,
 )
 
 if TYPE_CHECKING:
@@ -152,6 +153,11 @@ class BriefData:
     # Latest *complete* trading day the regime/signal queries were anchored to
     # (not the calendar as_of). None only when no complete day exists at all.
     data_as_of: date | None = None
+    # True only when 0 models are approved_for_allocation — the deliberate Model A
+    # shelf (rule #11), distinct from a >1-approved misconfig (a loud error). Drives
+    # the calm "Model A shelved" brief state instead of the red "Regime: unavailable"
+    # / "Signals stale" banners that are shelf artifacts.
+    model_shelved: bool = False
 
     @property
     def has_failures(self) -> bool:
@@ -204,6 +210,10 @@ async def collect(as_of: date) -> BriefData:
             "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
         )
         production_model = resolve_production_model(model_rows, required=False)
+        # 0 approved models == the deliberate Model A shelf (rule #11); >1 approved
+        # is a governance misconfig (resolve() returns None for BOTH, but only the
+        # 0-case is the calm "shelved" state — the >1-case must stay a loud error).
+        model_shelved = len(model_rows) == 0
 
         # Anchor signal/regime queries on the latest *complete* trading day
         # (the anchor generate_signals uses), not the calendar as_of — EOD data
@@ -305,6 +315,7 @@ async def collect(as_of: date) -> BriefData:
         latest_signal_date=latest_signal_date,
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
+        model_shelved=model_shelved,
     )
 
 
@@ -701,48 +712,6 @@ def _holding_weights(
     return tuple(holdings)
 
 
-async def _since_inception_returns(
-    conn: asyncpg.Connection, as_of: date
-) -> tuple[Decimal | None, Decimal | None]:
-    """Since-inception portfolio vs. benchmark total return (both as +/-%).
-
-    Same framing as `wealth_state.py`'s alpha line: `period_return` over
-    `capital_aud` vs `benchmark_tr_level`, anchored on the earliest snapshot
-    carrying a benchmark level. Returns (None, None) until Stage 1 backfills
-    `benchmark_tr_level`.
-    """
-    snap_rows = await conn.fetch(
-        """
-        SELECT capital_aud, benchmark_tr_level
-        FROM portfolio_daily_snapshots
-        WHERE as_of <= $1
-        ORDER BY as_of DESC
-        LIMIT 1
-        """,
-        as_of,
-    )
-    inception_rows = await conn.fetch(
-        """
-        SELECT capital_aud, benchmark_tr_level
-        FROM portfolio_daily_snapshots
-        WHERE benchmark_tr_level IS NOT NULL AND as_of <= $1
-        ORDER BY as_of ASC
-        LIMIT 1
-        """,
-        as_of,
-    )
-    if not snap_rows or not inception_rows or snap_rows[0]["benchmark_tr_level"] is None:
-        return None, None
-
-    inc_cap = Decimal(str(inception_rows[0]["capital_aud"]))
-    inc_tr = Decimal(str(inception_rows[0]["benchmark_tr_level"]))
-    cur_cap = Decimal(str(snap_rows[0]["capital_aud"]))
-    cur_tr = Decimal(str(snap_rows[0]["benchmark_tr_level"]))
-    if inc_cap <= 0 or inc_tr <= 0:
-        return None, None
-    return period_return(inc_cap, cur_cap) * 100, period_return(inc_tr, cur_tr) * 100
-
-
 async def _discipline_findings(
     conn: asyncpg.Connection, as_of: date
 ) -> list[DisciplineFinding]:
@@ -750,9 +719,9 @@ async def _discipline_findings(
 
     Fetches thesis/holding/price rows, then delegates the native-currency
     thesis-input build to `_thesis_discipline_inputs`, the AUD holding-weight
-    build to `_holding_weights`, and the since-inception benchmark comparison
-    to `_since_inception_returns` (R10 currency-safety notes live on those
-    helpers, next to the arithmetic they govern).
+    build to `_holding_weights`, and the per-holding native unrealised return
+    to `unrealised_return` (R10 currency-safety notes live on those helpers,
+    next to the arithmetic they govern).
 
     Gated on ``ASXOS_PERSONAL_USE=1`` only (proposal §6 acceptance criteria) —
     deliberately not ``ASXOS_PORTFOLIO_BRIEF_ENABLED``, which gates the
@@ -790,10 +759,9 @@ async def _discipline_findings(
         )
         prices = {r["symbol"]: Decimal(str(r["close"])) for r in price_rows}
 
-    # Deliberately a separate query from `_since_inception_returns`'s latest-
-    # snapshot lookup below: this one filters to the latest snapshot that
-    # actually carries an FX rate, which need not be the same row as the
-    # latest snapshot overall.
+    # Latest snapshot that actually carries an FX rate (need not be the latest
+    # snapshot overall) — converts foreign holdings' native MV to AUD for the
+    # concentration check (R10).
     fx_rows = await conn.fetch(
         """
         SELECT fx_rate_audusd
@@ -808,14 +776,32 @@ async def _discipline_findings(
 
     thesis_inputs = _thesis_discipline_inputs(thesis_rows, prices)
     holdings = _holding_weights(holding_rows, prices, fx_rate)
-    portfolio_tr_aud, benchmark_tr_aud = await _since_inception_returns(conn, as_of)
 
-    port_input = PortfolioDisciplineInput(
-        holdings=holdings,
-        portfolio_tr_aud=portfolio_tr_aud,
-        benchmark_tr_aud=benchmark_tr_aud,
-    )
-    return evaluate_discipline(thesis_inputs, port_input, as_of)
+    port_input = PortfolioDisciplineInput(holdings=holdings)
+    findings = evaluate_discipline(thesis_inputs, port_input, as_of)
+    # Per-holding unrealised return (native, broker-matching) — appended here as a
+    # display fact (like the CGT-boundary line) so evaluate_discipline() stays
+    # quiet-by-default. Native entry vs current price only; no cost base, no
+    # benchmark, no Model A (R10 / rule #11 safe). Each is isolated with the same
+    # loud-error idiom the per-thesis checks use, so a single malformed thesis
+    # surfaces one error line rather than collapsing the whole section
+    # (security-engineer review, 2026-07-19).
+    for ti in thesis_inputs:
+        try:
+            pnl = unrealised_return(ti)
+        except Exception as exc:  # isolate a malformed thesis, fail loud (#10)
+            findings.append(
+                DisciplineFinding(
+                    check="unrealised_return",
+                    level=DisciplineLevel.error,
+                    message=f"⚠ unrealised_return could not run for {ti.symbol}: {exc}",
+                    symbol=ti.symbol,
+                )
+            )
+            continue
+        if pnl is not None:
+            findings.append(pnl)
+    return findings
 
 
 def render_html(data: BriefData) -> str:
