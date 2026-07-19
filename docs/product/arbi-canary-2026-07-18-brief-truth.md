@@ -37,8 +37,9 @@ shelved" state.
 | 11 | REVIEW OUTCOME | 2026-07-19T00:5xZ | **BOTH PASS.** portfolio-invariant-guard: all 7 invariants hold. security-engineer: all 7 firewall/security checks hold + it ran 68 tests green. Applied their feedback: per-thesis loud-error isolation on the `unrealised_return` loop (security LOW) + doc/scaffolding-rot cleanups (both). Re-verified: ruff + 19 discipline tests still green. |
 | 12 | COMMIT | 2026-07-19T00:5xZ | Staged code+tests+canary; review-gate marker `.claude/.review-passed-445eee4ac966` (had to `touch` in a separate shell call — the gate checks the marker at PreToolUse, before the shell runs; a compound `touch && commit` fails). Committed `bb07b36` (8 files, +226/−233), pushed. |
 | 13 | DRAFT PR | 2026-07-19T00:5xZ | **Draft PR #64 opened** (https://github.com/Jp8617465-sys/asxos/pull/64) for James's merge. CI `full-check` PENDING — subscribed to PR activity to catch the result (this is the CI-wait/repair leg of the instrumentation). Mission reaches "green draft PR" once CI passes. |
+| 14 | **MISSION COMPLETE** | 2026-07-19T01:2xZ | Scheduled `send_later` check-in (armed at transition 13, fired ~30min later) confirmed **CI GREEN**: `full-check` success, `targeted-ml-tests` success (both ran twice, once per post-open commit — all 4 + 1 skipped comment-check = 5/5 green, zero failures). `mergeable_state: "clean"`, no conflicts. **No REPAIR_CI transition was needed** — first-shot green. PR #64 is a green draft PR, ready for James's merge. James notified. |
 
-_(appended as the mission proceeds — planning → building → testing → review → PR → CI → repair → ready)_
+_(mission closed at transition 14 — the canary's live-tracking purpose is done; the sections below are the final synthesis)_
 
 **Local-vs-CI verification split (canary datapoint for the overnight controller):** a fresh
 unattended session in THIS sandbox can run py_compile, ruff, and pure-sync tests
@@ -138,22 +139,86 @@ _(more appended as they occur)_
 
 ## CI / repair events
 
-_(pending — populated once the draft PR is open and CI runs)_
+**Zero repairs needed — first-shot green.** `full-check` and `targeted-ml-tests` both passed on
+the initial push (each ran twice — once per commit pushed after the PR opened: the fix commit and
+the follow-on canary-doc commit — 4/4 non-skipped checks green). Total CI wall-clock from PR-open
+to last check completing: ~5 minutes (`created_at` 00:56:46Z → last check `completed_at`
+01:02:46Z). Contrast with the dossier's cited historical case (PR #59, the firewall-hardening
+mission from the 07-18 overnight run) which broke 10 existing tests and needed a repair cycle —
+this mission's local pre-verification (py_compile + ruff + the full pure-sync discipline suite +
+a standalone template render check covering all 4 banner branches) evidently caught what the
+sandbox *could* catch, and the CI-only async suite had nothing left to find. **Not proof a repair
+loop is unnecessary** — it's one data point that thorough local pre-verification (within the
+sandbox's ceiling) measurably reduces CI-failure rate, which is itself a design input: an
+unattended loop should maximize local verification before ever consuming a CI cycle.
 
 ---
 
 ## Resource / spend / model interruptions
 
-_(none observed yet)_
+**One mid-mission model switch, handled transparently.** Between transition 13 (draft PR opened,
+built under Opus 4.8) and transition 14 (this check-in), James ran `/model claude-sonnet-5` —
+this check-in fired and executed under **Sonnet 5**, a different model than built the fix. The
+transition was seamless *because state was externalized to git*, not held only in conversation
+memory: the canary doc itself (committed + pushed), the PR body, and the commit messages together
+carried enough context for the check-in to correctly interpret "confirm CI on PR #64" and act
+without re-deriving any of the mission's reasoning. **This is a direct, positive data point for
+the dossier's checkpoint/resume design (§9.1 `BLOCKED_RESOURCE_BUDGET`)**: a model swap, a session
+restart, or a fresh unattended session all fail or succeed on the same axis — whether the mission's
+state lives in a durable, git-tracked artifact (issue + PR + this kind of run-record) rather than
+in-context. It did here. No spend-limit or session-limit interruption occurred this mission (contrast:
+the dossier's cited 07-18 audit *did* hit one) — so that specific transition (`SESSION_LIMIT_HIT →
+checkpoint → fresh-session retry`) was not exercised this canary and remains untested by this run.
 
 ---
 
 ## Resumability blockers (could a fresh session resume THIS issue + PR from GitHub alone?)
 
-_(assessed at mission close)_
+**Mostly yes, with one gap.** A fresh session pointed only at PR #64 (no conversation memory) could
+correctly determine: what changed and why (PR body is self-contained: root cause, the fix, the
+financial-correctness reasoning, verification, review verdicts, explicit out-of-scope follow-ups),
+that both required reviews passed (stated in the PR body prose — not as separate GitHub "reviews,"
+since `security-engineer`/`portfolio-invariant-guard` are Claude subagents, not GitHub review
+identities), and that CI is green and it's mergeable. **The gap:** the PR body does NOT surface the
+single most important fact of this mission — that the metric was a *governor decision point*,
+not an engineering default, and specifically *why* (the brokerage-screenshot reconciliation, the
+FX-convention explanation). That reasoning lives only in this canary doc and this conversation. A
+fresh session (or James, months later) reading only the PR would understand *what* metric was
+chosen but not *the full trail of why it isn't the more "obvious" cost-base figure* without also
+finding and reading `docs/product/arbi-canary-2026-07-18-brief-truth.md`. **Fix for a future
+loop:** the mission's run-record (this canary pattern) should be linked FROM the PR body, not just
+committed alongside it in the same branch — a fresh session triaging via GitHub alone should not
+have to know the canary doc exists to find it.
 
 ---
 
 ## What an outer controller would have needed to complete this exact mission overnight
 
-_(synthesized at mission close — feeds the dossier reconciliation James requested)_
+Synthesized for `docs/product/automation-dossier-reconciliation-2026-07-19.md` (§2 of that doc is
+the state-machine trace this section supports):
+
+1. **A judgment-surfacing gate it does not have today.** The single hardest moment of this mission
+   — James's brokerage screenshot overturning the architect's cost-base design — is exactly the
+   kind of event a state-machine controller cannot manufacture on its own; it can only know to
+   *pause and ask* rather than confidently ship a plausible-but-wrong number. Detecting "this
+   mission embeds a value/metric/policy choice" from a mission envelope is a real design problem,
+   not a solved one — the honest answer is that THIS mission should have been classified amber
+   (ask-once) from the start, not green, and the fact that arbi/backend-architect did not initially
+   flag it that way is itself informative.
+2. **CI as the sole verification authority, explicitly.** This sandbox cannot run the async/DB test
+   suite — an unattended controller must know that about its own environment and gate "done" on the
+   GitHub check conclusion, never on a local pytest run alone (see the local-vs-CI split noted at
+   the top of this doc).
+3. **Reliable, allowlisted read access before anything else.** The `mcp__supabase-ro__execute_sql`
+   aborts (4/4 this mission) would have killed an unattended run at the very first live-data
+   investigation step — before it could even discover the −75.7% was a composition artifact, let
+   alone reach the point of needing James's judgment call. This is the true precondition, ahead of
+   the dossier's Stage-1 frontmatter repoint (see the reconciliation doc's mission recommendation).
+4. **A durable link between the mission's reasoning and its PR** — the resumability gap above. A
+   controller-driven loop should write its run-record path into the PR body itself (not just commit
+   it to the branch), so any future reader — human or agent — starting from GitHub alone can find
+   the full trail without already knowing to look.
+5. **What it would NOT have needed:** a repair loop for THIS mission specifically (zero CI failures
+   occurred) — though that is mission-specific luck from thorough local pre-verification, not
+   evidence the repair transition is unnecessary in general (the dossier's PR #59 precedent shows
+   the opposite in the same repo, same week).
