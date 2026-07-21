@@ -45,6 +45,10 @@ def test_helper_passes_when_flag_set(monkeypatch: pytest.MonkeyPatch) -> None:
         ("jobs.check_au_positions", lambda m: m._run(date(2026, 7, 18))),
         ("jobs.check_us_positions", lambda m: m._run(date(2026, 7, 18))),
         ("jobs.check_thesis_invalidations", lambda m: m._run(date(2026, 7, 18))),
+        # 2026-07-21: the one personal-data job the R14 sweep (#59) didn't
+        # cover — reads theses + holding lots to rank redeployment scenarios
+        # (session-handoff-2026-07-18 P1 #1).
+        ("jobs.compute_opportunity_cost", lambda m: m.main()),
     ],
 )
 def test_job_entry_point_gated(
