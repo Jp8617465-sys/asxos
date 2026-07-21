@@ -27,7 +27,9 @@ from typing import Any
 from xml.etree import ElementTree as ET  # Element types only — parsing goes through defusedxml
 
 import asyncpg
-from defusedxml.ElementTree import fromstring as _safe_fromstring
+from defusedxml.ElementTree import (  # type: ignore[import-untyped]  # no stubs shipped
+    fromstring as _safe_fromstring,
+)
 
 # Symbol regex — ASX tickers are 3 to 5 uppercase letters. `.AU` suffix
 # is the asxos convention; events may carry the bare ticker so we capture
