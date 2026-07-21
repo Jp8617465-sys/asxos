@@ -19,13 +19,15 @@ functions over bytes/strings so they're easy to unit-test against fixtures.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # Element types only — parsing goes through defusedxml
 
 import asyncpg
+from defusedxml.ElementTree import fromstring as _safe_fromstring
 
 # Symbol regex — ASX tickers are 3 to 5 uppercase letters. `.AU` suffix
 # is the asxos convention; events may carry the bare ticker so we capture
@@ -54,8 +56,12 @@ class RegulatoryEvent:
 
 
 def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> list[RegulatoryEvent]:
-    """Parse an RSS 2.0 / RSS 1.0 (RDF) / Atom-ish feed into RegulatoryEvent rows."""
-    root = ET.fromstring(xml_bytes)
+    """Parse an RSS 2.0 / RSS 1.0 (RDF) / Atom-ish feed into RegulatoryEvent rows.
+
+    Parsing uses defusedxml (entity-expansion / external-entity attacks
+    disabled) — the feed bytes are untrusted external input (07-18 audit).
+    """
+    root = _safe_fromstring(xml_bytes)
     items = root.findall(".//item") or root.findall(f"./{_ATOM_NS}entry")
     ns = ""
     if not items:
@@ -81,7 +87,9 @@ def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> 
         out.append(
             RegulatoryEvent(
                 source=source,
-                title=title,
+                # Cap like summary below — titles are untrusted feed text and
+                # flow into the brief/alert render paths (07-18 audit).
+                title=title[:500],
                 url=link,
                 published_at=_parse_date(pub_str) or date.today(),
                 summary=summary[:2000],
@@ -115,7 +123,7 @@ def parse_json_announcements(payload: list[dict[str, Any]], *, source: str = "AS
         out.append(
             RegulatoryEvent(
                 source=source,
-                title=title,
+                title=title[:500],
                 url=url,
                 published_at=_parse_date(released) or date.today(),
                 summary=(item.get("description") or "")[:2000],
@@ -195,19 +203,20 @@ async def upsert_events(
     """Idempotent UPSERT on (source, url). Returns rows affected."""
     if not events:
         return 0
-    payload = []
-    for e in events:
-        payload.append(
-            (
-                e.source,
-                e.published_at,
-                e.title,
-                e.url,
-                e.summary,
-                # relevance_tags JSONB — store symbols + kind
-                {"symbols": e.symbols, "kind": e.kind},
-            )
+    # Single comprehension straight to bind-tuples (07-18 audit: the old
+    # two-step intermediate list re-mapped every row a second time).
+    rows = [
+        (
+            e.source,
+            e.published_at,
+            e.title,
+            e.url,
+            e.summary,
+            # relevance_tags JSONB — store symbols + kind
+            json.dumps({"symbols": e.symbols, "kind": e.kind}),
         )
+        for e in events
+    ]
     await conn.executemany(
         """
         INSERT INTO regulatory_events (source, published_at, title, url, summary, relevance_tags)
@@ -218,11 +227,6 @@ async def upsert_events(
             summary        = EXCLUDED.summary,
             relevance_tags = EXCLUDED.relevance_tags
         """,
-        [(p[0], p[1], p[2], p[3], p[4], _json(p[5])) for p in payload],
+        rows,
     )
-    return len(payload)
-
-
-def _json(obj: object) -> str:
-    import json
-    return json.dumps(obj)
+    return len(rows)

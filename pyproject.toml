@@ -25,6 +25,7 @@ dependencies = [
     "pandas==2.2.3",
     "python-dateutil==2.9.0.post0",
     # Jobs + utilities
+    "defusedxml==0.7.1",  # hardened XML parsing for untrusted RSS feeds (07-18 audit)
     "tenacity==9.0.0",
     "typer==0.12.5",
     "click<8.2",  # typer 0.12.5 is incompatible with click 8.2+ (make_metavar signature change)
