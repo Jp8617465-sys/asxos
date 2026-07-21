@@ -517,6 +517,17 @@ half) and `docs/proposals/macro-workflow-automation-2026-07-21.md` (sequence the
 instrument discovery agents; Step 0 = the frontmatter repoint, now the confirmed precondition-zero
 — the identify half). Both need architect + James sign-off before build._
 
+_Close addendum (2026-07-21 `/arbi-close` — full record `docs/session-handoff-2026-07-21.md`):
+ONE THING outcome = **done · partially worked** (red-team split honored: #3/#4 APPROVED →
+macro_theses #6/#7, `governed_active_macro_theses` 0→2, first-ever governed macro content;
+runs #6/#7 verified-mechanically-clean but HELD on disclosed authorship asymmetry —
+recommendation reject-6/approve-7 pending James). Two proposals drafted
+(`macro-thesis-learning-loop-2026-07-21.md`, `macro-workflow-automation-2026-07-21.md`).
+**Next wake's ONE THING: Step 0 — repoint the 6 agent frontmatters to
+`mcp__supabase-ro__execute_sql`** (precondition-zero, live-failure-evidenced), then the
+thrice-carried P1 `compute_opportunity_cost` gate. Post-close (James-directed): `/arbi-dream`
+over the 07-15..07-21 window + a 6h continuous reversible work loop._
+
 _Prior snapshot (2026-07-18) retained below for diffing._
 
 _Recorded by the 2026-07-18 `/arbi-close` — supersedes the 07-16 snapshot; later runs diff
