@@ -43,6 +43,7 @@ async def collect_active_theses(as_of: date) -> SectionResult:
                    analyst_consensus_target, next_earnings_date, earnings_notes
             FROM theses
             WHERE status = 'active'
+              AND governance_status = 'approved'
             ORDER BY opened_at DESC
             """
         )

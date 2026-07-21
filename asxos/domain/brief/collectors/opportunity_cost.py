@@ -54,6 +54,7 @@ async def collect_opportunity_cost(as_of: date) -> SectionResult:
                 JOIN theses t ON t.thesis_id = oc.thesis_id
                 WHERE oc.as_of = $1
                   AND t.status = 'active'
+                  AND t.governance_status = 'approved'
                 ORDER BY oc.net_expected_return DESC
                 """,
                 as_of,

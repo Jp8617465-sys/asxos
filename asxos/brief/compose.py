@@ -769,6 +769,7 @@ async def _discipline_findings(
                actual_entry_price, target_price, stop_price, conviction_level
         FROM theses
         WHERE status = 'active'
+          AND governance_status = 'approved'
         ORDER BY opened_at
         """
     )

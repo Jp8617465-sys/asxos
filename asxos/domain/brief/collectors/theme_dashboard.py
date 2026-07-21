@@ -43,6 +43,7 @@ async def collect_theme_dashboard(as_of: date) -> SectionResult:
             LEFT JOIN governed_active_theme_holdings th ON th.theme_id = t.theme_id
             LEFT JOIN theses ON theses.symbol = th.symbol
                 AND theses.status IN ('active', 'watching', 'research')
+                AND theses.governance_status = 'approved'
             GROUP BY t.theme_id, t.theme_code, t.stage, t.stage_suggested,
                      t.conviction_band
             ORDER BY t.theme_code

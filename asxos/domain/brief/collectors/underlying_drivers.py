@@ -40,6 +40,7 @@ async def collect_underlying_drivers(
             SELECT thesis_id, symbol, status
             FROM theses
             WHERE status IN ('active', 'watching')
+              AND governance_status = 'approved'
             ORDER BY opened_at DESC
             """
         )
