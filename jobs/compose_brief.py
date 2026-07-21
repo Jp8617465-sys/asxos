@@ -41,6 +41,16 @@ log = logging.getLogger(__name__)
 
 
 async def main(as_of: date, send: bool) -> None:
+    # Personal-use firewall, top-level (Part 0 Q1 / CLAUDE.md #10). The brief's
+    # sections already self-gate at the data layer (compose.py checks
+    # ASXOS_PERSONAL_USE per section), so this is defense-in-depth — one loud
+    # gate ahead of any collection rather than N quiet per-section skips
+    # (07-18 audit P1 #2). Lazy import keeps the module importable in test
+    # envs lacking the prod dep tree, same as the stubs below.
+    from asxos.jobs._helpers import require_personal_use_job
+
+    require_personal_use_job()
+
     # Resolve module-level stubs: tests inject mocks (non-None); production
     # lazy-imports the real implementations here.
     _init_pool = globals()["init_pool"]

@@ -27,6 +27,16 @@ import pytest
 
 from asxos.jobs.utils.fallback_email import send_fallback_email
 
+
+@pytest.fixture(autouse=True)
+def _personal_use_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """compose_brief.main() gained a top-level require_personal_use_job()
+    gate (07-18 audit P1 #2, added 2026-07-21) — same autouse pattern #59
+    established when the R14 gates landed. The gate's own negative test
+    lives in test_jobs_personal_use_gate.py, not here."""
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+
+
 # ---------------------------------------------------------------------------
 # send_fallback_email — happy path
 # ---------------------------------------------------------------------------

@@ -49,6 +49,9 @@ def test_helper_passes_when_flag_set(monkeypatch: pytest.MonkeyPatch) -> None:
         # cover — reads theses + holding lots to rank redeployment scenarios
         # (session-handoff-2026-07-18 P1 #1).
         ("jobs.compute_opportunity_cost", lambda m: m.main()),
+        # 2026-07-21: compose_brief top-level gate (07-18 audit P1 #2) —
+        # defense-in-depth above the per-section data-layer gates.
+        ("jobs.compose_brief", lambda m: m.main(date(2026, 7, 21), send=False)),
     ],
 )
 def test_job_entry_point_gated(
