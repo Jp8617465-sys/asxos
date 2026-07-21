@@ -72,8 +72,12 @@ detail behind these lines.
   evidenced by a live failure, see Last wake snapshot). Historical: monitoring lane merged
   (queue #1 done); #29 (discipline evaluator) MERGED (`2a49df9`); portfolio-team-visibility
   PR2 (both halves) also merged (#41/#44).
-- **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
-  2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
+- **Decisions needed from James:** see **`james-inbox.md`**. As of 2026-07-21 its three
+  historical rows are all RULED (HUBS 10/20 ceiling 07-13; CBA automate-stale-thesis-hygiene
+  07-16, retirement write awaiting a one-word confirm; VGS/VAS not-held → demo lots 07-16).
+  Live asks: merge PR #65; rule on held agent_runs #6/#7 (rec: reject-6/approve-7); sign off
+  the two 2026-07-21 proposals. (Header un-rotted 2026-07-21 — it had trailed the inbox by
+  a week; the dream candidate flagged the drift.)
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
   auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
   cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
