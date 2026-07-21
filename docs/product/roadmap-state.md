@@ -498,6 +498,25 @@ added). Zero engineering cost, purely James's read-and-decide — `asx macro-the
 reversible); third: the agent-frontmatter repoint, now evidenced by a live failure rather
 than a theoretical gap._
 
+_Status updates later the same wake (do not edit the snapshot block above): (1) **`arbi-red-team`
+ran against the ONE THING and returned CHALLENGE** — flattening 4 rows of unequal provenance into
+one "zero-cost" action; #6/#7 came from a hand-rolled workaround (broken agent frontmatter → main
+loop stood in → direct MCP write, bypassing `log_agent_run`'s Pydantic/tier validation), so they
+must NOT be reviewed on the same footing as #3/#4. Split accepted. (2) **#3 and #4 APPROVED by
+James** (pipeline-clean, evidence validated 07-03) → `macro_theses` #6 (breadth-led catch-down,
+`falling_growth_falling_inflation`, approved) + #7 (sticky AU long end, `falling_growth_rising_inflation`,
+approved); full 3-step governance audit trail (agent×2 auto-advance + human approve), `agent_runs`
+#3/#4 marked acted_on. `macro_theses` 0→2 approved; `governed_active_macro_theses` non-empty for the
+first time. Executed via the write-capable Supabase MCP `DO`-block (faithful replication of
+`create_macro_thesis_from_agent_run` + `approve_object`) since the CLI is unreachable from this
+sandbox. (3) **agent_runs unacted now = 2** (runs #6/#7 only — HELD for provenance verification
+against `log_agent_run`'s real checks before James rules, per the red-team). (4) **Two new arbi
+proposals written** (James-requested): `docs/proposals/macro-thesis-learning-loop-2026-07-21.md`
+(falsifier-scoring cron + `macro_thesis_outcomes` table + feed the dream loop — the monitor/change
+half) and `docs/proposals/macro-workflow-automation-2026-07-21.md` (sequence the macro→theme→
+instrument discovery agents; Step 0 = the frontmatter repoint, now the confirmed precondition-zero
+— the identify half). Both need architect + James sign-off before build._
+
 _Prior snapshot (2026-07-18) retained below for diffing._
 
 _Recorded by the 2026-07-18 `/arbi-close` — supersedes the 07-16 snapshot; later runs diff
