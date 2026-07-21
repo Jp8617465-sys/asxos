@@ -19,6 +19,7 @@ from decimal import Decimal
 import asyncpg
 
 from asxos.domain.governance import transitions as governance_transitions
+from asxos.domain.governance.agent_run_guards import load_unacted_run, mark_run_acted
 from asxos.domain.themes.types import CoverageSegment, Theme, ThemeHolding
 from asxos.domain.theses.schemas import ThemeHoldingProposal, ThemeProposal
 
@@ -579,18 +580,9 @@ async def create_theme_from_agent_run(
     object_type != 'theme'.
     """
     async with conn.transaction():
-        run = await conn.fetchrow(
-            "SELECT * FROM agent_runs WHERE run_id = $1 FOR UPDATE", run_id
+        run = await load_unacted_run(
+            conn, run_id, object_type="theme", fn_name="create_theme_from_agent_run"
         )
-        if run is None:
-            raise ValueError(f"agent_runs row {run_id} not found")
-        if run["acted_on"]:
-            raise ValueError(f"agent_runs row {run_id} was already acted on")
-        if run["object_type"] != "theme":
-            raise ValueError(
-                f"agent_runs row {run_id} has object_type={run['object_type']!r} "
-                "— create_theme_from_agent_run() only accepts object_type='theme' rows."
-            )
 
         proposal_dict = json.loads(run["proposed_object"], parse_float=Decimal)
         proposal = ThemeProposal(**proposal_dict)
@@ -650,11 +642,7 @@ async def create_theme_from_agent_run(
             actor="agent",
         )
 
-        await conn.execute(
-            "UPDATE agent_runs SET acted_on = TRUE, resulting_object_id = $1 WHERE run_id = $2",
-            theme_id,
-            run_id,
-        )
+        await mark_run_acted(conn, run_id, theme_id)
 
         return _row_to_theme(row)
 
@@ -687,19 +675,12 @@ async def create_theme_holding_from_agent_run(
     the (theme, symbol) exposure already exists.
     """
     async with conn.transaction():
-        run = await conn.fetchrow(
-            "SELECT * FROM agent_runs WHERE run_id = $1 FOR UPDATE", run_id
+        run = await load_unacted_run(
+            conn,
+            run_id,
+            object_type="theme_holding",
+            fn_name="create_theme_holding_from_agent_run",
         )
-        if run is None:
-            raise ValueError(f"agent_runs row {run_id} not found")
-        if run["acted_on"]:
-            raise ValueError(f"agent_runs row {run_id} was already acted on")
-        if run["object_type"] != "theme_holding":
-            raise ValueError(
-                f"agent_runs row {run_id} has object_type={run['object_type']!r} "
-                "— create_theme_holding_from_agent_run() only accepts "
-                "object_type='theme_holding' rows."
-            )
 
         proposal_dict = json.loads(run["proposed_object"], parse_float=Decimal)
         proposal = ThemeHoldingProposal(**proposal_dict)
@@ -770,10 +751,6 @@ async def create_theme_holding_from_agent_run(
             actor="agent",
         )
 
-        await conn.execute(
-            "UPDATE agent_runs SET acted_on = TRUE, resulting_object_id = $1 WHERE run_id = $2",
-            holding_id,
-            run_id,
-        )
+        await mark_run_acted(conn, run_id, holding_id)
 
         return _row_to_theme_holding(row)
