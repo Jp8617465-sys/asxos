@@ -37,7 +37,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0037) is the canonical schema** — roughly 40
+**`migrations/` (currently through 0040) is the canonical schema** — roughly 40
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -54,7 +54,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `regulatory_events` — daily ingest from RBA RSS only (`jobs/ingest_regulatory.py`); Treasury and ATO both removed as dead feeds (WAF block confirmed 2026-07-18 / no stable feed respectively — re-add is a backlog item for either), ASIC/ASX never wired
 - `job_runs` — completion tracking
 - `model_versions` — active model flag via `is_active` column
-- `screening_rules` — JSON rule definitions; wired 2026-07-12 to a real Tier 2a evaluator (`asxos/domain/screening/`, `asx screen list`/`run`) — draft migration `0038` (not yet applied) tightens `source_method` to `curated_composite` only and adds a non-governed `screening_runs` audit log
+- `screening_rules` — JSON rule definitions; wired 2026-07-12 to a real Tier 2a evaluator (`asxos/domain/screening/`, `asx screen list`/`run`) — migration `0038` (APPLIED 2026-07-16) tightens `source_method` to `curated_composite` only and adds the non-governed `screening_runs` audit log
 - `portfolio_daily_snapshots` — (as_of) PK, capital_aud, holdings_mv_aud, cash_aud, benchmark columns; re-derivable, NOT in backup_irreplaceable.sh
 - `themes` — (theme_id BIGSERIAL) PK; theme_code UNIQUE slug, stage/conviction/adjacency, governance_status; irreplaceable
 - `theses` — (thesis_id BIGSERIAL) PK; per-symbol investment thesis with entry band, stop, target, timeline, audit trail, governance_status; irreplaceable
@@ -72,38 +72,32 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 ## Known test environment gaps (do not chase)
 
-16 tests are permanently collection-errors in the remote Claude Code sandbox because
+Some tests permanently collection-error in the remote Claude Code sandbox because
 `joblib` (transitively `lightgbm` / `sklearn`) is not installed in the sandbox Python
-env. All 16 fail identically (`ModuleNotFoundError: No module named 'joblib'`) via
-one of two import chains: direct (`domain/models/model_a.py` -> `domain/models/
-cache.py` -> `joblib`) or indirect through `from asxos.cli import main as cli_main`
-(`cli/main.py` -> `cli/predict.py` -> the same chain) — the indirect route is easy to
-miss since the erroring test file itself may import nothing ML-related:
+env, via one of two import chains: direct (`domain/models/model_a.py` ->
+`domain/models/cache.py` -> `joblib`) or indirect through `from asxos.cli import
+main as cli_main` (`cli/main.py` -> `cli/predict.py` -> the same chain) — the
+indirect route is easy to miss since the erroring test file itself may import
+nothing ML-related.
 
-- `tests/test_api_main.py`
-- `tests/test_cli_agent_run.py`
-- `tests/test_cli_holdings.py`
-- `tests/test_cli_macro_thesis.py`
-- `tests/test_cli_model.py`
-- `tests/test_cli_news.py`
-- `tests/test_cli_portfolio.py`
-- `tests/test_cli_position.py`
-- `tests/test_cli_predict.py`
-- `tests/test_cli_profile.py`
-- `tests/test_cli_signal.py`
-- `tests/test_cli_thesis.py`
-- `tests/test_generate_signals_job.py`
-- `tests/test_model_a_predict.py`
-- `tests/test_model_cache.py`
-- `tests/test_retrain_dry_run_guard.py`
+**Do NOT trust any enumerated list of the affected files — including any this file
+used to carry.** The list rotted from 4 -> 14 -> 16 while documented here, then was
+observed wrong three more times (39 failed/65 errors on 2026-07-16; 43/72 plus a
+missing-pytest-asyncio variant on 2026-07-21): the failing SET varies with which
+sandbox pytest environment you get, not just with the code. **The re-derivation
+command is the only authority:**
 
-Verify this list against `pytest tests/ -q 2>&1 | grep '^ERROR'` before trusting it —
-it's exactly as prone to rotting as the "Known coverage gaps" section below, and this
-count has already grown twice (4 -> 14 -> 16) since first documented. These all pass
-in the production Render environment where `pip install -e ".[ml]"` is run. Do not add
-workarounds or skip markers — the tests themselves are correct.
+```
+pytest tests/ -q 2>&1 | grep '^ERROR'
+```
 
-One additional runtime gap (not a collection-error, fails during execution):
+These all pass in the production Render environment where `pip install -e ".[ml]"`
+is run, and in CI (`full-check`), which is the real gate. Do not add workarounds or
+skip markers — the tests themselves are correct. Practical note (verified
+2026-07-21): a sandbox `python3` with `pip install pytest-asyncio asyncpg httpx
+tenacity pydantic pydantic-settings python-dotenv python-dateutil jinja2 numpy
+pandas` runs the non-ML suite for real — only the joblib/lightgbm ML-chain gaps
+remain, e.g.:
 
 - `tests/test_train_walk_forward.py::test_train_model_a_returns_valid_result` — requires
   `lightgbm` in the venv. The system Python has it; the sandbox venv does not. Passes
