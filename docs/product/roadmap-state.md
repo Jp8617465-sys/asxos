@@ -528,6 +528,22 @@ recommendation reject-6/approve-7 pending James). Two proposals drafted
 thrice-carried P1 `compute_opportunity_cost` gate. Post-close (James-directed): `/arbi-dream`
 over the 07-15..07-21 window + a 6h continuous reversible work loop._
 
+_Loop record (2026-07-21, James-directed 6h continuous window, ~11:10–12:40 UTC — ended
+early at natural completion): **the full close-2026-07-21 queue landed on PR #65, CI green
+at head (run 487).** (1) Step 0 agent repoint → supabase-ro, all 6 agents + README, via the
+sanctioned API route; (2) migration drift RESOLVED — 0040_thesis_report_sections
+reconstructed verbatim from the DB's own record + REQUIRED_MIGRATIONS 93→94; (3) P1
+compute_opportunity_cost firewall gate + paired render.yaml env (security PASS); (4) 07-18
+quick-fix batch 7-of-8 (defusedxml w/ live entity-attack verification, title cap, CWE-209,
+security_master executemany, single-pass compose, dead param; honest skip: 'dead theme_id'
+not locatable); (5) governance filters on ALL 7 thesis-reading brief paths (audit's 5 + 2
+review-sweep residuals). Bonus: P1 #2 compose_brief top-level gate; P2 guard-preamble
+extraction (agent_run_guards.py, 58 tests). Two self-inflicted CI breaks caught by the
+loop's own watch and fixed same-hour (mypy import-untyped; FakeConn.executemany). Deferred
+with reasons: N+1 cron rewrites (no measured baseline; performance-engineer-routed),
+governance approve/reject skeleton ×7 (needs live-fire trigger verification per the L7/L11
+rule). All work review-gated, draft-PR ceiling, no merges, no capital actions._
+
 _Prior snapshot (2026-07-18) retained below for diffing._
 
 _Recorded by the 2026-07-18 `/arbi-close` — supersedes the 07-16 snapshot; later runs diff
