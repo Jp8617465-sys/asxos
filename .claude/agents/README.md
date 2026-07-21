@@ -97,7 +97,8 @@ category from the conformance agents: they query **live Supabase data** (signals
 prices, theses, holding_lots, portfolio_daily_snapshots) and produce evidence-grounded
 analysis of the portfolio's current state. Every output cites a specific data point —
 no unanchored opinion. They are the building blocks toward a future portfolio-manager
-synthesizer agent. Tools include `mcp__Supabase__execute_sql`.
+synthesizer agent. Tools include `mcp__supabase-ro__execute_sql` (read-only DB role;
+repointed 2026-07-21 per `m14_candidate_agent_db_role_scoping`).
 
 Their SQL is **verified against the live schema** (Stage 2, 2026-06-29): every column
 each agent SELECTs was dry-run against the database. Key column truths to preserve when
@@ -144,7 +145,9 @@ Added as part of the governance-first architecture
 from the five investment-analysis agents above: those *analyze* existing holdings;
 this one *proposes new content* (a macro thesis, eventually a theme or an instrument)
 for human governance review. Same tool boundary as the analysis agents (`Read, Glob,
-Grep, mcp__Supabase__execute_sql`, SELECT-only) — it never writes to the database
+Grep, mcp__supabase-ro__execute_sql`, SELECT-only — mechanically enforced by the
+read-only DB role since the 2026-07-21 repoint, not just the prompt) — it never
+writes to the database
 itself. Its output is a structured JSON block (see the agent file's own "Output"
 section) that a slash command parses and persists via `asx agent-run log`, which a
 human then reviews and promotes via `asx macro-thesis approve`.
