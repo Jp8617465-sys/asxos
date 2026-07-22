@@ -12,6 +12,12 @@ Design decisions:
   - data_signals is a JSONB array of free-text signal descriptions the
     macro-economist agent cited — not a typed structure, since the set of
     signals an agent might reference is open-ended.
+  - machine_conditions is the optional structured predicate form (a parsed
+    MachineConditions dict, migration 0041) the learning loop
+    (jobs/score_macro_theses.py) evaluates. NULL = free-text catalyst/falsifier
+    only. Carried as a plain dict (JSONB round-trips as text, same handling as
+    data_signals) rather than a typed model — the reader that needs the typed
+    shape re-parses it.
 
 References:
   migrations/0035_macro_theses_and_governance_columns.sql
@@ -46,3 +52,4 @@ class MacroThesis:
     governance_status: str
     created_at: datetime
     retired_at: date | None
+    machine_conditions: dict | None = None
