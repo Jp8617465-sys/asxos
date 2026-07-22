@@ -1,4 +1,4 @@
-"""Structured agent-proposal schemas — Phase 1 governance layer.
+"""Structured agent-proposal schemas -- Phase 1 governance layer.
 
 Pydantic v2 models validated against agent_runs.proposed_object before any
 write. Agents produce these typed objects, never SQL (doc Section 4.2).
@@ -41,11 +41,96 @@ from typing import Any, Literal, get_args
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
+# ---------------------------------------------------------------------------
+# Machine-checkable macro-thesis conditions — the macro-thesis learning loop
+# (docs/proposals/macro-thesis-learning-loop-2026-07-21.md §3 Layer A).
+#
+# Optional structured predicates the macro-economist can emit ALONGSIDE its
+# free-text catalyst/falsifier so jobs/score_macro_theses.py can evaluate them
+# against accumulating market_context_current history by construction, rather
+# than parsing prose. Free-text catalyst/falsifier stay authoritative for a
+# human; machine_conditions is the machine-evaluable subset (may be omitted, or
+# carry only the flat half of a claim — nested A AND (B OR C) trees and
+# crosses_* are deferred, backend-architect §6).
+#
+# MacroSignal values are the market_context_current column names verbatim
+# (migration 0013) — the evaluator resolves signal->column by identity and
+# hard-fails on any name outside this set (a raw-SQL / stale-annotation guard).
+# ---------------------------------------------------------------------------
+
+MacroSignal = Literal[
+    "asx200_close", "asx200_daily_change_pct",
+    "pct_above_50d_ma", "pct_above_200d_ma", "net_new_highs_lows_10d",
+    "avix", "avix_5d_change_pct", "avix_30d_band_pos",
+    "rba_cash_rate", "aud_usd", "aus_10y_yield", "iron_ore_62fe",
+    "us_hy_oas", "us_10y_2y_spread", "vix",
+]
+Comparator = Literal["gt", "gte", "lt", "lte"]        # crosses_* deferred
+WindowAgg = Literal["consecutive", "any", "majority"]  # over the last `window` rows
+
+
+class MachineCondition(BaseModel):
+    """One comparison of a named market_context signal against a threshold over
+    a trailing window. Semantics of ``aggregation`` (over the last ``window``
+    daily rows, a NULL value counting as not-satisfied — never confirm/falsify
+    on missing data): ``consecutive`` = every one of the last ``window`` rows
+    satisfies; ``any`` = >=1 of them; ``majority`` = >50% of them. If fewer than
+    ``window`` rows of history exist, the condition cannot be met (not-satisfied).
+    """
+
+    signal: MacroSignal
+    op: Comparator
+    threshold: Decimal
+    window: int = Field(default=1, ge=1, le=60)
+    aggregation: WindowAgg = "consecutive"
+
+    @field_validator("threshold", mode="before")
+    @classmethod
+    def _reject_float_threshold(cls, v: object) -> object:
+        # A JSON number literal deserialises to float and loses precision before
+        # Decimal sees it (CLAUDE.md #5) — reject it so a lossy threshold fails
+        # loud; a decimal string ("0.50") or a real Decimal/int stays exact.
+        if isinstance(v, float):
+            raise ValueError("threshold must be a Decimal or decimal string, not float")
+        return v
+
+
+class MachinePredicate(BaseModel):
+    """A boolean combination of conditions. ``combine='all'`` = AND across every
+    condition; ``combine='any'`` = OR. Flat only — a nested predicate tree is
+    deferred (backend-architect §6)."""
+
+    combine: Literal["all", "any"] = "all"
+    conditions: list[MachineCondition] = Field(min_length=1)
+
+
+class MachineConditions(BaseModel):
+    """The machine-evaluable half of a macro thesis: a catalyst predicate (what
+    would confirm it) and/or a falsifier predicate (what would break it). At
+    least one must be present — omit the whole field otherwise."""
+
+    catalyst: MachinePredicate | None = None
+    falsifier: MachinePredicate | None = None
+
+    @model_validator(mode="after")
+    def _require_one(self) -> "MachineConditions":
+        if self.catalyst is None and self.falsifier is None:
+            raise ValueError(
+                "machine_conditions needs a catalyst or falsifier; else omit the field"
+            )
+        return self
+
+
 class MacroThesisProposal(BaseModel):
     """Proposal shape for macro-economist agent output (Phase 2 producer;
     schema landed in Phase 1 so the validation/CLI plumbing exists ahead of
     the agent). evidence_citation_ids reference agent_evidence.evidence_id
-    rows (pre-thesis evidence — no thesis exists yet at this stage)."""
+    rows (pre-thesis evidence — no thesis exists yet at this stage).
+
+    machine_conditions is optional (default None) and backward-compatible: an
+    existing proposal with only free-text catalyst/falsifier still validates.
+    When present it is the structured, evaluable form scored by
+    jobs/score_macro_theses.py (the learning loop, Layer A)."""
 
     title: str = Field(min_length=1)
     thesis_text: str = Field(min_length=1)
@@ -59,6 +144,7 @@ class MacroThesisProposal(BaseModel):
     catalyst: str = Field(min_length=1)
     falsifier: str = Field(min_length=1)
     data_signals: list[str] = Field(default_factory=list)
+    machine_conditions: MachineConditions | None = None
     evidence_citation_ids: list[int] = Field(min_length=1)  # agent_evidence.evidence_id FKs
 
 
@@ -94,7 +180,7 @@ class ThemeHoldingProposal(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase B — the ThesisProposal keystone (m14_candidate_agentic_thesis_drafter)
+# Phase B -- the ThesisProposal keystone (m14_candidate_agentic_thesis_drafter)
 #
 # The individual-investment broker-report thesis. Closes the deliberately-absent
 # ThesisProposal gap named in this module's docstring and in
