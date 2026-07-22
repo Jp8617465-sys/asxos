@@ -45,6 +45,13 @@ def _row_to_macro_thesis(row: asyncpg.Record) -> MacroThesis:
     raw_signals = row["data_signals"]
     if isinstance(raw_signals, str):
         raw_signals = json.loads(raw_signals)
+    # machine_conditions (migration 0041) round-trips as JSONB text, same as
+    # data_signals. .get() (not [...]) so a pre-0041 row shape — including the
+    # mocked rows in tests that predate the column — reads as None rather than
+    # KeyError; both dict and asyncpg.Record support .get().
+    raw_machine = row.get("machine_conditions")
+    if isinstance(raw_machine, str):
+        raw_machine = json.loads(raw_machine)
     return MacroThesis(
         macro_thesis_id=row["macro_thesis_id"],
         title=row["title"],
@@ -58,6 +65,7 @@ def _row_to_macro_thesis(row: asyncpg.Record) -> MacroThesis:
         governance_status=row["governance_status"],
         created_at=row["created_at"],
         retired_at=row["retired_at"],
+        machine_conditions=raw_machine,
     )
 
 
@@ -155,8 +163,8 @@ async def create_macro_thesis_from_agent_run(
             """
             INSERT INTO macro_theses
                 (title, thesis_text, regime_quadrant, horizon_months, catalyst,
-                 falsifier, data_signals, source_run_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+                 falsifier, data_signals, source_run_id, machine_conditions)
+            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb)
             RETURNING *
             """,
             proposal.title,
@@ -167,6 +175,12 @@ async def create_macro_thesis_from_agent_run(
             proposal.falsifier,
             json.dumps(proposal.data_signals),
             run_id,
+            # model_dump_json() (not json.dumps) so Decimal thresholds serialise
+            # as JSON strings, never lossy floats (CLAUDE.md #5). NULL when the
+            # proposal carries only free-text catalyst/falsifier.
+            proposal.machine_conditions.model_dump_json()
+            if proposal.machine_conditions is not None
+            else None,
         )
         macro_thesis_id = row["macro_thesis_id"]
 
