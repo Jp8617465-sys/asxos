@@ -65,13 +65,19 @@ detail behind these lines.
   policy** (rule #11), not by an open dispute. Phase 2c is **reframed** model-independent
   (discovery/discipline/ETF) and no longer waits on a signal engine
   (`ml-engine-shelf-2026-07-11.md`).
-- **Next actions:** see the ranked queue below. Monitoring lane is merged (queue #1 done —
-  residual = watch the first post-merge Sat run). **#29 (discipline evaluator) is MERGED**
-  (`2a49df9`); candidate new #1 (2026-07-14) is portfolio-team-visibility **PR2, both
-  halves** — **PR2a** (the `_discipline_findings()` loader) and **PR2b** (the
-  `brief.html.j2` render block) — landing together this session as a draft PR.
-- **Decisions needed from James:** see **`james-inbox.md`** — HUBS concentration policy (reframed
-  2026-07-12: ESPP, not a conviction pick); CBA thesis #1 fix-or-retire; VGS/VAS holding-lot data.
+- **Next actions:** see the ranked queue below. **2026-07-21 wake — ONE THING: clear the
+  `agent_runs` review backlog (4 unacted: #3, #4 pre-existing + #6, #7 logged this wake) —
+  zero-engineering, James's read-and-decide.** Then: P1 `compute_opportunity_cost` firewall
+  gate (carried from 07-18); then the agent-frontmatter repoint to `supabase-ro` (now
+  evidenced by a live failure, see Last wake snapshot). Historical: monitoring lane merged
+  (queue #1 done); #29 (discipline evaluator) MERGED (`2a49df9`); portfolio-team-visibility
+  PR2 (both halves) also merged (#41/#44).
+- **Decisions needed from James:** see **`james-inbox.md`**. As of 2026-07-21 its three
+  historical rows are all RULED (HUBS 10/20 ceiling 07-13; CBA automate-stale-thesis-hygiene
+  07-16, retirement write awaiting a one-word confirm; VGS/VAS not-held → demo lots 07-16).
+  Live asks: merge PR #65; rule on held agent_runs #6/#7 (rec: reject-6/approve-7); sign off
+  the two 2026-07-21 proposals. (Header un-rotted 2026-07-21 — it had trailed the inbox by
+  a week; the dream candidate flagged the drift.)
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
   auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
   cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
@@ -446,6 +452,103 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-07-21 interactive `/arbi` wake — supersedes the 07-18 snapshot; later
+runs diff against this._
+
+```
+Wake: 2026-07-21 (interactive /arbi, "hey arbi whats the craic")
+- branch: claude/investment-selection-results-pz9wnc — EVEN with origin/main (0 ahead, 0
+  behind), both at 9dd5443. Clean tree. Zero commits/PRs landed since the 07-18 close.
+- tests (sandbox): 759 passed / 43 failed / 72 errors — ALL attributable to this session's
+  uv-tool pytest lacking pytest-asyncio (plus the usual joblib/asyncpg/dateutil gaps), the
+  same rotting-sandbox-gap pattern already seen 07-16 (worse than CLAUDE.md's documented
+  16). Not a code regression; CI full-check is authority, not re-verified this wake.
+- migrations: disk through 0039_agent_readonly_role.sql. DB applied count = 94 — one MORE
+  than the 93 recorded at the 07-18 close and still hardcoded as REQUIRED_MIGRATIONS in
+  api/main.py. No matching new migration file or merged PR visible. UNRESOLVED — the
+  diagnostic query (latest applied version/name) was not completed this wake (tool access
+  interrupted); flag, don't assume either a stray prod change or a stale constant.
+- Render: 29 asxos services, all not_suspended except asxos-retrain-model-a=SUSPENDED
+  (expected, rule #11).
+- freshness: prices.dt=2026-07-20 · signals.as_of=2026-07-20 · portfolio_snap.as_of=2026-07-20
+  (all fresh) · regulatory_events=2 rows, latest 2026-07-08 (STILL STARVED — unchanged since
+  07-16, RBA-only feed thin; Treasury retire #55 was about the dead feed, not this volume) ·
+  macro_theses=0 · theses=13 (1 active: HUBS) · agent_runs unacted=4 (was 2 at last check —
+  this wake logged 2 NEW macro-thesis proposals, run_id 6 and 7, via a hand-verified direct
+  write after the CLI path proved unreachable from this sandbox — see below).
+- job_runs (recent): build_portfolio latest=BLOCKED 2026-07-18 (correct, rule #11 — not
+  'failure', the mechanical distinction holds) · check_cron_health/compose_brief/
+  generate_signals/snapshot_portfolio/sync_prices all SUCCESS 2026-07-20 · sync_financial_
+  statements SUCCESS 2026-07-18 (weekly) · track_signal_outcomes SUCCESS 2026-07-19 (weekly).
+  Infra is healthy.
+- concrete, reproduced finding: invoking `market-context-narrator` as a subagent failed
+  outright this wake — its frontmatter still calls `mcp__Supabase__execute_sql`, which
+  wasn't a live tool name in this session. This is the exact P2 RED-ZONE "repoint 6 agent
+  frontmatters to mcp__supabase-ro__execute_sql" gap the 07-18 handoff already named, now
+  with a live failure instance instead of a theoretical one. Worked around manually
+  (ran the narrator's + macro-economist's documented query sequence directly, produced a
+  real 3-sentence market backdrop + 2 evidence-cited macro-thesis proposals, logged the
+  latter as agent_runs #6/#7 via the write-capable Supabase MCP after confirming raw-TCP
+  Postgres is structurally unsupported through this sandbox's proxy — not a retry-able
+  glitch, the proxy README says so explicitly).
+```
+
+_This wake's ONE THING: clear the `agent_runs` review backlog (now 4 unacted — the 2
+pre-existing proposals are already past the team's own 14-day health bar; 2 more were just
+added). Zero engineering cost, purely James's read-and-decide — `asx macro-thesis open
+--from-agent-run <id>` then `approve`/`reject` for run_ids 3, 4, 6, 7. Second-ranked: the P1
+`compute_opportunity_cost` firewall gate carried over from 07-18 (still open, still
+reversible); third: the agent-frontmatter repoint, now evidenced by a live failure rather
+than a theoretical gap._
+
+_Status updates later the same wake (do not edit the snapshot block above): (1) **`arbi-red-team`
+ran against the ONE THING and returned CHALLENGE** — flattening 4 rows of unequal provenance into
+one "zero-cost" action; #6/#7 came from a hand-rolled workaround (broken agent frontmatter → main
+loop stood in → direct MCP write, bypassing `log_agent_run`'s Pydantic/tier validation), so they
+must NOT be reviewed on the same footing as #3/#4. Split accepted. (2) **#3 and #4 APPROVED by
+James** (pipeline-clean, evidence validated 07-03) → `macro_theses` #6 (breadth-led catch-down,
+`falling_growth_falling_inflation`, approved) + #7 (sticky AU long end, `falling_growth_rising_inflation`,
+approved); full 3-step governance audit trail (agent×2 auto-advance + human approve), `agent_runs`
+#3/#4 marked acted_on. `macro_theses` 0→2 approved; `governed_active_macro_theses` non-empty for the
+first time. Executed via the write-capable Supabase MCP `DO`-block (faithful replication of
+`create_macro_thesis_from_agent_run` + `approve_object`) since the CLI is unreachable from this
+sandbox. (3) **agent_runs unacted now = 2** (runs #6/#7 only — HELD for provenance verification
+against `log_agent_run`'s real checks before James rules, per the red-team). (4) **Two new arbi
+proposals written** (James-requested): `docs/proposals/macro-thesis-learning-loop-2026-07-21.md`
+(falsifier-scoring cron + `macro_thesis_outcomes` table + feed the dream loop — the monitor/change
+half) and `docs/proposals/macro-workflow-automation-2026-07-21.md` (sequence the macro→theme→
+instrument discovery agents; Step 0 = the frontmatter repoint, now the confirmed precondition-zero
+— the identify half). Both need architect + James sign-off before build._
+
+_Close addendum (2026-07-21 `/arbi-close` — full record `docs/session-handoff-2026-07-21.md`):
+ONE THING outcome = **done · partially worked** (red-team split honored: #3/#4 APPROVED →
+macro_theses #6/#7, `governed_active_macro_theses` 0→2, first-ever governed macro content;
+runs #6/#7 verified-mechanically-clean but HELD on disclosed authorship asymmetry —
+recommendation reject-6/approve-7 pending James). Two proposals drafted
+(`macro-thesis-learning-loop-2026-07-21.md`, `macro-workflow-automation-2026-07-21.md`).
+**Next wake's ONE THING: Step 0 — repoint the 6 agent frontmatters to
+`mcp__supabase-ro__execute_sql`** (precondition-zero, live-failure-evidenced), then the
+thrice-carried P1 `compute_opportunity_cost` gate. Post-close (James-directed): `/arbi-dream`
+over the 07-15..07-21 window + a 6h continuous reversible work loop._
+
+_Loop record (2026-07-21, James-directed 6h continuous window, ~11:10–12:40 UTC — ended
+early at natural completion): **the full close-2026-07-21 queue landed on PR #65, CI green
+at head (run 487).** (1) Step 0 agent repoint → supabase-ro, all 6 agents + README, via the
+sanctioned API route; (2) migration drift RESOLVED — 0040_thesis_report_sections
+reconstructed verbatim from the DB's own record + REQUIRED_MIGRATIONS 93→94; (3) P1
+compute_opportunity_cost firewall gate + paired render.yaml env (security PASS); (4) 07-18
+quick-fix batch 7-of-8 (defusedxml w/ live entity-attack verification, title cap, CWE-209,
+security_master executemany, single-pass compose, dead param; honest skip: 'dead theme_id'
+not locatable); (5) governance filters on ALL 7 thesis-reading brief paths (audit's 5 + 2
+review-sweep residuals). Bonus: P1 #2 compose_brief top-level gate; P2 guard-preamble
+extraction (agent_run_guards.py, 58 tests). Two self-inflicted CI breaks caught by the
+loop's own watch and fixed same-hour (mypy import-untyped; FakeConn.executemany). Deferred
+with reasons: N+1 cron rewrites (no measured baseline; performance-engineer-routed),
+governance approve/reject skeleton ×7 (needs live-fire trigger verification per the L7/L11
+rule). All work review-gated, draft-PR ceiling, no merges, no capital actions._
+
+_Prior snapshot (2026-07-18) retained below for diffing._
 
 _Recorded by the 2026-07-18 `/arbi-close` — supersedes the 07-16 snapshot; later runs diff
 against this. Full session record: `docs/session-handoff-2026-07-18.md`._

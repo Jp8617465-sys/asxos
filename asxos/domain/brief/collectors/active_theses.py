@@ -43,6 +43,7 @@ async def collect_active_theses(as_of: date) -> SectionResult:
                    analyst_consensus_target, next_earnings_date, earnings_notes
             FROM theses
             WHERE status = 'active'
+              AND governance_status = 'approved'
             ORDER BY opened_at DESC
             """
         )
@@ -107,7 +108,7 @@ async def collect_active_theses(as_of: date) -> SectionResult:
 
             # Underlying score (uses pre-fetched data)
             thesis_underlyings = tu_by_thesis.get(thesis_id, [])
-            moves = {uid: all_moves.get(uid) for uid in [tu.underlying_id for tu in thesis_underlyings]}
+            moves = {tu.underlying_id: all_moves.get(tu.underlying_id) for tu in thesis_underlyings}
             score = score_thesis_underlying(thesis_underlyings, moves)
 
             # Overdue check

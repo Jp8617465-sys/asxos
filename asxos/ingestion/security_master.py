@@ -95,21 +95,25 @@ async def refresh_security_master(
         "skipped_no_code": skipped_no_code,
     }
 
+    # Classify against the pre-fetched `existing` snapshot first (pure dict
+    # work), then write all rows in one executemany round-trip — the prior
+    # per-row conn.execute loop was ~4,300 sequential round-trips per weekly
+    # run (07-18 audit). Classification is unchanged: it never depended on
+    # the write, only on the before-image.
     for sym, v in incoming.items():
-        await conn.execute(
-            _UPSERT,
-            sym,
-            v["name"],
-            v["currency"],
-            v["security_type"],
-            v["isin"],
-            v["is_active"],
-        )
         if sym not in existing:
             counts["inserted"] += 1
         else:
             counts["updated"] += 1
             if v["is_active"] and existing[sym] is False:
                 counts["relisted"] += 1
+
+    await conn.executemany(
+        _UPSERT,
+        [
+            (sym, v["name"], v["currency"], v["security_type"], v["isin"], v["is_active"])
+            for sym, v in incoming.items()
+        ],
+    )
 
     return counts

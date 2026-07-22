@@ -30,6 +30,7 @@ from decimal import Decimal
 import asyncpg
 
 from asxos.domain.governance import transitions as governance_transitions
+from asxos.domain.governance.agent_run_guards import load_unacted_run, mark_run_acted
 from asxos.domain.macro_theses.types import MacroThesis
 from asxos.domain.theses.schemas import MacroThesisProposal
 
@@ -140,19 +141,12 @@ async def create_macro_thesis_from_agent_run(
       - object_type != 'macro_thesis'
     """
     async with conn.transaction():
-        run = await conn.fetchrow(
-            "SELECT * FROM agent_runs WHERE run_id = $1 FOR UPDATE", run_id
+        run = await load_unacted_run(
+            conn,
+            run_id,
+            object_type="macro_thesis",
+            fn_name="create_macro_thesis_from_agent_run",
         )
-        if run is None:
-            raise ValueError(f"agent_runs row {run_id} not found")
-        if run["acted_on"]:
-            raise ValueError(f"agent_runs row {run_id} was already acted on")
-        if run["object_type"] != "macro_thesis":
-            raise ValueError(
-                f"agent_runs row {run_id} has object_type={run['object_type']!r} "
-                "— create_macro_thesis_from_agent_run() only accepts object_type="
-                "'macro_thesis' rows."
-            )
 
         proposal_dict = json.loads(run["proposed_object"], parse_float=Decimal)
         proposal = MacroThesisProposal(**proposal_dict)
@@ -191,11 +185,7 @@ async def create_macro_thesis_from_agent_run(
             actor="agent",
         )
 
-        await conn.execute(
-            "UPDATE agent_runs SET acted_on = TRUE, resulting_object_id = $1 WHERE run_id = $2",
-            macro_thesis_id,
-            run_id,
-        )
+        await mark_run_acted(conn, run_id, macro_thesis_id)
 
         return _row_to_macro_thesis(row)
 

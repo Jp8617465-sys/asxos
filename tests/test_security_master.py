@@ -39,6 +39,13 @@ class FakeConn:
     async def execute(self, sql: str, *args):
         self.executed.append((sql, args))
 
+    async def executemany(self, sql: str, rows):
+        # One `executed` entry per row — keeps _executed_map() and every
+        # per-row assertion identical after the 2026-07-21 switch from a
+        # per-row execute loop to a single executemany (07-18 audit).
+        for row in rows:
+            self.executed.append((sql, tuple(row)))
+
 
 def _row(code, name="X", typ="Common Stock", currency="AUD", isin="AU000X"):
     return {"Code": code, "Name": name, "Type": typ, "Currency": currency, "Isin": isin}

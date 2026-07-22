@@ -30,6 +30,7 @@ async def collect_watchlist(as_of: date) -> SectionResult:
                    t.stop_price, t.target_price, t.opened_at, t.thesis_text
             FROM theses t
             WHERE t.status = 'watching'
+              AND t.governance_status = 'approved'
             ORDER BY t.opened_at DESC
             """
         )

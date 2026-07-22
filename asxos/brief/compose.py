@@ -612,35 +612,28 @@ async def _portfolio_section(
         run_id,
     )
 
-    top_buys = [
-        PortfolioTradeSummary(
-            symbol=r["symbol"],
-            side="buy",
-            delta_aud=Decimal(str(r["delta_aud"])),
-        )
-        for r in trade_rows
-        if r["side"] == "buy"
-    ][:3]
-
-    top_sells = [
-        PortfolioTradeSummary(
-            symbol=r["symbol"],
-            side="sell",
-            delta_aud=Decimal(str(r["delta_aud"])),
-        )
-        for r in trade_rows
-        if r["side"] == "sell"
-    ][:3]
-
-    # Aggregate AUD totals.
-    total_buy_aud = sum(
-        (Decimal(str(r["delta_aud"])) for r in trade_rows if r["side"] == "buy"),
-        Decimal("0"),
-    )
-    total_sell_aud = sum(
-        (abs(Decimal(str(r["delta_aud"]))) for r in trade_rows if r["side"] == "sell"),
-        Decimal("0"),
-    )
+    # Single pass over trade_rows (07-18 audit: was four passes — two
+    # filtered comprehensions + two filtered sums). Rows arrive ordered by
+    # |delta_aud| DESC, so appending the first 3 per side preserves the
+    # top-3 semantics exactly.
+    top_buys: list[PortfolioTradeSummary] = []
+    top_sells: list[PortfolioTradeSummary] = []
+    total_buy_aud = Decimal("0")
+    total_sell_aud = Decimal("0")
+    for r in trade_rows:
+        delta = Decimal(str(r["delta_aud"]))
+        if r["side"] == "buy":
+            total_buy_aud += delta
+            if len(top_buys) < 3:
+                top_buys.append(
+                    PortfolioTradeSummary(symbol=r["symbol"], side="buy", delta_aud=delta)
+                )
+        else:  # side = 'sell' (query filters to buy/sell only)
+            total_sell_aud += abs(delta)
+            if len(top_sells) < 3:
+                top_sells.append(
+                    PortfolioTradeSummary(symbol=r["symbol"], side="sell", delta_aud=delta)
+                )
 
     return PortfolioSection(
         run_id=run_id,
@@ -776,6 +769,7 @@ async def _discipline_findings(
                actual_entry_price, target_price, stop_price, conviction_level
         FROM theses
         WHERE status = 'active'
+          AND governance_status = 'approved'
         ORDER BY opened_at
         """
     )

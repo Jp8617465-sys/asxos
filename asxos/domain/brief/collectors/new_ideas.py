@@ -55,6 +55,7 @@ async def collect_new_ideas(as_of: date, regime_label: str | None = None) -> Sec
             SELECT symbol, opened_at, thesis_text
             FROM theses
             WHERE status = 'research'
+              AND governance_status = 'approved'
             ORDER BY opened_at DESC
             """
         )

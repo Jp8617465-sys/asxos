@@ -575,6 +575,11 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.13
+      - key: ASXOS_PERSONAL_USE
+        value: "1"        # paired with require_personal_use_job() in the job
+        # (2026-07-21, session-handoff-2026-07-18 P1 #1) — reads theses +
+        # holding lots (s766B personal data); the in-code gate hard-fails
+        # without this env, so the pair must land together.
       - fromService:
           type: web
           name: asxos-api

@@ -520,7 +520,7 @@ async def _exit_thesis(
         )
 
         if show_redeploy:
-            await _show_redeploy_candidates(symbol, price)
+            await _show_redeploy_candidates(symbol)
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
@@ -528,8 +528,12 @@ async def _exit_thesis(
         await close_pool()
 
 
-async def _show_redeploy_candidates(symbol: str, exit_price: Decimal) -> None:
-    """Print CGT-adjusted redeployment candidates from opportunity_cost_scenarios."""
+async def _show_redeploy_candidates(symbol: str) -> None:
+    """Print CGT-adjusted redeployment candidates from opportunity_cost_scenarios.
+
+    (exit_price param removed 2026-07-21 — dead since the scenarios moved to
+    the pre-computed weekly job; the query keys on symbol alone. 07-18 audit.)
+    """
     try:
         async with acquire() as conn:
             # Prefer pre-computed scenarios from the weekly job
