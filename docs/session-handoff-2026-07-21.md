@@ -133,4 +133,32 @@ changes — all commits are docs). No PRs opened. No migrations. No Render chang
 **Reminder (process, not action): this handoff + the state docs live on the feature branch;
 they must reach `main` to be seen by the next session's wake — merge is James's.**
 
-🤖 arbi `/arbi-close` — 2026-07-21
+---
+
+## Post-close addendum — the 6h loop + the merge (session end)
+
+James directed a 6-hour continuous reversible work loop after the close above. Outcome
+(full detail in `roadmap-state.md`'s loop record + PR #65's body): **the entire
+close-2026-07-21 queue landed, CI green at head** — agent supabase-ro repoint (Step 0),
+0040 migration reconstruction + `REQUIRED_MIGRATIONS` 93→94, the thrice-carried
+`compute_opportunity_cost` firewall gate + paired render.yaml env, the 07-18 quick-fix
+batch (7 of 8, incl. defusedxml with live entity-attack verification), governance filters
+on all 7 thesis-reading brief paths, plus P1 #2 (`compose_brief` top-level gate) and the
+P2 guard-preamble extraction (`agent_run_guards.py`). Two self-inflicted CI breaks were
+caught by the loop's own watch and fixed same-hour. All three dream-candidate
+contradictions closed (CLAUDE.md gap-list, roadmap-state header, migration drift).
+
+**James merged PR #65 → `main` @ `9d8dd9d`** (squash, 27 commits). Render auto-deploys
+from main: the `compute_opportunity_cost` cron gets gate+env together (first gated run
+Sat 20:05 UTC — watch it); the API's next boot checks `REQUIRED_MIGRATIONS=94` vs DB 94.
+`make check-drift` after the deploy settles is the standing follow-up.
+
+**Next wake starts here:** (1) James's ruling on held runs #6/#7 (rec: reject-6 /
+approve-7) if not yet given; (2) build the two signed-off-pending proposals —
+`macro-workflow-automation-2026-07-21.md` (Steps 1–2: verify the theme CLI verbs, then
+materialize + stage `sector-screener` per its spec's 6-stage checklist) and
+`macro-thesis-learning-loop-2026-07-21.md` (gating decision: the `machine_conditions`
+structured-predicate schema, routed through `backend-architect`); (3) Saturday's first
+gated `compute_opportunity_cost` run.
+
+🤖 arbi `/arbi-close` — 2026-07-21 (+ session-end addendum)
