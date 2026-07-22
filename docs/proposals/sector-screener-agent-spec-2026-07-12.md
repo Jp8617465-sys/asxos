@@ -1,21 +1,25 @@
 # `sector-screener` agent — spec (design, not build)
 
-**Status:** proposed — spec only. Not materialized as a live `.claude/agents/*.md`
-file, and deliberately so: doing that would make it immediately invocable sitting
-next to governed tables before `m14_candidate_agent_db_role_scoping` lands (the
-exact risk `.claude/rules/portfolio-conventions.md`'s "Known gap" section already
-flags for `macro-economist`/`market-context-narrator`, and explicitly warns not to
-compound before Phase 2c adds more agents on the same pattern).
+**Status:** materialized 2026-07-22 as a draft-PR `.claude/agents/sector-screener.md`
+(go-live gated on James's merge) — see the checklist below and
+`docs/discovery-runs/2026-07-22-workflow-automation-build.md`. It was held spec-only
+until then *deliberately*: a live agent file is immediately invocable sitting next to
+governed tables, so it waited on `m14_candidate_agent_db_role_scoping` (the exact risk
+`.claude/rules/portfolio-conventions.md`'s "Known gap" section flags for
+`macro-economist`/`market-context-narrator`, warning against compounding before more
+agents land on the same pattern). That dependency landed in #65, clearing the block.
 **Scope:** Tier 2b of `docs/proposals/thesis-coverage-framework-2026-07-11.md`
 (buildable-now item #5's 5th ranked next step) — agent-assisted sector narrowing.
-**Depends on:** `m14_candidate_agent_db_role_scoping` landing (design done —
-`docs/proposals/agent-db-readonly-role-design-2026-07-11.md`, migration drafted,
-not applied) before first live invocation.
+**Depends on:** `m14_candidate_agent_db_role_scoping` — LANDED in #65
+(`docs/proposals/agent-db-readonly-role-design-2026-07-11.md`; migration 0039
+applied, agents repointed to `mcp__supabase-ro__execute_sql`). Was the blocking
+dependency for first live invocation; now cleared.
 **Last verified:** 2026-07-12
-**Owner:** drafted this session; needs James's sign-off before the `.claude/agents/`
-file is created and before any live invocation, matching `macro-economist`'s own
-6-stage testing progression (fixture → synthetic end-to-end → read-only production
-dry-run → human review → approval → paper) per governance-first-architecture §4.8.
+**Owner:** drafted 2026-07-12; the `.claude/agents/` file has since been created
+(draft PR, 2026-07-22). Needs James's sign-off — his merge of that PR — before
+go-live and any live invocation, matching `macro-economist`'s own 6-stage testing
+progression (fixture → synthetic end-to-end → read-only production dry-run → human
+review → approval → paper) per governance-first-architecture §4.8.
 **Superseded by:** N/A
 
 ---
@@ -43,7 +47,7 @@ agents, sharing only the output schema and the governance write path (§4 below)
 
 ---
 
-## Frontmatter (draft — for the eventual `.claude/agents/sector-screener.md`)
+## Frontmatter (source of truth for `.claude/agents/sector-screener.md`)
 
 ```yaml
 ---
@@ -54,13 +58,18 @@ description: Given a sector with low/zero theme-holdings coverage, screens activ
   sibling of theme-researcher's top-down, macro-conditioned mode. Use on demand
   via /discover-sector <sector>. Advisory, read-only — produces a structured
   proposal for human review, never writes to the DB directly.
-tools: Read, Glob, Grep, mcp__Supabase__execute_sql
+tools: Read, Glob, Grep, mcp__supabase-ro__execute_sql
 ---
 ```
 
-Tool list matches `macro-economist`/`market-context-narrator` exactly — no
-write-capable tool, same accepted-risk footnote (SELECT-only is prompt-enforced
-until the read-only role lands; see `portfolio-conventions.md`'s Known gap).
+Tool list matches `macro-economist`/`market-context-narrator` exactly. The SQL
+tool is the **read-only** MCP `mcp__supabase-ro__execute_sql` (connects as
+`supabase_read_only_user`), NOT the read-write `mcp__Supabase__execute_sql` this
+spec's frontmatter named when first drafted 2026-07-12 (pre-repoint). SELECT-only
+is now enforced at the DB-role level, not just prompt-level — the
+`m14_candidate_agent_db_role_scoping` gap this originally inherited was closed by
+the Step 0 repoint (#65). The materialized `.claude/agents/sector-screener.md`
+carries this repointed tool; keep this block in sync with it.
 
 ---
 
@@ -266,22 +275,29 @@ default.
 
 ## What ships before this agent goes live (checklist)
 
-- [ ] `m14_candidate_agent_db_role_scoping` migration applied + the agent MCP
-      connection re-pointed to `asxos_agent_ro`
-      (`docs/proposals/agent-db-readonly-role-design-2026-07-11.md`) — James's
-      call, tier I5.
-- [ ] This spec materialized as `.claude/agents/sector-screener.md` — small,
-      mechanical once the above lands; this doc is already close to final form.
-- [ ] `/discover-sector <sector>` slash command, mirroring `/discover-macro`'s
-      parsing + `asx agent-run log` persistence logic.
-- [ ] The shared `create_theme_from_agent_run()`/
+_Status updated 2026-07-22 — see `docs/discovery-runs/2026-07-22-workflow-automation-build.md`._
+
+- [x] `m14_candidate_agent_db_role_scoping` migration applied + the agent MCP
+      re-pointed to `mcp__supabase-ro__execute_sql` — landed in #65 (Step 0). The
+      dedicated `asxos_agent_ro` role (0039) is defense-in-depth; the live
+      `supabase-ro` MCP is the load-bearing read-only path.
+- [x] This spec materialized as `.claude/agents/sector-screener.md` — promoted
+      from `docs/agents-staging/sector-screener.md` (already repointed) via the
+      sanctioned draft-PR/API route 2026-07-22; go-live is James's merge.
+- [x] `/discover-sector <sector>` slash command — promoted from
+      `docs/agents-staging/discover-sector.md` the same way.
+- [x] The shared `create_theme_from_agent_run()`/
       `create_theme_holding_from_agent_run()` service functions
-      (`asxos/domain/themes/service.py`) — confirmed not yet built (only the
-      human path, `create_theme()`, exists today); `theme-researcher`/
-      `instrument-selector` need the same functions, land once, shared.
-- [ ] `macro-economist`'s 6-stage testing progression (fixture → synthetic
+      (`asxos/domain/themes/service.py`) — **built** (PR #50; the "confirmed not
+      yet built" note above was stale) and **live-fire verified** against the
+      real BEFORE-UPDATE triggers 2026-07-22.
+- [x] `sector-screener` added to `_KNOWN_AGENTS` (`asxos/domain/governance/
+      agent_run_service.py`) so `/discover-sector` can log its proposals.
+- [~] `macro-economist`'s 6-stage testing progression (fixture → synthetic
       end-to-end → read-only production dry-run → human review → approval →
-      paper) before first live invocation.
+      paper): **stages 1-3 done** (Energy read-only dry-run 2026-07-16,
+      `docs/discovery-runs/2026-07-16-energy-dryrun.md`); stages 4-6 (human
+      review → approval → paper) are James's gates, unchanged.
 
 ## Files referenced
 

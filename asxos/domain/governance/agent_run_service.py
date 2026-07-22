@@ -51,7 +51,7 @@ from asxos.domain.theses.schemas import (
     ThemeProposal,
 )
 
-_KNOWN_AGENTS = frozenset({"macro-economist"})  # extended in Phase 2c
+_KNOWN_AGENTS = frozenset({"macro-economist", "sector-screener"})  # extended in Phase 2c
 
 _PROPOSAL_MODELS: dict[str, type[BaseModel]] = {
     "macro_thesis": MacroThesisProposal,
