@@ -453,6 +453,45 @@ dev/ops side.
 
 ## Last wake snapshot
 
+_Recorded by the 2026-07-22 interactive `/arbi` wake + build session ("wake up @arbi —
+then start building the two approved workflow proposals"). Supersedes the 07-21 snapshot._
+
+```
+Wake: 2026-07-22 (interactive /arbi → build both 2026-07-21 proposals)
+- branch: claude/approved-workflow-proposals-nbpg64 (draft PR #67 open → main; 8 commits).
+  main @ f17fe7a after merging PR #66 (close addendum) at wake.
+- tests: no .venv; minimal-dep installs ran affected suites green (theme_from_agent_run +
+  agent_run_service + governance_transitions = 38; score_macro_theses + thesis_proposal_schema
+  = 72). CI full-check is authority.
+- migrations: 41 files on disk (NEW: 0041_macro_thesis_learning_loop.sql — DRAFT, NOT applied;
+  James applies + bumps REQUIRED_MIGRATIONS). DB applied 94 = REQUIRED_MIGRATIONS.
+- Render: 29 services, retrain-model-a suspended (expected). DRIFT FOUND: live
+  asxos-compute-opportunity-cost is MISSING ASXOS_PERSONAL_USE=1 (render.yaml:578 declares it;
+  blueprint sync didn't push it on #65's merge) → Saturday 20:05 first gated run will hard-fail
+  until deployed. Raised to James (infra call); not fixed unilaterally.
+- freshness: prices/signals/portfolio_snap all 2026-07-21.
+- governance DB: macro_theses = 4 (#6/#7 approved from runs 3/4; #10 rejected from run 6; #11
+  approved from run 7 — the growth-leg bracket). agent_runs unacted = 0 (both #6/#7 dispositioned
+  this session per James's ruling). themes=1, theme_holdings=1, theses=13 (1 active HUBS).
+- job_runs: build_portfolio BLOCKED 07-18 (rule #11, correct); compose_brief/generate_signals/
+  snapshot/sync_prices SUCCESS 07-21.
+```
+
+_This session's ONE THING (arbi #1, red-team PASS): Proposal A Step 1 — live-fire-verify the
+theme governance write path. Done, plus all of James's queue: PR #66 merged; reject-6/approve-7
+executed with full audit trail; Proposal A Steps 1-2 (theme write-path verified, sector-screener
+materialized into .claude/ via the draft-PR/API route, _KNOWN_AGENTS extended); **Proposal B
+Layer A built** (machine_conditions schema [backend-architect-designed] + DRAFT migration 0041 +
+jobs/score_macro_theses.py + #6/#7 falsifier backfill; catalysts/#11 stay prose-only —
+crosses_*/nested trees deferred). All on draft PR #67. Boundaries held: rule #11 untouched,
+s766B intact, no capital, no merges (beyond #66). **The `machine_conditions` "gating decision"
+[was open in this queue] is now RESOLVED + built.** Open for James: (1) Render drift on the
+compute_opportunity_cost env; (2) apply DRAFT migration 0041 + bump REQUIRED_MIGRATIONS + wire
+the score_macro_theses Render cron after; (3) merge PR #67; (4) CBA #1 one-word confirm + RLS
+posture. Full record: `docs/discovery-runs/2026-07-22-workflow-automation-build.md`._
+
+_Prior snapshot (2026-07-21) retained below for diffing._
+
 _Recorded by the 2026-07-21 interactive `/arbi` wake — supersedes the 07-18 snapshot; later
 runs diff against this._
 
