@@ -20,11 +20,18 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import asyncpg
+from pydantic import ValidationError as PydanticValidationError
 
 from asxos.domain.governance import transitions as governance_transitions
+from asxos.domain.theses.schemas import (
+    REPORT_SECTION_KINDS,
+    ReportFigure,
+    ReportSection,
+    ReportSectionKind,
+)
 from asxos.domain.theses.types import (
     _REVISION_TYPE_FOR_FIELD,
     REVISABLE_FIELDS,
@@ -74,6 +81,31 @@ def _serialise(v: Any) -> str:
     return str(v)
 
 
+def _parse_report_sections(raw: Any) -> tuple[ReportSection, ...]:
+    """Parse the theses.report_sections JSONB column (migration 0040) back
+    into ReportSection instances.
+
+    ``parse_float=Decimal`` mirrors the hazard schemas.py's own module
+    docstring documents for deserialising a ThesisProposal: a bare
+    json.loads() would turn a JSON number literal into a float before
+    Pydantic ever sees it, losing precision (CLAUDE.md #5) — belt-and-
+    suspenders here since every value this module writes is already a
+    quoted Decimal string (see add_report_section()'s model_dump(mode="json")
+    call), but it costs nothing and matches the documented contract exactly.
+
+    Re-validating through ReportSection.model_validate() on every read (not
+    just on write) is deliberate defense in depth (CLAUDE.md #10): if a row
+    were ever hand-edited outside this module, reading it back fails loudly
+    (pydantic.ValidationError) rather than silently serving a corrupted
+    prose-only-body or monitor_only-in-a-basis-section violation.
+    """
+    if raw is None:
+        return ()
+    if isinstance(raw, str):
+        raw = json.loads(raw, parse_float=Decimal)
+    return tuple(ReportSection.model_validate(item) for item in raw)
+
+
 def _row_to_thesis(row: asyncpg.Record) -> Thesis:
     """Convert an asyncpg Record from the theses table to a Thesis dataclass."""
     raw_ic = row["invalidation_conditions"]
@@ -120,6 +152,9 @@ def _row_to_thesis(row: asyncpg.Record) -> Thesis:
         tax_notes=row.get("tax_notes") or "",
         # migration 0033 field
         governance_status=row.get("governance_status", "approved"),
+        # migration 0040 field — .get() so a pre-migration synthetic test row
+        # (no "report_sections" key at all) parses to () unchanged.
+        report_sections=_parse_report_sections(row.get("report_sections")),
     )
 
 
@@ -432,6 +467,121 @@ async def revise_thesis(
             revision_type=revision_type,
             diff=diff,
             reasoning=reasoning,
+        )
+
+        return _row_to_thesis(row)
+
+
+async def add_report_section(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    kind: str,
+    body: str,
+    figures: list[ReportFigure] | None = None,
+    *,
+    reasoning: str = "",
+) -> Thesis:
+    """Add or replace one ReportSection (by kind) on an existing thesis.
+
+    Phase C (broker-report thesis persist + render, migration 0040) — the
+    human-authored first cut of the #56 ThesisProposal/ReportSection keystone
+    (asxos/domain/theses/schemas.py). Upserts by kind — JSONB has no in-place
+    field patch, so a section of a matching kind is replaced wholesale, not
+    merged; the prior content is never lost, it survives in the revision diff
+    below.
+
+    Validates via ReportSection's own Pydantic validators — reuses
+    schemas.py, does not reimplement any check: prose-only body (no inline
+    $/%/thousands/x literals — those must be a ReportFigure instead), and a
+    monitor_only (rule #11 Model A) figure barred from every "basis" section.
+    pydantic.ValidationError is a ValueError subclass in v2, so it already
+    round-trips through every existing CLI `except ValueError` handler; the
+    wrap below only adds the thesis_id to the message.
+
+    Provenance-agnostic by design: this function has no james_input-only
+    restriction — the CALLER decides each ReportFigure's provenance. Today
+    only the CLI calls it (james_input-only, Phase C scope); a future
+    recompute engine or agent-drafted path (Phase D/E) can reuse this
+    function unchanged with cited/derived figures.
+
+    Writes revision_type='assumption_change' — the same bucket thesis_text/
+    invalidation_conditions/conviction_level/tax_notes already use for
+    narrative-content changes (types.py::_REVISION_TYPE_FOR_FIELD). The diff
+    stores the FULL old and new ReportSection (model_dump(mode="json")), not
+    a summary — thesis_revisions is the irreplaceable audit log, so a
+    "replace" is never actually destructive.
+
+    Raises ValueError if thesis_id not found, kind is not one of
+    REPORT_SECTION_KINDS, or ReportSection/ReportFigure construction fails
+    Pydantic validation.
+
+    Deliberately does NOT route through governance_status / the migration
+    0034 audit trigger: that trigger is BEFORE UPDATE OF governance_status
+    only (verified against migrations/0034_governance_audit_trigger_and_
+    revision_provenance.sql), and this UPDATE never touches that column — a
+    human editing his own thesis is the existing zero-friction trust level
+    (same as revise_thesis()), not an agent-governance transition.
+    """
+    if kind not in REPORT_SECTION_KINDS:
+        raise ValueError(
+            f"kind {kind!r} is not a valid section kind. "
+            f"Must be one of: {', '.join(REPORT_SECTION_KINDS)}"
+        )
+    try:
+        # kind is `str` (it arrives from the CLI as plain text) but
+        # ReportSection.kind is the Literal ReportSectionKind — the runtime
+        # membership check just above is what actually guarantees safety;
+        # cast() only tells mypy what's already been verified, it performs
+        # no runtime check itself.
+        new_section = ReportSection(
+            kind=cast(ReportSectionKind, kind), body=body, figures=figures or []
+        )
+    except PydanticValidationError as exc:
+        raise ValueError(f"Invalid report section for thesis {thesis_id}: {exc}") from exc
+
+    now = _now_utc()
+    due = _revisit_due(now)
+
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM theses WHERE thesis_id = $1 FOR UPDATE", thesis_id
+        )
+        if existing is None:
+            raise ValueError(f"Thesis {thesis_id} not found")
+
+        current = _parse_report_sections(existing.get("report_sections"))
+        old_section = next((s for s in current if s.kind == kind), None)
+        updated = (*(s for s in current if s.kind != kind), new_section)
+        sections_json = json.dumps([s.model_dump(mode="json") for s in updated])
+
+        row = await conn.fetchrow(
+            """
+            UPDATE theses
+            SET report_sections = $1::jsonb,
+                last_revisited_at = $2,
+                revisit_due_at = $3
+            WHERE thesis_id = $4
+            RETURNING *
+            """,
+            sections_json,
+            now,
+            due,
+            thesis_id,
+        )
+
+        diff = {
+            "report_sections": {
+                "old": old_section.model_dump(mode="json") if old_section else None,
+                "new": new_section.model_dump(mode="json"),
+            }
+        }
+        await _insert_revision(
+            conn,
+            thesis_id=thesis_id,
+            revised_at=now,
+            revision_type="assumption_change",
+            diff=diff,
+            reasoning=reasoning or f"{'Replaced' if old_section else 'Added'} '{kind}' section",
         )
 
         return _row_to_thesis(row)

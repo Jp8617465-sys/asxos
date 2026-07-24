@@ -28,24 +28,33 @@
 </head>
 <body>
   <h1>asxos brief — {{ d.as_of }}</h1>
-  {% if d.signals_stale %}
+  {% if d.model_shelved %}
+  <p class="meta">Model A: <strong>shelved</strong> — signal engine paused (rule #11) · Holdings: {{ d.holdings_count }}</p>
+  {% elif d.signals_stale %}
   <p class="meta">Regime: <strong style="color:#c00">unavailable</strong> — latest signal: {{ d.latest_signal_date or "none" }} · Holdings: {{ d.holdings_count }}</p>
   {% else %}
   <p class="meta">Regime: <strong>{{ d.regime }}</strong> · Holdings: {{ d.holdings_count }}</p>
   {% endif %}
 
+  {% if d.model_shelved %}
+  <p class="caveat">
+    <strong>Model A shelved.</strong> The signal engine is dormant (rule #11); this
+    brief is model-independent — discipline, tax, regulatory, and job-health only.
+  </p>
+  {% else %}
   <p class="caveat">
     <strong>Signal caveat:</strong> labels are experimental model-derived rankings.
     Expected-return calibration and adjusted-price basis are under review.
     Treat signals as decision-support context only, not trade instructions.
   </p>
+  {% endif %}
 
-  {% if d.prices_stale or d.signals_stale %}
+  {% if d.prices_stale or (d.signals_stale and not d.model_shelved) %}
   <div class="banner">
     <strong>Data freshness warning.</strong>
     <ul>
       {% if d.prices_stale %}<li>Prices stale — latest price date: {{ d.latest_price_date or "no data" }}</li>{% endif %}
-      {% if d.signals_stale %}<li>Signals stale — latest signal run: {{ d.latest_signal_date or "no data" }}</li>{% endif %}
+      {% if d.signals_stale and not d.model_shelved %}<li>Signals stale — latest signal run: {{ d.latest_signal_date or "no data" }}</li>{% endif %}
     </ul>
   </div>
   {% endif %}
@@ -84,6 +93,7 @@
   {% endif %}
   {% endif %}
 
+  {% if not d.model_shelved %}
   <h2>Signal changes on holdings</h2>
   {% if d.signal_changes %}
   <table>
@@ -99,6 +109,7 @@
   </table>
   {% else %}
   <p class="empty">No label changes overnight.</p>
+  {% endif %}
   {% endif %}
 
   <h2>Regulatory hits on holdings (last 24h)</h2>

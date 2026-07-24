@@ -129,6 +129,39 @@ def test_render_html_shows_signal_changes() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Model A shelved — calm state (rule #11) replaces the dead-signal banners
+# ---------------------------------------------------------------------------
+
+
+def test_render_html_calm_model_shelved_state() -> None:
+    """0 approved models (the deliberate rule #11 shelf) → one calm 'Model A
+    shelved' line, not the red 'unavailable'/'Signals stale'/caveat noise, and no
+    Model-A 'Signal changes' section."""
+    html = render_html(_brief(model_shelved=True, regime=None, latest_signal_date=None))
+    assert "Model A" in html and "shelved" in html
+    assert "unavailable" not in html
+    assert "Signals stale" not in html
+    assert "Signal caveat:" not in html
+    assert "Signal changes on holdings" not in html
+
+
+def test_render_html_shelved_still_warns_on_genuine_price_staleness() -> None:
+    """Shelving Model A must NOT suppress a genuine, model-independent
+    price-staleness warning (James's guardrail: hide only shelf noise)."""
+    html = render_html(_brief(model_shelved=True, latest_price_date=date(2026, 5, 1)))
+    assert "Data freshness warning" in html
+    assert "Prices stale" in html
+    assert "Signals stale" not in html
+
+
+def test_render_html_not_shelved_keeps_signal_surface() -> None:
+    """The single-approved-model path is unchanged: caveat + signal-changes render."""
+    html = render_html(_brief())  # model_shelved defaults False
+    assert "Signal caveat:" in html
+    assert "Signal changes on holdings" in html
+
+
+# ---------------------------------------------------------------------------
 # Signal caveat (Brief QA Step 1) — labels experimental, not trade instructions
 # ---------------------------------------------------------------------------
 
@@ -539,6 +572,7 @@ def test_collect_no_approved_model_renders_without_model_sections() -> None:
     assert data.latest_signal_date is None
     assert data.signals_stale is True
     assert data.holdings_count == 2     # model-INDEPENDENT data survives
+    assert data.model_shelved is True   # 0 approved == the calm shelf state
 
 
 def test_collect_multiple_approved_models_renders_without_model_sections() -> None:
@@ -567,6 +601,7 @@ def test_collect_multiple_approved_models_renders_without_model_sections() -> No
     assert data.regime is None
     assert data.signal_changes == []
     assert data.holdings_count == 1
+    assert data.model_shelved is False  # >1 approved is a misconfig, NOT the shelf
 
 
 def test_collect_anchors_on_complete_trading_day() -> None:
@@ -787,15 +822,11 @@ def _disc_conn(
     holding_rows=None,
     price_rows=None,
     fx_rows=None,
-    snap_rows=None,
-    inception_rows=None,
 ):
     thesis_rows = thesis_rows or []
     holding_rows = holding_rows or []
     price_rows = price_rows or []
     fx_rows = fx_rows or []
-    snap_rows = snap_rows or []
-    inception_rows = inception_rows or []
 
     async def _fetch(query, *args, **kwargs):
         q = " ".join(query.split())
@@ -807,10 +838,6 @@ def _disc_conn(
             return price_rows
         if "fx_rate_audusd IS NOT NULL" in q:
             return fx_rows
-        if "benchmark_tr_level IS NOT NULL" in q:
-            return inception_rows
-        if "FROM portfolio_daily_snapshots" in q:
-            return snap_rows
         return []
 
     conn = MagicMock()
@@ -974,6 +1001,38 @@ def test_discipline_findings_no_fx_rate_skips_foreign_holding() -> None:
         findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
 
     assert not any(f.check == "concentration" for f in findings)
+
+
+def test_discipline_findings_appends_broker_matching_unrealised_return() -> None:
+    """The loader appends a per-holding native unrealised-return line — the honest,
+    broker-matching replacement for the removed false −75.7% portfolio line.
+    HUBS 187.54 → 224.57 = +19.7% (the broker's FX-neutral headline)."""
+    thesis_rows = [
+        {
+            "symbol": "HUBS.NYSE",
+            "revisit_due_at": datetime(2026, 8, 1),
+            "opened_at": datetime(2026, 1, 1),
+            "timeline_days": 365,
+            "actual_entry_price": Decimal("187.54"),
+            "target_price": Decimal("318"),
+            "stop_price": Decimal("150"),
+            "conviction_level": 4,
+        }
+    ]
+    price_rows = [{"symbol": "HUBS.NYSE", "close": Decimal("224.57")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 16)))
+
+    pnl = next(f for f in findings if f.check == "unrealised_return")
+    assert pnl.level == DisciplineLevel.info
+    assert "+19.7% unrealised since entry" in pnl.message
+    assert "USD 187.54 → 224.57" in pnl.message
+    # The false portfolio "total return vs benchmark / lagging" line is gone.
+    joined = " ".join(f.message for f in findings)
+    assert "lagging" not in joined
+    assert "benchmark" not in joined.lower()
 
 
 # ---------------------------------------------------------------------------
