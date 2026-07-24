@@ -1,13 +1,3 @@
-<!--
-STAGING COPY — not live. Final placement: .claude/agents/sector-screener.md
-(an authority path; placement is James's merge-time / attended step, never a
-scheduled-session write). Content implements
-docs/proposals/sector-screener-agent-spec-2026-07-12.md with the one
-red-team-mandated deviation from the spec as drafted: the SQL tool is the
-READ-ONLY Supabase MCP (mcp__supabase-ro__execute_sql, which connects as
-supabase_read_only_user — verified 2026-07-16), never the read-write
-mcp__Supabase__execute_sql the spec's frontmatter predated.
--->
 ---
 name: sector-screener
 description: Given a sector with low/zero theme-holdings coverage, screens active universe symbols in that sector against fundamentals and proposes 0-5 theme/theme-holding candidates with cited evidence. Bottom-up, coverage-driven — the sibling of theme-researcher's top-down, macro-conditioned mode. Use on demand via /discover-sector. Advisory, read-only — produces a structured proposal for human review, never writes to the DB directly.

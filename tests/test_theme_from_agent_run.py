@@ -152,6 +152,70 @@ async def test_create_theme_from_agent_run_happy_path() -> None:
     assert acted[0].args[1:] == (9, 42)
 
 
+async def test_create_theme_from_agent_run_emitted_order_is_trigger_safe() -> None:
+    """Pin the full emitted statement ORDER of create_theme_from_agent_run
+    across a SINGLE shared call log (fetchrow + execute in one list) — the
+    technique tests/test_governance_transitions.py uses for the shared helper,
+    applied here to the theme function's *novel call pattern around it* (the
+    exact gap .claude/rules/portfolio-conventions.md §Verification lesson / L7-L11
+    names: mocked per-method lists can't express cross-method order).
+
+    Load-bearing order, confirmed live against the real BEFORE-UPDATE triggers
+    in a rolled-back transaction 2026-07-22 (docs/discovery-runs record): the
+    themes INSERT precedes both transitions; within EACH transition the
+    governance_events INSERT (execute) precedes the themes UPDATE (fetchrow);
+    the acted_on UPDATE is last. Getting any of these backwards is rejected by
+    the themes_governance_audit trigger (migration 0036) at UPDATE time."""
+    fetchrow_returns = [
+        _make_agent_run_row(),                                   # SELECT agent_runs FOR UPDATE
+        None,                                                    # SELECT themes dup check
+        _make_theme_row(governance_status="draft"),              # INSERT themes RETURNING
+        _make_theme_row(governance_status="evidence_complete"),  # UPDATE themes (transition 1)
+        _make_theme_row(governance_status="pending_review"),     # UPDATE themes (transition 2)
+    ]
+    _it = iter(fetchrow_returns)
+    calls: list[tuple[str, str]] = []
+
+    class _SharedLogConn:
+        def __init__(self) -> None:
+            @asynccontextmanager
+            async def _tx():
+                yield
+
+            self.transaction = _tx
+
+        async def fetchrow(self, query: str, *args):
+            calls.append(("fetchrow", query))
+            return next(_it, None)
+
+        async def execute(self, query: str, *args) -> None:
+            calls.append(("execute", query))
+
+    await svc.create_theme_from_agent_run(_SharedLogConn(), 42)
+
+    def _label(method: str, query: str) -> str:
+        if "governance_events" in query:
+            return "gov_event"
+        if "UPDATE themes" in query:
+            return "update_themes"
+        if "INSERT INTO themes" in query:
+            return "insert_themes"
+        if "FROM agent_runs" in query:
+            return "select_run"
+        if "FROM themes WHERE theme_code" in query:
+            return "select_dup"
+        if "acted_on" in query:
+            return "acted"
+        return f"other:{method}"
+
+    assert [_label(m, q) for m, q in calls] == [
+        "select_run", "select_dup", "insert_themes",
+        "gov_event", "update_themes",   # transition 1: INSERT event BEFORE UPDATE
+        "gov_event", "update_themes",   # transition 2: INSERT event BEFORE UPDATE
+        "acted",                        # mark_run_acted last
+    ]
+
+
 async def test_create_theme_from_agent_run_not_found_raises() -> None:
     conn = _RecordingConn(fetchrow_returns=[None])
     with pytest.raises(ValueError, match="not found"):

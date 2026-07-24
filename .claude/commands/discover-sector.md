@@ -1,9 +1,3 @@
-<!--
-STAGING COPY — not live. Final placement: .claude/commands/discover-sector.md
-(an authority path; placement is James's merge-time / attended step, never a
-scheduled-session write). Mirrors .claude/commands/discover-macro.md, adapted
-for the two-proposal-type sector-screener output.
--->
 # Discover Sector Candidates — `/discover-sector <sector>`
 
 One required argument: the target sector (a `universe.sector` value as printed

@@ -287,3 +287,94 @@ def test_entry_band_equal_allowed() -> None:
 def test_body_rejects_nondollar_currency(bad: str) -> None:
     with pytest.raises(ValidationError):
         ReportSection(kind="moat", body=bad)
+
+
+# --- MachineConditions (macro-thesis learning loop, Layer A) -------------------
+
+from asxos.domain.theses.schemas import (  # noqa: E402
+    MachineCondition,
+    MachineConditions,
+    MachinePredicate,
+    MacroThesisProposal,
+)
+
+_VALID_MC = {
+    "falsifier": {
+        "combine": "all",
+        "conditions": [
+            {"signal": "aus_10y_yield", "op": "lt", "threshold": "4.25",
+             "window": 5, "aggregation": "consecutive"}
+        ],
+    }
+}
+
+
+def test_condition_float_threshold_rejected() -> None:
+    # A JSON float loses precision before Decimal sees it (CLAUDE.md #5).
+    with pytest.raises(ValidationError):
+        MachineCondition(signal="avix", op="lt", threshold=15.5)  # type: ignore[arg-type]
+
+
+def test_condition_decimal_string_threshold_accepted() -> None:
+    c = MachineCondition(signal="avix", op="lt", threshold="15.5")
+    assert c.threshold == Decimal("15.5")
+    assert c.window == 1
+    assert c.aggregation == "consecutive"
+
+
+def test_condition_unknown_signal_rejected() -> None:
+    with pytest.raises(ValidationError):
+        MachineCondition(signal="cpi_yoy", op="lt", threshold="2.5")  # type: ignore[arg-type]
+
+
+def test_condition_window_bounds_enforced() -> None:
+    with pytest.raises(ValidationError):
+        MachineCondition(signal="avix", op="lt", threshold="15", window=0)
+    with pytest.raises(ValidationError):
+        MachineCondition(signal="avix", op="lt", threshold="15", window=61)
+
+
+def test_predicate_requires_at_least_one_condition() -> None:
+    with pytest.raises(ValidationError):
+        MachinePredicate(combine="all", conditions=[])
+
+
+def test_machine_conditions_requires_catalyst_or_falsifier() -> None:
+    with pytest.raises(ValidationError):
+        MachineConditions()
+
+
+def test_machine_conditions_falsifier_only_ok() -> None:
+    mc = MachineConditions.model_validate(_VALID_MC)
+    assert mc.catalyst is None
+    assert mc.falsifier is not None
+    assert mc.falsifier.conditions[0].threshold == Decimal("4.25")
+
+
+def test_machine_conditions_serialises_threshold_as_string() -> None:
+    # model_dump_json (the service INSERT contract) must never emit a float.
+    mc = MachineConditions.model_validate(_VALID_MC)
+    dumped = mc.model_dump(mode="json")
+    assert isinstance(dumped["falsifier"]["conditions"][0]["threshold"], str)
+
+
+def test_macro_proposal_backward_compatible_without_machine_conditions() -> None:
+    p = MacroThesisProposal(
+        title="Sticky AU long end", thesis_text="Yields stay elevated.",
+        regime_quadrant="falling_growth_rising_inflation", horizon_months=6,
+        catalyst="RBA holds", falsifier="10y closes below 4.25 for 5 sessions",
+        evidence_citation_ids=[1],
+    )
+    assert p.machine_conditions is None
+
+
+def test_macro_proposal_with_machine_conditions_validates() -> None:
+    p = MacroThesisProposal(
+        title="Sticky AU long end", thesis_text="Yields stay elevated.",
+        regime_quadrant="falling_growth_rising_inflation", horizon_months=6,
+        catalyst="RBA holds", falsifier="10y closes below 4.25 for 5 sessions",
+        machine_conditions=MachineConditions.model_validate(_VALID_MC),
+        evidence_citation_ids=[1],
+    )
+    assert p.machine_conditions is not None
+    assert p.machine_conditions.falsifier is not None
