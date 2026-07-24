@@ -40,7 +40,6 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Machine-checkable macro-thesis conditions — the macro-thesis learning loop
 # (docs/proposals/macro-thesis-learning-loop-2026-07-21.md §3 Layer A).
@@ -113,7 +112,7 @@ class MachineConditions(BaseModel):
     falsifier: MachinePredicate | None = None
 
     @model_validator(mode="after")
-    def _require_one(self) -> "MachineConditions":
+    def _require_one(self) -> MachineConditions:
         if self.catalyst is None and self.falsifier is None:
             raise ValueError(
                 "machine_conditions needs a catalyst or falsifier; else omit the field"

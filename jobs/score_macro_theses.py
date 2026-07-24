@@ -100,7 +100,7 @@ def _condition_satisfied(rows: list[dict[str, Any]], condition: dict[str, Any]) 
         return False
 
     window_rows = rows[-window:]
-    flags = []
+    flags: list[bool] = []
     for r in window_rows:
         v = _row_value(r, signal)
         flags.append(v is not None and op_fn(v, threshold))
@@ -190,15 +190,16 @@ def _parse_machine_conditions(raw: object) -> dict[str, Any] | None:
     if raw is None:
         return None
     if isinstance(raw, str):
-        return json.loads(raw)
-    return raw  # already a dict (defensive)
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    return raw if isinstance(raw, dict) else None  # defensive: always a dict in practice
 
 
 def _send_alert(subject: str, body: str) -> None:
     # Best-effort — mirrors check_thesis_invalidations._send_alert. A dead email
     # channel must never fail the scoring run.
     try:
-        import resend
+        import resend  # type: ignore[import-not-found]
 
         api_key = os.environ.get("RESEND_API_KEY", "")
         to = os.environ.get("BRIEF_TO_EMAIL", "")
@@ -217,7 +218,7 @@ def _send_alert(subject: str, body: str) -> None:
         pass
 
 
-async def _fetch_approved_theses(conn) -> list[dict]:  # type: ignore[no-untyped-def]
+async def _fetch_approved_theses(conn) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
     rows = await conn.fetch(
         """
         SELECT macro_thesis_id, title, horizon_months, created_at, machine_conditions
@@ -230,7 +231,7 @@ async def _fetch_approved_theses(conn) -> list[dict]:  # type: ignore[no-untyped
     return [dict(r) for r in rows]
 
 
-async def _fetch_market_context_history(conn, eval_as_of: date) -> list[dict]:  # type: ignore[no-untyped-def]
+async def _fetch_market_context_history(conn, eval_as_of: date) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
     """All market_context_current rows through eval_as_of, oldest-first. Read
     from the VIEW (latest ingested row per as_of), never the base table."""
     rows = await conn.fetch(

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -52,4 +53,4 @@ class MacroThesis:
     governance_status: str
     created_at: datetime
     retired_at: date | None
-    machine_conditions: dict | None = None
+    machine_conditions: dict[str, Any] | None = None
