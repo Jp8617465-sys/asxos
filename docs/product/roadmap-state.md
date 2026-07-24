@@ -198,13 +198,42 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   string; dropped the assertion (review-loop PASS), resolved a second main-merge conflict
   (decision-log + add/add same-day handoffs, both kept), CI green 1652+ tests, merged).
   Zero open PRs remain as of the merge train.
+- **MERGED 2026-07-21 as PR #65 (`9d8dd9d`):** the 6h continuous work loop — Step 0 agent-RO
+  frontmatter repoint (all 6 agents), 0040 reconstruction + `REQUIRED_MIGRATIONS`→94, the P1
+  `compute_opportunity_cost` firewall gate + paired `render.yaml` env, the 07-18 quick-fix batch
+  7/8 (`defusedxml`, CWE-209, `security_master` batching, single-pass compose, title cap),
+  governance filters on all 7 thesis-reading brief paths. Then **PR #66** (close addendum) and
+  **PR #67 (`a1d30f5`)** — Proposal A Steps 1-2 (theme write-path verified live; sector-screener +
+  theme-researcher materialized; `_KNOWN_AGENTS` extended) + Proposal B Layer A (`machine_conditions`
+  schema, DRAFT migration 0041, `jobs/score_macro_theses.py`, #6/#7 falsifier backfill).
+- **MERGED 2026-07-24 as PR #68 (`e596748`):** the **clean extract of PR #64's two net-new units** —
+  Mission 1 (brief-truth `unrealised_return`, replacing a false −75.7% brief loss; R10 native-only)
+  + Mission 2 (Phase C thesis report-sections, `asx thesis add-section`/`show --full-report`, on
+  `theses.report_sections`). CI green first-shot; security-engineer + portfolio-invariant-guard PASS.
+  **PR #64 CLOSED as superseded** — ~85% of it duplicated the already-merged #65's 07-18 audit work
+  (and `regulatory.py` held the opposite `defusedxml` decision); force-merging would have dragged 27
+  commits + 10 conflicts through main for two clean units. **Zero open PRs** as of this close.
 
 ## Ranked next-action queue
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-**CURRENT queue (2026-07-18 `/arbi-close`) → `docs/session-handoff-2026-07-18.md`.** The 6-lens
+**CURRENT queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
+audit backlog is fully retired (landed via #65); the two 2026-07-21 proposals are built and
+merged (#67); #64's net-new work is extracted and merged (#68). Zero open PRs. The discovery
+pipeline now has governed macro theses (#6/#7), the macro→theme→sector→instrument agents wired
+read-only, and the Layer A falsifier-scoring evaluator — but **no reader-facing render**. So:
+**#1 = dev-loop item #9 — the macro-brief render layer** (the Morningstar-style output James
+asked about): surface the governed macro theses + theme/thesis discipline + Layer A outcomes as
+a brief section. North-star: the investment read reaches James in a form he'll actually read.
+Owner: main loop, consulting `backend-architect` (render path) + `technical-writer`. **#2** =
+dev-loop item #10 — `instrument-selector` + wire `create_thesis_from_agent_run` (Phase E), the
+last leg of the discovery chain. **Blocking on James** (carried, not arbi's): apply DRAFT
+migration 0041 + bump `REQUIRED_MIGRATIONS` + wire the `score_macro_theses` Render cron — Layer
+A is inert until then; and the CBA discipline one-word confirm + RLS posture.
+
+**Historical queue (2026-07-18 `/arbi-close`) → `docs/session-handoff-2026-07-18.md`.** The 6-lens
 security/refactoring/performance/behaviour-simplification audit re-ran clean (**P0 empty**), and
 its backlog is the live queue: **#1 = P1 `compute_opportunity_cost` firewall gate + its paired
 `render.yaml` env** (the one personal-data job #59 didn't cover); then the quick-fix batch (RSS
@@ -489,6 +518,19 @@ s766B intact, no capital, no merges (beyond #66). **The `machine_conditions` "ga
 compute_opportunity_cost env; (2) apply DRAFT migration 0041 + bump REQUIRED_MIGRATIONS + wire
 the score_macro_theses Render cron after; (3) merge PR #67; (4) CBA #1 one-word confirm + RLS
 posture. Full record: `docs/discovery-runs/2026-07-22-workflow-automation-build.md`._
+
+_Close addendum (2026-07-24 `/arbi-close` — full record `docs/session-handoff-2026-07-24.md`):
+the 07-22 ONE THING (Proposal A Step 1) landed, and the session ran the whole queue forward.
+**#67 merged** (`a1d30f5`); runs #6/#7 dispositioned (reject 6 / approve 7); the Render
+`compute_opportunity_cost` env drift fixed via the Render API. Then **#64 assessed and found
+~85% superseded by the already-merged #65** — per governor's AskUserQuestion call, **clean-extracted
+its two net-new units** (Mission 1 brief-truth `unrealised_return`; Mission 2 Phase C thesis
+report-sections) onto current main → **#68 merged** (`e596748`, CI green first-shot, security +
+invariant PASS); **#64 closed superseded**. `main` @ `e596748`, **zero open PRs**. Standing lesson:
+extract a superseded branch's net-new delta clean (per-commit cherry-pick) rather than force-merge
+the stacked whole. **Next wake's ONE THING: the macro-brief render layer** (dev-loop #9). Still
+open for James: apply DRAFT migration 0041 + bump `REQUIRED_MIGRATIONS` + wire the score_macro_theses
+cron (Layer A inert until then); CBA #1 confirm + RLS posture._
 
 _Prior snapshot (2026-07-21) retained below for diffing._
 
