@@ -77,7 +77,7 @@
     },
     "sizing_decision_ref": {
       "id": "sizing-decision-20260724",
-      "sha256": "e19db22e142581fb1a745155e7691ac61ace2e0d8517a4f7ef2afdef5de3fdf4"
+      "sha256": "3e0656b0350d05744c58d6e43b9f58a8a806c554a4926f5f9c5f7cde6bb92377"
     },
     "staging_policy_ref": null,
     "promotion_decision_ref": null,
@@ -91,7 +91,7 @@
   },
   "sizing_decision_ref": {
     "id": "sizing-decision-20260724",
-    "sha256": "e19db22e142581fb1a745155e7691ac61ace2e0d8517a4f7ef2afdef5de3fdf4",
+    "sha256": "3e0656b0350d05744c58d6e43b9f58a8a806c554a4926f5f9c5f7cde6bb92377",
     "status": "SIZED",
     "eligible_for_staging": true,
     "proposal_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
@@ -215,6 +215,6 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "e45d628a500115eaaa910eaf3f5896d35c24dcfce6fcaac7e9c8c12aaec43a46"
+    "payload_sha256": "e857bf1ff51ddb1fdc96038ad8b950751e4a16272beef875949ab7303dc73eea"
   }
 }

@@ -266,9 +266,97 @@ SIZING_CONSTRAINT_ORDER = (
     "FEES",
 )
 
+# Normative comparison direction per numeric constraint code. NUMERIC_LIMIT
+# carries three distinct directions plus an applied-value cap, so a single
+# universal rule cannot express it; see contracts/sizing-policy-v1.md.
+SIZING_CONSTRAINT_COMPARISON = {
+    "TARGET_NOTIONAL": "EXACT",
+    "AVAILABLE_CASH": "CAP_APPLIED",
+    "ISSUER": "MAXIMUM",
+    "CORPORATE_GROUP": "MAXIMUM",
+    "SINGLE_NAME": "MAXIMUM",
+    "SECTOR": "MAXIMUM",
+    "THEME": "MAXIMUM",
+    "PORTFOLIO_LOSS_AT_STOP": "MAXIMUM",
+    "GROSS_EXPOSURE": "MAXIMUM",
+    "NET_EXPOSURE": "MAXIMUM",
+    "RESERVATIONS": "MAXIMUM",
+    "TURNOVER": "MAXIMUM",
+    "ADV_PARTICIPATION": "MAXIMUM",
+    "SPREAD": "MAXIMUM",
+    "LOSS_HEADROOM": "MINIMUM",
+    "BOARD_LOT": "MINIMUM",
+    "MINIMUM_ORDER": "MINIMUM",
+    "FEES": "MAXIMUM",
+}
+
+# Codes whose limit_value resolves directly from a ratified risk-policy field.
+# ADV_PARTICIPATION, FEES and BOARD_LOT are derived arithmetically at the call
+# site. TARGET_NOTIONAL, AVAILABLE_CASH and RESERVATIONS are direction-asserted
+# only -- their limit_value is not yet independently resolved here, though
+# contracts/sizing-policy-v1.md still binds a conforming producer.
+SIZING_LIMIT_FROM_RISK_POLICY = {
+    "ISSUER": ("portfolio_limits", "max_issuer_weight"),
+    "CORPORATE_GROUP": ("portfolio_limits", "max_corporate_group_weight"),
+    "SINGLE_NAME": ("portfolio_limits", "max_single_name_weight"),
+    "SECTOR": ("portfolio_limits", "max_sector_weight"),
+    "THEME": ("portfolio_limits", "max_theme_weight"),
+    "GROSS_EXPOSURE": ("portfolio_limits", "max_gross_weight"),
+    "NET_EXPOSURE": ("portfolio_limits", "max_net_weight"),
+    "TURNOVER": ("portfolio_limits", "max_daily_turnover_weight"),
+    "PORTFOLIO_LOSS_AT_STOP": ("loss_limits", "max_portfolio_loss_at_stop_fraction"),
+}
+
+SIZING_LIMIT_FROM_SIZING_POLICY = {
+    "SPREAD": "maximum_spread_fraction",
+    "MINIMUM_ORDER": "minimum_order_aud",
+    "LOSS_HEADROOM": "minimum_loss_headroom_aud",
+}
+
 
 class DossierError(ValueError):
     """One or more dossier invariants failed."""
+
+
+def _assert_constraint_comparison(check: dict[str, Any], code: str, label: str) -> None:
+    """Assert a numeric check honours its declared comparison direction.
+
+    ``NUMERIC_LIMIT`` spans three directions plus an applied-value cap, so no
+    single universal rule expresses it. The declared direction must match the
+    normative registry in ``contracts/sizing-policy-v1.md``, and the check must
+    honour it under both terminal actions.
+
+    ``REDUCE`` does not exempt a check: a reduction is only valid if the
+    post-reduction ``applied_value`` satisfies the limit. Treating ``REDUCE``
+    as a skip would leave the direction assertion as no guard at all for the
+    codes whose observed value is not independently recomputed.
+    """
+    expected = SIZING_CONSTRAINT_COMPARISON[code]
+    declared = check.get("comparison")
+    prefix = f"{label}.constraint_checks[{code}]"
+    if declared != expected:
+        raise DossierError(f"{prefix}.comparison: expected {expected}, found {declared!r}")
+    action = check.get("action")
+    observed = _decimal(check.get("observed_value"), f"{prefix}.observed_value")
+    limit = _decimal(check.get("limit_value"), f"{prefix}.limit_value")
+    applied = _decimal(check.get("applied_value"), f"{prefix}.applied_value")
+    # A reduction must land inside the limit; the pre-reduction observation may
+    # legitimately sit outside it. EXACT and CAP_APPLIED are identity/cap proofs
+    # and are asserted on the same value under either action.
+    if expected == "EXACT":
+        satisfied = observed == limit
+    elif expected == "CAP_APPLIED":
+        satisfied = applied <= limit
+    else:
+        subject = applied if action == "REDUCE" else observed
+        if expected == "MINIMUM":
+            satisfied = subject >= limit
+        elif expected == "MAXIMUM":
+            satisfied = subject <= limit
+        else:
+            raise DossierError(f"{prefix}: unknown comparison direction {expected!r}")
+    if not satisfied:
+        raise DossierError(f"{prefix}: {action} violates its declared {expected} comparison")
 
 
 def _load_json(path: Path) -> Any:
@@ -3331,9 +3419,44 @@ def _validate_portfolio_semantics(fixtures: dict[str, Any]) -> None:
                 label=f"{filename}.summary.{summary_field}",
             )
 
+        # R0-A1: limits that resolve from a ratified policy are identical for
+        # every line of this sizing decision, so resolve them once.
+        sizing_limits = sizing_policy.get("limits", {})
+        policy_limits: dict[str, Decimal] = {
+            code: _decimal(
+                risk_policy.get(section, {}).get(field),
+                f"{filename}.risk_policy.{section}.{field}",
+            )
+            for code, (section, field) in SIZING_LIMIT_FROM_RISK_POLICY.items()
+        }
+        policy_limits.update(
+            {
+                code: _decimal(
+                    sizing_limits.get(field),
+                    f"{filename}.sizing_policy.limits.{field}",
+                )
+                for code, field in SIZING_LIMIT_FROM_SIZING_POLICY.items()
+            }
+        )
+        maximum_fee_fraction = _decimal(
+            sizing_limits.get("maximum_fee_fraction"),
+            f"{filename}.sizing_policy.limits.maximum_fee_fraction",
+        )
+        # Liquidity caps resolve from THIS policy, not risk-policy-v1:
+        # sizing-policy-v1 freezes liquidity caps and is authoritative.
+        maximum_order_adv_fraction = _decimal(
+            sizing_limits.get("maximum_order_adv_fraction"),
+            f"{filename}.sizing_policy.limits.maximum_order_adv_fraction",
+        )
+        available_cash_reserve_fraction = _decimal(
+            sizing_limits.get("available_cash_reserve_fraction"),
+            f"{filename}.sizing_policy.limits.available_cash_reserve_fraction",
+        )
+
         for asset_id, line in line_by_asset.items():
             label = f"{filename}.line_items[{asset_id}]"
             check_map = checks_by_asset[asset_id]
+            candidate = candidate_by_asset.get(asset_id, {})
             projected_weight = next(weight for row, weight in projected_rows if row is line)
             themes = line.get("theme_ids")
             theme_observed = max(
@@ -3363,6 +3486,13 @@ def _validate_portfolio_semantics(fixtures: dict[str, Any]) -> None:
                     line.get("requested_notional_aud"), f"{label}.requested_notional_aud"
                 ),
                 "FEES": _decimal(line.get("estimated_fees_aud"), f"{label}.estimated_fees_aud"),
+                "ADV_PARTICIPATION": _decimal(
+                    line.get("requested_notional_aud"), f"{label}.requested_notional_aud"
+                ),
+                "AVAILABLE_CASH": sizing_cash,
+                "SPREAD": _decimal(
+                    candidate.get("spread_fraction"), f"{label}.candidate.spread_fraction"
+                ),
             }
             for code, expected in numeric_observed.items():
                 _require_decimal_equal(
@@ -3372,6 +3502,46 @@ def _validate_portfolio_semantics(fixtures: dict[str, Any]) -> None:
                     ),
                     expected,
                     f"{label}.constraint_checks[{code}].observed_value",
+                )
+
+            # R0-A1: every numeric check declares and honours a comparison
+            # direction, and its limit resolves from a ratified artifact
+            # rather than being producer-supplied.
+            for code in SIZING_CONSTRAINT_COMPARISON:
+                _assert_constraint_comparison(check_map[code], code, label)
+
+            numeric_limits: dict[str, Decimal] = {
+                **policy_limits,
+                "FEES": _decimal(
+                    line.get("approved_notional_aud"), f"{label}.approved_notional_aud"
+                )
+                * maximum_fee_fraction,
+                "BOARD_LOT": _decimal(
+                    line.get("board_lot_quantity"), f"{label}.board_lot_quantity"
+                ),
+                "ADV_PARTICIPATION": _decimal(
+                    candidate.get("average_daily_value_aud"),
+                    f"{label}.candidate.average_daily_value_aud",
+                )
+                * maximum_order_adv_fraction,
+                # Cash sufficiency is the capital-path solvency guard: the
+                # spendable balance is the frozen snapshot cash less the
+                # ratified reserve, and the applied notional is capped by it.
+                "AVAILABLE_CASH": sizing_cash * (Decimal(1) - available_cash_reserve_fraction),
+                "TARGET_NOTIONAL": _decimal(
+                    target_by_asset[asset_id].get("target_weight"),
+                    f"{label}.proposal_target.target_weight",
+                )
+                * sizing_nav,
+            }
+            for code, expected_limit in numeric_limits.items():
+                _require_decimal_equal(
+                    _decimal(
+                        check_map[code].get("limit_value"),
+                        f"{label}.constraint_checks[{code}].limit_value",
+                    ),
+                    expected_limit,
+                    f"{label}.constraint_checks[{code}].limit_value",
                 )
 
         risk_limit_checks = (

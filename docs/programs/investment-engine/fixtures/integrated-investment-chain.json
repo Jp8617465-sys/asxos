@@ -68,7 +68,7 @@
     },
     "sizing_decision_ref": {
       "id": "sizing-decision-20260724",
-      "sha256": "e19db22e142581fb1a745155e7691ac61ace2e0d8517a4f7ef2afdef5de3fdf4"
+      "sha256": "3e0656b0350d05744c58d6e43b9f58a8a806c554a4926f5f9c5f7cde6bb92377"
     },
     "staging_policy_ref": {
       "id": "staging-policy-main",
@@ -81,13 +81,13 @@
     },
     "staged_order_set_ref": {
       "id": "staged-order-set-20260724",
-      "sha256": "e45d628a500115eaaa910eaf3f5896d35c24dcfce6fcaac7e9c8c12aaec43a46"
+      "sha256": "e857bf1ff51ddb1fdc96038ad8b950751e4a16272beef875949ab7303dc73eea"
     }
   },
   "canonical_hash": {
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "1761fc4cc896486666284156afab409b92971e669c975a66dfa642b65c3c3fc9"
+    "payload_sha256": "7da43397a72aaada044874aa44650dd79e7574248b29c5644bf21c5f9a8d2a1a"
   }
 }

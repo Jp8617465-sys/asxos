@@ -82,7 +82,9 @@ exposure after hard-cap clipping. `TRIM` targets the lower of current exposure a
 the James-ratified maximum.
 
 Apply the machine contract's fixed waterfall, recording every precondition,
-source, before/limit/after value, and action:
+source, comparison direction, before/limit/after value, and action. Each numeric
+check's direction and limit resolution are fixed by the `sizing-policy-v1`
+registry, not chosen by the producer:
 
 1. eligibility, then complete effective classification;
 2. stop risk, then issuer, corporate-group, single-name, sector and theme

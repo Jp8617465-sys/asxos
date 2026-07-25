@@ -29,7 +29,7 @@
     "contract_name": "sizing-decision-v1",
     "artifact_id": "sizing-decision-evaluator-origin-20260724t061200z-r1",
     "schema_version": "1.1.0",
-    "sha256": "1500db0e0c0c2d04883bd148326fdd2bd39f0ff72ca35089acedb1eae4b8040b",
+    "sha256": "774aa31db0705f742caeb0ad07c54ce89f4c2624cb7c8cc55eb8867d7696da25",
     "created_at": "2026-07-24T06:13:00Z"
   },
   "branch_id": "PROPOSAL_BASE",
@@ -45,7 +45,7 @@
       "requested_notional_aud": "10000.000000",
       "reference_price_aud": "50.000000",
       "sizing_line_id": "sizing-line-bhp-evaluator-origin-000001",
-      "sizing_line_sha256": "8eb3140d784a94f2fca12e20737bd9a72ed79aac5b4da985c7a04b77fa9ccf43",
+      "sizing_line_sha256": "3a1a05c6da7602496975a2d52be214d63c5296755af1a672e42e1953ca1c7eb5",
       "source_sha256": "f97a0dcb23c7f7de53e5d3e05a282e7e9a17f05241b3aae6455ba1b24448e172",
       "reason_codes": [
         "FROZEN_SIZING_DECISION"
@@ -59,7 +59,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "773255109271cc2fe0efc460977b9483c2a45084c05391305c6925a26f84bf35"
+    "payload_sha256": "2c2b746632a4a677d9a63b8d5eeb763e71d3fca8ca197c49a668f43d995b0137"
   },
   "controls": {
     "evaluation_mode": "PAPER_ONLY",

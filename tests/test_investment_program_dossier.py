@@ -22,6 +22,7 @@ from scripts.validate_investment_program import (
     DossierError,
     SchemaStore,
     _format_error,
+    _object_payload_sha256,
     _validate_accounting_semantics,
     _validate_contract_name_references,
     _validate_evaluator_semantics,
@@ -1013,3 +1014,139 @@ def test_money_and_rate_reject_non_six_place_wire_shape() -> None:
 
     with pytest.raises(DossierError, match="six-place Decimal string"):
         _validate_numeric_wire_shapes(fixtures)
+
+
+def _bhp_check(fixtures: dict, code: str) -> dict:
+    """Return the named constraint check on the BHP sizing line."""
+    checks = fixtures["sizing-valid.json"]["line_items"][0]["constraint_checks"]
+    return next(check for check in checks if check["constraint_code"] == code)
+
+
+def _reseal_sizing_lines(fixtures: dict) -> None:
+    """Re-sign mutated sizing lines.
+
+    An unsigned tamper is already caught by the line digest; the adversarial
+    case these tests cover is a tamper that is consistently re-signed.
+    """
+    for filename in ("sizing-valid.json", "sizing-origin-valid.json"):
+        for line in fixtures[filename]["line_items"]:
+            line["line_item_sha256"] = _object_payload_sha256(line, "line_item_sha256", filename)
+    rewrite_fixture_hashes(fixtures)
+
+
+def test_sizing_check_must_declare_the_normative_comparison() -> None:
+    fixtures = load_fixture_documents()
+    _bhp_check(fixtures, "LOSS_HEADROOM")["comparison"] = "MAXIMUM"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"comparison: expected MINIMUM"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_minimum_constraint_cannot_pass_below_its_limit() -> None:
+    fixtures = load_fixture_documents()
+    check = _bhp_check(fixtures, "MINIMUM_ORDER")
+    check["observed_value"] = "400.000000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"observed_value.*arithmetic mismatch"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_maximum_constraint_cannot_pass_above_its_limit() -> None:
+    fixtures = load_fixture_documents()
+    check = _bhp_check(fixtures, "SECTOR")
+    check["limit_value"] = "0.050000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"PASS violates its declared MAXIMUM comparison"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_pass_violating_declared_direction_is_rejected() -> None:
+    fixtures = load_fixture_documents()
+    check = _bhp_check(fixtures, "LOSS_HEADROOM")
+    check["observed_value"] = "-1.000000"
+    check["applied_value"] = "-1.000000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"PASS violates its declared MINIMUM comparison"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_constraint_limit_must_resolve_from_the_ratified_policy() -> None:
+    fixtures = load_fixture_documents()
+    _bhp_check(fixtures, "ISSUER")["limit_value"] = "0.900000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"ISSUER\].limit_value.*arithmetic mismatch"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_adv_participation_limit_resolves_from_the_sizing_liquidity_cap() -> None:
+    fixtures = load_fixture_documents()
+    # The risk policy's 0.10 ADV fraction is a non-binding mandate ceiling;
+    # sizing-policy-v1 freezes the binding liquidity cap at 0.02.
+    _bhp_check(fixtures, "ADV_PARTICIPATION")["limit_value"] = "2000000.000000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"ADV_PARTICIPATION\].limit_value"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_spread_observed_must_resolve_from_the_proposal_candidate() -> None:
+    fixtures = load_fixture_documents()
+    _bhp_check(fixtures, "SPREAD")["observed_value"] = "0.001000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"SPREAD\].observed_value.*arithmetic mismatch"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_reduce_action_cannot_bypass_the_direction_assertion() -> None:
+    """A REDUCE must land inside its limit; it is not an exemption."""
+    fixtures = load_fixture_documents()
+    check = _bhp_check(fixtures, "LOSS_HEADROOM")
+    check["action"] = "REDUCE"
+    check["observed_value"] = "-1.000000"
+    check["applied_value"] = "-1.000000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"REDUCE violates its declared MINIMUM comparison"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_available_cash_limit_resolves_from_snapshot_and_reserve() -> None:
+    fixtures = load_fixture_documents()
+    _bhp_check(fixtures, "AVAILABLE_CASH")["limit_value"] = "999999999.000000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"AVAILABLE_CASH\].limit_value"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_available_cash_observed_resolves_from_the_frozen_snapshot() -> None:
+    fixtures = load_fixture_documents()
+    _bhp_check(fixtures, "AVAILABLE_CASH")["observed_value"] = "1.000000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"AVAILABLE_CASH\].observed_value"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_target_notional_limit_resolves_from_the_proposal_target() -> None:
+    fixtures = load_fixture_documents()
+    _bhp_check(fixtures, "TARGET_NOTIONAL")["limit_value"] = "1.000000"
+    _reseal_sizing_lines(fixtures)
+
+    with pytest.raises(DossierError, match=r"TARGET_NOTIONAL\]"):
+        _validate_portfolio_semantics(fixtures)
+
+
+def test_unsigned_sizing_line_tamper_is_caught_by_the_line_digest() -> None:
+    """The re-seal helper must not be the only thing standing guard."""
+    fixtures = load_fixture_documents()
+    _bhp_check(fixtures, "SECTOR")["observed_value"] = "0.150000"
+
+    with pytest.raises(DossierError, match=r"line_item_sha256: deterministic line hash mismatch"):
+        _validate_portfolio_semantics(fixtures)

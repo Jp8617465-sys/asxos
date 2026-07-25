@@ -72,7 +72,7 @@
         "contract_name": "paper-intent-v1",
         "artifact_id": "paper-intent-000001",
         "schema_version": "1.0.0",
-        "sha256": "773255109271cc2fe0efc460977b9483c2a45084c05391305c6925a26f84bf35",
+        "sha256": "2c2b746632a4a677d9a63b8d5eeb763e71d3fca8ca197c49a668f43d995b0137",
         "created_at": "2026-07-24T06:20:00Z"
       }
     ],
@@ -81,7 +81,7 @@
         "contract_name": "paper-order-v1",
         "artifact_id": "paper-order-000001",
         "schema_version": "1.0.0",
-        "sha256": "1bf1514b1187e4567840d0aede739a7f713274f14029b98ed03b21015c3722c6",
+        "sha256": "ae2890c7b139626a05c3ae3be45e5d4ecea60ab92a538128f8122e25c162c559",
         "created_at": "2026-07-24T06:25:00Z"
       }
     ],
@@ -90,7 +90,7 @@
         "contract_name": "paper-fill-v1",
         "artifact_id": "paper-fill-000001",
         "schema_version": "1.0.0",
-        "sha256": "9b84ea67b8d1744764a395410b6ca7ceab3c2e7b04cad9376dfe5591eb5a925f",
+        "sha256": "9262ff04fdfa74cf9fccccaa81dbaa0c1e73ccd3cc195d93a404eb60fe20b930",
         "created_at": "2026-07-27T00:11:00Z"
       }
     ],
@@ -402,7 +402,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "4e58d02d9d0fe554720ff8be8b6b6d1b532662b204378956d50704a7b1519725"
+    "payload_sha256": "23aff8dbaba4c986c038f844fc18dd2ad21e58cb21119a3c4566195842536375"
   },
   "controls": {
     "evaluation_mode": "PAPER_ONLY",

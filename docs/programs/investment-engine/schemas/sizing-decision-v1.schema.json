@@ -1186,6 +1186,7 @@
         "sequence",
         "constraint_code",
         "check_type",
+        "comparison",
         "observed_value",
         "limit_value",
         "applied_value",
@@ -1239,6 +1240,14 @@
         },
         "check_type": {
           "const": "NUMERIC_LIMIT"
+        },
+        "comparison": {
+          "enum": [
+            "MINIMUM",
+            "MAXIMUM",
+            "EXACT",
+            "CAP_APPLIED"
+          ]
         }
       }
     },

@@ -46,6 +46,28 @@ Using exact `NUMERIC(18,6)` Decimal arithmetic, the service MUST:
 7. recompute cash, issuer/group/sector/theme exposures, portfolio loss at stop,
    turnover, fees, and every line/summary reconciliation.
 
+## Constraint check shape
+
+Every `NUMERIC_LIMIT` check carries a required `comparison`
+(`MINIMUM | MAXIMUM | EXACT | CAP_APPLIED`) alongside `observed_value`,
+`limit_value` and `applied_value`. The direction is not the producer's to pick:
+each constraint code has exactly one normative comparison and one limit
+resolution rule, both fixed by the registry in
+[`sizing-policy-v1`](sizing-policy-v1.md). A check whose declared `comparison`
+disagrees with that registry is invalid, and so is a check that violates its own
+declared direction under either terminal action — `REDUCE` is not an exemption,
+it merely shifts a `MINIMUM`/`MAXIMUM` assertion onto the post-reduction
+`applied_value`.
+
+`limit_value` and `observed_value` are recomputed, never attested. The semantic
+validator resolves each limit from the ratified risk or sizing policy — or, for
+`ADV_PARTICIPATION`, `FEES` and `BOARD_LOT`, derives it arithmetically from the
+proposal candidate, approved notional or classification snapshot — and derives
+the `ADV_PARTICIPATION` and `SPREAD` observed values from the proposal candidate
+row. `TARGET_NOTIONAL`, `AVAILABLE_CASH` and `RESERVATIONS` are direction-
+asserted but their `limit_value` is not yet independently resolved by the
+validator; the registry rule still binds a conforming producer.
+
 Each `SIZED` line is exclusively `APPROVED` or `REDUCED`; a rejected line is not
 representable. Both rejection states require an empty `line_items` array and
 cannot be staging-eligible. A mixed “partially rejected but eligible” payload is
@@ -58,7 +80,8 @@ both values and must match the approved quantity, notional, side, asset, and
 reference price exactly.
 
 The semantic validator MUST additionally prove asset uniqueness, ordered
-and complete constraint checks, classification and tick-rule Boolean
+and complete constraint checks, each numeric check's declared `comparison` and
+direction-correct pass/reduce semantics, classification and tick-rule Boolean
 preconditions, board-lot divisibility, tick alignment, line/target hashes,
 line and summary arithmetic, exposure/loss aggregation, exact hash resolution,
 and:

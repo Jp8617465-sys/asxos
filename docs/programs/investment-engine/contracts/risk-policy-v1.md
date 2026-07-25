@@ -38,6 +38,18 @@ The policy covers:
 - board lot, minimum order notional, cash buffer, fee schedule, and hard-breach
   action.
 
+### Order-level liquidity caps defer to the sizing policy
+
+`sizing-policy-v1` freezes the binding order-ADV and spread caps used by a
+sizing decision. `liquidity_limits.max_order_adv_fraction` and
+`max_spread_fraction` here are mandate ceilings, not the values a sizing
+decision resolves; resolving a sizing ADV or spread limit from this contract is
+non-conforming. Consistent with the rule above, the most conservative applicable
+value still wins where the two differ, and the divergence is reported rather
+than silently resolved. `min_adv_aud`, `max_fill_participation_fraction` and
+`max_price_age_seconds` have no sizing-policy counterpart and remain resolved
+here. See [`sizing-policy-v1`](sizing-policy-v1.md).
+
 ## Fail closed
 
 Missing, expired, future-effective, ambiguous, unsigned, hash-mismatched,
