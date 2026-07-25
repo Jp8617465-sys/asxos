@@ -1176,3 +1176,50 @@ def test_same_artifact_repeated_verbatim_is_still_allowed() -> None:
     fixtures["risk-policy-repeated.json"] = deepcopy(fixtures["risk-policy-valid.json"])
 
     _validate_locally_resolvable_reference_hashes(fixtures)
+
+
+def test_cross_contract_artifact_id_collision_is_rejected() -> None:
+    """The exact defect that hid two placeholder digests in the shipped set.
+
+    broker-report-v1 and review-eligibility-v1 once shared one artifact id, so
+    the id dropped out of the bare-id index and every reference naming it went
+    unchecked.
+    """
+    fixtures = load_fixture_documents()
+    eligibility = fixtures["review-eligibility-valid.json"]
+    eligibility["eligibility_decision_id"] = fixtures["broker-report-valid.json"][
+        "report_version_id"
+    ]
+    eligibility["canonical_hash"]["payload_sha256"] = fixture_payload_sha256(eligibility)
+
+    with pytest.raises(DossierError, match="denotes two different payloads across contracts"):
+        _validate_locally_resolvable_reference_hashes(fixtures)
+
+
+def test_placeholder_digest_aimed_at_a_carried_artifact_is_rejected() -> None:
+    fixtures = load_fixture_documents()
+    report_id = fixtures["broker-report-valid.json"]["report_version_id"]
+    fixtures["review-context-valid.json"]["stub_ref"] = {
+        "contract_name": "portfolio-snapshot-v1",
+        "artifact_id": report_id,
+        "sha256": "d" * 64,
+    }
+
+    with pytest.raises(DossierError, match="placeholder digest"):
+        _validate_locally_resolvable_reference_hashes(fixtures)
+
+
+def test_placeholder_digest_for_an_uncarried_artifact_stays_legal() -> None:
+    """Opaque references are permitted when the dossier carries no such artifact.
+
+    paper-episode-golden.json legitimately cites an eligibility decision that is
+    not a fixture; the backstop must not force such artifacts into existence.
+    """
+    fixtures = load_fixture_documents()
+    fixtures["review-context-valid.json"]["stub_ref"] = {
+        "contract_name": "portfolio-snapshot-v1",
+        "artifact_id": "no-such-artifact-in-this-dossier",
+        "sha256": "d" * 64,
+    }
+
+    _validate_locally_resolvable_reference_hashes(fixtures)

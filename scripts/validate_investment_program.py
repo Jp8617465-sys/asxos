@@ -1314,10 +1314,32 @@ def _validate_fixture_hash_convention(fixtures: dict[str, Any]) -> None:
                         )
 
 
+def _is_placeholder_digest(digest: str) -> bool:
+    """True for a digest built from at most two distinct characters.
+
+    Catches the obvious stubs -- 64 'd's, all zeroes, a repeated two-character
+    pattern. Such digests are legitimate for artifacts the dossier does not
+    carry (external ratification records, fee schedules), so this is only a
+    signal, never a verdict on its own -- the caller pairs it with evidence that
+    the reference SHOULD have resolved.
+    """
+    return len(set(digest)) <= 2
+
+
 def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> None:
-    # Value is (source_filename, digest) so a reuse error can name both sides.
-    by_contract_and_id: dict[tuple[str, str], tuple[str, str]] = {}
-    digest_candidates_by_id: dict[str, set[str]] = {}
+    # Digest per (contract_name, artifact_id): the contract-scoped resolution
+    # index the reference checks below read.
+    by_contract_and_id: dict[tuple[str, str], str] = {}
+    # (contract_name, source_filename, digest) per bare artifact ID. Doubles as
+    # the sole collision guard: an artifact ID may never denote two different
+    # payloads, whether or not the contract names match. Without the guard the
+    # reused ID drops out of digest_by_id below and every bare-id reference
+    # check naming it stops running -- the harness stays green while the
+    # forbidden condition exists, and a wrong digest behind such a reference is
+    # unobservable to both this validator and the repair path, which builds the
+    # same index. Keying on the bare ID subsumes the same-contract case, so the
+    # two collisions differ only in how the error names them.
+    artifact_owner: dict[str, tuple[str, str, str]] = {}
     narrow_context_by_id: dict[str, str] = {}
     root_identity_by_object: dict[int, str] = {}
     for filename, document in fixtures.items():
@@ -1327,32 +1349,32 @@ def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> N
             if not isinstance(contract_name, str) or artifact_id is None:
                 continue
             digest = _canonical_hash_identity(item, filename)
-            # Within one contract an artifact ID may never be reused for
-            # different bytes. Without this, the reused ID drops out of
-            # by_unambiguous_id below and every bare-id reference check naming
-            # it stops running -- the harness stays green while the forbidden
-            # condition exists. Reuse ACROSS contracts stays legal (the
-            # fixtures already do it) and remains ambiguity-filtered, not
-            # rejected, which is why the guard keys on the pair.
-            previous = by_contract_and_id.get((contract_name, artifact_id))
-            if previous is not None and previous[1] != digest:
+            prior_owner = artifact_owner.get(artifact_id)
+            if prior_owner is not None and prior_owner[2] != digest:
+                prior_contract, prior_file, prior_digest = prior_owner
+                if prior_contract == contract_name:
+                    raise DossierError(
+                        f"{contract_name} artifact id {artifact_id!r} is reused for two "
+                        f"different payloads: {prior_file} ({prior_digest[:12]}...) and "
+                        f"{filename} ({digest[:12]}...)"
+                    )
                 raise DossierError(
-                    f"{contract_name} artifact id {artifact_id!r} is reused for two "
-                    f"different payloads: {previous[0]} ({previous[1][:12]}...) and "
-                    f"{filename} ({digest[:12]}...)"
+                    f"artifact id {artifact_id!r} denotes two different payloads across "
+                    f"contracts: {prior_contract} in {prior_file} "
+                    f"({prior_digest[:12]}...) and {contract_name} in {filename} "
+                    f"({digest[:12]}...); a bare-id reference to it cannot be resolved"
                 )
-            by_contract_and_id[(contract_name, artifact_id)] = (filename, digest)
-            digest_candidates_by_id.setdefault(artifact_id, set()).add(digest)
+            artifact_owner[artifact_id] = (contract_name, filename, digest)
+            by_contract_and_id[(contract_name, artifact_id)] = digest
             root_identity_by_object[id(item)] = artifact_id
             if contract_name == "review-context-v1":
                 context_digest = item.get("context_sha256")
                 if isinstance(context_digest, str):
                     narrow_context_by_id[artifact_id] = context_digest
-    by_unambiguous_id = {
-        artifact_id: next(iter(digests))
-        for artifact_id, digests in digest_candidates_by_id.items()
-        if len(digests) == 1
-    }
+    # Every ID is unambiguous by construction: the guard above rejects any ID
+    # reused for different bytes, so none can carry a second digest here. Relax
+    # that guard and this index must go back to filtering ambiguous IDs out.
+    digest_by_id = {artifact_id: owner[2] for artifact_id, owner in artifact_owner.items()}
 
     for filename, document in fixtures.items():
         for item_label, item in _fixture_items(document, filename):
@@ -1367,16 +1389,32 @@ def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> N
                     and isinstance(artifact_id, str)
                     and isinstance(node.get("sha256"), str)
                 ):
-                    resolved = by_contract_and_id.get((contract_name, artifact_id))
-                    expected = resolved[1] if resolved is not None else None
+                    expected = by_contract_and_id.get((contract_name, artifact_id))
                     if expected is not None and node["sha256"] != expected:
                         raise DossierError(
                             f"{item_label}:{value_path}: local artifact reference hash "
                             f"does not resolve to {contract_name}/{artifact_id}"
                         )
+                    # Independent backstop: a placeholder digest is legitimate
+                    # for an artifact the dossier does not carry, so absence of
+                    # the id is NOT evidence of a stub. But a placeholder aimed
+                    # at an id the dossier DOES carry is unambiguously wrong,
+                    # and the resolution check above misses it whenever the id
+                    # was claimed under a different contract name.
+                    if (
+                        expected is None
+                        and artifact_id in artifact_owner
+                        and _is_placeholder_digest(node["sha256"])
+                    ):
+                        owner_contract, owner_file, _ = artifact_owner[artifact_id]
+                        raise DossierError(
+                            f"{item_label}:{value_path}: placeholder digest "
+                            f"{node['sha256'][:12]}... names {contract_name}/{artifact_id}, but "
+                            f"that id is carried by {owner_contract} in {owner_file}"
+                        )
                 reference_id = node.get("id")
                 if isinstance(reference_id, str) and isinstance(node.get("sha256"), str):
-                    expected = by_unambiguous_id.get(reference_id)
+                    expected = digest_by_id.get(reference_id)
                     if expected is not None and node["sha256"] != expected:
                         raise DossierError(
                             f"{item_label}:{value_path}: local reference hash does not "
@@ -1393,12 +1431,11 @@ def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> N
                     actual = node.get(digest_key)
                     reference_contract = REFERENCE_CONTRACT_NAMES.get(key)
                     if reference_contract is not None:
-                        resolved = by_contract_and_id.get((reference_contract, candidate_id))
-                        expected = resolved[1] if resolved is not None else None
+                        expected = by_contract_and_id.get((reference_contract, candidate_id))
                     elif digest_key == "context_sha256":
                         expected = narrow_context_by_id.get(candidate_id)
                     else:
-                        expected = by_unambiguous_id.get(candidate_id)
+                        expected = digest_by_id.get(candidate_id)
                     if isinstance(actual, str) and expected is not None and actual != expected:
                         raise DossierError(
                             f"{item_label}:{value_path}.{digest_key}: local reference "
