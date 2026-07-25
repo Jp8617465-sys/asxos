@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/broker-report-v1.schema.json",
+  "title": "BrokerReportVersionV1",
+  "description": "Immutable, evidence-linked broker-style research report version.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "report_version_id",
+    "thesis_id",
+    "report_version",
+    "predecessor_version_id",
+    "symbol",
+    "flavour",
+    "data_as_of",
+    "created_at",
+    "source_sha256",
+    "producer",
+    "governance_state",
+    "executive_view",
+    "claim_register",
+    "scenarios",
+    "catalysts",
+    "falsifiers",
+    "risks",
+    "unanswered_questions",
+    "discipline",
+    "sections",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "broker-report-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "report_version_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "thesis_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "report_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "predecessor_version_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "symbol": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]+\\.(AU|US)$"
+    },
+    "flavour": {
+      "enum": [
+        "individual_equity",
+        "etf_fund"
+      ]
+    },
+    "data_as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "canonical_hash": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/canonicalHash"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer_type",
+        "name",
+        "version"
+      ],
+      "properties": {
+        "producer_type": {
+          "enum": [
+            "agent",
+            "human"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "governance_state": {
+      "enum": [
+        "DRAFT",
+        "PENDING_REVIEW",
+        "APPROVED",
+        "SUPERSEDED"
+      ]
+    },
+    "executive_view": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_register": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "catalysts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/datedItem"
+      }
+    },
+    "falsifiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/falsifier"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/risk"
+      }
+    },
+    "unanswered_questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "discipline": {
+      "$ref": "#/$defs/discipline"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "thesis-proposal-v1.schema.json#/$defs/reportSection"
+      }
+    }
+  },
+  "$defs": {
+    "decimalString": {
+      "type": "string",
+      "pattern": "^-?(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,6})?$"
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "text",
+        "materiality",
+        "evidence_ids"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^CLM-[0-9]{3,}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "materiality": {
+          "enum": [
+            "supporting",
+            "material",
+            "critical"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case",
+        "narrative",
+        "assumptions",
+        "evidence_ids"
+      ],
+      "properties": {
+        "case": {
+          "enum": [
+            "bear",
+            "base",
+            "bull"
+          ]
+        },
+        "narrative": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assumptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "datedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "expected_by",
+        "evidence_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "falsifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "severity",
+        "evidence_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "material",
+            "critical"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "likelihood",
+        "impact",
+        "mitigant",
+        "evidence_ids"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "likelihood": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "unknown"
+          ]
+        },
+        "impact": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "mitigant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "disciplineFigure": {
+      "oneOf": [
+        {
+          "$ref": "thesis-proposal-v1.schema.json#/$defs/reportFigure"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discipline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_band_lower",
+        "entry_band_upper",
+        "stop_price",
+        "target_price",
+        "timeline_days"
+      ],
+      "properties": {
+        "entry_band_lower": {
+          "$ref": "#/$defs/disciplineFigure"
+        },
+        "entry_band_upper": {
+          "$ref": "#/$defs/disciplineFigure"
+        },
+        "stop_price": {
+          "$ref": "#/$defs/disciplineFigure"
+        },
+        "target_price": {
+          "$ref": "#/$defs/disciplineFigure"
+        },
+        "timeline_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

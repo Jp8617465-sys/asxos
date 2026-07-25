@@ -1,0 +1,831 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/cohort-statistics-v1.schema.json",
+  "title": "ASXOS Cohort Statistics v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "producer_version",
+    "data_as_of",
+    "created_at",
+    "source_hashes",
+    "statistics_id",
+    "cohort_id",
+    "config_ref",
+    "candidate_family_id",
+    "trial_registry_sha256",
+    "continuous_nav_refs",
+    "episode_outcome_refs",
+    "origin_counts",
+    "observed_sessions",
+    "priced_nav_day_fraction",
+    "daily_active_series",
+    "protocol",
+    "bootstrap_results",
+    "episode_diagnostics",
+    "multiple_testing",
+    "fill_fraction_within_5_sessions",
+    "policy_breach_count",
+    "mandate_drawdown_breach_count",
+    "strategy_inputs_complete",
+    "reason_codes",
+    "canonical_hash",
+    "controls"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "cohort-statistics-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer_version": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+    },
+    "data_as_of": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "source_hashes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/sourceHashes"
+    },
+    "canonical_hash": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/canonicalHash"
+    },
+    "statistics_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "cohort_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "config_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "candidate_family_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "trial_registry_sha256": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+    },
+    "continuous_nav_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+      }
+    },
+    "episode_outcome_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+      }
+    },
+    "origin_counts": {
+      "$ref": "#/$defs/originCounts"
+    },
+    "observed_sessions": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+    },
+    "priced_nav_day_fraction": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+    },
+    "daily_active_series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series_sha256_vs_hold",
+        "series_sha256_vs_xjo_tr",
+        "paired_tuple_series_sha256",
+        "complete_observation_count",
+        "missing_observation_count",
+        "primary_branch",
+        "primary_estimand"
+      ],
+      "properties": {
+        "series_sha256_vs_hold": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "series_sha256_vs_xjo_tr": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "paired_tuple_series_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "complete_observation_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "missing_observation_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "primary_branch": {
+          "const": "PROPOSAL_STRESS"
+        },
+        "primary_estimand": {
+          "const": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN"
+        }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_estimand",
+        "primary_branch",
+        "comparisons",
+        "statistic",
+        "resampling_unit",
+        "bootstrap_method",
+        "block_rule",
+        "primary_block_length_sessions",
+        "sensitivity_block_lengths",
+        "block_boundary",
+        "circular_index_rule",
+        "terminal_block_rule",
+        "minimum_clean_paired_sessions",
+        "session_order",
+        "common_endpoint_rule",
+        "repetitions",
+        "evaluation_policy_sha256",
+        "seed_derivation",
+        "seed_bit_width",
+        "seed_byte_order",
+        "prng_id",
+        "numpy_version",
+        "draw_mapping",
+        "interval_estimator",
+        "percentile_rule",
+        "one_sided_confidence",
+        "sensitivity_interval_estimator",
+        "sensitivity_two_sided_confidence",
+        "missingness_policy",
+        "decimal_output_scale",
+        "candidate_family_required",
+        "multiple_testing_method"
+      ],
+      "properties": {
+        "primary_estimand": {
+          "const": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN"
+        },
+        "primary_branch": {
+          "const": "PROPOSAL_STRESS"
+        },
+        "comparisons": {
+          "const": [
+            "HOLD",
+            "XJO_TR"
+          ]
+        },
+        "statistic": {
+          "const": "ANNUALISED_PAIRED_LOG_ACTIVE_RETURN_252"
+        },
+        "resampling_unit": {
+          "const": "PAIRED_DAILY_RETURN_TUPLE"
+        },
+        "bootstrap_method": {
+          "const": "CIRCULAR_MOVING_BLOCK_BOOTSTRAP"
+        },
+        "block_rule": {
+          "const": "FIXED_PRE_REGISTERED"
+        },
+        "primary_block_length_sessions": {
+          "const": "10"
+        },
+        "sensitivity_block_lengths": {
+          "const": [
+            "5",
+            "20"
+          ]
+        },
+        "block_boundary": {
+          "const": "CIRCULAR"
+        },
+        "circular_index_rule": {
+          "const": "SOURCE_INDEX_MODULO_N"
+        },
+        "terminal_block_rule": {
+          "const": "CONCATENATE_THEN_TRUNCATE_TO_N"
+        },
+        "minimum_clean_paired_sessions": {
+          "const": "252"
+        },
+        "session_order": {
+          "const": "ASCENDING_TRADING_SESSION"
+        },
+        "common_endpoint_rule": {
+          "const": "COMPLETE_STRESS_AND_COMPARATOR_SAME_SESSION"
+        },
+        "repetitions": {
+          "const": "100000"
+        },
+        "evaluation_policy_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "seed_derivation": {
+          "const": "UNSIGNED_FIRST_128_BITS_SHA256_COHORT_ID_PIPE_METRIC_ID_PIPE_EVALUATION_POLICY_SHA256"
+        },
+        "seed_bit_width": {
+          "const": "128"
+        },
+        "seed_byte_order": {
+          "const": "BIG_ENDIAN"
+        },
+        "prng_id": {
+          "const": "NUMPY_PCG64DXSM"
+        },
+        "numpy_version": {
+          "const": "2.1.1"
+        },
+        "draw_mapping": {
+          "const": "NUMPY_GENERATOR_INTEGERS_0_TO_N_EXCLUSIVE"
+        },
+        "interval_estimator": {
+          "const": "EMPIRICAL_TYPE_1"
+        },
+        "percentile_rule": {
+          "const": "NEAREST_RANK_10TH_PERCENTILE"
+        },
+        "one_sided_confidence": {
+          "const": "0.900000"
+        },
+        "sensitivity_interval_estimator": {
+          "const": "EMPIRICAL_TYPE_1"
+        },
+        "sensitivity_two_sided_confidence": {
+          "const": "0.950000"
+        },
+        "missingness_policy": {
+          "const": "DIRTY_SESSION_RESETS_OPERATIONAL_STREAK_NO_IMPUTATION"
+        },
+        "decimal_output_scale": {
+          "const": "6"
+        },
+        "candidate_family_required": {
+          "const": true
+        },
+        "multiple_testing_method": {
+          "const": "HOLM_FAMILYWISE_DIAGNOSTIC"
+        }
+      }
+    },
+    "bootstrap_results": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "comparison": {
+                "const": "HOLD"
+              }
+            },
+            "required": [
+              "comparison"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "comparison": {
+                "const": "XJO_TR"
+              }
+            },
+            "required": [
+              "comparison"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ],
+      "items": {
+        "$ref": "#/$defs/bootstrapResult"
+      }
+    },
+    "episode_diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "matured_episode_count",
+        "episode_horizon_sessions",
+        "overlap_present",
+        "dependency_group_count",
+        "effective_episode_sample_size",
+        "episodes_treated_as_independent"
+      ],
+      "properties": {
+        "matured_episode_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "episode_horizon_sessions": {
+          "const": "63"
+        },
+        "overlap_present": {
+          "type": "boolean"
+        },
+        "dependency_group_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "effective_episode_sample_size": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+        },
+        "episodes_treated_as_independent": {
+          "const": false
+        }
+      }
+    },
+    "multiple_testing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registered_candidate_count",
+        "reported_candidate_count",
+        "selection_event_count",
+        "all_registered_candidates_reported",
+        "familywise_method",
+        "family_adjusted_pass"
+      ],
+      "properties": {
+        "registered_candidate_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/positiveIntegerString"
+        },
+        "reported_candidate_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "selection_event_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "all_registered_candidates_reported": {
+          "type": "boolean"
+        },
+        "familywise_method": {
+          "const": "HOLM"
+        },
+        "family_adjusted_pass": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fill_fraction_within_5_sessions": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+    },
+    "policy_breach_count": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+    },
+    "mandate_drawdown_breach_count": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+    },
+    "strategy_inputs_complete": {
+      "type": "boolean"
+    },
+    "reason_codes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_registered_origins_retained",
+        "reconstructed_rows_included",
+        "producer_gate_boolean_trusted",
+        "deterministic_replay"
+      ],
+      "properties": {
+        "all_registered_origins_retained": {
+          "const": true
+        },
+        "reconstructed_rows_included": {
+          "const": false
+        },
+        "producer_gate_boolean_trusted": {
+          "const": false
+        },
+        "deterministic_replay": {
+          "const": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "strategy_inputs_complete": {
+            "const": true
+          }
+        },
+        "required": [
+          "strategy_inputs_complete"
+        ]
+      },
+      "then": {
+        "properties": {
+          "bootstrap_results": {
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "COMPLETE"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "strategy_inputs_complete": {
+            "const": false
+          }
+        },
+        "required": [
+          "strategy_inputs_complete"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "originCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scheduled",
+        "open",
+        "blocked",
+        "rejected",
+        "no_action",
+        "invalid",
+        "matured",
+        "unavailable"
+      ],
+      "properties": {
+        "scheduled": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "open": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "blocked": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "rejected": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "no_action": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "invalid": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "matured": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "unavailable": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        }
+      }
+    },
+    "bootstrapResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_id",
+        "comparison",
+        "status",
+        "point_estimate",
+        "one_sided_lower_bound",
+        "complete_session_count",
+        "primary_block_length_sessions",
+        "repetitions",
+        "seed_material_sha256",
+        "seed_uint128_hex",
+        "sensitivity_results",
+        "positive_lower_bound",
+        "reason_codes"
+      ],
+      "properties": {
+        "metric_id": {
+          "enum": [
+            "stress_active_vs_hold",
+            "stress_active_vs_xjo_tr"
+          ]
+        },
+        "comparison": {
+          "enum": [
+            "HOLD",
+            "XJO_TR"
+          ]
+        },
+        "status": {
+          "enum": [
+            "COMPLETE",
+            "UNAVAILABLE"
+          ]
+        },
+        "point_estimate": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "one_sided_lower_bound": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "complete_session_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "primary_block_length_sessions": {
+          "const": "10"
+        },
+        "repetitions": {
+          "const": "100000"
+        },
+        "seed_material_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "seed_uint128_hex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "sensitivity_results": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "contains": {
+                "properties": {
+                  "block_length_sessions": {
+                    "const": "5"
+                  }
+                },
+                "required": [
+                  "block_length_sessions"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "block_length_sessions": {
+                    "const": "20"
+                  }
+                },
+                "required": [
+                  "block_length_sessions"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/sensitivityResult"
+          }
+        },
+        "positive_lower_bound": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_codes": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "comparison": {
+                "const": "HOLD"
+              }
+            },
+            "required": [
+              "comparison"
+            ]
+          },
+          "then": {
+            "properties": {
+              "metric_id": {
+                "const": "stress_active_vs_hold"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "comparison": {
+                "const": "XJO_TR"
+              }
+            },
+            "required": [
+              "comparison"
+            ]
+          },
+          "then": {
+            "properties": {
+              "metric_id": {
+                "const": "stress_active_vs_xjo_tr"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "COMPLETE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "point_estimate": {
+                "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+              },
+              "one_sided_lower_bound": {
+                "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+              },
+              "positive_lower_bound": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNAVAILABLE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "point_estimate": {
+                "type": "null"
+              },
+              "one_sided_lower_bound": {
+                "type": "null"
+              },
+              "positive_lower_bound": {
+                "type": "null"
+              },
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sensitivityResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "block_length_sessions",
+        "status",
+        "two_sided_lower_bound",
+        "two_sided_upper_bound",
+        "confidence",
+        "reason_codes"
+      ],
+      "properties": {
+        "block_length_sessions": {
+          "enum": [
+            "5",
+            "20"
+          ]
+        },
+        "status": {
+          "enum": [
+            "COMPLETE",
+            "UNAVAILABLE"
+          ]
+        },
+        "two_sided_lower_bound": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "two_sided_upper_bound": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "const": "0.950000"
+        },
+        "reason_codes": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "COMPLETE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "two_sided_lower_bound": {
+                "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+              },
+              "two_sided_upper_bound": {
+                "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+              },
+              "reason_codes": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNAVAILABLE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "two_sided_lower_bound": {
+                "type": "null"
+              },
+              "two_sided_upper_bound": {
+                "type": "null"
+              },
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

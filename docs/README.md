@@ -2,7 +2,7 @@
 
 **Status:** current
 **Scope:** whole repo — navigation index / source-of-truth map
-**Last verified:** 2026-07-05
+**Last verified:** 2026-07-24
 **Read priority:** read first
 **Superseded by:** N/A
 
@@ -17,11 +17,12 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 
 ## Read first, in order
 1. `../CLAUDE.md` — agent guide + non-negotiables (note **standing** rule **#11**: Model A quarantine — resolved 2026-07-11 *against* Model A; the quarantine stands as policy)
-2. `product/roadmap-state.md` — the living reconciled state (**current authority**); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. `session-handoff-2026-07-04.md` is the last dated handoff (its "P0 unresolved" framing is superseded by the resolution above)
-3. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
-4. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
-5. `next-session-backlog.md` — itemized backlog (top half current; the 2026-06-28 half is partially stale — see its banners)
-6. `executable-roadmap-2026-07-04.md` — the current sequenced roadmap (5 workstreams + PR plan)
+2. `session-handoff-2026-07-24.md` — newest repository and deployment handoff
+3. `product/roadmap-state.md` — living whole-product history and non-programme state; its older queues do not override the accepted investment-engine sequence
+4. `programs/investment-engine/README.md` + `product/roadmap.yaml` — accepted twelve-week investment-engine implementation dossier and canonical sequencing manifest
+5. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
+6. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
+7. `next-session-backlog.md` — legacy itemized backlog; reconcile any overlapping item against the canonical investment-engine manifest before acting
 
 ## Authoritative source by area
 | Area | Authoritative source |
@@ -33,13 +34,13 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Tax math | `foundation/spec/tax-alpha.md` (v1.5 — TC-20 is implemented; spec-first per non-negotiable #8) |
 | Governance | `proposals/governance-first-architecture-2026-06-30.md` + `../.claude/rules/portfolio-conventions.md` |
 | Research store | `../migrations/0027_research_store.sql` for schema; the **live DB** for state (`research/research-store-schema.md`'s "applied-empty" header is a 2026-06-22 snapshot) |
-| Model A / alpha evidence | **`model-a-decay-analysis-2026-07-11.md`** (the resolution — no usable edge on 19,032 matured signals) + **`product/ml-engine-shelf-2026-07-11.md`** (James's shelve decision + how it plays out) are authoritative on status; live `signals`/`signal_outcomes` + `../asxos/domain/research/alpha_eval.py` for the data; audit design in `model-a-audit-and-extension-plan-2026-07-04.md` Part A; `research/alpha-research-audit.md` is the pre-training-period diagnosis (not live-signal truth) |
+| Model A / alpha evidence | **`model-a-decay-analysis-2026-07-11.md`** is the historical resolution (no usable edge on 19,032 matured signals); **`programs/investment-engine/model-a-decommission.md`** is the recommended runtime-off/read-only-evidence target pending a separate James approval, authority amendment, and implementation mission. Until those land, `CLAUDE.md` and `product/ml-engine-shelf-2026-07-11.md` remain the current passive-monitor authority. Approved retirement makes legacy entry points fail closed with `MODEL_A_DECOMMISSIONED`. |
 | Portfolio invariants | `../.claude/rules/portfolio-conventions.md` |
-| Risk | none built (v1 is risk-blind by design — `../.claude/rules/portfolio-conventions.md`); design notes in `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
-| Backlog / session state | `next-session-backlog.md` + the newest `session-handoff-*.md` (handoff outranks backlog on priority; backlog outranks handoff on itemized detail) |
-| Product vision / program state | `product/north-star.md` (the charter — "The Output") + `product/roadmap-state.md` (living reconciled roadmap + 10-PR autonomy sequence). `/arbi` ("wake up") is the session entry ritual; `/arbi-close` writes the handoff. |
+| Risk / construction / sizing target | Nothing in the accepted engine is implemented yet. Normative target contracts live in `programs/investment-engine/architecture.md`, `decisions.md`, and `contracts/{portfolio-construction-policy-v1,risk-policy-v1,sizing-policy-v1,sizing-decision-v1,staging-policy-v1,trading-calendar-v1}.md`; current runtime policy remains authoritative until reviewed sprint PRs and James ratification. |
+| Backlog / session state | Newest `session-handoff-*.md`; `product/roadmap.yaml` governs accepted investment-engine sequencing. `next-session-backlog.md`, `product/{cleanup-backlog,arbi-operating-backlog}.md`, `backlog-test-coverage.md`, and `maintenance/guards-backlog.md` are legacy discovery inventories: re-verify and canonically admit a row before work; none can override the manifest. |
+| Product vision / program state | `product/north-star.md` is the whole-product charter. `programs/investment-engine/README.md` + `product/roadmap.yaml` govern the accepted twelve-week investment-engine programme; `product/investment-engine-roadmap.md` is its generated compact view. `product/roadmap-state.md` retains whole-product history and non-programme state. |
 | arbi governance (the Autonomy Kernel) | `product/arbi-constitution.md` (authority + limits) + `product/arbi-authority.md` (source-of-truth ladder) + `product/arbi-permission-model.md` (blast-radius: **Infrastructure ladder I0–I6** + **Portfolio ladder P0–P6**) + `product/arbi-harness.md` (operating contract) + `product/arbi-scorecard.md` (hard gates + reward) + `product/arbi-promotion-gate.md` + `product/arbi-memory-policy.md` + `product/arbi-dream-policy.md` + `product/arbi-evals.md` + `product/rubrics/` + ledgers (`arbi-run-ledger.md`, `decision-log.md`, `risk-register.md`) + `product/james-inbox.md` (decisions reserved to James) + `product/dark-launch-exit-plan.md` (ship/delete/keep-dark verdicts for gated surfaces) + `product/memory/` (the git-native second brain) + `product/arbi-autonomy-loop.md` (the self-driving loop) + `product/arbi-managed-agent-spec.md` (optional hosted backend) + `.claude/agents/arbi-red-team.md` (adversarial gate on arbi's "one thing") + `.claude/agents/guilfoyle.md` + `.claude/commands/arbi-mission.md` (mission-control execution lead under arbi: `/arbi-mission` turns an approved mission into a task graph → specialists → draft PR, attended + reversible) + **the autonomy unlock pack (2026-07-14)**: `product/guilfoyle-mission-control.md` (the stack narrative + mission routing) + `product/arbi-goal-recipes.md` (long-window `/goal` prompts incl. the 12-hour recipe + PR transaction discipline) + `product/runbooks/` (`reversible-work-window.md`, `agent-team-mission.md`) + `.claude/agents/reversible-work-builder.md` (the mutation hands) + `.claude/commands/arbi-team.md` (agent-teams form, large parallel missions, plan-approval gate) + `.claude/skills/` (`reversible-work-window`, `arbi-mission`, `agent-team-mission`, `pr-readiness` — skill-scoped allowed-tools, the R-A4 prototype) + `.github/CODEOWNERS` + `.claude/hooks/unattended-guard.sh` (unattended tier guard). James is governor; arbi is the bounded operating controller; guilfoyle is its execution lead. |
-| Portfolio decision-support governance | `product/portfolio-manager-charter.md` (the role: allocation memos James acts on, never executes) + `product/portfolio-policy.md` (James's capital mandate — objectives, risk, hard constraints) + `product/recommendation-schema.md` (the shape of an action memo) + `product/portfolio-outcome-ledger.md` (memos → decisions → outcomes) + the Portfolio ladder P0–P6 in `product/arbi-permission-model.md`. The firewall is **execution** (James's broker), not analysis; rule #11 keeps every memo model-independent. Surfaced via `/pm-review`. |
+| Portfolio decision-support governance | `product/portfolio-manager-charter.md` + `product/portfolio-policy.md` + `product/recommendation-schema.md` + `product/portfolio-outcome-ledger.md` + the P0–P6 ladder. The current `/pm-review` implementation still has Model A/SHAP dependencies. S01 M02 produces only the read-only inventory/archive/restore/decision packet. If James approves retirement and the authority amendment lands, separately bounded M-A2/M-A3 work retires the runtime and tombstones the legacy command; S04 builds independent immutable context and S05 may route `/pm-review` v2 only after that cutover gate. James must separately ratify the seven authority documents before tailored staging is enabled. |
 | Agent routing | `../CLAUDE.md` "Subagents — delegation policy" tables are the source; a lint-enforced transcription is planned in a later process PR |
 | Agent DB role scoping | enforcement design (not yet implemented): `model-a-audit-and-extension-plan-2026-07-04.md` Part B + `live-readiness-audit-plan-2026-07-04.md` §7. **Provisioning-route decision: `pr2a-supabase-ro-provisioning-plan-2026-07-05.md`** — route gated on a feasibility check; no frontmatter flips until the chosen route passes the full live-fire battery |
 | Language / stack strategy (incl. Rust/Go) | `executable-roadmap-2026-07-04.md` §H is the single source (verdict "not now"; Python primary; Rust later for kernels only; Go rejected-for-now; adopt uv). Rust/Go are planned — not in the repo. Older language notes (e.g. `research/claude-fundamentals-audit-handoff-2026-07-04.md` §6) defer to §H. |
@@ -51,8 +52,9 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Touch tax math | `foundation/spec/tax-alpha.md` + CLAUDE.md #8 (spec amendment first) |
 | Touch the portfolio / allocator | `../.claude/rules/portfolio-conventions.md` |
 | Work on the research store / factors | `research/research-store-schema.md` + live-DB verification |
-| Act on a Model A signal | **STOP** — CLAUDE.md rule #11 (Model A is quarantined) |
+| Act on a Model A signal | **STOP** — CLAUDE.md rule #11; Model A is excluded and targeted for approved runtime decommission. |
 | Decide what to work on next / start a session | `/arbi` ("wake up") — reconciles the roadmaps + live state; reads `product/north-star.md` + `product/roadmap-state.md` |
+| Build an investment-engine sprint | `programs/investment-engine/README.md` → `product/roadmap.yaml` → exactly one linked sprint file; run `/investment-engine-sprint SXX` |
 
 ## Current audits / plans (2026-07-04 → 07-05)
 - `session-handoff-2026-07-04.md` — session state as of 2026-07-04. **Its P0 (Model A dispute) is RESOLVED 2026-07-11** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`; read it for session context, not for current Model A status

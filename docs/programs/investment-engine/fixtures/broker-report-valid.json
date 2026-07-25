@@ -1,0 +1,151 @@
+{
+  "contract_name": "broker-report-v1",
+  "schema_version": "1.0.0",
+  "report_version_id": "30000000-0000-4000-8000-000000000001",
+  "thesis_id": 9001,
+  "report_version": 1,
+  "predecessor_version_id": null,
+  "symbol": "BHP.AU",
+  "flavour": "individual_equity",
+  "data_as_of": "2026-07-20T06:10:00Z",
+  "created_at": "2026-07-20T06:12:00Z",
+  "source_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "producer": {
+    "producer_type": "agent",
+    "name": "instrument-thesis-drafter",
+    "version": "fixture-1"
+  },
+  "governance_state": "DRAFT",
+  "executive_view": "Synthetic report used to prove versioning, provenance, and review contracts.",
+  "claim_register": [
+    {
+      "claim_id": "CLM-001",
+      "text": "The synthetic filing supports the stated operating-cost claim.",
+      "materiality": "material",
+      "evidence_ids": [
+        900002
+      ]
+    },
+    {
+      "claim_id": "CLM-002",
+      "text": "The synthetic market snapshot supplies the point-in-time reference value.",
+      "materiality": "supporting",
+      "evidence_ids": [
+        900001
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "case": "bear",
+      "narrative": "The synthetic operating-cost claim is contradicted.",
+      "assumptions": [
+        "The cited filing no longer supports the thesis."
+      ],
+      "evidence_ids": [
+        900002
+      ]
+    },
+    {
+      "case": "base",
+      "narrative": "The synthetic operating-cost claim remains supported.",
+      "assumptions": [
+        "The cited evidence remains current."
+      ],
+      "evidence_ids": [
+        900002
+      ]
+    },
+    {
+      "case": "bull",
+      "narrative": "The synthetic operating position improves.",
+      "assumptions": [
+        "A later verified filing confirms improvement."
+      ],
+      "evidence_ids": [
+        900002
+      ]
+    }
+  ],
+  "catalysts": [
+    {
+      "description": "A later synthetic filing confirms the operating claim.",
+      "expected_by": null,
+      "evidence_ids": [
+        900002
+      ]
+    }
+  ],
+  "falsifiers": [
+    {
+      "description": "The cited resilient cost-position claim is withdrawn or materially contradicted.",
+      "severity": "critical",
+      "evidence_ids": [
+        900002
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "description": "The synthetic evidence set is intentionally narrow.",
+      "likelihood": "unknown",
+      "impact": "high",
+      "mitigant": "Keep the report in draft and require a complete evidence packet.",
+      "evidence_ids": [
+        900001,
+        900002
+      ]
+    }
+  ],
+  "unanswered_questions": [
+    "Which additional synthetic valuation evidence is required?"
+  ],
+  "discipline": {
+    "entry_band_lower": {
+      "label": "Synthetic lower observation band",
+      "value": "38.000000",
+      "provenance": "derived",
+      "evidence_citation_ids": [
+        900001
+      ],
+      "formula": "synthetic_close_price_aud - synthetic_buffer_aud"
+    },
+    "entry_band_upper": {
+      "label": "Synthetic upper observation band",
+      "value": "41.000000",
+      "provenance": "derived",
+      "evidence_citation_ids": [
+        900001
+      ],
+      "formula": "synthetic_close_price_aud + synthetic_buffer_aud"
+    },
+    "stop_price": null,
+    "target_price": null,
+    "timeline_days": 63
+  },
+  "sections": [
+    {
+      "kind": "business",
+      "body": "This synthetic example represents a diversified resources issuer.",
+      "figures": [],
+      "evidence_citation_ids": [
+        900002
+      ]
+    },
+    {
+      "kind": "evidence_ledger",
+      "body": "Every synthetic claim links to an explicit evidence snapshot.",
+      "figures": [],
+      "evidence_citation_ids": [
+        900001,
+        900002
+      ]
+    }
+  ],
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+  }
+}

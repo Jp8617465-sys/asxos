@@ -1,0 +1,352 @@
+{
+  "contract_name": "model-a-archive-manifest-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T02:00:00Z",
+  "created_at": "2026-07-24T02:20:00Z",
+  "source_hashes": [
+    {
+      "source": "synthetic-read-snapshot",
+      "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  ],
+  "archive_id": "ma-archive-synthetic-test-20260724t021000z",
+  "archive_version": "1.0.0",
+  "created_by": "synthetic-attended-operator",
+  "baseline_sha": "9d442de287e123ae090b95838155dc41d76ee5f3",
+  "deployment_environment": "synthetic-test",
+  "source_snapshot_id": "synthetic-read-snapshot-20260724t020000z",
+  "source_snapshot_started_at": "2026-07-24T02:00:00Z",
+  "source_snapshot_completed_at": "2026-07-24T02:10:00Z",
+  "writer_state_at_snapshot": "ACTIVE",
+  "writer_disabled_at": null,
+  "evidence_scope": "SYNTHETIC_GOLDEN",
+  "manifest_status": "SEALED",
+  "expected_classes": [
+    "ALLOCATOR_DERIVED_RECORDS",
+    "CODE_AND_MIGRATION_FILES",
+    "DECAY_ANALYSIS_BUNDLE",
+    "JOB_RUN_AND_SCHEDULE_EVIDENCE",
+    "MODEL_ARTIFACT_FILES",
+    "MODEL_CONFIG_ROWS",
+    "SIGNAL_OUTCOME_ROWS",
+    "SIGNAL_ROWS"
+  ],
+  "archive_classes": [
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:allocator_derived_records",
+      "dataset_or_artifact_class": "ALLOCATOR_DERIVED_RECORDS",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "database/allocator-derived-records.ndjson",
+      "representation": "CANONICAL_NDJSON",
+      "media_type": "application/x-ndjson",
+      "columns": [
+        "record_id",
+        "observed_at",
+        "payload"
+      ],
+      "order_by": [
+        "record_id ASC"
+      ],
+      "record_count": "18",
+      "file_count": "1",
+      "raw_byte_count": "18432",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2026-01-02T00:00:00Z",
+        "maximum_observed_at": "2026-07-23T23:00:00Z"
+      },
+      "export_definition_sha256": "1010101010101010101010101010101010101010101010101010101010101010",
+      "raw_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "canonical_sha256": "1212121212121212121212121212121212121212121212121212121212121212",
+      "raw_digest_method": "SHA256_CANONICAL_NDJSON_LF",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:code_and_migration_files",
+      "dataset_or_artifact_class": "CODE_AND_MIGRATION_FILES",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "files/code-and-migrations.bundle",
+      "representation": "DETERMINISTIC_FILE_BUNDLE",
+      "media_type": "application/vnd.asxos.deterministic-file-bundle",
+      "columns": [
+        "logical_path",
+        "raw_byte_count",
+        "raw_sha256"
+      ],
+      "order_by": [
+        "logical_path ASC"
+      ],
+      "record_count": "24",
+      "file_count": "24",
+      "raw_byte_count": "524288",
+      "observed_range": {
+        "range_field": null,
+        "minimum_observed_at": null,
+        "maximum_observed_at": null
+      },
+      "export_definition_sha256": "2020202020202020202020202020202020202020202020202020202020202020",
+      "raw_sha256": "2121212121212121212121212121212121212121212121212121212121212121",
+      "canonical_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_digest_method": "SHA256_DETERMINISTIC_FILE_BUNDLE",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:decay_analysis_bundle",
+      "dataset_or_artifact_class": "DECAY_ANALYSIS_BUNDLE",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "files/decay-analysis.bundle",
+      "representation": "DETERMINISTIC_FILE_BUNDLE",
+      "media_type": "application/vnd.asxos.deterministic-file-bundle",
+      "columns": [
+        "logical_path",
+        "raw_byte_count",
+        "raw_sha256"
+      ],
+      "order_by": [
+        "logical_path ASC"
+      ],
+      "record_count": "6",
+      "file_count": "6",
+      "raw_byte_count": "98304",
+      "observed_range": {
+        "range_field": null,
+        "minimum_observed_at": null,
+        "maximum_observed_at": null
+      },
+      "export_definition_sha256": "3030303030303030303030303030303030303030303030303030303030303030",
+      "raw_sha256": "3131313131313131313131313131313131313131313131313131313131313131",
+      "canonical_sha256": "3232323232323232323232323232323232323232323232323232323232323232",
+      "raw_digest_method": "SHA256_DETERMINISTIC_FILE_BUNDLE",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:job_run_and_schedule_evidence",
+      "dataset_or_artifact_class": "JOB_RUN_AND_SCHEDULE_EVIDENCE",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "database/job-run-and-schedule-evidence.ndjson",
+      "representation": "CANONICAL_NDJSON",
+      "media_type": "application/x-ndjson",
+      "columns": [
+        "record_id",
+        "observed_at",
+        "payload"
+      ],
+      "order_by": [
+        "record_id ASC"
+      ],
+      "record_count": "240",
+      "file_count": "1",
+      "raw_byte_count": "245760",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-24T01:59:59Z"
+      },
+      "export_definition_sha256": "4040404040404040404040404040404040404040404040404040404040404040",
+      "raw_sha256": "4141414141414141414141414141414141414141414141414141414141414141",
+      "canonical_sha256": "4242424242424242424242424242424242424242424242424242424242424242",
+      "raw_digest_method": "SHA256_CANONICAL_NDJSON_LF",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:model_artifact_files",
+      "dataset_or_artifact_class": "MODEL_ARTIFACT_FILES",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "files/model-artifacts.bundle",
+      "representation": "DETERMINISTIC_FILE_BUNDLE",
+      "media_type": "application/vnd.asxos.deterministic-file-bundle",
+      "columns": [
+        "logical_path",
+        "raw_byte_count",
+        "raw_sha256"
+      ],
+      "order_by": [
+        "logical_path ASC"
+      ],
+      "record_count": "12",
+      "file_count": "12",
+      "raw_byte_count": "16777216",
+      "observed_range": {
+        "range_field": null,
+        "minimum_observed_at": null,
+        "maximum_observed_at": null
+      },
+      "export_definition_sha256": "5050505050505050505050505050505050505050505050505050505050505050",
+      "raw_sha256": "5151515151515151515151515151515151515151515151515151515151515151",
+      "canonical_sha256": "5252525252525252525252525252525252525252525252525252525252525252",
+      "raw_digest_method": "SHA256_DETERMINISTIC_FILE_BUNDLE",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:model_config_rows",
+      "dataset_or_artifact_class": "MODEL_CONFIG_ROWS",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "database/model-config-rows.ndjson",
+      "representation": "CANONICAL_NDJSON",
+      "media_type": "application/x-ndjson",
+      "columns": [
+        "record_id",
+        "observed_at",
+        "payload"
+      ],
+      "order_by": [
+        "record_id ASC"
+      ],
+      "record_count": "9",
+      "file_count": "1",
+      "raw_byte_count": "9216",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-20T00:00:00Z"
+      },
+      "export_definition_sha256": "6060606060606060606060606060606060606060606060606060606060606060",
+      "raw_sha256": "6161616161616161616161616161616161616161616161616161616161616161",
+      "canonical_sha256": "6262626262626262626262626262626262626262626262626262626262626262",
+      "raw_digest_method": "SHA256_CANONICAL_NDJSON_LF",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:signal_outcome_rows",
+      "dataset_or_artifact_class": "SIGNAL_OUTCOME_ROWS",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "database/signal-outcome-rows.ndjson",
+      "representation": "CANONICAL_NDJSON",
+      "media_type": "application/x-ndjson",
+      "columns": [
+        "record_id",
+        "observed_at",
+        "payload"
+      ],
+      "order_by": [
+        "record_id ASC"
+      ],
+      "record_count": "12000",
+      "file_count": "1",
+      "raw_byte_count": "12582912",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-23T00:00:00Z"
+      },
+      "export_definition_sha256": "7070707070707070707070707070707070707070707070707070707070707070",
+      "raw_sha256": "7171717171717171717171717171717171717171717171717171717171717171",
+      "canonical_sha256": "7272727272727272727272727272727272727272727272727272727272727272",
+      "raw_digest_method": "SHA256_CANONICAL_NDJSON_LF",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:signal_rows",
+      "dataset_or_artifact_class": "SIGNAL_ROWS",
+      "model_identities": [
+        "model_a",
+        "model_a_ml",
+        "v1_5"
+      ],
+      "logical_locator": "database/signal-rows.ndjson",
+      "representation": "CANONICAL_NDJSON",
+      "media_type": "application/x-ndjson",
+      "columns": [
+        "record_id",
+        "observed_at",
+        "payload"
+      ],
+      "order_by": [
+        "record_id ASC"
+      ],
+      "record_count": "15000",
+      "file_count": "1",
+      "raw_byte_count": "15728640",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-23T00:00:00Z"
+      },
+      "export_definition_sha256": "8080808080808080808080808080808080808080808080808080808080808080",
+      "raw_sha256": "8181818181818181818181818181818181818181818181818181818181818181",
+      "canonical_sha256": "8282828282828282828282828282828282828282828282828282828282828282",
+      "raw_digest_method": "SHA256_CANONICAL_NDJSON_LF",
+      "canonical_digest_method": "SHA256_RFC8785_METADATA_NDJSON_LF",
+      "class_status": "COMPLETE",
+      "reason_codes": []
+    }
+  ],
+  "secret_scan": {
+    "status": "PASS",
+    "finding_count": "0",
+    "scanner_version": "1.0.0",
+    "completed_at": "2026-07-24T02:15:00Z",
+    "report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "retention": {
+    "retention_class": "READ_ONLY_AUDIT",
+    "access_policy_id": "archive-access-policy-read-only-audit",
+    "access_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "archive_immutable": true,
+    "application_writer_access": "DENIED",
+    "deletion_requires_separate_governance_decision": true
+  },
+  "reason_codes": [],
+  "notes": "Synthetic-only read-only M-A1 golden fixture with invented counts and hashes; it is not production evidence or retirement approval. The synthetic source writer remains active and no runtime change occurs.",
+  "controls": {
+    "mission_mode": "READ_ONLY_ARCHIVE",
+    "source_snapshot_read_only": true,
+    "source_mutation_performed": false,
+    "production_configuration_change": false,
+    "runtime_shutdown_claimed": false,
+    "runtime_change_authority": "ABSENT",
+    "production_evidence_claimed": false,
+    "runtime_retirement_approval_claimed": false,
+    "destructive_action": false,
+    "non_executable": true
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "f56656e3b8984fd49f4e967c64300a8bf78fba07c8da3f3c3359fa3a30f9ec13"
+  }
+}

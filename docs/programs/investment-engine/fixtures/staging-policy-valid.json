@@ -1,0 +1,87 @@
+{
+  "contract_name": "staging-policy-v1",
+  "schema_version": "1.0.0",
+  "policy_id": "staging-policy-main",
+  "policy_version": "1.0.0",
+  "effective_from": "2026-07-24T00:00:00Z",
+  "effective_to": null,
+  "approval": {
+    "ratified_by": "James",
+    "ratified_at": "2026-07-23T23:34:00Z",
+    "approval_sha256": "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8"
+  },
+  "scope": {
+    "portfolio_id": "portfolio-james-paper",
+    "venue": "XASX",
+    "currency": "AUD",
+    "environment": "PAPER_ONLY"
+  },
+  "limit_price": {
+    "method": "REFERENCE_PRICE_WITH_MAX_ADVERSE_FRACTION",
+    "max_adverse_limit_fraction": "0.005000",
+    "tick_size_aud": "0.010000",
+    "buy_rounding": "FLOOR_TO_TICK",
+    "sell_rounding": "CEILING_TO_TICK",
+    "market_orders_permitted": false
+  },
+  "schedule": {
+    "not_before_rule": "NEXT_ELIGIBLE_ASX_MARKET_EVENT",
+    "stages": [
+      {
+        "sequence": 1,
+        "quantity_fraction": "0.500000",
+        "eligible_session_offset": 0
+      },
+      {
+        "sequence": 2,
+        "quantity_fraction": "0.500000",
+        "eligible_session_offset": 1
+      }
+    ],
+    "remainder_rule": "FINAL_STAGE_AFTER_BOARD_LOT_FLOOR",
+    "validity_sessions": 2,
+    "expiry_rule": "END_OF_LAST_VALID_ASX_SESSION",
+    "overlap_permitted": false
+  },
+  "freshness": {
+    "max_price_age_seconds": 900,
+    "max_fx_age_seconds": 3600,
+    "require_current_holdings": true,
+    "require_current_monitor_watermark": true
+  },
+  "invalidation_codes": [
+    "EXPIRED",
+    "STALE_PRICE",
+    "REPORT_CHANGED",
+    "REVIEW_CHANGED",
+    "MONITOR_WATERMARK_CHANGED",
+    "EVALUATOR_CHANGED",
+    "POLICY_CHANGED",
+    "PROPOSAL_CHANGED",
+    "SIZING_CHANGED",
+    "OPEN_BLOCKING_FINDING",
+    "UNPROCESSED_MATERIAL_EVENT",
+    "GATE_REGRESSION",
+    "ARITHMETIC_MISMATCH"
+  ],
+  "controls": {
+    "execution_mode": "PAPER_ONLY",
+    "non_executable": true,
+    "system_terminal_state": "ORDER_STAGED",
+    "auto_approval_permitted": false,
+    "fallback_order_permitted": false
+  },
+  "source_hashes": [
+    {
+      "source": "james-ratified-staging-policy",
+      "sha256": "0808080808080808080808080808080808080808080808080808080808080808"
+    }
+  ],
+  "created_at": "2026-07-23T23:35:00Z",
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "27e58610f38c1dc66d00e505bc1dda0103bb3307273327cab3d22a24211616b6"
+  }
+}

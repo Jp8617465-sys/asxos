@@ -1,0 +1,67 @@
+{
+  "contract_name": "portfolio-snapshot-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T03:00:00Z",
+  "created_at": "2026-07-24T03:15:00Z",
+  "source_hashes": [
+    {
+      "source": "paper-portfolio-state",
+      "sha256": "7070707070707070707070707070707070707070707070707070707070707070"
+    }
+  ],
+  "portfolio_snapshot_id": "portfolio-snapshot-20260724",
+  "portfolio_snapshot_version": "1.0.0",
+  "portfolio_id": "portfolio-james-paper",
+  "knowledge_cutoff": "2026-07-24T03:15:00Z",
+  "valuation_at": "2026-07-24T03:00:00Z",
+  "base_currency": "AUD",
+  "status": "COMPLETE",
+  "cash_balances": [
+    {
+      "cash_balance_id": "paper-cash-balance-aud",
+      "currency": "AUD",
+      "settled_aud": "100000.000000",
+      "reserved_aud": "0.000000",
+      "receivable_aud": "0.000000",
+      "payable_aud": "0.000000",
+      "total_aud": "100000.000000",
+      "available_at": "2026-07-24T02:59:00Z",
+      "source_sha256": "7070707070707070707070707070707070707070707070707070707070707070"
+    }
+  ],
+  "positions": [],
+  "components": {
+    "cash_aud": "100000.000000",
+    "positions_aud": "0.000000",
+    "receivables_aud": "0.000000",
+    "payables_aud": "0.000000",
+    "accrued_fees_aud": "0.000000",
+    "realized_tax_payable_aud": "0.000000",
+    "deferred_tax_liability_aud": "0.000000"
+  },
+  "total_nav_aud": "100000.000000",
+  "reconciliation": {
+    "reconciled": true,
+    "difference_aud": "0.000000",
+    "tolerance_aud": "0.000001",
+    "producer_reconciled_boolean_trusted": false
+  },
+  "missing_data_classes": [],
+  "reason_codes": [],
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "immutable": true,
+    "read_only": true,
+    "non_executable": true,
+    "live_holdings_write": false,
+    "routeable_identifiers_present": false,
+    "missing_value_zero_fallback": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+  }
+}

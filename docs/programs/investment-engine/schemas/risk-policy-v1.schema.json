@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/risk-policy-v1.schema.json",
+  "title": "Risk Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "policy_id",
+    "policy_version",
+    "effective_from",
+    "effective_to",
+    "approval",
+    "scope",
+    "portfolio_limits",
+    "liquidity_limits",
+    "loss_limits",
+    "sizing_rules",
+    "controls",
+    "source_hashes",
+    "created_at",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "risk-policy-v1"
+    },
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "policy_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "policy_version": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/version"
+    },
+    "effective_from": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "effective_to": {
+      "oneOf": [
+        {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval": {
+      "$ref": "#/$defs/approval"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "portfolio_limits": {
+      "$ref": "#/$defs/portfolioLimits"
+    },
+    "liquidity_limits": {
+      "$ref": "#/$defs/liquidityLimits"
+    },
+    "loss_limits": {
+      "$ref": "#/$defs/lossLimits"
+    },
+    "sizing_rules": {
+      "$ref": "#/$defs/sizingRules"
+    },
+    "controls": {
+      "$ref": "#/$defs/controls"
+    },
+    "source_hashes": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/sourceHashes"
+    },
+    "created_at": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "canonical_hash": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/canonicalHash"
+    }
+  },
+  "$defs": {
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ratified_by",
+        "authority_role",
+        "ratified_at",
+        "approval_sha256"
+      ],
+      "properties": {
+        "ratified_by": {
+          "const": "James"
+        },
+        "authority_role": {
+          "const": "ACCOUNT_OWNER"
+        },
+        "ratified_at": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+        },
+        "approval_sha256": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "portfolio_id",
+        "environment",
+        "venue",
+        "currency",
+        "asset_class",
+        "shorting_allowed"
+      ],
+      "properties": {
+        "portfolio_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "environment": {
+          "const": "PAPER_ONLY"
+        },
+        "venue": {
+          "const": "XASX"
+        },
+        "currency": {
+          "const": "AUD"
+        },
+        "asset_class": {
+          "const": "EQUITY"
+        },
+        "shorting_allowed": {
+          "const": false
+        }
+      }
+    },
+    "portfolioLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_gross_weight",
+        "max_net_weight",
+        "min_cash_weight",
+        "max_issuer_weight",
+        "max_corporate_group_weight",
+        "max_single_name_weight",
+        "max_sector_weight",
+        "max_theme_weight",
+        "max_daily_turnover_weight"
+      ],
+      "properties": {
+        "max_gross_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "max_net_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/decimal"
+        },
+        "min_cash_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_issuer_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_corporate_group_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_single_name_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_sector_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_theme_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_daily_turnover_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        }
+      }
+    },
+    "liquidityLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_adv_aud",
+        "max_order_adv_fraction",
+        "max_fill_participation_fraction",
+        "max_spread_fraction",
+        "max_price_age_seconds"
+      ],
+      "properties": {
+        "min_adv_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "max_order_adv_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_fill_participation_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_spread_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_price_age_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "lossLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_portfolio_loss_at_stop_fraction",
+        "max_position_drawdown_fraction",
+        "max_portfolio_drawdown_fraction",
+        "max_daily_loss_fraction",
+        "breach_action"
+      ],
+      "properties": {
+        "max_portfolio_loss_at_stop_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_position_drawdown_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_portfolio_drawdown_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "max_daily_loss_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "breach_action": {
+          "const": "REJECT_AND_HOLD"
+        }
+      }
+    },
+    "sizingRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rounding_mode",
+        "board_lot_quantity",
+        "min_order_notional_aud",
+        "cash_buffer_aud",
+        "fee_schedule_ref",
+        "zero_quantity_action"
+      ],
+      "properties": {
+        "rounding_mode": {
+          "const": "FLOOR_TO_BOARD_LOT"
+        },
+        "board_lot_quantity": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveIntegerString"
+        },
+        "min_order_notional_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "cash_buffer_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "fee_schedule_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        "zero_quantity_action": {
+          "const": "REJECT_DECISION"
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "non_executable",
+        "fail_closed",
+        "deterministic_decimal_math",
+        "implicit_defaults_permitted",
+        "llm_numeric_output_permitted"
+      ],
+      "properties": {
+        "non_executable": {
+          "const": true
+        },
+        "fail_closed": {
+          "const": true
+        },
+        "deterministic_decimal_math": {
+          "const": true
+        },
+        "implicit_defaults_permitted": {
+          "const": false
+        },
+        "llm_numeric_output_permitted": {
+          "const": false
+        }
+      }
+    }
+  }
+}

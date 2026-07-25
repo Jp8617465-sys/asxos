@@ -1,0 +1,407 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/episode-outcome-v1.schema.json",
+  "title": "ASXOS Episode Outcome v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "producer_version",
+    "data_as_of",
+    "created_at",
+    "source_hashes",
+    "outcome_id",
+    "origin_ref",
+    "config_ref",
+    "branch_nav_ref",
+    "origin_sequence",
+    "dependency_group_id",
+    "overlap_group_ids",
+    "status",
+    "origin_at",
+    "matured_at",
+    "horizon_sessions",
+    "branches",
+    "active_return_branch",
+    "active_return_vs_hold",
+    "active_return_vs_xjo_tr",
+    "intended_notional_aud",
+    "filled_notional_within_5_sessions_aud",
+    "fill_fraction_within_5_sessions",
+    "policy_breach_count",
+    "mandate_drawdown_breach_count",
+    "reason_codes",
+    "canonical_hash",
+    "controls"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "episode-outcome-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer_version": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+    },
+    "data_as_of": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "source_hashes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/sourceHashes"
+    },
+    "canonical_hash": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/canonicalHash"
+    },
+    "outcome_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "origin_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "config_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "branch_nav_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "origin_sequence": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/positiveIntegerString"
+    },
+    "dependency_group_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "overlap_group_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+      }
+    },
+    "status": {
+      "enum": [
+        "MATURED",
+        "UNAVAILABLE"
+      ]
+    },
+    "origin_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "matured_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "horizon_sessions": {
+      "const": "63"
+    },
+    "branches": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "PROPOSAL_BASE"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "PROPOSAL_STRESS"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "HOLD"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "XJO_TR"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "CASH"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ],
+      "items": {
+        "$ref": "#/$defs/branchOutcome"
+      }
+    },
+    "active_return_branch": {
+      "const": "PROPOSAL_STRESS"
+    },
+    "active_return_vs_hold": {
+      "oneOf": [
+        {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "active_return_vs_xjo_tr": {
+      "oneOf": [
+        {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "intended_notional_aud": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+    },
+    "filled_notional_within_5_sessions_aud": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+    },
+    "fill_fraction_within_5_sessions": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+    },
+    "policy_breach_count": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+    },
+    "mandate_drawdown_breach_count": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+    },
+    "reason_codes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "derived_from_nav",
+        "same_endpoints",
+        "overlap_is_independence",
+        "reconstructed"
+      ],
+      "properties": {
+        "derived_from_nav": {
+          "const": true
+        },
+        "same_endpoints": {
+          "const": true
+        },
+        "overlap_is_independence": {
+          "const": false
+        },
+        "reconstructed": {
+          "const": false
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "MATURED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "branches": {
+            "items": {
+              "properties": {
+                "complete": {
+                  "const": true
+                },
+                "period_return": {
+                  "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+                },
+                "maximum_drawdown": {
+                  "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+                },
+                "missing_session_count": {
+                  "const": "0"
+                }
+              }
+            }
+          },
+          "active_return_vs_hold": {
+            "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+          },
+          "active_return_vs_xjo_tr": {
+            "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNAVAILABLE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "branches": {
+            "items": {
+              "properties": {
+                "complete": {
+                  "const": false
+                },
+                "period_return": {
+                  "type": "null"
+                },
+                "maximum_drawdown": {
+                  "type": "null"
+                },
+                "missing_session_count": {
+                  "$ref": "evaluator-common-v1.schema.json#/$defs/positiveIntegerString"
+                },
+                "reason_codes": {
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          "active_return_vs_hold": {
+            "type": "null"
+          },
+          "active_return_vs_xjo_tr": {
+            "type": "null"
+          },
+          "reason_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "branchOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_id",
+        "complete",
+        "period_return",
+        "maximum_drawdown",
+        "fees_aud",
+        "spread_slippage_impact_aud",
+        "stress_cost_aud",
+        "realized_tax_aud",
+        "deferred_tax_change_aud",
+        "ending_nav_aud",
+        "missing_session_count",
+        "reason_codes"
+      ],
+      "properties": {
+        "branch_id": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/branchId"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "period_return": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maximum_drawdown": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fees_aud": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+        },
+        "spread_slippage_impact_aud": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+        },
+        "stress_cost_aud": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+        },
+        "realized_tax_aud": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+        },
+        "deferred_tax_change_aud": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+        },
+        "ending_nav_aud": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeDecimal6"
+        },
+        "missing_session_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "reason_codes": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+        }
+      }
+    }
+  }
+}

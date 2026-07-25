@@ -1,0 +1,112 @@
+{
+  "contract_name": "portfolio-construction-policy-v1",
+  "schema_version": "1.0.0",
+  "policy_id": "construction-policy-main",
+  "policy_version": "1.0.0",
+  "effective_from": "2026-07-24T00:00:00Z",
+  "effective_to": null,
+  "approval": {
+    "ratified_by": "James",
+    "authority_role": "ACCOUNT_OWNER",
+    "ratified_at": "2026-07-23T23:30:00Z",
+    "approval_sha256": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4"
+  },
+  "scope": {
+    "portfolio_id": "portfolio-james-paper",
+    "environment": "PAPER_ONLY",
+    "venue": "XASX",
+    "currency": "AUD",
+    "asset_class": "EQUITY",
+    "long_only": true
+  },
+  "eligibility": {
+    "required_review_decision": "PAPER_ELIGIBLE",
+    "required_case_state": "SHADOW_ACTIVE",
+    "allowed_evidence_tiers": [
+      "PAPER_ONLY",
+      "UNCALIBRATED",
+      "EVIDENCE_BACKED"
+    ],
+    "require_current_report": true,
+    "require_clear_monitor_watermark": true,
+    "require_frozen_evaluator_lineage": true,
+    "require_complete_security_classification": true
+  },
+  "risk_budget_at_stop": {
+    "method": "EQUAL_RISK_BUDGET_AT_STOP",
+    "portfolio_risk_budget_fraction": "0.050000",
+    "per_case_risk_budget_fraction": "0.010000",
+    "stop_distance_floor_fraction": "0.050000",
+    "formula_version": "RISK_BUDGET_DIVIDED_BY_MAX_STOP_DISTANCE_V1"
+  },
+  "cap_waterfall": {
+    "ordered_caps": [
+      "ELIGIBILITY",
+      "CLASSIFICATION",
+      "STOP_RISK",
+      "ISSUER",
+      "CORPORATE_GROUP",
+      "SINGLE_NAME",
+      "SECTOR",
+      "THEME",
+      "PORTFOLIO_LOSS_AT_STOP",
+      "GROSS_EXPOSURE",
+      "NET_EXPOSURE",
+      "CASH_RESERVE",
+      "TURNOVER",
+      "RESERVATIONS",
+      "LIQUIDITY_ADV_SPREAD",
+      "TAX",
+      "MINIMUM_TARGET"
+    ],
+    "later_cap_may_increase_weight": false,
+    "final_selection": "MINIMUM_PERMITTED_WEIGHT"
+  },
+  "selection": {
+    "candidate_method": "ALL_ELIGIBLE",
+    "maximum_positions": 20,
+    "tie_break": "ASSET_ID_ASCENDING",
+    "ranking_score_permitted": false,
+    "conviction_weighting_permitted": false
+  },
+  "tax_turnover": {
+    "cash_first": true,
+    "sale_lot_selection_source": "DETERMINISTIC_TAX_ENGINE",
+    "tax_engine_result_required": true,
+    "missing_tax_result": "REJECT_INCOMPLETE_INPUT"
+  },
+  "fallbacks": {
+    "missing_stop": "REJECT_NO_STOP",
+    "invalid_stop": "REJECT_INVALID_STOP",
+    "missing_policy": "REJECT_NO_POLICY",
+    "missing_required_input": "REJECT_INCOMPLETE_INPUT",
+    "missing_or_ambiguous_classification": "REJECT_INCOMPLETE_INPUT",
+    "infeasible_portfolio": "HOLD_CASH",
+    "empty_eligible_universe": "HOLD_CASH"
+  },
+  "controls": {
+    "deterministic_decimal_math": true,
+    "llm_numeric_output_permitted": false,
+    "implicit_defaults_permitted": false,
+    "legacy_allocator_permitted": false,
+    "non_executable": true
+  },
+  "source_hashes": [
+    {
+      "source": "james-ratified-construction-policy",
+      "sha256": "0404040404040404040404040404040404040404040404040404040404040404"
+    }
+  ],
+  "created_at": "2026-07-23T23:31:00Z",
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+  },
+  "classification_freshness": {
+    "maximum_age_seconds": 600,
+    "require_effective_at_decision": true,
+    "require_snapshot_available_by_cutoff": true
+  }
+}

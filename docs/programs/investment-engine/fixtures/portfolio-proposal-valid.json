@@ -1,0 +1,495 @@
+{
+  "contract_name": "portfolio-proposal-v1",
+  "schema_version": "1.1.0",
+  "producer": {
+    "producer_type": "DETERMINISTIC_QUANT",
+    "method": "RISK_BUDGET_AT_STOP",
+    "producer_version": "1.0.0",
+    "code_version": "6abc123"
+  },
+  "proposal_id": "portfolio-proposal-20260724",
+  "investment_case_id": "case-bhp-20260724",
+  "portfolio_id": "portfolio-james-paper",
+  "lineage": {
+    "lineage_id": "lineage-evaluation-frozen",
+    "lineage_version": "1.0.0",
+    "investment_case_id": "case-bhp-20260724",
+    "lineage_stage": "EVALUATION_FROZEN",
+    "case_state": "SHADOW_ACTIVE",
+    "evidence_tier": "UNCALIBRATED",
+    "as_of": "2026-07-24T03:21:00Z",
+    "created_at": "2026-07-24T03:22:00Z",
+    "research": {
+      "thesis_id": 9001,
+      "thesis_revision_id": 2001,
+      "report_ref": {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+      },
+      "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "review": {
+      "context_id": "10000000-0000-4000-8000-000000000001",
+      "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+      "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+      "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
+      "eligibility_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+    },
+    "monitor": {
+      "watermark_id": "monitor-watermark-20260724",
+      "watermark_as_of": "2026-07-24T03:00:00Z",
+      "watermark_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "open_blocking_event_count": 0
+    },
+    "evaluation": {
+      "evaluator_config_ref": {
+        "id": "evaluator-config-main",
+        "version": "1.0.0",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "evaluation_ref": {
+        "id": "evaluation-main-20260724",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "evaluation_policy_ref": {
+        "id": "evaluation-policy-main",
+        "version": "1.0.0",
+        "sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c"
+      },
+      "gate_decision_ref": {
+        "id": "gate-decision-20260724",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    "construction_policy_ref": null,
+    "risk_policy_ref": null,
+    "portfolio_proposal_ref": null,
+    "sizing_decision_ref": null,
+    "staging_policy_ref": null,
+    "promotion_decision_ref": null,
+    "staged_order_set_ref": null
+  },
+  "construction_policy_ref": {
+    "id": "construction-policy-main",
+    "version": "1.0.0",
+    "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+  },
+  "risk_policy_ref": {
+    "id": "risk-policy-main",
+    "version": "1.0.0",
+    "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+  },
+  "classification_snapshot_ref": {
+    "contract_name": "security-classification-snapshot-v1",
+    "artifact_id": "security-classification-snapshot-20260724",
+    "schema_version": "1.0.0",
+    "sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3",
+    "created_at": "2026-07-24T03:15:00Z"
+  },
+  "status": "BUILT",
+  "eligible_for_sizing": true,
+  "data_as_of": "2026-07-24T03:20:00Z",
+  "knowledge_cutoff": "2026-07-24T03:20:00Z",
+  "decision_at": "2026-07-24T03:21:00Z",
+  "created_at": "2026-07-24T03:22:00Z",
+  "source_hashes": [
+    {
+      "source": "portfolio-snapshot",
+      "sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+    },
+    {
+      "source": "price-and-liquidity-observation",
+      "sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+    },
+    {
+      "source": "tax-engine-result",
+      "sha256": "1414141414141414141414141414141414141414141414141414141414141414"
+    },
+    {
+      "source": "security-classification-snapshot",
+      "sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3"
+    }
+  ],
+  "input_manifest": [
+    {
+      "source": "portfolio-ledger",
+      "record_id": "portfolio-snapshot-20260724",
+      "observed_at": "2026-07-24T03:18:00Z",
+      "published_at": "2026-07-24T03:18:00Z",
+      "available_at": "2026-07-24T03:18:01Z",
+      "content_sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+    },
+    {
+      "source": "asx-price-liquidity-feed",
+      "record_id": "bhp-price-liquidity-20260724",
+      "observed_at": "2026-07-24T03:19:00Z",
+      "published_at": "2026-07-24T03:19:00Z",
+      "available_at": "2026-07-24T03:19:01Z",
+      "content_sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+    },
+    {
+      "source": "deterministic-tax-engine",
+      "record_id": "tax-result-bhp-20260724",
+      "observed_at": "2026-07-24T03:19:10Z",
+      "published_at": "2026-07-24T03:19:10Z",
+      "available_at": "2026-07-24T03:19:11Z",
+      "content_sha256": "1414141414141414141414141414141414141414141414141414141414141414"
+    },
+    {
+      "source": "security-classification-snapshot",
+      "record_id": "security-classification-snapshot-20260724",
+      "observed_at": "2026-07-24T03:00:00Z",
+      "published_at": "2026-07-24T03:10:00Z",
+      "available_at": "2026-07-24T03:15:00Z",
+      "content_sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3"
+    }
+  ],
+  "portfolio_snapshot": {
+    "snapshot_id": "portfolio-snapshot-20260724",
+    "as_of": "2026-07-24T03:18:00Z",
+    "nav_aud": "100000.000000",
+    "cash_aud": "100000.000000",
+    "gross_weight": "0.000000",
+    "net_weight": "0.000000",
+    "external_flow_aud": "0.000000",
+    "holdings": [],
+    "tax_lots": [],
+    "sector_exposures": [],
+    "snapshot_sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+  },
+  "candidate_inputs": [
+    {
+      "asset_id": "XASX:BHP",
+      "security_id": "security-bhp-au-ordinary",
+      "issuer_id": "issuer-bhp-group",
+      "corporate_group_id": "corporate-group-bhp",
+      "sector_id": "sector-materials",
+      "theme_ids": [
+        "theme-global-resources"
+      ],
+      "board_lot_quantity": "1",
+      "tick_rule_ref": {
+        "id": "xasx-equity-price-step-standard",
+        "version": "1.0.0",
+        "sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6"
+      },
+      "tick_size_aud": "0.010000",
+      "classification_status": "COMPLETE",
+      "admissible_for_construction": true,
+      "eligibility_decision_ref": {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "reference_price_aud": "50.000000",
+      "thesis_stop_price_aud": "45.000000",
+      "stop_distance_fraction": "0.100000",
+      "average_daily_value_aud": "20000000.000000",
+      "spread_fraction": "0.002000",
+      "tax_consequence_aud": "0.000000",
+      "fee_estimate_aud": "10.000000",
+      "input_state": "COMPLETE",
+      "reason_codes": []
+    }
+  ],
+  "targets": [
+    {
+      "asset_id": "XASX:BHP",
+      "security_id": "security-bhp-au-ordinary",
+      "issuer_id": "issuer-bhp-group",
+      "corporate_group_id": "corporate-group-bhp",
+      "sector_id": "sector-materials",
+      "theme_ids": [
+        "theme-global-resources"
+      ],
+      "board_lot_quantity": "1",
+      "tick_rule_ref": {
+        "id": "xasx-equity-price-step-standard",
+        "version": "1.0.0",
+        "sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6"
+      },
+      "tick_size_aud": "0.010000",
+      "current_weight": "0.000000",
+      "stop_distance_fraction": "0.100000",
+      "effective_stop_distance_fraction": "0.100000",
+      "risk_budget_fraction": "0.010000",
+      "uncapped_target_weight": "0.100000",
+      "cap_checks": [
+        {
+          "sequence": 1,
+          "cap_code": "ELIGIBILITY",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "1.000000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "30000000-0000-4000-8000-000000000001",
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        },
+        {
+          "sequence": 2,
+          "cap_code": "CLASSIFICATION",
+          "check_type": "BOOLEAN_PRECONDITION",
+          "passed": true,
+          "source_ref": {
+            "id": "security-classification-snapshot-20260724",
+            "sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3"
+          }
+        },
+        {
+          "sequence": 3,
+          "cap_code": "STOP_RISK",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.100000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "construction-policy-main",
+            "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+          }
+        },
+        {
+          "sequence": 4,
+          "cap_code": "ISSUER",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.200000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 5,
+          "cap_code": "CORPORATE_GROUP",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.250000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 6,
+          "cap_code": "SINGLE_NAME",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.200000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 7,
+          "cap_code": "SECTOR",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.300000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 8,
+          "cap_code": "THEME",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.300000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 9,
+          "cap_code": "PORTFOLIO_LOSS_AT_STOP",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.010000",
+          "limit_weight": "0.050000",
+          "after_weight": "0.010000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 10,
+          "cap_code": "GROSS_EXPOSURE",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "1.000000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 11,
+          "cap_code": "NET_EXPOSURE",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "1.000000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 12,
+          "cap_code": "CASH_RESERVE",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.900000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 13,
+          "cap_code": "TURNOVER",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.200000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 14,
+          "cap_code": "RESERVATIONS",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.000000",
+          "limit_weight": "0.000000",
+          "after_weight": "0.000000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "portfolio-snapshot-20260724",
+            "sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+          }
+        },
+        {
+          "sequence": 15,
+          "cap_code": "LIQUIDITY_ADV_SPREAD",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.200000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "bhp-price-liquidity-20260724",
+            "sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+          }
+        },
+        {
+          "sequence": 16,
+          "cap_code": "TAX",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.100000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "tax-result-bhp-20260724",
+            "sha256": "1414141414141414141414141414141414141414141414141414141414141414"
+          }
+        },
+        {
+          "sequence": 17,
+          "cap_code": "MINIMUM_TARGET",
+          "check_type": "WEIGHT_CAP",
+          "before_weight": "0.100000",
+          "limit_weight": "0.005000",
+          "after_weight": "0.100000",
+          "action": "UNCHANGED",
+          "source_ref": {
+            "id": "construction-policy-main",
+            "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+          }
+        }
+      ],
+      "target_weight": "0.100000",
+      "requested_delta_weight": "0.100000",
+      "expected_loss_at_stop_fraction": "0.010000",
+      "construction_status": "INCLUDED",
+      "target_sha256": "749c10da8e1542d749207176b40ccafbfcbcbcb25b1e7dec2482c83b04551da5"
+    }
+  ],
+  "summary": {
+    "target_invested_weight": "0.100000",
+    "cash_target_weight": "0.900000",
+    "target_gross_weight": "0.100000",
+    "target_net_weight": "0.100000",
+    "target_turnover_weight": "0.100000",
+    "estimated_tax_aud": "0.000000",
+    "estimated_fees_aud": "10.000000",
+    "total_risk_at_stop_fraction": "0.010000",
+    "issuer_exposures": [
+      {
+        "classification_id": "issuer-bhp-group",
+        "target_weight": "0.100000"
+      }
+    ],
+    "corporate_group_exposures": [
+      {
+        "classification_id": "corporate-group-bhp",
+        "target_weight": "0.100000"
+      }
+    ],
+    "sector_exposures": [
+      {
+        "classification_id": "sector-materials",
+        "target_weight": "0.100000"
+      }
+    ],
+    "theme_exposures": [
+      {
+        "classification_id": "theme-global-resources",
+        "target_weight": "0.100000"
+      }
+    ],
+    "portfolio_loss_at_stop_fraction": "0.010000",
+    "weight_tolerance": "0.000001"
+  },
+  "reason_codes": [],
+  "controls": {
+    "execution_mode": "PAPER_ONLY",
+    "non_executable": true,
+    "deterministic_decimal_math": true,
+    "llm_numeric_output_permitted": false,
+    "implicit_default_permitted": false,
+    "quantity_fields_permitted": false,
+    "lookahead_permitted": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+  }
+}

@@ -1,0 +1,416 @@
+{
+  "contract_name": "paper-evaluator-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-10-23T06:00:00Z",
+  "created_at": "2026-10-23T06:30:00Z",
+  "source_hashes": [
+    {
+      "source": "paper-evaluation-evidence-chain",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "evaluation_id": "paper-evaluator-runway-001",
+  "config_ref": {
+    "contract_name": "evaluator-config-v1",
+    "artifact_id": "evaluator-config-paper-001",
+    "schema_version": "1.0.0",
+    "sha256": "0c2e63a9f563bb50672f5cf97604ca1cd1b887eff72f43dea0b6116d6a9fa4b6",
+    "created_at": "2026-07-24T06:10:00Z"
+  },
+  "paper_eligibility_ref": {
+    "contract_name": "review-eligibility-v1",
+    "artifact_id": "paper-eligibility-20260724",
+    "schema_version": "1.0.0",
+    "sha256": "4545454545454545454545454545454545454545454545454545454545454545",
+    "created_at": "2026-07-24T05:30:00Z"
+  },
+  "excluded_dependency_evidence_ref": {
+    "contract_name": "dependency-isolation-evidence-v1",
+    "artifact_id": "dependency-isolation-20260724",
+    "schema_version": "1.0.0",
+    "sha256": "ec4720eb89b3d94c9c1367d2375db409c4ce4353c6b486881a47fdfd0a71f0a1",
+    "created_at": "2026-07-24T06:12:00Z"
+  },
+  "candidate_versions": {
+    "construction_version": "1.0.0",
+    "risk_version": "1.0.0",
+    "sizing_version": "1.0.0",
+    "staging_version": "1.0.0",
+    "fill_version": "1.0.0",
+    "cost_version": "1.0.0",
+    "tax_version": "1.0.0",
+    "accounting_version": "1.0.0",
+    "calendar_version": "1.0.0",
+    "benchmark_version": "1.0.0",
+    "evaluator_version": "1.0.0",
+    "schema_bundle_version": "1.0.0",
+    "decimal_context_version": "1.0.0",
+    "code_version": "9d442de287e123ae090b95838155dc41d76ee5f3",
+    "runtime_lock_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+    "versions_fixed": true
+  },
+  "evaluation_window": {
+    "started_at": "2026-07-24T06:15:00Z",
+    "ended_at": "2026-10-23T06:00:00Z",
+    "observed_sessions": "0",
+    "priced_nav_day_fraction": "0.000000",
+    "primary_horizon_sessions": "63"
+  },
+  "evidence_chain": {
+    "origin_refs": [
+      {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000001",
+        "schema_version": "1.0.0",
+        "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+        "created_at": "2026-07-24T06:15:00Z"
+      }
+    ],
+    "intent_refs": [
+      {
+        "contract_name": "paper-intent-v1",
+        "artifact_id": "paper-intent-000001",
+        "schema_version": "1.0.0",
+        "sha256": "773255109271cc2fe0efc460977b9483c2a45084c05391305c6925a26f84bf35",
+        "created_at": "2026-07-24T06:20:00Z"
+      }
+    ],
+    "order_refs": [
+      {
+        "contract_name": "paper-order-v1",
+        "artifact_id": "paper-order-000001",
+        "schema_version": "1.0.0",
+        "sha256": "1bf1514b1187e4567840d0aede739a7f713274f14029b98ed03b21015c3722c6",
+        "created_at": "2026-07-24T06:25:00Z"
+      }
+    ],
+    "fill_refs": [
+      {
+        "contract_name": "paper-fill-v1",
+        "artifact_id": "paper-fill-000001",
+        "schema_version": "1.0.0",
+        "sha256": "9b84ea67b8d1744764a395410b6ca7ceab3c2e7b04cad9376dfe5591eb5a925f",
+        "created_at": "2026-07-27T00:11:00Z"
+      }
+    ],
+    "ledger_refs": [
+      {
+        "contract_name": "branch-ledger-v1",
+        "artifact_id": "branch-ledger-origin-000001",
+        "schema_version": "1.0.0",
+        "sha256": "bb6ecb5d7072046ca4c839b13657f62914383c57beb065817050c2ddecf39607",
+        "created_at": "2026-07-27T06:05:00Z"
+      }
+    ],
+    "nav_refs": [
+      {
+        "contract_name": "branch-nav-v1",
+        "artifact_id": "branch-nav-origin-000001",
+        "schema_version": "1.0.0",
+        "sha256": "e728c7ac8a648e936fe453e960b0c2cf08538ebf8b0efe73db910a0a6824bdb6",
+        "created_at": "2026-07-27T06:10:00Z"
+      }
+    ],
+    "outcome_refs": [
+      {
+        "contract_name": "episode-outcome-v1",
+        "artifact_id": "episode-outcome-000001",
+        "schema_version": "1.0.0",
+        "sha256": "7c45fbc4212e35647da17d39a57dd8cc03032cde01185190fc12f7300e210c18",
+        "created_at": "2026-10-23T06:10:00Z"
+      }
+    ],
+    "cohort_statistics_ref": {
+      "contract_name": "cohort-statistics-v1",
+      "artifact_id": "cohort-statistics-runway-001",
+      "schema_version": "1.0.0",
+      "sha256": "9751737bd87d9573c827975dcb65a6f7993dd713f72afbe65b3ad9b1876f88bb",
+      "created_at": "2026-10-23T06:20:00Z"
+    }
+  },
+  "episode_register": [
+    {
+      "origin_sequence": "1",
+      "origin_ref": {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000001",
+        "schema_version": "1.0.0",
+        "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+        "created_at": "2026-07-24T06:15:00Z"
+      },
+      "status": "UNAVAILABLE",
+      "dependency_group_id": "dependency-group-000001",
+      "overlap_group_ids": [
+        "overlap-horizon-000001"
+      ],
+      "outcome_ref": null,
+      "reason_codes": [
+        "INSUFFICIENT_RECONCILED_NAV_SESSIONS"
+      ]
+    },
+    {
+      "origin_sequence": "2",
+      "origin_ref": {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000002",
+        "schema_version": "1.0.0",
+        "sha256": "4848484848484848484848484848484848484848484848484848484848484848",
+        "created_at": "2026-07-25T06:15:00Z"
+      },
+      "status": "BLOCKED",
+      "dependency_group_id": "dependency-group-000001",
+      "overlap_group_ids": [
+        "overlap-group-2026q3"
+      ],
+      "outcome_ref": null,
+      "reason_codes": [
+        "RISK_POLICY_BLOCKED"
+      ]
+    },
+    {
+      "origin_sequence": "3",
+      "origin_ref": {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000003",
+        "schema_version": "1.0.0",
+        "sha256": "4949494949494949494949494949494949494949494949494949494949494949",
+        "created_at": "2026-07-26T06:15:00Z"
+      },
+      "status": "REJECTED",
+      "dependency_group_id": "dependency-group-000001",
+      "overlap_group_ids": [
+        "overlap-group-2026q3"
+      ],
+      "outcome_ref": null,
+      "reason_codes": [
+        "PROPOSAL_REJECTED"
+      ]
+    },
+    {
+      "origin_sequence": "4",
+      "origin_ref": {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000004",
+        "schema_version": "1.0.0",
+        "sha256": "5050505050505050505050505050505050505050505050505050505050505050",
+        "created_at": "2026-07-27T06:15:00Z"
+      },
+      "status": "NO_ACTION",
+      "dependency_group_id": "dependency-group-000001",
+      "overlap_group_ids": [
+        "overlap-group-2026q3"
+      ],
+      "outcome_ref": null,
+      "reason_codes": [
+        "NO_PORTFOLIO_CHANGE"
+      ]
+    },
+    {
+      "origin_sequence": "5",
+      "origin_ref": {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000005",
+        "schema_version": "1.0.0",
+        "sha256": "5151515151515151515151515151515151515151515151515151515151515151",
+        "created_at": "2026-07-28T06:15:00Z"
+      },
+      "status": "INVALID",
+      "dependency_group_id": "dependency-group-000001",
+      "overlap_group_ids": [
+        "overlap-group-2026q3"
+      ],
+      "outcome_ref": null,
+      "reason_codes": [
+        "SOURCE_SNAPSHOT_INVALID"
+      ]
+    },
+    {
+      "origin_sequence": "6",
+      "origin_ref": {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000006",
+        "schema_version": "1.0.0",
+        "sha256": "5252525252525252525252525252525252525252525252525252525252525252",
+        "created_at": "2026-07-29T06:15:00Z"
+      },
+      "status": "OPEN",
+      "dependency_group_id": "dependency-group-000001",
+      "overlap_group_ids": [
+        "overlap-group-2026q3"
+      ],
+      "outcome_ref": null,
+      "reason_codes": [
+        "HORIZON_NOT_COMPLETE"
+      ]
+    },
+    {
+      "origin_sequence": "7",
+      "origin_ref": {
+        "contract_name": "evaluation-origin-v1",
+        "artifact_id": "evaluation-origin-000007",
+        "schema_version": "1.0.0",
+        "sha256": "5353535353535353535353535353535353535353535353535353535353535353",
+        "created_at": "2026-07-30T06:15:00Z"
+      },
+      "status": "UNAVAILABLE",
+      "dependency_group_id": "dependency-group-000001",
+      "overlap_group_ids": [
+        "overlap-group-2026q3"
+      ],
+      "outcome_ref": null,
+      "reason_codes": [
+        "MARKET_DATA_UNAVAILABLE"
+      ]
+    }
+  ],
+  "episode_counts": {
+    "scheduled": "7",
+    "open": "1",
+    "blocked": "1",
+    "rejected": "1",
+    "no_action": "1",
+    "invalid": "1",
+    "matured": "0",
+    "unavailable": "2"
+  },
+  "unresolved_material_defects": {
+    "price": "0",
+    "fx": "0",
+    "corporate_action": "0",
+    "tax": "0",
+    "cost": "0",
+    "accounting": "1",
+    "data": "1",
+    "settlement": "1",
+    "reconciliation": "1"
+  },
+  "operational_gate": {
+    "thresholds": {
+      "minimum_consecutive_complete_sessions": "30",
+      "minimum_priced_nav_day_fraction": "0.995000",
+      "maximum_each_unresolved_material_defect": "0",
+      "bit_identical_replay_required": true,
+      "genuine_xjo_tr_required": true,
+      "effective_fee_schedule_required": true,
+      "ratified_risk_policy_required": true,
+      "dependency_isolation_required": true
+    },
+    "evidence": {
+      "consecutive_complete_sessions": "0",
+      "priced_nav_day_fraction": "0.000000",
+      "unresolved_material_defects": {
+        "price": "0",
+        "fx": "0",
+        "corporate_action": "0",
+        "tax": "0",
+        "cost": "0",
+        "accounting": "1",
+        "data": "1",
+        "settlement": "1",
+        "reconciliation": "1"
+      },
+      "bit_identical_replay": true,
+      "genuine_xjo_tr_present": true,
+      "effective_fee_schedule_present": true,
+      "ratified_risk_policy_present": true,
+      "dependency_isolation_passed": true,
+      "evidence_chain_complete": false
+    },
+    "passed": false,
+    "decision": "PAPER_ONLY_HOLD",
+    "reason_codes": [
+      "INSUFFICIENT_OPERATIONAL_RUNWAY",
+      "UNRESOLVED_DATA_DEFECT",
+      "EVIDENCE_CHAIN_INCOMPLETE"
+    ]
+  },
+  "strategy_gate": {
+    "thresholds": {
+      "minimum_sessions": "252",
+      "minimum_matured_episodes": "20",
+      "episode_horizon_sessions": "63",
+      "primary_branch": "PROPOSAL_STRESS",
+      "active_return_comparator": "POSITIVE_VS_HOLD_AND_XJO_TR",
+      "statistic": "ANNUALISED_PAIRED_LOG_ACTIVE_RETURN_252",
+      "bootstrap_method": "CIRCULAR_MOVING_BLOCK_BOOTSTRAP",
+      "primary_block_length_sessions": "10",
+      "sensitivity_block_lengths": [
+        "5",
+        "20"
+      ],
+      "bootstrap_repetitions": "100000",
+      "seed_derivation": "UNSIGNED_FIRST_128_BITS_SHA256_COHORT_ID_PIPE_METRIC_ID_PIPE_EVALUATION_POLICY_SHA256",
+      "prng_id": "NUMPY_PCG64DXSM",
+      "numpy_version": "2.1.1",
+      "interval_estimator": "EMPIRICAL_TYPE_1",
+      "one_sided_confidence": "0.900000",
+      "sensitivity_two_sided_confidence": "0.950000",
+      "lower_bound_comparator": "POSITIVE_VS_HOLD_AND_XJO_TR",
+      "minimum_fill_fraction_5_sessions": "0.950000",
+      "maximum_policy_breaches": "0",
+      "maximum_mandate_drawdown_breaches": "0",
+      "all_registered_origins_required": true,
+      "familywise_diagnostic_required": true
+    },
+    "evidence": {
+      "cohort_statistics_ref": {
+        "contract_name": "cohort-statistics-v1",
+        "artifact_id": "cohort-statistics-runway-001",
+        "schema_version": "1.0.0",
+        "sha256": "9751737bd87d9573c827975dcb65a6f7993dd713f72afbe65b3ad9b1876f88bb",
+        "created_at": "2026-10-23T06:20:00Z"
+      },
+      "observed_sessions": "0",
+      "matured_episode_count": "0",
+      "episode_horizon_sessions": "63",
+      "versions_fixed": true,
+      "primary_branch": "PROPOSAL_STRESS",
+      "primary_estimand": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN",
+      "active_return_vs_hold": null,
+      "active_return_vs_xjo_tr": null,
+      "bootstrap_status": "UNAVAILABLE",
+      "bootstrap_lower_bound_vs_hold": null,
+      "bootstrap_lower_bound_vs_xjo_tr": null,
+      "fill_fraction_within_5_sessions": "0.247750",
+      "policy_breach_count": "0",
+      "mandate_drawdown_breach_count": "0",
+      "all_registered_origins_retained": true,
+      "familywise_diagnostic_passed": false,
+      "strategy_inputs_complete": false
+    },
+    "passed": false,
+    "reason_codes": [
+      "INSUFFICIENT_OBSERVED_SESSIONS",
+      "INSUFFICIENT_MATURED_EPISODES",
+      "ACTIVE_RETURN_UNAVAILABLE",
+      "FAMILY_DIAGNOSTIC_NOT_PASSED",
+      "STRATEGY_INPUTS_INCOMPLETE"
+    ]
+  },
+  "promotion_gate": {
+    "operational_gate_passed": false,
+    "strategy_gate_passed": false,
+    "separate_james_decision_required": true,
+    "decision": "PAPER_ONLY_HOLD",
+    "maximum_evidence_tier": "PAPER_ONLY",
+    "reason_codes": [
+      "GATES_NOT_PASSED"
+    ]
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "4e58d02d9d0fe554720ff8be8b6b6d1b532662b204378956d50704a7b1519725"
+  },
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "derived_digest": true,
+    "producer_gate_boolean_trusted": false,
+    "simulated_fills_only": true,
+    "non_executable": true,
+    "live_holdings_write": false,
+    "broker_capability": "ABSENT"
+  }
+}

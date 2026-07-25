@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/dependency-isolation-evidence-v1.schema.json",
+  "title": "ASXOS Dependency Isolation Evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "producer_version",
+    "data_as_of",
+    "created_at",
+    "source_hashes",
+    "evidence_id",
+    "config_ref",
+    "boundary_id",
+    "structural_dependency",
+    "structural_scan",
+    "perturbation_runs",
+    "covered_outputs",
+    "passed",
+    "reason_codes",
+    "canonical_hash",
+    "controls"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "dependency-isolation-evidence-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer_version": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+    },
+    "data_as_of": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "source_hashes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/sourceHashes"
+    },
+    "canonical_hash": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/canonicalHash"
+    },
+    "evidence_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "config_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "boundary_id": {
+      "const": "capital-evidence-core"
+    },
+    "structural_dependency": {
+      "const": "ABSENT"
+    },
+    "structural_scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "scanned_roots",
+        "forbidden_import_count",
+        "forbidden_runtime_lookup_count",
+        "scan_tool_version",
+        "report_sha256"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "scanned_roots": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "forbidden_import_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "forbidden_runtime_lookup_count": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "scan_tool_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "report_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "perturbation_runs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "scenario": {
+                "const": "DEPENDENCY_REMOVED"
+              }
+            },
+            "required": [
+              "scenario"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "scenario": {
+                "const": "DEPENDENCY_RANDOMIZED"
+              }
+            },
+            "required": [
+              "scenario"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ],
+      "items": {
+        "$ref": "#/$defs/perturbationRun"
+      }
+    },
+    "covered_outputs": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "PORTFOLIO_PROPOSAL",
+          "SIZING_DECISION",
+          "PAPER_INTENT",
+          "PAPER_ORDER",
+          "PAPER_FILL",
+          "BRANCH_LEDGER",
+          "BRANCH_NAV",
+          "EPISODE_OUTCOME",
+          "COHORT_STATISTICS",
+          "PAPER_EVALUATOR"
+        ]
+      }
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "reason_codes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "independent_harness",
+        "canonical_serialization",
+        "deterministic_replay",
+        "producer_pass_boolean_trusted",
+        "capital_fields_consumed",
+        "live_holdings_write"
+      ],
+      "properties": {
+        "independent_harness": {
+          "const": true
+        },
+        "canonical_serialization": {
+          "const": "RFC8785_JSON"
+        },
+        "deterministic_replay": {
+          "const": true
+        },
+        "producer_pass_boolean_trusted": {
+          "const": false
+        },
+        "capital_fields_consumed": {
+          "const": false
+        },
+        "live_holdings_write": {
+          "const": false
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "passed": {
+            "const": true
+          }
+        },
+        "required": [
+          "passed"
+        ]
+      },
+      "then": {
+        "properties": {
+          "structural_scan": {
+            "properties": {
+              "status": {
+                "const": "PASS"
+              },
+              "forbidden_import_count": {
+                "const": "0"
+              },
+              "forbidden_runtime_lookup_count": {
+                "const": "0"
+              }
+            }
+          },
+          "perturbation_runs": {
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "PASS"
+                },
+                "canonical_outputs_byte_identical": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "passed": {
+            "const": false
+          }
+        },
+        "required": [
+          "passed"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "perturbationRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario",
+        "status",
+        "random_seed_sha256",
+        "baseline_input_bundle_sha256",
+        "perturbed_input_bundle_sha256",
+        "baseline_output_bundle_sha256",
+        "perturbed_output_bundle_sha256",
+        "canonical_outputs_byte_identical",
+        "runtime_lock_sha256",
+        "reason_codes"
+      ],
+      "properties": {
+        "scenario": {
+          "enum": [
+            "DEPENDENCY_REMOVED",
+            "DEPENDENCY_RANDOMIZED"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "random_seed_sha256": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_input_bundle_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "perturbed_input_bundle_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "baseline_output_bundle_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "perturbed_output_bundle_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "canonical_outputs_byte_identical": {
+          "type": "boolean"
+        },
+        "runtime_lock_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "reason_codes": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "scenario": {
+                "const": "DEPENDENCY_REMOVED"
+              }
+            },
+            "required": [
+              "scenario"
+            ]
+          },
+          "then": {
+            "properties": {
+              "random_seed_sha256": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scenario": {
+                "const": "DEPENDENCY_RANDOMIZED"
+              }
+            },
+            "required": [
+              "scenario"
+            ]
+          },
+          "then": {
+            "properties": {
+              "random_seed_sha256": {
+                "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "FAIL"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

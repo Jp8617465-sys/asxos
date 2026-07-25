@@ -1,0 +1,332 @@
+[
+  {
+    "contract_name": "reviewer-assessment-v1",
+    "schema_version": "1.1.0",
+    "assessment_id": "40000000-0000-4000-8000-000000000001",
+    "investment_case_id": "case-bhp-20260724",
+    "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+    "report_ref": {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7",
+    "context_id": "10000000-0000-4000-8000-000000000001",
+    "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+    "role": "evidence_claims",
+    "reviewer": {
+      "agent_ref": {
+        "id": "blind-evidence-reviewer",
+        "version": "1.0.0",
+        "sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+      },
+      "model_ref": {
+        "id": "review-model-001",
+        "version": "1.0.0",
+        "sha256": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0"
+      },
+      "prompt_ref": {
+        "id": "review-prompt-evidence",
+        "version": "1.0.0",
+        "sha256": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1"
+      },
+      "rubric_ref": {
+        "id": "review-rubric-main",
+        "version": "1.0.0",
+        "sha256": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+      }
+    },
+    "submitted_at": "2026-07-24T01:10:00Z",
+    "verdict": "PASS",
+    "confidence": "0.850000",
+    "summary": "Material claims resolve to the frozen evidence set.",
+    "findings": [],
+    "abstention_reason": null,
+    "controls": {
+      "blind_first_pass": true,
+      "other_reviewer_output_visible": false,
+      "database_access": false,
+      "network_access": false,
+      "numeric_authority": false,
+      "eligibility_authority": false,
+      "non_executable": true
+    },
+    "canonical_hash": {
+      "canonicalization": "RFC8785",
+      "hash_algorithm": "SHA-256",
+      "excluded_json_pointer": "/canonical_hash/payload_sha256",
+      "payload_sha256": "9ca0a0891f0d29499c6a7e61dbab8dba41630e275c3876203d0e98ce2aad9a6d"
+    }
+  },
+  {
+    "contract_name": "reviewer-assessment-v1",
+    "schema_version": "1.1.0",
+    "assessment_id": "40000000-0000-4000-8000-000000000002",
+    "investment_case_id": "case-bhp-20260724",
+    "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+    "report_ref": {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7",
+    "context_id": "10000000-0000-4000-8000-000000000001",
+    "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+    "role": "valuation_scenarios",
+    "reviewer": {
+      "agent_ref": {
+        "id": "blind-valuation-reviewer",
+        "version": "1.0.0",
+        "sha256": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"
+      },
+      "model_ref": {
+        "id": "review-model-001",
+        "version": "1.0.0",
+        "sha256": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0"
+      },
+      "prompt_ref": {
+        "id": "review-prompt-valuation",
+        "version": "1.0.0",
+        "sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+      },
+      "rubric_ref": {
+        "id": "review-rubric-main",
+        "version": "1.0.0",
+        "sha256": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+      }
+    },
+    "submitted_at": "2026-07-24T01:11:00Z",
+    "verdict": "PASS",
+    "confidence": "0.800000",
+    "summary": "Scenario arithmetic is internally consistent after correction.",
+    "findings": [
+      {
+        "finding_id": "41000000-0000-4000-8000-000000000001",
+        "code": "SCENARIO_ROUNDING",
+        "severity": "low",
+        "status": "RESOLVED",
+        "claim_ids": [
+          "CLM-002"
+        ],
+        "evidence_ids": [
+          900001
+        ],
+        "description": "The downside table used a different display precision.",
+        "required_action": "Reconcile displayed values to the canonical Decimal calculation.",
+        "uncertainty": "No residual uncertainty after the immutable correction.",
+        "resolution_ref": {
+          "resolution_id": "resolution-valuation-001",
+          "resolution_type": "RESOLVED",
+          "resolved_by": "James",
+          "resolved_at": "2026-07-24T01:05:00Z",
+          "resolution_sha256": "abababababababababababababababababababababababababababababababab"
+        }
+      }
+    ],
+    "abstention_reason": null,
+    "controls": {
+      "blind_first_pass": true,
+      "other_reviewer_output_visible": false,
+      "database_access": false,
+      "network_access": false,
+      "numeric_authority": false,
+      "eligibility_authority": false,
+      "non_executable": true
+    },
+    "canonical_hash": {
+      "canonicalization": "RFC8785",
+      "hash_algorithm": "SHA-256",
+      "excluded_json_pointer": "/canonical_hash/payload_sha256",
+      "payload_sha256": "2e65ee7c456ec8c58e392c6b101a56f4208f9327b333aff76da5c6119714cbb1"
+    }
+  },
+  {
+    "contract_name": "reviewer-assessment-v1",
+    "schema_version": "1.1.0",
+    "assessment_id": "40000000-0000-4000-8000-000000000003",
+    "investment_case_id": "case-bhp-20260724",
+    "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+    "report_ref": {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7",
+    "context_id": "10000000-0000-4000-8000-000000000001",
+    "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+    "role": "thesis_adversary",
+    "reviewer": {
+      "agent_ref": {
+        "id": "blind-adversarial-reviewer",
+        "version": "1.0.0",
+        "sha256": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"
+      },
+      "model_ref": {
+        "id": "review-model-001",
+        "version": "1.0.0",
+        "sha256": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0"
+      },
+      "prompt_ref": {
+        "id": "review-prompt-adversary",
+        "version": "1.0.0",
+        "sha256": "b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3"
+      },
+      "rubric_ref": {
+        "id": "review-rubric-main",
+        "version": "1.0.0",
+        "sha256": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+      }
+    },
+    "submitted_at": "2026-07-24T01:12:00Z",
+    "verdict": "CHALLENGE",
+    "confidence": "0.750000",
+    "summary": "The thesis is reviewable, with one explicit medium uncertainty.",
+    "findings": [
+      {
+        "finding_id": "41000000-0000-4000-8000-000000000002",
+        "code": "CYCLE_DURATION_UNCERTAINTY",
+        "severity": "medium",
+        "status": "OPEN",
+        "claim_ids": [
+          "CLM-001"
+        ],
+        "evidence_ids": [
+          900002
+        ],
+        "description": "The duration of the claimed resilient operating-cost position remains uncertain.",
+        "required_action": "Monitor operating-cost evidence and stated resilience milestones.",
+        "uncertainty": "The filing supports the current claim, but not its future duration.",
+        "resolution_ref": null
+      }
+    ],
+    "abstention_reason": null,
+    "controls": {
+      "blind_first_pass": true,
+      "other_reviewer_output_visible": false,
+      "database_access": false,
+      "network_access": false,
+      "numeric_authority": false,
+      "eligibility_authority": false,
+      "non_executable": true
+    },
+    "canonical_hash": {
+      "canonicalization": "RFC8785",
+      "hash_algorithm": "SHA-256",
+      "excluded_json_pointer": "/canonical_hash/payload_sha256",
+      "payload_sha256": "d803244020fd57986f0ef7867455add50bef7c15e7d42aed40e1e12de85e3482"
+    }
+  },
+  {
+    "contract_name": "reviewer-assessment-v1",
+    "schema_version": "1.1.0",
+    "assessment_id": "40000000-0000-4000-8000-000000000004",
+    "investment_case_id": "case-bhp-20260724",
+    "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+    "report_ref": {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7",
+    "context_id": "10000000-0000-4000-8000-000000000001",
+    "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+    "role": "portfolio_risk_fit",
+    "reviewer": {
+      "agent_ref": {
+        "id": "blind-risk-reviewer",
+        "version": "1.0.0",
+        "sha256": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4"
+      },
+      "model_ref": {
+        "id": "review-model-001",
+        "version": "1.0.0",
+        "sha256": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0"
+      },
+      "prompt_ref": {
+        "id": "review-prompt-risk",
+        "version": "1.0.0",
+        "sha256": "b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4"
+      },
+      "rubric_ref": {
+        "id": "review-rubric-main",
+        "version": "1.0.0",
+        "sha256": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+      }
+    },
+    "submitted_at": "2026-07-24T01:13:00Z",
+    "verdict": "PASS",
+    "confidence": "0.900000",
+    "summary": "The case can enter paper construction under explicit portfolio caps.",
+    "findings": [],
+    "abstention_reason": null,
+    "controls": {
+      "blind_first_pass": true,
+      "other_reviewer_output_visible": false,
+      "database_access": false,
+      "network_access": false,
+      "numeric_authority": false,
+      "eligibility_authority": false,
+      "non_executable": true
+    },
+    "canonical_hash": {
+      "canonicalization": "RFC8785",
+      "hash_algorithm": "SHA-256",
+      "excluded_json_pointer": "/canonical_hash/payload_sha256",
+      "payload_sha256": "bdf065f02496485b81a6d421e4a0a531f1d2dd93373b1241c1f5f8af595e237d"
+    }
+  },
+  {
+    "contract_name": "reviewer-assessment-v1",
+    "schema_version": "1.1.0",
+    "assessment_id": "40000000-0000-4000-8000-000000000005",
+    "investment_case_id": "case-bhp-20260724",
+    "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+    "report_ref": {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7",
+    "context_id": "10000000-0000-4000-8000-000000000001",
+    "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+    "role": "implementation_liquidity_tax",
+    "reviewer": {
+      "agent_ref": {
+        "id": "blind-implementation-reviewer",
+        "version": "1.0.0",
+        "sha256": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+      },
+      "model_ref": {
+        "id": "review-model-001",
+        "version": "1.0.0",
+        "sha256": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0"
+      },
+      "prompt_ref": {
+        "id": "review-prompt-implementation",
+        "version": "1.0.0",
+        "sha256": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5"
+      },
+      "rubric_ref": {
+        "id": "review-rubric-main",
+        "version": "1.0.0",
+        "sha256": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+      }
+    },
+    "submitted_at": "2026-07-24T01:14:00Z",
+    "verdict": "PASS",
+    "confidence": "0.850000",
+    "summary": "Liquidity, tax, and fee inputs are explicit and point-in-time.",
+    "findings": [],
+    "abstention_reason": null,
+    "controls": {
+      "blind_first_pass": true,
+      "other_reviewer_output_visible": false,
+      "database_access": false,
+      "network_access": false,
+      "numeric_authority": false,
+      "eligibility_authority": false,
+      "non_executable": true
+    },
+    "canonical_hash": {
+      "canonicalization": "RFC8785",
+      "hash_algorithm": "SHA-256",
+      "excluded_json_pointer": "/canonical_hash/payload_sha256",
+      "payload_sha256": "9bfe17af114876daa72e12293bfb4b759bdc119ceabca40557c7a3f7256ee093"
+    }
+  }
+]

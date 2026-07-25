@@ -1,0 +1,142 @@
+{
+  "contract_name": "sizing-decision-v1",
+  "schema_version": "1.1.0",
+  "producer": {
+    "producer_type": "DETERMINISTIC_QUANT",
+    "method": "POLICY_CAPPED_BOARD_LOT",
+    "producer_version": "1.0.0",
+    "code_version": "7abc123"
+  },
+  "sizing_decision_id": "sizing-rejection-no-policy",
+  "investment_case_id": "case-bhp-20260724",
+  "portfolio_id": "portfolio-james-paper",
+  "lineage": {
+    "lineage_id": "lineage-sizing-rejected",
+    "lineage_version": "1.0.0",
+    "investment_case_id": "case-bhp-20260724",
+    "lineage_stage": "EVALUATION_FROZEN",
+    "case_state": "SHADOW_ACTIVE",
+    "evidence_tier": "UNCALIBRATED",
+    "as_of": "2026-07-24T03:20:00Z",
+    "created_at": "2026-07-24T03:21:00Z",
+    "research": {
+      "thesis_id": 9001,
+      "thesis_revision_id": 2001,
+      "report_ref": {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+      },
+      "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "review": {
+      "context_id": "10000000-0000-4000-8000-000000000001",
+      "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+      "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+      "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
+      "eligibility_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+    },
+    "monitor": {
+      "watermark_id": "monitor-watermark-20260724",
+      "watermark_as_of": "2026-07-24T03:00:00Z",
+      "watermark_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "open_blocking_event_count": 0
+    },
+    "evaluation": {
+      "evaluator_config_ref": {
+        "id": "evaluator-config-main",
+        "version": "1.0.0",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "evaluation_ref": {
+        "id": "evaluation-main-20260724",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "evaluation_policy_ref": {
+        "id": "evaluation-policy-main",
+        "version": "1.0.0",
+        "sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c"
+      },
+      "gate_decision_ref": {
+        "id": "gate-decision-20260724",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    "construction_policy_ref": null,
+    "risk_policy_ref": null,
+    "portfolio_proposal_ref": null,
+    "sizing_decision_ref": null,
+    "staging_policy_ref": null,
+    "promotion_decision_ref": null,
+    "staged_order_set_ref": null
+  },
+  "construction_policy_ref": {
+    "id": "construction-policy-main",
+    "version": "1.0.0",
+    "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+  },
+  "proposal_ref": {
+    "id": "portfolio-proposal-20260724",
+    "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+  },
+  "risk_policy_ref": null,
+  "sizing_policy_ref": {
+    "id": "sizing-policy-paper-001",
+    "version": "1.0.0",
+    "sha256": "4f44c95e7c49769907b69c735a2d54867b89ed3f7db783f5f39bcbabb9cd65f2"
+  },
+  "portfolio_snapshot_ref": {
+    "id": "portfolio-snapshot-20260724",
+    "sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+  },
+  "status": "REJECTED_NO_POLICY",
+  "eligible_for_staging": false,
+  "data_as_of": "2026-07-24T03:20:00Z",
+  "knowledge_cutoff": "2026-07-24T03:20:00Z",
+  "decision_at": "2026-07-24T03:20:30Z",
+  "created_at": "2026-07-24T03:21:00Z",
+  "source_hashes": [
+    {
+      "source": "portfolio-proposal",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "source": "sizing-policy",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "line_items": [],
+  "summary": {
+    "requested_notional_aud": "0.000000",
+    "approved_notional_aud": "0.000000",
+    "estimated_fees_aud": "0.000000",
+    "projected_cash_aud": "100000.000000",
+    "projected_gross_weight": "0.000000",
+    "projected_net_weight": "0.000000",
+    "projected_turnover_weight": "0.000000",
+    "reconciliation_tolerance": "0.000001",
+    "projected_issuer_exposures": [],
+    "projected_corporate_group_exposures": [],
+    "projected_sector_exposures": [],
+    "projected_theme_exposures": [],
+    "projected_portfolio_loss_at_stop_fraction": "0.000000"
+  },
+  "reason_codes": [
+    "MISSING_RISK_POLICY"
+  ],
+  "controls": {
+    "execution_mode": "PAPER_ONLY",
+    "non_executable": true,
+    "deterministic_decimal_math": true,
+    "generative_numeric_output_permitted": false,
+    "absolute_dependency_firewall": true,
+    "implicit_default_permitted": false,
+    "lookahead_permitted": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "fc4413d93324351d6efc97749dfe52c687cf9cc2d84ea59c75657aa22a7add06"
+  },
+  "classification_snapshot_ref": null
+}

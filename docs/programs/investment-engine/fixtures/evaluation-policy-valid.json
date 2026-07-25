@@ -1,0 +1,146 @@
+{
+  "contract_name": "evaluation-policy-v1",
+  "schema_version": "1.0.0",
+  "policy_id": "evaluation-policy-main",
+  "policy_version": "1.0.0",
+  "effective_from": "2026-07-24T00:00:00Z",
+  "effective_to": null,
+  "approval": {
+    "ratified_by": "James",
+    "ratified_at": "2026-07-23T23:36:00Z",
+    "approval_sha256": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"
+  },
+  "cohort_policy": {
+    "prospective_only": true,
+    "reconstructed_qualifies": false,
+    "origin_denominator_states": [
+      "OPEN",
+      "BLOCKED",
+      "REJECTED",
+      "NO_ACTION",
+      "INVALID",
+      "MATURED",
+      "UNAVAILABLE"
+    ],
+    "matured_outcomes_only_for_return": true,
+    "overlap_policy": "ALLOWED_DEPENDENCE_CONTROLLED_BY_SESSION_BLOCKS",
+    "version_tuple_required": [
+      "strategy",
+      "construction_policy",
+      "risk_policy",
+      "sizing",
+      "staging",
+      "fill",
+      "cost",
+      "tax",
+      "accounting",
+      "calendar",
+      "benchmark",
+      "data",
+      "evaluator",
+      "schema",
+      "decimal_context",
+      "code",
+      "runtime_lock"
+    ]
+  },
+  "operational_gate": {
+    "consecutive_complete_sessions": 30,
+    "bit_identical_replay_required": true,
+    "minimum_priced_nav_fraction": "0.995000",
+    "maximum_each_unresolved_material_defect_count": 0,
+    "benchmark_id": "XJO-TR",
+    "benchmark_requirement": "REAL_POINT_IN_TIME_TOTAL_RETURN",
+    "fee_schedule_requirement": "BROKER_PUBLISHED_EFFECTIVE",
+    "ratified_risk_policy_required": true,
+    "forbidden_dependency_isolation_proof": "STRUCTURAL_AND_PERTURBATION_HASH_REQUIRED"
+  },
+  "strategy_gate": {
+    "minimum_sessions": 252,
+    "minimum_matured_episodes": 20,
+    "primary_horizon_sessions": 63,
+    "comparators": [
+      "HOLD",
+      "XJO_TR"
+    ],
+    "minimum_stress_cost_active_return": "0.000001",
+    "minimum_bootstrap_lower_bound": "0.000001",
+    "minimum_filled_notional_fraction": "0.950000",
+    "fill_window_sessions": 5,
+    "maximum_policy_breaches": 0,
+    "maximum_mandate_drawdown_breaches": 0
+  },
+  "bootstrap": {
+    "primary_estimand": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN",
+    "primary_branch": "PROPOSAL_STRESS",
+    "comparisons": [
+      "HOLD",
+      "XJO_TR"
+    ],
+    "statistic": "ANNUALISED_PAIRED_LOG_ACTIVE_RETURN_252",
+    "resampling_unit": "PAIRED_DAILY_RETURN_TUPLE",
+    "bootstrap_method": "CIRCULAR_MOVING_BLOCK_BOOTSTRAP",
+    "block_rule": "FIXED_PRE_REGISTERED",
+    "primary_block_length_sessions": "10",
+    "sensitivity_block_lengths": [
+      "5",
+      "20"
+    ],
+    "block_boundary": "CIRCULAR",
+    "circular_index_rule": "SOURCE_INDEX_MODULO_N",
+    "terminal_block_rule": "CONCATENATE_THEN_TRUNCATE_TO_N",
+    "minimum_clean_paired_sessions": "252",
+    "session_order": "ASCENDING_TRADING_SESSION",
+    "common_endpoint_rule": "COMPLETE_STRESS_AND_COMPARATOR_SAME_SESSION",
+    "repetitions": "100000",
+    "seed_derivation": "UNSIGNED_FIRST_128_BITS_SHA256_COHORT_ID_PIPE_METRIC_ID_PIPE_EVALUATION_POLICY_SHA256",
+    "seed_bit_width": "128",
+    "seed_byte_order": "BIG_ENDIAN",
+    "prng_id": "NUMPY_PCG64DXSM",
+    "numpy_version": "2.1.1",
+    "draw_mapping": "NUMPY_GENERATOR_INTEGERS_0_TO_N_EXCLUSIVE",
+    "interval_estimator": "EMPIRICAL_TYPE_1",
+    "percentile_rule": "NEAREST_RANK_10TH_PERCENTILE",
+    "one_sided_confidence": "0.900000",
+    "sensitivity_interval_estimator": "EMPIRICAL_TYPE_1",
+    "sensitivity_two_sided_confidence": "0.950000",
+    "missingness_policy": "DIRTY_SESSION_RESETS_OPERATIONAL_STREAK_NO_IMPUTATION",
+    "decimal_output_scale": "6",
+    "candidate_family_required": true,
+    "multiple_testing_method": "HOLM_FAMILYWISE_DIAGNOSTIC"
+  },
+  "reset_conditions": [
+    "STRATEGY_VERSION_CHANGED",
+    "CONSTRUCTION_POLICY_CHANGED",
+    "RISK_POLICY_CHANGED",
+    "SIZING_VERSION_CHANGED",
+    "EVALUATOR_SEMANTICS_CHANGED",
+    "ACCOUNTING_OR_TAX_CHANGED",
+    "COST_OR_FILL_CHANGED",
+    "BENCHMARK_CHANGED",
+    "CONTRACT_SCHEMA_CHANGED",
+    "CODE_VERSION_CHANGED",
+    "FORBIDDEN_DEPENDENCY_ISOLATION_FAILED",
+    "QUALIFYING_SESSION_DIRTY"
+  ],
+  "controls": {
+    "producer_passed_value_trusted": false,
+    "gate_recomputed_from_evidence": true,
+    "denominator_editing_permitted": false,
+    "legacy_predictive_input_permitted": false,
+    "execution_authority": "NONE"
+  },
+  "source_hashes": [
+    {
+      "source": "james-ratified-evaluation-policy",
+      "sha256": "0202020202020202020202020202020202020202020202020202020202020202"
+    }
+  ],
+  "created_at": "2026-07-23T23:37:00Z",
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c"
+  }
+}

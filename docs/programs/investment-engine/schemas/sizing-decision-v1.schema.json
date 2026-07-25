@@ -1,0 +1,1304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/sizing-decision-v1.schema.json",
+  "title": "ASXOS Sizing Decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "producer",
+    "sizing_decision_id",
+    "investment_case_id",
+    "portfolio_id",
+    "lineage",
+    "construction_policy_ref",
+    "proposal_ref",
+    "risk_policy_ref",
+    "sizing_policy_ref",
+    "portfolio_snapshot_ref",
+    "classification_snapshot_ref",
+    "status",
+    "eligible_for_staging",
+    "data_as_of",
+    "knowledge_cutoff",
+    "decision_at",
+    "created_at",
+    "source_hashes",
+    "line_items",
+    "summary",
+    "reason_codes",
+    "controls",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "sizing-decision-v1"
+    },
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "sizing_decision_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "investment_case_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "portfolio_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "lineage": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/caseLineage"
+    },
+    "construction_policy_ref": {
+      "oneOf": [
+        {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposal_ref": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/hashRef"
+    },
+    "risk_policy_ref": {
+      "oneOf": [
+        {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sizing_policy_ref": {
+      "oneOf": [
+        {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "portfolio_snapshot_ref": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/hashRef"
+    },
+    "classification_snapshot_ref": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+            },
+            {
+              "properties": {
+                "contract_name": {
+                  "const": "security-classification-snapshot-v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "SIZED",
+        "REJECTED_NO_POLICY",
+        "REJECTED_POLICY_VIOLATION"
+      ]
+    },
+    "eligible_for_staging": {
+      "type": "boolean"
+    },
+    "data_as_of": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "knowledge_cutoff": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "decision_at": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "source_hashes": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/sourceHashes"
+    },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/lineItem"
+      }
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+      }
+    },
+    "controls": {
+      "$ref": "#/$defs/controls"
+    },
+    "canonical_hash": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/canonicalHash"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "SIZED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "construction_policy_ref": {
+            "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+          },
+          "risk_policy_ref": {
+            "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+          },
+          "sizing_policy_ref": {
+            "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+          },
+          "eligible_for_staging": {
+            "const": true
+          },
+          "lineage": {
+            "properties": {
+              "lineage_stage": {
+                "const": "PROPOSAL_BUILT"
+              },
+              "case_state": {
+                "const": "SHADOW_ACTIVE"
+              },
+              "sizing_decision_ref": {
+                "type": "null"
+              }
+            }
+          },
+          "line_items": {
+            "minItems": 1
+          },
+          "reason_codes": {
+            "maxItems": 0
+          },
+          "classification_snapshot_ref": {
+            "allOf": [
+              {
+                "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+              },
+              {
+                "properties": {
+                  "contract_name": {
+                    "const": "security-classification-snapshot-v1"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "eligible_for_staging": {
+            "const": false
+          },
+          "line_items": {
+            "maxItems": 0
+          },
+          "reason_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "REJECTED_NO_POLICY"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "lineage": {
+            "properties": {
+              "lineage_stage": {
+                "const": "EVALUATION_FROZEN"
+              }
+            }
+          },
+          "reason_codes": {
+            "contains": {
+              "enum": [
+                "MISSING_CONSTRUCTION_POLICY",
+                "MISSING_RISK_POLICY",
+                "MISSING_SIZING_POLICY",
+                "AMBIGUOUS_EFFECTIVE_POLICY"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "REJECTED_POLICY_VIOLATION"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "lineage": {
+            "properties": {
+              "lineage_stage": {
+                "const": "PROPOSAL_BUILT"
+              }
+            }
+          },
+          "construction_policy_ref": {
+            "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+          },
+          "risk_policy_ref": {
+            "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+          },
+          "sizing_policy_ref": {
+            "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer_type",
+        "method",
+        "producer_version",
+        "code_version"
+      ],
+      "properties": {
+        "producer_type": {
+          "const": "DETERMINISTIC_QUANT"
+        },
+        "method": {
+          "const": "POLICY_CAPPED_BOARD_LOT"
+        },
+        "producer_version": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/version"
+        },
+        "code_version": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{7,64}$"
+        }
+      }
+    },
+    "lineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "line_id",
+        "line_item_sha256",
+        "asset_id",
+        "security_id",
+        "issuer_id",
+        "corporate_group_id",
+        "sector_id",
+        "theme_ids",
+        "tick_rule_ref",
+        "tick_size_aud",
+        "proposal_target_sha256",
+        "side",
+        "current_weight",
+        "target_weight",
+        "requested_delta_weight",
+        "reference_price_aud",
+        "board_lot_quantity",
+        "requested_quantity",
+        "approved_quantity",
+        "requested_notional_aud",
+        "approved_notional_aud",
+        "estimated_fees_aud",
+        "decision",
+        "constraint_checks"
+      ],
+      "properties": {
+        "line_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "line_item_sha256": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/sha256"
+        },
+        "asset_id": {
+          "type": "string",
+          "pattern": "^XASX:[A-Z0-9]{3,6}$"
+        },
+        "security_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "issuer_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "corporate_group_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "sector_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "theme_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+          }
+        },
+        "tick_rule_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        "tick_size_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveDecimal"
+        },
+        "proposal_target_sha256": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/sha256"
+        },
+        "side": {
+          "enum": [
+            "BUY",
+            "SELL"
+          ]
+        },
+        "current_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "target_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        },
+        "requested_delta_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/decimal"
+        },
+        "reference_price_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveDecimal"
+        },
+        "board_lot_quantity": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveIntegerString"
+        },
+        "requested_quantity": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveIntegerString"
+        },
+        "approved_quantity": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveIntegerString"
+        },
+        "requested_notional_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveDecimal"
+        },
+        "approved_notional_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/positiveDecimal"
+        },
+        "estimated_fees_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "decision": {
+          "enum": [
+            "APPROVED",
+            "REDUCED"
+          ]
+        },
+        "constraint_checks": {
+          "type": "array",
+          "minItems": 20,
+          "maxItems": 20,
+          "allOf": [
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "CLASSIFICATION"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "TARGET_NOTIONAL"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "AVAILABLE_CASH"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "ISSUER"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "CORPORATE_GROUP"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "SINGLE_NAME"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "SECTOR"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "THEME"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "PORTFOLIO_LOSS_AT_STOP"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "GROSS_EXPOSURE"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "NET_EXPOSURE"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "RESERVATIONS"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "TURNOVER"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "ADV_PARTICIPATION"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "SPREAD"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "LOSS_HEADROOM"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "TICK_RULE"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "BOARD_LOT"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "MINIMUM_ORDER"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "constraint_code": {
+                    "const": "FEES"
+                  }
+                },
+                "required": [
+                  "constraint_code"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ],
+          "prefixItems": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 1
+                    },
+                    "constraint_code": {
+                      "const": "CLASSIFICATION"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 2
+                    },
+                    "constraint_code": {
+                      "const": "TARGET_NOTIONAL"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 3
+                    },
+                    "constraint_code": {
+                      "const": "AVAILABLE_CASH"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 4
+                    },
+                    "constraint_code": {
+                      "const": "ISSUER"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 5
+                    },
+                    "constraint_code": {
+                      "const": "CORPORATE_GROUP"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 6
+                    },
+                    "constraint_code": {
+                      "const": "SINGLE_NAME"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 7
+                    },
+                    "constraint_code": {
+                      "const": "SECTOR"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 8
+                    },
+                    "constraint_code": {
+                      "const": "THEME"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 9
+                    },
+                    "constraint_code": {
+                      "const": "PORTFOLIO_LOSS_AT_STOP"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 10
+                    },
+                    "constraint_code": {
+                      "const": "GROSS_EXPOSURE"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 11
+                    },
+                    "constraint_code": {
+                      "const": "NET_EXPOSURE"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 12
+                    },
+                    "constraint_code": {
+                      "const": "RESERVATIONS"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 13
+                    },
+                    "constraint_code": {
+                      "const": "TURNOVER"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 14
+                    },
+                    "constraint_code": {
+                      "const": "ADV_PARTICIPATION"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 15
+                    },
+                    "constraint_code": {
+                      "const": "SPREAD"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 16
+                    },
+                    "constraint_code": {
+                      "const": "LOSS_HEADROOM"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 17
+                    },
+                    "constraint_code": {
+                      "const": "TICK_RULE"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 18
+                    },
+                    "constraint_code": {
+                      "const": "BOARD_LOT"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 19
+                    },
+                    "constraint_code": {
+                      "const": "MINIMUM_ORDER"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/constraintCheck"
+                },
+                {
+                  "properties": {
+                    "sequence": {
+                      "const": 20
+                    },
+                    "constraint_code": {
+                      "const": "FEES"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/constraintCheck"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_notional_aud",
+        "approved_notional_aud",
+        "estimated_fees_aud",
+        "projected_cash_aud",
+        "projected_gross_weight",
+        "projected_net_weight",
+        "projected_turnover_weight",
+        "reconciliation_tolerance",
+        "projected_issuer_exposures",
+        "projected_corporate_group_exposures",
+        "projected_sector_exposures",
+        "projected_theme_exposures",
+        "projected_portfolio_loss_at_stop_fraction"
+      ],
+      "properties": {
+        "requested_notional_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "approved_notional_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "estimated_fees_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "projected_cash_aud": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "projected_gross_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "projected_net_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/decimal"
+        },
+        "projected_turnover_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/nonNegativeDecimal"
+        },
+        "reconciliation_tolerance": {
+          "const": "0.000001"
+        },
+        "projected_issuer_exposures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exposure"
+          }
+        },
+        "projected_corporate_group_exposures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exposure"
+          }
+        },
+        "projected_sector_exposures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exposure"
+          }
+        },
+        "projected_theme_exposures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exposure"
+          }
+        },
+        "projected_portfolio_loss_at_stop_fraction": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_mode",
+        "non_executable",
+        "deterministic_decimal_math",
+        "generative_numeric_output_permitted",
+        "absolute_dependency_firewall",
+        "implicit_default_permitted",
+        "lookahead_permitted"
+      ],
+      "properties": {
+        "execution_mode": {
+          "const": "PAPER_ONLY"
+        },
+        "non_executable": {
+          "const": true
+        },
+        "deterministic_decimal_math": {
+          "const": true
+        },
+        "generative_numeric_output_permitted": {
+          "const": false
+        },
+        "absolute_dependency_firewall": {
+          "const": true
+        },
+        "implicit_default_permitted": {
+          "const": false
+        },
+        "lookahead_permitted": {
+          "const": false
+        }
+      }
+    },
+    "numericConstraintCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "constraint_code",
+        "check_type",
+        "observed_value",
+        "limit_value",
+        "applied_value",
+        "action",
+        "source_ref"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "constraint_code": {
+          "enum": [
+            "TARGET_NOTIONAL",
+            "AVAILABLE_CASH",
+            "ISSUER",
+            "CORPORATE_GROUP",
+            "SINGLE_NAME",
+            "SECTOR",
+            "THEME",
+            "PORTFOLIO_LOSS_AT_STOP",
+            "GROSS_EXPOSURE",
+            "NET_EXPOSURE",
+            "RESERVATIONS",
+            "TURNOVER",
+            "ADV_PARTICIPATION",
+            "SPREAD",
+            "LOSS_HEADROOM",
+            "BOARD_LOT",
+            "MINIMUM_ORDER",
+            "FEES"
+          ]
+        },
+        "observed_value": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/decimal"
+        },
+        "limit_value": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/decimal"
+        },
+        "applied_value": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/decimal"
+        },
+        "action": {
+          "enum": [
+            "PASS",
+            "REDUCE"
+          ]
+        },
+        "source_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/hashRef"
+        },
+        "check_type": {
+          "const": "NUMERIC_LIMIT"
+        }
+      }
+    },
+    "booleanConstraintCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "constraint_code",
+        "check_type",
+        "passed",
+        "source_ref"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "constraint_code": {
+          "enum": [
+            "CLASSIFICATION",
+            "TICK_RULE"
+          ]
+        },
+        "check_type": {
+          "const": "BOOLEAN_PRECONDITION"
+        },
+        "passed": {
+          "const": true
+        },
+        "source_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/hashRef"
+        }
+      }
+    },
+    "constraintCheck": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/numericConstraintCheck"
+        },
+        {
+          "$ref": "#/$defs/booleanConstraintCheck"
+        }
+      ]
+    },
+    "exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification_id",
+        "projected_weight"
+      ],
+      "properties": {
+        "classification_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "projected_weight": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+        }
+      }
+    }
+  }
+}

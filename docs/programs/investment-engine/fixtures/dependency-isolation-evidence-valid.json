@@ -1,0 +1,90 @@
+{
+  "contract_name": "dependency-isolation-evidence-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T06:12:00Z",
+  "created_at": "2026-07-24T06:12:00Z",
+  "source_hashes": [
+    {
+      "source": "independent-isolation-harness",
+      "sha256": "5454545454545454545454545454545454545454545454545454545454545454"
+    }
+  ],
+  "evidence_id": "dependency-isolation-20260724",
+  "config_ref": {
+    "contract_name": "evaluator-config-v1",
+    "artifact_id": "evaluator-config-paper-001",
+    "schema_version": "1.0.0",
+    "sha256": "0c2e63a9f563bb50672f5cf97604ca1cd1b887eff72f43dea0b6116d6a9fa4b6",
+    "created_at": "2026-07-24T06:10:00Z"
+  },
+  "boundary_id": "capital-evidence-core",
+  "structural_dependency": "ABSENT",
+  "structural_scan": {
+    "status": "PASS",
+    "scanned_roots": [
+      "asxos/portfolio",
+      "asxos/review",
+      "asxos/services",
+      "asxos/workflows"
+    ],
+    "forbidden_import_count": "0",
+    "forbidden_runtime_lookup_count": "0",
+    "scan_tool_version": "1.0.0",
+    "report_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "perturbation_runs": [
+    {
+      "scenario": "DEPENDENCY_REMOVED",
+      "status": "PASS",
+      "random_seed_sha256": null,
+      "baseline_input_bundle_sha256": "5656565656565656565656565656565656565656565656565656565656565656",
+      "perturbed_input_bundle_sha256": "5757575757575757575757575757575757575757575757575757575757575757",
+      "baseline_output_bundle_sha256": "5858585858585858585858585858585858585858585858585858585858585858",
+      "perturbed_output_bundle_sha256": "5858585858585858585858585858585858585858585858585858585858585858",
+      "canonical_outputs_byte_identical": true,
+      "runtime_lock_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+      "reason_codes": []
+    },
+    {
+      "scenario": "DEPENDENCY_RANDOMIZED",
+      "status": "PASS",
+      "random_seed_sha256": "5959595959595959595959595959595959595959595959595959595959595959",
+      "baseline_input_bundle_sha256": "5656565656565656565656565656565656565656565656565656565656565656",
+      "perturbed_input_bundle_sha256": "6060606060606060606060606060606060606060606060606060606060606060",
+      "baseline_output_bundle_sha256": "5858585858585858585858585858585858585858585858585858585858585858",
+      "perturbed_output_bundle_sha256": "5858585858585858585858585858585858585858585858585858585858585858",
+      "canonical_outputs_byte_identical": true,
+      "runtime_lock_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+      "reason_codes": []
+    }
+  ],
+  "covered_outputs": [
+    "PORTFOLIO_PROPOSAL",
+    "SIZING_DECISION",
+    "PAPER_INTENT",
+    "PAPER_ORDER",
+    "PAPER_FILL",
+    "BRANCH_LEDGER",
+    "BRANCH_NAV",
+    "EPISODE_OUTCOME",
+    "COHORT_STATISTICS",
+    "PAPER_EVALUATOR"
+  ],
+  "passed": true,
+  "reason_codes": [],
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "ec4720eb89b3d94c9c1367d2375db409c4ce4353c6b486881a47fdfd0a71f0a1"
+  },
+  "controls": {
+    "independent_harness": true,
+    "canonical_serialization": "RFC8785_JSON",
+    "deterministic_replay": true,
+    "producer_pass_boolean_trusted": false,
+    "capital_fields_consumed": false,
+    "live_holdings_write": false
+  }
+}

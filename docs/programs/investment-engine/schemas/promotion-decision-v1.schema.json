@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/promotion-decision-v1.schema.json",
+  "title": "Promotion Decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "promotion_decision_id",
+    "investment_case_id",
+    "lineage_ref",
+    "evaluation_policy_ref",
+    "gate_decision_ref",
+    "gate_evidence",
+    "requested_evidence_tier",
+    "decision",
+    "permitted_evidence_tier",
+    "decided_by",
+    "decided_at",
+    "reason",
+    "controls",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "promotion-decision-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "promotion_decision_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "investment_case_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "lineage_ref": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/hashRef"
+    },
+    "evaluation_policy_ref": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+    },
+    "gate_decision_ref": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/hashRef"
+    },
+    "gate_evidence": {
+      "$ref": "#/$defs/gateEvidence"
+    },
+    "requested_evidence_tier": {
+      "enum": [
+        "PAPER_ONLY",
+        "UNCALIBRATED",
+        "EVIDENCE_BACKED"
+      ]
+    },
+    "decision": {
+      "enum": [
+        "HOLD_PAPER_ONLY",
+        "APPROVE_UNCALIBRATED_VISIBILITY",
+        "APPROVE_EVIDENCE_BACKED_LANGUAGE",
+        "REJECT_PROMOTION"
+      ]
+    },
+    "permitted_evidence_tier": {
+      "enum": [
+        "PAPER_ONLY",
+        "UNCALIBRATED",
+        "EVIDENCE_BACKED"
+      ]
+    },
+    "decided_by": {
+      "const": "James"
+    },
+    "decided_at": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_language_only",
+        "order_approval",
+        "execution_authority",
+        "gate_recomputed"
+      ],
+      "properties": {
+        "evidence_language_only": {
+          "const": true
+        },
+        "order_approval": {
+          "const": false
+        },
+        "execution_authority": {
+          "const": "NONE"
+        },
+        "gate_recomputed": {
+          "const": true
+        }
+      }
+    },
+    "canonical_hash": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/canonicalHash"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "HOLD_PAPER_ONLY"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "permitted_evidence_tier": {
+            "const": "PAPER_ONLY"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "APPROVE_UNCALIBRATED_VISIBILITY"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "requested_evidence_tier": {
+            "const": "UNCALIBRATED"
+          },
+          "permitted_evidence_tier": {
+            "const": "UNCALIBRATED"
+          },
+          "gate_evidence": {
+            "properties": {
+              "operational_gate_passed": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "APPROVE_EVIDENCE_BACKED_LANGUAGE"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "requested_evidence_tier": {
+            "const": "EVIDENCE_BACKED"
+          },
+          "permitted_evidence_tier": {
+            "const": "EVIDENCE_BACKED"
+          },
+          "gate_evidence": {
+            "properties": {
+              "operational_gate_passed": {
+                "const": true
+              },
+              "strategy_gate_passed": {
+                "const": true
+              },
+              "evidence_complete": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "REJECT_PROMOTION"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "permitted_evidence_tier": {
+            "const": "PAPER_ONLY"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "gateEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operational_gate_passed",
+        "strategy_gate_passed",
+        "evidence_complete",
+        "evaluated_at"
+      ],
+      "properties": {
+        "operational_gate_passed": {
+          "type": "boolean"
+        },
+        "strategy_gate_passed": {
+          "type": "boolean"
+        },
+        "evidence_complete": {
+          "type": "boolean"
+        },
+        "evaluated_at": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+        }
+      }
+    }
+  }
+}

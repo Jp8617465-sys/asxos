@@ -1,0 +1,222 @@
+{
+  "contract_name": "cohort-statistics-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-10-23T06:00:00Z",
+  "created_at": "2026-10-23T06:20:00Z",
+  "source_hashes": [
+    {
+      "source": "continuous-shadow-nav-series",
+      "sha256": "4141414141414141414141414141414141414141414141414141414141414141"
+    },
+    {
+      "source": "registered-candidate-family",
+      "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+    }
+  ],
+  "statistics_id": "cohort-statistics-runway-001",
+  "cohort_id": "cohort-paper-001",
+  "config_ref": {
+    "contract_name": "evaluator-config-v1",
+    "artifact_id": "evaluator-config-paper-001",
+    "schema_version": "1.0.0",
+    "sha256": "0c2e63a9f563bb50672f5cf97604ca1cd1b887eff72f43dea0b6116d6a9fa4b6",
+    "created_at": "2026-07-24T06:10:00Z"
+  },
+  "candidate_family_id": "candidate-family-asx-001",
+  "trial_registry_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+  "continuous_nav_refs": [
+    {
+      "contract_name": "branch-nav-v1",
+      "artifact_id": "branch-nav-origin-000001",
+      "schema_version": "1.0.0",
+      "sha256": "e728c7ac8a648e936fe453e960b0c2cf08538ebf8b0efe73db910a0a6824bdb6",
+      "created_at": "2026-07-27T06:10:00Z"
+    }
+  ],
+  "episode_outcome_refs": [
+    {
+      "contract_name": "episode-outcome-v1",
+      "artifact_id": "episode-outcome-000001",
+      "schema_version": "1.0.0",
+      "sha256": "7c45fbc4212e35647da17d39a57dd8cc03032cde01185190fc12f7300e210c18",
+      "created_at": "2026-10-23T06:10:00Z"
+    }
+  ],
+  "origin_counts": {
+    "scheduled": "7",
+    "open": "1",
+    "blocked": "1",
+    "rejected": "1",
+    "no_action": "1",
+    "invalid": "1",
+    "matured": "0",
+    "unavailable": "2"
+  },
+  "observed_sessions": "0",
+  "priced_nav_day_fraction": "0.000000",
+  "daily_active_series": {
+    "series_sha256_vs_hold": "4242424242424242424242424242424242424242424242424242424242424242",
+    "series_sha256_vs_xjo_tr": "4343434343434343434343434343434343434343434343434343434343434343",
+    "paired_tuple_series_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "complete_observation_count": "0",
+    "missing_observation_count": "1",
+    "primary_branch": "PROPOSAL_STRESS",
+    "primary_estimand": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN"
+  },
+  "protocol": {
+    "primary_estimand": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN",
+    "primary_branch": "PROPOSAL_STRESS",
+    "comparisons": [
+      "HOLD",
+      "XJO_TR"
+    ],
+    "statistic": "ANNUALISED_PAIRED_LOG_ACTIVE_RETURN_252",
+    "resampling_unit": "PAIRED_DAILY_RETURN_TUPLE",
+    "bootstrap_method": "CIRCULAR_MOVING_BLOCK_BOOTSTRAP",
+    "block_rule": "FIXED_PRE_REGISTERED",
+    "primary_block_length_sessions": "10",
+    "sensitivity_block_lengths": [
+      "5",
+      "20"
+    ],
+    "block_boundary": "CIRCULAR",
+    "circular_index_rule": "SOURCE_INDEX_MODULO_N",
+    "terminal_block_rule": "CONCATENATE_THEN_TRUNCATE_TO_N",
+    "minimum_clean_paired_sessions": "252",
+    "session_order": "ASCENDING_TRADING_SESSION",
+    "common_endpoint_rule": "COMPLETE_STRESS_AND_COMPARATOR_SAME_SESSION",
+    "repetitions": "100000",
+    "evaluation_policy_sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c",
+    "seed_derivation": "UNSIGNED_FIRST_128_BITS_SHA256_COHORT_ID_PIPE_METRIC_ID_PIPE_EVALUATION_POLICY_SHA256",
+    "seed_bit_width": "128",
+    "seed_byte_order": "BIG_ENDIAN",
+    "prng_id": "NUMPY_PCG64DXSM",
+    "numpy_version": "2.1.1",
+    "draw_mapping": "NUMPY_GENERATOR_INTEGERS_0_TO_N_EXCLUSIVE",
+    "interval_estimator": "EMPIRICAL_TYPE_1",
+    "percentile_rule": "NEAREST_RANK_10TH_PERCENTILE",
+    "one_sided_confidence": "0.900000",
+    "sensitivity_interval_estimator": "EMPIRICAL_TYPE_1",
+    "sensitivity_two_sided_confidence": "0.950000",
+    "missingness_policy": "DIRTY_SESSION_RESETS_OPERATIONAL_STREAK_NO_IMPUTATION",
+    "decimal_output_scale": "6",
+    "candidate_family_required": true,
+    "multiple_testing_method": "HOLM_FAMILYWISE_DIAGNOSTIC"
+  },
+  "bootstrap_results": [
+    {
+      "metric_id": "stress_active_vs_hold",
+      "comparison": "HOLD",
+      "status": "UNAVAILABLE",
+      "point_estimate": null,
+      "one_sided_lower_bound": null,
+      "complete_session_count": "0",
+      "primary_block_length_sessions": "10",
+      "repetitions": "100000",
+      "seed_material_sha256": "a4bd9d4a6025648c13c1cfffb2f4708f2a1c1f029f26f6d8618037afbbdd0437",
+      "seed_uint128_hex": "a4bd9d4a6025648c13c1cfffb2f4708f",
+      "sensitivity_results": [
+        {
+          "block_length_sessions": "5",
+          "status": "UNAVAILABLE",
+          "two_sided_lower_bound": null,
+          "two_sided_upper_bound": null,
+          "confidence": "0.950000",
+          "reason_codes": [
+            "INSUFFICIENT_CLEAN_PAIRED_SESSIONS"
+          ]
+        },
+        {
+          "block_length_sessions": "20",
+          "status": "UNAVAILABLE",
+          "two_sided_lower_bound": null,
+          "two_sided_upper_bound": null,
+          "confidence": "0.950000",
+          "reason_codes": [
+            "INSUFFICIENT_CLEAN_PAIRED_SESSIONS"
+          ]
+        }
+      ],
+      "positive_lower_bound": null,
+      "reason_codes": [
+        "INSUFFICIENT_CLEAN_PAIRED_SESSIONS"
+      ]
+    },
+    {
+      "metric_id": "stress_active_vs_xjo_tr",
+      "comparison": "XJO_TR",
+      "status": "UNAVAILABLE",
+      "point_estimate": null,
+      "one_sided_lower_bound": null,
+      "complete_session_count": "0",
+      "primary_block_length_sessions": "10",
+      "repetitions": "100000",
+      "seed_material_sha256": "d7bcb325d28cdbb5926e294ec8023299c988740afbd583f0f71f583f6e3e131e",
+      "seed_uint128_hex": "d7bcb325d28cdbb5926e294ec8023299",
+      "sensitivity_results": [
+        {
+          "block_length_sessions": "5",
+          "status": "UNAVAILABLE",
+          "two_sided_lower_bound": null,
+          "two_sided_upper_bound": null,
+          "confidence": "0.950000",
+          "reason_codes": [
+            "INSUFFICIENT_CLEAN_PAIRED_SESSIONS"
+          ]
+        },
+        {
+          "block_length_sessions": "20",
+          "status": "UNAVAILABLE",
+          "two_sided_lower_bound": null,
+          "two_sided_upper_bound": null,
+          "confidence": "0.950000",
+          "reason_codes": [
+            "INSUFFICIENT_CLEAN_PAIRED_SESSIONS"
+          ]
+        }
+      ],
+      "positive_lower_bound": null,
+      "reason_codes": [
+        "INSUFFICIENT_CLEAN_PAIRED_SESSIONS"
+      ]
+    }
+  ],
+  "episode_diagnostics": {
+    "matured_episode_count": "0",
+    "episode_horizon_sessions": "63",
+    "overlap_present": true,
+    "dependency_group_count": "1",
+    "effective_episode_sample_size": "0.000000",
+    "episodes_treated_as_independent": false
+  },
+  "multiple_testing": {
+    "registered_candidate_count": "1",
+    "reported_candidate_count": "1",
+    "selection_event_count": "0",
+    "all_registered_candidates_reported": true,
+    "familywise_method": "HOLM",
+    "family_adjusted_pass": false
+  },
+  "fill_fraction_within_5_sessions": "0.247750",
+  "policy_breach_count": "0",
+  "mandate_drawdown_breach_count": "0",
+  "strategy_inputs_complete": false,
+  "reason_codes": [
+    "INSUFFICIENT_OBSERVED_SESSIONS",
+    "INSUFFICIENT_MATURED_EPISODES",
+    "FAMILY_DIAGNOSTIC_NOT_PASSED"
+  ],
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "9751737bd87d9573c827975dcb65a6f7993dd713f72afbe65b3ad9b1876f88bb"
+  },
+  "controls": {
+    "all_registered_origins_retained": true,
+    "reconstructed_rows_included": false,
+    "producer_gate_boolean_trusted": false,
+    "deterministic_replay": true
+  }
+}

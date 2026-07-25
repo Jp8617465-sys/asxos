@@ -1,0 +1,286 @@
+{
+  "contract_name": "branch-ledger-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-27T06:00:00Z",
+  "created_at": "2026-07-27T06:05:00Z",
+  "source_hashes": [
+    {
+      "source": "frozen-origin-state",
+      "sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411"
+    }
+  ],
+  "ledger_id": "branch-ledger-origin-000001",
+  "origin_ref": {
+    "contract_name": "evaluation-origin-v1",
+    "artifact_id": "evaluation-origin-000001",
+    "schema_version": "1.0.0",
+    "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+    "created_at": "2026-07-24T06:15:00Z"
+  },
+  "config_ref": {
+    "contract_name": "evaluator-config-v1",
+    "artifact_id": "evaluator-config-paper-001",
+    "schema_version": "1.0.0",
+    "sha256": "0c2e63a9f563bb50672f5cf97604ca1cd1b887eff72f43dea0b6116d6a9fa4b6",
+    "created_at": "2026-07-24T06:10:00Z"
+  },
+  "accounting_policy_ref": {
+    "contract_name": "accounting-policy-v1",
+    "artifact_id": "accounting-paper-asx-001",
+    "schema_version": "1.0.0",
+    "sha256": "591a6013ad4afe797f478138e8ed6d5940aa796563c471b1e6b1095dbc2ddd91",
+    "created_at": "2026-07-24T06:06:00Z"
+  },
+  "tax_profile_ref": {
+    "contract_name": "tax-profile-v1",
+    "artifact_id": "tax-profile-paper-001",
+    "schema_version": "1.0.0",
+    "sha256": "d163bae717baedbc7a0811f3743894573e2a465b672e88774de0eb6fa9d97a0e",
+    "created_at": "2026-07-24T05:04:00Z"
+  },
+  "branches": [
+    {
+      "branch_id": "PROPOSAL_BASE",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+      "status": "INCOMPLETE",
+      "events": [
+        {
+          "event_id": "opening-proposal-base-000001",
+          "event_type": "OPENING_BALANCE",
+          "effective_at": "2026-07-24T06:15:00Z",
+          "available_at": "2026-07-24T06:15:00Z",
+          "recorded_at": "2026-07-24T06:15:00Z",
+          "unit": "AUD",
+          "source_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+          "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reverses_event_id": null,
+          "legs": [
+            {
+              "account": "CASH",
+              "direction": "DEBIT",
+              "amount": "100000.000000"
+            },
+            {
+              "account": "EXTERNAL_FLOW",
+              "direction": "CREDIT",
+              "amount": "100000.000000"
+            }
+          ],
+          "debit_total": "100000.000000",
+          "credit_total": "100000.000000",
+          "balanced": true
+        }
+      ],
+      "completeness": {
+        "price": "INCOMPLETE",
+        "fx": "NOT_APPLICABLE",
+        "corporate_action": "INCOMPLETE",
+        "fee": "INCOMPLETE",
+        "cost": "INCOMPLETE",
+        "tax": "INCOMPLETE",
+        "accounting": "INCOMPLETE",
+        "settlement": "INCOMPLETE",
+        "reconciliation": "INCOMPLETE",
+        "external_flow": "COMPLETE"
+      },
+      "unresolved_item_refs": []
+    },
+    {
+      "branch_id": "PROPOSAL_STRESS",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+      "status": "INCOMPLETE",
+      "events": [
+        {
+          "event_id": "opening-proposal-stress-000001",
+          "event_type": "OPENING_BALANCE",
+          "effective_at": "2026-07-24T06:15:00Z",
+          "available_at": "2026-07-24T06:15:00Z",
+          "recorded_at": "2026-07-24T06:15:00Z",
+          "unit": "AUD",
+          "source_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+          "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reverses_event_id": null,
+          "legs": [
+            {
+              "account": "CASH",
+              "direction": "DEBIT",
+              "amount": "100000.000000"
+            },
+            {
+              "account": "EXTERNAL_FLOW",
+              "direction": "CREDIT",
+              "amount": "100000.000000"
+            }
+          ],
+          "debit_total": "100000.000000",
+          "credit_total": "100000.000000",
+          "balanced": true
+        }
+      ],
+      "completeness": {
+        "price": "INCOMPLETE",
+        "fx": "NOT_APPLICABLE",
+        "corporate_action": "INCOMPLETE",
+        "fee": "INCOMPLETE",
+        "cost": "INCOMPLETE",
+        "tax": "INCOMPLETE",
+        "accounting": "INCOMPLETE",
+        "settlement": "INCOMPLETE",
+        "reconciliation": "INCOMPLETE",
+        "external_flow": "COMPLETE"
+      },
+      "unresolved_item_refs": []
+    },
+    {
+      "branch_id": "HOLD",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+      "status": "INCOMPLETE",
+      "events": [
+        {
+          "event_id": "opening-hold-branch-000001",
+          "event_type": "OPENING_BALANCE",
+          "effective_at": "2026-07-24T06:15:00Z",
+          "available_at": "2026-07-24T06:15:00Z",
+          "recorded_at": "2026-07-24T06:15:00Z",
+          "unit": "AUD",
+          "source_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+          "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reverses_event_id": null,
+          "legs": [
+            {
+              "account": "CASH",
+              "direction": "DEBIT",
+              "amount": "100000.000000"
+            },
+            {
+              "account": "EXTERNAL_FLOW",
+              "direction": "CREDIT",
+              "amount": "100000.000000"
+            }
+          ],
+          "debit_total": "100000.000000",
+          "credit_total": "100000.000000",
+          "balanced": true
+        }
+      ],
+      "completeness": {
+        "price": "INCOMPLETE",
+        "fx": "NOT_APPLICABLE",
+        "corporate_action": "INCOMPLETE",
+        "fee": "COMPLETE",
+        "cost": "NOT_APPLICABLE",
+        "tax": "INCOMPLETE",
+        "accounting": "INCOMPLETE",
+        "settlement": "NOT_APPLICABLE",
+        "reconciliation": "INCOMPLETE",
+        "external_flow": "COMPLETE"
+      },
+      "unresolved_item_refs": []
+    },
+    {
+      "branch_id": "XJO_TR",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+      "status": "INCOMPLETE",
+      "events": [
+        {
+          "event_id": "opening-xjo-branch-000001",
+          "event_type": "OPENING_BALANCE",
+          "effective_at": "2026-07-24T06:15:00Z",
+          "available_at": "2026-07-24T06:15:00Z",
+          "recorded_at": "2026-07-24T06:15:00Z",
+          "unit": "AUD",
+          "source_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+          "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reverses_event_id": null,
+          "legs": [
+            {
+              "account": "CASH",
+              "direction": "DEBIT",
+              "amount": "100000.000000"
+            },
+            {
+              "account": "EXTERNAL_FLOW",
+              "direction": "CREDIT",
+              "amount": "100000.000000"
+            }
+          ],
+          "debit_total": "100000.000000",
+          "credit_total": "100000.000000",
+          "balanced": true
+        }
+      ],
+      "completeness": {
+        "price": "INCOMPLETE",
+        "fx": "NOT_APPLICABLE",
+        "corporate_action": "NOT_APPLICABLE",
+        "fee": "NOT_APPLICABLE",
+        "cost": "NOT_APPLICABLE",
+        "tax": "NOT_APPLICABLE",
+        "accounting": "INCOMPLETE",
+        "settlement": "NOT_APPLICABLE",
+        "reconciliation": "INCOMPLETE",
+        "external_flow": "COMPLETE"
+      },
+      "unresolved_item_refs": []
+    },
+    {
+      "branch_id": "CASH",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+      "status": "INCOMPLETE",
+      "events": [
+        {
+          "event_id": "opening-cash-branch-000001",
+          "event_type": "OPENING_BALANCE",
+          "effective_at": "2026-07-24T06:15:00Z",
+          "available_at": "2026-07-24T06:15:00Z",
+          "recorded_at": "2026-07-24T06:15:00Z",
+          "unit": "AUD",
+          "source_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+          "policy_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "reverses_event_id": null,
+          "legs": [
+            {
+              "account": "CASH",
+              "direction": "DEBIT",
+              "amount": "100000.000000"
+            },
+            {
+              "account": "EXTERNAL_FLOW",
+              "direction": "CREDIT",
+              "amount": "100000.000000"
+            }
+          ],
+          "debit_total": "100000.000000",
+          "credit_total": "100000.000000",
+          "balanced": true
+        }
+      ],
+      "completeness": {
+        "price": "INCOMPLETE",
+        "fx": "NOT_APPLICABLE",
+        "corporate_action": "NOT_APPLICABLE",
+        "fee": "NOT_APPLICABLE",
+        "cost": "NOT_APPLICABLE",
+        "tax": "INCOMPLETE",
+        "accounting": "INCOMPLETE",
+        "settlement": "NOT_APPLICABLE",
+        "reconciliation": "INCOMPLETE",
+        "external_flow": "COMPLETE"
+      },
+      "unresolved_item_refs": []
+    }
+  ],
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "bb6ecb5d7072046ca4c839b13657f62914383c57beb065817050c2ddecf39607"
+  },
+  "controls": {
+    "append_only": true,
+    "corrections_reverse_and_link": true,
+    "live_holdings_write": false,
+    "evaluation_mode": "PAPER_ONLY"
+  }
+}

@@ -1,13 +1,17 @@
 # arbi cleanup backlog — roadmap + repo
 
-**Status:** current
+**Status:** legacy inventory snapshot; not executable sequencing authority
 **Scope:** the prioritised cleanup work surfaced by the 2026-07-10 arbi scan (`wf_f54323f5-d7d`)
 **Owner:** arbi tracks; work dispatched via `/arbi-run`; irreversible items need James
-**Superseded by:** N/A
+**Superseded by:** `roadmap.yaml` for every investment-engine, Model A,
+portfolio-review, construction, sizing, evaluator, and release item. Unrelated
+cleanup rows remain discovery inputs only and must be re-verified against current
+`main` before entering the canonical roadmap.
 
-Every item is file-cited and tagged **[REV]** (reversible — arbi can do via `/arbi-run` +
-review loop) or **[GATED]** (irreversible / boundary / precondition — needs James). Work
-top-down; check items off in this file as they land.
+Every row below is historical context, not a command to work top-down. Tags
+retain their original meaning, but Arbi may execute a row only after deduping it
+against `roadmap.yaml`, refreshing its evidence, and creating an accepted
+canonical initiative or a separately approved non-programme mission.
 
 ---
 
@@ -60,6 +64,8 @@ reconciled). Cited in `portfolio-outcome-ledger.md` (2026-07-11) and risk-regist
    Managed Agents + Phase 2c), R9 (dual brief trees decision), R10 (DB migration). R1's
    wording and R8 both intersect the Model A P0.
 
-Note: none of this is the P0. **The single highest-leverage action remains the Model A decay
-check** (`the_one_thing`, scan `wf_f54323f5-d7d`) — this backlog is the cleanup that rides
-alongside it.
+Historical note: the Model A decay check cited here has completed. The evidence
+now supports standing exclusion from capital and the approval-gated
+runtime-decommission proposal in
+`../programs/investment-engine/model-a-decommission.md`; this file does not
+reopen that resolved study or sequence its implementation.

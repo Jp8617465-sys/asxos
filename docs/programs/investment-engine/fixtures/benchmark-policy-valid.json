@@ -1,0 +1,55 @@
+{
+  "contract_name": "benchmark-policy-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T06:00:00Z",
+  "created_at": "2026-07-24T06:07:00Z",
+  "source_hashes": [
+    {
+      "source": "benchmark-methodology",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "benchmark_policy_id": "benchmark-paper-asx-001",
+  "benchmark_policy_version": "1.0.0",
+  "xjo_tr": {
+    "benchmark_id": "XJO-TR",
+    "data_class": "GENUINE_POINT_IN_TIME",
+    "return_class": "GROSS_TOTAL_RETURN_INDEX",
+    "comparison_label": "CONSERVATIVE_HURDLE_NOT_BENCHMARK_NEUTRAL_ALPHA",
+    "dividend_reinvestment": "INDEX_METHODOLOGY",
+    "publication_lag_required": true
+  },
+  "hold": {
+    "discretionary_trades": "NONE",
+    "corporate_actions": "APPLY_POINT_IN_TIME",
+    "income": "APPLY_POINT_IN_TIME",
+    "tax_and_cost": "ACCOUNTING_POLICY",
+    "external_flows": "MIRROR_PROPOSAL_BRANCH"
+  },
+  "cash": {
+    "rate_source": "OBSERVABLE_ACCOUNT_OR_CASH_RATE",
+    "rate_data_class": "POINT_IN_TIME",
+    "compounding": "DAILY_ACT_365",
+    "tax_treatment": "ACCOUNTING_POLICY",
+    "external_flows": "MIRROR_PROPOSAL_BRANCH"
+  },
+  "endpoint_policy": {
+    "same_origin": true,
+    "same_maturity": true,
+    "same_calendar": true,
+    "same_flow_timing": true
+  },
+  "missing_data_action": "COMPARISON_UNAVAILABLE_NO_SUBSTITUTE",
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "f5f3a11118ddd52bc24d57b03979ce7960796db883bd9a17467127b4ed1afcc5"
+  },
+  "controls": {
+    "price_only_substitution": false,
+    "remembered_rate_substitution": false,
+    "non_executable": true
+  }
+}

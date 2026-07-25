@@ -1,0 +1,43 @@
+{
+  "contract_name": "promotion-decision-v1",
+  "schema_version": "1.0.0",
+  "promotion_decision_id": "promotion-decision-20260724",
+  "investment_case_id": "case-bhp-20260724",
+  "lineage_ref": {
+    "id": "lineage-evaluation-frozen",
+    "sha256": "074f52d20f47daaa1322578dea74dbd5ff5935835959d834a14d5fc5a2099802"
+  },
+  "evaluation_policy_ref": {
+    "id": "evaluation-policy-main",
+    "version": "1.0.0",
+    "sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c"
+  },
+  "gate_decision_ref": {
+    "id": "gate-decision-20260724",
+    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "gate_evidence": {
+    "operational_gate_passed": true,
+    "strategy_gate_passed": false,
+    "evidence_complete": true,
+    "evaluated_at": "2026-07-24T03:10:00Z"
+  },
+  "requested_evidence_tier": "UNCALIBRATED",
+  "decision": "APPROVE_UNCALIBRATED_VISIBILITY",
+  "permitted_evidence_tier": "UNCALIBRATED",
+  "decided_by": "James",
+  "decided_at": "2026-07-24T03:15:00Z",
+  "reason": "Operational evidence is complete; strategy calibration remains below the preregistered horizon.",
+  "controls": {
+    "evidence_language_only": true,
+    "order_approval": false,
+    "execution_authority": "NONE",
+    "gate_recomputed": true
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "7c1375065b30b8243c4f94acaf0f8e559ef7be2d8c5fb5cd8957931fe6444481"
+  }
+}

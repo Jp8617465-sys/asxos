@@ -1,0 +1,550 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/review-context-v1.schema.json",
+  "title": "ReviewContextV1",
+  "description": "Immutable, point-in-time, model-independent input shared by blind reviewers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "context_id",
+    "review_cycle_id",
+    "thesis_id",
+    "report_version_id",
+    "context_as_of",
+    "generated_at",
+    "context_sha256",
+    "subject",
+    "claims",
+    "scenarios",
+    "evidence",
+    "portfolio",
+    "risk_policy",
+    "freshness",
+    "missing_data",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "review-context-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "context_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "review_cycle_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "thesis_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "report_version_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "context_as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "context_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "canonical_hash": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/canonicalHash"
+    },
+    "subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidenceSnapshot"
+      }
+    },
+    "portfolio": {
+      "$ref": "#/$defs/portfolioSnapshot"
+    },
+    "risk_policy": {
+      "$ref": "#/$defs/riskPolicyReference"
+    },
+    "freshness": {
+      "$ref": "#/$defs/freshness"
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/missingDatum"
+      }
+    }
+  },
+  "$defs": {
+    "decimalString": {
+      "type": "string",
+      "pattern": "^-?(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,6})?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "flavour"
+      ],
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+\\.(AU|US)$"
+        },
+        "flavour": {
+          "enum": [
+            "individual_equity",
+            "etf_fund"
+          ]
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "text",
+        "materiality",
+        "evidence_ids"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^CLM-[0-9]{3,}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "materiality": {
+          "enum": [
+            "supporting",
+            "material",
+            "critical"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case",
+        "narrative",
+        "key_assumptions",
+        "evidence_ids"
+      ],
+      "properties": {
+        "case": {
+          "enum": [
+            "bear",
+            "base",
+            "bull"
+          ]
+        },
+        "narrative": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key_assumptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fact_key",
+        "value_text",
+        "source_locator"
+      ],
+      "properties": {
+        "fact_key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "value_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decimal_value": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/decimalString"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_locator": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidenceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "claim",
+        "tier",
+        "source_type",
+        "source_name",
+        "observed_at",
+        "retrieved_at",
+        "data_as_of",
+        "content_sha256",
+        "facts"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tier": {
+          "enum": [
+            "verified",
+            "inferred"
+          ]
+        },
+        "source_type": {
+          "enum": [
+            "company_filing",
+            "exchange_release",
+            "regulator",
+            "market_data",
+            "fundamentals",
+            "portfolio_ledger",
+            "tax_ledger",
+            "governed_research"
+          ]
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data_as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/fact"
+          }
+        }
+      }
+    },
+    "holding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol",
+        "quantity",
+        "market_value_aud",
+        "sector",
+        "source_as_of"
+      ],
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+\\.(AU|US)$"
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "market_value_aud": {
+          "$ref": "#/$defs/decimalString"
+        },
+        "sector": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_as_of": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "portfolioSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "as_of",
+        "nav_aud",
+        "cash_aud",
+        "holdings"
+      ],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "nav_aud": {
+          "$ref": "#/$defs/decimalString"
+        },
+        "cash_aud": {
+          "$ref": "#/$defs/decimalString"
+        },
+        "holdings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/holding"
+          }
+        }
+      }
+    },
+    "riskPolicyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "policy_id",
+        "policy_version",
+        "policy_sha256"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "UNAVAILABLE",
+            "RATIFIED"
+          ]
+        },
+        "policy_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policy_version": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "policy_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNAVAILABLE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "policy_id": {
+                "type": "null"
+              },
+              "policy_version": {
+                "type": "null"
+              },
+              "policy_sha256": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "freshnessItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_name",
+        "state",
+        "age_seconds",
+        "maximum_age_seconds"
+      ],
+      "properties": {
+        "input_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "enum": [
+            "FRESH",
+            "STALE",
+            "MISSING",
+            "FUTURE_DATED"
+          ]
+        },
+        "age_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maximum_age_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "overall_state",
+        "items"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "overall_state": {
+          "enum": [
+            "FRESH",
+            "STALE",
+            "INCOMPLETE"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/freshnessItem"
+          }
+        }
+      }
+    },
+    "missingDatum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "field_path",
+        "severity",
+        "explanation"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "field_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "blocking",
+            "advisory"
+          ]
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -1,42 +1,41 @@
 ---
 title: Guards backlog
 location: docs/maintenance/guards-backlog.md
-auto_activate:
-  agents:
-    - system-architect
-  skills:
-    - feature-plan
-priority_review_cadence: weekly during paper-trade window, monthly thereafter
+status: legacy_inventory
+sequencing_authority: false
+superseded_by_for_investment_engine: docs/product/roadmap.yaml
+priority_review_cadence: no automatic cadence; refresh and admit one item through canonical roadmap
 owner: james
-last_updated: 2026-05-28
+last_updated: 2026-07-24
 ---
 <!--
 ================================================================================
 CLAUDE CODE — AUTO-ACTIVATION DIRECTIVE
 ================================================================================
 When this file is opened, attached as context, or referenced in a session:
-  1. Invoke the `system-architect` agent for any item being designed or reviewed.
-     This file's items are architectural, not feature work — they affect
-     guarantees, not capabilities.
-  2. Invoke the `/feature-plan` skill before promoting any item from TODO to
-     IN-PROGRESS. Each item should have a feature plan generated against it
-     before code is written.
+  1. Treat every row as historical discovery input, not a queued work order.
+  2. Re-verify the row against current main, dedupe it against
+     docs/product/roadmap.yaml, and obtain canonical admission before dispatch.
   3. Auto-attached rules apply: portfolio-conventions.md, job-conventions.md,
      screening-conventions.md remain authoritative on Decimal discipline,
      hard-fail invariants, and pure/DB split.
-  4. Do NOT promote items P2+ during the M13.8 paper-trade window unless an
-     incident makes it P0. Operational discipline during the window is more
-     valuable than backlog burndown.
-If the routing layer does not auto-activate the above, the user runs:
-  /route
-  /feature-plan @docs/maintenance/guards-backlog.md
+  4. The former M13.8/four-week window is superseded by S08-S12 and the
+     post-freeze 30/252-session gates. Do not use it for priority or release.
 ================================================================================
 -->
 # Guards backlog
+
+> **Legacy inventory — not sequencing authority.** The estimates, priorities,
+> file lines, Model A jobs and M13.8 windows below are a 2026-05-28 snapshot.
+> `docs/product/roadmap.yaml` controls accepted investment-engine work. Any
+> unrelated guard must be refreshed against current code and deliberately
+> admitted before implementation.
+
 Tracking item for guard-clause improvements identified during the 2026-05-28 architectural review of `asxos` job and API entry points. The review followed the cron-failure resolution (commit `40e0eac`) and the M14b REV-K landing.
 The current guard inventory (hard-fail / soft-fail / weak-or-missing) is captured in `docs/architecture/guards-inventory.md`. This file tracks *additions and changes* to that inventory.
 ## How to work this backlog
-1. Items are bucketed by priority. P0 items get worked before any new feature milestone opens. P1 items get worked during the M13.8 paper-trade window, in the spare attention that operational mode allows. P2+ items wait until post-signoff.
+1. The original P0/P1/P2 buckets preserve audit history only; they do not
+   outrank a canonical initiative or create a paper-window side lane.
 2. Every item has explicit acceptance criteria. An item is not "done" until those criteria are verifiable in a test, a Sentry rule, or a documented procedure.
 3. Before opening an item, invoke `/feature-plan` against it and capture the plan inline. The plan supersedes the "Proposed implementation" stub in this file.
 4. Items that touch external APIs or service boundaries should pass through `system-architect` review before implementation. Items that are pure additions to existing patterns (e.g. extending the assert_partial_success helper to a new job) skip the review.

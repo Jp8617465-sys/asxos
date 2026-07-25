@@ -1,0 +1,79 @@
+{
+  "contract_name": "risk-policy-v1",
+  "schema_version": "1.1.0",
+  "policy_id": "risk-policy-main",
+  "policy_version": "1.0.0",
+  "effective_from": "2026-07-24T00:00:00Z",
+  "effective_to": null,
+  "approval": {
+    "ratified_by": "James",
+    "authority_role": "ACCOUNT_OWNER",
+    "ratified_at": "2026-07-23T23:32:00Z",
+    "approval_sha256": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+  },
+  "scope": {
+    "portfolio_id": "portfolio-james-paper",
+    "environment": "PAPER_ONLY",
+    "venue": "XASX",
+    "currency": "AUD",
+    "asset_class": "EQUITY",
+    "shorting_allowed": false
+  },
+  "portfolio_limits": {
+    "max_gross_weight": "1.000000",
+    "max_net_weight": "1.000000",
+    "min_cash_weight": "0.100000",
+    "max_issuer_weight": "0.200000",
+    "max_corporate_group_weight": "0.250000",
+    "max_single_name_weight": "0.200000",
+    "max_sector_weight": "0.300000",
+    "max_theme_weight": "0.300000",
+    "max_daily_turnover_weight": "0.200000"
+  },
+  "liquidity_limits": {
+    "min_adv_aud": "1000000.000000",
+    "max_order_adv_fraction": "0.100000",
+    "max_fill_participation_fraction": "0.100000",
+    "max_spread_fraction": "0.010000",
+    "max_price_age_seconds": 900
+  },
+  "loss_limits": {
+    "max_portfolio_loss_at_stop_fraction": "0.050000",
+    "max_position_drawdown_fraction": "0.200000",
+    "max_portfolio_drawdown_fraction": "0.150000",
+    "max_daily_loss_fraction": "0.030000",
+    "breach_action": "REJECT_AND_HOLD"
+  },
+  "sizing_rules": {
+    "rounding_mode": "FLOOR_TO_BOARD_LOT",
+    "board_lot_quantity": "1",
+    "min_order_notional_aud": "500.000000",
+    "cash_buffer_aud": "1000.000000",
+    "fee_schedule_ref": {
+      "id": "fee-schedule-paper",
+      "version": "1.0.0",
+      "sha256": "f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5"
+    },
+    "zero_quantity_action": "REJECT_DECISION"
+  },
+  "controls": {
+    "non_executable": true,
+    "fail_closed": true,
+    "deterministic_decimal_math": true,
+    "implicit_defaults_permitted": false,
+    "llm_numeric_output_permitted": false
+  },
+  "source_hashes": [
+    {
+      "source": "james-ratified-risk-policy",
+      "sha256": "0505050505050505050505050505050505050505050505050505050505050505"
+    }
+  ],
+  "created_at": "2026-07-23T23:33:00Z",
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+  }
+}

@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/reviewer-assessment-v1.schema.json",
+  "title": "Reviewer Assessment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "assessment_id",
+    "investment_case_id",
+    "review_cycle_id",
+    "report_ref",
+    "report_candidate_sha256",
+    "context_id",
+    "context_sha256",
+    "role",
+    "reviewer",
+    "submitted_at",
+    "verdict",
+    "confidence",
+    "summary",
+    "findings",
+    "abstention_reason",
+    "controls",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "reviewer-assessment-v1"
+    },
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "assessment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "investment_case_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "review_cycle_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "report_ref": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/hashRef"
+    },
+    "report_candidate_sha256": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/sha256"
+    },
+    "context_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "context_sha256": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/sha256"
+    },
+    "role": {
+      "enum": [
+        "evidence_claims",
+        "valuation_scenarios",
+        "thesis_adversary",
+        "portfolio_risk_fit",
+        "implementation_liquidity_tax"
+      ]
+    },
+    "reviewer": {
+      "$ref": "#/$defs/reviewer"
+    },
+    "submitted_at": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "CHALLENGE",
+        "FAIL",
+        "ABSTAIN"
+      ]
+    },
+    "confidence": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/unitDecimal"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "abstention_reason": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "controls": {
+      "$ref": "#/$defs/controls"
+    },
+    "canonical_hash": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/canonicalHash"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "ABSTAIN"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "abstention_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "abstention_reason": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_ref",
+        "model_ref",
+        "prompt_ref",
+        "rubric_ref"
+      ],
+      "properties": {
+        "agent_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        "model_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        "prompt_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        },
+        "rubric_ref": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/versionedRef"
+        }
+      }
+    },
+    "resolutionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution_id",
+        "resolution_type",
+        "resolved_by",
+        "resolved_at",
+        "resolution_sha256"
+      ],
+      "properties": {
+        "resolution_id": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+        },
+        "resolution_type": {
+          "enum": [
+            "ACCEPTED_RISK",
+            "RESOLVED"
+          ]
+        },
+        "resolved_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolved_at": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+        },
+        "resolution_sha256": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "code",
+        "severity",
+        "status",
+        "claim_ids",
+        "evidence_ids",
+        "description",
+        "required_action",
+        "uncertainty",
+        "resolution_ref"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "status": {
+          "enum": [
+            "OPEN",
+            "ACCEPTED_RISK",
+            "RESOLVED"
+          ]
+        },
+        "claim_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^CLM-[0-9]{3,}$"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uncertainty": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolution_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/resolutionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "OPEN"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "resolution_ref": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "resolution_ref": {
+                "$ref": "#/$defs/resolutionRef"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blind_first_pass",
+        "other_reviewer_output_visible",
+        "database_access",
+        "network_access",
+        "numeric_authority",
+        "eligibility_authority",
+        "non_executable"
+      ],
+      "properties": {
+        "blind_first_pass": {
+          "const": true
+        },
+        "other_reviewer_output_visible": {
+          "const": false
+        },
+        "database_access": {
+          "const": false
+        },
+        "network_access": {
+          "const": false
+        },
+        "numeric_authority": {
+          "const": false
+        },
+        "eligibility_authority": {
+          "const": false
+        },
+        "non_executable": {
+          "const": true
+        }
+      }
+    }
+  }
+}

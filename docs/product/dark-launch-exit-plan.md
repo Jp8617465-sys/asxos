@@ -1,13 +1,17 @@
 # Dark-launch exit plan — ship, delete, or keep-dark-with-an-expiry
 
-**Status:** current
+**Status:** current for unrelated legacy surfaces; investment-engine rows are
+superseded by `roadmap.yaml` and the twelve-week dossier
 **Scope:** every code-complete-but-gated-off surface in asxos. For each one: a **ship / delete /
 keep-dark** decision, the reason, an **expiry** if kept dark, and the exact gate that flips it.
 Closes risk R4 (built-but-dark ≠ released) by refusing to let a surface sit dark with no decision.
-**Last verified:** 2026-07-11 (post ML-shelf; the model-independent product is now THE product)
+**Last verified:** 2026-07-24 for programme precedence; individual legacy-surface
+facts still require live refresh
 **Owner:** arbi maintains the decisions + expiries (I2, command-invoked); James owns any decision
 that flips a real-capital or firewall gate (those are `james-inbox.md` items).
-**Superseded by:** N/A
+**Superseded by:** `roadmap.yaml`, S08–S12, and
+`programs/investment-engine/operations-and-rollout.md` for portfolio construction,
+paper evaluation, staging, and their release clocks.
 
 A dark launch is a promise to decide later. "Later" without a date is how dead code accretes. Every
 surface below carries one of three verdicts — **SHIP** (flip the gate on a named condition),
@@ -20,18 +24,21 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ### 1. Portfolio brief — `ASXOS_PORTFOLIO_BRIEF_ENABLED=0`
 
-- **Verdict: KEEP-DARK · expiry 2026-08-31.**
+- **Verdict: KEEP-DARK · reassess only at the S12 handoff.**
 - **Why:** The M13 allocator brief section is model-independent in its non-signal cards (tax,
   discipline, thesis, regulatory) but the *allocator* path it fronts is dormant policy
   (rule #11 standing; `approved_for_allocation=0`). Shipping the section as-is would front an
   allocator that is deliberately not allowed to run. The valuable model-independent cards already
   reach James through the main brief, so there's no user-facing loss in keeping this off.
-- **Gate to ship:** `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` **and** `ASXOS_PERSONAL_USE=1` — but only
-  after 4 weeks of paper-trade sign-off (M13.8) **and** the section is re-scoped to display the
-  discipline/tax cards *without* implying an allocator recommendation. Until the allocator has a
-  revival path (a new model past the decay bar), ship the model-independent cards or nothing.
-- **Owner of the flip:** James (firewall gate 1 + capital-adjacent) — a `james-inbox.md` item when
-  the paper-trade window closes.
+- **Gate to ship:** the legacy four-week/M13.8 gate is retired. The surface may
+  only be removed or adapted as a thin reader of the S12 governed artifact after
+  the S01–S12 acceptance chain, the separate authority ratification, and the
+  post-freeze 30-clean-session operational gate. `ASXOS_PORTFOLIO_BRIEF_ENABLED`
+  and `ASXOS_PERSONAL_USE` remain necessary but cannot substitute for those
+  predicates. Strategy/edge language additionally requires 252 prospective
+  sessions and 20 matured pre-registered 63-session episodes.
+- **Owner of the flip:** James (firewall gate 1 + capital-adjacent) — a
+  `james-inbox.md` item only after the S12 lineage and operational gate close.
 
 ### 2. News / sentiment brief — `ASXOS_NEWS_BRIEF_ENABLED=1` (SHIPPED 2026-07-11, draft-PR pending merge)
 
@@ -84,19 +91,20 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   portfolio section.
 - **Owner of the flip:** arbi drives the re-scope; James flips if any card is capital-adjacent.
 
-### 4. Paper-trade evaluator
+### 4. Legacy paper-trade evaluator
 
-- **Verdict: KEEP-DARK · expiry tied to surface #1, re-raise 2026-08-31.**
-- **Why:** The paper-trade evaluator (`asxos/domain/portfolio/paper_trade.py`) exists to *earn* the
-  4-week sign-off that gates surface #1 — it is the instrument that produces the evidence to ship
-  the portfolio brief, so it is correctly dark until that evaluation is actually being run.
-  Deleting it would remove the only mechanism that can retire surface #1's KEEP-DARK. It stays,
-  unshipped, as scaffolding with a job to do.
-- **Gate to ship:** not a user-facing gate — this is an internal evaluator. "Ship" here means
-  **start the 4-week paper-trade run** (record its results to feed the M13.8 sign-off), not expose
-  output to James. Begins when James decides to open the portfolio-brief evaluation window.
-- **Owner of the flip:** James starts the window (it commits to a capital-adjacent evaluation);
-  arbi runs and records once started.
+- **Verdict: LEGACY PROTOTYPE · do not start its four-week promotion clock.**
+- **Why:** `asxos/domain/portfolio/paper_trade.py` is repository evidence to
+  inventory and selectively reuse, not the accepted evaluator. It lacks the
+  frozen origins, five branches, causal fills, branch ledger/NAV, XJO-TR,
+  accounting/tax lineage, prospective statistics, and fail-closed gates specified
+  by S08–S11.
+- **Gate:** no user-facing release. Build the S08–S11 evaluator through reviewed
+  sprint PRs. Only after S12 freezes the complete lineage may James start the
+  30-clean-session operational clock; the 252-session/20-episode strategy clock is
+  separate and cannot be shortened by legacy history.
+- **Owner:** Arbi coordinates the build and evidence; James alone authorises the
+  post-S12 clocks and any product flip.
 
 ---
 
@@ -104,10 +112,10 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 | Surface | Verdict | Gate | Expiry / condition | Flip owner |
 |---|---|---|---|---|
-| Portfolio brief | KEEP-DARK | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | 2026-08-31 · re-scope to model-independent cards + 4wk sign-off | James |
+| Portfolio brief | KEEP-DARK | S01–S12 acceptance + authority ratification + 30 clean post-freeze sessions; flags remain necessary | S12 handoff; no legacy four-week sign-off | James |
 | News/sentiment brief | **SHIPPED 2026-07-11** | `ASXOS_NEWS_BRIEF_ENABLED=1` (drafted, pending PR merge) | both conditions verified | arbi/main loop |
 | V2 brief tree | KEEP-DARK | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 · descope to model-independent collectors | arbi / James |
-| Paper-trade evaluator | KEEP-DARK | start the 4wk run (internal) | 2026-08-31 · re-raise with surface #1 | James |
+| Legacy paper-trade evaluator | PROTOTYPE ONLY | no promotion gate; selectively reuse behind S08–S11 contracts | superseded by canonical evaluator | Arbi coordinates; James authorises clocks |
 
 ## How arbi uses it
 
