@@ -50,7 +50,7 @@
         "contract_name": "portfolio-proposal-v1",
         "artifact_id": "portfolio-proposal-20260724",
         "schema_version": "1.0.0",
-        "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e",
+        "sha256": "4ca5c2e7d38e753d702ad2c226ced993370367f4ade3c79e7f775c52ecc57fdd",
         "created_at": "2026-07-24T03:22:00Z"
       }
     },
@@ -128,7 +128,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d"
+    "payload_sha256": "56596f5d6623db64f7aa1ad9aafc27f52fd0c3d8d94408648e8c34ee0decbda9"
   },
   "controls": {
     "outcome_known_at_open": false,

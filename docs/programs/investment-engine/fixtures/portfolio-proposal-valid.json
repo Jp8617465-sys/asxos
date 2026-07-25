@@ -32,8 +32,8 @@
       "context_id": "10000000-0000-4000-8000-000000000001",
       "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
       "review_cycle_id": "20000000-0000-4000-8000-000000000001",
-      "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
-      "eligibility_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+      "eligibility_decision_id": "30000000-0000-4000-8000-000000000002",
+      "eligibility_sha256": "34e74b333540de58e34e3db614c75fe5d5c58d3d55dd83c741eff1a6eb7c6fa7"
     },
     "monitor": {
       "watermark_id": "monitor-watermark-20260724",
@@ -177,8 +177,8 @@
       "classification_status": "COMPLETE",
       "admissible_for_construction": true,
       "eligibility_decision_ref": {
-        "id": "30000000-0000-4000-8000-000000000001",
-        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        "id": "30000000-0000-4000-8000-000000000002",
+        "sha256": "34e74b333540de58e34e3db614c75fe5d5c58d3d55dd83c741eff1a6eb7c6fa7"
       },
       "reference_price_aud": "50.000000",
       "thesis_stop_price_aud": "45.000000",
@@ -224,7 +224,7 @@
           "action": "UNCHANGED",
           "source_ref": {
             "id": "30000000-0000-4000-8000-000000000001",
-            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
           }
         },
         {
@@ -437,7 +437,7 @@
       "requested_delta_weight": "0.100000",
       "expected_loss_at_stop_fraction": "0.010000",
       "construction_status": "INCLUDED",
-      "target_sha256": "749c10da8e1542d749207176b40ccafbfcbcbcb25b1e7dec2482c83b04551da5"
+      "target_sha256": "4c7764afba3fdc1d1da1c63a0f45f189e811d2243000e9396e5ef19ed81afd71"
     }
   ],
   "summary": {
@@ -490,6 +490,6 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+    "payload_sha256": "4ca5c2e7d38e753d702ad2c226ced993370367f4ade3c79e7f775c52ecc57fdd"
   }
 }

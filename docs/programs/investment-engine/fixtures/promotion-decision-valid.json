@@ -5,7 +5,7 @@
   "investment_case_id": "case-bhp-20260724",
   "lineage_ref": {
     "id": "lineage-evaluation-frozen",
-    "sha256": "074f52d20f47daaa1322578dea74dbd5ff5935835959d834a14d5fc5a2099802"
+    "sha256": "b43fa030cc1b1cde421518e739589efcb7d7269fb23476033d58eb8a346086f2"
   },
   "evaluation_policy_ref": {
     "id": "evaluation-policy-main",
@@ -38,6 +38,6 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "7c1375065b30b8243c4f94acaf0f8e559ef7be2d8c5fb5cd8957931fe6444481"
+    "payload_sha256": "67d1980b2588ced45a7e891a54fc0672c19a618b7c8d3c5ec271fc40de73130a"
   }
 }

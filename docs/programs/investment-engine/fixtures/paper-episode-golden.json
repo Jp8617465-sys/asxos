@@ -63,7 +63,7 @@
         "contract_name": "evaluation-origin-v1",
         "artifact_id": "evaluation-origin-000001",
         "schema_version": "1.0.0",
-        "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+        "sha256": "56596f5d6623db64f7aa1ad9aafc27f52fd0c3d8d94408648e8c34ee0decbda9",
         "created_at": "2026-07-24T06:15:00Z"
       }
     ],
@@ -72,7 +72,7 @@
         "contract_name": "paper-intent-v1",
         "artifact_id": "paper-intent-000001",
         "schema_version": "1.0.0",
-        "sha256": "2c2b746632a4a677d9a63b8d5eeb763e71d3fca8ca197c49a668f43d995b0137",
+        "sha256": "56ad779b43b37718024cb161d20b301a91976558a55a062fd2eee9a366ad9c49",
         "created_at": "2026-07-24T06:20:00Z"
       }
     ],
@@ -81,7 +81,7 @@
         "contract_name": "paper-order-v1",
         "artifact_id": "paper-order-000001",
         "schema_version": "1.0.0",
-        "sha256": "ae2890c7b139626a05c3ae3be45e5d4ecea60ab92a538128f8122e25c162c559",
+        "sha256": "1dd26ffc9d828630fd432a437ab88b0c5cc332eeb5abf21c0e9c887eda302533",
         "created_at": "2026-07-24T06:25:00Z"
       }
     ],
@@ -90,7 +90,7 @@
         "contract_name": "paper-fill-v1",
         "artifact_id": "paper-fill-000001",
         "schema_version": "1.0.0",
-        "sha256": "9262ff04fdfa74cf9fccccaa81dbaa0c1e73ccd3cc195d93a404eb60fe20b930",
+        "sha256": "51d3af3c6123fce90ef2f4f6080d82ee40c450a6a651ecf39dc10f909ee12ff7",
         "created_at": "2026-07-27T00:11:00Z"
       }
     ],
@@ -99,7 +99,7 @@
         "contract_name": "branch-ledger-v1",
         "artifact_id": "branch-ledger-origin-000001",
         "schema_version": "1.0.0",
-        "sha256": "bb6ecb5d7072046ca4c839b13657f62914383c57beb065817050c2ddecf39607",
+        "sha256": "ad84915f4cf7016ce8e9399dba32338db8b0bcbac86ecac9497a65b5df95342d",
         "created_at": "2026-07-27T06:05:00Z"
       }
     ],
@@ -108,7 +108,7 @@
         "contract_name": "branch-nav-v1",
         "artifact_id": "branch-nav-origin-000001",
         "schema_version": "1.0.0",
-        "sha256": "e728c7ac8a648e936fe453e960b0c2cf08538ebf8b0efe73db910a0a6824bdb6",
+        "sha256": "e5732b63092be4892a1b0f11bca24083cc9e5ffca319c0c36aec34b3418e209c",
         "created_at": "2026-07-27T06:10:00Z"
       }
     ],
@@ -117,7 +117,7 @@
         "contract_name": "episode-outcome-v1",
         "artifact_id": "episode-outcome-000001",
         "schema_version": "1.0.0",
-        "sha256": "7c45fbc4212e35647da17d39a57dd8cc03032cde01185190fc12f7300e210c18",
+        "sha256": "2ac58ded86962c8681a569e1eb82838e3eac2292437b6b158d05e44895941708",
         "created_at": "2026-10-23T06:10:00Z"
       }
     ],
@@ -125,7 +125,7 @@
       "contract_name": "cohort-statistics-v1",
       "artifact_id": "cohort-statistics-runway-001",
       "schema_version": "1.0.0",
-      "sha256": "9751737bd87d9573c827975dcb65a6f7993dd713f72afbe65b3ad9b1876f88bb",
+      "sha256": "5b7446dad819c18c0f44cf8258297890bb2f013508d372e8c313748791a3a75f",
       "created_at": "2026-10-23T06:20:00Z"
     }
   },
@@ -136,7 +136,7 @@
         "contract_name": "evaluation-origin-v1",
         "artifact_id": "evaluation-origin-000001",
         "schema_version": "1.0.0",
-        "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+        "sha256": "56596f5d6623db64f7aa1ad9aafc27f52fd0c3d8d94408648e8c34ee0decbda9",
         "created_at": "2026-07-24T06:15:00Z"
       },
       "status": "UNAVAILABLE",
@@ -358,7 +358,7 @@
         "contract_name": "cohort-statistics-v1",
         "artifact_id": "cohort-statistics-runway-001",
         "schema_version": "1.0.0",
-        "sha256": "9751737bd87d9573c827975dcb65a6f7993dd713f72afbe65b3ad9b1876f88bb",
+        "sha256": "5b7446dad819c18c0f44cf8258297890bb2f013508d372e8c313748791a3a75f",
         "created_at": "2026-10-23T06:20:00Z"
       },
       "observed_sessions": "0",
@@ -402,7 +402,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "23aff8dbaba4c986c038f844fc18dd2ad21e58cb21119a3c4566195842536375"
+    "payload_sha256": "082aa19a63673be399312da464e1cc8fd436cbbb2d62d474f74d867ed0ade1eb"
   },
   "controls": {
     "evaluation_mode": "PAPER_ONLY",

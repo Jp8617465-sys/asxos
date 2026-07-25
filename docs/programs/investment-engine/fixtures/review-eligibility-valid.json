@@ -1,7 +1,7 @@
 {
   "contract_name": "review-eligibility-v1",
   "schema_version": "1.0.0",
-  "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
+  "eligibility_decision_id": "30000000-0000-4000-8000-000000000002",
   "investment_case_id": "case-bhp-20260724",
   "review_cycle_id": "20000000-0000-4000-8000-000000000001",
   "report_ref": {
@@ -72,6 +72,6 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+    "payload_sha256": "34e74b333540de58e34e3db614c75fe5d5c58d3d55dd83c741eff1a6eb7c6fa7"
   }
 }

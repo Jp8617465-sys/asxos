@@ -15,21 +15,21 @@
     "contract_name": "evaluation-origin-v1",
     "artifact_id": "evaluation-origin-000001",
     "schema_version": "1.0.0",
-    "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+    "sha256": "56596f5d6623db64f7aa1ad9aafc27f52fd0c3d8d94408648e8c34ee0decbda9",
     "created_at": "2026-07-24T06:15:00Z"
   },
   "proposal_ref": {
     "contract_name": "portfolio-proposal-v1",
     "artifact_id": "portfolio-proposal-20260724",
     "schema_version": "1.0.0",
-    "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e",
+    "sha256": "4ca5c2e7d38e753d702ad2c226ced993370367f4ade3c79e7f775c52ecc57fdd",
     "created_at": "2026-07-24T03:22:00Z"
   },
   "sizing_decision_ref": {
     "contract_name": "sizing-decision-v1",
     "artifact_id": "sizing-decision-evaluator-origin-20260724t061200z-r1",
     "schema_version": "1.1.0",
-    "sha256": "774aa31db0705f742caeb0ad07c54ce89f4c2624cb7c8cc55eb8867d7696da25",
+    "sha256": "12bd8c942e0b299ba068a5b615bf69ac4808bb6232bb6086ee2095098f99a8c4",
     "created_at": "2026-07-24T06:13:00Z"
   },
   "branch_id": "PROPOSAL_BASE",
@@ -45,7 +45,7 @@
       "requested_notional_aud": "10000.000000",
       "reference_price_aud": "50.000000",
       "sizing_line_id": "sizing-line-bhp-evaluator-origin-000001",
-      "sizing_line_sha256": "3a1a05c6da7602496975a2d52be214d63c5296755af1a672e42e1953ca1c7eb5",
+      "sizing_line_sha256": "37886b17f71444df011a35825d732223f762287f353bfed0ef0e998f1351e563",
       "source_sha256": "f97a0dcb23c7f7de53e5d3e05a282e7e9a17f05241b3aae6455ba1b24448e172",
       "reason_codes": [
         "FROZEN_SIZING_DECISION"
@@ -59,7 +59,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "2c2b746632a4a677d9a63b8d5eeb763e71d3fca8ca197c49a668f43d995b0137"
+    "payload_sha256": "56ad779b43b37718024cb161d20b301a91976558a55a062fd2eee9a366ad9c49"
   },
   "controls": {
     "evaluation_mode": "PAPER_ONLY",

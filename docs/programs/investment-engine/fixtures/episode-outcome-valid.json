@@ -15,7 +15,7 @@
     "contract_name": "evaluation-origin-v1",
     "artifact_id": "evaluation-origin-000001",
     "schema_version": "1.0.0",
-    "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+    "sha256": "56596f5d6623db64f7aa1ad9aafc27f52fd0c3d8d94408648e8c34ee0decbda9",
     "created_at": "2026-07-24T06:15:00Z"
   },
   "config_ref": {
@@ -29,7 +29,7 @@
     "contract_name": "branch-nav-v1",
     "artifact_id": "branch-nav-origin-000001",
     "schema_version": "1.0.0",
-    "sha256": "e728c7ac8a648e936fe453e960b0c2cf08538ebf8b0efe73db910a0a6824bdb6",
+    "sha256": "e5732b63092be4892a1b0f11bca24083cc9e5ffca319c0c36aec34b3418e209c",
     "created_at": "2026-07-27T06:10:00Z"
   },
   "origin_sequence": "1",
@@ -138,7 +138,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "7c45fbc4212e35647da17d39a57dd8cc03032cde01185190fc12f7300e210c18"
+    "payload_sha256": "2ac58ded86962c8681a569e1eb82838e3eac2292437b6b158d05e44895941708"
   },
   "controls": {
     "derived_from_nav": true,

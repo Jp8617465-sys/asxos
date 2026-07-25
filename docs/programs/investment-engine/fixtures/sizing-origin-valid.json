@@ -32,8 +32,8 @@
       "context_id": "10000000-0000-4000-8000-000000000001",
       "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
       "review_cycle_id": "20000000-0000-4000-8000-000000000001",
-      "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
-      "eligibility_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+      "eligibility_decision_id": "30000000-0000-4000-8000-000000000002",
+      "eligibility_sha256": "34e74b333540de58e34e3db614c75fe5d5c58d3d55dd83c741eff1a6eb7c6fa7"
     },
     "monitor": {
       "watermark_id": "monitor-watermark-20260724",
@@ -73,7 +73,7 @@
     },
     "portfolio_proposal_ref": {
       "id": "portfolio-proposal-20260724",
-      "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+      "sha256": "4ca5c2e7d38e753d702ad2c226ced993370367f4ade3c79e7f775c52ecc57fdd"
     },
     "sizing_decision_ref": null,
     "staging_policy_ref": null,
@@ -87,7 +87,7 @@
   },
   "proposal_ref": {
     "id": "portfolio-proposal-20260724",
-    "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+    "sha256": "4ca5c2e7d38e753d702ad2c226ced993370367f4ade3c79e7f775c52ecc57fdd"
   },
   "risk_policy_ref": {
     "id": "risk-policy-main",
@@ -131,7 +131,7 @@
     {
       "line_id": "sizing-line-bhp-evaluator-origin-000001",
       "asset_id": "XASX:BHP",
-      "proposal_target_sha256": "749c10da8e1542d749207176b40ccafbfcbcbcb25b1e7dec2482c83b04551da5",
+      "proposal_target_sha256": "4c7764afba3fdc1d1da1c63a0f45f189e811d2243000e9396e5ef19ed81afd71",
       "side": "BUY",
       "current_weight": "0.000000",
       "target_weight": "0.100000",
@@ -166,7 +166,7 @@
           "action": "PASS",
           "source_ref": {
             "id": "portfolio-proposal-20260724",
-            "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+            "sha256": "4ca5c2e7d38e753d702ad2c226ced993370367f4ade3c79e7f775c52ecc57fdd"
           }
         },
         {
@@ -418,7 +418,7 @@
           }
         }
       ],
-      "line_item_sha256": "3a1a05c6da7602496975a2d52be214d63c5296755af1a672e42e1953ca1c7eb5",
+      "line_item_sha256": "37886b17f71444df011a35825d732223f762287f353bfed0ef0e998f1351e563",
       "security_id": "security-bhp-au-ordinary",
       "issuer_id": "issuer-bhp-group",
       "corporate_group_id": "corporate-group-bhp",
@@ -483,7 +483,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "774aa31db0705f742caeb0ad07c54ce89f4c2624cb7c8cc55eb8867d7696da25"
+    "payload_sha256": "12bd8c942e0b299ba068a5b615bf69ac4808bb6232bb6086ee2095098f99a8c4"
   },
   "classification_snapshot_ref": {
     "contract_name": "security-classification-snapshot-v1",

@@ -15,7 +15,7 @@
     "contract_name": "evaluation-origin-v1",
     "artifact_id": "evaluation-origin-000001",
     "schema_version": "1.0.0",
-    "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+    "sha256": "56596f5d6623db64f7aa1ad9aafc27f52fd0c3d8d94408648e8c34ee0decbda9",
     "created_at": "2026-07-24T06:15:00Z"
   },
   "config_ref": {
@@ -275,7 +275,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "bb6ecb5d7072046ca4c839b13657f62914383c57beb065817050c2ddecf39607"
+    "payload_sha256": "ad84915f4cf7016ce8e9399dba32338db8b0bcbac86ecac9497a65b5df95342d"
   },
   "controls": {
     "append_only": true,

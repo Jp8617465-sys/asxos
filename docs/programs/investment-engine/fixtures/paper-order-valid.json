@@ -15,14 +15,14 @@
     "contract_name": "evaluation-origin-v1",
     "artifact_id": "evaluation-origin-000001",
     "schema_version": "1.0.0",
-    "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+    "sha256": "56596f5d6623db64f7aa1ad9aafc27f52fd0c3d8d94408648e8c34ee0decbda9",
     "created_at": "2026-07-24T06:15:00Z"
   },
   "intent_ref": {
     "contract_name": "paper-intent-v1",
     "artifact_id": "paper-intent-000001",
     "schema_version": "1.0.0",
-    "sha256": "2c2b746632a4a677d9a63b8d5eeb763e71d3fca8ca197c49a668f43d995b0137",
+    "sha256": "56ad779b43b37718024cb161d20b301a91976558a55a062fd2eee9a366ad9c49",
     "created_at": "2026-07-24T06:20:00Z"
   },
   "fill_model_ref": {
@@ -51,7 +51,7 @@
     "canonicalization": "RFC8785",
     "hash_algorithm": "SHA-256",
     "excluded_json_pointer": "/canonical_hash/payload_sha256",
-    "payload_sha256": "ae2890c7b139626a05c3ae3be45e5d4ecea60ab92a538128f8122e25c162c559"
+    "payload_sha256": "1dd26ffc9d828630fd432a437ab88b0c5cc332eeb5abf21c0e9c887eda302533"
   },
   "controls": {
     "evaluation_mode": "PAPER_ONLY",
