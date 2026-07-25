@@ -61,12 +61,14 @@ it merely shifts a `MINIMUM`/`MAXIMUM` assertion onto the post-reduction
 
 `limit_value` and `observed_value` are recomputed, never attested. The semantic
 validator resolves each limit from the ratified risk or sizing policy — or, for
-`ADV_PARTICIPATION`, `FEES` and `BOARD_LOT`, derives it arithmetically from the
-proposal candidate, approved notional or classification snapshot — and derives
-the `ADV_PARTICIPATION` and `SPREAD` observed values from the proposal candidate
-row. `TARGET_NOTIONAL`, `AVAILABLE_CASH` and `RESERVATIONS` are direction-
-asserted but their `limit_value` is not yet independently resolved by the
-validator; the registry rule still binds a conforming producer.
+`ADV_PARTICIPATION`, `FEES`, `BOARD_LOT`, `AVAILABLE_CASH` and `TARGET_NOTIONAL`,
+derives it arithmetically from the proposal candidate, approved notional,
+classification snapshot, frozen snapshot cash or proposal target — and derives
+the `ADV_PARTICIPATION`, `SPREAD` and `AVAILABLE_CASH` observed values from their
+sources. `RESERVATIONS` is the sole exception: no ratified artifact expresses a
+reservation cap, so its `limit_value` stays producer-supplied and the check is an
+identity rather than a binding constraint. See the harness-coverage note in
+`sizing-policy-v1` for the full residue.
 
 Each `SIZED` line is exclusively `APPROVED` or `REDUCED`; a rejected line is not
 representable. Both rejection states require an empty `line_items` array and
