@@ -1,0 +1,749 @@
+{
+  "schema_version": "1.1.0",
+  "manifest_id": "ASXOS-IE-12W-V2",
+  "title": "ASXOS thesis-led investment engine — 12-week build and prospective runway",
+  "status": "accepted",
+  "canonical_for": "Investment-engine sequencing, dependencies, contract introductions, build evidence ceilings, and post-programme release gates",
+  "baseline": {
+    "repository": "Jp8617465-sys/asxos",
+    "default_branch": "main",
+    "commit": "9d442de287e123ae090b95838155dc41d76ee5f3",
+    "observed_on": "2026-07-24",
+    "open_pull_requests": [],
+    "merged_context": [
+      "PR #67 shipped governed sector/theme discovery and macro-thesis learning-loop source.",
+      "PR #68 shipped the brief-truth correction and persistent report-section representation.",
+      "PR #69 shipped the handoff and reconciled REQUIRED_MIGRATIONS to 95 after migration 0041.",
+      "PR #64 is closed and its useful work is already represented by PR #68."
+    ]
+  },
+  "cadence": {
+    "sprint_count": 12,
+    "sprint_length_days": 7,
+    "anchor_rule": "S01 begins in the first programme week after this bootstrap dossier PR merges.",
+    "closure_rule": "A sprint closes on its acceptance evidence, not elapsed time. Multiple bounded 8/12-hour missions may be required inside one outcome week."
+  },
+  "source_documents": [
+    {
+      "id": "SRC-NORTH-STAR",
+      "path": "docs/product/north-star.md",
+      "purpose": "Stable whole-product charter and standing execution/Model A boundaries."
+    },
+    {
+      "id": "SRC-CURRENT-STATE",
+      "path": "docs/programs/investment-engine/current-state.md",
+      "purpose": "GitHub-grounded baseline, reuse map, known seams, and corrected dependency chain."
+    },
+    {
+      "id": "SRC-DECISIONS",
+      "path": "docs/programs/investment-engine/decisions.md",
+      "purpose": "Governor decisions, quantitative design, evidence language, and delivery ceilings."
+    },
+    {
+      "id": "SRC-MODEL-A-DECOMMISSION",
+      "path": "docs/programs/investment-engine/model-a-decommission.md",
+      "purpose": "Recommended Model A runtime-off, immutable archive, approval, isolation, and rollback contract."
+    },
+    {
+      "id": "SRC-ARCHITECTURE",
+      "path": "docs/programs/investment-engine/architecture.md",
+      "purpose": "Bounded contexts, deterministic target construction, typed lineage, state and authority."
+    },
+    {
+      "id": "SRC-MIGRATIONS",
+      "path": "docs/programs/investment-engine/migration-plan.md",
+      "purpose": "Additive persistence groups, attended apply rules, and forward recovery."
+    },
+    {
+      "id": "SRC-TRACEABILITY",
+      "path": "docs/programs/investment-engine/traceability.md",
+      "purpose": "Decision-to-initiative-to-sprint-to-contract-to-acceptance mapping."
+    },
+    {
+      "id": "SRC-ACCEPTANCE",
+      "path": "docs/programs/investment-engine/acceptance-matrix.md",
+      "purpose": "Executable invariants and fail-open regression oracle."
+    },
+    {
+      "id": "SRC-OPERATIONS",
+      "path": "docs/programs/investment-engine/operations-and-rollout.md",
+      "purpose": "Arbi chief-of-staff loop, mission recipes, post-build observation, gates and recovery."
+    }
+  ],
+  "north_stars": [
+    {
+      "id": "NS-CUD",
+      "name": "Capital Under Discipline",
+      "definition": "Eligible invested XASX NAV backed by a current evidence-complete report, exact independent review, monitor watermark, ratified policy, deterministic target/sizing proof, and reconciled accounting, divided by total eligible invested NAV.",
+      "measurement": "Publish disciplined and eligible NAV, ratio, each excluded holding and exact exclusion reason for every complete session.",
+      "target": "Increase governed coverage without weakening evidence, freshness, policy, accounting, Model A isolation, or manual-execution gates.",
+      "evidence_paths": [
+        "docs/programs/investment-engine/architecture.md",
+        "docs/programs/investment-engine/contracts/investment-case-lineage-v1.md",
+        "docs/programs/investment-engine/acceptance-matrix.md"
+      ]
+    },
+    {
+      "id": "NS-ALERT",
+      "name": "Material-event-to-alert latency",
+      "definition": "Accumulated XASX-open time from observable persisted material-event publication/availability to first successful durable James-visible delivery.",
+      "measurement": "Report P50, P95, maximum, denominator, misses and unknown publication times from immutable timestamps.",
+      "target": "P95 below one complete XASX trading session with a non-empty honest denominator.",
+      "evidence_paths": [
+        "docs/programs/investment-engine/sprints/s06-persistent-monitoring-and-revision-proposals.md",
+        "docs/programs/investment-engine/operations-and-rollout.md"
+      ]
+    },
+    {
+      "id": "NS-EDGE",
+      "name": "Prospective after-tax-estimate, after-cost active return",
+      "definition": "Continuous shadow-portfolio cash-flow-aware return after estimated tax and explicit costs minus identical-flow genuine XJO total return, with hold/no-action episode diagnostics.",
+      "measurement": "Report paired daily series, drawdown, fill/capacity, sample/missingness, all scheduled origin states, candidate history, and frozen statistical protocol.",
+      "target": "No edge claim before 252 clean prospective paired sessions, 20 matured pre-registered 63-session origins, every strategy predicate, and James promotion.",
+      "evidence_paths": [
+        "docs/programs/investment-engine/contracts/paper-evaluator-v1.md",
+        "docs/programs/investment-engine/sprints/s11-nav-outcomes-and-evidence-gates.md",
+        "docs/programs/investment-engine/acceptance-matrix.md"
+      ]
+    }
+  ],
+  "initiatives": [
+    {
+      "id": "GOV-01",
+      "name": "Programme guardrails and proposal registry",
+      "objective": "Prepare the reproducible Model A archive, restore proof, explicit retirement decision and separately bounded shutdown plan; freeze authority, version proposal intake, and make dossier drift executable before write paths expand.",
+      "status": "planned",
+      "depends_on": [],
+      "north_star_ids": ["NS-CUD", "NS-ALERT", "NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/model-a-decommission.md",
+        "docs/programs/investment-engine/contracts/proposal-registry.md",
+        "docs/programs/investment-engine/sprints/s01-programme-guardrails-and-proposal-registry.md"
+      ]
+    },
+    {
+      "id": "DISC-01",
+      "name": "Governed thesis-proposal intake and materialisation",
+      "objective": "Add the real sole producer, validate complete cited versioned proposals, and atomically materialise one governed research draft.",
+      "status": "planned",
+      "depends_on": ["GOV-01"],
+      "north_star_ids": ["NS-CUD"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/thesis-proposal-v1.md",
+        "docs/programs/investment-engine/sprints/s02-thesis-proposal-materializer.md"
+      ]
+    },
+    {
+      "id": "ENG-01",
+      "name": "Immutable versioned broker report",
+      "objective": "Persist one evidence-linked report version before review, preserving proposal, thesis-revision, figure and case identity.",
+      "status": "planned",
+      "depends_on": ["DISC-01"],
+      "north_star_ids": ["NS-CUD"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/broker-report-v1.md",
+        "docs/programs/investment-engine/sprints/s03-versioned-broker-report.md"
+      ]
+    },
+    {
+      "id": "GOV-02",
+      "name": "Point-in-time context and Model A decoupling",
+      "objective": "Bind one immutable report/context packet and remove Model A/live-query authority from PM review.",
+      "status": "planned",
+      "depends_on": ["ENG-01"],
+      "north_star_ids": ["NS-CUD"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/review-context-v1.md",
+        "docs/programs/investment-engine/sprints/s04-review-context-and-model-a-decoupling.md"
+      ]
+    },
+    {
+      "id": "EVAL-01",
+      "name": "Blind multi-role review and deterministic eligibility",
+      "objective": "Persist blind immutable role assessments and derive conjunctive paper eligibility with no vote, confidence average, or abstention bypass.",
+      "status": "planned",
+      "depends_on": ["GOV-02"],
+      "north_star_ids": ["NS-CUD"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/reviewer-assessment-v1.md",
+        "docs/programs/investment-engine/contracts/review-eligibility-v1.md",
+        "docs/programs/investment-engine/sprints/s05-blind-review-and-eligibility.md"
+      ]
+    },
+    {
+      "id": "REL-01",
+      "name": "Persistent monitoring and revision proposals",
+      "objective": "Persist material events, alerts and governed revision proposals while invalidating stale case lineage without mutation or auto-approval.",
+      "status": "planned",
+      "depends_on": ["ENG-01", "EVAL-01"],
+      "north_star_ids": ["NS-CUD", "NS-ALERT"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/sprints/s06-persistent-monitoring-and-revision-proposals.md"
+      ]
+    },
+    {
+      "id": "PORT-01",
+      "name": "Deterministic target portfolio construction",
+      "objective": "Produce the desired XASX/AUD portfolio from eligible cases and James-ratified loss-at-risk policy with a reproducible portfolio-wide constraint solution.",
+      "status": "planned",
+      "depends_on": ["EVAL-01", "REL-01"],
+      "north_star_ids": ["NS-CUD", "NS-ALERT", "NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/portfolio-construction-policy-v1.md",
+        "docs/programs/investment-engine/contracts/portfolio-proposal-v1.md",
+        "docs/programs/investment-engine/sprints/s07-portfolio-construction-risk-policy-and-sizing.md"
+      ]
+    },
+    {
+      "id": "ENG-02",
+      "name": "Ratified risk/staging policies and deterministic sizing",
+      "objective": "Apply a unique effective James-ratified mandate to the complete portfolio and produce exact board-lot quantities or one fail-closed rejection.",
+      "status": "planned",
+      "depends_on": ["PORT-01"],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/risk-policy-v1.md",
+        "docs/programs/investment-engine/contracts/sizing-policy-v1.md",
+        "docs/programs/investment-engine/contracts/sizing-decision-v1.md",
+        "docs/programs/investment-engine/contracts/staging-policy-v1.md",
+        "docs/programs/investment-engine/contracts/trading-calendar-v1.md",
+        "docs/programs/investment-engine/sprints/s07-portfolio-construction-risk-policy-and-sizing.md"
+      ]
+    },
+    {
+      "id": "EVAL-02",
+      "name": "Evaluator configuration and origin registry",
+      "objective": "Pre-register estimands, sources, versions, origin schedule, dependency groups and five point-in-time branches before future data.",
+      "status": "planned",
+      "depends_on": ["ENG-02", "REL-01"],
+      "north_star_ids": ["NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/evaluation-policy-v1.md",
+        "docs/programs/investment-engine/contracts/evaluator-config-v1.md",
+        "docs/programs/investment-engine/contracts/dependency-isolation-evidence-v1.md",
+        "docs/programs/investment-engine/contracts/evaluation-origin-v1.md",
+        "docs/programs/investment-engine/contracts/portfolio-snapshot-v1.md",
+        "docs/programs/investment-engine/sprints/s08-evaluator-and-shadow-foundations.md"
+      ]
+    },
+    {
+      "id": "EVAL-03",
+      "name": "Causal paper fill and branch ledger",
+      "objective": "Represent non-routable intents, later-event base/stress fills, settlement, and balanced append-only branch ledger effects.",
+      "status": "planned",
+      "depends_on": ["EVAL-02"],
+      "north_star_ids": ["NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/fill-model-v1.md",
+        "docs/programs/investment-engine/contracts/paper-intent-v1.md",
+        "docs/programs/investment-engine/contracts/paper-order-v1.md",
+        "docs/programs/investment-engine/contracts/paper-fill-v1.md",
+        "docs/programs/investment-engine/contracts/branch-ledger-v1.md",
+        "docs/programs/investment-engine/sprints/s09-paper-orders-fills-and-ledger.md"
+      ]
+    },
+    {
+      "id": "EVAL-04",
+      "name": "Accounting, tax, benchmark, and daily NAV",
+      "objective": "Recompute pre-tax and after-tax-estimate branch NAV from point-in-time balanced accounting with complete coverage or explicit blockers.",
+      "status": "planned",
+      "depends_on": ["EVAL-03"],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/accounting-policy-v1.md",
+        "docs/programs/investment-engine/contracts/benchmark-policy-v1.md",
+        "docs/programs/investment-engine/contracts/benchmark-snapshot-v1.md",
+        "docs/programs/investment-engine/contracts/branch-nav-v1.md",
+        "docs/programs/investment-engine/contracts/tax-profile-v1.md",
+        "docs/programs/investment-engine/sprints/s10-corporate-actions-fx-tax-cost-accounting.md"
+      ]
+    },
+    {
+      "id": "EVAL-05",
+      "name": "Outcomes, cohort statistics, and evidence decisions",
+      "objective": "Derive outcomes and all gate predicates from immutable lower-level records under one frozen dependency-aware prospective protocol.",
+      "status": "planned",
+      "depends_on": ["EVAL-04"],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/episode-outcome-v1.md",
+        "docs/programs/investment-engine/contracts/cohort-statistics-v1.md",
+        "docs/programs/investment-engine/contracts/paper-evaluator-v1.md",
+        "docs/programs/investment-engine/contracts/promotion-decision-v1.md",
+        "docs/programs/investment-engine/sprints/s11-nav-outcomes-and-evidence-gates.md"
+      ]
+    },
+    {
+      "id": "ENG-03",
+      "name": "Expiring non-routable staged packages",
+      "objective": "Build exact staging-policy-derived packages with complete typed lineage and a separate James disposition audit.",
+      "status": "planned",
+      "depends_on": ["ENG-02", "EVAL-05", "REL-01"],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/contracts/investment-case-lineage-v1.md",
+        "docs/programs/investment-engine/contracts/staged-order-set-v1.md",
+        "docs/programs/investment-engine/sprints/s12-staged-orders-cli-brief-release.md"
+      ]
+    },
+    {
+      "id": "REL-02",
+      "name": "Shared CLI/brief and shadow handoff",
+      "objective": "Render one persisted truth and hand a final frozen hidden PAPER_ONLY bundle into the governed prospective observation runway.",
+      "status": "planned",
+      "depends_on": ["ENG-03"],
+      "north_star_ids": ["NS-CUD", "NS-ALERT", "NS-EDGE"],
+      "delivery_paths": [
+        "docs/programs/investment-engine/sprints/s12-staged-orders-cli-brief-release.md",
+        "docs/programs/investment-engine/operations-and-rollout.md"
+      ]
+    }
+  ],
+  "release_gates": {
+    "operational_gate": {
+      "id": "GATE-OPERATIONAL",
+      "purpose": "Permit staging eligibility as explicitly UNCALIBRATED only after final-lineage prospective reliability is proven.",
+      "criteria": [
+        "At least 30 consecutive clean prospective sessions after the final S12 construction/risk/sizing/staging/fill/accounting/benchmark/evaluator/code lineage is frozen and James authorises hidden observation.",
+        "Every qualifying session replays bit-identically and at least 99.5% of required NAV-days are priced.",
+        "Zero unresolved material price, FX, corporate-action, tax, cost, accounting, general-data, or reconciliation defects.",
+        "Genuine point-in-time XJO-TR, effective fee schedule, complete required tax/accounting coverage, and exact source identities are present.",
+        "Structural and perturbation Model A isolation passes and there is no broker-boundary violation.",
+        "One unique effective James-ratified construction, risk, and staging policy bundle covers the cohort."
+      ],
+      "failure_state": "PAPER_ONLY",
+      "allows": "UNCALIBRATED",
+      "reset_conditions": [
+        "A material policy, contract, code, data-source, benchmark, fill, accounting, tax, statistics, risk, sizing, staging, or capital-boundary semantic changes.",
+        "A qualifying session is incomplete, dirty, non-reproducible, rewritten, reconstructed, or backfilled.",
+        "Model A, unavailable future data, or a broker capability reaches the capital/evidence path."
+      ],
+      "evidence_paths": [
+        "docs/programs/investment-engine/sprints/s11-nav-outcomes-and-evidence-gates.md",
+        "docs/programs/investment-engine/acceptance-matrix.md",
+        "docs/programs/investment-engine/operations-and-rollout.md"
+      ]
+    },
+    "strategy_gate": {
+      "id": "GATE-STRATEGY",
+      "purpose": "Permit an evidence-backed edge assessment only after adequate prospective exposure and every frozen statistical/financial predicate.",
+      "criteria": [
+        "At least 252 prospective clean paired daily sessions and 20 matured pre-registered origins, each observed through 63 sessions; origins may overlap and must report dependency/effective-sample diagnostics.",
+        "One primary candidate and all construction, risk, sizing, staging, fill, accounting, tax, benchmark, evaluator, code, schema, data, calendar and statistical versions remain fixed.",
+        "Stress after-tax-estimate, after-cost active return is positive versus hold and genuine XJO-TR.",
+        "The pinned one-sided 90% paired circular moving-block-bootstrap lower bound is positive for both comparisons.",
+        "At least 95% of positive intended notional fills within five eligible sessions; actual capital utilisation/capacity is reported.",
+        "There are zero policy breaches and drawdown remains inside James's ratified mandate.",
+        "Open, blocked, rejected, no-action, expired, unfilled, missing, candidate-selection and regime information is reported without denominator editing."
+      ],
+      "failure_state": "UNCALIBRATED",
+      "allows": "EVIDENCE_BACKED",
+      "reset_conditions": [
+        "A material primary-candidate or prospective semantic change starts a new cohort.",
+        "Benchmark, tax, cost, fill, hold, drawdown, bootstrap, maturity, count, or capacity reconciliation fails.",
+        "Records are deleted, rewritten, selectively excluded, or moved between cohorts after outcomes."
+      ],
+      "evidence_paths": [
+        "docs/programs/investment-engine/contracts/paper-evaluator-v1.md",
+        "docs/programs/investment-engine/sprints/s11-nav-outcomes-and-evidence-gates.md",
+        "docs/programs/investment-engine/acceptance-matrix.md"
+      ]
+    },
+    "promotion_gate": {
+      "id": "GATE-PROMOTION",
+      "purpose": "Require James to decide evidence language after immutable operational and strategy decisions; execution authority never changes.",
+      "criteria": [
+        "The immutable operational-gate decision passes.",
+        "The immutable strategy-gate decision passes.",
+        "The complete evidence packet and every typed hash resolves.",
+        "James records promotion-decision-v1=APPROVED over that exact packet."
+      ],
+      "failure_state": "UNCALIBRATED",
+      "allows": "EVIDENCE_BACKED",
+      "reset_conditions": [
+        "James withdraws promotion.",
+        "A pinned version changes.",
+        "A material integrity defect invalidates the packet."
+      ],
+      "evidence_paths": [
+        "docs/programs/investment-engine/contracts/promotion-decision-v1.md",
+        "docs/programs/investment-engine/decisions.md",
+        "docs/programs/investment-engine/operations-and-rollout.md"
+      ]
+    }
+  },
+  "delivery_policy": {
+    "surfaces": ["cli", "daily_brief"],
+    "excluded_surfaces": ["web", "mobile", "multi_user", "public_advice", "broker_connection", "order_execution"],
+    "execution_boundary": [
+      "ASXOS may persist an exact expiring ORDER_STAGED package and a separate James disposition.",
+      "ASXOS cannot place, route, submit, modify, cancel, infer, or observe an external broker order or fill."
+    ],
+    "model_routing": {
+      "fable_low": "Frozen schemas, fixtures, pure implementations, adapters, rendering and bounded repairs only.",
+      "opus_ultra": [
+        "Architecture and cross-context dependency decisions.",
+        "Finance, risk, tax, accounting, fill, benchmark and statistical semantics.",
+        "Migrations, capital boundaries, authority boundaries, and root-cause escalation.",
+        "Fresh-context independent red-team before sprint close."
+      ],
+      "repair_escalation_after_failed_cycles": 2
+    },
+    "pull_request_budget": {
+      "eight_hour": {
+        "normal_total": 1,
+        "absolute_max_total": 2
+      },
+      "twelve_hour": {
+        "max_product": 2,
+        "max_evidence_ops": 1,
+        "absolute_max_total": 3
+      }
+    }
+  },
+  "contracts": [
+    {"name": "model-a-archive-manifest-v1", "spec_path": "docs/programs/investment-engine/contracts/model-a-archive-manifest-v1.md", "schema_path": "docs/programs/investment-engine/schemas/model-a-archive-manifest-v1.schema.json", "introduced_sprint": "S01"},
+    {"name": "model-a-archive-restore-evidence-v1", "spec_path": "docs/programs/investment-engine/contracts/model-a-archive-restore-evidence-v1.md", "schema_path": "docs/programs/investment-engine/schemas/model-a-archive-restore-evidence-v1.schema.json", "introduced_sprint": "S01"},
+    {"name": "thesis-proposal-v1", "spec_path": "docs/programs/investment-engine/contracts/thesis-proposal-v1.md", "schema_path": "docs/programs/investment-engine/schemas/thesis-proposal-v1.schema.json", "introduced_sprint": "S02"},
+    {"name": "broker-report-v1", "spec_path": "docs/programs/investment-engine/contracts/broker-report-v1.md", "schema_path": "docs/programs/investment-engine/schemas/broker-report-v1.schema.json", "introduced_sprint": "S03"},
+    {"name": "review-context-v1", "spec_path": "docs/programs/investment-engine/contracts/review-context-v1.md", "schema_path": "docs/programs/investment-engine/schemas/review-context-v1.schema.json", "introduced_sprint": "S04"},
+    {"name": "reviewer-assessment-v1", "spec_path": "docs/programs/investment-engine/contracts/reviewer-assessment-v1.md", "schema_path": "docs/programs/investment-engine/schemas/reviewer-assessment-v1.schema.json", "introduced_sprint": "S05"},
+    {"name": "review-eligibility-v1", "spec_path": "docs/programs/investment-engine/contracts/review-eligibility-v1.md", "schema_path": "docs/programs/investment-engine/schemas/review-eligibility-v1.schema.json", "introduced_sprint": "S05"},
+    {"name": "security-classification-snapshot-v1", "spec_path": "docs/programs/investment-engine/contracts/security-classification-snapshot-v1.md", "schema_path": "docs/programs/investment-engine/schemas/security-classification-snapshot-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "investment-case-lineage-v1", "spec_path": "docs/programs/investment-engine/contracts/investment-case-lineage-v1.md", "schema_path": "docs/programs/investment-engine/schemas/investment-case-lineage-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "portfolio-construction-policy-v1", "spec_path": "docs/programs/investment-engine/contracts/portfolio-construction-policy-v1.md", "schema_path": "docs/programs/investment-engine/schemas/portfolio-construction-policy-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "portfolio-proposal-v1", "spec_path": "docs/programs/investment-engine/contracts/portfolio-proposal-v1.md", "schema_path": "docs/programs/investment-engine/schemas/portfolio-proposal-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "risk-policy-v1", "spec_path": "docs/programs/investment-engine/contracts/risk-policy-v1.md", "schema_path": "docs/programs/investment-engine/schemas/risk-policy-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "sizing-policy-v1", "spec_path": "docs/programs/investment-engine/contracts/sizing-policy-v1.md", "schema_path": "docs/programs/investment-engine/schemas/sizing-policy-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "sizing-decision-v1", "spec_path": "docs/programs/investment-engine/contracts/sizing-decision-v1.md", "schema_path": "docs/programs/investment-engine/schemas/sizing-decision-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "staging-policy-v1", "spec_path": "docs/programs/investment-engine/contracts/staging-policy-v1.md", "schema_path": "docs/programs/investment-engine/schemas/staging-policy-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "trading-calendar-v1", "spec_path": "docs/programs/investment-engine/contracts/trading-calendar-v1.md", "schema_path": "docs/programs/investment-engine/schemas/trading-calendar-v1.schema.json", "introduced_sprint": "S07"},
+    {"name": "evaluation-policy-v1", "spec_path": "docs/programs/investment-engine/contracts/evaluation-policy-v1.md", "schema_path": "docs/programs/investment-engine/schemas/evaluation-policy-v1.schema.json", "introduced_sprint": "S08"},
+    {"name": "evaluator-config-v1", "spec_path": "docs/programs/investment-engine/contracts/evaluator-config-v1.md", "schema_path": "docs/programs/investment-engine/schemas/evaluator-config-v1.schema.json", "introduced_sprint": "S08"},
+    {"name": "dependency-isolation-evidence-v1", "spec_path": "docs/programs/investment-engine/contracts/dependency-isolation-evidence-v1.md", "schema_path": "docs/programs/investment-engine/schemas/dependency-isolation-evidence-v1.schema.json", "introduced_sprint": "S08"},
+    {"name": "evaluation-origin-v1", "spec_path": "docs/programs/investment-engine/contracts/evaluation-origin-v1.md", "schema_path": "docs/programs/investment-engine/schemas/evaluation-origin-v1.schema.json", "introduced_sprint": "S08"},
+    {"name": "portfolio-snapshot-v1", "spec_path": "docs/programs/investment-engine/contracts/portfolio-snapshot-v1.md", "schema_path": "docs/programs/investment-engine/schemas/portfolio-snapshot-v1.schema.json", "introduced_sprint": "S08"},
+    {"name": "fill-model-v1", "spec_path": "docs/programs/investment-engine/contracts/fill-model-v1.md", "schema_path": "docs/programs/investment-engine/schemas/fill-model-v1.schema.json", "introduced_sprint": "S09"},
+    {"name": "paper-intent-v1", "spec_path": "docs/programs/investment-engine/contracts/paper-intent-v1.md", "schema_path": "docs/programs/investment-engine/schemas/paper-intent-v1.schema.json", "introduced_sprint": "S09"},
+    {"name": "paper-order-v1", "spec_path": "docs/programs/investment-engine/contracts/paper-order-v1.md", "schema_path": "docs/programs/investment-engine/schemas/paper-order-v1.schema.json", "introduced_sprint": "S09"},
+    {"name": "paper-fill-v1", "spec_path": "docs/programs/investment-engine/contracts/paper-fill-v1.md", "schema_path": "docs/programs/investment-engine/schemas/paper-fill-v1.schema.json", "introduced_sprint": "S09"},
+    {"name": "branch-ledger-v1", "spec_path": "docs/programs/investment-engine/contracts/branch-ledger-v1.md", "schema_path": "docs/programs/investment-engine/schemas/branch-ledger-v1.schema.json", "introduced_sprint": "S09"},
+    {"name": "accounting-policy-v1", "spec_path": "docs/programs/investment-engine/contracts/accounting-policy-v1.md", "schema_path": "docs/programs/investment-engine/schemas/accounting-policy-v1.schema.json", "introduced_sprint": "S10"},
+    {"name": "benchmark-policy-v1", "spec_path": "docs/programs/investment-engine/contracts/benchmark-policy-v1.md", "schema_path": "docs/programs/investment-engine/schemas/benchmark-policy-v1.schema.json", "introduced_sprint": "S10"},
+    {"name": "benchmark-snapshot-v1", "spec_path": "docs/programs/investment-engine/contracts/benchmark-snapshot-v1.md", "schema_path": "docs/programs/investment-engine/schemas/benchmark-snapshot-v1.schema.json", "introduced_sprint": "S10"},
+    {"name": "branch-nav-v1", "spec_path": "docs/programs/investment-engine/contracts/branch-nav-v1.md", "schema_path": "docs/programs/investment-engine/schemas/branch-nav-v1.schema.json", "introduced_sprint": "S10"},
+    {"name": "tax-profile-v1", "spec_path": "docs/programs/investment-engine/contracts/tax-profile-v1.md", "schema_path": "docs/programs/investment-engine/schemas/tax-profile-v1.schema.json", "introduced_sprint": "S10"},
+    {"name": "episode-outcome-v1", "spec_path": "docs/programs/investment-engine/contracts/episode-outcome-v1.md", "schema_path": "docs/programs/investment-engine/schemas/episode-outcome-v1.schema.json", "introduced_sprint": "S11"},
+    {"name": "cohort-statistics-v1", "spec_path": "docs/programs/investment-engine/contracts/cohort-statistics-v1.md", "schema_path": "docs/programs/investment-engine/schemas/cohort-statistics-v1.schema.json", "introduced_sprint": "S11"},
+    {"name": "paper-evaluator-v1", "spec_path": "docs/programs/investment-engine/contracts/paper-evaluator-v1.md", "schema_path": "docs/programs/investment-engine/schemas/paper-evaluator-v1.schema.json", "introduced_sprint": "S11"},
+    {"name": "promotion-decision-v1", "spec_path": "docs/programs/investment-engine/contracts/promotion-decision-v1.md", "schema_path": "docs/programs/investment-engine/schemas/promotion-decision-v1.schema.json", "introduced_sprint": "S11"},
+    {"name": "staged-order-set-v1", "spec_path": "docs/programs/investment-engine/contracts/staged-order-set-v1.md", "schema_path": "docs/programs/investment-engine/schemas/staged-order-set-v1.schema.json", "introduced_sprint": "S12"}
+  ],
+  "sprints": [
+    {
+      "id": "S01",
+      "week": 1,
+      "title": "Programme guardrails and versioned proposal registry",
+      "doc": "docs/programs/investment-engine/sprints/s01-programme-guardrails-and-proposal-registry.md",
+      "outcome": "One validated dossier, read-only Model A inventory/archive/restore/decision mission, versioned proposal registry, citation harness and exact mission interface govern later writes; any approved shutdown continues separately.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["GOV-01"],
+      "depends_on": [],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "deliverables": [
+        {"path": "docs/product/roadmap.yaml", "kind": "documentation"},
+        {"path": "docs/programs/investment-engine/model-a-decommission.md", "kind": "documentation"},
+        {"path": "docs/programs/investment-engine/contracts/model-a-archive-manifest-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/model-a-archive-restore-evidence-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/proposal-registry.md", "kind": "documentation"},
+        {"path": "docs/programs/investment-engine/sprints/s01-programme-guardrails-and-proposal-registry.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-01 through AC-05 pass, including a schema-valid reproducible Model A archive/restore packet and explicit James approval status; M02 performs no runtime mutation.",
+        "If approved, authority alignment, scheduler/writer/surface retirement and naturally elapsed no-write evidence are separately bounded M-A2/M-A3 work, not fabricated S01 M02 outputs.",
+        "Proposal object type, schema version and producer persistence/legacy mapping are decision-complete before S02.",
+        "Every roadmap contract/doc/schema path resolves and the dossier validator includes negative self-tests.",
+        "Exact S01 runtime ownership, test files, mission-instance and close-record outputs are frozen.",
+        "No product runtime, tailored capital output, migration, deployment, or evidence-tier promotion occurs in this bootstrap dossier."
+      ],
+      "release_gate_effect": "No release; establishes programme and authority."
+    },
+    {
+      "id": "S02",
+      "week": 2,
+      "title": "Versioned ThesisProposal and governed materialiser",
+      "doc": "docs/programs/investment-engine/sprints/s02-thesis-proposal-materializer.md",
+      "outcome": "The new sole producer can log and idempotently materialise one completely cited governed research draft without approval or capital authority.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["DISC-01"],
+      "depends_on": ["S01"],
+      "north_star_ids": ["NS-CUD"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/thesis-proposal-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s02-thesis-proposal-materializer.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-06 through AC-10 pass.",
+        "instrument-thesis-drafter is implemented and is the exact sole v1 producer.",
+        "Nested evidence union resolves and invalid/speculative/future/Model A content fails before write.",
+        "Exact retry returns one governed thesis graph; conflict/crash leaves no duplicate or partial graph.",
+        "The compatibility report-section projection is not represented as an immutable report."
+      ],
+      "release_gate_effect": "No release; creates governed research drafts only."
+    },
+    {
+      "id": "S03",
+      "week": 3,
+      "title": "Immutable versioned broker report",
+      "doc": "docs/programs/investment-engine/sprints/s03-versioned-broker-report.md",
+      "outcome": "A governed thesis revision has an immutable evidence-linked review-pending report version before review begins.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["ENG-01"],
+      "depends_on": ["S02"],
+      "north_star_ids": ["NS-CUD"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/broker-report-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s03-versioned-broker-report.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-11 through AC-14 pass.",
+        "Report identity/hash resolves proposal, run, thesis revision, evidence and case lineage.",
+        "Changed claim/figure/scenario/intent/risk anchor creates V+1; V1 remains byte-identical.",
+        "Review artifacts do not mutate the report.",
+        "JCS hash/provenance/CAS/migration/recovery tests pass."
+      ],
+      "release_gate_effect": "No release; creates a reviewable immutable research artifact."
+    },
+    {
+      "id": "S04",
+      "week": 4,
+      "title": "ReviewContext and Model A decoupling",
+      "doc": "docs/programs/investment-engine/sprints/s04-review-context-and-model-a-decoupling.md",
+      "outcome": "Every reviewer receives one complete point-in-time packet bound to the exact report and no reviewer can query around it or use Model A.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["GOV-02"],
+      "depends_on": ["S03"],
+      "north_star_ids": ["NS-CUD"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/review-context-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s04-review-context-and-model-a-decoupling.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-15 through AC-18 pass.",
+        "The context references the exact S03 report ID/hash and complete review subject.",
+        "Availability chronology and canonical non-self-referential hash replay.",
+        "Reviewer adapters have no DB/network tools and evidence prompt injection is inert.",
+        "Model A structural and perturbation tests are bit-identical."
+      ],
+      "release_gate_effect": "No release; replaces the capital-review input boundary."
+    },
+    {
+      "id": "S05",
+      "week": 5,
+      "title": "Blind multi-role review and deterministic eligibility",
+      "doc": "docs/programs/investment-engine/sprints/s05-blind-review-and-eligibility.md",
+      "outcome": "Five mandatory roles submit immutable blind first passes and a typed service derives BLOCKED, FAIL, or PAPER_ELIGIBLE conjunctively.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["EVAL-01"],
+      "depends_on": ["S04"],
+      "north_star_ids": ["NS-CUD"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/reviewer-assessment-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/review-eligibility-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s05-blind-review-and-eligibility.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-19 through AC-22 pass.",
+        "Peer first passes remain hidden until mandatory completion.",
+        "Abstention without linked replacement blocks.",
+        "Confidence/vote cannot bypass completeness, freshness or open high/critical findings.",
+        "Integrated report/context/assessment/finding/decision hash chain resolves."
+      ],
+      "release_gate_effect": "May mark research PAPER_ELIGIBLE for shadow construction only; no capital/release authority."
+    },
+    {
+      "id": "S06",
+      "week": 6,
+      "title": "Persistent monitoring and revision proposals",
+      "doc": "docs/programs/investment-engine/sprints/s06-persistent-monitoring-and-revision-proposals.md",
+      "outcome": "Material report/thesis changes create durable events, alerts, invalidations and governed revision proposals without overwriting or auto-approving.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["REL-01"],
+      "depends_on": ["S05"],
+      "north_star_ids": ["NS-CUD", "NS-ALERT"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/sprints/s06-persistent-monitoring-and-revision-proposals.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-23 through AC-26 pass.",
+        "Event, alert, acknowledgement, review and disposition times are distinct.",
+        "A material event invalidates current downstream lineage and proposes rather than mutates.",
+        "Trading-session SLO denominator/missingness is honest.",
+        "Required jobs fail loudly and deadmen ping only after durable completion."
+      ],
+      "release_gate_effect": "No capital release; establishes current case watermark and alert operations."
+    },
+    {
+      "id": "S07",
+      "week": 7,
+      "title": "Deterministic portfolio construction, risk policies, and sizing",
+      "doc": "docs/programs/investment-engine/sprints/s07-portfolio-construction-risk-policy-and-sizing.md",
+      "outcome": "Eligible cases and a complete portfolio deterministically produce target weights and exact board-lot quantities under James-ratified policies, or one typed rejection.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["PORT-01", "ENG-02"],
+      "depends_on": ["S05", "S06"],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/security-classification-snapshot-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/portfolio-construction-policy-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/portfolio-proposal-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/risk-policy-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/sizing-policy-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/sizing-decision-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/staging-policy-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/trading-calendar-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s07-portfolio-construction-risk-policy-and-sizing.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-27 through AC-32 pass.",
+        "The transparent loss-at-risk algorithm produces targets; no opaque target/score/model rank remains.",
+        "Complete eligible/excluded lineage, exact effective security classification/trading-rule snapshot and every James policy/risk anchor resolve.",
+        "Portfolio-wide issuer/group/single-name/sector/theme/loss/cash/gross/turnover/reservation constraints, board lots, oversell and full recomputation pass.",
+        "SIZED has no rejected line; input permutation is byte-identical; final version bundle freezes before S08."
+      ],
+      "release_gate_effect": "No visible staging; creates the final construction/risk/sizing/staging semantics that future evidence must pin."
+    },
+    {
+      "id": "S08",
+      "week": 8,
+      "title": "Evaluator configuration and shadow-origin foundations",
+      "doc": "docs/programs/investment-engine/sprints/s08-evaluator-and-shadow-foundations.md",
+      "outcome": "A complete protocol can represent empty/open/blocked origins and five point-in-time branches with source/version/statistical pre-registration.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["EVAL-02"],
+      "depends_on": ["S07"],
+      "north_star_ids": ["NS-EDGE"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/evaluation-policy-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/evaluator-config-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/dependency-isolation-evidence-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/evaluation-origin-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/portfolio-snapshot-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s08-evaluator-and-shadow-foundations.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-33 through AC-36 pass.",
+        "All policies/sources/calendar/benchmark/data/code/contracts/statistics are pinned before origin.",
+        "Zero/open/blocked/rejected/no-action/expired/matured states validate.",
+        "Five branches share equivalent frozen starting state and origins carry dependency groups.",
+        "Development/reconstructed records cannot count prospectively."
+      ],
+      "release_gate_effect": "No release and no qualifying clean-session clock; only harness/offline shadow foundations."
+    },
+    {
+      "id": "S09",
+      "week": 9,
+      "title": "Causal paper fills, settlement, and branch ledger",
+      "doc": "docs/programs/investment-engine/sprints/s09-paper-orders-fills-and-ledger.md",
+      "outcome": "Paper intents produce causal base/stress later-event fill/no-fill outcomes, settlement and balanced append-only branch ledger records.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["EVAL-03"],
+      "depends_on": ["S08"],
+      "north_star_ids": ["NS-EDGE"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/fill-model-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/paper-intent-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/paper-order-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/paper-fill-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/branch-ledger-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s09-paper-orders-fills-and-ledger.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-37 through AC-40 pass.",
+        "Same-session/touch-only/future/overfill is impossible under exact provider-granularity rules.",
+        "Partial/no-fill/expiry/cancellation/settlement are complete append-only states.",
+        "Every event balances and correction/crash/retry preserves history.",
+        "Live holdings, Model A and broker surfaces are unreachable."
+      ],
+      "release_gate_effect": "No release; simulated paper evidence remains incomplete until S10/S11."
+    },
+    {
+      "id": "S10",
+      "week": 10,
+      "title": "Corporate actions, FX, tax, costs, and daily NAV",
+      "doc": "docs/programs/investment-engine/sprints/s10-corporate-actions-fx-tax-cost-accounting.md",
+      "outcome": "Every branch recomputes balanced pre-tax and after-tax-estimate AUD NAV/TWR and genuine XJO-TR comparison, or records an explicit blocker.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["EVAL-04"],
+      "depends_on": ["S09"],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/accounting-policy-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/benchmark-policy-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/benchmark-snapshot-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/branch-nav-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/tax-profile-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s10-corporate-actions-fx-tax-cost-accounting.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-41 through AC-44 pass.",
+        "Raw prices and explicit actions/FX drive balanced accounting; adjusted close cannot substitute.",
+        "Tax state is isolated/versioned and unsupported treatment blocks after-tax evidence.",
+        "NAV/TWR/XJO-TR recompute from ledger and exact external-flow boundaries.",
+        "Cost/capacity/coverage decomposition and source hashes reconcile."
+      ],
+      "release_gate_effect": "No release; completes the lower-level financial evidence needed for derived gates."
+    },
+    {
+      "id": "S11",
+      "week": 11,
+      "title": "Episode outcomes, cohort statistics, and evidence decisions",
+      "doc": "docs/programs/investment-engine/sprints/s11-nav-outcomes-and-evidence-gates.md",
+      "outcome": "A derived evaluator digest recomputes every count, return, statistic, defect and gate from immutable lower-level artifacts.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["EVAL-05"],
+      "depends_on": ["S10"],
+      "north_star_ids": ["NS-CUD", "NS-EDGE"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/episode-outcome-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/cohort-statistics-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/paper-evaluator-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/promotion-decision-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s11-nav-outcomes-and-evidence-gates.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-45 through AC-48 pass.",
+        "Counts/aggregates/gates recompute and inconsistent producer declarations fail.",
+        "The 252/20x63 rule uses pre-registered overlapping origins with dependency diagnostics.",
+        "Paired bootstrap/selection/missingness protocol matches deterministic golden arrays.",
+        "All eight defect classes and every operational/strategy predicate are conjunctive; promotion requires James."
+      ],
+      "release_gate_effect": "Implements gate machinery only; development data cannot pass or advance evidence tier."
+    },
+    {
+      "id": "S12",
+      "week": 12,
+      "title": "Expiring staged packages, shared CLI/brief, and shadow handoff",
+      "doc": "docs/programs/investment-engine/sprints/s12-staged-orders-cli-brief-release.md",
+      "outcome": "The full lineage produces an exact expiring non-routable package in hidden PAPER_ONLY mode, records James disposition separately, and renders one truth.",
+      "maximum_evidence_tier": "PAPER_ONLY",
+      "initiative_ids": ["ENG-03", "REL-02"],
+      "depends_on": ["S06", "S07", "S11"],
+      "north_star_ids": ["NS-CUD", "NS-ALERT", "NS-EDGE"],
+      "deliverables": [
+        {"path": "docs/programs/investment-engine/contracts/investment-case-lineage-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/contracts/staged-order-set-v1.md", "kind": "contract"},
+        {"path": "docs/programs/investment-engine/sprints/s12-staged-orders-cli-brief-release.md", "kind": "documentation"},
+        {"path": "docs/programs/investment-engine/operations-and-rollout.md", "kind": "documentation"}
+      ],
+      "exit_criteria": [
+        "AC-49 through AC-52 pass.",
+        "Prices/stages/expiry derive only from staging policy and worst-case notional plus fees stays within sizing.",
+        "Every typed lineage/hash resolves and tamper/staleness invalidates the whole set.",
+        "James disposition is separate audit; CLI/brief share one persisted view; no execution/live-holding path exists.",
+        "Programme ends hidden PAPER_ONLY. James may authorise only R1 shadow observation; R2/R3/R4 remain elapsed-evidence gates."
+      ],
+      "release_gate_effect": "Completes hidden software and may begin James-authorised prospective observation; it does not itself pass operational, strategy, visibility, or promotion gates."
+    }
+  ]
+}

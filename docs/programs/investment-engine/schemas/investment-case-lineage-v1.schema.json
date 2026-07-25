@@ -1,0 +1,500 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/investment-case-lineage-v1.schema.json",
+  "title": "Investment Case Lineage v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "lineage",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "investment-case-lineage-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "lineage": {
+      "$ref": "#/$defs/caseLineage"
+    },
+    "canonical_hash": {
+      "$ref": "#/$defs/canonicalHash"
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{5,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^(?:0\\.000000|-?(?:0\\.(?!000000$)[0-9]{6}|[1-9][0-9]{0,11}\\.[0-9]{6}))$"
+    },
+    "nonNegativeDecimal": {
+      "type": "string",
+      "pattern": "^(?:0\\.000000|0\\.(?!000000$)[0-9]{6}|[1-9][0-9]{0,11}\\.[0-9]{6})$"
+    },
+    "positiveDecimal": {
+      "type": "string",
+      "pattern": "^(?:0\\.(?!000000$)[0-9]{6}|[1-9][0-9]{0,11}\\.[0-9]{6})$"
+    },
+    "nonNegativeIntegerString": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)$"
+    },
+    "positiveIntegerString": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "unitDecimal": {
+      "type": "string",
+      "pattern": "^(?:0\\.[0-9]{6}|1\\.000000)$"
+    },
+    "canonicalHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "hash_algorithm",
+        "excluded_json_pointer",
+        "payload_sha256"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "RFC8785"
+        },
+        "hash_algorithm": {
+          "const": "SHA-256"
+        },
+        "excluded_json_pointer": {
+          "const": "/canonical_hash/payload_sha256"
+        },
+        "payload_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sourceHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "sha256"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sourceHashes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/sourceHash"
+      }
+    },
+    "hashRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "versionedRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "nullableHashRef": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/hashRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableVersionedRef": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/versionedRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "researchLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thesis_id",
+        "thesis_revision_id",
+        "report_ref",
+        "report_candidate_sha256"
+      ],
+      "properties": {
+        "thesis_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "thesis_revision_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "report_ref": {
+          "$ref": "#/$defs/hashRef"
+        },
+        "report_candidate_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "reviewLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context_id",
+        "context_sha256",
+        "review_cycle_id",
+        "eligibility_decision_id",
+        "eligibility_sha256"
+      ],
+      "properties": {
+        "context_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "context_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "review_cycle_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "eligibility_decision_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "eligibility_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "monitorLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "watermark_id",
+        "watermark_as_of",
+        "watermark_sha256",
+        "open_blocking_event_count"
+      ],
+      "properties": {
+        "watermark_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "watermark_as_of": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "watermark_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "open_blocking_event_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "evaluationLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_config_ref",
+        "evaluation_ref",
+        "evaluation_policy_ref",
+        "gate_decision_ref"
+      ],
+      "properties": {
+        "evaluator_config_ref": {
+          "$ref": "#/$defs/versionedRef"
+        },
+        "evaluation_ref": {
+          "$ref": "#/$defs/hashRef"
+        },
+        "evaluation_policy_ref": {
+          "$ref": "#/$defs/versionedRef"
+        },
+        "gate_decision_ref": {
+          "$ref": "#/$defs/hashRef"
+        }
+      }
+    },
+    "caseLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineage_id",
+        "lineage_version",
+        "investment_case_id",
+        "lineage_stage",
+        "case_state",
+        "evidence_tier",
+        "as_of",
+        "created_at",
+        "research",
+        "review",
+        "monitor",
+        "evaluation",
+        "construction_policy_ref",
+        "risk_policy_ref",
+        "portfolio_proposal_ref",
+        "sizing_decision_ref",
+        "staging_policy_ref",
+        "promotion_decision_ref",
+        "staged_order_set_ref"
+      ],
+      "properties": {
+        "lineage_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "lineage_version": {
+          "$ref": "#/$defs/version"
+        },
+        "investment_case_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "lineage_stage": {
+          "enum": [
+            "RESEARCH_REVIEWED",
+            "EVALUATION_FROZEN",
+            "PROPOSAL_BUILT",
+            "SIZE_DECIDED",
+            "ORDER_STAGED"
+          ]
+        },
+        "case_state": {
+          "enum": [
+            "PAPER_ELIGIBLE",
+            "SHADOW_ACTIVE",
+            "ADVICE_READY",
+            "ORDER_STAGED"
+          ]
+        },
+        "evidence_tier": {
+          "enum": [
+            "PAPER_ONLY",
+            "UNCALIBRATED",
+            "EVIDENCE_BACKED"
+          ]
+        },
+        "as_of": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "research": {
+          "$ref": "#/$defs/researchLineage"
+        },
+        "review": {
+          "$ref": "#/$defs/reviewLineage"
+        },
+        "monitor": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/monitorLineage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluation": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/evaluationLineage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "construction_policy_ref": {
+          "$ref": "#/$defs/nullableVersionedRef"
+        },
+        "risk_policy_ref": {
+          "$ref": "#/$defs/nullableVersionedRef"
+        },
+        "portfolio_proposal_ref": {
+          "$ref": "#/$defs/nullableHashRef"
+        },
+        "sizing_decision_ref": {
+          "$ref": "#/$defs/nullableHashRef"
+        },
+        "staging_policy_ref": {
+          "$ref": "#/$defs/nullableVersionedRef"
+        },
+        "promotion_decision_ref": {
+          "$ref": "#/$defs/nullableHashRef"
+        },
+        "staged_order_set_ref": {
+          "$ref": "#/$defs/nullableHashRef"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "lineage_stage": {
+                "enum": [
+                  "EVALUATION_FROZEN",
+                  "PROPOSAL_BUILT",
+                  "SIZE_DECIDED",
+                  "ORDER_STAGED"
+                ]
+              }
+            },
+            "required": [
+              "lineage_stage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "monitor": {
+                "$ref": "#/$defs/monitorLineage"
+              },
+              "evaluation": {
+                "$ref": "#/$defs/evaluationLineage"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lineage_stage": {
+                "enum": [
+                  "PROPOSAL_BUILT",
+                  "SIZE_DECIDED",
+                  "ORDER_STAGED"
+                ]
+              }
+            },
+            "required": [
+              "lineage_stage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "construction_policy_ref": {
+                "$ref": "#/$defs/versionedRef"
+              },
+              "risk_policy_ref": {
+                "$ref": "#/$defs/versionedRef"
+              },
+              "portfolio_proposal_ref": {
+                "$ref": "#/$defs/hashRef"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lineage_stage": {
+                "enum": [
+                  "SIZE_DECIDED",
+                  "ORDER_STAGED"
+                ]
+              }
+            },
+            "required": [
+              "lineage_stage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sizing_decision_ref": {
+                "$ref": "#/$defs/hashRef"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lineage_stage": {
+                "const": "ORDER_STAGED"
+              }
+            },
+            "required": [
+              "lineage_stage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "case_state": {
+                "const": "ORDER_STAGED"
+              },
+              "staging_policy_ref": {
+                "$ref": "#/$defs/versionedRef"
+              },
+              "promotion_decision_ref": {
+                "$ref": "#/$defs/hashRef"
+              },
+              "staged_order_set_ref": {
+                "$ref": "#/$defs/hashRef"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

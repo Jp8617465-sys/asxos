@@ -1,10 +1,36 @@
-# asxos — next-session backlog (updated 2026-07-04)
+# asxos — legacy next-session backlog
 
-**Status:** current (top half) / partially stale (the 2026-06-28 half — see inline banners)
-**Scope:** backlog
-**Last verified:** 2026-07-04
+**Status:** legacy inventory; not sequencing authority for the investment-engine programme
+**Scope:** historical/itemized backlog
+**Last verified:** 2026-07-24
 **Read priority:** read after the current session-handoff
-**Superseded by:** N/A
+**Superseded by:** `docs/product/roadmap.yaml` for investment-engine priority, dependencies, and sprint ownership
+
+> **CURRENT ROUTING — 2026-07-24:** the accepted twelve-week, thesis-led
+> investment-engine programme lives in
+> `docs/programs/investment-engine/README.md`; its canonical machine-readable
+> sequence is `docs/product/roadmap.yaml`. Before acting on any item below,
+> reconcile it against the programme `current-state.md` reuse/extend/retire map.
+> An overlapping item is historical context, not parallel scope. Items that do
+> not overlap the programme remain an inventory and still require fresh live
+> verification and prioritisation.
+
+## Canonical programme crosswalk
+
+| Legacy/backlog theme | Canonical owner now |
+|---|---|
+| `instrument-selector`, agentic thesis writer, `create_thesis_from_agent_run` | S01 proposal registry + S02 real `instrument-thesis-drafter`/materialiser |
+| Broker-report persistence/versioning | S03 immutable report |
+| `/pm-review`, reviewer agents, Model A/SHAP removal | S01 approval-gated runtime decommission and legacy fail-closed tombstone; S04 independent immutable context; S05 `/pm-review` v2 blind review/eligibility |
+| Thesis/report monitoring, alert delivery and revision | S06 |
+| Portfolio allocator, risk policy, target weights, sizing, staging price policy | S07 deterministic loss-at-risk construction/risk/sizing; never the legacy signal allocator |
+| Paper portfolio, fill simulation, tax/cost/NAV and evaluator | S08–S11 in dependency order |
+| Portfolio CLI/brief and action memo/staged package | S12 hidden `PAPER_ONLY`, then post-programme R1–R4 |
+| Model A retraining, signal-ranked opportunity cost or ML allocator | Recommended runtime decommission under `model-a-decommission.md`; checksummed history remains read-only. Any future model is a new separately ratified evidence programme. |
+| Web/mobile/multi-user/broker integration | Explicitly excluded |
+
+If a row below overlaps this table, update or close it from the canonical sprint
+evidence rather than executing it independently.
 
 ---
 

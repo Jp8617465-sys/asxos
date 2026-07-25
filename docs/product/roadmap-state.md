@@ -1,8 +1,8 @@
 # asxos Roadmap & State — the reconciled picture
 
-**Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
+**Status:** current whole-repo history; investment-engine sequencing moved to the canonical manifest
 **Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
+**Last verified:** 2026-07-24 for programme routing; older state sections retain their dated snapshots (post-merge reconciliation — James merged the six-PR train
 #32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
 hardening, Guilfoyle mission-control, overnight governance record, orchestrator-mode sketch.
 Monitoring lane fixes all on main. **Confirmed (2026-07-14, later same day): #29 (discipline
@@ -11,7 +11,37 @@ evaluator) and #38 (autonomy unlock pack) are both MERGED to main** (`2a49df9`, 
 recommend close, superseded by the ML shelf; #39 (permission-friction/guard pack) — open draft,
 `full-check` CI failing.)
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
-**Superseded by:** N/A
+**Superseded by:** `docs/product/roadmap.yaml` for the accepted investment-engine programme only
+
+## 2026-07-24 programme anchor — read before the older queue
+
+The accepted twelve-week thesis-led investment-engine programme is now the
+sequencing authority for work in that scope:
+
+- canonical manifest: `docs/product/roadmap.yaml`;
+- implementation entry: `docs/programs/investment-engine/README.md`;
+- compact generated view: `docs/product/investment-engine-roadmap.md`;
+- verified baseline: `main@9d442de287e123ae090b95838155dc41d76ee5f3`;
+- shipped baseline: PR #68 contains PR #64's useful report/brief work; PR #64 is
+  closed; PR #69 and migration-count reconciliation are merged; and
+- next programme outcome after the dossier merges: S01 read-only Model A
+  inventory/archive/restore/decision mission plus guardrails, proposal registry,
+  and harness. Any approved runtime decommission proceeds in separately bounded
+  missions—not as an item independently selected from an older queue.
+
+The manifest's load-bearing order is now report before review
+(`S03 → S04 → S05`), deterministic portfolio construction/risk/sizing before
+evaluation (`S07 → S08`), then causal paper fills/accounting/outcomes
+(`S09 → S11`) and hidden staging/surfaces (`S12`). All twelve implementation
+sprints remain `PAPER_ONLY`. The 30-session operational and 252-session strategy
+clocks begin only after S12 freezes the final lineage and James authorises hidden
+observation.
+
+The material below preserves whole-product history, Arbi's learning record, and
+non-programme work. Dated PR counts, “next action” text, and overlapping
+investment-engine items are snapshots, not permission to fork the canonical
+sequence. Reconcile non-overlapping work against the latest handoff and live
+state before prioritising it.
 
 ---
 
@@ -85,8 +115,10 @@ detail behind these lines.
   specialists): a model-independent deterministic discipline **section in the brief James already
   reads** (no gate flip, `ASXOS_PERSONAL_USE` only), then a findings-sink table, then a later gated
   LLM `/pm-review` Routine. Full: `docs/proposals/portfolio-team-visibility-2026-07-12.md`.
-  Corrects an earlier arbi error: M13.8 paper-trade sign-off **is** scoped in code
-  (`paper_trade.py:294`), not unscoped. Honest scope note: this fixes the *flagging-visibility*
+  Historical correction: M13.8 paper-trade sign-off **was** scoped in code
+  (`paper_trade.py:294`), not unscoped, but that four-week release clock is now
+  superseded by canonical S08–S12 plus the post-freeze 30/252-session gates.
+  Honest scope note: this fixes the *flagging-visibility*
   half; automated *stock rating / thesis generation* is the shelved-ML (rule #11) + unbuilt
   discovery-agent track, a separate conversation.
 - **Known risks:** (1) `m14_candidate_agent_db_role_scoping` — agent SELECT-only is
@@ -400,7 +432,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 
 | Gate | Guards | State |
 |---|---|---|
-| `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
+| `ASXOS_PORTFOLIO_BRIEF_ENABLED` | Legacy M13 portfolio brief section | `0` — legacy four-week sign-off is superseded; reassess only after S12, authority ratification and the 30-clean-session operational gate |
 | `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `0` — off |
 | `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |

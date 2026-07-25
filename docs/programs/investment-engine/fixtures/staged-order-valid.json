@@ -1,0 +1,220 @@
+{
+  "contract_name": "staged-order-set-v1",
+  "schema_version": "1.1.0",
+  "producer": {
+    "producer_type": "DETERMINISTIC_QUANT",
+    "method": "STAGING_POLICY_TRANSFORM",
+    "producer_version": "1.0.0",
+    "code_version": "8abc123"
+  },
+  "order_set_id": "staged-order-set-20260724",
+  "investment_case_id": "case-bhp-20260724",
+  "portfolio_id": "portfolio-james-paper",
+  "lineage": {
+    "lineage_id": "lineage-size-decided",
+    "lineage_version": "1.0.0",
+    "investment_case_id": "case-bhp-20260724",
+    "lineage_stage": "SIZE_DECIDED",
+    "case_state": "ADVICE_READY",
+    "evidence_tier": "UNCALIBRATED",
+    "as_of": "2026-07-24T03:45:00Z",
+    "created_at": "2026-07-24T03:46:00Z",
+    "research": {
+      "thesis_id": 9001,
+      "thesis_revision_id": 2001,
+      "report_ref": {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+      },
+      "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "review": {
+      "context_id": "10000000-0000-4000-8000-000000000001",
+      "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+      "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+      "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
+      "eligibility_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+    },
+    "monitor": {
+      "watermark_id": "monitor-watermark-20260724",
+      "watermark_as_of": "2026-07-24T03:00:00Z",
+      "watermark_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "open_blocking_event_count": 0
+    },
+    "evaluation": {
+      "evaluator_config_ref": {
+        "id": "evaluator-config-main",
+        "version": "1.0.0",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "evaluation_ref": {
+        "id": "evaluation-main-20260724",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "evaluation_policy_ref": {
+        "id": "evaluation-policy-main",
+        "version": "1.0.0",
+        "sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c"
+      },
+      "gate_decision_ref": {
+        "id": "gate-decision-20260724",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    "construction_policy_ref": {
+      "id": "construction-policy-main",
+      "version": "1.0.0",
+      "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+    },
+    "risk_policy_ref": {
+      "id": "risk-policy-main",
+      "version": "1.0.0",
+      "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+    },
+    "portfolio_proposal_ref": {
+      "id": "portfolio-proposal-20260724",
+      "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+    },
+    "sizing_decision_ref": {
+      "id": "sizing-decision-20260724",
+      "sha256": "e19db22e142581fb1a745155e7691ac61ace2e0d8517a4f7ef2afdef5de3fdf4"
+    },
+    "staging_policy_ref": null,
+    "promotion_decision_ref": null,
+    "staged_order_set_ref": null
+  },
+  "evidence_tier": "UNCALIBRATED",
+  "staging_policy_ref": {
+    "id": "staging-policy-main",
+    "version": "1.0.0",
+    "sha256": "27e58610f38c1dc66d00e505bc1dda0103bb3307273327cab3d22a24211616b6"
+  },
+  "sizing_decision_ref": {
+    "id": "sizing-decision-20260724",
+    "sha256": "e19db22e142581fb1a745155e7691ac61ace2e0d8517a4f7ef2afdef5de3fdf4",
+    "status": "SIZED",
+    "eligible_for_staging": true,
+    "proposal_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "construction_policy_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "risk_policy_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "promotion_evidence": {
+    "promotion_decision_ref": {
+      "id": "promotion-decision-20260724",
+      "sha256": "7c1375065b30b8243c4f94acaf0f8e559ef7be2d8c5fb5cd8957931fe6444481"
+    },
+    "decision": "APPROVE_UNCALIBRATED_VISIBILITY",
+    "permitted_evidence_tier": "UNCALIBRATED",
+    "decided_by": "James",
+    "effective_at": "2026-07-24T03:15:00Z"
+  },
+  "gate_evidence": {
+    "evaluation_policy_ref": {
+      "id": "evaluation-policy-main",
+      "version": "1.0.0",
+      "sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c"
+    },
+    "evaluation_ref": {
+      "id": "evaluation-main-20260724",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "gate_decision_ref": {
+      "id": "gate-decision-20260724",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "evaluation_complete": true,
+    "operational_gate_passed": true,
+    "strategy_gate_passed": false
+  },
+  "data_as_of": "2026-07-24T03:40:00Z",
+  "knowledge_cutoff": "2026-07-24T03:40:00Z",
+  "created_at": "2026-07-24T03:46:00Z",
+  "expires_at": "2026-07-28T06:00:00Z",
+  "source_hashes": [
+    {
+      "source": "sizing-decision",
+      "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "source": "staging-policy",
+      "sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+    },
+    {
+      "source": "promotion-decision",
+      "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    {
+      "source": "price-observation",
+      "sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+    }
+  ],
+  "orders": [
+    {
+      "staged_order_id": "staged-order-bhp-20260724",
+      "asset_id": "XASX:BHP",
+      "side": "BUY",
+      "total_quantity": "200",
+      "reference_price_aud": "50.000000",
+      "reference_price_as_of": "2026-07-24T03:40:00Z",
+      "price_observation_ref": {
+        "id": "bhp-price-liquidity-20260724",
+        "sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+      },
+      "pricing_rule": "REFERENCE_PRICE_MAX_ADVERSE_FRACTION",
+      "max_adverse_fraction": "0.005000",
+      "raw_limit_price_aud": "50.250000",
+      "tick_size_aud": "0.010000",
+      "tick_rounding": "BUY_FLOOR",
+      "limit_price_aud": "50.250000",
+      "estimated_notional_aud": "10050.000000",
+      "estimated_fees_aud": "10.000000",
+      "stages": [
+        {
+          "stage_number": 1,
+          "policy_fraction": "0.500000",
+          "quantity": "100",
+          "not_before": "2026-07-27T00:00:00Z",
+          "expires_at": "2026-07-27T06:00:00Z"
+        },
+        {
+          "stage_number": 2,
+          "policy_fraction": "0.500000",
+          "quantity": "100",
+          "not_before": "2026-07-28T00:00:00Z",
+          "expires_at": "2026-07-28T06:00:00Z"
+        }
+      ],
+      "invalidation_events": [
+        "POLICY_WITHDRAWN",
+        "PROMOTION_WITHDRAWN",
+        "GATE_REGRESSION",
+        "PRICE_STALE",
+        "THESIS_INVALIDATED",
+        "CORPORATE_ACTION",
+        "LIQUIDITY_BREACH",
+        "EXPIRY_REACHED"
+      ]
+    }
+  ],
+  "estimated_total_notional_aud": "10050.000000",
+  "estimated_total_fees_aud": "10.000000",
+  "user_approval": {
+    "status": "REQUIRED_NOT_GRANTED",
+    "approved_at": null
+  },
+  "controls": {
+    "execution_mode": "PAPER_ONLY",
+    "non_executable": true,
+    "automatic_approval_permitted": false,
+    "external_connectivity_permitted": false,
+    "generative_order_fields_permitted": false,
+    "absolute_dependency_firewall": true,
+    "lookahead_permitted": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "e45d628a500115eaaa910eaf3f5896d35c24dcfce6fcaac7e9c8c12aaec43a46"
+  }
+}

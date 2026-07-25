@@ -1,0 +1,473 @@
+{
+  "contract_name": "sizing-decision-v1",
+  "schema_version": "1.1.0",
+  "producer": {
+    "producer_type": "DETERMINISTIC_QUANT",
+    "method": "POLICY_CAPPED_BOARD_LOT",
+    "producer_version": "1.0.0",
+    "code_version": "7abc123"
+  },
+  "sizing_decision_id": "sizing-decision-20260724",
+  "investment_case_id": "case-bhp-20260724",
+  "portfolio_id": "portfolio-james-paper",
+  "lineage": {
+    "lineage_id": "lineage-proposal-built",
+    "lineage_version": "1.0.0",
+    "investment_case_id": "case-bhp-20260724",
+    "lineage_stage": "PROPOSAL_BUILT",
+    "case_state": "SHADOW_ACTIVE",
+    "evidence_tier": "UNCALIBRATED",
+    "as_of": "2026-07-24T03:30:00Z",
+    "created_at": "2026-07-24T03:31:00Z",
+    "research": {
+      "thesis_id": 9001,
+      "thesis_revision_id": 2001,
+      "report_ref": {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+      },
+      "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+    },
+    "review": {
+      "context_id": "10000000-0000-4000-8000-000000000001",
+      "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+      "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+      "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
+      "eligibility_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+    },
+    "monitor": {
+      "watermark_id": "monitor-watermark-20260724",
+      "watermark_as_of": "2026-07-24T03:00:00Z",
+      "watermark_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "open_blocking_event_count": 0
+    },
+    "evaluation": {
+      "evaluator_config_ref": {
+        "id": "evaluator-config-main",
+        "version": "1.0.0",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "evaluation_ref": {
+        "id": "evaluation-main-20260724",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "evaluation_policy_ref": {
+        "id": "evaluation-policy-main",
+        "version": "1.0.0",
+        "sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c"
+      },
+      "gate_decision_ref": {
+        "id": "gate-decision-20260724",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    "construction_policy_ref": {
+      "id": "construction-policy-main",
+      "version": "1.0.0",
+      "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+    },
+    "risk_policy_ref": {
+      "id": "risk-policy-main",
+      "version": "1.0.0",
+      "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+    },
+    "portfolio_proposal_ref": {
+      "id": "portfolio-proposal-20260724",
+      "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+    },
+    "sizing_decision_ref": null,
+    "staging_policy_ref": null,
+    "promotion_decision_ref": null,
+    "staged_order_set_ref": null
+  },
+  "construction_policy_ref": {
+    "id": "construction-policy-main",
+    "version": "1.0.0",
+    "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975"
+  },
+  "proposal_ref": {
+    "id": "portfolio-proposal-20260724",
+    "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+  },
+  "risk_policy_ref": {
+    "id": "risk-policy-main",
+    "version": "1.0.0",
+    "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+  },
+  "sizing_policy_ref": {
+    "id": "sizing-policy-paper-001",
+    "version": "1.0.0",
+    "sha256": "4f44c95e7c49769907b69c735a2d54867b89ed3f7db783f5f39bcbabb9cd65f2"
+  },
+  "portfolio_snapshot_ref": {
+    "id": "portfolio-snapshot-20260724",
+    "sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+  },
+  "status": "SIZED",
+  "eligible_for_staging": true,
+  "data_as_of": "2026-07-24T03:20:00Z",
+  "knowledge_cutoff": "2026-07-24T03:20:00Z",
+  "decision_at": "2026-07-24T03:30:00Z",
+  "created_at": "2026-07-24T03:31:00Z",
+  "source_hashes": [
+    {
+      "source": "portfolio-proposal",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "source": "risk-policy",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "source": "sizing-policy",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "line_items": [
+    {
+      "line_id": "sizing-line-bhp-000001",
+      "line_item_sha256": "9310a86f3f94136a5919b526a5d7e8993e4dc549667fb3bb6ed56ca3718cbab8",
+      "asset_id": "XASX:BHP",
+      "proposal_target_sha256": "749c10da8e1542d749207176b40ccafbfcbcbcb25b1e7dec2482c83b04551da5",
+      "side": "BUY",
+      "current_weight": "0.000000",
+      "target_weight": "0.100000",
+      "requested_delta_weight": "0.100000",
+      "reference_price_aud": "50.000000",
+      "board_lot_quantity": "1",
+      "requested_quantity": "200",
+      "approved_quantity": "200",
+      "requested_notional_aud": "10000.000000",
+      "approved_notional_aud": "10000.000000",
+      "estimated_fees_aud": "10.000000",
+      "decision": "APPROVED",
+      "constraint_checks": [
+        {
+          "sequence": 1,
+          "constraint_code": "CLASSIFICATION",
+          "check_type": "BOOLEAN_PRECONDITION",
+          "passed": true,
+          "source_ref": {
+            "id": "security-classification-snapshot-20260724",
+            "sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3"
+          }
+        },
+        {
+          "sequence": 2,
+          "constraint_code": "TARGET_NOTIONAL",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "10000.000000",
+          "limit_value": "10000.000000",
+          "applied_value": "10000.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "portfolio-proposal-20260724",
+            "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e"
+          }
+        },
+        {
+          "sequence": 3,
+          "constraint_code": "AVAILABLE_CASH",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "100000.000000",
+          "limit_value": "99000.000000",
+          "applied_value": "10000.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "portfolio-snapshot-20260724",
+            "sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+          }
+        },
+        {
+          "sequence": 4,
+          "constraint_code": "ISSUER",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "0.200000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 5,
+          "constraint_code": "CORPORATE_GROUP",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "0.250000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 6,
+          "constraint_code": "SINGLE_NAME",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "0.200000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 7,
+          "constraint_code": "SECTOR",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "0.300000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 8,
+          "constraint_code": "THEME",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "0.300000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 9,
+          "constraint_code": "PORTFOLIO_LOSS_AT_STOP",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.010000",
+          "limit_value": "0.050000",
+          "applied_value": "0.010000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 10,
+          "constraint_code": "GROSS_EXPOSURE",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "1.000000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 11,
+          "constraint_code": "NET_EXPOSURE",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "1.000000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 12,
+          "constraint_code": "RESERVATIONS",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.000000",
+          "limit_value": "0.000000",
+          "applied_value": "0.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "portfolio-snapshot-20260724",
+            "sha256": "8dfc9fefb39322083bc47b89b6d742e2f7c92b93859f711e1666818366911868"
+          }
+        },
+        {
+          "sequence": 13,
+          "constraint_code": "TURNOVER",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.100000",
+          "limit_value": "0.200000",
+          "applied_value": "0.100000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 14,
+          "constraint_code": "ADV_PARTICIPATION",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "10000.000000",
+          "limit_value": "2000000.000000",
+          "applied_value": "10000.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "bhp-price-liquidity-20260724",
+            "sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+          }
+        },
+        {
+          "sequence": 15,
+          "constraint_code": "SPREAD",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "0.001000",
+          "limit_value": "0.010000",
+          "applied_value": "0.001000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "bhp-price-liquidity-20260724",
+            "sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+          }
+        },
+        {
+          "sequence": 16,
+          "constraint_code": "LOSS_HEADROOM",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "15000.000000",
+          "limit_value": "0.000000",
+          "applied_value": "15000.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "risk-policy-main",
+            "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e"
+          }
+        },
+        {
+          "sequence": 17,
+          "constraint_code": "TICK_RULE",
+          "check_type": "BOOLEAN_PRECONDITION",
+          "passed": true,
+          "source_ref": {
+            "id": "xasx-equity-price-step-standard",
+            "sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6"
+          }
+        },
+        {
+          "sequence": 18,
+          "constraint_code": "BOARD_LOT",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "200.000000",
+          "limit_value": "1.000000",
+          "applied_value": "200.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "security-classification-snapshot-20260724",
+            "sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3"
+          }
+        },
+        {
+          "sequence": 19,
+          "constraint_code": "MINIMUM_ORDER",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "10000.000000",
+          "limit_value": "500.000000",
+          "applied_value": "10000.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "sizing-policy-paper-001",
+            "sha256": "4f44c95e7c49769907b69c735a2d54867b89ed3f7db783f5f39bcbabb9cd65f2"
+          }
+        },
+        {
+          "sequence": 20,
+          "constraint_code": "FEES",
+          "check_type": "NUMERIC_LIMIT",
+          "observed_value": "10.000000",
+          "limit_value": "100.000000",
+          "applied_value": "10.000000",
+          "action": "PASS",
+          "source_ref": {
+            "id": "fee-schedule-paper",
+            "sha256": "f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5"
+          }
+        }
+      ],
+      "security_id": "security-bhp-au-ordinary",
+      "issuer_id": "issuer-bhp-group",
+      "corporate_group_id": "corporate-group-bhp",
+      "sector_id": "sector-materials",
+      "theme_ids": [
+        "theme-global-resources"
+      ],
+      "tick_rule_ref": {
+        "id": "xasx-equity-price-step-standard",
+        "version": "1.0.0",
+        "sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6"
+      },
+      "tick_size_aud": "0.010000"
+    }
+  ],
+  "summary": {
+    "requested_notional_aud": "10000.000000",
+    "approved_notional_aud": "10000.000000",
+    "estimated_fees_aud": "10.000000",
+    "projected_cash_aud": "89990.000000",
+    "projected_gross_weight": "0.100000",
+    "projected_net_weight": "0.100000",
+    "projected_turnover_weight": "0.100000",
+    "reconciliation_tolerance": "0.000001",
+    "projected_issuer_exposures": [
+      {
+        "classification_id": "issuer-bhp-group",
+        "projected_weight": "0.100000"
+      }
+    ],
+    "projected_corporate_group_exposures": [
+      {
+        "classification_id": "corporate-group-bhp",
+        "projected_weight": "0.100000"
+      }
+    ],
+    "projected_sector_exposures": [
+      {
+        "classification_id": "sector-materials",
+        "projected_weight": "0.100000"
+      }
+    ],
+    "projected_theme_exposures": [
+      {
+        "classification_id": "theme-global-resources",
+        "projected_weight": "0.100000"
+      }
+    ],
+    "projected_portfolio_loss_at_stop_fraction": "0.010000"
+  },
+  "reason_codes": [],
+  "controls": {
+    "execution_mode": "PAPER_ONLY",
+    "non_executable": true,
+    "deterministic_decimal_math": true,
+    "generative_numeric_output_permitted": false,
+    "absolute_dependency_firewall": true,
+    "implicit_default_permitted": false,
+    "lookahead_permitted": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "e19db22e142581fb1a745155e7691ac61ace2e0d8517a4f7ef2afdef5de3fdf4"
+  },
+  "classification_snapshot_ref": {
+    "contract_name": "security-classification-snapshot-v1",
+    "artifact_id": "security-classification-snapshot-20260724",
+    "schema_version": "1.0.0",
+    "sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3",
+    "created_at": "2026-07-24T03:15:00Z"
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "contract_name": "security-classification-snapshot-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "classification_snapshot_id": "security-classification-snapshot-20260724",
+  "classification_snapshot_version": "1.0.0",
+  "data_as_of": "2026-07-24T03:00:00Z",
+  "knowledge_cutoff": "2026-07-24T03:10:00Z",
+  "created_at": "2026-07-24T03:15:00Z",
+  "scope": {
+    "venue": "XASX",
+    "currency": "AUD",
+    "position_direction": "LONG_ONLY"
+  },
+  "status": "COMPLETE",
+  "source_hashes": [
+    {
+      "source": "governed-security-master",
+      "sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+    },
+    {
+      "source": "governed-theme-membership",
+      "sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+    },
+    {
+      "source": "xasx-trading-rules",
+      "sha256": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "XASX:BHP",
+      "security_id": "security-bhp-au-ordinary",
+      "issuer_id": "issuer-bhp-group",
+      "corporate_group_id": "corporate-group-bhp",
+      "sector_id": "sector-materials",
+      "theme_ids": [
+        "theme-global-resources"
+      ],
+      "classification_status": "COMPLETE",
+      "effective_interval": {
+        "effective_from": "2022-01-31T00:00:00Z",
+        "effective_to": null
+      },
+      "venue": "XASX",
+      "currency": "AUD",
+      "security_kind": "au_equity",
+      "board_lot_quantity": "1",
+      "tick_rule": {
+        "tick_rule_id": "xasx-equity-price-step-standard",
+        "tick_rule_version": "1.0.0",
+        "rule_class": "EQUITY_PRICE_STEP",
+        "price_basis": "ORDER_PRICE_AUD",
+        "effective_interval": {
+          "effective_from": "2025-06-23T00:00:00Z",
+          "effective_to": null
+        },
+        "bands": [
+          {
+            "band_sequence": "1",
+            "lower_bound_aud": "0.000000",
+            "upper_bound_aud": "0.100000",
+            "tick_size_aud": "0.001000",
+            "lower_bound_inclusive": true,
+            "upper_bound_exclusive": true
+          },
+          {
+            "band_sequence": "2",
+            "lower_bound_aud": "0.100000",
+            "upper_bound_aud": "2.000000",
+            "tick_size_aud": "0.005000",
+            "lower_bound_inclusive": true,
+            "upper_bound_exclusive": true
+          },
+          {
+            "band_sequence": "3",
+            "lower_bound_aud": "2.000000",
+            "upper_bound_aud": null,
+            "tick_size_aud": "0.010000",
+            "lower_bound_inclusive": true,
+            "upper_bound_exclusive": true
+          }
+        ]
+      },
+      "admissible_for_construction": true,
+      "missing_fields": [],
+      "reason_codes": [],
+      "provenance": {
+        "security_master": {
+          "source": "governed-security-master",
+          "source_snapshot_id": "security-master-snapshot-20260724",
+          "record_id": "security-master-record-xasx-bhp",
+          "observed_at": "2026-07-24T02:55:00Z",
+          "published_at": "2026-07-24T02:56:00Z",
+          "available_at": "2026-07-24T02:57:00Z",
+          "record_sha256": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "snapshot_sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        },
+        "theme_membership": {
+          "source": "governed-theme-membership",
+          "source_snapshot_id": "theme-membership-snapshot-20260724",
+          "record_id": "theme-membership-record-xasx-bhp",
+          "observed_at": "2026-07-24T02:55:00Z",
+          "published_at": "2026-07-24T02:56:00Z",
+          "available_at": "2026-07-24T02:57:00Z",
+          "record_sha256": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "snapshot_sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+        },
+        "trading_rule": {
+          "source": "xasx-trading-rules",
+          "source_snapshot_id": "xasx-trading-rules-snapshot-20250623",
+          "record_id": "xasx-equity-price-step-standard",
+          "observed_at": "2025-06-23T00:00:00Z",
+          "published_at": "2025-06-23T00:00:00Z",
+          "available_at": "2025-06-23T00:01:00Z",
+          "record_sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+          "snapshot_sha256": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+        }
+      }
+    }
+  ],
+  "missing_data_classes": [],
+  "reason_codes": [],
+  "incomplete_asset_action": "INADMISSIBLE_NO_INFERENCE",
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "immutable": true,
+    "read_only": true,
+    "non_executable": true,
+    "market_access": "ABSENT",
+    "live_holdings_write": false,
+    "authority_payload_embedded": false,
+    "missing_value_inference": false,
+    "predictive_model_input_permitted": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "7bb09b2bb52c1c821f8e89c4280e4eb8a86facf9ef2697fea66428bdafef52b3"
+  }
+}

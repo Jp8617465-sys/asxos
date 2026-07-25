@@ -1,0 +1,213 @@
+{
+  "contract_name": "model-a-archive-restore-evidence-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T02:00:00Z",
+  "created_at": "2026-07-24T03:00:00Z",
+  "source_hashes": [
+    {
+      "source": "synthetic-archive-manifest",
+      "sha256": "f56656e3b8984fd49f4e967c64300a8bf78fba07c8da3f3c3359fa3a30f9ec13"
+    }
+  ],
+  "restore_evidence_id": "ma-archive-synthetic-test-20260724t021000z:restore:1",
+  "attempt_sequence": "1",
+  "manifest_ref": {
+    "contract_name": "model-a-archive-manifest-v1",
+    "artifact_id": "ma-archive-synthetic-test-20260724t021000z",
+    "schema_version": "1.0.0",
+    "sha256": "f56656e3b8984fd49f4e967c64300a8bf78fba07c8da3f3c3359fa3a30f9ec13",
+    "created_at": "2026-07-24T02:20:00Z"
+  },
+  "started_at": "2026-07-24T02:30:00Z",
+  "completed_at": "2026-07-24T02:50:00Z",
+  "isolated_environment_id": "synthetic-isolated-restore",
+  "attended_operator": "synthetic-attended-operator",
+  "tool_bundle_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "runtime_lock_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "evidence_scope": "SYNTHETIC_GOLDEN",
+  "comparisons": [
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:allocator_derived_records",
+      "dataset_or_artifact_class": "ALLOCATOR_DERIVED_RECORDS",
+      "observed_record_count": "18",
+      "observed_file_count": "1",
+      "observed_raw_byte_count": "18432",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2026-01-02T00:00:00Z",
+        "maximum_observed_at": "2026-07-23T23:00:00Z"
+      },
+      "observed_raw_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "observed_canonical_sha256": "1212121212121212121212121212121212121212121212121212121212121212",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:code_and_migration_files",
+      "dataset_or_artifact_class": "CODE_AND_MIGRATION_FILES",
+      "observed_record_count": "24",
+      "observed_file_count": "24",
+      "observed_raw_byte_count": "524288",
+      "observed_range": {
+        "range_field": null,
+        "minimum_observed_at": null,
+        "maximum_observed_at": null
+      },
+      "observed_raw_sha256": "2121212121212121212121212121212121212121212121212121212121212121",
+      "observed_canonical_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:decay_analysis_bundle",
+      "dataset_or_artifact_class": "DECAY_ANALYSIS_BUNDLE",
+      "observed_record_count": "6",
+      "observed_file_count": "6",
+      "observed_raw_byte_count": "98304",
+      "observed_range": {
+        "range_field": null,
+        "minimum_observed_at": null,
+        "maximum_observed_at": null
+      },
+      "observed_raw_sha256": "3131313131313131313131313131313131313131313131313131313131313131",
+      "observed_canonical_sha256": "3232323232323232323232323232323232323232323232323232323232323232",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:job_run_and_schedule_evidence",
+      "dataset_or_artifact_class": "JOB_RUN_AND_SCHEDULE_EVIDENCE",
+      "observed_record_count": "240",
+      "observed_file_count": "1",
+      "observed_raw_byte_count": "245760",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-24T01:59:59Z"
+      },
+      "observed_raw_sha256": "4141414141414141414141414141414141414141414141414141414141414141",
+      "observed_canonical_sha256": "4242424242424242424242424242424242424242424242424242424242424242",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:model_artifact_files",
+      "dataset_or_artifact_class": "MODEL_ARTIFACT_FILES",
+      "observed_record_count": "12",
+      "observed_file_count": "12",
+      "observed_raw_byte_count": "16777216",
+      "observed_range": {
+        "range_field": null,
+        "minimum_observed_at": null,
+        "maximum_observed_at": null
+      },
+      "observed_raw_sha256": "5151515151515151515151515151515151515151515151515151515151515151",
+      "observed_canonical_sha256": "5252525252525252525252525252525252525252525252525252525252525252",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:model_config_rows",
+      "dataset_or_artifact_class": "MODEL_CONFIG_ROWS",
+      "observed_record_count": "9",
+      "observed_file_count": "1",
+      "observed_raw_byte_count": "9216",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-20T00:00:00Z"
+      },
+      "observed_raw_sha256": "6161616161616161616161616161616161616161616161616161616161616161",
+      "observed_canonical_sha256": "6262626262626262626262626262626262626262626262626262626262626262",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:signal_outcome_rows",
+      "dataset_or_artifact_class": "SIGNAL_OUTCOME_ROWS",
+      "observed_record_count": "12000",
+      "observed_file_count": "1",
+      "observed_raw_byte_count": "12582912",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-23T00:00:00Z"
+      },
+      "observed_raw_sha256": "7171717171717171717171717171717171717171717171717171717171717171",
+      "observed_canonical_sha256": "7272727272727272727272727272727272727272727272727272727272727272",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    },
+    {
+      "archive_class_id": "ma-archive-synthetic-test-20260724t021000z:signal_rows",
+      "dataset_or_artifact_class": "SIGNAL_ROWS",
+      "observed_record_count": "15000",
+      "observed_file_count": "1",
+      "observed_raw_byte_count": "15728640",
+      "observed_range": {
+        "range_field": "observed_at",
+        "minimum_observed_at": "2025-07-01T00:00:00Z",
+        "maximum_observed_at": "2026-07-23T00:00:00Z"
+      },
+      "observed_raw_sha256": "8181818181818181818181818181818181818181818181818181818181818181",
+      "observed_canonical_sha256": "8282828282828282828282828282828282828282828282828282828282828282",
+      "count_match": true,
+      "range_match": true,
+      "raw_hash_match": true,
+      "canonical_hash_match": true,
+      "comparison_result": "MATCH",
+      "reason_codes": []
+    }
+  ],
+  "verdict": "PASS",
+  "reason_codes": [],
+  "controls": {
+    "attended": true,
+    "isolated": true,
+    "production_environment": false,
+    "read_only": true,
+    "production_write": false,
+    "archive_write": false,
+    "archive_mutation": false,
+    "destructive_action": false,
+    "runtime_shutdown_claimed": false,
+    "production_evidence_claimed": false,
+    "runtime_retirement_approval_claimed": false,
+    "non_executable": true
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "a03a6c916cfd1b09f5357913302dac37047297416bedd69b1137d3e76efb325e"
+  }
+}

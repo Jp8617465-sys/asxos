@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/benchmark-snapshot-v1.schema.json",
+  "title": "ASXOS Benchmark Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "producer_version",
+    "data_as_of",
+    "created_at",
+    "source_hashes",
+    "benchmark_snapshot_id",
+    "benchmark_snapshot_version",
+    "knowledge_cutoff",
+    "calendar_ref",
+    "status",
+    "xjo_tr",
+    "cash_rate",
+    "missing_fields",
+    "reason_codes",
+    "controls",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "benchmark-snapshot-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer_version": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+    },
+    "data_as_of": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "source_hashes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/sourceHashes"
+    },
+    "benchmark_snapshot_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "benchmark_snapshot_version": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+    },
+    "knowledge_cutoff": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "calendar_ref": {
+      "allOf": [
+        {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+        },
+        {
+          "properties": {
+            "contract_name": {
+              "const": "trading-calendar-v1"
+            }
+          }
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE"
+      ]
+    },
+    "xjo_tr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark_id",
+        "data_class",
+        "return_class",
+        "dividend_reinvestment",
+        "prior_session_date",
+        "prior_index_level",
+        "session_date",
+        "index_level",
+        "session_return",
+        "currency",
+        "prior_level_source_ref",
+        "source_ref"
+      ],
+      "properties": {
+        "benchmark_id": {
+          "const": "XJO-TR"
+        },
+        "data_class": {
+          "const": "GENUINE_POINT_IN_TIME"
+        },
+        "return_class": {
+          "const": "GROSS_TOTAL_RETURN_INDEX"
+        },
+        "dividend_reinvestment": {
+          "const": "INDEX_METHODOLOGY"
+        },
+        "prior_session_date": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/date"
+        },
+        "prior_index_level": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+        },
+        "session_date": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/date"
+        },
+        "index_level": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+        },
+        "session_return": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+        },
+        "currency": {
+          "const": "AUD"
+        },
+        "prior_level_source_ref": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sourceRef"
+        },
+        "source_ref": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sourceRef"
+        }
+      }
+    },
+    "cash_rate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rate_id",
+        "data_class",
+        "annualized_rate",
+        "day_count",
+        "compounding",
+        "effective_from",
+        "effective_to",
+        "source_ref"
+      ],
+      "properties": {
+        "rate_id": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+        },
+        "data_class": {
+          "const": "POINT_IN_TIME"
+        },
+        "annualized_rate": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+        },
+        "day_count": {
+          "const": "ACT_365"
+        },
+        "compounding": {
+          "const": "DAILY"
+        },
+        "effective_from": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+        },
+        "effective_to": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+        },
+        "source_ref": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sourceRef"
+        }
+      }
+    },
+    "missing_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "XJO_TR_LEVEL",
+          "XJO_TR_PROVENANCE",
+          "XJO_TR_AVAILABILITY",
+          "CASH_RATE",
+          "CASH_RATE_PROVENANCE",
+          "CASH_RATE_AVAILABILITY",
+          "CALENDAR"
+        ]
+      }
+    },
+    "reason_codes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluation_mode",
+        "immutable",
+        "future_available_data_permitted",
+        "price_only_substitution",
+        "remembered_rate_substitution",
+        "producer_completeness_boolean_trusted",
+        "non_executable",
+        "live_holdings_write"
+      ],
+      "properties": {
+        "evaluation_mode": {
+          "const": "PAPER_ONLY"
+        },
+        "immutable": {
+          "const": true
+        },
+        "future_available_data_permitted": {
+          "const": false
+        },
+        "price_only_substitution": {
+          "const": false
+        },
+        "remembered_rate_substitution": {
+          "const": false
+        },
+        "producer_completeness_boolean_trusted": {
+          "const": false
+        },
+        "non_executable": {
+          "const": true
+        },
+        "live_holdings_write": {
+          "const": false
+        }
+      }
+    },
+    "canonical_hash": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/canonicalHash"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "COMPLETE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "missing_fields": {
+            "maxItems": 0
+          },
+          "reason_codes": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "INCOMPLETE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "missing_fields": {
+            "minItems": 1
+          },
+          "reason_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

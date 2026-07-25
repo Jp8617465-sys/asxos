@@ -1,0 +1,71 @@
+{
+  "fixture_name": "synthetic-evidence",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "notice": "All values and claims are fabricated contract-test data and are not investment research.",
+  "evidence": [
+    {
+      "evidence_id": 900001,
+      "claim": "The synthetic point-in-time market snapshot is available.",
+      "tier": "verified",
+      "source_type": "market_data",
+      "source_name": "synthetic-market-feed",
+      "source_url": null,
+      "observed_at": "2026-07-20T06:10:00Z",
+      "retrieved_at": "2026-07-20T06:11:00Z",
+      "data_as_of": "2026-07-20T06:10:00Z",
+      "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "facts": [
+        {
+          "fact_key": "close_price_aud",
+          "value_text": "Synthetic closing price",
+          "decimal_value": "40.000000",
+          "unit": "AUD",
+          "source_locator": "synthetic-market-feed/BHP.AU/2026-07-20"
+        }
+      ]
+    },
+    {
+      "evidence_id": 900002,
+      "claim": "The synthetic filing describes a resilient operating-cost position.",
+      "tier": "verified",
+      "source_type": "company_filing",
+      "source_name": "synthetic-company-filing",
+      "source_url": null,
+      "observed_at": "2026-07-18T00:00:00Z",
+      "retrieved_at": "2026-07-20T05:00:00Z",
+      "data_as_of": "2026-07-18T00:00:00Z",
+      "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "facts": [
+        {
+          "fact_key": "operating_cost_position",
+          "value_text": "Synthetic filing states the asset remains in a resilient cost position.",
+          "decimal_value": null,
+          "unit": null,
+          "source_locator": "synthetic-filing/operations"
+        }
+      ]
+    },
+    {
+      "evidence_id": 900003,
+      "claim": "The synthetic portfolio ledger contains a current BHP holding.",
+      "tier": "verified",
+      "source_type": "portfolio_ledger",
+      "source_name": "synthetic-holdings-ledger",
+      "source_url": null,
+      "observed_at": "2026-07-20T06:10:00Z",
+      "retrieved_at": "2026-07-20T06:11:00Z",
+      "data_as_of": "2026-07-20T06:10:00Z",
+      "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "facts": [
+        {
+          "fact_key": "holding_quantity",
+          "value_text": "Synthetic current quantity",
+          "decimal_value": "100.000000",
+          "unit": "shares",
+          "source_locator": "synthetic-holdings-ledger/BHP.AU"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "contract_name": "benchmark-snapshot-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T05:59:00Z",
+  "created_at": "2026-07-24T05:59:00Z",
+  "source_hashes": [
+    {
+      "source": "xjo-total-return-observation",
+      "sha256": "6868686868686868686868686868686868686868686868686868686868686868"
+    },
+    {
+      "source": "xjo-total-return-prior-level",
+      "sha256": "7878787878787878787878787878787878787878787878787878787878787878"
+    },
+    {
+      "source": "observable-cash-rate-observation",
+      "sha256": "6969696969696969696969696969696969696969696969696969696969696969"
+    }
+  ],
+  "benchmark_snapshot_id": "benchmark-snapshot-20260724",
+  "benchmark_snapshot_version": "1.0.0",
+  "knowledge_cutoff": "2026-07-24T05:59:00Z",
+  "calendar_ref": {
+    "contract_name": "trading-calendar-v1",
+    "artifact_id": "calendar-xasx-2026",
+    "schema_version": "1.0.0",
+    "sha256": "62361ef507e0ecbaeec9ded9114f0c2876c750fa035a313028fbc64510e5390b",
+    "created_at": "2026-01-01T00:00:00Z"
+  },
+  "status": "COMPLETE",
+  "xjo_tr": {
+    "benchmark_id": "XJO-TR",
+    "data_class": "GENUINE_POINT_IN_TIME",
+    "return_class": "GROSS_TOTAL_RETURN_INDEX",
+    "dividend_reinvestment": "INDEX_METHODOLOGY",
+    "prior_session_date": "2026-07-22",
+    "prior_index_level": "108700.000000",
+    "session_date": "2026-07-23",
+    "index_level": "108765.432100",
+    "session_return": "0.000602",
+    "currency": "AUD",
+    "prior_level_source_ref": {
+      "source": "licensed-xjo-total-return",
+      "record_id": "xjo-tr-20260722",
+      "observed_at": "2026-07-22T06:00:00Z",
+      "published_at": "2026-07-22T06:04:00Z",
+      "available_at": "2026-07-22T06:05:00Z",
+      "sha256": "7878787878787878787878787878787878787878787878787878787878787878"
+    },
+    "source_ref": {
+      "source": "licensed-xjo-total-return",
+      "record_id": "xjo-tr-20260723",
+      "observed_at": "2026-07-23T06:00:00Z",
+      "published_at": "2026-07-23T06:04:00Z",
+      "available_at": "2026-07-23T06:05:00Z",
+      "sha256": "6868686868686868686868686868686868686868686868686868686868686868"
+    }
+  },
+  "cash_rate": {
+    "rate_id": "cash-rate-aud-202607",
+    "data_class": "POINT_IN_TIME",
+    "annualized_rate": "0.040000",
+    "day_count": "ACT_365",
+    "compounding": "DAILY",
+    "effective_from": "2026-07-01T00:00:00Z",
+    "effective_to": "2026-07-31T23:59:59Z",
+    "source_ref": {
+      "source": "published-aud-cash-rate",
+      "record_id": "cash-rate-202607",
+      "observed_at": "2026-07-01T00:00:00Z",
+      "published_at": "2026-07-01T00:01:00Z",
+      "available_at": "2026-07-01T00:02:00Z",
+      "sha256": "6969696969696969696969696969696969696969696969696969696969696969"
+    }
+  },
+  "missing_fields": [],
+  "reason_codes": [],
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "immutable": true,
+    "future_available_data_permitted": false,
+    "price_only_substitution": false,
+    "remembered_rate_substitution": false,
+    "producer_completeness_boolean_trusted": false,
+    "non_executable": true,
+    "live_holdings_write": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "a2b4afa76b7e9b9c43b7da1b8ce3e68655839c22034ca8b7d60ba8dd2d2631ff"
+  }
+}

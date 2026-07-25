@@ -1,0 +1,893 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/investment-engine-roadmap-v1.schema.json",
+  "title": "ASXOS investment-engine roadmap manifest",
+  "description": "Validates the canonical JSON-compatible YAML, 12-week, outcome-gated ASXOS investment-engine roadmap.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "title",
+    "status",
+    "canonical_for",
+    "baseline",
+    "cadence",
+    "source_documents",
+    "north_stars",
+    "initiatives",
+    "release_gates",
+    "delivery_policy",
+    "contracts",
+    "sprints"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^ASXOS-IE-[A-Z0-9-]+$"
+    },
+    "title": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "status": {
+      "enum": [
+        "accepted",
+        "active",
+        "complete",
+        "superseded"
+      ]
+    },
+    "canonical_for": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "baseline": {
+      "$ref": "#/$defs/baseline"
+    },
+    "cadence": {
+      "$ref": "#/$defs/cadence"
+    },
+    "source_documents": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/sourceDocument"
+      }
+    },
+    "north_stars": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/northStar"
+      }
+    },
+    "initiatives": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/initiative"
+      }
+    },
+    "release_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operational_gate",
+        "strategy_gate",
+        "promotion_gate"
+      ],
+      "properties": {
+        "operational_gate": {
+          "$ref": "#/$defs/gate"
+        },
+        "strategy_gate": {
+          "$ref": "#/$defs/gate"
+        },
+        "promotion_gate": {
+          "$ref": "#/$defs/gate"
+        }
+      }
+    },
+    "delivery_policy": {
+      "$ref": "#/$defs/deliveryPolicy"
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
+    },
+    "sprints": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/sprint"
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/containsS01"
+        },
+        {
+          "$ref": "#/$defs/containsS02"
+        },
+        {
+          "$ref": "#/$defs/containsS03"
+        },
+        {
+          "$ref": "#/$defs/containsS04"
+        },
+        {
+          "$ref": "#/$defs/containsS05"
+        },
+        {
+          "$ref": "#/$defs/containsS06"
+        },
+        {
+          "$ref": "#/$defs/containsS07"
+        },
+        {
+          "$ref": "#/$defs/containsS08"
+        },
+        {
+          "$ref": "#/$defs/containsS09"
+        },
+        {
+          "$ref": "#/$defs/containsS10"
+        },
+        {
+          "$ref": "#/$defs/containsS11"
+        },
+        {
+          "$ref": "#/$defs/containsS12"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/].*"
+    },
+    "evidenceTier": {
+      "enum": [
+        "PAPER_ONLY",
+        "UNCALIBRATED",
+        "EVIDENCE_BACKED"
+      ]
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "default_branch",
+        "commit",
+        "observed_on",
+        "open_pull_requests",
+        "merged_context"
+      ],
+      "properties": {
+        "repository": {
+          "const": "Jp8617465-sys/asxos"
+        },
+        "default_branch": {
+          "const": "main"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "open_pull_requests": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "merged_context": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "cadence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sprint_count",
+        "sprint_length_days",
+        "anchor_rule",
+        "closure_rule"
+      ],
+      "properties": {
+        "sprint_count": {
+          "const": 12
+        },
+        "sprint_length_days": {
+          "const": 7
+        },
+        "anchor_rule": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "closure_rule": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "sourceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "purpose"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SRC-[A-Z0-9-]+$"
+        },
+        "path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "purpose": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "northStar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "definition",
+        "measurement",
+        "target",
+        "evidence_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^NS-[A-Z0-9-]+$"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "definition": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "measurement": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "evidence_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repoPath"
+          }
+        }
+      }
+    },
+    "initiative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "objective",
+        "status",
+        "depends_on",
+        "north_star_ids",
+        "delivery_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(GOV|ENG|EVAL|DISC|REL|PORT)-[0-9]{2}$"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "objective": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "status": {
+          "enum": [
+            "existing",
+            "planned",
+            "active",
+            "complete",
+            "retired"
+          ]
+        },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(GOV|ENG|EVAL|DISC|REL|PORT)-[0-9]{2}$"
+          }
+        },
+        "north_star_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^NS-[A-Z0-9-]+$"
+          }
+        },
+        "delivery_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repoPath"
+          }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "purpose",
+        "criteria",
+        "failure_state",
+        "allows",
+        "reset_conditions",
+        "evidence_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^GATE-[A-Z0-9-]+$"
+        },
+        "purpose": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "failure_state": {
+          "$ref": "#/$defs/evidenceTier"
+        },
+        "allows": {
+          "$ref": "#/$defs/evidenceTier"
+        },
+        "reset_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "evidence_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repoPath"
+          }
+        }
+      }
+    },
+    "deliveryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surfaces",
+        "excluded_surfaces",
+        "execution_boundary",
+        "model_routing",
+        "pull_request_budget"
+      ],
+      "properties": {
+        "surfaces": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "cli",
+              "daily_brief"
+            ]
+          }
+        },
+        "excluded_surfaces": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "web",
+              "mobile",
+              "multi_user",
+              "public_advice",
+              "broker_connection",
+              "order_execution"
+            ]
+          }
+        },
+        "execution_boundary": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "model_routing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fable_low",
+            "opus_ultra",
+            "repair_escalation_after_failed_cycles"
+          ],
+          "properties": {
+            "fable_low": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "opus_ultra": {
+              "type": "array",
+              "minItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            },
+            "repair_escalation_after_failed_cycles": {
+              "const": 2
+            }
+          }
+        },
+        "pull_request_budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "eight_hour",
+            "twelve_hour"
+          ],
+          "properties": {
+            "eight_hour": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "normal_total",
+                "absolute_max_total"
+              ],
+              "properties": {
+                "normal_total": {
+                  "const": 1
+                },
+                "absolute_max_total": {
+                  "const": 2
+                }
+              }
+            },
+            "twelve_hour": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "max_product",
+                "max_evidence_ops",
+                "absolute_max_total"
+              ],
+              "properties": {
+                "max_product": {
+                  "const": 2
+                },
+                "max_evidence_ops": {
+                  "const": 1
+                },
+                "absolute_max_total": {
+                  "const": 3
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "spec_path",
+        "schema_path",
+        "introduced_sprint"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*-v1$"
+        },
+        "spec_path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "schema_path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "introduced_sprint": {
+          "type": "string",
+          "pattern": "^S(0[1-9]|1[0-2])$"
+        }
+      }
+    },
+    "deliverable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "kind": {
+          "enum": [
+            "documentation",
+            "schema",
+            "code",
+            "migration",
+            "test",
+            "fixture",
+            "cli",
+            "brief",
+            "job",
+            "operations",
+            "evidence",
+            "contract"
+          ]
+        }
+      }
+    },
+    "sprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "week",
+        "title",
+        "doc",
+        "outcome",
+        "maximum_evidence_tier",
+        "initiative_ids",
+        "depends_on",
+        "north_star_ids",
+        "deliverables",
+        "exit_criteria",
+        "release_gate_effect"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^S(0[1-9]|1[0-2])$"
+        },
+        "week": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "title": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "doc": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "outcome": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "maximum_evidence_tier": {
+          "$ref": "#/$defs/evidenceTier"
+        },
+        "initiative_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(GOV|ENG|EVAL|DISC|REL|PORT)-[0-9]{2}$"
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^S(0[1-9]|1[0-2])$"
+          }
+        },
+        "north_star_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^NS-[A-Z0-9-]+$"
+          }
+        },
+        "deliverables": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/deliverable"
+          }
+        },
+        "exit_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "release_gate_effect": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "containsS01": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S01"
+          },
+          "week": {
+            "const": 1
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS02": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S02"
+          },
+          "week": {
+            "const": 2
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS03": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S03"
+          },
+          "week": {
+            "const": 3
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS04": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S04"
+          },
+          "week": {
+            "const": 4
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS05": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S05"
+          },
+          "week": {
+            "const": 5
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS06": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S06"
+          },
+          "week": {
+            "const": 6
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS07": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S07"
+          },
+          "week": {
+            "const": 7
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS08": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S08"
+          },
+          "week": {
+            "const": 8
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS09": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S09"
+          },
+          "week": {
+            "const": 9
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS10": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S10"
+          },
+          "week": {
+            "const": 10
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS11": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S11"
+          },
+          "week": {
+            "const": 11
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "containsS12": {
+      "contains": {
+        "type": "object",
+        "required": [
+          "id",
+          "week"
+        ],
+        "properties": {
+          "id": {
+            "const": "S12"
+          },
+          "week": {
+            "const": 12
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1
+    }
+  }
+}

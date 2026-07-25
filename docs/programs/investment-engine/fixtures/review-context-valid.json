@@ -1,0 +1,161 @@
+{
+  "contract_name": "review-context-v1",
+  "schema_version": "1.0.0",
+  "context_id": "10000000-0000-4000-8000-000000000001",
+  "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+  "thesis_id": 9001,
+  "report_version_id": "30000000-0000-4000-8000-000000000001",
+  "context_as_of": "2026-07-20T06:12:00Z",
+  "generated_at": "2026-07-20T06:13:00Z",
+  "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+  "subject": {
+    "symbol": "BHP.AU",
+    "flavour": "individual_equity"
+  },
+  "claims": [
+    {
+      "claim_id": "CLM-001",
+      "text": "The synthetic filing supports the stated operating-cost claim.",
+      "materiality": "material",
+      "evidence_ids": [
+        900002
+      ]
+    },
+    {
+      "claim_id": "CLM-002",
+      "text": "The synthetic market snapshot supplies the point-in-time reference value.",
+      "materiality": "supporting",
+      "evidence_ids": [
+        900001
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "case": "bear",
+      "narrative": "The synthetic operating-cost claim is contradicted.",
+      "key_assumptions": [
+        "The cited filing no longer supports the thesis."
+      ],
+      "evidence_ids": [
+        900002
+      ]
+    },
+    {
+      "case": "base",
+      "narrative": "The synthetic operating-cost claim remains supported.",
+      "key_assumptions": [
+        "The cited evidence remains current and uncontradicted."
+      ],
+      "evidence_ids": [
+        900002
+      ]
+    },
+    {
+      "case": "bull",
+      "narrative": "The synthetic operating position improves while the evidence remains valid.",
+      "key_assumptions": [
+        "A later verified filing confirms improvement."
+      ],
+      "evidence_ids": [
+        900002
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": 900001,
+      "claim": "The synthetic point-in-time market snapshot is available.",
+      "tier": "verified",
+      "source_type": "market_data",
+      "source_name": "synthetic-market-feed",
+      "source_url": null,
+      "observed_at": "2026-07-20T06:10:00Z",
+      "retrieved_at": "2026-07-20T06:11:00Z",
+      "data_as_of": "2026-07-20T06:10:00Z",
+      "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "facts": [
+        {
+          "fact_key": "close_price_aud",
+          "value_text": "Synthetic closing price",
+          "decimal_value": "40.000000",
+          "unit": "AUD",
+          "source_locator": "synthetic-market-feed/BHP.AU/2026-07-20"
+        }
+      ]
+    },
+    {
+      "evidence_id": 900002,
+      "claim": "The synthetic filing describes a resilient operating-cost position.",
+      "tier": "verified",
+      "source_type": "company_filing",
+      "source_name": "synthetic-company-filing",
+      "source_url": null,
+      "observed_at": "2026-07-18T00:00:00Z",
+      "retrieved_at": "2026-07-20T05:00:00Z",
+      "data_as_of": "2026-07-18T00:00:00Z",
+      "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "facts": [
+        {
+          "fact_key": "operating_cost_position",
+          "value_text": "Synthetic filing states the asset remains in a resilient cost position.",
+          "decimal_value": null,
+          "unit": null,
+          "source_locator": "synthetic-filing/operations"
+        }
+      ]
+    }
+  ],
+  "portfolio": {
+    "as_of": "2026-07-20T06:10:00Z",
+    "nav_aud": "50000.000000",
+    "cash_aud": "10000.000000",
+    "holdings": [
+      {
+        "symbol": "BHP.AU",
+        "quantity": "100",
+        "market_value_aud": "4000.000000",
+        "sector": "Materials",
+        "source_as_of": "2026-07-20T06:10:00Z"
+      }
+    ]
+  },
+  "risk_policy": {
+    "status": "UNAVAILABLE",
+    "policy_id": null,
+    "policy_version": null,
+    "policy_sha256": null
+  },
+  "freshness": {
+    "policy_id": "review-freshness-v1",
+    "overall_state": "FRESH",
+    "items": [
+      {
+        "input_name": "market_price",
+        "state": "FRESH",
+        "age_seconds": 120,
+        "maximum_age_seconds": 86400
+      },
+      {
+        "input_name": "company_filing",
+        "state": "FRESH",
+        "age_seconds": 195120,
+        "maximum_age_seconds": 1209600
+      }
+    ]
+  },
+  "missing_data": [
+    {
+      "code": "RISK_POLICY_UNAVAILABLE",
+      "field_path": "risk_policy",
+      "severity": "advisory",
+      "explanation": "James has not yet ratified a complete risk policy. Research review may close, but S07 construction and sizing remain fail closed."
+    }
+  ],
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "f102fbbf86926effe7811a3acfc0939c43e952f0bf698b4e3e03b29f4e6fbcc7"
+  }
+}

@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/evaluation-policy-v1.schema.json",
+  "title": "Evaluation Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "policy_id",
+    "policy_version",
+    "effective_from",
+    "effective_to",
+    "approval",
+    "cohort_policy",
+    "operational_gate",
+    "strategy_gate",
+    "bootstrap",
+    "reset_conditions",
+    "controls",
+    "source_hashes",
+    "created_at",
+    "canonical_hash"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "evaluation-policy-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "policy_id": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/identifier"
+    },
+    "policy_version": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/version"
+    },
+    "effective_from": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "effective_to": {
+      "oneOf": [
+        {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval": {
+      "$ref": "#/$defs/approval"
+    },
+    "cohort_policy": {
+      "$ref": "#/$defs/cohortPolicy"
+    },
+    "operational_gate": {
+      "$ref": "#/$defs/operationalGate"
+    },
+    "strategy_gate": {
+      "$ref": "#/$defs/strategyGate"
+    },
+    "bootstrap": {
+      "$ref": "#/$defs/bootstrap"
+    },
+    "reset_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "STRATEGY_VERSION_CHANGED",
+          "CONSTRUCTION_POLICY_CHANGED",
+          "RISK_POLICY_CHANGED",
+          "SIZING_VERSION_CHANGED",
+          "EVALUATOR_SEMANTICS_CHANGED",
+          "ACCOUNTING_OR_TAX_CHANGED",
+          "COST_OR_FILL_CHANGED",
+          "BENCHMARK_CHANGED",
+          "CONTRACT_SCHEMA_CHANGED",
+          "CODE_VERSION_CHANGED",
+          "FORBIDDEN_DEPENDENCY_ISOLATION_FAILED",
+          "QUALIFYING_SESSION_DIRTY"
+        ]
+      }
+    },
+    "controls": {
+      "$ref": "#/$defs/controls"
+    },
+    "source_hashes": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/sourceHashes"
+    },
+    "created_at": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+    },
+    "canonical_hash": {
+      "$ref": "investment-case-lineage-v1.schema.json#/$defs/canonicalHash"
+    }
+  },
+  "$defs": {
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ratified_by",
+        "ratified_at",
+        "approval_sha256"
+      ],
+      "properties": {
+        "ratified_by": {
+          "const": "James"
+        },
+        "ratified_at": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/timestamp"
+        },
+        "approval_sha256": {
+          "$ref": "investment-case-lineage-v1.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "cohortPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prospective_only",
+        "reconstructed_qualifies",
+        "origin_denominator_states",
+        "matured_outcomes_only_for_return",
+        "overlap_policy",
+        "version_tuple_required"
+      ],
+      "properties": {
+        "prospective_only": {
+          "const": true
+        },
+        "reconstructed_qualifies": {
+          "const": false
+        },
+        "origin_denominator_states": {
+          "const": [
+            "OPEN",
+            "BLOCKED",
+            "REJECTED",
+            "NO_ACTION",
+            "INVALID",
+            "MATURED",
+            "UNAVAILABLE"
+          ]
+        },
+        "matured_outcomes_only_for_return": {
+          "const": true
+        },
+        "overlap_policy": {
+          "const": "ALLOWED_DEPENDENCE_CONTROLLED_BY_SESSION_BLOCKS"
+        },
+        "version_tuple_required": {
+          "const": [
+            "strategy",
+            "construction_policy",
+            "risk_policy",
+            "sizing",
+            "staging",
+            "fill",
+            "cost",
+            "tax",
+            "accounting",
+            "calendar",
+            "benchmark",
+            "data",
+            "evaluator",
+            "schema",
+            "decimal_context",
+            "code",
+            "runtime_lock"
+          ]
+        }
+      }
+    },
+    "operationalGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consecutive_complete_sessions",
+        "bit_identical_replay_required",
+        "minimum_priced_nav_fraction",
+        "maximum_each_unresolved_material_defect_count",
+        "benchmark_id",
+        "benchmark_requirement",
+        "fee_schedule_requirement",
+        "ratified_risk_policy_required",
+        "forbidden_dependency_isolation_proof"
+      ],
+      "properties": {
+        "consecutive_complete_sessions": {
+          "const": 30
+        },
+        "bit_identical_replay_required": {
+          "const": true
+        },
+        "minimum_priced_nav_fraction": {
+          "const": "0.995000"
+        },
+        "maximum_each_unresolved_material_defect_count": {
+          "const": 0
+        },
+        "benchmark_id": {
+          "const": "XJO-TR"
+        },
+        "benchmark_requirement": {
+          "const": "REAL_POINT_IN_TIME_TOTAL_RETURN"
+        },
+        "fee_schedule_requirement": {
+          "const": "BROKER_PUBLISHED_EFFECTIVE"
+        },
+        "ratified_risk_policy_required": {
+          "const": true
+        },
+        "forbidden_dependency_isolation_proof": {
+          "const": "STRUCTURAL_AND_PERTURBATION_HASH_REQUIRED"
+        }
+      }
+    },
+    "strategyGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_sessions",
+        "minimum_matured_episodes",
+        "primary_horizon_sessions",
+        "comparators",
+        "minimum_stress_cost_active_return",
+        "minimum_bootstrap_lower_bound",
+        "minimum_filled_notional_fraction",
+        "fill_window_sessions",
+        "maximum_policy_breaches",
+        "maximum_mandate_drawdown_breaches"
+      ],
+      "properties": {
+        "minimum_sessions": {
+          "const": 252
+        },
+        "minimum_matured_episodes": {
+          "const": 20
+        },
+        "primary_horizon_sessions": {
+          "const": 63
+        },
+        "comparators": {
+          "const": [
+            "HOLD",
+            "XJO_TR"
+          ]
+        },
+        "minimum_stress_cost_active_return": {
+          "const": "0.000001"
+        },
+        "minimum_bootstrap_lower_bound": {
+          "const": "0.000001"
+        },
+        "minimum_filled_notional_fraction": {
+          "const": "0.950000"
+        },
+        "fill_window_sessions": {
+          "const": 5
+        },
+        "maximum_policy_breaches": {
+          "const": 0
+        },
+        "maximum_mandate_drawdown_breaches": {
+          "const": 0
+        }
+      }
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_estimand",
+        "primary_branch",
+        "comparisons",
+        "statistic",
+        "resampling_unit",
+        "bootstrap_method",
+        "block_rule",
+        "primary_block_length_sessions",
+        "sensitivity_block_lengths",
+        "block_boundary",
+        "circular_index_rule",
+        "terminal_block_rule",
+        "minimum_clean_paired_sessions",
+        "session_order",
+        "common_endpoint_rule",
+        "repetitions",
+        "seed_derivation",
+        "seed_bit_width",
+        "seed_byte_order",
+        "prng_id",
+        "numpy_version",
+        "draw_mapping",
+        "interval_estimator",
+        "percentile_rule",
+        "one_sided_confidence",
+        "sensitivity_interval_estimator",
+        "sensitivity_two_sided_confidence",
+        "missingness_policy",
+        "decimal_output_scale",
+        "candidate_family_required",
+        "multiple_testing_method"
+      ],
+      "properties": {
+        "primary_estimand": {
+          "const": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN"
+        },
+        "primary_branch": {
+          "const": "PROPOSAL_STRESS"
+        },
+        "comparisons": {
+          "const": [
+            "HOLD",
+            "XJO_TR"
+          ]
+        },
+        "statistic": {
+          "const": "ANNUALISED_PAIRED_LOG_ACTIVE_RETURN_252"
+        },
+        "resampling_unit": {
+          "const": "PAIRED_DAILY_RETURN_TUPLE"
+        },
+        "bootstrap_method": {
+          "const": "CIRCULAR_MOVING_BLOCK_BOOTSTRAP"
+        },
+        "block_rule": {
+          "const": "FIXED_PRE_REGISTERED"
+        },
+        "primary_block_length_sessions": {
+          "const": "10"
+        },
+        "sensitivity_block_lengths": {
+          "const": [
+            "5",
+            "20"
+          ]
+        },
+        "block_boundary": {
+          "const": "CIRCULAR"
+        },
+        "circular_index_rule": {
+          "const": "SOURCE_INDEX_MODULO_N"
+        },
+        "terminal_block_rule": {
+          "const": "CONCATENATE_THEN_TRUNCATE_TO_N"
+        },
+        "minimum_clean_paired_sessions": {
+          "const": "252"
+        },
+        "session_order": {
+          "const": "ASCENDING_TRADING_SESSION"
+        },
+        "common_endpoint_rule": {
+          "const": "COMPLETE_STRESS_AND_COMPARATOR_SAME_SESSION"
+        },
+        "repetitions": {
+          "const": "100000"
+        },
+        "seed_derivation": {
+          "const": "UNSIGNED_FIRST_128_BITS_SHA256_COHORT_ID_PIPE_METRIC_ID_PIPE_EVALUATION_POLICY_SHA256"
+        },
+        "seed_bit_width": {
+          "const": "128"
+        },
+        "seed_byte_order": {
+          "const": "BIG_ENDIAN"
+        },
+        "prng_id": {
+          "const": "NUMPY_PCG64DXSM"
+        },
+        "numpy_version": {
+          "const": "2.1.1"
+        },
+        "draw_mapping": {
+          "const": "NUMPY_GENERATOR_INTEGERS_0_TO_N_EXCLUSIVE"
+        },
+        "interval_estimator": {
+          "const": "EMPIRICAL_TYPE_1"
+        },
+        "percentile_rule": {
+          "const": "NEAREST_RANK_10TH_PERCENTILE"
+        },
+        "one_sided_confidence": {
+          "const": "0.900000"
+        },
+        "sensitivity_interval_estimator": {
+          "const": "EMPIRICAL_TYPE_1"
+        },
+        "sensitivity_two_sided_confidence": {
+          "const": "0.950000"
+        },
+        "missingness_policy": {
+          "const": "DIRTY_SESSION_RESETS_OPERATIONAL_STREAK_NO_IMPUTATION"
+        },
+        "decimal_output_scale": {
+          "const": "6"
+        },
+        "candidate_family_required": {
+          "const": true
+        },
+        "multiple_testing_method": {
+          "const": "HOLM_FAMILYWISE_DIAGNOSTIC"
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer_passed_value_trusted",
+        "gate_recomputed_from_evidence",
+        "denominator_editing_permitted",
+        "legacy_predictive_input_permitted",
+        "execution_authority"
+      ],
+      "properties": {
+        "producer_passed_value_trusted": {
+          "const": false
+        },
+        "gate_recomputed_from_evidence": {
+          "const": true
+        },
+        "denominator_editing_permitted": {
+          "const": false
+        },
+        "legacy_predictive_input_permitted": {
+          "const": false
+        },
+        "execution_authority": {
+          "const": "NONE"
+        }
+      }
+    }
+  }
+}

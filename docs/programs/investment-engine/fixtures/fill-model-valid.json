@@ -1,0 +1,80 @@
+{
+  "contract_name": "fill-model-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T06:00:00Z",
+  "created_at": "2026-07-24T06:05:00Z",
+  "source_hashes": [
+    {
+      "source": "fill-model-ratification",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "fill_model_id": "fill-model-paper-asx-001",
+  "fill_model_version": "1.0.0",
+  "effective_from": "2026-07-24T00:00:00Z",
+  "approval": {
+    "status": "RATIFIED",
+    "approved_by": "James",
+    "approved_at": "2026-07-24T05:55:00Z",
+    "approval_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "data_requirements": {
+    "preferred_market_data": "POINT_IN_TIME_BID_ASK_TRADES",
+    "daily_bar_fallback": "ADVERSE_TRADE_THROUGH_ONLY",
+    "volume_required": true,
+    "quote_max_age_seconds": "60",
+    "calendar_ref": {
+      "contract_name": "trading-calendar-v1",
+      "artifact_id": "calendar-xasx-2026",
+      "schema_version": "1.0.0",
+      "sha256": "62361ef507e0ecbaeec9ded9114f0c2876c750fa035a313028fbc64510e5390b",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  "fill_rules": {
+    "same_session_fill_allowed": false,
+    "first_eligible_event": "STRICTLY_LATER_MARKET_EVENT",
+    "unknown_intrabar_sequence": "NO_FILL_ON_TOUCH_ONLY",
+    "partial_fills": "ENABLED_CAPPED_BY_ELIGIBLE_VOLUME",
+    "auction_treatment": "EXCLUDED_UNLESS_EXPLICIT_AUCTION_PRINT",
+    "halt_treatment": "NO_FILL",
+    "max_volume_participation": "0.050000",
+    "max_order_adv_fraction": "0.020000",
+    "adv_lookback_sessions": "20",
+    "adv_estimator": "MEDIAN_COMPLETE_SESSIONS",
+    "price_rounding": "ADVERSE_TO_EFFECTIVE_TICK",
+    "quantity_rounding": "FLOOR_TO_EFFECTIVE_BOARD_LOT"
+  },
+  "base_costs": {
+    "scenario": "BASE",
+    "half_spread_multiplier": "1.000000",
+    "slippage_bps": "2.000000",
+    "impact_model": "SQRT_PARTICIPATION",
+    "impact_coefficient": "10.000000",
+    "minimum_cost_bps": "3.000000",
+    "fee_schedule_selection": "EFFECTIVE_AT_SIMULATED_FILL"
+  },
+  "stress_costs": {
+    "scenario": "STRESS",
+    "half_spread_multiplier": "2.000000",
+    "slippage_bps": "10.000000",
+    "impact_model": "SQRT_PARTICIPATION",
+    "impact_coefficient": "25.000000",
+    "minimum_cost_bps": "15.000000",
+    "fee_schedule_selection": "EFFECTIVE_AT_SIMULATED_FILL"
+  },
+  "incomplete_action": "NO_FILL_AND_MARK_INCOMPLETE",
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "fb2bee438b467de76ebc6ad35be2f386c9effd4601911326873f322aa03c8b41"
+  },
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "simulated_only": true,
+    "non_executable": true,
+    "broker_capability": "ABSENT"
+  }
+}

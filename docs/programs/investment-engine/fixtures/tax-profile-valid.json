@@ -1,0 +1,77 @@
+{
+  "contract_name": "tax-profile-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T05:00:00Z",
+  "created_at": "2026-07-24T05:04:00Z",
+  "source_hashes": [
+    {
+      "source": "paper-tax-assumption-ratification",
+      "sha256": "7272727272727272727272727272727272727272727272727272727272727272"
+    }
+  ],
+  "tax_profile_id": "tax-profile-paper-001",
+  "tax_profile_version": "1.0.0",
+  "subject_id": "james-paper-tax-scenario",
+  "profile_basis": "JAMES_RATIFIED_PAPER_SCENARIO",
+  "jurisdiction": "AU",
+  "entity_class": "INDIVIDUAL_RESIDENT_PAPER_SCENARIO",
+  "tax_year": "2026-2027",
+  "effective_from": "2026-07-01T00:00:00Z",
+  "effective_to": "2027-06-30T23:59:59Z",
+  "available_at": "2026-07-24T05:03:00Z",
+  "status": "COMPLETE",
+  "approval": {
+    "status": "RATIFIED",
+    "ratified_by": "James",
+    "ratified_at": "2026-07-24T05:03:00Z",
+    "approval_sha256": "7272727272727272727272727272727272727272727272727272727272727272"
+  },
+  "rates": {
+    "ordinary_income_effective_rate": "0.470000",
+    "short_holding_capital_gain_rate": "0.470000",
+    "long_holding_capital_gain_rate": "0.235000",
+    "cash_interest_rate": "0.470000",
+    "rate_interpretation": "FRACTION_OF_TAXABLE_AMOUNT"
+  },
+  "capital_gains": {
+    "discount_eligible": true,
+    "discount_fraction": "0.500000",
+    "minimum_holding_days": "365",
+    "holding_period_basis": "ACQUISITION_TO_DISPOSAL_DATE",
+    "transaction_costs_in_cost_base": true,
+    "realization_event": "DISPOSAL_TRADE_DATE"
+  },
+  "income_treatment": {
+    "cash_dividend": "ORDINARY_INCOME_AT_ENTITLEMENT",
+    "franking_credit_recognition": "KNOWN_ENTITLEMENT_ONLY",
+    "franking_credit_utilization": "OFFSET_ESTIMATED_TAX_NO_REFUND_ASSUMED",
+    "cash_interest": "ORDINARY_INCOME_AT_ACCRUAL",
+    "unknown_entitlement_action": "UNAVAILABLE_NO_ZERO_FALLBACK"
+  },
+  "opening_loss_state": {
+    "as_of": "2026-07-01T00:00:00Z",
+    "carried_capital_loss_aud": "0.000000",
+    "carried_revenue_loss_aud": "0.000000",
+    "state_sha256": "7373737373737373737373737373737373737373737373737373737373737373"
+  },
+  "branch_state_policy": "COPY_OPENING_STATE_THEN_ISOLATE_EACH_COUNTERFACTUAL",
+  "missing_assumptions": [],
+  "reason_codes": [],
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "output_class": "POINT_IN_TIME_ESTIMATE",
+    "tax_return": false,
+    "tax_advice": false,
+    "branch_state_shared": false,
+    "unknown_value_zero_fallback": false,
+    "non_executable": true,
+    "live_holdings_write": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "d163bae717baedbc7a0811f3743894573e2a465b672e88774de0eb6fa9d97a0e"
+  }
+}

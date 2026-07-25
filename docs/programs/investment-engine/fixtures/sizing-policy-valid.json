@@ -1,0 +1,110 @@
+{
+  "contract_name": "sizing-policy-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T05:00:00Z",
+  "created_at": "2026-07-24T05:02:00Z",
+  "source_hashes": [
+    {
+      "source": "sizing-policy-ratification",
+      "sha256": "7171717171717171717171717171717171717171717171717171717171717171"
+    }
+  ],
+  "sizing_policy_id": "sizing-policy-paper-001",
+  "sizing_policy_version": "1.0.0",
+  "effective_from": "2026-07-24T00:00:00Z",
+  "effective_to": null,
+  "method": "POLICY_CAPPED_BOARD_LOT",
+  "approval": {
+    "status": "RATIFIED",
+    "ratified_by": "James",
+    "ratified_at": "2026-07-24T05:00:00Z",
+    "approval_sha256": "7171717171717171717171717171717171717171717171717171717171717171"
+  },
+  "policy_refs": {
+    "construction_policy_ref": {
+      "contract_name": "portfolio-construction-policy-v1",
+      "artifact_id": "construction-policy-main",
+      "schema_version": "1.0.0",
+      "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975",
+      "created_at": "2026-07-23T23:31:00Z"
+    },
+    "risk_policy_ref": {
+      "contract_name": "risk-policy-v1",
+      "artifact_id": "risk-policy-main",
+      "schema_version": "1.0.0",
+      "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e",
+      "created_at": "2026-07-23T23:33:00Z"
+    }
+  },
+  "constraint_sequence": [
+    "CLASSIFICATION",
+    "TARGET_NOTIONAL",
+    "AVAILABLE_CASH",
+    "ISSUER",
+    "CORPORATE_GROUP",
+    "SINGLE_NAME",
+    "SECTOR",
+    "THEME",
+    "PORTFOLIO_LOSS_AT_STOP",
+    "GROSS_EXPOSURE",
+    "NET_EXPOSURE",
+    "RESERVATIONS",
+    "TURNOVER",
+    "ADV_PARTICIPATION",
+    "SPREAD",
+    "LOSS_HEADROOM",
+    "TICK_RULE",
+    "BOARD_LOT",
+    "MINIMUM_ORDER",
+    "FEES"
+  ],
+  "classification_requirements": {
+    "exact_proposal_snapshot_match": true,
+    "complete_status_required": true,
+    "admissible_status_required": true,
+    "effective_board_lot_required": true,
+    "effective_tick_rule_required": true,
+    "missing_or_ambiguous_action": "REJECTED_NO_POLICY"
+  },
+  "limits": {
+    "binding_cap_operator": "MINIMUM_OF_ALL_APPLICABLE_LIMITS",
+    "available_cash_reserve_fraction": "0.010000",
+    "maximum_single_order_nav_fraction": "0.200000",
+    "maximum_order_adv_fraction": "0.020000",
+    "maximum_spread_fraction": "0.010000",
+    "minimum_loss_headroom_aud": "0.000000",
+    "minimum_order_aud": "500.000000",
+    "maximum_fee_fraction": "0.010000",
+    "sell_quantity_basis": "ELIGIBLE_SETTLED_LOTS_ONLY"
+  },
+  "rounding": {
+    "working_precision": "DECIMAL_34",
+    "money_scale": "6",
+    "mode": "ROUND_HALF_EVEN",
+    "quantity_rule": "FLOOR_TO_EFFECTIVE_BOARD_LOT",
+    "price_rule": "ADVERSE_TO_EFFECTIVE_TICK",
+    "post_round_revalidation": true
+  },
+  "failure_actions": {
+    "missing_or_ambiguous_policy": "REJECTED_NO_POLICY",
+    "constraint_breach_after_reduction": "REJECTED_POLICY_VIOLATION",
+    "missing_market_or_portfolio_input": "REJECTED_NO_POLICY",
+    "missing_or_ambiguous_classification": "REJECTED_NO_POLICY",
+    "implicit_default_permitted": false
+  },
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "deterministic": true,
+    "proposal_quantity_increase_permitted": false,
+    "analytical_ranking_input_permitted": false,
+    "non_executable": true,
+    "live_holdings_write": false
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "4f44c95e7c49769907b69c735a2d54867b89ed3f7db783f5f39bcbabb9cd65f2"
+  }
+}

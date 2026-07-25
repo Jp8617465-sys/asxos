@@ -1,0 +1,220 @@
+{
+  "contract_name": "evaluator-config-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T06:00:00Z",
+  "created_at": "2026-07-24T06:10:00Z",
+  "source_hashes": [
+    {
+      "source": "registered-evaluator-protocol",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "config_id": "evaluator-config-paper-001",
+  "config_version": "1.0.0",
+  "candidate_family": {
+    "family_id": "candidate-family-asx-001",
+    "registration_id": "trial-registration-asx-001",
+    "trial_registry_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+    "registered_candidate_count": "1",
+    "selection_events_permitted": false
+  },
+  "candidate_versions": {
+    "construction_version": "1.0.0",
+    "risk_version": "1.0.0",
+    "sizing_version": "1.0.0",
+    "staging_version": "1.0.0",
+    "fill_version": "1.0.0",
+    "cost_version": "1.0.0",
+    "tax_version": "1.0.0",
+    "accounting_version": "1.0.0",
+    "calendar_version": "1.0.0",
+    "benchmark_version": "1.0.0",
+    "evaluator_version": "1.0.0",
+    "schema_bundle_version": "1.0.0",
+    "decimal_context_version": "1.0.0",
+    "code_version": "9d442de287e123ae090b95838155dc41d76ee5f3",
+    "runtime_lock_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+  },
+  "policy_refs": {
+    "construction_policy_ref": {
+      "contract_name": "portfolio-construction-policy-v1",
+      "artifact_id": "construction-policy-main",
+      "schema_version": "1.0.0",
+      "sha256": "fd23a97608fcc1e580c904f8d0a28c494f6dbd8d1cd28ea25f950ad0d887f975",
+      "created_at": "2026-07-23T23:31:00Z"
+    },
+    "risk_policy_ref": {
+      "contract_name": "risk-policy-v1",
+      "artifact_id": "risk-policy-main",
+      "schema_version": "1.0.0",
+      "sha256": "99ccfe68e02b9f4f35880f88a3a1f5bce62ca96fc80b3991066f8f3822a1a33e",
+      "created_at": "2026-07-23T23:33:00Z"
+    },
+    "sizing_policy_ref": {
+      "contract_name": "sizing-policy-v1",
+      "artifact_id": "sizing-policy-paper-001",
+      "schema_version": "1.0.0",
+      "sha256": "4f44c95e7c49769907b69c735a2d54867b89ed3f7db783f5f39bcbabb9cd65f2",
+      "created_at": "2026-07-24T05:02:00Z"
+    },
+    "staging_policy_ref": {
+      "contract_name": "staging-policy-v1",
+      "artifact_id": "staging-policy-main",
+      "schema_version": "1.0.0",
+      "sha256": "27e58610f38c1dc66d00e505bc1dda0103bb3307273327cab3d22a24211616b6",
+      "created_at": "2026-07-23T23:35:00Z"
+    },
+    "fill_model_ref": {
+      "contract_name": "fill-model-v1",
+      "artifact_id": "fill-model-paper-asx-001",
+      "schema_version": "1.0.0",
+      "sha256": "fb2bee438b467de76ebc6ad35be2f386c9effd4601911326873f322aa03c8b41",
+      "created_at": "2026-07-24T06:05:00Z"
+    },
+    "tax_policy_ref": {
+      "contract_name": "tax-profile-v1",
+      "artifact_id": "tax-profile-paper-001",
+      "schema_version": "1.0.0",
+      "sha256": "d163bae717baedbc7a0811f3743894573e2a465b672e88774de0eb6fa9d97a0e",
+      "created_at": "2026-07-24T05:04:00Z"
+    },
+    "accounting_policy_ref": {
+      "contract_name": "accounting-policy-v1",
+      "artifact_id": "accounting-paper-asx-001",
+      "schema_version": "1.0.0",
+      "sha256": "591a6013ad4afe797f478138e8ed6d5940aa796563c471b1e6b1095dbc2ddd91",
+      "created_at": "2026-07-24T06:06:00Z"
+    },
+    "calendar_ref": {
+      "contract_name": "trading-calendar-v1",
+      "artifact_id": "calendar-xasx-2026",
+      "schema_version": "1.0.0",
+      "sha256": "62361ef507e0ecbaeec9ded9114f0c2876c750fa035a313028fbc64510e5390b",
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    "benchmark_policy_ref": {
+      "contract_name": "benchmark-policy-v1",
+      "artifact_id": "benchmark-paper-asx-001",
+      "schema_version": "1.0.0",
+      "sha256": "f5f3a11118ddd52bc24d57b03979ce7960796db883bd9a17467127b4ed1afcc5",
+      "created_at": "2026-07-24T06:07:00Z"
+    },
+    "evaluation_policy_ref": {
+      "contract_name": "evaluation-policy-v1",
+      "artifact_id": "evaluation-policy-main",
+      "schema_version": "1.0.0",
+      "sha256": "7e55ccba0a552ce89d2d03520775c73fc91b85a85d2d2b2e52c4557dac61b19c",
+      "created_at": "2026-07-23T23:37:00Z"
+    }
+  },
+  "origin_schedule": {
+    "schedule_id": "origin-schedule-paper-001",
+    "schedule_type": "PROSPECTIVE_TRADING_SESSION",
+    "cadence": "EVERY_COMPLETE_SESSION",
+    "primary_horizon_sessions": "63",
+    "origin_registration": "BEFORE_OUTCOME",
+    "overlap_policy": "ALLOWED_WHEN_DECLARED",
+    "dependency_group_rule": "SHARED_HORIZON_SESSION_TRANSITIVE_CLOSURE",
+    "retained_statuses": [
+      "OPEN",
+      "BLOCKED",
+      "REJECTED",
+      "NO_ACTION",
+      "INVALID",
+      "MATURED",
+      "UNAVAILABLE"
+    ]
+  },
+  "branches": [
+    {
+      "branch_id": "PROPOSAL_BASE",
+      "decision_policy": "PROPOSAL",
+      "fill_cost_scenario": "BASE",
+      "external_flow_policy": "IDENTICAL_TIMING_AND_AMOUNT"
+    },
+    {
+      "branch_id": "PROPOSAL_STRESS",
+      "decision_policy": "PROPOSAL",
+      "fill_cost_scenario": "STRESS",
+      "external_flow_policy": "IDENTICAL_TIMING_AND_AMOUNT"
+    },
+    {
+      "branch_id": "HOLD",
+      "decision_policy": "NO_DISCRETIONARY_TRADE",
+      "fill_cost_scenario": "NOT_APPLICABLE",
+      "external_flow_policy": "IDENTICAL_TIMING_AND_AMOUNT"
+    },
+    {
+      "branch_id": "XJO_TR",
+      "decision_policy": "INDEX_TOTAL_RETURN",
+      "fill_cost_scenario": "NOT_APPLICABLE",
+      "external_flow_policy": "IDENTICAL_TIMING_AND_AMOUNT"
+    },
+    {
+      "branch_id": "CASH",
+      "decision_policy": "CASH_ONLY",
+      "fill_cost_scenario": "NOT_APPLICABLE",
+      "external_flow_policy": "IDENTICAL_TIMING_AND_AMOUNT"
+    }
+  ],
+  "statistical_protocol": {
+    "primary_estimand": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN",
+    "primary_branch": "PROPOSAL_STRESS",
+    "comparisons": [
+      "HOLD",
+      "XJO_TR"
+    ],
+    "statistic": "ANNUALISED_PAIRED_LOG_ACTIVE_RETURN_252",
+    "resampling_unit": "PAIRED_DAILY_RETURN_TUPLE",
+    "bootstrap_method": "CIRCULAR_MOVING_BLOCK_BOOTSTRAP",
+    "block_rule": "FIXED_PRE_REGISTERED",
+    "primary_block_length_sessions": "10",
+    "sensitivity_block_lengths": [
+      "5",
+      "20"
+    ],
+    "block_boundary": "CIRCULAR",
+    "circular_index_rule": "SOURCE_INDEX_MODULO_N",
+    "terminal_block_rule": "CONCATENATE_THEN_TRUNCATE_TO_N",
+    "minimum_clean_paired_sessions": "252",
+    "session_order": "ASCENDING_TRADING_SESSION",
+    "common_endpoint_rule": "COMPLETE_STRESS_AND_COMPARATOR_SAME_SESSION",
+    "repetitions": "100000",
+    "seed_derivation": "UNSIGNED_FIRST_128_BITS_SHA256_COHORT_ID_PIPE_METRIC_ID_PIPE_EVALUATION_POLICY_SHA256",
+    "seed_bit_width": "128",
+    "seed_byte_order": "BIG_ENDIAN",
+    "prng_id": "NUMPY_PCG64DXSM",
+    "numpy_version": "2.1.1",
+    "draw_mapping": "NUMPY_GENERATOR_INTEGERS_0_TO_N_EXCLUSIVE",
+    "interval_estimator": "EMPIRICAL_TYPE_1",
+    "percentile_rule": "NEAREST_RANK_10TH_PERCENTILE",
+    "one_sided_confidence": "0.900000",
+    "sensitivity_interval_estimator": "EMPIRICAL_TYPE_1",
+    "sensitivity_two_sided_confidence": "0.950000",
+    "missingness_policy": "DIRTY_SESSION_RESETS_OPERATIONAL_STREAK_NO_IMPUTATION",
+    "decimal_output_scale": "6",
+    "candidate_family_required": true,
+    "multiple_testing_method": "HOLM_FAMILYWISE_DIAGNOSTIC"
+  },
+  "model_a_isolation": {
+    "structural_dependency": "ABSENT",
+    "required_test": "REMOVAL_AND_RANDOMIZATION_BYTE_IDENTICAL",
+    "evidence_ref_required": true
+  },
+  "frozen_at": "2026-07-24T06:10:00Z",
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "0c2e63a9f563bb50672f5cf97604ca1cd1b887eff72f43dea0b6116d6a9fa4b6"
+  },
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "non_executable": true,
+    "simulated_fills_only": true,
+    "prospective_only": true,
+    "broker_capability": "ABSENT",
+    "live_holdings_write": false
+  }
+}

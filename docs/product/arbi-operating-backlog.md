@@ -1,13 +1,17 @@
 # arbi operating backlog — ingested + debated (2026-07-11)
 
-**Status:** current · arbi-owned ranked backlog · **Source:** ChatGPT strategy note (James
-relayed 2026-07-11), **debated against live repo state** by arbi.
+**Status:** legacy strategy-note inventory; not executable sequencing authority ·
+**Source:** ChatGPT strategy note (James relayed 2026-07-11), debated against the
+then-live repository state by Arbi.
 **Owner:** arbi ranks + drives; James owns capital/merge/policy checkpoints.
-**Superseded by:** N/A
+**Superseded by:** `roadmap.yaml` for the accepted investment-engine programme.
+Rows outside that scope are hypotheses to refresh and admit through the canonical
+roadmap or a separately approved mission; their historical rank is not current
+priority.
 
-The debate matters more than the list. ChatGPT's 12 items are strong, but **4 already exist**
-(built this session) — capturing them as "create" would be exactly the fake-progress arbi is
-supposed to catch. Deduped against ground truth, the genuinely-new high-value work is narrower.
+This preserves the original debate and provenance. It does not compete with the
+twelve-week sprint order, reopen accepted decisions, or authorise work from a
+stale status label.
 
 ---
 

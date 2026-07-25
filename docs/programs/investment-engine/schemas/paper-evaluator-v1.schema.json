@@ -1,0 +1,1169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/paper-evaluator-v1.schema.json",
+  "title": "ASXOS Paper Evaluator v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "producer_version",
+    "data_as_of",
+    "created_at",
+    "source_hashes",
+    "evaluation_id",
+    "config_ref",
+    "paper_eligibility_ref",
+    "excluded_dependency_evidence_ref",
+    "candidate_versions",
+    "evaluation_window",
+    "evidence_chain",
+    "episode_register",
+    "episode_counts",
+    "unresolved_material_defects",
+    "operational_gate",
+    "strategy_gate",
+    "promotion_gate",
+    "canonical_hash",
+    "controls"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "paper-evaluator-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer_version": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+    },
+    "data_as_of": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "source_hashes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/sourceHashes"
+    },
+    "canonical_hash": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/canonicalHash"
+    },
+    "evaluation_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "config_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "paper_eligibility_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "excluded_dependency_evidence_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "candidate_versions": {
+      "$ref": "#/$defs/candidateVersions"
+    },
+    "evaluation_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "started_at",
+        "ended_at",
+        "observed_sessions",
+        "priced_nav_day_fraction",
+        "primary_horizon_sessions"
+      ],
+      "properties": {
+        "started_at": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+        },
+        "ended_at": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+        },
+        "observed_sessions": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "priced_nav_day_fraction": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+        },
+        "primary_horizon_sessions": {
+          "const": "63"
+        }
+      }
+    },
+    "evidence_chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin_refs",
+        "intent_refs",
+        "order_refs",
+        "fill_refs",
+        "ledger_refs",
+        "nav_refs",
+        "outcome_refs",
+        "cohort_statistics_ref"
+      ],
+      "properties": {
+        "origin_refs": {
+          "$ref": "#/$defs/artifactRefs"
+        },
+        "intent_refs": {
+          "$ref": "#/$defs/artifactRefs"
+        },
+        "order_refs": {
+          "$ref": "#/$defs/artifactRefs"
+        },
+        "fill_refs": {
+          "$ref": "#/$defs/artifactRefs"
+        },
+        "ledger_refs": {
+          "$ref": "#/$defs/artifactRefs"
+        },
+        "nav_refs": {
+          "$ref": "#/$defs/artifactRefs"
+        },
+        "outcome_refs": {
+          "$ref": "#/$defs/artifactRefs"
+        },
+        "cohort_statistics_ref": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+        }
+      }
+    },
+    "episode_register": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/episodeRegisterRow"
+      }
+    },
+    "episode_counts": {
+      "$ref": "#/$defs/episodeCounts"
+    },
+    "unresolved_material_defects": {
+      "$ref": "#/$defs/defectCounts"
+    },
+    "operational_gate": {
+      "$ref": "#/$defs/operationalGate"
+    },
+    "strategy_gate": {
+      "$ref": "#/$defs/strategyGate"
+    },
+    "promotion_gate": {
+      "$ref": "#/$defs/promotionGate"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluation_mode",
+        "derived_digest",
+        "producer_gate_boolean_trusted",
+        "simulated_fills_only",
+        "non_executable",
+        "live_holdings_write",
+        "broker_capability"
+      ],
+      "properties": {
+        "evaluation_mode": {
+          "const": "PAPER_ONLY"
+        },
+        "derived_digest": {
+          "const": true
+        },
+        "producer_gate_boolean_trusted": {
+          "const": false
+        },
+        "simulated_fills_only": {
+          "const": true
+        },
+        "non_executable": {
+          "const": true
+        },
+        "live_holdings_write": {
+          "const": false
+        },
+        "broker_capability": {
+          "const": "ABSENT"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "promotion_gate": {
+            "properties": {
+              "decision": {
+                "const": "PAPER_ONLY_HOLD"
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          }
+        },
+        "required": [
+          "promotion_gate"
+        ]
+      },
+      "then": {
+        "properties": {
+          "promotion_gate": {
+            "properties": {
+              "maximum_evidence_tier": {
+                "const": "PAPER_ONLY"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "promotion_gate": {
+            "properties": {
+              "decision": {
+                "enum": [
+                  "HOLD_UNCALIBRATED",
+                  "ELIGIBLE_FOR_JAMES_REVIEW"
+                ]
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          }
+        },
+        "required": [
+          "promotion_gate"
+        ]
+      },
+      "then": {
+        "properties": {
+          "promotion_gate": {
+            "properties": {
+              "maximum_evidence_tier": {
+                "const": "UNCALIBRATED"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "artifactRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+      }
+    },
+    "candidateVersions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "construction_version",
+        "risk_version",
+        "sizing_version",
+        "staging_version",
+        "fill_version",
+        "cost_version",
+        "tax_version",
+        "accounting_version",
+        "calendar_version",
+        "benchmark_version",
+        "evaluator_version",
+        "schema_bundle_version",
+        "decimal_context_version",
+        "code_version",
+        "runtime_lock_sha256",
+        "versions_fixed"
+      ],
+      "properties": {
+        "construction_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "risk_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "sizing_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "staging_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "fill_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "cost_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "tax_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "accounting_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "calendar_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "benchmark_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "evaluator_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "schema_bundle_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "decimal_context_version": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+        },
+        "code_version": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{7,64}$"
+        },
+        "runtime_lock_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "versions_fixed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "episodeRegisterRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin_sequence",
+        "origin_ref",
+        "status",
+        "dependency_group_id",
+        "overlap_group_ids",
+        "outcome_ref",
+        "reason_codes"
+      ],
+      "properties": {
+        "origin_sequence": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/positiveIntegerString"
+        },
+        "origin_ref": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+        },
+        "status": {
+          "enum": [
+            "OPEN",
+            "BLOCKED",
+            "REJECTED",
+            "NO_ACTION",
+            "INVALID",
+            "MATURED",
+            "UNAVAILABLE"
+          ]
+        },
+        "dependency_group_id": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+        },
+        "overlap_group_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+          }
+        },
+        "outcome_ref": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_codes": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "MATURED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outcome_ref": {
+                "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "OPEN",
+                  "BLOCKED",
+                  "REJECTED",
+                  "NO_ACTION",
+                  "INVALID"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outcome_ref": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "episodeCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scheduled",
+        "open",
+        "blocked",
+        "rejected",
+        "no_action",
+        "invalid",
+        "matured",
+        "unavailable"
+      ],
+      "properties": {
+        "scheduled": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "open": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "blocked": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "rejected": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "no_action": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "invalid": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "matured": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "unavailable": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        }
+      }
+    },
+    "defectCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "price",
+        "fx",
+        "corporate_action",
+        "tax",
+        "cost",
+        "accounting",
+        "data",
+        "settlement",
+        "reconciliation"
+      ],
+      "properties": {
+        "price": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "fx": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "corporate_action": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "tax": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "cost": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "accounting": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "data": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "settlement": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        },
+        "reconciliation": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+        }
+      }
+    },
+    "operationalGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thresholds",
+        "evidence",
+        "passed",
+        "decision",
+        "reason_codes"
+      ],
+      "properties": {
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum_consecutive_complete_sessions",
+            "minimum_priced_nav_day_fraction",
+            "maximum_each_unresolved_material_defect",
+            "bit_identical_replay_required",
+            "genuine_xjo_tr_required",
+            "effective_fee_schedule_required",
+            "ratified_risk_policy_required",
+            "dependency_isolation_required"
+          ],
+          "properties": {
+            "minimum_consecutive_complete_sessions": {
+              "const": "30"
+            },
+            "minimum_priced_nav_day_fraction": {
+              "const": "0.995000"
+            },
+            "maximum_each_unresolved_material_defect": {
+              "const": "0"
+            },
+            "bit_identical_replay_required": {
+              "const": true
+            },
+            "genuine_xjo_tr_required": {
+              "const": true
+            },
+            "effective_fee_schedule_required": {
+              "const": true
+            },
+            "ratified_risk_policy_required": {
+              "const": true
+            },
+            "dependency_isolation_required": {
+              "const": true
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consecutive_complete_sessions",
+            "priced_nav_day_fraction",
+            "unresolved_material_defects",
+            "bit_identical_replay",
+            "genuine_xjo_tr_present",
+            "effective_fee_schedule_present",
+            "ratified_risk_policy_present",
+            "dependency_isolation_passed",
+            "evidence_chain_complete"
+          ],
+          "properties": {
+            "consecutive_complete_sessions": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+            },
+            "priced_nav_day_fraction": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+            },
+            "unresolved_material_defects": {
+              "$ref": "#/$defs/defectCounts"
+            },
+            "bit_identical_replay": {
+              "type": "boolean"
+            },
+            "genuine_xjo_tr_present": {
+              "type": "boolean"
+            },
+            "effective_fee_schedule_present": {
+              "type": "boolean"
+            },
+            "ratified_risk_policy_present": {
+              "type": "boolean"
+            },
+            "dependency_isolation_passed": {
+              "type": "boolean"
+            },
+            "evidence_chain_complete": {
+              "type": "boolean"
+            }
+          }
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "decision": {
+          "enum": [
+            "PAPER_ONLY_HOLD",
+            "UNCALIBRATED_STAGING_ELIGIBLE"
+          ]
+        },
+        "reason_codes": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            },
+            "required": [
+              "passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "properties": {
+                  "consecutive_complete_sessions": {
+                    "pattern": "^(?:3[0-9]|[4-9][0-9]|[1-9][0-9]{2,})$"
+                  },
+                  "priced_nav_day_fraction": {
+                    "pattern": "^(?:0\\.99[5-9][0-9]{3}|1\\.000000)$"
+                  },
+                  "unresolved_material_defects": {
+                    "properties": {
+                      "price": {
+                        "const": "0"
+                      },
+                      "fx": {
+                        "const": "0"
+                      },
+                      "corporate_action": {
+                        "const": "0"
+                      },
+                      "tax": {
+                        "const": "0"
+                      },
+                      "cost": {
+                        "const": "0"
+                      },
+                      "accounting": {
+                        "const": "0"
+                      },
+                      "data": {
+                        "const": "0"
+                      },
+                      "settlement": {
+                        "const": "0"
+                      },
+                      "reconciliation": {
+                        "const": "0"
+                      }
+                    }
+                  },
+                  "bit_identical_replay": {
+                    "const": true
+                  },
+                  "genuine_xjo_tr_present": {
+                    "const": true
+                  },
+                  "effective_fee_schedule_present": {
+                    "const": true
+                  },
+                  "ratified_risk_policy_present": {
+                    "const": true
+                  },
+                  "dependency_isolation_passed": {
+                    "const": true
+                  },
+                  "evidence_chain_complete": {
+                    "const": true
+                  }
+                }
+              },
+              "decision": {
+                "const": "UNCALIBRATED_STAGING_ELIGIBLE"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "passed": {
+                "const": false
+              }
+            },
+            "required": [
+              "passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "PAPER_ONLY_HOLD"
+              },
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "strategyGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thresholds",
+        "evidence",
+        "passed",
+        "reason_codes"
+      ],
+      "properties": {
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum_sessions",
+            "minimum_matured_episodes",
+            "episode_horizon_sessions",
+            "primary_branch",
+            "active_return_comparator",
+            "statistic",
+            "bootstrap_method",
+            "primary_block_length_sessions",
+            "sensitivity_block_lengths",
+            "bootstrap_repetitions",
+            "seed_derivation",
+            "prng_id",
+            "numpy_version",
+            "interval_estimator",
+            "one_sided_confidence",
+            "sensitivity_two_sided_confidence",
+            "lower_bound_comparator",
+            "minimum_fill_fraction_5_sessions",
+            "maximum_policy_breaches",
+            "maximum_mandate_drawdown_breaches",
+            "all_registered_origins_required",
+            "familywise_diagnostic_required"
+          ],
+          "properties": {
+            "minimum_sessions": {
+              "const": "252"
+            },
+            "minimum_matured_episodes": {
+              "const": "20"
+            },
+            "episode_horizon_sessions": {
+              "const": "63"
+            },
+            "primary_branch": {
+              "const": "PROPOSAL_STRESS"
+            },
+            "active_return_comparator": {
+              "const": "POSITIVE_VS_HOLD_AND_XJO_TR"
+            },
+            "statistic": {
+              "const": "ANNUALISED_PAIRED_LOG_ACTIVE_RETURN_252"
+            },
+            "bootstrap_method": {
+              "const": "CIRCULAR_MOVING_BLOCK_BOOTSTRAP"
+            },
+            "primary_block_length_sessions": {
+              "const": "10"
+            },
+            "sensitivity_block_lengths": {
+              "const": [
+                "5",
+                "20"
+              ]
+            },
+            "bootstrap_repetitions": {
+              "const": "100000"
+            },
+            "seed_derivation": {
+              "const": "UNSIGNED_FIRST_128_BITS_SHA256_COHORT_ID_PIPE_METRIC_ID_PIPE_EVALUATION_POLICY_SHA256"
+            },
+            "prng_id": {
+              "const": "NUMPY_PCG64DXSM"
+            },
+            "numpy_version": {
+              "const": "2.1.1"
+            },
+            "interval_estimator": {
+              "const": "EMPIRICAL_TYPE_1"
+            },
+            "one_sided_confidence": {
+              "const": "0.900000"
+            },
+            "sensitivity_two_sided_confidence": {
+              "const": "0.950000"
+            },
+            "lower_bound_comparator": {
+              "const": "POSITIVE_VS_HOLD_AND_XJO_TR"
+            },
+            "minimum_fill_fraction_5_sessions": {
+              "const": "0.950000"
+            },
+            "maximum_policy_breaches": {
+              "const": "0"
+            },
+            "maximum_mandate_drawdown_breaches": {
+              "const": "0"
+            },
+            "all_registered_origins_required": {
+              "const": true
+            },
+            "familywise_diagnostic_required": {
+              "const": true
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cohort_statistics_ref",
+            "observed_sessions",
+            "matured_episode_count",
+            "episode_horizon_sessions",
+            "versions_fixed",
+            "primary_branch",
+            "primary_estimand",
+            "active_return_vs_hold",
+            "active_return_vs_xjo_tr",
+            "bootstrap_status",
+            "bootstrap_lower_bound_vs_hold",
+            "bootstrap_lower_bound_vs_xjo_tr",
+            "fill_fraction_within_5_sessions",
+            "policy_breach_count",
+            "mandate_drawdown_breach_count",
+            "all_registered_origins_retained",
+            "familywise_diagnostic_passed",
+            "strategy_inputs_complete"
+          ],
+          "properties": {
+            "cohort_statistics_ref": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+            },
+            "observed_sessions": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+            },
+            "matured_episode_count": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+            },
+            "episode_horizon_sessions": {
+              "const": "63"
+            },
+            "versions_fixed": {
+              "type": "boolean"
+            },
+            "primary_branch": {
+              "const": "PROPOSAL_STRESS"
+            },
+            "primary_estimand": {
+              "const": "CONTINUOUS_STRESS_AFTER_TAX_ESTIMATE_DAILY_LOG_ACTIVE_RETURN"
+            },
+            "active_return_vs_hold": {
+              "oneOf": [
+                {
+                  "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "active_return_vs_xjo_tr": {
+              "oneOf": [
+                {
+                  "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "bootstrap_status": {
+              "enum": [
+                "COMPLETE",
+                "UNAVAILABLE"
+              ]
+            },
+            "bootstrap_lower_bound_vs_hold": {
+              "oneOf": [
+                {
+                  "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "bootstrap_lower_bound_vs_xjo_tr": {
+              "oneOf": [
+                {
+                  "$ref": "evaluator-common-v1.schema.json#/$defs/decimal6"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "fill_fraction_within_5_sessions": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/unitDecimal6"
+            },
+            "policy_breach_count": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+            },
+            "mandate_drawdown_breach_count": {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/nonNegativeIntegerString"
+            },
+            "all_registered_origins_retained": {
+              "type": "boolean"
+            },
+            "familywise_diagnostic_passed": {
+              "type": "boolean"
+            },
+            "strategy_inputs_complete": {
+              "type": "boolean"
+            }
+          }
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "reason_codes": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            },
+            "required": [
+              "passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "properties": {
+                  "observed_sessions": {
+                    "pattern": "^(?:25[2-9]|2[6-9][0-9]|[3-9][0-9]{2}|[1-9][0-9]{3,})$"
+                  },
+                  "matured_episode_count": {
+                    "pattern": "^(?:2[0-9]|[3-9][0-9]|[1-9][0-9]{2,})$"
+                  },
+                  "versions_fixed": {
+                    "const": true
+                  },
+                  "active_return_vs_hold": {
+                    "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+                  },
+                  "active_return_vs_xjo_tr": {
+                    "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+                  },
+                  "bootstrap_status": {
+                    "const": "COMPLETE"
+                  },
+                  "bootstrap_lower_bound_vs_hold": {
+                    "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+                  },
+                  "bootstrap_lower_bound_vs_xjo_tr": {
+                    "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+                  },
+                  "fill_fraction_within_5_sessions": {
+                    "pattern": "^(?:0\\.9[5-9][0-9]{4}|1\\.000000)$"
+                  },
+                  "policy_breach_count": {
+                    "const": "0"
+                  },
+                  "mandate_drawdown_breach_count": {
+                    "const": "0"
+                  },
+                  "all_registered_origins_retained": {
+                    "const": true
+                  },
+                  "familywise_diagnostic_passed": {
+                    "const": true
+                  },
+                  "strategy_inputs_complete": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "passed": {
+                "const": false
+              }
+            },
+            "required": [
+              "passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "promotionGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operational_gate_passed",
+        "strategy_gate_passed",
+        "separate_james_decision_required",
+        "decision",
+        "maximum_evidence_tier",
+        "reason_codes"
+      ],
+      "properties": {
+        "operational_gate_passed": {
+          "type": "boolean"
+        },
+        "strategy_gate_passed": {
+          "type": "boolean"
+        },
+        "separate_james_decision_required": {
+          "const": true
+        },
+        "decision": {
+          "enum": [
+            "PAPER_ONLY_HOLD",
+            "HOLD_UNCALIBRATED",
+            "ELIGIBLE_FOR_JAMES_REVIEW"
+          ]
+        },
+        "maximum_evidence_tier": {
+          "enum": [
+            "PAPER_ONLY",
+            "UNCALIBRATED"
+          ]
+        },
+        "reason_codes": {
+          "allOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/reasonCodes"
+            },
+            {
+              "minItems": 1
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operational_gate_passed": {
+                "const": false
+              }
+            },
+            "required": [
+              "operational_gate_passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "PAPER_ONLY_HOLD"
+              },
+              "maximum_evidence_tier": {
+                "const": "PAPER_ONLY"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operational_gate_passed": {
+                "const": true
+              },
+              "strategy_gate_passed": {
+                "const": false
+              }
+            },
+            "required": [
+              "operational_gate_passed",
+              "strategy_gate_passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "HOLD_UNCALIBRATED"
+              },
+              "maximum_evidence_tier": {
+                "const": "UNCALIBRATED"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operational_gate_passed": {
+                "const": true
+              },
+              "strategy_gate_passed": {
+                "const": true
+              }
+            },
+            "required": [
+              "operational_gate_passed",
+              "strategy_gate_passed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "ELIGIBLE_FOR_JAMES_REVIEW"
+              },
+              "maximum_evidence_tier": {
+                "const": "UNCALIBRATED"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

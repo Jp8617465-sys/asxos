@@ -1,0 +1,520 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asxos.local/schemas/branch-ledger-v1.schema.json",
+  "title": "ASXOS Branch Ledger v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_name",
+    "schema_version",
+    "producer_version",
+    "data_as_of",
+    "created_at",
+    "source_hashes",
+    "ledger_id",
+    "origin_ref",
+    "config_ref",
+    "accounting_policy_ref",
+    "tax_profile_ref",
+    "branches",
+    "canonical_hash",
+    "controls"
+  ],
+  "properties": {
+    "contract_name": {
+      "const": "branch-ledger-v1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer_version": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/version"
+    },
+    "data_as_of": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+    },
+    "source_hashes": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/sourceHashes"
+    },
+    "canonical_hash": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/canonicalHash"
+    },
+    "ledger_id": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+    },
+    "origin_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "config_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "accounting_policy_ref": {
+      "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+    },
+    "tax_profile_ref": {
+      "allOf": [
+        {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+        },
+        {
+          "properties": {
+            "contract_name": {
+              "const": "tax-profile-v1"
+            }
+          }
+        }
+      ]
+    },
+    "branches": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "PROPOSAL_BASE"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "PROPOSAL_STRESS"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "HOLD"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "XJO_TR"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "branch_id": {
+                "const": "CASH"
+              }
+            },
+            "required": [
+              "branch_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ],
+      "items": {
+        "$ref": "#/$defs/branchLedger"
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "append_only",
+        "corrections_reverse_and_link",
+        "live_holdings_write",
+        "evaluation_mode"
+      ],
+      "properties": {
+        "append_only": {
+          "const": true
+        },
+        "corrections_reverse_and_link": {
+          "const": true
+        },
+        "live_holdings_write": {
+          "const": false
+        },
+        "evaluation_mode": {
+          "const": "PAPER_ONLY"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "price",
+        "fx",
+        "corporate_action",
+        "fee",
+        "cost",
+        "tax",
+        "accounting",
+        "settlement",
+        "reconciliation",
+        "external_flow"
+      ],
+      "properties": {
+        "price": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "fx": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "corporate_action": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "fee": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "cost": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "tax": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "accounting": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "settlement": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "reconciliation": {
+          "$ref": "#/$defs/completenessState"
+        },
+        "external_flow": {
+          "$ref": "#/$defs/completenessState"
+        }
+      }
+    },
+    "completenessState": {
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "branchLedger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_id",
+        "starting_state_sha256",
+        "status",
+        "events",
+        "completeness",
+        "unresolved_item_refs"
+      ],
+      "properties": {
+        "branch_id": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/branchId"
+        },
+        "starting_state_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "status": {
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE",
+            "BLOCKED"
+          ]
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ledgerEvent"
+          }
+        },
+        "completeness": {
+          "$ref": "#/$defs/completeness"
+        },
+        "unresolved_item_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "COMPLETE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "completeness": {
+                "properties": {
+                  "price": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "fx": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "corporate_action": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "fee": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "cost": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "tax": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "accounting": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "settlement": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "reconciliation": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  },
+                  "external_flow": {
+                    "enum": [
+                      "COMPLETE",
+                      "NOT_APPLICABLE"
+                    ]
+                  }
+                }
+              },
+              "unresolved_item_refs": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ledgerEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "effective_at",
+        "available_at",
+        "recorded_at",
+        "unit",
+        "source_sha256",
+        "policy_sha256",
+        "reverses_event_id",
+        "legs",
+        "debit_total",
+        "credit_total",
+        "balanced"
+      ],
+      "properties": {
+        "event_id": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+        },
+        "event_type": {
+          "enum": [
+            "OPENING_BALANCE",
+            "ORDER_RESERVATION",
+            "TRADE",
+            "SETTLEMENT",
+            "CORPORATE_ACTION",
+            "INCOME",
+            "FEE",
+            "STRESS_COST",
+            "TAX",
+            "FX_TRANSLATION",
+            "EXTERNAL_FLOW",
+            "REVERSAL"
+          ]
+        },
+        "effective_at": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+        },
+        "available_at": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+        },
+        "recorded_at": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/timestamp"
+        },
+        "unit": {
+          "type": "string",
+          "pattern": "^(?:AUD|XASX:[A-Z0-9]{3,6}:UNITS)$"
+        },
+        "source_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "policy_sha256": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/sha256"
+        },
+        "tax_profile_ref": {
+          "allOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/artifactRef"
+            },
+            {
+              "properties": {
+                "contract_name": {
+                  "const": "tax-profile-v1"
+                }
+              }
+            }
+          ]
+        },
+        "reverses_event_id": {
+          "oneOf": [
+            {
+              "$ref": "evaluator-common-v1.schema.json#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "legs": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/ledgerLeg"
+          }
+        },
+        "debit_total": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+        },
+        "credit_total": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+        },
+        "balanced": {
+          "const": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "event_type": {
+                "const": "TAX"
+              }
+            },
+            "required": [
+              "event_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "tax_profile_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "ledgerLeg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account",
+        "direction",
+        "amount"
+      ],
+      "properties": {
+        "account": {
+          "enum": [
+            "CASH",
+            "CASH_RESERVED",
+            "POSITION_UNITS",
+            "POSITION_COST_BASIS",
+            "TRADE_RECEIVABLE",
+            "TRADE_PAYABLE",
+            "DIVIDEND_RECEIVABLE",
+            "FEE_EXPENSE",
+            "STRESS_COST_EXPENSE",
+            "REALIZED_TAX_PAYABLE",
+            "DEFERRED_TAX_LIABILITY",
+            "EXTERNAL_FLOW",
+            "REALIZED_GAIN_LOSS",
+            "UNREALIZED_GAIN_LOSS",
+            "FX_GAIN_LOSS"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "DEBIT",
+            "CREDIT"
+          ]
+        },
+        "amount": {
+          "$ref": "evaluator-common-v1.schema.json#/$defs/positiveDecimal6"
+        }
+      }
+    }
+  }
+}

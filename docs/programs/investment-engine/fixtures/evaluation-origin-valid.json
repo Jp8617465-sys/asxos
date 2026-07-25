@@ -1,0 +1,138 @@
+{
+  "contract_name": "evaluation-origin-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T06:12:00Z",
+  "created_at": "2026-07-24T06:15:00Z",
+  "source_hashes": [
+    {
+      "source": "origin-input-manifest",
+      "sha256": "1414141414141414141414141414141414141414141414141414141414141414"
+    }
+  ],
+  "origin_id": "evaluation-origin-000001",
+  "config_ref": {
+    "contract_name": "evaluator-config-v1",
+    "artifact_id": "evaluator-config-paper-001",
+    "schema_version": "1.0.0",
+    "sha256": "0c2e63a9f563bb50672f5cf97604ca1cd1b887eff72f43dea0b6116d6a9fa4b6",
+    "created_at": "2026-07-24T06:10:00Z"
+  },
+  "candidate_family_id": "candidate-family-asx-001",
+  "schedule_id": "origin-schedule-paper-001",
+  "origin_sequence": "1",
+  "scheduled_for": "2026-07-24T06:12:00Z",
+  "knowledge_cutoff": "2026-07-24T06:11:00Z",
+  "opened_at": "2026-07-24T06:15:00Z",
+  "origin_status": "OPEN",
+  "prospective": true,
+  "reconstructed": false,
+  "dependency_group_id": "dependency-group-000001",
+  "overlap_group_ids": [
+    "overlap-horizon-000001"
+  ],
+  "starting_state_hash_basis": "PORTFOLIO_SNAPSHOT_CANONICAL_HASH",
+  "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+  "snapshot_manifest": [
+    {
+      "snapshot_class": "PORTFOLIO",
+      "ref": {
+        "contract_name": "portfolio-snapshot-v1",
+        "artifact_id": "portfolio-snapshot-evaluator-origin-20260724t055900z-r1",
+        "schema_version": "1.0.0",
+        "sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411",
+        "created_at": "2026-07-24T05:59:00Z"
+      }
+    },
+    {
+      "snapshot_class": "PROPOSAL",
+      "ref": {
+        "contract_name": "portfolio-proposal-v1",
+        "artifact_id": "portfolio-proposal-20260724",
+        "schema_version": "1.0.0",
+        "sha256": "d096b62e8767f8ae5a345e537a2ec795e76379ffdfc6ab87ed87b4c24425057e",
+        "created_at": "2026-07-24T03:22:00Z"
+      }
+    },
+    {
+      "snapshot_class": "BENCHMARK",
+      "ref": {
+        "contract_name": "benchmark-snapshot-v1",
+        "artifact_id": "benchmark-snapshot-20260724",
+        "schema_version": "1.0.0",
+        "sha256": "a2b4afa76b7e9b9c43b7da1b8ce3e68655839c22034ca8b7d60ba8dd2d2631ff",
+        "created_at": "2026-07-24T05:59:00Z"
+      }
+    },
+    {
+      "snapshot_class": "SIZING",
+      "ref": {
+        "contract_name": "sizing-policy-v1",
+        "artifact_id": "sizing-policy-paper-001",
+        "schema_version": "1.0.0",
+        "sha256": "4f44c95e7c49769907b69c735a2d54867b89ed3f7db783f5f39bcbabb9cd65f2",
+        "created_at": "2026-07-24T05:02:00Z"
+      }
+    },
+    {
+      "snapshot_class": "TAX_PROFILE",
+      "ref": {
+        "contract_name": "tax-profile-v1",
+        "artifact_id": "tax-profile-paper-001",
+        "schema_version": "1.0.0",
+        "sha256": "d163bae717baedbc7a0811f3743894573e2a465b672e88774de0eb6fa9d97a0e",
+        "created_at": "2026-07-24T05:04:00Z"
+      }
+    },
+    {
+      "snapshot_class": "TRADING_CALENDAR",
+      "ref": {
+        "contract_name": "trading-calendar-v1",
+        "artifact_id": "calendar-xasx-2026",
+        "schema_version": "1.0.0",
+        "sha256": "62361ef507e0ecbaeec9ded9114f0c2876c750fa035a313028fbc64510e5390b",
+        "created_at": "2026-01-01T00:00:00Z"
+      }
+    }
+  ],
+  "missing_required_inputs": [],
+  "branches": [
+    {
+      "branch_id": "PROPOSAL_BASE",
+      "branch_status": "FROZEN",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411"
+    },
+    {
+      "branch_id": "PROPOSAL_STRESS",
+      "branch_status": "FROZEN",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411"
+    },
+    {
+      "branch_id": "HOLD",
+      "branch_status": "FROZEN",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411"
+    },
+    {
+      "branch_id": "XJO_TR",
+      "branch_status": "FROZEN",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411"
+    },
+    {
+      "branch_id": "CASH",
+      "branch_status": "FROZEN",
+      "starting_state_sha256": "ba299e82f5766e486d3033a76b3a1414f36d641ccd488ce5260e7dfab31aa411"
+    }
+  ],
+  "reason_codes": [],
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d"
+  },
+  "controls": {
+    "outcome_known_at_open": false,
+    "origin_mutable": false,
+    "evaluation_mode": "PAPER_ONLY"
+  }
+}

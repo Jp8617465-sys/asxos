@@ -9,6 +9,8 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 - `docs/foundation/phase-b-failure-postmortem.md` — the lessons. The previous repo died of these; this repo encodes the fixes.
 - `docs/foundation/spec/tax-alpha.md` — tax-module source of truth. Implementation reads from this; tests cite section numbers.
 - `docs/README.md` — the docs map / source-of-truth index. Points to the authoritative doc for each area (deployment, schema, tax, governance, research store, Model A, backlog). Start here when unsure which doc governs.
+- `docs/session-handoff-2026-07-24.md` — latest repository/deployment handoff.
+- `docs/programs/investment-engine/README.md` + `docs/product/roadmap.yaml` — accepted twelve-week investment-engine dossier and canonical implementation sequence. The dossier is a target contract; current runtime rules remain authoritative until a reviewed implementation changes them.
 
 ## Non-negotiable rules
 
@@ -37,7 +39,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0040) is the canonical schema** — roughly 40
+**`migrations/` (currently through 0041) is the canonical schema** — roughly 40
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -69,6 +71,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `make check` — ruff + mypy + pytest (enforced in CI by the `full-check` workflow on PRs to `main` and `claude/**` pushes; `targeted-ml-tests` is the fast ML lane)
 - `make migrate` — reminder only; actual apply via Supabase MCP
 - `make check-drift` — reconcile `render.yaml` against the live Render services via the Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`)
+- `.venv/bin/python scripts/validate_investment_program.py` — validate the canonical investment-engine roadmap, contracts, schemas, fixtures, sprint links, and generated view after confirming the environment is Python 3.12 (system Python 3.9 is unsupported)
 
 ## Known test environment gaps (do not chase)
 

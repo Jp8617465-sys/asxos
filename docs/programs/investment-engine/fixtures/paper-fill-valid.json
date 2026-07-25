@@ -1,0 +1,71 @@
+{
+  "contract_name": "paper-fill-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-27T00:10:00Z",
+  "created_at": "2026-07-27T00:11:00Z",
+  "source_hashes": [
+    {
+      "source": "eligible-market-event",
+      "sha256": "2525252525252525252525252525252525252525252525252525252525252525"
+    },
+    {
+      "source": "effective-fee-schedule",
+      "sha256": "2626262626262626262626262626262626262626262626262626262626262626"
+    }
+  ],
+  "paper_fill_id": "paper-fill-000001",
+  "paper_order_ref": {
+    "contract_name": "paper-order-v1",
+    "artifact_id": "paper-order-000001",
+    "schema_version": "1.0.0",
+    "sha256": "1bf1514b1187e4567840d0aede739a7f713274f14029b98ed03b21015c3722c6",
+    "created_at": "2026-07-24T06:25:00Z"
+  },
+  "fill_model_ref": {
+    "contract_name": "fill-model-v1",
+    "artifact_id": "fill-model-paper-asx-001",
+    "schema_version": "1.0.0",
+    "sha256": "fb2bee438b467de76ebc6ad35be2f386c9effd4601911326873f322aa03c8b41",
+    "created_at": "2026-07-24T06:05:00Z"
+  },
+  "market_event": {
+    "source": "point-in-time-trades",
+    "record_id": "market-event-bhp-20260727",
+    "observed_at": "2026-07-27T00:10:00Z",
+    "published_at": "2026-07-27T00:10:00Z",
+    "available_at": "2026-07-27T00:10:00Z",
+    "sha256": "2525252525252525252525252525252525252525252525252525252525252525"
+  },
+  "branch_id": "PROPOSAL_BASE",
+  "asset_id": "XASX:BHP",
+  "side": "BUY",
+  "cost_scenario": "BASE",
+  "filled_at": "2026-07-27T00:10:00Z",
+  "filled_quantity": "50",
+  "cumulative_filled_quantity": "50",
+  "eligible_volume": "10000",
+  "participation_fraction": "0.005000",
+  "reference_price_aud": "49.500000",
+  "fill_price_aud": "49.550000",
+  "spread_cost_aud": "1.250000",
+  "slippage_cost_aud": "0.750000",
+  "impact_cost_aud": "0.500000",
+  "fee_aud": "9.950000",
+  "gross_consideration_aud": "2477.500000",
+  "total_cash_effect_aud": "-2487.450000",
+  "limit_rule_passed": true,
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "9b84ea67b8d1744764a395410b6ca7ceab3c2e7b04cad9376dfe5591eb5a925f"
+  },
+  "controls": {
+    "evaluation_mode": "PAPER_ONLY",
+    "simulated": true,
+    "non_executable": true,
+    "actual_later_market_event": true,
+    "live_holdings_write": false
+  }
+}

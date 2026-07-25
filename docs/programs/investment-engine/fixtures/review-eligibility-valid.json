@@ -1,0 +1,77 @@
+{
+  "contract_name": "review-eligibility-v1",
+  "schema_version": "1.0.0",
+  "eligibility_decision_id": "30000000-0000-4000-8000-000000000001",
+  "investment_case_id": "case-bhp-20260724",
+  "review_cycle_id": "20000000-0000-4000-8000-000000000001",
+  "report_ref": {
+    "id": "30000000-0000-4000-8000-000000000001",
+    "sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7"
+  },
+  "report_candidate_sha256": "15e78231fdc3a814663bd44f453dd5f20de401e4fde11bf9501cf20ea420b3f7",
+  "context_id": "10000000-0000-4000-8000-000000000001",
+  "context_sha256": "e541d5c07b6799b112ecbca786d0c64e51fc2e604def241bb0e4509d35d5a8aa",
+  "assessment_refs": [
+    {
+      "assessment_id": "40000000-0000-4000-8000-000000000001",
+      "assessment_sha256": "9ca0a0891f0d29499c6a7e61dbab8dba41630e275c3876203d0e98ce2aad9a6d",
+      "role": "evidence_claims",
+      "verdict": "PASS"
+    },
+    {
+      "assessment_id": "40000000-0000-4000-8000-000000000002",
+      "assessment_sha256": "2e65ee7c456ec8c58e392c6b101a56f4208f9327b333aff76da5c6119714cbb1",
+      "role": "valuation_scenarios",
+      "verdict": "PASS"
+    },
+    {
+      "assessment_id": "40000000-0000-4000-8000-000000000003",
+      "assessment_sha256": "d803244020fd57986f0ef7867455add50bef7c15e7d42aed40e1e12de85e3482",
+      "role": "thesis_adversary",
+      "verdict": "CHALLENGE"
+    },
+    {
+      "assessment_id": "40000000-0000-4000-8000-000000000004",
+      "assessment_sha256": "bdf065f02496485b81a6d421e4a0a531f1d2dd93373b1241c1f5f8af595e237d",
+      "role": "portfolio_risk_fit",
+      "verdict": "PASS"
+    },
+    {
+      "assessment_id": "40000000-0000-4000-8000-000000000005",
+      "assessment_sha256": "9bfe17af114876daa72e12293bfb4b759bdc119ceabca40557c7a3f7256ee093",
+      "role": "implementation_liquidity_tax",
+      "verdict": "PASS"
+    }
+  ],
+  "context_state": "COMPLETE_FRESH",
+  "finding_summary": {
+    "open_info": 0,
+    "open_low": 0,
+    "open_medium": 1,
+    "open_high": 0,
+    "open_critical": 0,
+    "accepted_risk_count": 0,
+    "resolved_count": 1,
+    "abstention_count": 0
+  },
+  "decision": "PAPER_ELIGIBLE",
+  "reason_codes": [
+    "ALL_MANDATORY_REVIEWS_COMPLETE",
+    "NO_OPEN_HIGH_OR_CRITICAL_FINDINGS"
+  ],
+  "decided_at": "2026-07-24T01:20:00Z",
+  "controls": {
+    "deterministic_synthesis": true,
+    "llm_vote_permitted": false,
+    "confidence_weighting_permitted": false,
+    "mandatory_abstention_blocks": true,
+    "blind_first_passes_verified": true,
+    "non_executable": true
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "e73426c8b3e60e85ef2513d1f7e2864fd8729abaf9f1dcc5e9fd45b78b6b99f3"
+  }
+}

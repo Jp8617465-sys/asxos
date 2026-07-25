@@ -1,0 +1,149 @@
+{
+  "contract_name": "episode-outcome-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-10-23T06:00:00Z",
+  "created_at": "2026-10-23T06:10:00Z",
+  "source_hashes": [
+    {
+      "source": "branch-nav-origin-000001",
+      "sha256": "3838383838383838383838383838383838383838383838383838383838383838"
+    }
+  ],
+  "outcome_id": "episode-outcome-000001",
+  "origin_ref": {
+    "contract_name": "evaluation-origin-v1",
+    "artifact_id": "evaluation-origin-000001",
+    "schema_version": "1.0.0",
+    "sha256": "c9cbfad5eebcd7e46716020771d9ea2715b5ab178a745378304055a6aeb0787d",
+    "created_at": "2026-07-24T06:15:00Z"
+  },
+  "config_ref": {
+    "contract_name": "evaluator-config-v1",
+    "artifact_id": "evaluator-config-paper-001",
+    "schema_version": "1.0.0",
+    "sha256": "0c2e63a9f563bb50672f5cf97604ca1cd1b887eff72f43dea0b6116d6a9fa4b6",
+    "created_at": "2026-07-24T06:10:00Z"
+  },
+  "branch_nav_ref": {
+    "contract_name": "branch-nav-v1",
+    "artifact_id": "branch-nav-origin-000001",
+    "schema_version": "1.0.0",
+    "sha256": "e728c7ac8a648e936fe453e960b0c2cf08538ebf8b0efe73db910a0a6824bdb6",
+    "created_at": "2026-07-27T06:10:00Z"
+  },
+  "origin_sequence": "1",
+  "dependency_group_id": "dependency-group-000001",
+  "overlap_group_ids": [
+    "overlap-horizon-000001"
+  ],
+  "status": "UNAVAILABLE",
+  "origin_at": "2026-07-24T06:15:00Z",
+  "matured_at": "2026-10-23T06:00:00Z",
+  "horizon_sessions": "63",
+  "branches": [
+    {
+      "branch_id": "PROPOSAL_BASE",
+      "complete": false,
+      "period_return": null,
+      "maximum_drawdown": null,
+      "fees_aud": "0.000000",
+      "spread_slippage_impact_aud": "0.000000",
+      "stress_cost_aud": "0.000000",
+      "realized_tax_aud": "0.000000",
+      "deferred_tax_change_aud": "0.000000",
+      "ending_nav_aud": "0.000000",
+      "missing_session_count": "63",
+      "reason_codes": [
+        "INSUFFICIENT_RECONCILED_NAV_SESSIONS"
+      ]
+    },
+    {
+      "branch_id": "PROPOSAL_STRESS",
+      "complete": false,
+      "period_return": null,
+      "maximum_drawdown": null,
+      "fees_aud": "0.000000",
+      "spread_slippage_impact_aud": "0.000000",
+      "stress_cost_aud": "0.000000",
+      "realized_tax_aud": "0.000000",
+      "deferred_tax_change_aud": "0.000000",
+      "ending_nav_aud": "0.000000",
+      "missing_session_count": "63",
+      "reason_codes": [
+        "INSUFFICIENT_RECONCILED_NAV_SESSIONS"
+      ]
+    },
+    {
+      "branch_id": "HOLD",
+      "complete": false,
+      "period_return": null,
+      "maximum_drawdown": null,
+      "fees_aud": "0.000000",
+      "spread_slippage_impact_aud": "0.000000",
+      "stress_cost_aud": "0.000000",
+      "realized_tax_aud": "0.000000",
+      "deferred_tax_change_aud": "0.000000",
+      "ending_nav_aud": "0.000000",
+      "missing_session_count": "63",
+      "reason_codes": [
+        "INSUFFICIENT_RECONCILED_NAV_SESSIONS"
+      ]
+    },
+    {
+      "branch_id": "XJO_TR",
+      "complete": false,
+      "period_return": null,
+      "maximum_drawdown": null,
+      "fees_aud": "0.000000",
+      "spread_slippage_impact_aud": "0.000000",
+      "stress_cost_aud": "0.000000",
+      "realized_tax_aud": "0.000000",
+      "deferred_tax_change_aud": "0.000000",
+      "ending_nav_aud": "0.000000",
+      "missing_session_count": "63",
+      "reason_codes": [
+        "INSUFFICIENT_RECONCILED_NAV_SESSIONS"
+      ]
+    },
+    {
+      "branch_id": "CASH",
+      "complete": false,
+      "period_return": null,
+      "maximum_drawdown": null,
+      "fees_aud": "0.000000",
+      "spread_slippage_impact_aud": "0.000000",
+      "stress_cost_aud": "0.000000",
+      "realized_tax_aud": "0.000000",
+      "deferred_tax_change_aud": "0.000000",
+      "ending_nav_aud": "0.000000",
+      "missing_session_count": "63",
+      "reason_codes": [
+        "INSUFFICIENT_RECONCILED_NAV_SESSIONS"
+      ]
+    }
+  ],
+  "active_return_branch": "PROPOSAL_STRESS",
+  "active_return_vs_hold": null,
+  "active_return_vs_xjo_tr": null,
+  "intended_notional_aud": "10000.000000",
+  "filled_notional_within_5_sessions_aud": "2477.500000",
+  "fill_fraction_within_5_sessions": "0.247750",
+  "policy_breach_count": "0",
+  "mandate_drawdown_breach_count": "0",
+  "reason_codes": [
+    "INSUFFICIENT_RECONCILED_NAV_SESSIONS"
+  ],
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "7c45fbc4212e35647da17d39a57dd8cc03032cde01185190fc12f7300e210c18"
+  },
+  "controls": {
+    "derived_from_nav": true,
+    "same_endpoints": true,
+    "overlap_is_independence": false,
+    "reconstructed": false
+  }
+}

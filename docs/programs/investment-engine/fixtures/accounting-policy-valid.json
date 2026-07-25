@@ -1,0 +1,113 @@
+{
+  "contract_name": "accounting-policy-v1",
+  "schema_version": "1.0.0",
+  "producer_version": "1.0.0",
+  "data_as_of": "2026-07-24T06:00:00Z",
+  "created_at": "2026-07-24T06:06:00Z",
+  "source_hashes": [
+    {
+      "source": "accounting-policy-ratification",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "accounting_policy_id": "accounting-paper-asx-001",
+  "accounting_policy_version": "1.0.0",
+  "effective_from": "2026-07-24T00:00:00Z",
+  "scope": {
+    "environment": "PAPER_ONLY",
+    "venue": "XASX",
+    "reporting_currency": "AUD",
+    "tax_output_class": "POINT_IN_TIME_ESTIMATE_NOT_RETURN",
+    "branch_tax_state": "ISOLATED_COUNTERFACTUAL"
+  },
+  "settlement": {
+    "trade_date_recognition": "RECEIVABLE_PAYABLE",
+    "cash_reservation": "AT_ORDER_ACCEPTANCE",
+    "settlement_calendar_ref": {
+      "contract_name": "trading-calendar-v1",
+      "artifact_id": "calendar-xasx-2026",
+      "schema_version": "1.0.0",
+      "sha256": "62361ef507e0ecbaeec9ded9114f0c2876c750fa035a313028fbc64510e5390b",
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    "position_available_on": "SETTLEMENT_COMPLETION",
+    "failed_settlement_action": "BLOCK_BRANCH_AND_RECONCILE"
+  },
+  "lot_and_tax": {
+    "lot_selection": "FIFO",
+    "tax_profile_selection": "JAMES_SUPPLIED_EFFECTIVE_AT_EVENT",
+    "realized_tax": "POST_AS_PAYABLE_ON_RECOGNITION",
+    "deferred_tax": "MARK_UNREALIZED_AT_FROZEN_EFFECTIVE_RATE",
+    "loss_carryforward": "BRANCH_ISOLATED_YEAR_LEDGER",
+    "tax_year_boundary": "AUSTRALIA_30_JUNE",
+    "franking_eligibility": "REQUIRE_KNOWN_ENTITLEMENT_AND_PROFILE",
+    "unsupported_tax_action": "UNAVAILABLE_NO_ZERO_FALLBACK"
+  },
+  "corporate_actions": {
+    "supported": [
+      "SPLIT",
+      "CONSOLIDATION",
+      "CASH_DIVIDEND",
+      "KNOWN_FRANKING",
+      "SUPPORTED_RETURN_OF_CAPITAL",
+      "KNOWN_CASH_DISTRIBUTION",
+      "COMPLETE_CASH_DELISTING"
+    ],
+    "unsupported_action": "BLOCK_AND_QUEUE"
+  },
+  "currency": {
+    "transaction_translation": "RATE_AVAILABLE_AT_EFFECTIVE_EVENT",
+    "daily_nav_translation": "POINT_IN_TIME_AS_OF_RATE",
+    "realized_unrealized_separation": true,
+    "missing_fx": "UNAVAILABLE"
+  },
+  "chart_of_accounts": [
+    "CASH",
+    "CASH_RESERVED",
+    "POSITION_UNITS",
+    "POSITION_COST_BASIS",
+    "TRADE_RECEIVABLE",
+    "TRADE_PAYABLE",
+    "DIVIDEND_RECEIVABLE",
+    "FEE_EXPENSE",
+    "STRESS_COST_EXPENSE",
+    "REALIZED_TAX_PAYABLE",
+    "DEFERRED_TAX_LIABILITY",
+    "EXTERNAL_FLOW",
+    "REALIZED_GAIN_LOSS",
+    "UNREALIZED_GAIN_LOSS",
+    "FX_GAIN_LOSS"
+  ],
+  "rounding": {
+    "working_precision": "DECIMAL_34",
+    "persisted_scale": "6",
+    "mode": "ROUND_HALF_EVEN",
+    "round_only_at_posting_boundary": true
+  },
+  "completeness": {
+    "required_classes": [
+      "PRICE",
+      "FX",
+      "CORPORATE_ACTION",
+      "FEE",
+      "COST",
+      "TAX",
+      "ACCOUNTING",
+      "SETTLEMENT",
+      "RECONCILIATION",
+      "EXTERNAL_FLOW"
+    ],
+    "missing_action": "BLOCK_NAV_OUTCOME_AND_GATE"
+  },
+  "canonical_hash": {
+    "canonicalization": "RFC8785",
+    "hash_algorithm": "SHA-256",
+    "excluded_json_pointer": "/canonical_hash/payload_sha256",
+    "payload_sha256": "591a6013ad4afe797f478138e8ed6d5940aa796563c471b1e6b1095dbc2ddd91"
+  },
+  "controls": {
+    "non_executable": true,
+    "live_holdings_write": false,
+    "fail_closed": true
+  }
+}

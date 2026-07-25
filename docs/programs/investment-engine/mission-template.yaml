@@ -1,0 +1,190 @@
+version: "1.0"
+program: "asxos-investment-engine"
+template:
+  immutable: true
+  copy_to: "docs/programs/investment-engine/missions/SXX/MXX/mission.yaml"
+  close_record_at: "docs/programs/investment-engine/missions/SXX/MXX/close.md"
+  s01_instance: "docs/programs/investment-engine/missions/S01/M01/mission.yaml"
+  s01_close_record: "docs/programs/investment-engine/missions/S01/M01/close.md"
+mission:
+  id: "IE-SXX-MXX"
+  title: "replace-with-approved-mission"
+  sprint: "SXX"
+  window: "8h" # 8h | 12h
+  status: "proposed" # proposed | approved | running | frozen | closed | blocked
+  approved_by: "James"
+  baseline:
+    repository: "Jp8617465-sys/asxos"
+    branch: "main"
+    commit_sha: "9d442de287e123ae090b95838155dc41d76ee5f3"
+    schema_ledger_verified_at: null
+    live_state_verified_at: null
+
+outcome:
+  one_sentence: "State the user-visible or risk-reducing result."
+  acceptance_ids: ["AC-XX"]
+  non_goals:
+    - "No broker integration or execution."
+    - "No Model A input in the capital path."
+
+scope:
+  in:
+    - "exact/file/or/module"
+  out:
+    - "anything not named above"
+  existing_code_reuse:
+    - path: "exact/current/path"
+      contract: "what is reused rather than rebuilt"
+  ownership:
+    - lane: "implementation"
+      owner: "agent-or-human"
+      files: ["exact/glob"]
+      artifact: "expected output"
+
+constraints:
+  single_user_james_only: true
+  personal_use_gate_required: true
+  broker_execution_prohibited: true
+  model_a_capital_path_prohibited: true
+  deterministic_fields:
+    - "risk"
+    - "tax"
+    - "costs"
+    - "evaluation"
+    - "sizing"
+  decimal_only_domain_arithmetic: true
+  monetary_database_type: "NUMERIC(18,6)"
+  stale_behavior: "fail_closed"
+  maximum_evidence_tier: "PAPER_ONLY"
+  tailored_output_enabled: false
+  model_a_runtime_target: "decommissioned_after_explicit_James_approval"
+  model_a_history_retention: "checksummed_read_only_audit"
+  legacy_pm_review_current_authority: "current_quarantined_runtime_until_closed_m_a3_cutover"
+  legacy_pm_review_target_after_m_a3: "fail_closed_MODEL_A_DECOMMISSIONED"
+
+authority:
+  current_runtime_constitution_wins: true
+  tailored_output_requires_separate_james_ratification: true
+  tailored_output_authority_documents:
+    - "CLAUDE.md"
+    - "docs/product/north-star.md"
+    - "docs/product/portfolio-manager-charter.md"
+    - "docs/product/portfolio-policy.md"
+    - "docs/product/recommendation-schema.md"
+    - "docs/product/arbi-permission-model.md"
+    - ".claude/rules/portfolio-conventions.md"
+  tailored_output_authority_ratified: false
+  model_a_decommission_requires_separate_james_approval: true
+  model_a_decommission_approved: false
+  model_a_decommission_contract: "docs/programs/investment-engine/model-a-decommission.md"
+
+model_a_decommission_records:
+  mission: "docs/programs/investment-engine/missions/S01/M02/mission.yaml"
+  inventory: "docs/programs/investment-engine/missions/S01/M02/model-a-inventory.json"
+  archive_manifest: "docs/programs/investment-engine/missions/S01/M02/model-a-archive-manifest.json"
+  restore_evidence: "docs/programs/investment-engine/missions/S01/M02/model-a-restore-evidence.json"
+  approval: "docs/programs/investment-engine/missions/S01/M02/model-a-approval.md"
+  close: "docs/programs/investment-engine/missions/S01/M02/close.md"
+
+model_routing:
+  architecture_owner: "Opus/Ultra"
+  financial_tax_accounting_semantics_owner: "Opus/Ultra"
+  migration_owner: "Opus/Ultra"
+  capital_boundary_owner: "Opus/Ultra"
+  red_team_owner: "Opus/Ultra"
+  frozen_implementation_worker: "Fable-low"
+  tests_adapters_rendering_worker: "Fable-low"
+  max_fable_repair_cycles: 2
+  escalation_artifact:
+    - "failing acceptance/test"
+    - "two attempted diffs"
+    - "logs and replay fixture"
+
+transaction:
+  implementation_lanes: 1 # 8h max 1; 12h max 2
+  pr_plan:
+    - id: "PR1"
+      kind: "product" # product | evidence-ops
+      purpose: "one coherent reviewable unit"
+      depends_on: []
+  ceilings:
+    eight_hour:
+      normal_prs: 1
+      hard_max_prs: 2
+      max_implementation_lanes: 1
+      scope_cutoff_hour: 4
+      freeze_hour: 6.5
+    twelve_hour:
+      max_product_prs: 2
+      max_evidence_ops_prs: 1
+      max_implementation_lanes: 2
+      scope_cutoff_hour: 6
+      freeze_hour: 10
+  selected_scope_cutoff_hour: 4
+  selected_freeze_hour: 6.5
+  combined_clean_worktree_required: true
+
+contracts:
+  inputs:
+    - name: "input-name"
+      version: "v1"
+      source: "authoritative source"
+      freshness: "frozen policy"
+  outputs:
+    - name: "output-name"
+      version: "v1"
+      terminal_state: "PAPER_ONLY-artifact-only"
+  negative_states:
+    - condition: "missing-or-stale-input"
+      result: "blocked-or-unavailable"
+
+migration:
+  required: false
+  logical_name: null
+  next_number_verified_live: false
+  shared_project_pg_depend_checked: false
+  additive_first: true
+  forward_recovery: "Describe compatible prior code and additive correction."
+  production_apply_authority: "explicit approval required"
+
+verification:
+  targeted_tests:
+    - ".venv/bin/python -m pytest exact/test_file.py -q"
+  dossier_gate: ".venv/bin/python scripts/validate_investment_program.py"
+  full_gate: "VENV=.venv make check"
+  python_runtime: ".venv/bin/python (CPython 3.12)"
+  negative_tests:
+    - "stale input"
+    - "Model A boundary"
+    - "broker boundary"
+    - "auth/RLS/tenancy/multi-user boundary"
+    - "timezone-less or non-UTC date-time"
+  replay_fixture: "fixture/id"
+  observability_query: "query or report proving the result"
+  rollback_trigger: "measurable condition"
+
+timeline:
+  - at: "T+00:00"
+    action: "Verify baseline, authority, ownership, and acceptance."
+  - at: "scope-cutoff"
+    action: "Reject new scope; cut unfinished optional work."
+  - at: "freeze"
+    action: "Stop implementation; begin combined review and evidence."
+  - at: "close"
+    action: "Attach evidence, PR list, risks, and clean-worktree proof."
+
+close_record:
+  head_sha: null
+  prs: []
+  maximum_evidence_tier: "PAPER_ONLY"
+  earned_evidence_tier: "PAPER_ONLY"
+  acceptance:
+    passed: []
+    failed: []
+  tests: []
+  migration_evidence: []
+  observability_evidence: []
+  residual_risks: []
+  rollback_ready: false
+  combined_git_status_short: null
+  next_decision_for_james: null
