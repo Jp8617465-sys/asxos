@@ -1196,24 +1196,32 @@ def test_cross_contract_artifact_id_collision_is_rejected() -> None:
         _validate_locally_resolvable_reference_hashes(fixtures)
 
 
-def test_placeholder_digest_aimed_at_a_carried_artifact_is_rejected() -> None:
+@pytest.mark.parametrize("digest", ["d" * 64, "a1" * 32, "9f3c" * 16])
+def test_wrong_digest_under_a_wrong_contract_name_is_rejected(digest: str) -> None:
+    """A wrong contract_name makes the (contract, id) pair resolve to nothing.
+
+    The id alone still identifies the artifact, so any digest that disagrees
+    with the carried one is rejected -- not merely the visually obvious stubs.
+    An earlier version tested only a low-entropy shape, which a plausible-looking
+    wrong digest walked straight past.
+    """
     fixtures = load_fixture_documents()
     report_id = fixtures["broker-report-valid.json"]["report_version_id"]
     fixtures["review-context-valid.json"]["stub_ref"] = {
         "contract_name": "portfolio-snapshot-v1",
         "artifact_id": report_id,
-        "sha256": "d" * 64,
+        "sha256": digest,
     }
 
-    with pytest.raises(DossierError, match="placeholder digest"):
+    with pytest.raises(DossierError, match="but that id is carried by"):
         _validate_locally_resolvable_reference_hashes(fixtures)
 
 
-def test_placeholder_digest_for_an_uncarried_artifact_stays_legal() -> None:
+def test_reference_to_an_uncarried_artifact_stays_legitimately_opaque() -> None:
     """Opaque references are permitted when the dossier carries no such artifact.
 
     paper-episode-golden.json legitimately cites an eligibility decision that is
-    not a fixture; the backstop must not force such artifacts into existence.
+    not a fixture; the check must not force such artifacts into existence.
     """
     fixtures = load_fixture_documents()
     fixtures["review-context-valid.json"]["stub_ref"] = {

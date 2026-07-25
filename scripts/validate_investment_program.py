@@ -1314,18 +1314,6 @@ def _validate_fixture_hash_convention(fixtures: dict[str, Any]) -> None:
                         )
 
 
-def _is_placeholder_digest(digest: str) -> bool:
-    """True for a digest built from at most two distinct characters.
-
-    Catches the obvious stubs -- 64 'd's, all zeroes, a repeated two-character
-    pattern. Such digests are legitimate for artifacts the dossier does not
-    carry (external ratification records, fee schedules), so this is only a
-    signal, never a verdict on its own -- the caller pairs it with evidence that
-    the reference SHOULD have resolved.
-    """
-    return len(set(digest)) <= 2
-
-
 def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> None:
     # Digest per (contract_name, artifact_id): the contract-scoped resolution
     # index the reference checks below read.
@@ -1395,22 +1383,22 @@ def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> N
                             f"{item_label}:{value_path}: local artifact reference hash "
                             f"does not resolve to {contract_name}/{artifact_id}"
                         )
-                    # Independent backstop: a placeholder digest is legitimate
-                    # for an artifact the dossier does not carry, so absence of
-                    # the id is NOT evidence of a stub. But a placeholder aimed
-                    # at an id the dossier DOES carry is unambiguously wrong,
-                    # and the resolution check above misses it whenever the id
-                    # was claimed under a different contract name.
-                    if (
-                        expected is None
-                        and artifact_id in artifact_owner
-                        and _is_placeholder_digest(node["sha256"])
-                    ):
-                        owner_contract, owner_file, _ = artifact_owner[artifact_id]
+                    # The resolution check above misses a reference whose
+                    # contract_name is wrong, because the (contract, id) pair
+                    # then resolves to nothing. The collision guard makes every
+                    # carried id map to exactly one digest dossier-wide, so the
+                    # id alone is enough to know the answer: compare directly
+                    # rather than guess from the digest's shape. A reference to
+                    # an id the dossier does NOT carry stays legitimately
+                    # opaque.
+                    owner = artifact_owner.get(artifact_id)
+                    if expected is None and owner is not None and node["sha256"] != owner[2]:
+                        owner_contract, owner_file, owner_digest = owner
                         raise DossierError(
-                            f"{item_label}:{value_path}: placeholder digest "
-                            f"{node['sha256'][:12]}... names {contract_name}/{artifact_id}, but "
-                            f"that id is carried by {owner_contract} in {owner_file}"
+                            f"{item_label}:{value_path}: reference names "
+                            f"{contract_name}/{artifact_id} with digest "
+                            f"{node['sha256'][:12]}..., but that id is carried by "
+                            f"{owner_contract} in {owner_file} as {owner_digest[:12]}..."
                         )
                 reference_id = node.get("id")
                 if isinstance(reference_id, str) and isinstance(node.get("sha256"), str):
