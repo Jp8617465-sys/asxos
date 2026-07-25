@@ -22,7 +22,10 @@ real attended M-A1 record uses `ATTENDED_SOURCE_OBSERVATION`.
   `ma-archive-{environment_slug}-{snapshot_completed_at_compact}`. The
   environment slug is lower-case ASCII and the compact timestamp is UTC
   `YYYYMMDDtHHMMSSz`. The same environment and snapshot completion time must
-  produce the same ID; an ID may never be reused for different bytes.
+  produce the same ID; an ID may never be reused for different bytes. The
+  validator enforces that rule within `model-a-archive-manifest-v1`; ID
+  uniqueness *across* contracts is not yet enforced (see
+  [typed capital lineage](../architecture.md#typed-capital-lineage)).
 - `source_snapshot_started_at <= source_snapshot_completed_at <= created_at`.
   M-A1 captures the source transaction/read snapshot without mutating it.
 - `writer_state_at_snapshot` records the observed source-writer state as

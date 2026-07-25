@@ -236,6 +236,18 @@ Generic `source_hashes` are supplementary; they cannot replace typed foreign
 identities. Integrated golden fixtures must resolve every reference and fail on
 tampering, staleness or a broken hash.
 
+Reference resolution is keyed on `(contract_name, artifact_id)`. The validator
+rejects an artifact ID reused for different canonical bytes **within a single
+contract**. The same ID appearing under two *different* contracts is not yet
+rejected: such an ID is dropped from the bare-ID reference index rather than
+resolved against it. Typed `(contract_name, artifact_id)` references to it still
+resolve, but a bare-ID reference naming it is skipped rather than checked. One
+such collision exists in the shipped fixtures today — `broker-report-v1` and
+`review-eligibility-v1` both use `30000000-0000-4000-8000-000000000001` — so
+"resolve every reference" above states the contract requirement, not the
+guarantee the harness currently mechanises. Cross-contract ID uniqueness is a
+tracked follow-up.
+
 ## Separate state machines
 
 One overloaded lifecycle cannot safely describe every object. These dimensions are

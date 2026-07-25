@@ -18,7 +18,9 @@ reconcile to the reported NAV:
 `portfolio_snapshot_id` identifies one immutable revision, while
 `portfolio_snapshot_version` records that domain revision. A later cutoff must
 mint a new ID/version pair; it may not reuse an earlier artifact ID with a new
-digest.
+digest. The validator enforces that rule within `portfolio-snapshot-v1`; ID
+uniqueness *across* contracts is not yet enforced (see
+[typed capital lineage](../architecture.md#typed-capital-lineage)).
 
 ```text
 NAV = cash + positions + receivables
