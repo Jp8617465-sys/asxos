@@ -1150,3 +1150,29 @@ def test_unsigned_sizing_line_tamper_is_caught_by_the_line_digest() -> None:
 
     with pytest.raises(DossierError, match=r"line_item_sha256: deterministic line hash mismatch"):
         _validate_portfolio_semantics(fixtures)
+
+
+def test_reused_artifact_id_with_different_bytes_is_rejected() -> None:
+    """A reused ID must fail loudly, not silently disable reference checking."""
+    fixtures = load_fixture_documents()
+    original = fixtures["risk-policy-valid.json"]
+    clone = deepcopy(original)
+    clone["policy_version"] = "9.9.9"
+    clone["canonical_hash"]["payload_sha256"] = fixture_payload_sha256(clone)
+    fixtures["risk-policy-duplicate-id.json"] = clone
+
+    with pytest.raises(DossierError, match=r"is reused for two different payloads"):
+        _validate_locally_resolvable_reference_hashes(fixtures)
+
+
+def test_same_artifact_repeated_verbatim_is_still_allowed() -> None:
+    """The guard rejects reuse for DIFFERENT bytes, not honest repetition.
+
+    Without this, tightening the condition to ``previous is not None`` would
+    pass the whole suite while breaking the legitimate case of one artifact
+    appearing in more than one fixture file.
+    """
+    fixtures = load_fixture_documents()
+    fixtures["risk-policy-repeated.json"] = deepcopy(fixtures["risk-policy-valid.json"])
+
+    _validate_locally_resolvable_reference_hashes(fixtures)

@@ -291,10 +291,10 @@ SIZING_CONSTRAINT_COMPARISON = {
 }
 
 # Codes whose limit_value resolves directly from a ratified risk-policy field.
-# ADV_PARTICIPATION, FEES and BOARD_LOT are derived arithmetically at the call
-# site. TARGET_NOTIONAL, AVAILABLE_CASH and RESERVATIONS are direction-asserted
-# only -- their limit_value is not yet independently resolved here, though
-# contracts/sizing-policy-v1.md still binds a conforming producer.
+# ADV_PARTICIPATION, FEES, BOARD_LOT, AVAILABLE_CASH and TARGET_NOTIONAL are
+# derived arithmetically at the call site. RESERVATIONS is the sole code with no
+# ratified cap to resolve against: it is direction-asserted only, and
+# contracts/sizing-policy-v1.md records that residue explicitly.
 SIZING_LIMIT_FROM_RISK_POLICY = {
     "ISSUER": ("portfolio_limits", "max_issuer_weight"),
     "CORPORATE_GROUP": ("portfolio_limits", "max_corporate_group_weight"),
@@ -1315,7 +1315,8 @@ def _validate_fixture_hash_convention(fixtures: dict[str, Any]) -> None:
 
 
 def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> None:
-    by_contract_and_id: dict[tuple[str, str], str] = {}
+    # Value is (source_filename, digest) so a reuse error can name both sides.
+    by_contract_and_id: dict[tuple[str, str], tuple[str, str]] = {}
     digest_candidates_by_id: dict[str, set[str]] = {}
     narrow_context_by_id: dict[str, str] = {}
     root_identity_by_object: dict[int, str] = {}
@@ -1326,7 +1327,21 @@ def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> N
             if not isinstance(contract_name, str) or artifact_id is None:
                 continue
             digest = _canonical_hash_identity(item, filename)
-            by_contract_and_id[(contract_name, artifact_id)] = digest
+            # Within one contract an artifact ID may never be reused for
+            # different bytes. Without this, the reused ID drops out of
+            # by_unambiguous_id below and every bare-id reference check naming
+            # it stops running -- the harness stays green while the forbidden
+            # condition exists. Reuse ACROSS contracts stays legal (the
+            # fixtures already do it) and remains ambiguity-filtered, not
+            # rejected, which is why the guard keys on the pair.
+            previous = by_contract_and_id.get((contract_name, artifact_id))
+            if previous is not None and previous[1] != digest:
+                raise DossierError(
+                    f"{contract_name} artifact id {artifact_id!r} is reused for two "
+                    f"different payloads: {previous[0]} ({previous[1][:12]}...) and "
+                    f"{filename} ({digest[:12]}...)"
+                )
+            by_contract_and_id[(contract_name, artifact_id)] = (filename, digest)
             digest_candidates_by_id.setdefault(artifact_id, set()).add(digest)
             root_identity_by_object[id(item)] = artifact_id
             if contract_name == "review-context-v1":
@@ -1352,7 +1367,8 @@ def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> N
                     and isinstance(artifact_id, str)
                     and isinstance(node.get("sha256"), str)
                 ):
-                    expected = by_contract_and_id.get((contract_name, artifact_id))
+                    resolved = by_contract_and_id.get((contract_name, artifact_id))
+                    expected = resolved[1] if resolved is not None else None
                     if expected is not None and node["sha256"] != expected:
                         raise DossierError(
                             f"{item_label}:{value_path}: local artifact reference hash "
@@ -1377,7 +1393,8 @@ def _validate_locally_resolvable_reference_hashes(fixtures: dict[str, Any]) -> N
                     actual = node.get(digest_key)
                     reference_contract = REFERENCE_CONTRACT_NAMES.get(key)
                     if reference_contract is not None:
-                        expected = by_contract_and_id.get((reference_contract, candidate_id))
+                        resolved = by_contract_and_id.get((reference_contract, candidate_id))
+                        expected = resolved[1] if resolved is not None else None
                     elif digest_key == "context_sha256":
                         expected = narrow_context_by_id.get(candidate_id)
                     else:
