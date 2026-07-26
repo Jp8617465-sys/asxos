@@ -73,6 +73,89 @@ The sprint closes only when its named AC rows and all continuously regressed row
 pass on the combined head. Unfinished work remains on draft PRs or is re-scoped;
 elapsed Friday does not close a sprint.
 
+### Delivery capacity
+
+The programme carries an explicit, falsifiable capacity model. It is a planning
+instrument, not a commitment, and every input below is stated so it can be
+disproved by observed throughput.
+
+| Input | Value | Basis |
+|---|---|---|
+| Declared mission-hours, S01–S12 | ~368 | summed from the sprints' own declared windows |
+| R0 dossier repair gate | 72 | 7 missions across 3 concurrent lanes |
+| Concurrent agent lanes | 2–3 | limited by intra-sprint file conflicts and review context-switching, not by compute |
+| Overnight frozen missions | permitted for the DEC-013 `frozen` tier only | DEC-013's own definition |
+| Independent reviewer | a separate agent session, never James | costs agent time, not governor time |
+| PR review, financial-dense (S07/S09/S10/S11) | ~40 min | diff density of the quantitative sprints |
+| PR review, structural/docs/evidence (S01–S06) | ~15 min | diff density of the contract sprints |
+
+**Agent hours are not the same resource as James hours, and neither is the
+binding constraint.**
+
+*Critical-path agent hours* (mission hours ÷ achievable concurrency), by stage:
+
+```text
+S01 ~16 · S02 12 · S03 ~14 · S04 ~14 · S05 ~14 · S06 ~14
+S07 ~28 · S08 ~24 · S09 ~24 · S10 ~32 · S11 ~32 · S12 ~20
+brownfield survey (proposed, unscheduled) 8
+total ~252 critical-path agent-hours
+```
+
+The brownfield survey is a *proposed* mission from the review packet, not a
+sprint: `docs/product/roadmap.yaml` declares `S01`–`S12` only and there is no
+`S06.5`. It is costed here because the work is real and unpriced, not because it
+has been scheduled.
+
+At 10–14 effective agent-hours/day (one day lane plus one overnight frozen
+lane) that is ~18–25 working days of pure execution.
+
+*James hours* ≈ **45h ± 15h across the whole programme**: ~25h of PR review
+(≈25 dense reviews × 40 min plus ≈30 light reviews × 15 min) and ~20h of
+decisions (R0 acceptance ~2h; the DEC-025 M02 packet ~2h; DEC-SHEET policy
+values ~5h; DC-06 ~1h; NS-02 ~1h; twelve migration-apply gates ~4h; R1
+authorisation ~2h; residual gates ~3h). At 6 h/week that is roughly 7.5 weeks
+of governor time spread across the programme.
+
+**The binding constraint is dependency-chain latency and James's review
+turnaround — not agent hours.** Execution time is ~4–5 weeks; per-stage gate
+latency (review plus the James-gated migration apply) at ~1.5 days across
+thirteen stages is another ~4 weeks; ~25% slack for `NOT_READY` returns and
+rework is ~2 more. Buying more agent throughput without shortening review
+turnaround moves almost nothing.
+
+| Case | Duration | Requires (all of) |
+|---|---|---|
+| **Aggressive** | **12–13 weeks** | 3 concurrent lanes; overnight frozen missions actually running; ≤24h review turnaround; ~10 James h/wk; migration applies same-day; ≤1 `NOT_READY` return per sprint; PROC-01 resolved before S08; DEC-025 answered at S01 |
+| **Nominal** | 16–18 weeks | 2 concurrent lanes; 48–72h review turnaround; ~6 James h/wk |
+| **Degraded** | 22–26 weeks | 1 lane, or weekly review batching, or a stall on PROC-01 / M-A2–M-A3 |
+
+The two stalls that convert aggressive into degraded are both external to
+engineering and both are calendar time no lane can compress: **PROC-01**
+(a vendor/licensing timeline) and **M-A2/M-A3** (Model A shutdown, including a
+*naturally elapsed* no-write observation window). Both are therefore scheduled
+lanes with named owners, not mission sub-tasks — see below.
+
+Arbi reports observed lane concurrency, observed review turnaround, and the
+implied band at every sprint close. A band is a measurement, not a target: if
+the observed inputs no longer support the declared band, Arbi restates the band
+rather than compressing scope.
+
+### Work-in-progress and review-throughput budget
+
+**WIP rule (binding):** *no sprint starts while more than two of the previous
+sprint's product PRs are unmerged.* Evidence and operations PRs do not count
+against the cap; product PRs do. When the cap is exceeded, Arbi's only
+permitted next action is to drive the open PRs to merge, close, or explicit
+supersession — not to open a new lane.
+
+The rule exists because review is the scarce resource. A peak sprint (S10 or
+S11: four 12-hour missions plus one 8-hour) can generate up to fourteen draft
+PRs under the DEC-015 ceilings of three per 12-hour mission and two per
+8-hour one; an unbounded queue converts
+into review batching, which is exactly the input that produces the degraded
+band. Arbi tracks unmerged product-PR count as a first-class reconcile output
+and surfaces it in the north-star report when it reaches the cap.
+
 ### Weekly Arbi loop
 
 1. **Reconcile:** default branch/head, open/merged/superseded PRs, worktrees, CI,
@@ -103,6 +186,69 @@ authority alignment, scheduler/writer/surface shutdown, and a real elapsed
 no-write observation proceed in separately bounded M-A2/M-A3 changes. After
 that shutdown, any new Model A write or re-enabled schedule is a SEV-1 boundary
 incident. The programme never drops or rewrites Model A evidence.
+
+**M-A2 and M-A3 are scheduled lanes, not implied work.** Release gate R1 cannot
+depend on a shutdown that no unit of the plan owns. Under a DEC-025 `APPROVED`
+outcome, M-A2 (authority amendment and retirement authorisation) and M-A3
+(runtime and surface retirement, including a real elapsed no-write observation
+window) are separate attended missions carried as their own roadmap manifest
+rows, sequenced no later than alongside S04 and closed before R1 is evaluated.
+M-A3's observation window is elapsed calendar time, not work time: the mission
+records its start and returns only after the formerly scheduled window has
+actually passed. Under a `NOT APPROVED` outcome neither mission is scheduled at
+all, and R1 takes its second branch (see below). Nothing in the twelve-sprint
+build is permitted to assume the shutdown happened.
+
+### PROC-01 — market-data procurement lane
+
+**Owner: James. Starts week 1, in parallel with S01. Not a mission; no agent
+session can complete it.**
+
+Deliverable: a **provider manifest** naming the resolved source, licence terms,
+point-in-time availability guarantee, delivery mechanism and effective start
+date for each of:
+
+1. **XJO-TR** — a genuine point-in-time S&P/ASX 200 *total-return* (accumulation)
+   series;
+2. **prices and volumes** for the tradeable universe;
+3. **corporate actions** across the action kinds S10 must cover;
+4. **the XASX trading calendar** (sessions, holidays, half-days).
+
+The manifest is a fixture-shaped artifact consumed by S08's entry criteria.
+
+**PROC-01 is proposed as an explicit entry criterion for S08**, so that S08 does
+not start — and no evaluator lineage is frozen — until the manifest resolves for
+all four items. Procurement sitting inside a 12-hour mission is a planning
+defect: a vendor negotiation runs on an external party's clock, it gates four
+downstream sprints, and no mission window can absorb it.
+
+This is a proposal, and the sprint file still says otherwise. Mission S08-A in
+`sprints/s08-evaluator-and-shadow-foundations.md` currently opens with "Resolve
+actual XJO-TR, price/volume, corporate-action and calendar providers, series
+identifiers, revision/availability semantics and licensing constraints" — i.e.
+S08-A *does* source data today, and s08's `Depends on:` names only the S07
+bundle and the S06 monitor watermark, not PROC-01. Splitting sourcing out of
+S08-A and adding the entry criterion is unlanded work; until those edits are
+made, this section describes the target, not the plan of record.
+
+**Why this is load-bearing, stated from the live repo rather than asserted:**
+today the repository has only the *price-only* index `AXJO.INDX`, and
+`jobs/snapshot_portfolio.py` fills `benchmark_tr_level` from a hardcoded
+constant dividend-yield approximation (`_ASX200_TR_YIELD = Decimal("0.04")`,
+~4%/yr) whenever the real accumulation series `AXJOA.INDX` is absent — which is
+always, because it is not ingested. That approximation is honestly documented in
+the job as a stopgap, but
+[`benchmark-policy-v1`](contracts/benchmark-policy-v1.md) **forbids it
+outright**: "Missing genuine XJO-TR or cash-rate data makes that comparison
+unavailable; no price-only index or constant remembered rate may substitute."
+R2 and R4 both require genuine point-in-time XJO-TR. Without PROC-01 the
+programme reaches S12, starts its prospective clock, and then cannot pass R2 —
+the most expensive possible time to discover it. Until the real series is
+ingested, the engine's benchmark branch fails closed (comparison unavailable);
+it must never inherit the snapshot job's approximation.
+
+Arbi's decision-latency monitor surfaces PROC-01 as overdue from the moment S06
+closes without a resolved manifest.
 
 ## Deployment and evidence lifecycle
 
@@ -143,13 +289,72 @@ R1 can occur only after S12:
   code/schema versions are frozen;
 - all lower-level artifact hashes resolve through the integrated chain;
 - production-shaped replay and boundary tests pass;
-- the Model A archive is reproducible, every Model A schedule/writer/product
-  surface is disabled, and the new engine has zero Model A import/query/fallback;
+- the Model A archive is reproducible, and the **Model A predicate for the
+  applicable DEC-025 branch** below is satisfied;
 - required jobs have durable `job_runs`, deadmen and failure behavior;
 - CLI/brief remain hidden/non-actionable; and
 - James explicitly authorises `SHADOW_HIDDEN` and session zero is recorded.
 
 Any material semantic change returns to R1 with a new lineage.
+
+#### R1 Model A predicate — both DEC-025 branches
+
+DEC-025 (Model A runtime decommission) is **pending** and is decided by James at
+S01-M02. This document does not decide it. R1 must be evaluable either way, so
+it carries an explicit predicate under each branch. Exactly one branch applies,
+selected by the recorded DEC-025 decision artifact; if DEC-025 is still
+undecided when S12 closes, R1 is **not** evaluable and the branch selection is
+itself the blocking gate.
+
+**Branch A — DEC-025 `APPROVED` (runtime decommission authorised).** All of:
+
+- the M-A2 mission is closed: the authority amendment is merged and the
+  `/pm-review` tombstone is non-contradictory;
+- the M-A3 mission is closed: every deployed Model A schedule is disabled, every
+  writer is stopped, and every legacy CLI/agent/brief/API surface fails closed
+  or is removed;
+- a **real elapsed** no-write observation window covering at least one formerly
+  scheduled run has passed, with the no-write proof captured after the recorded
+  shutdown watermark — never a simulated or asserted window;
+- zero Model A jobs remain in any product-health or deadman denominator;
+- the archive is reproducible and an attended restore or reproduction check
+  passed; and
+- the new engine has zero Model A import, runtime query, payload field, prompt
+  input or fallback.
+
+Post-M-A3, any new Model A write or re-enabled schedule is a SEV-1 boundary
+incident.
+
+**Branch B — DEC-025 `NOT APPROVED` (Model A keeps running as a dormant passive
+monitor).** M-A2 and M-A3 do not happen, so R1 must **not** require shutdown.
+R1 instead requires **zero Model A reachability from the new engine**, all of:
+
+- a static dependency graph proves no active investment-engine module imports
+  any Model A package;
+- a runtime query trace proves no engine job, CLI path, brief section, reviewer
+  packet or staged-package renderer reads a Model A table;
+- no engine artifact carries a Model A field, and every closed schema rejects
+  one (`prob_up`, `shap_factors`, `ml_prob`, `approved_for_allocation` as an
+  input);
+- archive/monitor perturbation — randomising or removing Model A data — leaves
+  every canonical engine output bit-identical;
+- no Model A job appears in the engine's product-health or deadman denominators,
+  even though it continues to run in its own; and
+- Model A history cannot enter a promotion denominator, benchmark,
+  counterfactual or feature.
+
+Under Branch B the passive monitor **continuing to run and continuing to write
+its own tables is not an R1 failure**, and the standing `CLAUDE.md` rule #11
+quarantine remains in force by its own authority. The SEV-1 condition narrows
+accordingly: it is not "a Model A write occurred", it is *a Model A value
+reached an investment-engine artifact, gate, surface or evidence claim*.
+`model-a-decommission.md`'s S12 reachability proof reports the decommission lane
+`NOT COMPLETE` without weakening engine isolation, and that report is a
+compliant R1 input rather than a blocker.
+
+Both branches share the archive-reproducibility and engine-isolation
+requirements; they differ only in whether shutdown of the legacy runtime is also
+required. Neither branch may be satisfied by prose.
 
 ### R2 — uncalibrated staging eligibility
 
@@ -345,6 +550,73 @@ Use Opus/Ultra for:
 After two failed Fable repair cycles on the same evidence failure, attach both
 attempts, failure output, fixture, contract and diff, then escalate. Changing the
 test/denominator/gate does not reset the counter.
+
+## Automation lanes
+
+Governing principle: **automate verification and preparation, never decisions.**
+Every lane below is governed by this document; a lane assignment is not a
+capability grant, and moving work up a lane requires the same governor decision
+as any other authority change.
+
+### GREEN — unattended, no acceptance step
+
+Mechanical verification that produces no artifact a human must trust. **None of
+the following is wired yet — this is the target lane, not a description of
+today.** Standing them up is R0/S01 work:
+
+- CI running `scripts/validate_investment_program.py` plus the mutation tests
+  added in R0-A1/R0-A2 on every PR. *Not yet wired: no workflow in
+  `.github/workflows/` invokes the dossier validator.*
+- nightly drift validation of `main` and every open sprint branch. *Not yet
+  wired.*
+- a PR steward that autofixes CI failures on `claude/**` branches. *Today
+  `.github/workflows/pr-review-agent.yml` is comment-only, with `contents: read`
+  and `pull-requests: read`; it cannot push a fix. Granting write is a James
+  decision, not a wiring detail.*
+- a decision-latency monitor surfacing overdue DEC-SHEET, PROC-01 and
+  `james-inbox` items. *Not yet wired.*
+
+A GREEN job may only fail loudly, open an issue, or push a fix to a
+`claude/**` branch. It may not merge, label a gate, or write an evidence field.
+
+### AMBER — unattended execution, attended acceptance
+
+Work is *performed* without a human present; its output is *accepted* only by
+an attended session. Conditions are cumulative and all must hold:
+
+- only DEC-013 `frozen`-tier missions qualify — closed contract, golden and
+  negative fixtures, fixed file scope, no financial or statistical meaning left
+  to choose;
+- the run sets `ARBI_UNATTENDED=1`, so `.claude/hooks/unattended-guard.sh`
+  mechanically blocks every irreversible tier;
+- the session's database grants are scoped read-only;
+- the run terminates at a **draft PR** and nothing further — no merge, no
+  deploy, no migration apply, no gate label;
+- an automated fresh-context adversarial pass runs against every product PR,
+  which is what closes the self-grading gap: the closer never grades its own
+  work.
+
+Acceptance of an AMBER output is an attended act. This lane is what makes the
+aggressive capacity band reachable; read-only DB role scoping is its enabler,
+not an optional hardening.
+
+### RED — never automated, mechanically blocked
+
+Reserved to James, or to an attended session acting under a recorded James
+decision. These are blocked by mechanism (`unattended-guard.sh`, the review
+gate, CODEOWNERS plus branch protection), not by instruction:
+
+- applying any migration;
+- ratifying any policy;
+- writing any `ratified_by` or `decided_by` artifact;
+- any promotion, evidence-tier, visibility or model-tier decision;
+- every M-A2 and M-A3 step;
+- editing any authority document; and
+- merge, deploy, and release-gate authorisation.
+
+An automated run that finds itself needing a RED action stops and reports. It
+never routes around the block, and a blocked RED action is a successful outcome
+of the guard, not a failure of the run.
 
 ## Observability
 

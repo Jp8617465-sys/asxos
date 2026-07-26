@@ -6,7 +6,7 @@
 bounded 12-hour read-only Model A inventory/archive/decision mission; approved
 runtime decommission continues in separately bounded missions
 **Acceptance focus:** programme boundary, proposal routing, repair/PR controls
-**Acceptance rows:** AC-01–05, AC-26–27
+**Acceptance rows:** AC-01–05
 **Depends on:** `main@9d442de287e123ae090b95838155dc41d76ee5f3` or a freshly verified successor
 **Maximum evidence tier:** `PAPER_ONLY`
 **Unlocks:** implementation of the S02 proposal consumer; it does not unlock

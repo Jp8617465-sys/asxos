@@ -1,10 +1,31 @@
-# ASXOS investment engine — accepted decisions
+# ASXOS investment engine — proposed decision register
 
-**Status:** locked for implementation
-**Decision date:** 2026-07-24
-**Governor:** James
+**Status:** PROPOSED, not yet ratified. This register records the decisions this
+programme asks the governor to adopt. It does not itself constitute acceptance.
+**Ratification status:** pending James's merge of the dossier PR. That merge is
+the act that ratifies this register, and it must be recorded as a row in
+`docs/product/decision-log.md`. Until the merge lands and is recorded, no row
+below is a governor decision and no session may treat this file as
+implementation authority.
+**The merge is a bare human act, not a mechanically gated one.** `.github/CODEOWNERS`
+carries no entry for `docs/programs/**` or `docs/product/roadmap.yaml`, so a PR
+touching this register triggers no code-owner review, and nothing but James's own
+discipline distinguishes a ratifying merge from a routine one. Extending that
+coverage is open work (findings AS-01/AS-03); until it lands, do not describe this
+register as protected by a control the repository does not have.
+**Not ratified by that merge:** DEC-025 (Model A runtime decommission) is a
+recommendation carrying its own separate approval gate and stays pending after
+the merge; see its own ratification status line.
+**Drafted:** 2026-07-24
+**Proposed by:** Claude session (planning conversation with James)
+**Governor:** James (ratifies by merge; sole authority for every row)
 **Change rule:** a later explicit governor decision supersedes a row; delivery
-work may clarify mechanics but may not silently weaken a locked boundary.
+work may clarify mechanics but may not silently weaken a boundary once
+ratified.
+**Pre-ratification rule:** the current runtime constitution (`CLAUDE.md`, the
+tax specification, and the ratified `docs/product/` authority set) governs live
+behaviour in full while this register is unratified. Nothing here may be cited
+to override it.
 
 ## Decision register
 
@@ -376,7 +397,8 @@ Additional locked values:
 When two documents differ:
 
 1. an explicit later governor decision wins;
-2. this register governs the accepted investment-engine target;
+2. once ratified by James's merge, this register governs the investment-engine
+   target; while it is unratified it is a proposal and governs nothing;
 3. the current runtime constitution continues to govern live behaviour until a
    reviewed implementation PR changes it;
 4. `docs/product/roadmap.yaml` governs sequence and dependencies; and

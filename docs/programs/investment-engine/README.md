@@ -1,13 +1,20 @@
 # Investment Engine Programme
 
-**Status:** accepted bootstrap dossier; implementation remains unbuilt until sprint PRs merge
+**Status:** PROPOSED bootstrap dossier, not yet ratified; implementation remains unbuilt until
+sprint PRs merge
+**Ratification status:** pending James's merge of the dossier PR, recorded as a row in
+`docs/product/decision-log.md`. That merge is the act that makes this directory implementation
+authority. Until then this dossier is a proposal: read it, review it, do not execute it as
+authority, and do not cite it against `CLAUDE.md` or any ratified `docs/product/` authority
+document. Note that `.github/CODEOWNERS` does not cover `docs/programs/**`, so that merge is
+gated by James's own discipline rather than by a repository control — see `decisions.md`.
 **Owner:** James (governor); Arbi maintains programme state
 **Base:** refresh `current-state.md` and `docs/product/roadmap.yaml` before each mission
 
-This directory is the durable implementation contract for ASXOS's twelve-sprint,
-model-independent investment engine programme. It turns the accepted product decisions into
+This directory is the proposed implementation contract for ASXOS's twelve-sprint,
+model-independent investment engine programme. It turns the proposed product decisions into
 schemas, fixtures, sprint work orders, tests, and operating gates that a fresh Claude session can
-execute without access to the planning conversation.
+execute without access to the planning conversation — once the governor ratifies them.
 
 The programme builds an institutional-style, single-user decision engine. It does not connect to a
 broker, execute an order, distribute advice to another person, or use Model A in a capital-relevant
@@ -16,8 +23,9 @@ path.
 ## Read order for Claude
 
 1. Repository [`CLAUDE.md`](../../../CLAUDE.md), especially non-negotiable rules 4, 5, 8, and 11.
-2. [`decisions.md`](decisions.md) for governor-ratified product choices and any
-   explicitly marked recommendation still awaiting James.
+2. [`decisions.md`](decisions.md) for the proposed product choices this programme asks
+   James to ratify, plus any explicitly marked recommendation carrying its own separate
+   approval gate.
 3. [`model-a-decommission.md`](model-a-decommission.md) for the recommended
    runtime-off/evidence-retention target and its separate James approval gate.
 4. [`current-state.md`](current-state.md) for the pinned repository truth and reuse/retire map.

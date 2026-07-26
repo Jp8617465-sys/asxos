@@ -15,10 +15,9 @@ data and the observable cash-rate input without embedding a performance claim.
   `GENUINE_POINT_IN_TIME`, and dividend-reinvesting. A price index cannot
   substitute.
 - The current and prior complete-session levels, dates, and source references
-  are frozen together. The semantic validator recomputes
-  `session_return = index_level / prior_index_level - 1` to six decimals with
-  `ROUND_HALF_EVEN`; a mismatched or unavailable prior level makes the snapshot
-  `INCOMPLETE`.
+  are frozen together. `session_return` is recomputed, never attested, as
+  `index_level / prior_index_level - 1` to six decimals with `ROUND_HALF_EVEN`;
+  a mismatched or unavailable prior level makes the snapshot `INCOMPLETE`.
 - Cash data records the annualized rate, day-count convention, compounding
   rule, effective interval, and source observation.
 - Every observation resolves the same immutable trading calendar used by the
@@ -26,6 +25,24 @@ data and the observable cash-rate input without embedding a performance claim.
   snapshot `INCOMPLETE`; remembered values and zero fallback are prohibited.
 - The canonical hash is computed over RFC 8785 JSON excluding only its own
   payload field. Any correction creates a new snapshot ID or version.
+
+## Where those semantics are enforced
+
+The `session_return` recomputation is enforced by the benchmark service built in
+**S10** and by its acceptance evidence (AC-44, benchmark identity/label tests),
+alongside AC-36 (provider/series/revision identity and the price-only negative),
+which the acceptance matrix locks at **S08**. **Neither is checked by the dossier
+harness.** The semantic validator validates this contract against its schema and
+resolves its typed references, and `_validate_numeric_wire_shapes` format-checks
+`session_return` as a six-place Decimal string because its name ends in
+`_return` — but nothing recomputes it from `index_level / prior_index_level - 1`,
+and no rounding mode is applied. A snapshot declaring an arbitrary but
+well-formed `session_return` validates.
+The chronology bullet above is likewise an S10 service obligation: the validator
+applies the programme-wide `created_at`/`data_as_of` rule and, where the snapshot
+is referenced from an evaluation origin's `BENCHMARK` manifest entry, asserts
+`ref.created_at <= knowledge_cutoff` — but it never evaluates this snapshot's own
+`observed_at <= published_at <= available_at <= knowledge_cutoff` chain.
 
 This artifact is market evidence only. It is `PAPER_ONLY`, non-executable,
 cannot mutate holdings, and cannot elevate an evidence tier.
