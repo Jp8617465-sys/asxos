@@ -251,7 +251,38 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-**CURRENT queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
+**CURRENT queue (2026-07-25 `/arbi-close`) → `docs/session-handoff-2026-07-25.md`.** A ChatGPT-
+authored mission drove an eight-agent adversarial review of PR #70 (the twelve-week
+investment-engine dossier, 157 files / +39,974 lines), then — on James's "don't merge, take the
+other track" — execution of the resulting **R0 pre-merge repair gate**. Verdict **AMBER**: the
+architecture and boundary design are institutionally sound (execution firewall absolute in the
+bytes, Model A independence proven at design level, DEC-025 correctly pending), but the harness
+did not enforce what the contracts promised on the capital path. R0 lanes A, B2, B3, C1 and C2
+landed on `claude/investment-engine-dossier-review-ozg1ny` (12 commits, nothing merged).
+
+**Five real defects were found in the shipped dossier bytes**, none caught by its own validator,
+its 111 tests, or the review itself — each surfaced only when the check was actually implemented:
+an ADV cap derived from the wrong policy (5× overstatement), a SPREAD observed value contradicting
+its source, a cross-contract artifact-ID collision that **silently disabled 15 reference checks
+across 11 fixtures**, the two `dddd…` placeholder digests that collision was hiding on the capital
+path, and a shipped `DOSSIER_DRIFT` in `s01:9` that would have halted week 1.
+
+So: **#1 = R0-B1**, the last buildable repair lane — the §5.1 calendar CGT rule replacing
+`minimum_holding_days: "365"` (violates non-negotiable rule #6 today), plus the immutable
+freshness-policy artifact. Its franking half is **blocked on James** (design choice; preserve
+warning-only). **#2** = re-baseline the capacity model: the brownfield survey found **+48 to +76
+agent-hours** on S07/S10/S12, concentrated in S07-D, S10-C, S12-B. **#3** = dev-loop item #9, the
+macro-brief render layer (carried from 07-24, unstarted this session).
+
+**Blocking on James** (new): run the EODHD probes (`scripts/probe_eodhd_identity_and_benchmark.py`
+— settles the S07 identity build and the S10/S11 benchmark at zero cost); the tax rounding
+conflict (cents/`ROUND_HALF_UP` vs the policy's 6dp/`ROUND_HALF_EVEN` — resolving it wrong
+re-opens TC-11's $1,950); the benchmark decision (**S11's strategy gate is unpassable** unless
+`benchmark-policy-v1` accepts a labelled proxy); code-owner coverage over `docs/programs/**`;
+and PR #70 merge sequencing. **Carried, still blocking:** apply DRAFT migration 0041 + bump
+`REQUIRED_MIGRATIONS` + wire the `score_macro_theses` cron; CBA discipline confirm; RLS posture.
+
+**Historical queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
 audit backlog is fully retired (landed via #65); the two 2026-07-21 proposals are built and
 merged (#67); #64's net-new work is extracted and merged (#68). Zero open PRs. The discovery
 pipeline now has governed macro theses (#6/#7), the macro→theme→sector→instrument agents wired
@@ -514,8 +545,36 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-07-22 interactive `/arbi` wake + build session ("wake up @arbi —
-then start building the two approved workflow proposals"). Supersedes the 07-21 snapshot._
+_Recorded by the 2026-07-25 `/arbi-close`. **No `/arbi` wake this session** — it opened on a
+ChatGPT-authored review mission for PR #70 and became the R0 repair gate. Supersedes the 07-22
+snapshot._
+
+```
+Close: 2026-07-25 (dossier review → R0 repair; no wake)
+- branch: claude/investment-engine-dossier-review-ozg1ny, 12 commits ahead of main @ 9d442de.
+  Includes a merge of agent/investment-engine-dossier (PR #70 head b9c2f6f) so R0 could edit
+  dossier files. NOTHING MERGED — #70 remains an open draft, deliberately not merged.
+- dossier gates: validator PASS (12 sprints, 14 initiatives, 36 contracts, 38 schemas,
+  42 fixtures, 9 mission controls, 97 local links); 130 dossier tests pass; ruff clean under
+  the CI-pinned 0.7.0 (note: ruff >=0.15 reports 14 pre-existing RUF043/C420 in the dossier
+  test file — will bite on any future ruff bump).
+- migrations: 41 on disk, DB applied 95 = REQUIRED_MIGRATIONS. Unchanged this session; no
+  migration authored, applied, or planned by R0.
+- Model A: VERIFIED DORMANT in prod — model_versions has exactly one row (model_a/v1_5,
+  is_active=true, approved_for_allocation=false), zero rows satisfy the allocator gate, and
+  build_portfolio has been `blocked` since 2026-07-18 with ModelGateDormant. Rule #11's
+  mechanical enforcement is working. DEC-025 (full decommission) still pending James.
+- fixtures: zero ambiguous artifact ids remain (was 1); zero placeholder digests remain in
+  reference positions (was 2). The two surviving `dddd…` values are opaque content hashes with
+  no in-dossier artifact to resolve against, which the opacity rule permits.
+- automation: one 8-agent Workflow (4 build lanes + 4 verifiers, 0 errors). Verifiers caught
+  19 false claims; all corrected pre-commit. No agent committed, merged, or touched an
+  authority document.
+- NOT run this session: /arbi wake, sprint-state, live Render/Supabase mutation, EODHD probes
+  (key is a Render secret, absent here).
+```
+
+_Superseded snapshot (2026-07-22 interactive `/arbi` wake + build session):_
 
 ```
 Wake: 2026-07-22 (interactive /arbi → build both 2026-07-21 proposals)
