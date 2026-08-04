@@ -65,11 +65,14 @@ detail behind these lines.
   policy** (rule #11), not by an open dispute. Phase 2c is **reframed** model-independent
   (discovery/discipline/ETF) and no longer waits on a signal engine
   (`ml-engine-shelf-2026-07-11.md`).
-- **Next actions:** see the ranked queue below. **2026-07-21 wake — ONE THING: clear the
-  `agent_runs` review backlog (4 unacted: #3, #4 pre-existing + #6, #7 logged this wake) —
-  zero-engineering, James's read-and-decide.** Then: P1 `compute_opportunity_cost` firewall
-  gate (carried from 07-18); then the agent-frontmatter repoint to `supabase-ro` (now
-  evidenced by a live failure, see Last wake snapshot). Historical: monitoring lane merged
+- **Next actions:** see the ranked queue below. **2026-08-04 wake — ONE THING: triage draft
+  PR #70 (the 157-file "investment-engine dossier" opened 07-25) — file-by-file reconcile of
+  its nine authority-doc edits vs main, rule-#11 conformance check on its Model A retirement
+  plan, one MERGE / CLEAN-EXTRACT / CLOSE verdict for James.** Then: fix
+  `derive_fundamentals_pit` (TimeoutError since ~07-30, check_cron_health red 7 days) +
+  revive the dead 7a daily-brief Routine + wire the `score_macro_theses` cron; then resume
+  dev-loop #9 (macro-brief render). Historical (07-21): agent_runs backlog cleared;
+  frontmatter repoint + P1 firewall gate landed via #65. Historical: monitoring lane merged
   (queue #1 done); #29 (discipline evaluator) MERGED (`2a49df9`); portfolio-team-visibility
   PR2 (both halves) also merged (#41/#44).
 - **Decisions needed from James:** see **`james-inbox.md`**. As of 2026-07-21 its three
@@ -219,7 +222,19 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-**CURRENT queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
+**CURRENT queue (2026-08-04 `/arbi` wake).** **#1 = triage draft PR #70** (the unreconciled
+40k-line investment-engine dossier + its nine authority-doc edits — supersession attempt on
+the authority ladder; #64 clean-extract precedent; rule-#11 conformance check; verdict for
+James). **#2 = deployment-truth pass:** fix `derive_fundamentals_pit` (TimeoutError,
+3+ consecutive failures since ~07-30 — the only red pipeline; `check_cron_health` correctly
+red for 7 days over it), revive the dead 7a daily-brief Routine (silent-stop, second
+occurrence), wire the `score_macro_theses` Render cron (`render.yaml` + `make check-drift`;
+Layer A inert until then — James's authorization). **#3 =** dev-loop #9, the macro-brief
+render layer (carried from 07-24, unstarted). **#4 =** draft the 2026-08-31 dark-launch
+re-decision (portfolio brief + paper-trade evaluator; the 4-week paper window can no longer
+complete before expiry). Prior queue below kept for audit trail.
+
+**Historical queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
 audit backlog is fully retired (landed via #65); the two 2026-07-21 proposals are built and
 merged (#67); #64's net-new work is extracted and merged (#68). Zero open PRs. The discovery
 pipeline now has governed macro theses (#6/#7), the macro→theme→sector→instrument agents wired
@@ -481,6 +496,61 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-04 interactive `/arbi` wake (James: full project audit + concept
+inventory + roadmap unpack). Supersedes the 07-24 close addendum below._
+
+```
+Wake: 2026-08-04 (interactive /arbi — project audit / current-state build session)
+- branch: claude/project-audit-roadmap-ey3gem — EVEN with origin/main (0 ahead), both at
+  9d442de "docs(arbi): /arbi-close 2026-07-24 + REQUIRED_MIGRATIONS 95 after 0041 (#69)".
+  Clean tree. ZERO commits on main in the ~11 days since the 07-24 close; the 07-24 ONE
+  THING (macro-brief render layer, dev-loop #9) was NOT started.
+- open PRs: 1 — draft #70 "docs: add investment-engine implementation dossier"
+  (agent/investment-engine-dossier, opened 2026-07-25T07:40Z, 1 commit, 157 files,
+  +39,974/−88, base main@9d442de, mergeable clean). A 12-week/14-initiative programme under
+  docs/programs/investment-engine/ (36 contracts, 38 schemas, 42 fixtures, validator,
+  mission recipes, "Model A retirement plan" via M-A2/M-A3) that ALSO EDITS nine authority
+  docs (CLAUDE.md, docs/README.md, this file, next-session-backlog, arbi-operating-backlog,
+  cleanup-backlog, dark-launch-exit-plan, guards-backlog, backlog-test-coverage) claiming
+  "canonical-vs-legacy precedence". UNRECONCILED — arbi verdict this wake: a supersession
+  attempt on the authority ladder; do NOT merge wholesale; triage per the #64 clean-extract
+  precedent; verify its Model A retirement plan does not soften rule #11. Branch-only state
+  does not outrank main: this file remains authoritative until James rules.
+- tests: not run (read-only wake); CI full-check is authority (green at #69).
+- migrations: 41 on disk through 0041. DB applied = 95 = REQUIRED_MIGRATIONS (probed) —
+  0041 APPLIED; the 07-24 "James applies 0041" item is RESOLVED.
+- Render: 29 asxos services, all not_suspended except asxos-retrain-model-a (expected).
+- freshness (probed): prices.dt=2026-08-03 · signals.as_of=2026-08-03 ·
+  portfolio_snap=2026-08-03 — pipelines ran fine right through the git-idle window.
+  regulatory_events=2 rows (STILL STARVED, RBA-only). macro_theses=4 (3 approved) ·
+  theses=13 · themes=1 · agent_runs unacted=0.
+- job_runs: score_macro_theses has ZERO rows EVER → Layer A cron CONFIRMED unwired (was
+  inference at 07-24, now probed) — Layer A remains inert. compute_opportunity_cost
+  SUCCESS 08-01: the first gated Saturday run WORKED (Render env drift fix held).
+  build_portfolio BLOCKED 08-01 (correct, rule #11).
+- NEW BUG (unseen 7 days): derive_fundamentals_pit FAILING since ~07-30 (TimeoutError,
+  3+ consecutive), and check_cron_health has been correctly RED daily 07-28..08-03
+  flagging it. Nobody saw it because no session ran AND —
+- NEW BUG: the 7a daily-brief Routine (trig_01BA3VmfzoRMtjKnt6XNpgPH) is DEAD — last
+  fired 2026-07-18, next_run_at stuck at 2026-07-19. Second occurrence of the silent-stop
+  failure mode (first: 2026-07-15, this file line ~432). The morning-brief safety net was
+  down the whole idle window. The secperf write-loop Routine is stalled the same way.
+- dark-launch expiry pressure: portfolio brief + paper-trade evaluator expire 2026-08-31;
+  the 4-week paper window has never started → cannot complete before expiry; re-decide.
+```
+
+_This wake's ONE THING (arbi #1): **triage draft PR #70** — fetch the branch, reconcile its
+nine authority-doc edits against main file-by-file, classify net-new / superseding /
+contradicting, check the Model A retirement plan against rule #11, deliver one
+MERGE / CLEAN-EXTRACT / CLOSE verdict for James (red-team gated before acting). Then: #2
+deployment-truth pass (fix derive_fundamentals_pit, revive the 7a Routine, wire the
+score_macro_theses cron via render.yaml); #3 resume dev-loop #9 (macro-brief render layer)
+once #70 settles; #4 draft the 08-31 dark-launch re-decision for James. Decisions open for
+James: #70 disposition · CBA one-word confirm · RLS posture · score_macro_theses cron
+authorization · paper-trade window vs 08-31 expiry · news signoff._
+
+_Prior snapshot (2026-07-22) retained below for diffing._
 
 _Recorded by the 2026-07-22 interactive `/arbi` wake + build session ("wake up @arbi —
 then start building the two approved workflow proposals"). Supersedes the 07-21 snapshot._
