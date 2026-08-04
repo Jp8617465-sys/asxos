@@ -95,8 +95,111 @@ psycopg2 adapter block (#9).
 
 ## 3. Concept inventory — financial / investment management
 
-<!-- FILLED FROM EXPLORE SWEEP -->
-_(pending sweep result)_
+**Australian tax** (all governed by `docs/foundation/spec/tax-alpha.md` v1.5; code cites
+section numbers): CGT 12-month discount with calendar arithmetic (`relativedelta(years=1) +
+timedelta(days=1)`, contract dates per s 109-5 — day-count explicitly rejected, spec §5.1);
+optimal capital-loss ordering against non-discount gains first (s 102-5, §5.2, saves $1,950
+in the worked case); the CGT break-even price heuristic (§5.4 — a decision hint, not tax
+advice; the `(1−d)` coefficient bug was fixed in v1.3); Medicare 2% on grossed-up franked
+dividends AND post-discount net capital gains (§4.1/§5.3/§7); franking gross-up with
+per-security corporate rate (0.30/0.25 base-rate entities, §3); the 45-day at-risk rule for
+SMSFs — warns, never auto-denies (s 207-145, §4.3, TC-21); Division 296 stacked tiers
+(15% over $3M + 10% over $10M, whole-TSB denominator, realised earnings not ΔTSB,
+§6.1–6.3); the s 296-50 cost-base reset election with dual per-lot cost bases
+(`cost_base_normal` / `cost_base_div296`) and the depreciated-asset election warning
+(§6.4/§6.5, TC-20); SMSF proportionate ECPI stacking with the CGT discount (1/3 → ECPI →
+15%, §4.2/§5.2, TC-24) and refundable franking on exempt income; FIFO/LIFO/min-CGT lot
+selection (`domain/tax/lots.py`); Div 775 FX gain/loss as a separate non-discountable
+realisation event (§8); `cost_base_normal` is **AUD** — dividing by quantity for a foreign
+lot is the R10 currency bug that once mis-reported HUBS as −29%; loss-harvest tagging is
+INFORMATION ONLY (Part IVA / TR 2008/1 disclaimer verbatim on every emitting surface);
+Div 83A/ESS explicitly unimplemented (v1 outputs stated wrong for ESS lots, §8.5/§9).
+
+**Portfolio construction** (`.claude/rules/portfolio-conventions.md`,
+`asxos/domain/portfolio/`): inverse-volatility risk-parity allocator, Decimal-only (no
+numpy; ~1,770 `Decimal.ln()` per build); iterative constraint waterfall (per-name cap →
+sector scale-down → redistribution → convergence, hard-fail after 5 iterations); cash floor
++ leverage cap as **the only structural drawdown protections in v1** — beta-clustering
+risk-blindness is an acknowledged invariant (Materials+Financials >40% of the XJO;
+`m14_candidate_beta_cap`); risk-tolerance→position-count mapping (30/20/15/10) documented
+as a UX heuristic, not finance research; CGT boundary-defer inside `compute_deltas` (30-day
+window, uniform across allocator cuts, exits, and forced sells); XJO total-return benchmark
+with labelled fallbacks; the paper-portfolio monitor as a scoreboard, explicitly **not a
+backtester** (no lookahead, no silent forward-fill, evidence tiers, ≥4-week gate before the
+brief flag flips); hard-fail invariants on every capital path; `account_type` from the
+active profile (never a `holding_lots` column); weekly Saturday rebalance — a failed cron
+omits brief §6 entirely, never partial or stale.
+
+**Investment process / discipline** (the product's wedge, `north-star.md`): thesis =
+**broker report** in three flavours (macro/segment · single name · ETF/fund breakdown) with
+the discipline wrapper (entry band/stop/target/timeline/invalidation/theme attribution);
+the identify→monitor→change loop (the CBA 4×-detached thesis is the worked failure);
+append-only `thesis_revisions` with allowlisted JSONB diffs (empty diff =
+`reviewed_no_change`); trajectory pace classification (ON TRACK/BEHIND/STALLED/STOP
+VIOLATED/ABOVE TARGET); the deterministic discipline evaluator — model-independent **by
+construction**, never reads signals, errors surface loudly (`domain/theses/discipline.py`);
+themes with a lifecycle-stage classifier (early → … → late-retail → mature) that only ever
+writes `stage_suggested`, never the user-confirmed `stage`; macro theses tagged to regime
+quadrants with catalyst + falsifier + `machine_conditions`; the falsifier evaluation loop
+(`jobs/score_macro_theses.py` — triggered falsifier records + emails, never auto-retires;
+NULL data never confirms or falsifies); `/pm-review`'s five-agent fan-out to a GOOD HOLD /
+TRIM / REVIEW / EXIT-CANDIDATE verdict (evidence-thin declared if ≥2 agents lack data;
+EXIT-CANDIDATE ≠ sell advice).
+
+**ML / signals history — shelved** (`ml-conventions.md`, `ml-engine-shelf-2026-07-11.md`):
+Model A = LightGBM classifier+regressor (ROC-AUC 0.7097, n=1.05M rows, 22-feature locked
+contract through one shared `FeatureEngine` killing training/serving skew); the signal
+threshold ladder with regime-conditioned overrides; SHAP driver attribution; walk-forward
+discipline (T-1 features, purged CV, 45-day disclosure lag via `merge_asof`). **Why
+shelved:** on 19,032 matured signals, `corr(ml_prob, 21d) = −0.03` and STRONG_BUY returned
+−0.09% at 21d vs HOLD's +5.07% — conviction inverted at the top
+(`model-a-decay-analysis-2026-07-11.md`). "Shelved" precisely: retrain suspended;
+`generate_signals` runs as a passive quality monitor keeping `signal_outcomes` fed;
+allocator dormant with `approved_for_allocation=0` standing; brief fully model-independent.
+Revival bar is pre-registered: positive **monotonic** conviction→21d relationship
+(corr ≳ 0.05) on matured outcomes + a separate explicit `approved_for_allocation` action —
+v1_5 has no path back. Screening's `source_method` CHECK may never re-admit
+`shap_threshold`/`surrogate_tree`.
+
+**Governance of investment content** (migrations 0033–0036,
+`domain/governance/`): `governance_status` lifecycle (draft → evidence_complete →
+pending_review → approved/rejected → retired), orthogonal to capital `status`;
+`enter_thesis()` hard-fails on unapproved; DB-enforced human gate — `BEFORE UPDATE`
+triggers reject any status change lacking a same-transaction `governance_events` row
+(INSERT-then-UPDATE order is load-bearing and must be live-verified); agents propose
+**content, never signals** (outside rule #11 by construction), humans decide via CLI;
+evidence tiers verified/inferred/speculative with snapshot hashes; the
+contamination-isolation model gate (`approved_for_allocation` orthogonal to `is_active`;
+allocator `required=True` hard-fails, brief paths `required=False`); the documented open
+risk: agent SELECT-only was prompt-enforced (now backstopped by `supabase-ro` + role 0039).
+
+**Market data** (`asxos/ingestion/`): EODHD as sole source (prices, fundamentals,
+corporate actions, financial statements, security master, FX — no synthesised prices);
+AUDUSD-only `fx_rates` with one canonical foreign-suffix helper; FRED market-context
+indicators (AVIX + US HY OAS hard-fail-critical; breadth soft-degrades); the rules-based
+regime classifier (risk_off_disorderly → … → neutral_mixed, first-match-wins, versioned);
+RBA RSS regulatory feed (sole survivor — ATO/Treasury retired as dead feeds); the
+survivorship-free `rs_security_master` (2,382 active + 1,986 delisted, never touches
+production `universe`); `security_kind` (au_equity/us_equity/index/etf/lic/reit/hybrid)
+fixing the `is_active` overload — ETF/LIC screening criteria remain an undesigned taxonomy;
+the Tier 2a screening evaluator (whitelisted fields/ops as the SQL-injection boundary,
+`parse_float=Decimal`); point-in-time fundamentals derivation (restatement-lookahead
+protection); news + retail-sentiment ingestion feeding euphoria detection; delisting
+forced-sells with identical CGT-defer treatment.
+
+**Regulatory boundary:** the s766B personal-advice firewall (Westpac v ASIC) is
+**structural, on execution not analysis** — Path A single-user defers AFSL; two mechanical
+gates (`ASXOS_PERSONAL_USE`, `ASXOS_PORTFOLIO_BRIEF_ENABLED`); restated verbatim at every
+review surface; single-user (no auth/RLS/user_id) is a non-negotiable, not a shortcut.
+
+**Also found, worth naming:** Decimal-exactness elevated to a north-star non-negotiable;
+the competitive white space (no consumer AU tool models Div 296 or enforces thesis
+discipline) carrying James's own calibration note — *"just because we have something built
+that no one else does, doesn't mean this is right"*; the three-layer moat as an explicit
+prioritisation ranking (exit discipline > picking); `compute_opportunity_cost` (dormant);
+the M14 alpha-factor research package ("measurement only"); cross-layer observations in the
+brief (`domain/brief/cross_layer.py`); GICS-sector nullability by kind — sector caps are
+structurally incomplete for a multi-instrument book.
 
 ## 4. Current state wired against the North Star
 
