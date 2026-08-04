@@ -77,7 +77,10 @@ detail behind these lines.
   07-16, retirement write awaiting a one-word confirm; VGS/VAS not-held → demo lots 07-16).
   Live asks: merge PR #65; rule on held agent_runs #6/#7 (rec: reject-6/approve-7); sign off
   the two 2026-07-21 proposals. (Header un-rotted 2026-07-21 — it had trailed the inbox by
-  a week; the dream candidate flagged the drift.)
+  a week; the dream candidate flagged the drift.) **NEW 2026-07-27: ratify the personal-advice
+  firewall amendment** (`personal-advice-firewall-amendment-2026-07-18.md`) — a read-and-merge
+  decision, no build, gating the sizer + staged-order lanes. See the inbox row and
+  `docs/research/codex-audit-reconciliation-2026-07-27.md`.
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
   auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
   cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
@@ -481,6 +484,20 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Session note (2026-07-27 — NOT a wake; read-only session, no build, no reprioritisation).
+James brought an external **Codex audit** of asxos + a pending *"Implementation Dossier and
+12-Week Build Program"* (44 subagents). **Only the conversation reached the repo — the dossier
+artifact did not** (Codex credits exhausted); James retrieves it **~2026-08-01**. The audit's
+claims were fact-checked against `9d442de` and parked at
+**`docs/research/codex-audit-reconciliation-2026-07-27.md`** — read that before acting on any
+part of the dossier, it was already stale in one confirmed place (`_KNOWN_AGENTS`). Confirmed
+real: the `ThesisProposal`/`create_thesis_from_agent_run` gap (already this file's queue **#2**
+— convergence, not a competing plan), `/pm-review`'s Model A coupling, no review-scoring
+persistence, the thin paper evaluator. **Two items the audit missed:** (1) James's `1A` choice
+(advise + stage orders) is **already drafted and unratified** — a read-and-merge decision, now
+an inbox row; (2) migration 0041 **is applied** (`REQUIRED_MIGRATIONS = 95`), closing that
+carried 07-24 item. The ranked queue below is **unchanged** — next wake still owns re-ranking._
 
 _Recorded by the 2026-07-22 interactive `/arbi` wake + build session ("wake up @arbi —
 then start building the two approved workflow proposals"). Supersedes the 07-21 snapshot._
