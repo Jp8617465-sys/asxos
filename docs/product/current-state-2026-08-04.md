@@ -34,8 +34,64 @@ Every figure below traces to a live probe run this wake (git, GitHub, Render RES
 
 ## 2. Concept inventory — software engineering
 
-<!-- FILLED FROM EXPLORE SWEEP -->
-_(pending sweep result)_
+**Counts on disk:** 41 migrations · 120 test files (118 `test_*.py`) · 15 docs/proposals ·
+35 docs/product files (+ `memory/`, `rubrics/`, `runbooks/`) · 25 subagents · 31 slash
+commands · 5 rules · 5 hooks.
+
+**Architecture.** Three-plane topology: one FastAPI web service + Supabase Postgres 16 (only
+datastore) + 28 single-purpose Render crons (`render.yaml`). Hard-fail startup — the ASGI
+lifespan raises on any dependency-init failure, incl. the `REQUIRED_MIGRATIONS` drift gate
+(`asxos/api/main.py`); encodes postmortem lesson 1 (`docs/foundation/phase-b-failure-postmortem.md`).
+18 bounded domain subpackages under `asxos/domain/`; a separate 11-adapter ingestion layer
+(`asxos/ingestion/`) so jobs never call vendors directly; the `asx` CLI (18 command modules)
+as primary UI; thin `jobs/*.py` entry points wrapping `JobMonitor`.
+
+**Data/DB engineering.** Plain-SQL numbered migrations, applied via Supabase MCP (no runner);
+`NUMERIC(18,6)` on every monetary/statistical column from day one; Postgres `BEFORE UPDATE`
+governance audit triggers enforcing transition+audit-row atomicity in the DB itself
+(migrations 0034/0036); the `asxos_agent_ro` read-only role (0039) as the physical backstop
+for agent SELECT-only; governed read surface via views (`current_holdings`,
+`governed_active_*`). Standing hazard: asxos is a ~43-table tenant in a ~165-table shared
+Supabase project — mandatory `pg_depend` pre-apply check (`docs/db-shared-project-audit-2026-06-28.md`).
+
+**Reliability/ops.** `JobMonitor` async context manager (records `job_runs`, pings
+Healthchecks deadman per job, re-raises — never swallows); three-state job outcome
+success/blocked/failure with `UpstreamBlocked`→blocked to avoid alert fatigue;
+`check_cron_health` meta-job (detects stuck/consecutive-failing jobs, emails via Resend);
+`render.yaml`-as-IaC reconciled by `make check-drift` against the live Render REST API
+(postmortem lesson 2); dark-launch env gates with a written exit plan (the sanctioned
+exception to "no feature flags"); fail-loud rule #10 throughout; irreplaceable-only backup
+(`scripts/backup_irreplaceable.sh`); deployment-surface tests (`test_cron_pool_init`,
+`test_render_backup_build`) closing the "local-correct, deployed-broken" gap.
+
+**Agent/AI engineering.** 25 subagents, advisory-by-default (only `refactoring-expert` +
+`technical-writer` mutate files): 11 dev-side, 2 finance-conformance, 5 investment-analysis,
+3 discovery, 3 program-management (`arbi`/`arbi-red-team`/`guilfoyle`) + `reversible-work-builder`.
+arbi as bounded constitutional operating authority — governor(James)/controller(arbi) split,
+two-axis I0–I6 / P0–P6 permission ladder with a "runtime enforcement honesty" section
+(`docs/product/arbi-*.md`). Mechanical gates: `review-gate.sh` (diff-hash-keyed commit
+marker), `unattended-guard.sh` (fail-closed default-deny when `ARBI_UNATTENDED=1`),
+`authority-guard.sh` (always-on; it blocked a Bash call during this very audit),
+`push-guard.sh`/`pr-draft-guard.sh` (deny-only, draft-PR ceiling). Git-native memory:
+`/arbi-dream` → candidate PR → `/arbi-promote` behind CODEOWNERS. Slash-command fan-out
+pattern (subagents can't spawn subagents, so `/pm-review`, `/discover-macro`, `/arbi` run
+the fan-out in the main loop). Agents never write the DB — proposals become rows only via
+human-run CLI with `agent_runs`/`agent_evidence`/`governance_events` audit trail.
+
+**Quality.** Two CI lanes (`full-check` = ruff+mypy+full pytest; `targeted-ml-tests` fast
+lane) + a comment-only `pr-review-agent`; `make check` mirrors CI locally; the 3-agent
+review loop (security-engineer → refactoring-expert → technical-writer) armed by the review
+gate; documented sandbox test gaps with the re-derivation command as the only authority
+(enumerated lists are forbidden — they rotted repeatedly); "load-bearing tests only" policy
+(~400 tests each defending a named failure class); spec-first domain logic (tax code cites
+`tax-alpha.md` section numbers; tests named by TC-ID).
+
+**Other gates.** Secret redaction at source and sink (`asxos/redaction.py`, CWE-532/209);
+`defusedxml` for RSS; the s766B personal-use firewall as a literal runtime gate
+(`ASXOS_PERSONAL_USE=1` required, env var ships in the same change as the gated job); rule
+#11 as an evidence-backed engineering kill-switch; `docs/README.md` as the docs
+source-of-truth map ("trust the map, fix the doc"); auto-attaching path rules; the numpy
+psycopg2 adapter block (#9).
 
 ## 3. Concept inventory — financial / investment management
 
