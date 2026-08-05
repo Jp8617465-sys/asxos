@@ -103,10 +103,27 @@ The live cross-check also settles one data question: the real RBA cash rate is
 > `asxos/ingestion/eodhd.py:118-119` coerces any non-list payload (the shape an
 > out-of-plan endpoint returns with HTTP 200) to `[]`.
 >
-> Both defects below are genuine and are fixed in `deea76a` — they made every
-> real outage invisible. But the empty table is most likely explained by symbol
-> normalisation, not by the predicate. Fix #4 is re-scoped accordingly, and a new
-> fix #0 is added.
+> **CORRECTION 2 (rev 4).** "Most likely explained by symbol normalisation" was
+> still too strong, and I am withdrawing the ranking entirely. The probe above ran
+> against the **parser**, with synthetic articles. It proves the filter *would*
+> drop them; it never proved an article ever arrived to be dropped.
+>
+> The request side was broken too, and it sits **upstream** of the filter:
+> `jobs/ingest_news.py` asked EODHD for `HUBS.NYSE`, a namespace it does not
+> address (it serves NYSE/NASDAQ as `.US`) — and `asxos/ingestion/eodhd.py:118-119`
+> coerces a non-list error payload to `[]`. That path produces an identical
+> `status='success'` / `rows_written=0` / empty-table run **before the filter is
+> ever reached**. This job was the only per-symbol EODHD path that skipped the
+> remap its siblings already performed (`asxos/ingestion/prices.py:162`).
+>
+> So: **two candidate causes, both now fixed (`002b6c9`), order of causation
+> undetermined and not determinable from the logs.** One live EODHD call for one
+> holding would settle it, and that needs `EODHD_API_KEY`, which exists only in the
+> deployment environment — see fix #4.
+>
+> Both defects below are genuine and are fixed in `deea76a`; they made every real
+> outage invisible, which is why neither cause could be distinguished in the first
+> place.
 
 `holding_news` contains **zero rows**. Every `ingest_news` run from 2026-07-06 to
 2026-08-04 (22 runs) recorded `status='success'` with `rows_written = 0`. There is
@@ -494,12 +511,12 @@ slots for that reason — not because the news is needed this week.
 
 | # | Fix | Location | Why |
 |---|---|---|---|
-| **0** | **Repair the symbol mapping for non-ASX holdings** — NEW, and the likely operative cause | `asxos/ingestion/news.py:104-108` | `_normalise_symbol` appends `.AU` to any suffix-less ticker, so EODHD's `"HUBS"` becomes `"HUBS.AU"` and never matches the held `"HUBS.NYSE"`. Every article for the only holding is dropped with no exception. **DONE in `deea76a`:** made visible via `monitor.note`. **NOT DONE:** the mapping itself — needs a design call (match on ticker root? carry an exchange-alias map?), so it wants `backend-architect`, not a patch. |
+| ~~**0**~~ | ~~**Repair the symbol mapping for non-ASX holdings**~~ **DONE** (`002b6c9`) — one of two candidate causes, not "the likely" one | `asxos/ingestion/news.py`, `asxos/ingestion/symbols.py`, `jobs/ingest_news.py` | Fixed on **both** sides. Request: the job now sends `eodhd_symbol(symbol)` (`HUBS.NYSE` → `HUBS.US`), the remap every sibling EODHD path already performed. Response: `_normalise_symbol`'s `.AU` guess replaced by `build_symbol_alias`, resolving each vendor form to the **held** symbol — load-bearing, because `compose.py:581` and `ingest_sentiment.py:92` both re-read that value by exact match. Bare roots are scoped to the requested symbol (ASX 3-letter codes collide with US tickers). Mutation-verified: 6 guards tested, 6 now genuine (`c2a7f76`). |
 | ~~1~~ | ~~Make `ingest_news` able to fail~~ **DONE** (`deea76a`) | `jobs/ingest_news.py` | Sentinel `0` → `None`; predicate → positive type test. Also fixed: `errors` counter was permanently 0; `redact_secrets` at the log sink. |
 | ~~2~~ | ~~Audit every `assert_partial_success` predicate~~ **DONE — sweep complete and small** | repo-wide | Three call sites: `sync_fundamentals.py:84` (`r is True`) and `ingest_regulatory.py:186` were already safe; the latter hardened to a positive type test anyway. One instance, now fixed. **Do not re-audit.** Still open: `check_cron_health` has no `rows_written = 0` watch; `jobs/sync_prices.py:187-232` gathers with `return_exceptions=True` and **no threshold guard at all** — separate backlog item. |
 | ~~2b~~ | ~~The brief's freshness gate shares the forged field~~ **DONE** (`deea76a`) | `asxos/brief/compose.py:514-525` | `_news_ingest_fresh` now requires `rows_written > 0`, so the runtime gate and the ship condition stop being the same check twice. |
 | 3 | Correct the HY OAS unit mismatch | `migrations/0013_market_context.sql` | **Promoted above the EODHD diagnosis.** §8 shows two of three approved, governed macro theses are unscoreable or unfalsifiable. That corrupts the Layer A falsifier-scoring loop (`jobs/score_macro_theses.py`) — the model-independent product's only learning mechanism. A governance loop scoring itself against dead inputs is worse than one not running. |
-| 4 | Probe live EODHD `/news` once, and make its non-list coercion fail loud | `asxos/ingestion/eodhd.py:81,118-119,139` | Re-scoped. `return result if isinstance(result, list) else []` turns an error payload into an in-range value — the same anti-pattern as fix #1, one layer down, and it produces an identical green-with-zero-rows run. One live call for one holding distinguishes it from fix #0. Budget for the answer being "no ASX coverage on this plan tier" (the REV-K wall as `/sentiments`); if so, **retire the feed** as Treasury and ATO were, don't patch it. Needs `EODHD_API_KEY`, which exists only on Render. |
+| **1** | **Probe live EODHD `/news` once** — PROMOTED: now the only way to learn which cause actually fired | operator action + `asxos/ingestion/eodhd.py:81,118-119,139` | With fix #0 shipped, the next scheduled run is self-diagnosing: a bad request now hard-fails, while a filter miss stays green and logs the unmatched vendor tags. **But note the request changed** — the job now sends `HUBS.US`, so a probe today tests a different call than the one that produced the 22 empty runs; the original cause is only recoverable from what the new run reports. Separately, `return result if isinstance(result, list) else []` still turns an error payload into an in-range value — the same anti-pattern as the predicate bug, one layer down. Budget for the answer being "no coverage on this plan tier" (the REV-K wall as `/sentiments`); if so, **retire the feed** as Treasury and ATO were. Needs `EODHD_API_KEY`, deployment-only. |
 | 5 | Repair or drop the `IRON.COMM` feed | `jobs/ingest_market_context.py` | 404 on 24/24 days; most consequential missing input for a Materials-heavy universe. |
 | 6 | Investigate frozen AU 10y + 4bp cash-rate step | `jobs/ingest_market_context.py` | Both pinned since 2026-07-16. Live check confirms the true cash rate is 4.35%, so the value is right and the step is an artifact. Thesis #7 is scored against a dead series. |
 | 7 | Reconcile the four documents that disagree about this flag | see below | New. `roadmap-state.md:121` and `:404` say `ASXOS_NEWS_BRIEF_ENABLED=0`; `product-health-scorecard.md:101` and `dark-launch-exit-plan.md` say shipped/1; `render.yaml` says `"1"`. Four docs, two states — live state wins, so `roadmap-state.md` is stale. |
