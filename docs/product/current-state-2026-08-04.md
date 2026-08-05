@@ -312,7 +312,79 @@ recorded in full in the session log; operative conclusions:
   semantics; act on Model A output for capital; re-run the resolved decay check; count dark
   surfaces as delivered; let the 08-31 expiries roll over silently.
 
-## 8. Bottom line
+## 8. Agentic-engineering posture — audit against current practice (2026-08-04)
+
+Checked against the authoritative Claude API/agent reference (loaded this session), not
+recall. Probes: `.claude/` frontmatter grep, `settings.json`, skills dir, a repo-wide grep
+for Anthropic SDK usage in Python.
+
+**What's clean — no action needed:**
+
+- **Zero model-migration debt.** No Python file in the repo calls the Anthropic API
+  (`anthropic`, `messages.create`, `ANTHROPIC_API_KEY` — repo-wide grep, 0 hits). Every
+  LLM interaction is through the Claude Code harness. So the entire current breaking-change
+  surface — `budget_tokens`, `temperature`/`top_p`/`top_k`, assistant prefills, deprecated
+  `output_format` — is **N/A here**. Nothing to migrate.
+- **No stale model pins** anywhere in `.claude/` (the only `model` matches are `model_a`,
+  the shelved ML engine). Nothing rots on the next model release.
+- **`arbi-managed-agent-spec.md` is not stale** — it cites beta header
+  `managed-agents-2026-04-01`, which is still current.
+- **Tool scoping is genuinely tight**: read-only agents hold only `Read/Glob/Grep`
+  (+`mcp__supabase-ro__execute_sql` for the analysis/discovery set); only
+  `refactoring-expert`, `technical-writer`, and `reversible-work-builder` can mutate. The
+  supabase-ro repoint landed — advisory agents cannot reach a write-capable SQL tool.
+- **Hook layering is fail-closed and well-formed** (5 PreToolUse hooks across
+  Bash/Edit/Write/MultiEdit/NotebookEdit; `authority-guard` blocked two of this session's
+  own probes — the guard works on the auditor too).
+
+**Where we're behind current practice — ranked by leverage:**
+
+1. **Scheduled autonomy is on the wrong primitive.** The 7a daily brief runs on a Claude
+   Code Routine, which has **died silently twice** (2026-07-15, and again since 07-18 —
+   found dead this session). A Routine that stops leaves no record. **Managed Agents
+   scheduled deployments** are the built-for-this primitive: every firing writes a
+   `deployment_run` record carrying either the `session_id` or a typed `error`, emits
+   `deployment_run.failed` / `deployment.paused` webhooks, and **auto-pauses** on
+   non-recoverable errors. That converts "the brief silently stopped and nobody noticed for
+   two weeks" into an alert. The spec is **already written** (`arbi-managed-agent-spec.md`)
+   — this is a provisioning task on the Claude Developer Platform (needs an API key; cannot
+   be done from this repo), not a design task. Note its own preconditions: **2 of 3 are now
+   met** (Model A resolved 07-11; agent read-only DB role live via `supabase-ro`) — only the
+   scorecard/track-record precondition remains, and that gates *standing write* autonomy
+   (7b), not the read-only scheduled brief (7a) this would replace.
+2. **No per-agent model or effort pinning.** All 25 agents carry `name`/`description`/`tools`
+   frontmatter and **no `model:` or `effort:`** — so every one inherits the session model and
+   effort. The harness supports pinning both per agent. Current guidance is that effort
+   matters more on the newest models than on any prior generation, and that `low` effort suits
+   subagents and mechanical tasks — while intelligence-sensitive work wants `high`/`xhigh`.
+   Today a mechanical pass (`portfolio-invariant-guard`, `tax-spec-conformance`) and a
+   hard synthesis (`arbi`, `guilfoyle`, `system-architect`) run identically. Tuning this is
+   a real quality *and* cost lever. **James's call** — tier selection is a governor decision,
+   not one to make silently.
+3. **The prompt surface has never been audited against current-model behavior.** It is large
+   — CLAUDE.md + 25 agents + 31 commands + 5 rules + 4 skills — and was written across
+   several model generations. Current models follow instructions far more literally, which
+   inverts the old need for emphasis: `CRITICAL:`/`MUST`/`ALWAYS` boosters written to
+   overcome an older model's reluctance now cause **over-triggering**, and step-by-step
+   scaffolding written for weaker planners now *reduces* output quality. There is a
+   dedicated audit flow for exactly this (`/claude-api prompt-audit`). **Critical scoping
+   note if it's ever run:** the audit's own keep-list protects prohibitions that encode real
+   policy constraints — **rule #11, the s766B firewall, the Decimal-only and hard-fail
+   invariants are load-bearing and must not be softened**. The targets are the *dev-side
+   agent* prompts, not the governance set.
+4. **Skills are underused relative to commands.** 4 skills exist, all marked
+   `disable-model-invocation: true` (explicit-invoke only), alongside 31 slash commands.
+   Skills can auto-trigger on description match; commands cannot. Some operational commands
+   (`check-drift`, `health-check`, `deploy-check`) would fire at the right moment on their
+   own as skills. Reading this charitably: for a governance-heavy repo, forcing deliberate
+   invocation is a defensible choice — flagging it as an available lever, not a defect.
+
+**Not recommended:** switching the git-native memory bank (`docs/product/memory/` +
+CODEOWNERS) to Managed Agents memory stores. The git-native design was chosen deliberately,
+and although branch protection turned out to be plan-gated, the substitute (detective
+`main-push-guard` Action) is the cheaper fix than re-platforming memory.
+
+## 9. Bottom line
 
 The project is **on track on substance, off track on delivery and operating rhythm**: the
 model-independent moat named by the north star is built and its pipelines are healthy, but
