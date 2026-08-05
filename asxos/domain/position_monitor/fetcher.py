@@ -7,10 +7,11 @@ Fetches:
 
 All arithmetic uses Decimal; no numpy.
 
-Symbol normalisation:
-  HUBS.NYSE  → HUBS.US   (EODHD US equity format)
-  BHP.AU     → BHP.AU    (ASX — pass through)
-  CRM.NASDAQ → CRM.US
+Symbol normalisation is NOT defined here any more — ``eodhd_symbol()`` moved to
+``asxos/ingestion/symbols.py`` (HUBS.NYSE → HUBS.US, CRM.NASDAQ → CRM.US, BHP.AU
+unchanged) so the suffix map has one home and stdlib-only callers can reach it.
+It is re-exported below purely to keep existing imports working; change the map
+in ``symbols.py``, never here.
 """
 from __future__ import annotations
 
@@ -20,13 +21,12 @@ from typing import NamedTuple
 
 from asxos.clients.fred import get_client as get_fred
 from asxos.ingestion.eodhd import get_client as get_eodhd
+from asxos.ingestion.symbols import eodhd_symbol
 
-# Map project exchange suffixes → EODHD exchange suffixes.
-_SUFFIX_REMAP: dict[str, str] = {
-    ".NYSE": ".US",
-    ".NASDAQ": ".US",
-    ".AMEX": ".US",
-}
+# eodhd_symbol() moved to asxos/ingestion/symbols.py so the suffix map has one
+# home and so stdlib-only callers (asxos/ingestion/news.py) can reach it without
+# dragging httpx/tenacity/fred in through this module. Re-exported here to keep
+# the existing import path working.
 
 # FRED series IDs
 _SERIES_VIX = "VIXCLS"
@@ -52,13 +52,8 @@ class MacroData(NamedTuple):
 # Symbol normalisation
 # ---------------------------------------------------------------------------
 
-def eodhd_symbol(symbol: str) -> str:
-    """Convert project symbol format to EODHD exchange format."""
-    upper = symbol.upper()
-    for suffix, replacement in _SUFFIX_REMAP.items():
-        if upper.endswith(suffix):
-            return upper[: -len(suffix)] + replacement
-    return upper
+# eodhd_symbol is defined in asxos/ingestion/symbols.py — imported at the top of
+# this module and re-exported for the existing call sites.
 
 
 # ---------------------------------------------------------------------------

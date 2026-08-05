@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from datetime import date
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -73,6 +74,55 @@ async def test_fetch_and_upsert_returns_count_on_success() -> None:
         )
     assert result == 1
     mock_upsert.assert_awaited_once()
+    # ASX symbols are already in EODHD's namespace — the remap must be a no-op,
+    # not a corruption.
+    client.news_for_symbol.assert_awaited_once_with(
+        "BHP.AU", limit=10, from_date="2026-05-22"
+    )
+
+
+@pytest.mark.asyncio
+async def test_us_holding_is_requested_in_eodhd_namespace_and_stored_as_held() -> None:
+    """The round trip for a non-ASX holding: request .US, store the held symbol.
+
+    This is the regression pin for the REQUEST half of the fix, and it was the
+    half with no coverage at all — reverting `eodhd_symbol(symbol)` back to a raw
+    `symbol` in _fetch_and_upsert left every other news test green, because they
+    all use ASX symbols where the remap is a no-op.
+
+    Both directions matter and both were broken:
+      - out: EODHD addresses NYSE/NASDAQ listings as `.US`, so asking it for
+        `HUBS.NYSE` addresses a namespace it does not serve.
+      - back: articles come tagged `HUBS`, and `holding_news.symbols` must carry
+        the HELD form, because asxos/brief/compose.py re-intersects it against
+        current_holdings and jobs/ingest_sentiment.py unnests it into
+        signal_sentiment.symbol (a PK with no FK to catch a wrong format).
+    """
+    today = date.today().isoformat()
+    client = AsyncMock()
+    client.news_for_symbol.return_value = [
+        {
+            "link": "https://example.com/hubs",
+            "title": "HubSpot reports Q2",
+            "date": f"{today}T05:00:00+00:00",
+            "symbols": ["HUBS"],          # vendor tags with the bare ticker
+            "sentiment": "positive",
+        }
+    ]
+
+    conn = AsyncMock()
+    with patch("jobs.ingest_news.upsert_news", new=AsyncMock(return_value=1)) as mock_upsert:
+        result = await _fetch_and_upsert(
+            client, "HUBS.NYSE", today, {"HUBS.NYSE"}, conn
+        )
+
+    assert result == 1
+    client.news_for_symbol.assert_awaited_once_with(
+        "HUBS.US", limit=10, from_date=today
+    )
+    items = mock_upsert.await_args.args[1]
+    assert len(items) == 1, "a bare-ticker tag must resolve against the held symbol"
+    assert items[0].symbols == ["HUBS.NYSE"], "must store the HELD form, not HUBS or HUBS.US"
 
 
 # ---------------------------------------------------------------------------
@@ -434,10 +484,9 @@ async def test_zero_rows_written_sets_degraded_note() -> None:
     """A green run that wrote nothing must leave a marker on the success row.
 
     This is the guard for the failure mode the sentinel fix does NOT catch. A
-    zero-row run needs no exception at all: EODHD tags articles "HUBS",
-    _normalise_symbol appends .AU to any suffix-less ticker, and "HUBS.AU" never
-    matches the held "HUBS.NYSE", so every article is dropped and a legitimate 0
-    is returned. The aggregate predicate passes it (correctly — 0 is a valid
+    zero-row run needs no exception at all: the vendor can return nothing for the
+    symbol requested, or return articles whose tags resolve to no held symbol, so
+    every article is dropped and a legitimate 0 is returned. The aggregate predicate passes it (correctly — 0 is a valid
     count), so the only way this becomes visible without inspecting the table is
     monitor.note, which JobMonitor writes to job_runs.error_message on a success
     row and check_cron_health's degraded-run check reads.

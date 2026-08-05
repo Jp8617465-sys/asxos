@@ -6,8 +6,8 @@ from typing import Any
 
 import asyncpg
 
-from asxos.domain.position_monitor.fetcher import eodhd_symbol
 from asxos.ingestion.eodhd import EODHDClient
+from asxos.ingestion.symbols import eodhd_symbol
 
 
 def _to_symbol(code: str, *, exchange: str = "AU") -> str:

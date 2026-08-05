@@ -24,7 +24,8 @@ import os
 from datetime import date, timedelta
 
 # asxos.ingestion.news is stdlib + asyncpg only — safe at module level.
-from asxos.ingestion.news import parse_news_response, upsert_news
+from asxos.ingestion.news import parse_news_response_with_stats, upsert_news
+from asxos.ingestion.symbols import eodhd_symbol
 from asxos.jobs._helpers import assert_partial_success
 from asxos.redaction import redact_secrets
 
@@ -75,16 +76,40 @@ async def _fetch_and_upsert(
     the gather across all holdings.
 
     Scope limit — a returned ``0`` is not proof of a quiet day. Two silent paths
-    produce one without ever raising: ``news_for_symbol`` coerces a non-list
-    (error / no-data) payload to ``[]``, and ``parse_news_response`` drops every
-    article whose symbols do not intersect ``holdings``. This sentinel cannot see
-    either; only a row-count check downstream of the write can (see
-    ``compose._news_ingest_fresh``). The 2026-08 zero-row cause is still
-    undiagnosed — ``docs/market-trends-report-2026-08-05.md`` §11 fix #4.
+    still produce one without ever raising: ``news_for_symbol`` coerces a non-list
+    (error / no-data) payload to ``[]``, and the parser drops every article whose
+    tags resolve to no held symbol. This sentinel cannot see either; only a
+    row-count check downstream of the write can (see
+    ``compose._news_ingest_fresh``), and only ``ParseStats.unmatched_tags``
+    (logged below) names what was dropped.
+
+    The 2026-08 zero-row incident had two candidate causes, and this job now
+    closes both: the request asked for a namespace EODHD does not serve
+    (``HUBS.NYSE`` rather than ``HUBS.US``), and the parser's ``.AU`` guess could
+    not match a US listing. Which one actually fired was never established —
+    both yield a green run with zero rows — and only a live probe would settle
+    it (``docs/market-trends-report-2026-08-05.md`` §11 fix #4).
     """
     try:
-        raw = await client.news_for_symbol(symbol, limit=10, from_date=from_date)
-        items = parse_news_response(raw, holdings=holdings, as_of=date.today())
+        # Translate to the vendor namespace on the way out, store under the
+        # project symbol on the way back — the same shape as
+        # asxos/ingestion/prices.py::fetch_and_upsert_us_symbol. This job was the
+        # one per-symbol EODHD path that skipped the remap, so every US holding
+        # was requested as e.g. HUBS.NYSE, which EODHD does not address (.US).
+        raw = await client.news_for_symbol(
+            eodhd_symbol(symbol), limit=10, from_date=from_date
+        )
+        items, stats = parse_news_response_with_stats(
+            raw, holdings=holdings, as_of=date.today(), requested_symbol=symbol
+        )
+        if stats.dropped_no_match:
+            # The diagnostic that was missing: a namespace mismatch and a genuine
+            # quiet day both write zero rows, and only the tags tell them apart.
+            log.warning(
+                "ingest_news: %s — %d/%d articles matched no holding; tags seen: %s",
+                symbol, stats.dropped_no_match, stats.fetched,
+                ", ".join(stats.unmatched_tags) or "(none)",
+            )
         return await upsert_news(conn, items)
     except Exception as exc:
         # redact_secrets at the sink, matching jobs/sync_prices.py:198. The
@@ -207,12 +232,14 @@ async def main() -> None:
             # green-but-empty run becomes visible without inspecting the table.
             #
             # This is the load-bearing half for the incident that motivated it.
-            # A zero-row run needs NO exception to occur: EODHD returns articles
-            # tagged "HUBS", _normalise_symbol appends .AU to any suffix-less
-            # ticker (asxos/ingestion/news.py:104-108), and "HUBS.AU" never
-            # matches the held "HUBS.NYSE" — so every article is dropped, 0 is
-            # returned, and the predicate above legitimately passes it. The
-            # sentinel fix alone does not catch that; this note does.
+            # A zero-row run needs NO exception to occur: either the vendor
+            # returns nothing for the symbol we asked about, or every article it
+            # does return resolves to no held symbol. Both were possible before
+            # this change — a wrong request namespace and a ".AU"-guessing
+            # symbol filter — both are fixed, and neither was ever proven to be
+            # the one that fired, because they produce the identical artefact.
+            # The predicate above legitimately passes a 0 in every case, so the
+            # sentinel fix alone cannot catch it; this note does.
             notes = []
             if errors:
                 notes.append(f"{errors}/{len(symbols)} symbols failed")
