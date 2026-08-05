@@ -63,9 +63,13 @@ def assert_partial_success(
         results: outputs from ``asyncio.gather`` (may include exceptions if
             the caller used ``return_exceptions=True``).
         is_ok: per-result success predicate. Examples:
-            - sync_fundamentals: ``lambda r: r is True``
-            - ingest_regulatory: ``lambda r: r is not None``
-            - ingest_news: ``lambda r: isinstance(r, int)``
+            - sync_fundamentals: ``lambda r: r is True``  (worker -> bool)
+            - ingest_regulatory: ``lambda r: isinstance(r, int)``  (int | None)
+            - ingest_news: ``lambda r: isinstance(r, int)``  (int | None)
+
+            Prefer a positive TYPE test over excluding a failure value. Under
+            ``return_exceptions=True`` an exception object is not None, so
+            ``r is not None`` would score it as a success.
 
             The predicate MUST be able to return False for a failed unit of
             work. Before shipping one, name a value the worker can actually
