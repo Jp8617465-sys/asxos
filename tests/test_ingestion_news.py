@@ -462,10 +462,46 @@ def test_parse_drops_bare_tag_for_a_holding_that_was_not_requested() -> None:
         "date": f"{_AS_OF.isoformat()}T05:00:00+00:00",
         "symbols": ["SUN"],
     }]
+    # A suffix-LESS non-requested holding, deliberately: mutation testing showed
+    # that with two suffixed holdings this passed even when the suffix branch was
+    # deleted, so it was not the twin its docstring claimed to be.
     result = parse_news_response(
         items,
-        holdings={"SUN.AU", "HUBS.NYSE"},
+        holdings={"SUN", "HUBS.NYSE"},
         as_of=_AS_OF,
         requested_symbol="HUBS.NYSE",
     )
     assert result == []
+
+
+def test_unmatched_tags_are_scrubbed_and_truncated() -> None:
+    """Vendor tags reaching a log sink must be bounded and free of control chars.
+
+    stats.unmatched_tags is written into a log line under the job's
+    "%(asctime)s %(levelname)s %(message)s" format, so an embedded newline forges
+    a complete additional log entry (CWE-117), and nothing bounds a vendor
+    string's length. Every other untrusted feed string in this repo is already
+    capped (regulatory titles at 500, content_snippet at 500); this was the one
+    that escaped.
+
+    Mutation-verified gap: before this test, removing the scrub entirely left all
+    57 tests green. The only other test touching this path asserts on "TSLA.US",
+    which is printable and 7 chars — a fixed point of the scrub, identical with or
+    without it.
+    """
+    hostile = "EVIL\n2026-01-01 CRITICAL forged log line\r\x1b[31m" + "A" * 200
+    items = [{
+        "link": "https://example.com/x",
+        "title": "Unrelated",
+        "date": f"{_AS_OF.isoformat()}T05:00:00+00:00",
+        "symbols": [hostile],
+    }]
+    _result, stats = parse_news_response_with_stats(
+        items, holdings={"HUBS.NYSE"}, as_of=_AS_OF, requested_symbol="HUBS.NYSE"
+    )
+
+    assert len(stats.unmatched_tags) == 1
+    tag = stats.unmatched_tags[0]
+    assert "\n" not in tag and "\r" not in tag, "a newline would forge a log line"
+    assert "\x1b" not in tag, "escape sequences must not reach the log"
+    assert len(tag) <= 32, f"unbounded vendor string reached the log sink: {len(tag)}"
