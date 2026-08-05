@@ -152,14 +152,47 @@ a{color:var(--accent)}
   <h1>What moved, and what the data can&nbsp;actually tell&nbsp;us</h1>
   <p class="lede">One month and one week to 4 August 2026. A decisive rotation
   showed up in the last five sessions — and the news pipeline that should have
-  narrated it has written zero rows in thirty days.</p>
+  narrated it has written zero rows in thirty days. This revision adds a
+  <strong>live market and news layer</strong> fetched from outside the system,
+  plus a live test of what changes if PR #70 merges.</p>
   <div class="meta">
     <span>Report date 2026-08-05</span>
     <span>Month anchor 2026-07-03</span>
     <span>Week anchor 2026-07-28</span>
-    <span>Latest close 2026-08-04</span>
+    <span>DB latest 2026-08-04</span>
+    <span>Live as-of 2026-08-05 close</span>
   </div>
 </header>
+
+<!-- ============ 0. LIVE TEST ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Live test — run 2026-08-05, outside the system</p>
+    <h2>The system says risk-off. The market just printed an all-time high.</h2>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="k">ASX 200 — live</span><span class="v up">9,227.80</span><span class="s">+0.9% · record close, 5 Aug</span></div>
+    <div class="stat"><span class="k">ASX 200 — our DB</span><span class="v">9,145.80</span><span class="s">stops 4 Aug · 82pts behind</span></div>
+    <div class="stat"><span class="k">Our regime label</span><span class="v" style="font-size:1.15rem">risk_off_orderly</span><span class="s">24/24 days</span></div>
+    <div class="stat"><span class="k">Rules firing</span><span class="v">1 of 5</span><span class="s">breadth_200_thin only</span></div>
+  </div>
+
+  <div class="callout crit">
+    <h3><span class="chip">Live finding</span>&nbsp; the regime label is now visibly contradicted by the tape</h3>
+    <p>The market closed at <strong>9,227.80 on 5 August — a new record high</strong>
+    (intraday 9,230), up 0.9% on the day. Our system's newest row is 9,145.80 from
+    4 August, and its regime classifier has read <code>risk_off_orderly</code> on
+    every one of the last 24 days.</p>
+    <p>That label was never a risk assessment — it is <code>breadth_200_thin</code>
+    firing alone, with two of the other four rules structurally unable to fire at
+    all (§7). A single-rule label that says "risk-off" into an all-time high is not
+    a market call; it is a threshold with a name attached. The underlying
+    observation is still true and still useful — 73% of the market is below its
+    200-day average — but <strong>"risk_off_orderly" is the wrong label for it</strong>,
+    and anything downstream consuming that string is being misled.</p>
+  </div>
+</section>
 
 <!-- ============ 1. PIPELINE TRUTH ============ -->
 <section>
@@ -183,6 +216,14 @@ a{color:var(--accent)}
     <code>threshold=0.75</code> gate in <code>assert_partial_success</code>. The job
     cannot fail. This is the failure mode CLAUDE.md non-negotiable #10 exists to
     prevent.</p>
+    <p><strong>The same fabricated field defeats a second, independent guard.</strong>
+    <code>compose.py</code> documents three-layer gating on the news section, and
+    layer 3 is a freshness check — <code>_news_ingest_fresh()</code>
+    (<code>compose.py:514-525</code>) queries
+    <code>job_runs WHERE job_name='ingest_news' AND status='success'</code>. That is
+    the identical field the bug forges. So the ship condition and the runtime
+    freshness gate are not two checks; they are the same check twice, and one bug
+    clears both. Defence in depth that shares a single point of failure isn't depth.</p>
   </div>
 
   <div class="callout warn">
@@ -190,11 +231,16 @@ a{color:var(--accent)}
     <p><code>docs/product/dark-launch-exit-plan.md</code> ships surface #2 on ship
     condition (a): <em>“<code>job_runs</code> shows <code>ingest_news</code>
     status='success' every scheduled business day for 3+ weeks … zero
-    failures.”</em> That is precisely the signal the bug fabricates.
-    <code>render.yaml:414</code> now carries
-    <code>ASXOS_NEWS_BRIEF_ENABLED = "1"</code>. The verification checked job
-    status; it never checked row count. When that flag takes effect the news
-    section renders empty.</p>
+    failures.”</em> That is precisely the signal the bug fabricates. The
+    verification checked job status; it never checked row count.</p>
+    <p><strong>This is not pending — it is already live.</strong>
+    <code>ASXOS_NEWS_BRIEF_ENABLED = "1"</code> is on <code>origin/main</code>
+    (<code>render.yaml:414</code>), and <code>compose_brief</code> has run
+    successfully 22 times in the last 30 days. <code>compose.py:507</code> gates
+    the section on that flag alone, then calls <code>_holding_news()</code> against
+    an empty table. The daily brief has been shipping an <strong>empty news
+    section</strong> every day since the redeploy — a surface marked SHIPPED,
+    rendering nothing.</p>
   </div>
 
   <p class="note">Two related gaps, for completeness. <code>signal_sentiment</code>
@@ -238,6 +284,77 @@ a{color:var(--accent)}
   neither mentions a held symbol. <strong>There is no evidentiary basis in this
   system for a news-driven narrative this month.</strong> Everything below is
   derived from prices and market context, which are healthy.</p>
+</section>
+
+<!-- ============ 2b. LIVE NEWS ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Live news — fetched 2026-08-05, not from our DB</p>
+    <h2>What the pipeline should have captured</h2>
+  </div>
+
+  <p class="prose">Queried live to fill the gap. Every item below is news our
+  system had no row for — and each one independently corroborates a finding the
+  price data produced blind.</p>
+
+  <h3>The past month</h3>
+  <ul class="prose">
+    <li><strong>Financials +5.85% in July, "the majority of the ASX 200's gains."</strong>
+    Derived independently from prices: Banks +8.5%, index +3.41% vs median stock
+    +0.53%. Same conclusion, two sources.</li>
+    <li><strong>The lithium/battery-metals cycle reset.</strong> Lithium prices
+    down, Chinese conversion capacity expanding, EV demand normalising. Liontown
+    (LTR) fell 9.28% on 30 July as the materials index dropped 1.36% in a session
+    driven by a steady-rates Fed decision and a firmer US dollar. Our data has
+    LTR.AU at <span class="dn">−39.6%</span> for the month — the single worst
+    liquid Materials name.</li>
+    <li><strong>Base and precious metals wipeout</strong> is the recurring wrap
+    language for the month — matching Basic Materials <span class="dn">−5.17%</span>
+    at 30% breadth.</li>
+  </ul>
+
+  <h3>The past week</h3>
+  <ul class="prose">
+    <li><strong>APX.AU — this is the answer to the open question in §6.</strong>
+    Appen released its <strong>Q2 FY26 quarterly report on 29 July</strong>:
+    revenue US$65.1m (+26% on prior corresponding period), Appen China US$41.3m
+    (+75%), FY26 guidance reaffirmed at US$270–300m. That is the announcement
+    behind the <span class="up">+52.0%</span> week. The report flagged that a move
+    that size is normally an announcement and that we had no row to explain it —
+    <strong>this is precisely the article the dead pipeline was supposed to
+    deliver.</strong></li>
+    <li><strong>Tech ran six-to-seven consecutive sessions</strong>, one of them
+    +3.9% for the IT index, led by Life360 +11.4%, Appen +6.0%, Catapult +6.0%,
+    Megaport +5.7%. Our data has Technology at <span class="up">+5.80%</span> on
+    the week with 88% breadth, and 360.AU at +13.2%.</li>
+    <li><strong>Healthcare +2.4% in a session</strong>, with Neuren up more than
+    17% on record quarterly DAYBUE sales and raised royalty guidance. Our data has
+    Healthcare 8th → 2nd at <span class="up">+2.82%</span>, breadth 56% → 77%.</li>
+    <li><strong>CBA fell 2.6% in a session</strong> as traders cut exposure ahead
+    of results — consistent with Banks decelerating to +1.6% on the week, below
+    the +1.65% median stock.</li>
+  </ul>
+
+  <div class="callout warn">
+    <h3><span class="chip w">Forward catalysts</span>&nbsp; none of these exist anywhere in our data</h3>
+    <ul>
+      <li><strong>RBA decision Tuesday 11 August, 2:30pm AEST.</strong> Consensus
+      is a hold at 4.35% — CBA, NAB, ANZ and Westpac all moved to hold after June
+      CPI printed 3.8% headline / 3.6% trimmed mean. Westpac is the outlier,
+      calling +25bp in August and again in September.</li>
+      <li><strong>CBA FY26 full-year results Wednesday 12 August, 10:30am AEST.</strong>
+      Directly material to <code>big-4-banks</code> — the one theme the system holds
+      an approved view on and owns none of.</li>
+      <li><strong>August reporting season is underway</strong>, which is the
+      mechanism behind most of the single-name dispersion in §6.</li>
+    </ul>
+  </div>
+
+  <p class="prose"><strong>The live cross-check also settles one data question.</strong>
+  The real RBA cash rate is 4.35% and has been — so the 4.350 stored in
+  <code>market_context</code> is the correct <em>value</em>, but the 4.310 → 4.350
+  step on 2026-07-16 was definitively an ingestion artifact, not a policy move.
+  §7's "suspect" rating stands, narrowed to a confirmed backfill.</p>
 </section>
 
 <!-- ============ 3. THE MONTH VS THE WEEK ============ -->
@@ -468,7 +585,9 @@ a{color:var(--accent)}
   <p class="note">Note on APX.AU: +52.0% in a week and +42.2% over the month means
   the entire month's gain arrived in the last five sessions. A move of that size
   is normally an announcement — and this system has no news row to explain it,
-  which is exactly the cost of Finding 01.</p>
+  which is exactly the cost of Finding 01. <strong>Resolved by the live query
+  (§2b): Appen's Q2 FY26 report, 29 July — revenue +26%, Appen China +75%, FY26
+  guidance reaffirmed.</strong> The pipeline had one job here and did not do it.</p>
 </section>
 
 <!-- ============ 7. MACRO / REGIME ============ -->
@@ -662,14 +781,109 @@ a{color:var(--accent)}
   so the zero cash balance is not what blocks deployment; the absence of a governed
   candidate set is.</p>
 
-  <p class="note">Two data-integrity items surfaced by this check.
+  <p class="note"><strong>One genuinely open data-integrity item:</strong>
   <code>profiles.capital_aud</code> (6,666.98) is stale against the snapshot's
   8,224.65 — computing weights off the profile would show the position at ~127% of
-  capital. And the lot's 0.6450 acquisition FX is still flagged in
-  <code>thesis_revisions.revision_id=13</code> as conflicting with the vendor rate
-  for 2026-05-31 (0.7171); CLAUDE.md records it as confirmed against the brokerage
-  statement. At the vendor rate the AUD return would be +35.1% rather than +21.5%.
-  The USD leg (+32.7%) is unaffected either way.</p>
+  capital. The lot's 0.6450 acquisition FX, which the coherence check raised
+  against the 0.7171 vendor rate, is <strong>already ruled and not open</strong>:
+  both <code>.claude/rules/portfolio-conventions.md</code> and
+  <code>docs/product/james-inbox.md:31</code> record it as confirmed against the
+  brokerage statement — an ESPP fill rate that legitimately differs from spot. Not
+  worth reopening.</p>
+</section>
+
+<!-- ============ PR70 ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Live test — PR #70</p>
+    <h2>What changes if the investment-engine dossier merges</h2>
+  </div>
+
+  <p class="prose">PR #70 — <em>“docs: add investment-engine implementation
+  dossier”</em> — is open as a <strong>draft</strong> since 2026-07-25:
+  157 files, +39,974/−88, <code>mergeable_state: clean</code>, one commit, base
+  <code>main</code>. I read the full changed-file list across both pages
+  (100 + 57 = 157 of 157).</p>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Doc files</span><span class="v">155</span><span class="s">143 under docs/programs</span></div>
+    <div class="stat"><span class="k">Non-doc files</span><span class="v">2</span><span class="s">a validator + its tests</span></div>
+    <div class="stat"><span class="k">Broken pipelines touched</span><span class="v">0</span><span class="s">of 6 checked</span></div>
+    <div class="stat"><span class="k">Report findings changed</span><span class="v">0</span><span class="s">of 11</span></div>
+  </div>
+
+  <div class="callout">
+    <h3>Answer: none of this report's findings change</h3>
+    <p>The only two non-documentation files in the entire PR are
+    <code>scripts/validate_investment_program.py</code> and
+    <code>tests/test_investment_program_dossier.py</code> — new dossier tooling
+    that validates the dossier's own hashes, references, and arithmetic. It
+    touches <strong>none</strong> of <code>jobs/ingest_news.py</code>,
+    <code>asxos/ingestion/news.py</code>, <code>jobs/ingest_market_context.py</code>,
+    <code>asxos/jobs/_helpers.py</code>, <code>migrations/0013</code>, or
+    <code>render.yaml</code>.</p>
+    <p>Every finding here is a runtime-data finding. A docs PR cannot move any of
+    them: the news table stays empty, the success predicate stays broken, iron ore
+    stays 404, the yield stays frozen, the HY OAS rules stay unfirable, and the
+    sector/rotation analysis is derived from prices that the PR does not touch.</p>
+  </div>
+
+  <div class="callout crit">
+    <h3><span class="chip">The one thing that does change</span>&nbsp; the false ship condition gets carried forward</h3>
+    <p>PR #70 <em>does</em> edit <code>docs/product/dark-launch-exit-plan.md</code>
+    — and this is the sharp part. It substantially rewrites <strong>three of the
+    four surfaces</strong>: the portfolio brief's gate becomes the S01–S12
+    acceptance chain, the V2 brief tree is re-scoped, and the paper-trade evaluator
+    is demoted to <em>“LEGACY PROTOTYPE · do not start its four-week promotion
+    clock.”</em></p>
+    <p><strong>Surface #2 — the news brief — is left verbatim.</strong> Ship
+    condition (a) still reads <em>“status='success' every scheduled business day
+    for 3+ weeks … zero failures,”</em> and the summary table still carries
+    <strong>SHIPPED 2026-07-11 · both conditions verified</strong>. So the merge
+    would promote the false verification, untouched, into the new canonical
+    programme doc set — the one artifact in the PR that most needed a live refresh
+    is the one it left alone.</p>
+    <p>In fairness the document flags its own limit in the header it adds:
+    <em>“Last verified: 2026-07-24 for programme precedence; individual
+    legacy-surface facts still require live refresh.”</em> That disclaimer is
+    honest and it is exactly the refresh this report performs. It does not,
+    however, stop the SHIPPED verdict propagating.</p>
+  </div>
+
+  <p class="prose"><strong>On priority.</strong> The dossier's programme raises the
+  stakes on <code>ingest_news</code> rather than lowering them. Its stated
+  direction is a <em>model-independent</em> PM review with persistent monitoring
+  and a Model A retirement plan — which removes the signal engine as an input and
+  leaves news, market context and price as the surviving evidence layer. Retiring
+  Model A while the news feed silently writes zero rows narrows the system to one
+  working input. Fix #1 gets <em>more</em> load-bearing under this programme, not
+  less.</p>
+
+  <div class="callout">
+    <h3>The one code-risk in the PR — checked, and it does not materialise</h3>
+    <p>The concern worth having about a 155-doc PR is its 2 code files: if
+    <code>scripts/validate_investment_program.py</code> asserted on the exit
+    plan's current text, merging would convert a wrong ship verdict from stale
+    prose into <strong>a green test defending it</strong>.</p>
+    <p>It does not. Searching the full validator for
+    <code>dark-launch</code>, <code>NEWS_BRIEF</code>, <code>ingest_news</code> and
+    <code>SHIPPED</code> returns <strong>zero matches</strong>. The five
+    <code>docs/product/*.md</code> files it does reference are
+    <code>investment-engine-roadmap.md</code>, <code>north-star.md</code>,
+    <code>portfolio-manager-charter.md</code>, <code>portfolio-policy.md</code>,
+    <code>recommendation-schema.md</code> and <code>arbi-permission-model.md</code>
+    — the exit plan is not among them. <em>(Scope note: this is a targeted search
+    of the whole file, not a full read of its ~223k characters.)</em></p>
+    <p>So the merge-order dependency is lifted. The fix can land before or after
+    #70 without either defending the other.</p>
+  </div>
+
+  <p class="note">Merge risk is otherwise low: draft, clean mergeable state,
+  docs-only, and its own PR body states <em>“no production mutation, migration
+  apply, deployment, broker capability, order routing, or service shutdown”</em>
+  and <em>“do not merge automatically.”</em> Nothing here argues against merging
+  it — only against letting surface #2 ride along unamended. Merge approval is
+  James's call, not arbi's.</p>
 </section>
 
 <!-- ============ 10. FIXES ============ -->
@@ -678,24 +892,42 @@ a{color:var(--accent)}
     <p class="eyebrow">Finding 11 — what to repair</p>
     <h2>Pipeline fixes, in priority order</h2>
   </div>
+  <div class="callout warn">
+    <h3><span class="chip w">Re-ranked</span>&nbsp; the honest case for fixing this is integrity, not news coverage</h3>
+    <p><code>ingest_news.py:106</code> fetches for
+    <code>SELECT DISTINCT symbol FROM current_holdings</code> — which is
+    <strong>one symbol, HUBS.NYSE</strong>: non-ASX, involuntary, locked,
+    non-disposable. Repairing the feed today restores article news for exactly one
+    position that cannot be acted on. The <em>evidential</em> value right now is
+    near zero.</p>
+    <p>The <em>integrity</em> value is very high, and that is the real argument: a
+    job that structurally cannot fail, which fabricated the evidence for a ship
+    decision and simultaneously fools the runtime freshness gate. Fixes #1 and #2
+    hold the top slots for that reason — not because the news is needed this
+    week.</p>
+  </div>
+
   <div class="scroll">
     <table>
       <thead><tr><th>#</th><th>Fix</th><th>Location</th><th>Why it ranks here</th></tr></thead>
       <tbody>
-        <tr><td class="num">1</td><td>Make <code>ingest_news</code> able to fail</td><td><code>jobs/ingest_news.py:70,156</code></td><td>Predicate <code>r >= 0</code> accepts total failure. Change to <code>r > 0</code>, or return <code>None</code>/re-raise from <code>_fetch_and_upsert</code> so failures are distinguishable from genuine zero-news days.</td></tr>
-        <tr><td class="num">2</td><td>Re-check the news-brief ship decision</td><td><code>render.yaml:414</code></td><td><code>ASXOS_NEWS_BRIEF_ENABLED="1"</code> was approved on the green that fix #1 exposes as false. Either revert to "0" or gate the flip on a row-count assertion.</td></tr>
-        <tr><td class="num">3</td><td>Diagnose the actual EODHD <code>/news</code> failure</td><td><code>asxos/ingestion/news.py</code></td><td>Fix #1 makes the failure visible; it does not explain it. Plan-tier coverage is the likely candidate given the known <code>/sentiments</code> ASX gap.</td></tr>
-        <tr><td class="num">4</td><td>Correct the HY OAS unit mismatch</td><td><code>migrations/0013_market_context.sql</code></td><td>Percent-vs-basis-point comparison makes two regime rules and one thesis falsifier permanently unfirable.</td></tr>
+        <tr><td class="num">1</td><td><strong>Make <code>ingest_news</code> able to fail, and un-ship the surface</strong> — one change, not two</td><td><code>jobs/ingest_news.py:70,156</code> + <code>render.yaml:414</code></td><td>Predicate <code>r >= 0</code> accepts total failure. Change to <code>r > 0</code>, or return <code>None</code>/re-raise from <code>_fetch_and_upsert</code> so a genuine zero-news day stays distinguishable. Split them and you either leave the trap armed for the next ship check or keep shipping an empty section.</td></tr>
+        <tr><td class="num">2</td><td><strong>Audit every <code>assert_partial_success</code> predicate for the accepts-zero class</strong></td><td>repo-wide + <code>check_cron_health</code></td><td>Promoted out of a footnote: this is the class fix and the news bug is one instance. Add <code>rows_written &gt; 0</code> to the deadman — it watches job status, and status is exactly what was forged.</td></tr>
+        <tr><td class="num">3</td><td>Correct the HY OAS unit mismatch</td><td><code>migrations/0013_market_context.sql</code></td><td><strong>Promoted above the EODHD diagnosis.</strong> §8 shows two of three approved, governed macro theses are unscoreable or unfalsifiable. That corrupts the Layer A falsifier-scoring loop (<code>jobs/score_macro_theses.py</code>) — the model-independent product's only learning mechanism. A governance loop scoring itself against dead inputs is worse than one not running.</td></tr>
+        <tr><td class="num">4</td><td>Diagnose the actual EODHD <code>/news</code> failure</td><td><code>asxos/ingestion/news.py</code></td><td>Fix #1 makes the failure visible; it does not explain it. Budget for the answer being "no ASX coverage on this plan tier" — the same REV-K wall as <code>/sentiments</code>. If so the honest outcome is to <strong>retire the feed</strong>, as Treasury and ATO were, not patch it.</td></tr>
         <tr><td class="num">5</td><td>Repair or drop the <code>IRON.COMM</code> feed</td><td><code>jobs/ingest_market_context.py</code></td><td>404 on 24/24 days. Iron ore is the most consequential missing input for a Materials-heavy universe.</td></tr>
-        <tr><td class="num">6</td><td>Investigate the frozen AU 10y and 4bp cash-rate step</td><td><code>jobs/ingest_market_context.py</code></td><td>Both pinned since 2026-07-16. Thesis #7 is currently scored against a dead series.</td></tr>
-        <tr><td class="num">7</td><td>Fix the missing-Friday / phantom-Sunday cadence</td><td><code>jobs/ingest_market_context.py</code></td><td>Friday sessions appear to be stamped with a Sunday <code>as_of</code>; 24 rows cover ~19 sessions.</td></tr>
+        <tr><td class="num">6</td><td>Investigate the frozen AU 10y and 4bp cash-rate step</td><td><code>jobs/ingest_market_context.py</code></td><td>Both pinned since 2026-07-16. Live check confirms the true cash rate is 4.35%, so the value is right and the step is an artifact. Thesis #7 is scored against a dead series.</td></tr>
+        <tr><td class="num">7</td><td>Reconcile the four documents that disagree about this flag</td><td>see below</td><td>New. <code>roadmap-state.md:121</code> and <code>:404</code> both say <code>ASXOS_NEWS_BRIEF_ENABLED=0</code>; <code>product-health-scorecard.md:101</code> and <code>dark-launch-exit-plan.md</code> say shipped/1; <code>render.yaml</code> says <code>"1"</code>. Four docs, two states — live state wins, so <code>roadmap-state.md</code> is stale.</td></tr>
+        <tr><td class="num">8</td><td>Fix the missing-Friday / phantom-Sunday cadence</td><td><code>jobs/ingest_market_context.py</code></td><td>Friday sessions appear stamped with a Sunday <code>as_of</code>; 24 rows cover ~19 sessions.</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="note">Add a <code>rows_written &gt; 0</code> assertion to the deadman
-  pattern generally. <code>check_cron_health</code> watches job status, and status
-  is exactly what was fabricated here — the same class of bug can hide in any job
-  whose success predicate accepts zero.</p>
+
+  <p class="prose">One governance gap sits underneath all of this. The exit plan's
+  own rules cover expired KEEP-DARK surfaces and never counting dark as delivered,
+  but <strong>there is no rule for a SHIPPED surface whose ship condition later
+  proves false</strong> — which is exactly the state here, and nothing in the
+  document forces a re-raise. That meta-rule is worth adding alongside fix #1.</p>
 </section>
 
 <footer>
