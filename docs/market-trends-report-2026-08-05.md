@@ -85,6 +85,29 @@ The live cross-check also settles one data question: the real RBA cash rate is
 
 ## 1. CRITICAL — `ingest_news` reports success while writing zero rows
 
+> **CORRECTION (rev 3, same day).** The root cause below is **real but not the
+> operative one**. Security review of the fix found a third path, and I verified
+> it directly against the parser with the live holdings set (no API key needed):
+>
+> EODHD tags articles `"HUBS"`. `_normalise_symbol` appends `.AU` to any
+> suffix-less ticker (`asxos/ingestion/news.py:104-108`), producing `"HUBS.AU"`,
+> which **never matches the held `"HUBS.NYSE"`** — so every article is dropped by
+> the holdings filter, a legitimate `0` is returned, and **no exception is ever
+> raised**. Probe result: `symbols=['HUBS'] -> DROPPED`, `symbols=['HUBS.US'] ->
+> DROPPED`, `symbols=['HUBS.NYSE'] -> KEPT`; the ASX control (`['BHP']` vs
+> `{'BHP.AU'}`) is KEPT.
+>
+> Since the sole holding is the US-listed `HUBS.NYSE`, this alone empties
+> `holding_news` — and the predicate fix does **not** catch it, because `0` is a
+> valid count the guard must keep accepting. A second silent path exists too:
+> `asxos/ingestion/eodhd.py:118-119` coerces any non-list payload (the shape an
+> out-of-plan endpoint returns with HTTP 200) to `[]`.
+>
+> Both defects below are genuine and are fixed in `deea76a` — they made every
+> real outage invisible. But the empty table is most likely explained by symbol
+> normalisation, not by the predicate. Fix #4 is re-scoped accordingly, and a new
+> fix #0 is added.
+
 `holding_news` contains **zero rows**. Every `ingest_news` run from 2026-07-06 to
 2026-08-04 (22 runs) recorded `status='success'` with `rows_written = 0`. There is
 no article-level news in this system for the past month, the past week, or at all.
@@ -471,10 +494,12 @@ slots for that reason — not because the news is needed this week.
 
 | # | Fix | Location | Why |
 |---|---|---|---|
-| 1 | **Make `ingest_news` able to fail, and un-ship the surface** — one change, not two | `jobs/ingest_news.py:70,156` + `render.yaml:414` | Predicate `r >= 0` accepts total failure. Use `r > 0`, or return `None`/re-raise from `_fetch_and_upsert` so a genuine zero-news day stays distinguishable. Split them and you either leave the trap armed for the next ship check or keep shipping an empty section. |
-| 2 | **Audit every `assert_partial_success` predicate for the accepts-zero class** | repo-wide + `check_cron_health` | Promoted out of a footnote: this is the class fix and the news bug is one instance. Add `rows_written > 0` to the deadman — it watches job status, and status is exactly what was forged. |
+| **0** | **Repair the symbol mapping for non-ASX holdings** — NEW, and the likely operative cause | `asxos/ingestion/news.py:104-108` | `_normalise_symbol` appends `.AU` to any suffix-less ticker, so EODHD's `"HUBS"` becomes `"HUBS.AU"` and never matches the held `"HUBS.NYSE"`. Every article for the only holding is dropped with no exception. **DONE in `deea76a`:** made visible via `monitor.note`. **NOT DONE:** the mapping itself — needs a design call (match on ticker root? carry an exchange-alias map?), so it wants `backend-architect`, not a patch. |
+| ~~1~~ | ~~Make `ingest_news` able to fail~~ **DONE** (`deea76a`) | `jobs/ingest_news.py` | Sentinel `0` → `None`; predicate → positive type test. Also fixed: `errors` counter was permanently 0; `redact_secrets` at the log sink. |
+| ~~2~~ | ~~Audit every `assert_partial_success` predicate~~ **DONE — sweep complete and small** | repo-wide | Three call sites: `sync_fundamentals.py:84` (`r is True`) and `ingest_regulatory.py:186` were already safe; the latter hardened to a positive type test anyway. One instance, now fixed. **Do not re-audit.** Still open: `check_cron_health` has no `rows_written = 0` watch; `jobs/sync_prices.py:187-232` gathers with `return_exceptions=True` and **no threshold guard at all** — separate backlog item. |
+| ~~2b~~ | ~~The brief's freshness gate shares the forged field~~ **DONE** (`deea76a`) | `asxos/brief/compose.py:514-525` | `_news_ingest_fresh` now requires `rows_written > 0`, so the runtime gate and the ship condition stop being the same check twice. |
 | 3 | Correct the HY OAS unit mismatch | `migrations/0013_market_context.sql` | **Promoted above the EODHD diagnosis.** §8 shows two of three approved, governed macro theses are unscoreable or unfalsifiable. That corrupts the Layer A falsifier-scoring loop (`jobs/score_macro_theses.py`) — the model-independent product's only learning mechanism. A governance loop scoring itself against dead inputs is worse than one not running. |
-| 4 | Diagnose the actual EODHD `/news` failure | `asxos/ingestion/news.py` | Fix #1 makes the failure visible; it does not explain it. Budget for the answer being "no ASX coverage on this plan tier" — the same REV-K wall as `/sentiments`. If so, **retire the feed** as Treasury and ATO were, don't patch it. |
+| 4 | Probe live EODHD `/news` once, and make its non-list coercion fail loud | `asxos/ingestion/eodhd.py:81,118-119,139` | Re-scoped. `return result if isinstance(result, list) else []` turns an error payload into an in-range value — the same anti-pattern as fix #1, one layer down, and it produces an identical green-with-zero-rows run. One live call for one holding distinguishes it from fix #0. Budget for the answer being "no ASX coverage on this plan tier" (the REV-K wall as `/sentiments`); if so, **retire the feed** as Treasury and ATO were, don't patch it. Needs `EODHD_API_KEY`, which exists only on Render. |
 | 5 | Repair or drop the `IRON.COMM` feed | `jobs/ingest_market_context.py` | 404 on 24/24 days; most consequential missing input for a Materials-heavy universe. |
 | 6 | Investigate frozen AU 10y + 4bp cash-rate step | `jobs/ingest_market_context.py` | Both pinned since 2026-07-16. Live check confirms the true cash rate is 4.35%, so the value is right and the step is an artifact. Thesis #7 is scored against a dead series. |
 | 7 | Reconcile the four documents that disagree about this flag | see below | New. `roadmap-state.md:121` and `:404` say `ASXOS_NEWS_BRIEF_ENABLED=0`; `product-health-scorecard.md:101` and `dark-launch-exit-plan.md` say shipped/1; `render.yaml` says `"1"`. Four docs, two states — live state wins, so `roadmap-state.md` is stale. |

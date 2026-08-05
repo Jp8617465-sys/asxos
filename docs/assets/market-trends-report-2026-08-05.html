@@ -201,6 +201,27 @@ a{color:var(--accent)}
     <h2>The news feed is empty, and it reports success every day</h2>
   </div>
 
+  <div class="callout warn">
+    <h3><span class="chip w">Correction — rev 3</span>&nbsp; the root cause below is real, but not the operative one</h3>
+    <p>Security review of the fix found a third path, which I then verified
+    directly against the parser using the live holdings set (no API key needed).
+    EODHD tags articles <code>"HUBS"</code>; <code>_normalise_symbol</code> appends
+    <code>.AU</code> to any suffix-less ticker
+    (<code>asxos/ingestion/news.py:104-108</code>), giving <code>"HUBS.AU"</code>,
+    which <strong>never matches the held <code>"HUBS.NYSE"</code></strong>. Every
+    article is dropped by the holdings filter, a legitimate <code>0</code> is
+    returned, and <strong>no exception is ever raised</strong>.</p>
+    <p>Probe: <code>['HUBS'] → DROPPED</code>, <code>['HUBS.US'] → DROPPED</code>,
+    <code>['HUBS.NYSE'] → KEPT</code>; ASX control <code>['BHP']</code> vs
+    <code>{'BHP.AU'}</code> → KEPT. Since the sole holding is US-listed, this alone
+    empties the table — and the predicate fix <strong>does not catch it</strong>,
+    because <code>0</code> is a valid count the guard must keep accepting.</p>
+    <p>Both defects below are genuine and are now fixed (<code>deea76a</code>) —
+    they made every real outage invisible. But the empty table is most likely
+    explained by symbol normalisation, not by the predicate. I got the operative
+    cause wrong by reading code rather than probing it.</p>
+  </div>
+
   <div class="callout crit">
     <h3><span class="chip">Critical</span>&nbsp; <code>ingest_news</code> — 22 consecutive green runs, 0 rows written</h3>
     <p><code>holding_news</code> contains <strong>zero rows</strong>. Every
