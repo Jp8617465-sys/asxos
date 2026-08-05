@@ -65,7 +65,29 @@ def assert_partial_success(
         is_ok: per-result success predicate. Examples:
             - sync_fundamentals: ``lambda r: r is True``
             - ingest_regulatory: ``lambda r: r is not None``
-            - ingest_news: ``lambda r: isinstance(r, int) and r >= 0``
+            - ingest_news: ``lambda r: isinstance(r, int)``
+
+            The predicate MUST be able to return False for a failed unit of
+            work. Before shipping one, name a value the worker can actually
+            produce that fails it; if you cannot, the guard is a no-op that
+            still reports a healthy ratio. This is not hypothetical:
+            ingest_news previously used ``lambda r: isinstance(r, int) and
+            r >= 0`` against a worker that returned ``0`` on caught exceptions
+            — every int satisfies ``r >= 0``, so the guard could not fail, and
+            a run in which every symbol errored scored 100% healthy. 22
+            consecutive runs recorded ``status='success'`` with
+            ``rows_written=0`` against an empty target table
+            (``docs/market-trends-report-2026-08-05.md`` §1). When the worker
+            signals failure with a sentinel, make the sentinel a different
+            *type* (``None``) rather than an in-range value, so the predicate
+            can tell them apart.
+
+            Scope limit: a type-distinct sentinel only covers failures the
+            worker *catches*. An upstream that returns an empty or malformed
+            payload without raising still yields a legitimate-looking success
+            value, and no predicate here can see it — that class needs a
+            row-count check downstream of the write (e.g.
+            ``asxos/brief/compose.py::_news_ingest_fresh``), not a wider ratio.
         threshold: required success ratio (``>=`` comparison). NO DEFAULT —
             each callsite picks deliberately so a copy-paste with the wrong
             threshold becomes obvious in code review.

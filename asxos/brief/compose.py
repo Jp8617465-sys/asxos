@@ -25,7 +25,9 @@ Sections (in order):
   6. Market news on holdings (M14a) — gated by ALL of:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_NEWS_BRIEF_ENABLED=1 (paper-trade dark gate, plan M14a)
-       ingest_news job_runs success within 24h (freshness gate)
+       an ingest_news job_run within 24h that is BOTH status='success' AND
+         rows_written > 0 (freshness gate — status alone was forgeable, see
+         _news_ingest_fresh)
      Section absent entirely when any gate fails.
   7. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
@@ -498,7 +500,8 @@ async def _news_section(
     Three-layer gating (mirrors M13.7 Amendment C):
       1. ASXOS_PERSONAL_USE=1  (regulatory firewall)
       2. ASXOS_NEWS_BRIEF_ENABLED=1  (paper-trade dark gate; default 0)
-      3. ingest_news had a successful job_run within 24h  (freshness gate)
+      3. ingest_news had a job_run within 24h that succeeded AND wrote rows
+         (freshness gate — see _news_ingest_fresh on why rows, not just status)
 
     Section absent entirely when any gate fails.
     """
@@ -512,12 +515,34 @@ async def _news_section(
 
 
 async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
-    """True when ingest_news has a successful job_run within the last 24 hours."""
+    """True when ingest_news succeeded AND wrote rows within the last 24 hours.
+
+    The ``rows_written > 0`` clause is the load-bearing half. Gating on
+    ``status='success'`` alone made this check and the surface's ship condition
+    (``docs/product/dark-launch-exit-plan.md`` surface #2) key off the *same*
+    field — so a single defect cleared both. That is exactly what happened: 22
+    consecutive ingest_news runs recorded ``status='success'`` with
+    ``rows_written=0`` while ``holding_news`` stayed empty, and this gate passed
+    every one of them (see ``docs/market-trends-report-2026-08-05.md`` §1).
+
+    Requiring rows costs nothing on a genuine quiet news day: with no articles
+    ingested in the window, ``_holding_news`` would return ``[]`` and the section
+    would be empty anyway. So this can only suppress an already-empty section —
+    never hide news that exists.
+
+    This is currently the only row-count check anywhere in the news pipeline: the
+    job's own predicate cannot see a zero that arrives without an exception, and
+    the two other consumers of the same job_runs row still read status alone
+    (``jobs/ingest_sentiment.py::_upstream_ok`` — soft, WARNING only; and the
+    ``asx news signoff`` prerequisite in ``asxos/cli/news.py``). Widen those
+    before treating a green ingest_news as evidence of anything.
+    """
     cutoff = as_of - timedelta(days=1)
     rows = await conn.fetch(
         """
         SELECT 1 FROM job_runs
         WHERE job_name = 'ingest_news' AND as_of >= $1 AND status = 'success'
+          AND rows_written > 0
         LIMIT 1
         """,
         cutoff,

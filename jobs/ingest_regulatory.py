@@ -183,7 +183,13 @@ async def main() -> None:
             # of N is exactly how the Treasury feed stayed invisible for weeks.
             n_ok = assert_partial_success(
                 totals,
-                is_ok=lambda r: r is not None,
+                # Positive type test, not `r is not None`: extensionally
+                # identical today (the worker returns only int | None), but it
+                # stays correct if this gather ever adopts
+                # return_exceptions=True — under which an exception object is
+                # not None and would be scored as a success. Same predicate
+                # class as the ingest_news false-green defect.
+                is_ok=lambda r: isinstance(r, int),
                 threshold=1.0,
                 label="ingest_regulatory",
                 identifiers=[s.name for s in SOURCES],

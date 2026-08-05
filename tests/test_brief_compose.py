@@ -2,10 +2,13 @@
 Brief composition tests.
 
 `render_html` is pure over BriefData — we synthesize the dataclass
-directly. `collect` is exercised under a MagicMock conn that returns
-canned rows for each of the five queries.
+directly. `collect` is exercised under a MagicMock conn (`_make_conn`) that
+routes each query it issues to canned rows.
 
 M14a additions: NewsItem dataclass, news section HTML, _news_section() gating.
+A mocked conn returns its canned rows whatever the WHERE clause says, so the
+freshness gate's own SQL is asserted directly instead — see the
+`_news_ingest_fresh` block at the end of this file.
 """
 from __future__ import annotations
 
@@ -775,7 +778,12 @@ def test_collect_assembles_news_items() -> None:
 
 
 def test_collect_news_absent_when_ingest_stale() -> None:
-    """news_items=[] when ingest_news has no recent successful job_run."""
+    """news_items=[] when no recent ingest_news run passes the freshness gate.
+
+    "Passes" means success AND rows_written > 0 — the mock returns no rows for
+    the gate query either way, so this covers both halves at the collect() level;
+    the SQL itself is pinned by test_news_ingest_fresh_requires_rows_written_*.
+    """
     today = date(2026, 5, 22)
     conn = _make_conn(
         regime_row={"regime": "neutral"},
@@ -1093,3 +1101,56 @@ def test_collect_discipline_section_failure_isolated() -> None:
     assert len(data.discipline_findings) == 1
     assert data.discipline_findings[0].level == DisciplineLevel.error
     assert "boom" in data.discipline_findings[0].message
+
+
+# ---------------------------------------------------------------------------
+# _news_ingest_fresh — the false-green regression
+# (docs/market-trends-report-2026-08-05.md §1)
+#
+# The freshness gate previously keyed off `status='success'` alone — the same
+# field as the surface's ship condition in dark-launch-exit-plan.md surface #2.
+# One defect therefore cleared both: 22 consecutive ingest_news runs recorded
+# status='success' with rows_written=0 while holding_news stayed empty, and this
+# gate passed every one of them.
+# ---------------------------------------------------------------------------
+
+
+def test_news_ingest_fresh_requires_rows_written_not_just_status() -> None:
+    """The freshness query must filter on rows_written, not status alone.
+
+    Asserted against the emitted SQL because the gate's whole purpose is to stop
+    sharing a single forgeable field with the ship condition — a mocked conn that
+    returns canned rows regardless of the WHERE clause cannot show that.
+    (Same technique as test_brief_v2_sections.py's governed-view assertions.)
+    """
+    from asxos.brief.compose import _news_ingest_fresh
+
+    captured: list[str] = []
+
+    conn = MagicMock()
+
+    async def _fetch(query, *args, **kwargs):
+        captured.append(" ".join(query.split()))
+        return []
+
+    conn.fetch = AsyncMock(side_effect=_fetch)
+
+    assert asyncio.run(_news_ingest_fresh(conn, date(2026, 5, 22))) is False
+
+    assert len(captured) == 1
+    sql = captured[0]
+    assert "rows_written > 0" in sql, (
+        "freshness gate must require rows, not just status='success' — "
+        f"got: {sql}"
+    )
+    assert "status = 'success'" in sql  # still required, in addition
+
+
+def test_news_ingest_fresh_true_when_a_qualifying_run_exists() -> None:
+    """A run that both succeeded and wrote rows still opens the gate."""
+    from asxos.brief.compose import _news_ingest_fresh
+
+    conn = MagicMock()
+    conn.fetch = AsyncMock(return_value=[{"?column?": 1}])
+
+    assert asyncio.run(_news_ingest_fresh(conn, date(2026, 5, 22))) is True
