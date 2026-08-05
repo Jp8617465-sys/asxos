@@ -7,12 +7,29 @@ dead feed stays invisible behind a green cron.
 """
 from __future__ import annotations
 
+import sys
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from jobs.check_cron_health import _query_issues
+from jobs.check_cron_health import _query_issues, _send_alert
+
+
+def test_send_alert_does_not_shadow_html_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    send = MagicMock()
+    resend = SimpleNamespace(api_key=None, Emails=SimpleNamespace(send=send))
+    monkeypatch.setitem(sys.modules, "resend", resend)
+    monkeypatch.setenv("RESEND_API_KEY", "synthetic-resend-key")
+    monkeypatch.setenv("BRIEF_TO_EMAIL", "james@example.test")
+    monkeypatch.setenv("BRIEF_FROM_EMAIL", "arbi@example.test")
+
+    _send_alert(["DEGRADED: <external error>"])
+
+    send.assert_called_once()
+    payload = send.call_args.args[0]
+    assert payload["html"] == "<pre>• DEGRADED: &lt;external error&gt;</pre>"
 
 
 @pytest.mark.asyncio

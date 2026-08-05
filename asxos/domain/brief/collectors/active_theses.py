@@ -12,7 +12,7 @@ SeverityItem levels:
 from __future__ import annotations
 
 import time
-from datetime import date
+from datetime import date, datetime
 
 from asxos.db import acquire
 from asxos.domain.brief.severity import (
@@ -165,9 +165,10 @@ async def collect_active_theses(as_of: date) -> SectionResult:
 
             # Earnings risk
             next_ed = row.get("next_earnings_date")
+            earnings_date = next_ed.date() if isinstance(next_ed, datetime) else next_ed
             earnings_item = earnings_risk(
                 symbol,
-                next_ed.date() if next_ed is not None else None,
+                earnings_date,
                 cgt_date=None,
                 as_of=as_of,
                 section=_SECTION,
