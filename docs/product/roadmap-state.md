@@ -118,7 +118,7 @@ doc-derived, not live-probed.
 |---|---|---|---|
 | Rebuild M1–M12 | `docs/foundation/BUILD_GUIDE.md` | **All done.** Static manual, not a tracker. | `/sprint-plan` ("M1–M12 should all be done") |
 | Portfolio M13 | `asxos/domain/portfolio/*` | **Built, dark-launched** (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`). Weekly Sat 20:00 UTC. | V2 arch audit Part A |
-| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Built, dark-launched** (`ASXOS_NEWS_BRIEF_ENABLED=0`). | V2 arch audit Part A |
+| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped but empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). `holding_news` has zero rows; `signal_sentiment` is empty downstream of it. Ingest guard + brief gate fixed 2026-08-05 (`deea76a`); the operative symbol-mapping cause is still open. See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
 | Governance Phase 0 / 0.5 | model-filtering + `approved_for_allocation` gate | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 1 | governance schema + first Postgres trigger | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 2a+2b | `macro_theses`, per-table audit triggers, `macro-economist`, `/discover-macro` | **Done** (PR #11). First live `/discover-macro` cycle run 2026-07-04. | handoff §Session summary |
@@ -401,7 +401,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 | Gate | Guards | State |
 |---|---|---|
 | `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
-| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `0` — off |
+| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — live since 2026-07-11 (`render.yaml:414`); ship condition void, see `dark-launch-exit-plan.md` surface #2 |
 | `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |
 
