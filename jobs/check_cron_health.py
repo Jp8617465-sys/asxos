@@ -148,14 +148,14 @@ def _send_alert(issues: list[str]) -> None:
         # out of the markup (defense-in-depth; today all interpolated content is
         # hardcoded). Escaping the controlled #1-#3 lines is a harmless no-op.
         body = "\n".join(f"• {html.escape(i)}" for i in issues)
-        html = f"<pre>{body}</pre>"
+        html_body = f"<pre>{body}</pre>"
         resend.api_key = api_key
         resend.Emails.send(
             {
                 "from": sender,
                 "to": to,
                 "subject": f"asxos pipeline alert — {date.today().isoformat()}",
-                "html": html,
+                "html": html_body,
             }
         )
     except Exception:

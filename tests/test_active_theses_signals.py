@@ -127,3 +127,13 @@ async def test_multiple_approved_models_skips_driver_line():
     )
     assert result.status == SectionStatus.ok
     assert "Model A:" not in result.items[0].message
+
+
+@pytest.mark.asyncio
+async def test_date_typed_earnings_value_does_not_call_date_method():
+    row = _thesis_row()
+    row["next_earnings_date"] = date(2026, 6, 15)
+
+    result = await _run_collector([row], [], model_gate_rows=[])
+
+    assert result.status == SectionStatus.ok
