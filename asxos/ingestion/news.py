@@ -207,12 +207,35 @@ class ParseStats(NamedTuple):
     ``dropped_no_match`` is non-zero. They are **not** persisted — the
     ``job_runs.error_message`` note ``main()`` leaves on a green zero-row run is
     an aggregate ("0 rows written across N symbol(s)") and carries no tags.
+
+    Every drop path must have a counter
+    -----------------------------------
+    ``dropped_malformed`` and ``dropped_duplicate`` close the two paths that
+    previously discarded items while incrementing nothing. That mattered because
+    the counts are the *only* diagnostic here: an item that vanishes without a
+    counter is arithmetically indistinguishable from one that never arrived.
+
+    Measured on this file before the counters existed: a batch of one malformed
+    item reported ``fetched=1`` with every drop counter at zero, and a mixed
+    batch of one good plus one malformed reported ``fetched=2, items=1`` with
+    every drop counter at zero — two fetched, one written, one gone, nothing
+    recording why. Staleness and no-match were already counted, so malformed was
+    the sole unexplained loss, which is the exact shape of the 2026-08 incident
+    (``docs/market-trends-report-2026-08-05.md`` §1).
+
+    With both counters the identity below holds for every batch, so a reader can
+    verify the arithmetic instead of trusting it::
+
+        fetched == len(items) + dropped_stale + dropped_no_match
+                   + dropped_malformed + dropped_duplicate
     """
 
     fetched: int
     dropped_stale: int
     dropped_no_match: int
     unmatched_tags: tuple[str, ...]
+    dropped_malformed: int = 0
+    dropped_duplicate: int = 0
 
 
 def parse_news_response(
@@ -264,18 +287,32 @@ def parse_news_response_with_stats(
     cutoff = as_of - timedelta(days=2)
     dropped_stale = 0
     dropped_no_match = 0
+    dropped_malformed = 0
+    dropped_duplicate = 0
     unmatched: list[str] = []
     seen_urls: set[str] = set()
     out: list[NewsItem] = []
 
     for item in raw:
+        # A non-dict element cannot carry url/title and would raise on .get().
+        # Count it as malformed rather than crashing the whole batch: one bad
+        # element must not discard the good items alongside it.
+        if not isinstance(item, dict):
+            dropped_malformed += 1
+            continue
+
         url = (item.get("link") or item.get("url") or "").strip()
         title = (item.get("title") or "").strip()
         if not url or not title:
+            # Structurally unusable. Previously `continue` with no counter, so a
+            # vendor error envelope (`[{"code": 402, ...}]`) was indistinguishable
+            # from a quiet day.
+            dropped_malformed += 1
             continue
 
         # Deduplicate within the batch.
         if url in seen_urls:
+            dropped_duplicate += 1
             continue
         seen_urls.add(url)
 
@@ -337,6 +374,8 @@ def parse_news_response_with_stats(
         dropped_stale=dropped_stale,
         dropped_no_match=dropped_no_match,
         unmatched_tags=tuple(unmatched[:10]),
+        dropped_malformed=dropped_malformed,
+        dropped_duplicate=dropped_duplicate,
     )
     return out, stats
 

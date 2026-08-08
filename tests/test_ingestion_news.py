@@ -505,3 +505,115 @@ def test_unmatched_tags_are_scrubbed_and_truncated() -> None:
     assert "\n" not in tag and "\r" not in tag, "a newline would forge a log line"
     assert "\x1b" not in tag, "escape sequences must not reach the log"
     assert len(tag) <= 32, f"unbounded vendor string reached the log sink: {len(tag)}"
+
+
+# ---------------------------------------------------------------------------
+# M0: every drop path must have a counter
+#
+# `dropped_stale` and `dropped_no_match` already existed. Two paths discarded
+# items while incrementing nothing: structurally malformed items (no url/title)
+# and intra-batch URL duplicates. Measured on the pre-fix parser, a lone
+# malformed item reported fetched=1 with every drop counter at zero, and a
+# mixed good+malformed batch reported fetched=2/items=1 with every drop counter
+# at zero — two in, one out, one gone, nothing recording why.
+#
+# The counts are the ONLY diagnostic this parser emits, so an uncounted loss is
+# arithmetically indistinguishable from an item that never arrived. That is the
+# 2026-08 false-green shape (market-trends-report-2026-08-05.md §1).
+# ---------------------------------------------------------------------------
+
+
+def _reconciles(items, stats) -> bool:
+    """fetched must equal what was kept plus every counted drop."""
+    return stats.fetched == (
+        len(items)
+        + stats.dropped_stale
+        + stats.dropped_no_match
+        + stats.dropped_malformed
+        + stats.dropped_duplicate
+    )
+
+
+def test_malformed_only_batch_is_counted_not_silent() -> None:
+    """A vendor error envelope must not read as a quiet day."""
+    items, stats = parse_news_response_with_stats(
+        [{"code": 402, "message": "payment required"}],
+        holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+    )
+    assert items == []
+    assert stats.fetched == 1
+    assert stats.dropped_malformed == 1, "the sole drop path that used to count nothing"
+    assert _reconciles(items, stats)
+
+
+def test_mixed_good_and_malformed_keeps_good_and_counts_the_loss() -> None:
+    """The case that silently lost an item: 2 fetched, 1 written, 1 unexplained."""
+    good = _item(url="https://example.com/news/keep", symbols=["BHP.AU"])
+    items, stats = parse_news_response_with_stats(
+        [good, {"code": 402}],
+        holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+    )
+    assert len(items) == 1, "a malformed sibling must not discard the good item"
+    assert stats.fetched == 2
+    assert stats.dropped_malformed == 1
+    assert _reconciles(items, stats)
+
+
+def test_non_dict_element_is_counted_not_raised() -> None:
+    """A non-dict element would raise on .get(); one bad element must not
+    destroy the whole batch, and must not vanish either."""
+    good = _item(url="https://example.com/news/ok", symbols=["BHP.AU"])
+    items, stats = parse_news_response_with_stats(
+        [good, "not-a-dict", 42, None],
+        holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+    )
+    assert len(items) == 1
+    assert stats.dropped_malformed == 3
+    assert _reconciles(items, stats)
+
+
+def test_duplicate_urls_are_counted() -> None:
+    """Dedup was correct but uncounted, so the arithmetic never reconciled."""
+    good = _item(url="https://example.com/news/dup", symbols=["BHP.AU"])
+    items, stats = parse_news_response_with_stats(
+        [good, dict(good)],
+        holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+    )
+    assert len(items) == 1
+    assert stats.fetched == 2
+    assert stats.dropped_duplicate == 1
+    assert _reconciles(items, stats)
+
+
+def test_quiet_day_stays_all_zero() -> None:
+    """The negative control: a genuinely empty response must not look degraded."""
+    items, stats = parse_news_response_with_stats(
+        [], holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+    )
+    assert items == []
+    assert stats.fetched == 0
+    assert stats.dropped_malformed == 0
+    assert stats.dropped_duplicate == 0
+    assert _reconciles(items, stats)
+
+
+def test_all_five_drop_paths_reconcile_together() -> None:
+    """Stale, unmapped, malformed, duplicate and kept, in one batch."""
+    keep = _item(url="https://example.com/news/keep", symbols=["BHP.AU"])
+    items, stats = parse_news_response_with_stats(
+        [
+            keep,
+            dict(keep),                                                   # duplicate
+            _item(url="https://example.com/news/old", date_str="2026-05-01T00:00:00+00:00", symbols=["BHP.AU"]),
+            _item(url="https://example.com/news/other", symbols=["TSLA.US"]),
+            {"code": 402},                                                # malformed
+        ],
+        holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+    )
+    assert stats.fetched == 5
+    assert len(items) == 1
+    assert stats.dropped_duplicate == 1
+    assert stats.dropped_stale == 1
+    assert stats.dropped_no_match == 1
+    assert stats.dropped_malformed == 1
+    assert _reconciles(items, stats), f"counts must reconcile: {stats}"
