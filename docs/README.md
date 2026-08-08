@@ -2,7 +2,7 @@
 
 **Status:** current
 **Scope:** whole repo — navigation index / source-of-truth map
-**Last verified:** 2026-07-05
+**Last verified:** 2026-08-08 (wake-up and branch-only entries; older claims retain their dates)
 **Read priority:** read first
 **Superseded by:** N/A
 
@@ -17,11 +17,12 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 
 ## Read first, in order
 1. `../CLAUDE.md` — agent guide + non-negotiables (note **standing** rule **#11**: Model A quarantine — resolved 2026-07-11 *against* Model A; the quarantine stands as policy)
-2. `product/roadmap-state.md` — the living reconciled state (**current authority**); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. `session-handoff-2026-07-04.md` is the last dated handoff (its "P0 unresolved" framing is superseded by the resolution above)
-3. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
-4. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
-5. `next-session-backlog.md` — itemized backlog (top half current; the 2026-06-28 half is partially stale — see its banners)
-6. `executable-roadmap-2026-07-04.md` — the current sequenced roadmap (5 workstreams + PR plan)
+2. `session-handoff-2026-08-08.md` — the newest dated handoff and current priority state after it reaches `main`; it separates shipped evidence, branch-only work, and unratified future-state recommendations
+3. `product/roadmap-state.md` — the living reconciled state (**current authority**); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. Where priority conflicts, the newest handoff wins and the roadmap must be reconciled
+4. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
+5. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
+6. `next-session-backlog.md` — itemized backlog (top half current; the 2026-06-28 half is partially stale — see its banners)
+7. `executable-roadmap-2026-07-04.md` — a historical sequencer; reconcile any still-relevant item through the current handoff/roadmap instead of reviving it wholesale
 
 ## Authoritative source by area
 | Area | Authoritative source |
@@ -72,4 +73,10 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 - `next-session-kickoff.md` — references a three-migration-epochs-old branch/state (see its banner).
 
 ## Branch-only
-None — all audit/handoff docs are on `main`. (A doc a future session must read has to be committed to `main`; a handoff that lives only on a feature branch is a process defect — `research/session-handoff.md:6-9`.)
+
+- `agent/arbi-authority-gate0@eeed24019edf` — Gate0 deny-only/worktree/MCP hardening; code-ready with MCP canary pending, no authority increase, review-policy cutover held.
+- `agent/arbi-future-state-operating-model@33eb00e3cd34` — reviewed future-state proposal; `CHALLENGE / CONDITIONAL ADOPT`, not canonical product state.
+- `agent/investment-engine-dossier@6cfaf15518d8` — large investment-engine source-material dossier; extract selectively, do not merge wholesale.
+
+A doc a future session must read still has to be committed to `main`; branch-only artifacts are
+candidate evidence, not authority (`research/session-handoff.md:6-9`).
