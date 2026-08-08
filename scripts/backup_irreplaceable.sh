@@ -16,6 +16,12 @@
 #   - theses             (M-Thesis-1: investment thesis text and audit record — irreplaceable)
 #   - thesis_revisions   (M-Thesis-1: append-only discipline event log — irreplaceable)
 #   - theme_holdings     (M-Thesis-1: symbol-level theme exposure — irreplaceable)
+#   - macro_theses       (Phase 2b: agent-originated macro theses — irreplaceable)
+#   - agent_runs         (governance audit: every discovery-agent invocation)
+#   - agent_evidence     (governance audit: cited evidence, replayable snapshots)
+#   - governance_events  (governance audit: every governance_status transition —
+#                         the record that makes agent-originated approvals
+#                         defensible after the fact; losing it loses the audit)
 #
 # Tables NOT backed up (re-derivable from EODHD + the model pickles + inputs):
 #   - prices, fundamentals, signals, universe, regulatory_events, job_runs
@@ -55,6 +61,10 @@ pg_dump \
   --table=theses \
   --table=thesis_revisions \
   --table=theme_holdings \
+  --table=macro_theses \
+  --table=agent_runs \
+  --table=agent_evidence \
+  --table=governance_events \
   "$DATABASE_URL" > "$DUMP"
 
 gzip -9 "$DUMP"
@@ -63,8 +73,20 @@ BYTES="$(stat -f%z "$DUMP_GZ" 2>/dev/null || stat -c%s "$DUMP_GZ")"
 echo "[backup] dump complete: ${DUMP_GZ} (${BYTES} bytes)"
 
 echo "[backup] cloning ${BACKUP_REPO} (depth=1)"
+# The token must NOT ride in the clone URL: git echoes the remote URL verbatim
+# in several fatal messages (repository-not-found being the common one), and
+# under `set -e` that stderr lands in the runner log — a contents:rw PAT on the
+# repo holding holding_lots and theses, in clear (found in the 2026-08 security
+# review). A credential-store file keeps the remote URL clean, lives inside
+# $WORK so the existing trap removes it, and never appears in `ps` (unlike
+# -c http.extraHeader). --config persists the helper into the cloned repo, so
+# the later `git push` authenticates the same way.
+CRED="$WORK/.git-credentials"
+umask 077
+printf 'https://x-access-token:%s@github.com\n' "$BACKUP_GITHUB_TOKEN" > "$CRED"
 git -C "$WORK" clone --depth=1 \
-  "https://x-access-token:${BACKUP_GITHUB_TOKEN}@github.com/${BACKUP_REPO}.git" repo
+  --config credential.helper="store --file=$CRED" \
+  "https://github.com/${BACKUP_REPO}.git" repo
 
 cp "$DUMP_GZ" "$WORK/repo/"
 

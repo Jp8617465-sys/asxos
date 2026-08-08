@@ -101,3 +101,15 @@ jobs:
 
       - name: Compose and send brief
         run: python jobs/compose_brief.py
+
+      # Post-brief steps: deliberately AFTER the send, so a failure here can
+      # never cost James the brief itself. They still fail the run visibly.
+
+      - name: Score macro theses
+        run: python jobs/score_macro_theses.py
+
+      - name: Check AU positions
+        run: python jobs/check_au_positions.py
+
+      - name: Check thesis invalidations
+        run: python jobs/check_thesis_invalidations.py

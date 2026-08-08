@@ -38,11 +38,18 @@ def send_fallback_email(*, subject: str, body_text: str) -> None:
     """
     try:
         # Lazy imports — keeps this module importable in test envs without
-        # BRIEF_* env vars set (BriefSettings() raises at import otherwise).
-        from asxos.brief.email import _send_via_resend
-        from asxos.config import BriefSettings
+        # BRIEF_* env vars set.
+        #
+        # _EmailSettings, deliberately NOT BriefSettings (H8, found 2026-08-07):
+        # BriefSettings additionally requires SUPABASE_URL and
+        # SUPABASE_ANON_KEY, which the brief-sending runtime does not carry —
+        # so this last-resort notifier raised ValidationError on every real
+        # invocation and was swallowed below. A correct alarm wired to a bell
+        # that could never ring. _EmailSettings exists precisely to exclude
+        # those fields (see its docstring in asxos/brief/email.py).
+        from asxos.brief.email import _EmailSettings, _send_via_resend
 
-        settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
+        settings = _EmailSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
         body_html = (
             "<html><body>"
             '<pre style="font-family: monospace; white-space: pre-wrap;">'
