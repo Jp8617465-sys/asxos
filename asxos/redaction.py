@@ -29,15 +29,49 @@ _SECRET_QS_RE = re.compile(
     r"(?i)(api[_-]?token|api[_-]?key|apikey|access[_-]?token|secret|password)=([^&\s'\"]+)"
 )
 
+# Authorization-header form. Proven necessary by a live leak (2026-08-08): the
+# Resend client raised `InvalidHeader: ... header value: 'Bearer re_<KEY>\n'`
+# and JobMonitor persisted it into job_runs.error_message — the query-param
+# regex above cannot see a `Bearer <token>` shape at all. This is the recorded
+# G0-71B lesson (a denylist over exception text is never complete) claiming its
+# predicted victim; the pattern below closes the *observed* form while the
+# structural fix remains "sanitise at the source".
+_SECRET_BEARER_RE = re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}")
+
+# Recognisable vendor key prefixes appearing NAKED in text (no param name, no
+# Bearer). Deliberately conservative: each requires a long tail, and `re_`
+# additionally requires a digit so ordinary snake_case words
+# ("re_authenticate") survive. Over-matching redacts a word; under-matching
+# leaks a credential — the asymmetry favours the former, narrowly.
+_SECRET_PREFIX_RE = re.compile(
+    r"\b(?:"
+    r"re_(?=[A-Za-z0-9_]*\d)[A-Za-z0-9_]{10,}"      # Resend
+    r"|sk-ant-[A-Za-z0-9_-]{10,}"                    # Anthropic
+    r"|ghp_[A-Za-z0-9]{10,}"                         # GitHub classic PAT
+    r"|github_pat_[A-Za-z0-9_]{10,}"                 # GitHub fine-grained PAT
+    r"|rnd_[A-Za-z0-9]{10,}"                         # Render API key
+    r")"
+)
+
 
 def redact_secrets(text: str) -> str:
-    """Replace the value of any credential query param with ``***``.
+    """Replace credential material with ``***`` wherever it is recognised.
+
+    Three passes: query-param values (``?api_token=…``), Authorization-header
+    values (``Bearer …``), and naked vendor-prefixed keys (``re_…``,
+    ``sk-ant-…``, ``ghp_…``, ``github_pat_…``, ``rnd_…``).
 
     Behaviour-preserving for secret-free strings: with no match the input is
     returned unchanged. Only the secret value is removed, so the exception
     class, HTTP status, host and path survive for diagnostics.
+
+    Still a denylist, and the module docstring's caveat stands: sanitising at
+    the SOURCE is the real control; this is defence in depth over the shapes
+    that have actually leaked.
     """
-    return _SECRET_QS_RE.sub(r"\1=***", text)
+    text = _SECRET_QS_RE.sub(r"\1=***", text)
+    text = _SECRET_BEARER_RE.sub(r"\1 ***", text)
+    return _SECRET_PREFIX_RE.sub("***", text)
 
 
 def sanitized_http_error(exc: httpx.HTTPStatusError) -> httpx.HTTPStatusError:
