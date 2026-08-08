@@ -11,7 +11,8 @@
 # for the direct-tool and recognized-Bash-command paths; this hook exists ONLY for:
 #   (a) an interpreter (python/perl/ruby/node/…) invoked via Bash that opens an authority
 #       path itself — the exact residual the docs name;
-#   (b) a symlink whose target resolves (via realpath) to an authority path, presented to
+#   (b) a symlink whose target resolves (via flag-free realpath with a Python
+#       fallback for new paths) to an authority path, presented to
 #       Edit/Write/MultiEdit/NotebookEdit under a non-authority alias name — settings-level
 #       path matching is textual, not filesystem-realpath-aware, so this hook re-checks the
 #       resolved path as a redundant, narrowly-justified second layer.
@@ -19,11 +20,11 @@
 # `reversible-work-window` skill's own "Known limitation" names exactly this gap and requires
 # it closed before an unmonitored window relies on the skill's unscoped Edit/Write).
 #
-# HONEST LIMITS: Bash is not fully parseable. A sufficiently obfuscated interpreter payload
-# (a base64-decoded path, `os.rename`, indirect string construction) can still defeat the
-# regex below. Accepted residual, same class as unattended-guard.sh's — single-user blast
-# radius, and any committed result still passes through the review gate. This hook narrows
-# the gap; it does not close it to zero.
+# HONEST LIMITS: Bash is not fully parseable. A Bash command that names only a symlink alias,
+# or an obfuscated interpreter payload (a base64-decoded path, `os.rename`, indirect string
+# construction), can still defeat the textual regex below. Direct Edit/Write aliases are
+# canonicalised; arbitrary shell intent remains an accepted residual, same class as
+# unattended-guard.sh's. This hook narrows the gap; it does not close it to zero.
 set -uo pipefail
 
 deny() {
@@ -56,6 +57,7 @@ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
 # authority and block every future `.py` commit. Those loose root-level markers are
 # INTENTIONALLY absent from this list and MUST remain writable.
 AUTHORITY_FRAGMENTS=(
+  ".env"
   ".claude/settings.json" ".claude/settings.local.json"
   ".claude/agents/" ".claude/commands/" ".claude/hooks/" ".claude/rules/" ".claude/skills/"
   ".github/" "migrations/" "docs/product/rubrics/"
@@ -88,32 +90,124 @@ is_authority_path() {
 # alternation; the trade is deliberate — verifiable against one source list beats a more
 # compact pattern two people have to keep manually in sync.
 _authority_regex_alt() {
-  local frag esc out=""
+  local frag esc pattern out=""
   for frag in "${AUTHORITY_FRAGMENTS[@]}"; do
     esc="${frag//./\\.}"
-    out="${out:+$out|}$esc"
+    case "$frag" in
+      */) pattern="$esc" ;;
+      *) pattern="$esc([^A-Za-z0-9_./-]|$)" ;;
+    esac
+    out="${out:+$out|}$pattern"
   done
   printf '%s' "$out"
 }
 
-rel_path() {
-  local p="$1" root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  p="$(realpath -m -- "$p" 2>/dev/null || printf '%s' "$p")"
-  root="$(realpath -m -- "$root" 2>/dev/null || printf '%s' "$root")"
-  printf '%s' "${p#"$root"/}"
+canonical_path() {
+  local raw="$1" resolved
+
+  # Existing paths are the common case. Both BSD/macOS and GNU realpath support
+  # the flag-free form, which also resolves an existing symlink leaf.
+  if resolved="$(realpath "$raw" 2>/dev/null)"; then
+    printf '%s' "$resolved"
+    return 0
+  fi
+
+  # BSD realpath rejects a path whose final leaf does not exist. Python resolves
+  # an existing symlinked parent while retaining the new leaf, without the
+  # GNU-only missing-leaf flags whose use caused this guard to fail open.
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "$raw" <<'PY'
+import os
+import sys
+
+spelled = os.path.abspath(sys.argv[1])
+parts = spelled.split(os.sep)
+current = os.sep
+
+for index, part in enumerate(parts[1:], start=1):
+    candidate = os.path.join(current, part)
+    if not os.path.lexists(candidate):
+        # The filesystem does not resolve this spelling. Keep it exactly as
+        # supplied, including case, so Linux's distinct `claude.md` is not
+        # confused with `CLAUDE.md`.
+        current = os.path.join(current, *parts[index:])
+        break
+
+    # On a case-insensitive filesystem lexists() can succeed for `.CLAUDE`
+    # while the real directory entry is `.claude`. Recover the entry's stored
+    # spelling before resolving symlinks. Case-sensitive filesystems never take
+    # this branch for a differently-cased name.
+    entries = os.listdir(current)
+    if part not in entries:
+        folded = [entry for entry in entries if entry.casefold() == part.casefold()]
+        if len(folded) == 1:
+            part = folded[0]
+    current = os.path.realpath(os.path.join(current, part))
+
+print(os.path.normpath(current))
+PY
+}
+
+relative_to_root() {
+  local candidate="$1" root="$2"
+  case "$candidate" in
+    "$root"/*) printf '%s' "${candidate#"$root"/}" ;;
+    *) return 1 ;;
+  esac
+}
+
+guard_authority_path() {
+  local fp="$1" payload_cwd target_root control_root candidate root rel
+  [ -n "$fp" ] || return 0
+
+  payload_cwd="$(printf '%s' "$payload" \
+    | jq -er '.cwd | select(type == "string" and length > 0)' 2>/dev/null)" \
+    || deny "authority-guard: file-operation payload omitted a valid cwd; refusing an unbound path check."
+  control_root="${CLAUDE_PROJECT_DIR:-}"
+
+  # Claude normally invokes the hook at the project root. Avoid a git subprocess
+  # on that hot path; use git only when the tool-call cwd and control root differ.
+  if [ -n "$control_root" ] && [ "$payload_cwd" = "$control_root" ]; then
+    target_root="$(canonical_path "$payload_cwd")" \
+      || deny "authority-guard: target checkout could not be canonicalised; refusing the file operation."
+    control_root="$target_root"
+  else
+    target_root="$(git -C "$payload_cwd" rev-parse --show-toplevel 2>/dev/null \
+      || printf '%s' "$payload_cwd")"
+    target_root="$(canonical_path "$target_root")" \
+      || deny "authority-guard: target checkout could not be canonicalised; refusing the file operation."
+    control_root="${control_root:-$target_root}"
+    control_root="$(canonical_path "$control_root")" \
+      || deny "authority-guard: loaded-control checkout could not be canonicalised; refusing the file operation."
+  fi
+
+  case "$fp" in
+    /*) candidate="$fp" ;;
+    *) candidate="$payload_cwd/$fp" ;;
+  esac
+  candidate="$(canonical_path "$candidate")" \
+    || deny "authority-guard: target path could not be canonicalised; refusing the file operation."
+
+  # Protect only the active target checkout and the checkout that supplied the
+  # loaded controls. An identically named file in an unrelated repository is not
+  # an Arbi authority surface.
+  for root in "$target_root" "$control_root"; do
+    if rel="$(relative_to_root "$candidate" "$root" 2>/dev/null)" \
+       && is_authority_path "$rel"; then
+      deny "authority-guard: this canonical path resolves to an authority/boundary file. arbi may only DRAFT changes to these via a reviewed PR for James to merge — never a direct edit, including through a symlink alias."
+    fi
+  done
 }
 
 case "$tool" in
   Edit|Write|MultiEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')"
-    [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
-      && deny "authority-guard: this resolves (realpath) to an authority/boundary file. arbi may only DRAFT changes to these via a reviewed PR for James to merge — never a direct edit, including through a symlink alias."
+    guard_authority_path "$fp"
     exit 0
     ;;
   NotebookEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.notebook_path // empty')"
-    [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
-      && deny "authority-guard: this resolves (realpath) to an authority/boundary path. arbi may only DRAFT changes via a reviewed PR."
+    guard_authority_path "$fp"
     exit 0
     ;;
   Bash)
