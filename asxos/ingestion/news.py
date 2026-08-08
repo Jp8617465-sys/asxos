@@ -355,6 +355,17 @@ def parse_news_response_with_stats(
             except (json.JSONDecodeError, ValueError):
                 raw_symbols = [raw_symbols] if raw_symbols else []
 
+        # json.loads("123") returns an int, and a vendor can put any scalar in
+        # this field directly. Iterating a non-list raised TypeError here and —
+        # because the job's except block catches broadly — destroyed the whole
+        # batch, discarding every good sibling item. That contradicts the same
+        # invariant the isinstance(item, dict) guard above enforces: one bad
+        # element must not take down the batch. A junk symbols field is the
+        # vendor's schema not being what we parse — malformed, counted, moved on.
+        if not isinstance(raw_symbols, list | tuple):
+            dropped_malformed += 1
+            continue
+
         tags = [s for s in raw_symbols if isinstance(s, str) and s]
         matched = sorted({held for t in tags for held in alias.get(t.upper(), [])})
         if not matched:

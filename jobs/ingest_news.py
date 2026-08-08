@@ -24,7 +24,7 @@ import os
 from datetime import date, timedelta
 
 # asxos.ingestion.news is stdlib + asyncpg only — safe at module level.
-from asxos.ingestion.news import parse_news_response_with_stats, upsert_news
+from asxos.ingestion.news import ParseStats, parse_news_response_with_stats, upsert_news
 from asxos.ingestion.symbols import eodhd_symbol
 from asxos.jobs._helpers import assert_partial_success
 from asxos.redaction import redact_secrets
@@ -63,17 +63,26 @@ async def _fetch_and_upsert(
     from_date: str,
     holdings: set[str],
     conn,
-) -> int | None:
+) -> tuple[int, ParseStats] | None:
     """Fetch news for one symbol and upsert to holding_news.
 
-    Returns the upsert count on success — including a legitimate ``0`` when the
-    symbol genuinely had no articles in the window — and ``None`` on failure.
+    Returns ``(rows_written, stats)`` on success — including a legitimate
+    ``(0, stats)`` when the symbol genuinely had no articles in the window —
+    and ``None`` on failure.
 
-    The failure sentinel MUST NOT be ``0``. Returning 0 for a failed fetch makes
-    "every symbol errored" indistinguishable from "a quiet news day", and the
-    aggregate guard in ``main()`` keys off exactly that distinction. Catching
-    here (rather than raising) is still deliberate: one bad ticker must not abort
-    the gather across all holdings.
+    The stats ride along because ``main()`` is the only place that can decide
+    whether the RUN was degraded: a single symbol's malformed envelope is a
+    per-symbol log line, but the job-level note (persisted to
+    ``job_runs.error_message``, read by the brief's freshness gate and by
+    check_cron_health) must aggregate across symbols. Returning a bare int
+    meant the counters existed but died inside this function — counted in
+    memory, invisible to every consumer that matters.
+
+    The failure sentinel MUST NOT be ``0`` or ``(0, ...)`` for a failed fetch.
+    Returning a zero for failure makes "every symbol errored" indistinguishable
+    from "a quiet news day", and the aggregate guard in ``main()`` keys off
+    exactly that distinction. Catching here (rather than raising) is still
+    deliberate: one bad ticker must not abort the gather across all holdings.
 
     Scope limit — a returned ``0`` is still not proof of a quiet day, but both
     silent paths that used to produce one are now counted rather than invisible.
@@ -132,7 +141,7 @@ async def _fetch_and_upsert(
                 stats.dropped_malformed, stats.dropped_duplicate,
                 ", ".join(stats.unmatched_tags) or "(none)",
             )
-        return await upsert_news(conn, items)
+        return await upsert_news(conn, items), stats
     except Exception as exc:
         # redact_secrets at the sink, matching jobs/sync_prices.py:198. The
         # EODHD client already sanitises HTTPStatusError at source, so this is
@@ -230,17 +239,20 @@ async def main() -> None:
             # would pass. See asxos/jobs/_helpers.py for the general rule.
             n_ok = assert_partial_success(
                 results,
-                is_ok=lambda r: isinstance(r, int),
+                is_ok=lambda r: isinstance(r, tuple),
                 threshold=0.75,
                 label="ingest_news",
                 identifiers=symbols,
                 allow_empty=False,
             )
-            written = sum(r for r in results if isinstance(r, int))
+            oks = [r for r in results if isinstance(r, tuple)]
+            written = sum(w for w, _ in oks)
             # Count everything the predicate rejected — None (caught failure) and
             # BaseException (escaped) alike. Counting only BaseException reports
             # "0 errors" for every real failure, since the worker never raises.
-            errors = sum(1 for r in results if not isinstance(r, int))
+            errors = len(results) - len(oks)
+            agg_malformed = sum(st.dropped_malformed for _, st in oks)
+            agg_no_match = sum(st.dropped_no_match for _, st in oks)
             monitor.rows_written = written
             log.info(
                 "ingest_news done: %d rows written, %d/%d symbols healthy, %d errors",
@@ -262,17 +274,36 @@ async def main() -> None:
             # the one that fired, because they produce the identical artefact.
             # The predicate above legitimately passes a 0 in every case, so the
             # sentinel fix alone cannot catch it; this note does.
+            # error_message is LOAD-BEARING IN BOTH DIRECTIONS, and this is
+            # the only site that writes it for this job:
+            #   - check_cron_health's degraded check alerts on it being NON-NULL;
+            #   - asxos/brief/compose.py::_news_ingest_fresh requires it to be
+            #     NULL on the LATEST run before the brief renders news.
+            # So a note attached for a benign reason does not merely add noise —
+            # it silently suppresses a brief section AND pages.
+            #
+            # That is why the old `if written == 0` branch is GONE: it fired on
+            # every genuinely quiet news day, which is the same
+            # row-count-as-health confusion that produced the incident (rule 2
+            # of docs/market-trends-report-2026-08-05.md §1). A quiet day is a
+            # healthy run. Only real degradation may write here:
+            #   - a symbol's fetch failed outright (errors);
+            #   - the vendor sent something we could not parse (malformed —
+            #     includes a non-list error envelope, counted as one unit);
+            #   - articles arrived and resolved to no held symbol (no_match —
+            #     the namespace-fault signature of the incident itself).
+            # Stale and duplicate drops are the time window and dedup working
+            # as designed; they are logged per-symbol above, never noted here.
+            # Counts only — no vendor string reaches this persisted field.
             notes = []
             if errors:
                 notes.append(f"{errors}/{len(symbols)} symbols failed")
-            if written == 0:
-                notes.append(
-                    f"0 rows written across {len(symbols)} symbol(s) — vendor "
-                    "returned nothing, or every article was dropped by the "
-                    "holdings-symbol filter (check non-.AU holdings)"
-                )
+            if agg_malformed:
+                notes.append(f"malformed={agg_malformed}")
+            if agg_no_match:
+                notes.append(f"no_match={agg_no_match}")
             if notes:
-                monitor.note = "ingest_news: " + "; ".join(notes)
+                monitor.note = "ingest_news degraded: " + "; ".join(notes)
     finally:
         await _close_pool()
 

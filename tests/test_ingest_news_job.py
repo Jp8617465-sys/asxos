@@ -27,6 +27,28 @@ import pytest
 # jobs/ is added to sys.path via tests/conftest.py
 from jobs.ingest_news import _fetch_and_upsert, main
 
+
+def _stats(
+    *,
+    fetched: int = 0,
+    stale: int = 0,
+    no_match: int = 0,
+    malformed: int = 0,
+    duplicate: int = 0,
+    tags: tuple = (),
+):
+    """ParseStats for tests that fake the worker's (written, stats) return."""
+    from asxos.ingestion.news import ParseStats
+
+    return ParseStats(
+        fetched=fetched,
+        dropped_stale=stale,
+        dropped_no_match=no_match,
+        unmatched_tags=tags,
+        dropped_malformed=malformed,
+        dropped_duplicate=duplicate,
+    )
+
 # ---------------------------------------------------------------------------
 # _fetch_and_upsert
 # ---------------------------------------------------------------------------
@@ -72,7 +94,9 @@ async def test_fetch_and_upsert_returns_count_on_success() -> None:
         result = await _fetch_and_upsert(
             client, "BHP.AU", "2026-05-22", {"BHP.AU"}, conn
         )
-    assert result == 1
+    written, stats = result
+    assert written == 1
+    assert stats.fetched == 1
     mock_upsert.assert_awaited_once()
     # ASX symbols are already in EODHD's namespace — the remap must be a no-op,
     # not a corruption.
@@ -116,7 +140,8 @@ async def test_us_holding_is_requested_in_eodhd_namespace_and_stored_as_held() -
             client, "HUBS.NYSE", today, {"HUBS.NYSE"}, conn
         )
 
-    assert result == 1
+    written, _stats_out = result
+    assert written == 1
     client.news_for_symbol.assert_awaited_once_with(
         "HUBS.US", limit=10, from_date=today
     )
@@ -202,7 +227,7 @@ async def test_rows_written_set_correctly() -> None:
         patch("jobs.ingest_news.get_client"),
         patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
         # Each symbol upserts 3 rows
-        patch("jobs.ingest_news._fetch_and_upsert", new=AsyncMock(return_value=3)),
+        patch("jobs.ingest_news._fetch_and_upsert", new=AsyncMock(return_value=(3, _stats(fetched=3)))),
     ):
         await main()
 
@@ -246,7 +271,7 @@ async def test_symbol_failures_above_threshold_proceed() -> None:
         call_count["n"] += 1
         if symbol == "CBA.AU":
             return None  # real contract: failures return None, never raise
-        return 2  # 2 rows for the other symbols
+        return 2, _stats(fetched=2)  # 2 rows for the other symbols
 
     with (
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
@@ -297,7 +322,7 @@ async def test_symbol_failures_below_threshold_hard_fail() -> None:
     async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
         if symbol == "CBA.AU":
             return None  # real contract: failures return None, never raise
-        return 2
+        return 2, _stats(fetched=2)
 
     with (
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
@@ -412,7 +437,7 @@ async def test_genuine_zero_news_day_succeeds() -> None:
             return False
 
     async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
-        return 0  # genuinely no articles, no failure
+        return 0, _stats(fetched=0)  # genuinely no articles, no failure
 
     with (
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
@@ -480,16 +505,21 @@ async def test_end_to_end_all_symbols_erroring_hard_fails_with_real_worker() -> 
 
 
 @pytest.mark.asyncio
-async def test_zero_rows_written_sets_degraded_note() -> None:
-    """A green run that wrote nothing must leave a marker on the success row.
+async def test_quiet_day_sets_no_note_but_degraded_drops_do() -> None:
+    """INVERTED from test_zero_rows_written_sets_degraded_note.
 
-    This is the guard for the failure mode the sentinel fix does NOT catch. A
-    zero-row run needs no exception at all: the vendor can return nothing for the
-    symbol requested, or return articles whose tags resolve to no held symbol, so
-    every article is dropped and a legitimate 0 is returned. The aggregate predicate passes it (correctly — 0 is a valid
-    count), so the only way this becomes visible without inspecting the table is
-    monitor.note, which JobMonitor writes to job_runs.error_message on a success
-    row and check_cron_health's degraded-run check reads.
+    The old test pinned the overcorrection: it required a note on EVERY
+    zero-row run, which fires on every genuinely quiet news day. error_message
+    is load-bearing in both directions — check_cron_health pages on it, and the
+    brief's freshness gate requires it NULL on the latest run — so a note
+    attached for a benign reason suppresses the news section daily AND pages.
+    That is row-count-as-health again (rule 2 of the incident).
+
+    The replacement contract: a quiet day (0 rows, no degraded drops) leaves
+    error_message NULL; degradation is now defined by the drop COUNTERS the
+    worker reports (malformed / no_match) and by outright fetch failures — not
+    by the row count. Both directions asserted here, so neither can silently
+    regress into the other.
     """
     conn = AsyncMock()
     conn.fetch.return_value = [{"symbol": "HUBS.NYSE"}]
@@ -512,8 +542,15 @@ async def test_zero_rows_written_sets_degraded_note() -> None:
         async def __aexit__(self, *a):
             return False
 
+    calls = {"n": 0}
+
     async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
-        return 0  # no exception; every article filtered out upstream
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # First main() run: a genuinely quiet day — vendor sent nothing.
+            return 0, _stats(fetched=0)
+        # Second main() run: zero rows because everything was MALFORMED.
+        return 0, _stats(fetched=3, malformed=3)
 
     with (
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
@@ -526,10 +563,28 @@ async def test_zero_rows_written_sets_degraded_note() -> None:
     ):
         await main()  # must NOT raise — 0 is a valid count
 
-    note = captured_monitor["monitor"].note
-    assert note is not None, "a green run writing 0 rows must set a degraded note"
-    assert "0 rows written" in note
-    assert "holdings-symbol filter" in note
+    quiet_note = captured_monitor["monitor"].note
+    assert quiet_note is None, (
+        "a genuinely quiet day must NOT set a note — it would suppress the "
+        "brief's news section and page, every day the market is boring"
+    )
+
+    # Same run shape, but the zero comes from malformed drops → degraded.
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
+    ):
+        await main()
+
+    degraded_note = captured_monitor["monitor"].note
+    assert degraded_note is not None, "malformed drops must mark the run degraded"
+    assert "malformed=3" in degraded_note
+    assert "degraded" in degraded_note
 
 
 @pytest.mark.asyncio
@@ -566,7 +621,7 @@ async def test_partial_failure_sets_degraded_note() -> None:
             return False
 
     async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
-        return None if symbol == "CBA.AU" else 2
+        return None if symbol == "CBA.AU" else (2, _stats(fetched=2))
 
     with (
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),

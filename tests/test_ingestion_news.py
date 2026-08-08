@@ -648,3 +648,22 @@ def test_empty_list_is_still_a_quiet_day_not_malformed() -> None:
     assert stats.fetched == 0
     assert stats.dropped_malformed == 0
     assert _reconciles(items, stats)
+
+
+def test_scalar_symbols_field_cannot_destroy_the_batch() -> None:
+    """A junk `symbols` field is one malformed item, not a batch-killer.
+
+    json.loads("123") returns an int, and the vendor can put any scalar in the
+    field directly. Iterating a non-list raised TypeError here — and because
+    the job catches broadly, the whole batch died and every good sibling was
+    discarded. That contradicts the invariant the non-dict guard enforces.
+    """
+    good = _item(url="https://example.com/news/good", symbols=["BHP.AU"])
+    for junk in ("123", 5, 1.5, {"a": 1}, True):
+        items, stats = parse_news_response_with_stats(
+            [good, dict(good, link="https://example.com/news/junk", symbols=junk)],
+            holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+        )
+        assert len(items) == 1, f"good sibling must survive symbols={junk!r}"
+        assert stats.dropped_malformed == 1, f"junk symbols counted: {junk!r}"
+        assert _reconciles(items, stats)

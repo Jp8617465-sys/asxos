@@ -555,24 +555,38 @@ async def _news_section(
 
 
 async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
-    """True when ingest_news succeeded AND wrote rows within the last 24 hours.
+    """True when the LATEST ingest_news run in the window was clean.
 
-    The ``rows_written > 0`` clause is the load-bearing half. Gating on
-    ``status='success'`` alone made this check and the surface's ship condition
-    (``docs/product/dark-launch-exit-plan.md`` surface #2) key off the *same*
-    field — so a single defect cleared both. That is exactly what happened: 22
-    consecutive ingest_news runs recorded ``status='success'`` with
-    ``rows_written=0`` while ``holding_news`` stayed empty, and this gate passed
-    every one of them (see ``docs/market-trends-report-2026-08-05.md`` §1).
+    "Clean" is ``status='success' AND error_message IS NULL`` — evaluated in
+    Python, on the most recent run only. Three prior designs each failed a
+    different way, and this docstring records all three so none returns:
 
-    Requiring rows costs nothing on a genuine quiet news day: with no articles
-    ingested in the window, ``_holding_news`` would return ``[]`` and the section
-    would be empty anyway. So this can only suppress an already-empty section —
-    never hide news that exists.
+    1. ``status='success'`` alone shared one forgeable field with the surface's
+       ship condition: 22 consecutive runs reported success over an empty table
+       (``docs/market-trends-report-2026-08-05.md`` §1).
+    2. The overcorrection added ``rows_written > 0`` — a row count on the WRITER
+       as a health signal for the READER. ``holding_news`` keeps 7 days and this
+       brief reads a 24h window, so an article ingested yesterday is still
+       current today, and a genuinely quiet run this morning would have hidden
+       it. The two queries do not share a window.
+    3. Any predicate placed in the WHERE clause next to ``LIMIT 1`` asks "did
+       ANY qualifying run happen in the window?" — so an older clean run
+       satisfied the filter and the latest degraded or failed run was never
+       examined. Filtering the evidence of a problem out of the query is the
+       incident's own shape, one level up.
 
-    This is currently the only row-count check anywhere in the news pipeline: the
-    job's own predicate cannot see a zero that arrives without an exception, and
-    the two other consumers of the same job_runs row still read status alone
+    Hence: select the latest run inside a BOTH-SIDED window, then judge it.
+    The upper bound matters because ``collect()`` accepts an explicit historical
+    ``as_of`` (re-sends, backfills): without it, a run dated after the brief
+    would decide whether a past day was fresh. A freshness gate must answer
+    from what was knowable on the day it describes.
+
+    ``error_message IS NULL`` is meaningful because ``jobs/ingest_news.py``
+    writes a note ONLY on real degradation (fetch failures, malformed payloads,
+    unmatched articles) — never on a quiet day. That coupling is load-bearing
+    and recorded at the note-writing site.
+
+    The two other consumers of the same job_runs row still read status alone
     (``jobs/ingest_sentiment.py::_upstream_ok`` — soft, WARNING only; and the
     ``asx news signoff`` prerequisite in ``asxos/cli/news.py``). Widen those
     before treating a green ingest_news as evidence of anything.
@@ -580,14 +594,18 @@ async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
     cutoff = as_of - timedelta(days=1)
     rows = await conn.fetch(
         """
-        SELECT 1 FROM job_runs
-        WHERE job_name = 'ingest_news' AND as_of >= $1 AND status = 'success'
-          AND rows_written > 0
+        SELECT status, error_message FROM job_runs
+        WHERE job_name = 'ingest_news' AND as_of >= $1 AND as_of <= $2
+        ORDER BY as_of DESC
         LIMIT 1
         """,
         cutoff,
+        as_of,
     )
-    return bool(rows)
+    if not rows:
+        return False
+    latest = rows[0]
+    return latest["status"] == "success" and latest["error_message"] is None
 
 
 async def _holding_news(
