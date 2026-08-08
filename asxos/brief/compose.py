@@ -196,6 +196,16 @@ class PortfolioSection:
     turnover_aud: Decimal
 
 
+# News section states. An empty `news_items` list is ambiguous on its own —
+# see `_news_section` for why the distinction is load-bearing rather than
+# cosmetic. Plain string constants (not an Enum) so Jinja can compare them
+# directly in the template without a filter or a context processor.
+NEWS_DISABLED = "disabled"      # a gate is off; the feature is not running
+NEWS_UNVERIFIED = "unverified"  # ingestion did not pass its freshness gate
+NEWS_QUIET = "quiet"            # verified fresh, genuinely nothing qualifying
+NEWS_OK = "ok"                  # qualifying items present
+
+
 @dataclass(frozen=True)
 class BriefData:
     as_of: date
@@ -203,6 +213,9 @@ class BriefData:
     regulatory_hits: list[RegulatoryHit] = field(default_factory=list)
     job_failures: list[JobFailure] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
+    # Which of the four news states produced `news_items`. Defaults to
+    # NEWS_DISABLED so a BriefData built without news never claims a quiet day.
+    news_status: str = NEWS_DISABLED
     portfolio_section: PortfolioSection | None = None
     # PR2a: collected, not yet rendered (PR2b adds the brief.html.j2 block).
     discipline_findings: list[DisciplineFinding] = field(default_factory=list)
@@ -327,7 +340,7 @@ async def collect(as_of: date) -> BriefData:
 
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
-        news_items = await _news_section(conn, as_of)
+        news_items, news_status = await _news_section(conn, as_of)
         portfolio_section = await _portfolio_section(conn, as_of)
 
         # Fail-loud isolation (CLAUDE.md #10): a broken discipline query must
@@ -365,6 +378,7 @@ async def collect(as_of: date) -> BriefData:
         regulatory_hits=regulatory_hits,
         job_failures=job_failures,
         news_items=news_items,
+        news_status=news_status,
         portfolio_section=portfolio_section,
         discipline_findings=discipline_findings,
         latest_price_date=latest_price_date,
@@ -494,8 +508,8 @@ async def _job_failures(
 
 async def _news_section(
     conn: asyncpg.Connection, as_of: date
-) -> list[NewsItem]:
-    """Return news items for section 6, or [] if gated out (M14a).
+) -> tuple[list[NewsItem], str]:
+    """Return ``(items, status)`` for section 6 (M14a).
 
     Three-layer gating (mirrors M13.7 Amendment C):
       1. ASXOS_PERSONAL_USE=1  (regulatory firewall)
@@ -504,15 +518,35 @@ async def _news_section(
          note (freshness gate — see _news_ingest_fresh for why the latest run,
          and why not a row count)
 
-    Section absent entirely when any gate fails.
+    **Why this returns a status and not a bare list.** An empty list previously
+    collapsed four materially different situations into one indistinguishable
+    outcome — the section simply vanished from the brief. James could not tell
+    "no qualifying news today" from "ingestion has written zero rows for a
+    month", and the second is exactly the 2026-08 false-green incident
+    (``docs/market-trends-report-2026-08-05.md`` §1). A reader who sees nothing
+    reasonably infers nothing happened; here, nothing rendered was equally
+    consistent with the pipeline being broken.
+
+    The four states are now distinct and each is rendered honestly:
+
+    ``NEWS_DISABLED``    a gate is off — the feature is not running, section omitted
+    ``NEWS_UNVERIFIED``  ingestion did not pass its freshness gate — say so, do
+                         NOT imply the absence of news is a finding
+    ``NEWS_QUIET``       ingestion verified fresh and genuinely produced nothing
+                         qualifying — a real, reportable "no news" answer
+    ``NEWS_OK``          qualifying items exist
+
+    Only ``NEWS_QUIET`` licenses the statement "no qualifying news was found".
+    ``NEWS_UNVERIFIED`` must never be rendered as if it were quiet.
     """
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
-        return []
+        return [], NEWS_DISABLED
     if os.environ.get("ASXOS_NEWS_BRIEF_ENABLED") != "1":
-        return []
+        return [], NEWS_DISABLED
     if not await _news_ingest_fresh(conn, as_of):
-        return []
-    return await _holding_news(conn, as_of)
+        return [], NEWS_UNVERIFIED
+    items = await _holding_news(conn, as_of)
+    return items, (NEWS_OK if items else NEWS_QUIET)
 
 
 async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
