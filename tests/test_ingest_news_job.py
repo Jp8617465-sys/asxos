@@ -636,3 +636,78 @@ async def test_partial_failure_sets_degraded_note() -> None:
 
     note = captured_monitor["monitor"].note
     assert note is not None and "1/4 symbols failed" in note
+
+
+@pytest.mark.asyncio
+async def test_no_match_drops_set_a_note_but_stale_and_duplicate_do_not() -> None:
+    """Pins the disputed half of the note policy, both directions.
+
+    no_match is the namespace-fault signature of the incident itself, so it
+    notes. Stale and duplicate drops are the time window and dedup working as
+    designed — near-daily by construction — so they must NOT note: the note
+    suppresses the brief's news section and pages, and a note that fires on
+    routine operation is the rows_written overcorrection wearing a new field.
+
+    Honest caveat, per the frozen-head review: whether no_match>0 occurs on
+    NORMAL days is uncited in either direction. If the live probe shows it is
+    routine, narrow the policy to the total-wipeout signature — and this test
+    is the one to update, deliberately, not silently.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [{"symbol": "HUBS.NYSE"}]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    captured_monitor = {}
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+            self.note = None
+            captured_monitor["monitor"] = self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    async def stale_dup_only(client, symbol, from_date, holdings, conn):
+        return 0, _stats(fetched=4, stale=3, duplicate=1)
+
+    async def no_match_only(client, symbol, from_date, holdings, conn):
+        return 0, _stats(fetched=2, no_match=2, tags=("TSLA.US",))
+
+    base_patches = {"init_pool": AsyncMock(), "close_pool": AsyncMock()}
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=base_patches["init_pool"]),
+        patch("jobs.ingest_news.close_pool", new=base_patches["close_pool"]),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=stale_dup_only),
+    ):
+        await main()
+    assert captured_monitor["monitor"].note is None, (
+        "stale/duplicate-only drops are routine operation — a note here would "
+        "suppress the news section and page on ordinary days"
+    )
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=base_patches["init_pool"]),
+        patch("jobs.ingest_news.close_pool", new=base_patches["close_pool"]),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=no_match_only),
+    ):
+        await main()
+    note = captured_monitor["monitor"].note
+    assert note is not None and "no_match=2" in note, (
+        "unmatched articles are the incident's namespace-fault signature"
+    )
+    assert "TSLA.US" not in note, "no vendor string may reach the persisted field"

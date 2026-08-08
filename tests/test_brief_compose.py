@@ -780,7 +780,8 @@ def test_collect_assembles_news_items() -> None:
 def test_collect_news_absent_when_ingest_stale() -> None:
     """news_items=[] when no recent ingest_news run passes the freshness gate.
 
-    "Passes" means success AND rows_written > 0 — the mock returns no rows for
+    "Passes" means the LATEST run was clean (success, NULL error_message) —
+    not a row count. The mock returns no rows for
     the gate query either way, so this covers both halves at the collect() level;
     the SQL itself is pinned by test_news_ingest_fresh_reads_the_latest_run_*.
     """

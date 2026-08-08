@@ -203,10 +203,11 @@ class ParseStats(NamedTuple):
     which is what diagnoses a namespace mismatch in one cron cycle instead of a
     month of archaeology.
 
-    Sink: ``jobs/ingest_news.py::_fetch_and_upsert`` logs these at WARNING when
-    ``dropped_no_match`` is non-zero. They are **not** persisted — the
-    ``job_runs.error_message`` note ``main()`` leaves on a green zero-row run is
-    an aggregate ("0 rows written across N symbol(s)") and carries no tags.
+    Sink: ``jobs/ingest_news.py::_fetch_and_upsert`` logs these at WARNING on
+    ANY drop. The tags are **not** persisted — ``main()`` aggregates only the
+    malformed / no-match / failure COUNTS into ``job_runs.error_message``, and
+    only on a degraded run; a quiet or stale-only day leaves it NULL (the old
+    zero-row note fired on every quiet day and is deliberately gone).
 
     Every drop path must have a counter
     -----------------------------------

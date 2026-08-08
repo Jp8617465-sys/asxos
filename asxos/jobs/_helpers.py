@@ -65,7 +65,7 @@ def assert_partial_success(
         is_ok: per-result success predicate. Examples:
             - sync_fundamentals: ``lambda r: r is True``  (worker -> bool)
             - ingest_regulatory: ``lambda r: isinstance(r, int)``  (int | None)
-            - ingest_news: ``lambda r: isinstance(r, int)``  (int | None)
+            - ingest_news: ``lambda r: isinstance(r, tuple)``  (tuple[int, ParseStats] | None)
 
             Prefer a positive TYPE test over excluding a failure value. Under
             ``return_exceptions=True`` an exception object is not None, so

@@ -25,9 +25,9 @@ Sections (in order):
   6. Market news on holdings (M14a) — gated by ALL of:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_NEWS_BRIEF_ENABLED=1 (paper-trade dark gate, plan M14a)
-       an ingest_news job_run within 24h that is BOTH status='success' AND
-         rows_written > 0 (freshness gate — status alone was forgeable, see
-         _news_ingest_fresh)
+       the LATEST ingest_news job_run in the window being status='success'
+         with a NULL error_message (freshness gate — status alone was
+         forgeable, a row count was the overcorrection; see _news_ingest_fresh)
      Section absent entirely when any gate fails.
   7. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
@@ -540,8 +540,9 @@ async def _news_section(
     Three-layer gating (mirrors M13.7 Amendment C):
       1. ASXOS_PERSONAL_USE=1  (regulatory firewall)
       2. ASXOS_NEWS_BRIEF_ENABLED=1  (paper-trade dark gate; default 0)
-      3. ingest_news had a job_run within 24h that succeeded AND wrote rows
-         (freshness gate — see _news_ingest_fresh on why rows, not just status)
+      3. the LATEST ingest_news run in the window succeeded with no degraded
+         note (freshness gate — see _news_ingest_fresh for why the latest run,
+         and why not a row count)
 
     Section absent entirely when any gate fails.
     """
