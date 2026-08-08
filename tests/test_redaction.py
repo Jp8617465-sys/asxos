@@ -75,3 +75,77 @@ def test_sanitized_http_error_suppresses_original_context() -> None:
     # re-exposing the original; the sanitized copy itself must carry no key.
     safe = sanitized_http_error(_leaking_error("api_token"))
     assert "SECRETKEY" not in repr(safe)
+
+
+# ---------------------------------------------------------------------------
+# Bearer-header and naked-prefix forms (2026-08-08)
+#
+# Live instance: the Resend client raised
+#   InvalidHeader: ... header value: 'Bearer re_<KEY>\n'
+# and JobMonitor persisted it to job_runs.error_message — the query-param
+# regex cannot see that shape. These pin the observed leak form and the
+# conservative naked-prefix pass.
+# ---------------------------------------------------------------------------
+
+
+def test_bearer_header_value_is_redacted() -> None:
+    msg = (
+        "InvalidHeader: Invalid leading whitespace, reserved character(s), or "
+        "return character(s) in header value: 'Bearer re_CwbxTESTKEY12345abc\\n'"
+    )
+    out = redact_secrets(msg)
+    assert "re_CwbxTESTKEY12345abc" not in out
+    assert "Bearer ***" in out
+    assert "InvalidHeader" in out, "diagnostic context must survive"
+
+
+def test_naked_vendor_keys_are_redacted() -> None:
+    for raw in (
+        "sent with key re_9abcDEF12345xyz",
+        "anthropic sk-ant-abc123def456ghi",
+        "token ghp_AbCd1234EfGh5678",
+        "pat github_pat_11ABCDEF0123456789",
+        "render rnd_7QNvTESTKEY123456",
+    ):
+        out = redact_secrets(raw)
+        assert "***" in out, raw
+        for frag in ("re_9abc", "sk-ant-abc", "ghp_AbCd", "github_pat_11", "rnd_7QNv"):
+            assert frag not in out, f"{frag} survived in {out!r}"
+
+
+def test_ordinary_snake_case_words_survive() -> None:
+    """`re_` needs a digit + length — prose must not be eaten."""
+    msg = "please re_authenticate and re_run the re_ingestion step"
+    assert redact_secrets(msg) == msg
+
+
+def test_bearer_in_prose_without_token_survives() -> None:
+    assert redact_secrets("the bearer of this message") == (
+        "the bearer of this message"
+    )
+
+
+def test_dsn_userinfo_password_is_redacted() -> None:
+    """postgresql://user:PASSWORD@host — the highest-value leakable secret."""
+    msg = (
+        "connect failed: postgresql://postgres.gxjq:S3cretPass99@"
+        "aws-1.pooler.example.com:5432/postgres"
+    )
+    out = redact_secrets(msg)
+    assert "S3cretPass99" not in out
+    assert "postgres.gxjq" in out, "username survives for diagnostics"
+    assert "aws-1.pooler.example.com" in out, "host survives for diagnostics"
+    assert "://postgres.gxjq:***@" in out
+
+
+def test_no_digit_resend_key_two_segment_form_is_redacted() -> None:
+    """No published guarantee that Resend keys contain a digit — the
+    two-segment shape (re_XXXX_LONGSEGMENT) is covered without one."""
+    out = redact_secrets("key re_AbCdEfGh_AbCdEfGhIjKlMnOpQrSt used")
+    assert "AbCdEfGhIjKlMnOpQrSt" not in out
+    assert "***" in out
+
+
+def test_plain_url_without_password_survives() -> None:
+    msg = "GET https://eodhd.com/api/news failed with 502"
+    assert redact_secrets(msg) == msg

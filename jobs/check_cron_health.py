@@ -30,7 +30,10 @@ from asxos.jobs.utils.job_monitor import JobMonitor
 # Format: job_name.  Jobs excluded (weekly/non-daily) are NOT listed here.
 _EXPECTED_DAILY = [
     "sync_prices",
-    "generate_signals",
+    # "generate_signals" — RETIRED 2026-08-08 (governor decision: Model A
+    # monitors retired with Render; keeping it here would fire MISSING every
+    # weekday forever — the alert-fatigue failure mode this file exists to
+    # prevent).
     "ingest_regulatory",
     "compose_brief",
     "snapshot_portfolio",
@@ -40,7 +43,7 @@ _EXPECTED_DAILY = [
     "check_au_positions",
     "check_thesis_invalidations",
     "validate_price_data",
-    "check_model_staleness",
+    # "check_model_staleness" — RETIRED 2026-08-08 (same decision).
 ]
 
 

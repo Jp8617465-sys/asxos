@@ -1,0 +1,69 @@
+# Weekly research-store chain — Saturday, as ordered blocking steps.
+#
+# Under Render this was six separate cron services chained by wall-clock
+# offsets (16:00, 16:10, 16:30, 16:50, 17:10 UTC): a slow or failed upstream
+# silently fed stale data to every downstream service, because nothing
+# expressed the dependency. Here the order IS the dependency graph — a failed
+# step blocks everything below it.
+#
+# Cadence change, deliberate and documented: sync_fundamentals ran DAILY on
+# Render (18:00 UTC) because it fed Model A's feature engine. Model A is
+# shelved (rule #11) and its monitors are retired (governor decision
+# 2026-08-08), so the remaining model-independent consumer is the screening
+# evaluator (asxos/domain/screening/), for which weekly freshness is
+# sufficient. If a daily consumer returns, lift the step back out.
+#
+# compute_factor_scores is deliberately NOT here: retired with the research
+# quant lane (degenerate 0.000 output, no production reader) — revive as its
+# own workflow if a real quant lane returns.
+
+name: weekly-research
+
+on:
+  schedule:
+    - cron: "0 16 * * 6"   # Saturday 16:00 UTC == Sunday 02:00 AEST
+  workflow_dispatch: {}
+
+concurrency:
+  group: weekly-research
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90   # sync_financial_statements is the long pole
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[ml]"
+
+      - name: Sync universe
+        run: python jobs/sync_universe.py
+
+      - name: Sync security master
+        run: python jobs/sync_security_master.py
+
+      - name: Sync corporate actions
+        run: python jobs/sync_corporate_actions.py --active-only
+
+      - name: Sync financial statements
+        run: python jobs/sync_financial_statements.py --active-only
+
+      - name: Derive fundamentals PIT
+        run: python jobs/derive_fundamentals_pit.py
+
+      - name: Sync fundamentals
+        run: python jobs/sync_fundamentals.py

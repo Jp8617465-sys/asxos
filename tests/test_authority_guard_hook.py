@@ -7,8 +7,8 @@ behavior leaves open: interpreter-based writes (a Python/Node script that opens 
 itself) and symlink aliasing. Direct Edit/Write/MultiEdit/NotebookEdit calls on an authority
 path are *also* covered by ``.claude/settings.json``'s ``deny`` array at the platform layer —
 this hook's Edit/Write/NotebookEdit checks are a second, redundant layer that specifically
-re-resolves the path via ``realpath`` so a symlink alias can't present a non-authority name
-for an authority target.
+canonicalises the path so a symlink alias can't present a non-authority name for an
+authority target.
 """
 from __future__ import annotations
 
@@ -38,6 +38,7 @@ def repo(tmp_path: Path) -> Path:
     (tmp_path / "asxos" / "domain").mkdir(parents=True)
     (tmp_path / "tests").mkdir()
     (tmp_path / ".claude" / "settings.json").write_text("{}")
+    (tmp_path / ".env").write_text("secret")
     (tmp_path / "CLAUDE.md").write_text("x")
     (tmp_path / "render.yaml").write_text("x")
     (tmp_path / "docs" / "product" / "arbi-constitution.md").write_text("x")
@@ -50,24 +51,68 @@ def repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def run_hook(repo: Path, tool_name: str, tool_input: dict) -> dict:
+def run_raw_hook(
+    repo: Path,
+    payload: str,
+    *,
+    project_dir: Path | None = None,
+) -> dict:
+    project_dir = project_dir or repo
     proc = subprocess.run(
         ["bash", str(HOOK)],
         cwd=repo,
-        input=json.dumps({"tool_name": tool_name, "tool_input": tool_input}),
+        input=payload,
         capture_output=True, text=True,
-        env={"CLAUDE_PROJECT_DIR": str(repo), "PATH": os.environ.get("PATH", "")},
+        env={
+            "CLAUDE_PROJECT_DIR": str(project_dir),
+            "PATH": os.environ.get("PATH", ""),
+        },
     )
     assert proc.returncode == 0, f"hook exited {proc.returncode}: {proc.stderr}"
     out = proc.stdout.strip()
     return {} if not out else json.loads(out)["hookSpecificOutput"]
 
 
+def run_hook(
+    repo: Path,
+    tool_name: str,
+    tool_input: dict,
+    *,
+    project_dir: Path | None = None,
+    payload_cwd: Path | None = None,
+) -> dict:
+    payload_cwd = payload_cwd or repo
+    return run_raw_hook(
+        repo,
+        json.dumps(
+            {
+                "cwd": str(payload_cwd),
+                "tool_name": tool_name,
+                "tool_input": tool_input,
+            }
+        ),
+        project_dir=project_dir,
+    )
+
+
 def _is_deny(decision: dict) -> bool:
     return decision.get("permissionDecision") == "deny"
 
 
+def test_deny_file_operation_without_cwd_binding(repo: Path) -> None:
+    control = repo.parent / f"{repo.name}-control-no-cwd"
+    control.mkdir()
+    decision = run_raw_hook(
+        repo,
+        json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "link.md"}}),
+        project_dir=control,
+    )
+    assert _is_deny(decision)
+    assert "omitted a valid cwd" in decision["permissionDecisionReason"]
+
+
 AUTHORITY_PATHS = [
+    ".env",
     ".claude/settings.json",
     ".claude/hooks/push-guard.sh",
     "CLAUDE.md",
@@ -105,10 +150,95 @@ def test_allow_edit_of_non_authority_path(repo: Path, tool: str, path: str) -> N
 
 
 def test_deny_symlink_aliasing_an_authority_path(repo: Path) -> None:
-    """A symlink presenting a non-authority name must still deny via realpath resolution —
-    this is the one gap settings.json's textual path-matching may not close on its own."""
+    """A non-authority alias must deny after canonical path resolution.
+
+    This is the one gap settings.json's textual path matching may not close on its own.
+    """
     (repo / "link.md").symlink_to(repo / ".claude" / "settings.json")
-    assert _is_deny(run_hook(repo, "Edit", {"file_path": "link.md"}))
+    decision = run_hook(repo, "Edit", {"file_path": "link.md"})
+    assert _is_deny(decision)
+    assert "canonical path resolves" in decision["permissionDecisionReason"]
+
+
+def test_deny_symlink_aliasing_env(repo: Path) -> None:
+    """The hook's authority set must include the .env deny from settings.json."""
+    (repo / "secret-link").symlink_to(repo / ".env")
+    assert _is_deny(run_hook(repo, "Edit", {"file_path": "secret-link"}))
+
+
+def test_deny_symlinked_authority_directory_for_new_file(repo: Path) -> None:
+    """Canonicalisation must resolve a linked parent even when the leaf is new."""
+    (repo / "control").symlink_to(repo / ".claude", target_is_directory=True)
+    assert _is_deny(
+        run_hook(repo, "Write", {"file_path": "control/hooks/new-guard.sh"})
+    )
+
+
+def test_deny_alias_to_loaded_control_authority_file(repo: Path) -> None:
+    """A target checkout cannot mutate authority bytes in the loaded-control checkout."""
+    control = repo.parent / f"{repo.name}-control"
+    (control / ".claude").mkdir(parents=True)
+    (control / ".claude" / "settings.json").write_text("{}")
+    (repo / "control-settings.json").symlink_to(control / ".claude" / "settings.json")
+    assert _is_deny(
+        run_hook(
+            repo,
+            "Write",
+            {"file_path": "control-settings.json"},
+            project_dir=control,
+            payload_cwd=repo,
+        )
+    )
+
+
+def test_allow_alias_to_authority_named_file_outside_configured_roots(repo: Path) -> None:
+    """The authority list is scoped to target and loaded-control checkouts."""
+    unrelated = repo.parent / f"{repo.name}-unrelated"
+    unrelated.mkdir()
+    (unrelated / "CLAUDE.md").write_text("not this project's authority")
+    (repo / "external-doc").symlink_to(unrelated / "CLAUDE.md")
+    assert run_hook(repo, "Edit", {"file_path": "external-doc"}) == {}
+
+
+def test_allow_symlink_aliasing_a_non_authority_path(repo: Path) -> None:
+    """Canonicalisation must not turn into a blanket ban on symlinks."""
+    (repo / "module-link.py").symlink_to(repo / "asxos" / "domain" / "foo.py")
+    assert run_hook(repo, "Edit", {"file_path": "module-link.py"}) == {}
+
+
+def test_case_variant_matches_filesystem_semantics(
+    repo: Path,
+) -> None:
+    alias = repo / "claude.md"
+    try:
+        same_file = alias.samefile(repo / "CLAUDE.md")
+    except FileNotFoundError:
+        same_file = False
+    decision = run_hook(repo, "Write", {"file_path": "claude.md"})
+    if same_file:
+        assert _is_deny(decision)
+    else:
+        assert decision == {}
+
+
+def test_new_file_below_case_variant_directory_matches_filesystem_semantics(
+    repo: Path,
+) -> None:
+    alias = repo / ".CLAUDE"
+    try:
+        same_directory = alias.samefile(repo / ".claude")
+    except FileNotFoundError:
+        same_directory = False
+    decision = run_hook(repo, "Write", {"file_path": ".CLAUDE/hooks/new-guard.sh"})
+    if same_directory:
+        assert _is_deny(decision)
+    else:
+        assert decision == {}
+
+
+def test_guard_does_not_use_gnu_only_realpath_flags() -> None:
+    """Keep the macOS portability defect reproducible in Linux CI."""
+    assert re.search(r"\brealpath\s+-m\b", HOOK.read_text()) is None
 
 
 # --- Bash: interpreter-based writes (the documented Edit-deny gap) --------------------
@@ -145,6 +275,11 @@ def test_deny_direct_edit_of_docs_readme(repo: Path) -> None:
         "grep -n rule CLAUDE.md",  # authority-path reference, but no write verb
         "cat CLAUDE.md",  # ditto
         "echo x > /tmp/notauth.txt",  # redirect, non-authority path
+        "echo x > .env.example",  # exact .env boundary must not match a prefix
+        "echo x > CLAUDE.md.bak",  # exact-file authority names are not prefixes
+        "echo x > docs/CLAUDE.md",  # same basename below a non-authority directory
+        "echo x > CLAUDE.md/child",  # exact files are not directory prefixes
+        "echo x > .env/child",  # same rule for a dotfile authority name
         "git status",
     ],
 )
