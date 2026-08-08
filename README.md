@@ -10,7 +10,7 @@ Start here — this README is a stable overview, not a live operating map:
 
 - **Agent guide + non-negotiables:** `CLAUDE.md`
 - **Docs map / source-of-truth index:** `docs/README.md`
-- **Current session handoff:** `docs/session-handoff-2026-07-04.md`
+- **Current session handoff:** `docs/session-handoff-2026-08-08.md`
 - **Live deployment source:** `render.yaml` (reconciled via Render/Supabase MCP)
 - **Canonical schema:** `migrations/`
 
