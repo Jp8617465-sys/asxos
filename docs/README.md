@@ -17,7 +17,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 
 ## Read first, in order
 1. `../CLAUDE.md` — agent guide + non-negotiables (note **standing** rule **#11**: Model A quarantine — resolved 2026-07-11 *against* Model A; the quarantine stands as policy)
-2. `session-handoff-2026-08-08.md` — the newest dated handoff and current priority state after it reaches `main`; it separates shipped evidence, branch-only work, and unratified future-state recommendations
+2. `session-handoff-2026-08-08.md` — the newest dated handoff and current priority state; it separates shipped evidence, branch-only work, and unratified future-state recommendations
 3. `product/roadmap-state.md` — the living reconciled state (**current authority**); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. Where priority conflicts, the newest handoff wins and the roadmap must be reconciled
 4. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
 5. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes

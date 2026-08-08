@@ -8,18 +8,19 @@
 
 **Cutoff:** 2026-08-08, Australia/Brisbane
 
-**Final remote baseline observed:** `main@a4fb797dc8d34100082b275435acf812bcb46666` (PR #74 merge)
+**Reconciled remote baseline:** `main@cda6b1b963236c477805654100cbce324b54fc25`
+(PR #77 merge; includes PR #76)
 
-**Local checkout base:** `origin/main@ec3f059b918aa978afb06e3a49edf82d0641dd0b` (PR #72 merge; Git transport was unavailable during the final remote advance)
+**Closeout PR:** [#75](https://github.com/Jp8617465-sys/asxos/pull/75), branch
+`agent/arbi-session-close-2026-08-08-api`
 
-**Local closeout branch:** `agent/arbi-session-close-2026-08-08`
+**Preserved local source branch:** `agent/arbi-session-close-2026-08-08@b0980f4`
 
-**Remote transport branch:** `agent/arbi-session-close-2026-08-08-api`
-
-This is the durable closeout for the PR #70/#71/#72 recovery work, the Arbi future-state
-review, the autonomy/control review, and the proposed outcome-driven investment-engine build
-loop. It records what is real, what is branch-only, and what remains a recommendation. It does
-not grant merge, deployment, migration, trading, or increased-autonomy authority.
+This is the durable closeout for the PR #70/#71/#72 recovery work, the PR #74/#76/#77
+release sequence, the Arbi future-state review, the autonomy/control review, and the proposed
+outcome-driven investment-engine build loop. It records what is real, what is branch-only, and
+what remains a recommendation. It does not grant deployment, migration, trading, or
+increased-autonomy authority.
 
 ---
 
@@ -79,26 +80,36 @@ not permission to bypass existing gates.
 
 | Artifact | Exact state | Meaning |
 |---|---|---|
-| Current `main` | `a4fb797dc8d3` | PR #72 and PR #74 are merged. PR #74 landed while this closeout was being published. Production activation remains unverified. |
+| Current `main` | `cda6b1b96323` | PRs #72, #74, #76, and #77 are merged. Code and exact-head CI are green; post-merge production outcomes remain unverified in this handoff. |
 | News degradation + scheduler | PR #74, merge `a4fb797dc8d3`, head `ddbd64c93144` | News now has an end-to-end degradation contract and explicit render states; GitHub Actions daily-brief and watchdog workflows were added. The PR explicitly performed no deployment. |
-| Gate0 control hardening | local `agent/arbi-authority-gate0@eeed24019edf` | Recorded `CODE_READY / MCP_CANARY_PENDING / NO AUTHORITY INCREASE` against the PR #72 base. Local-only at close; it now requires exact rebase/extraction and reverification against post-PR74 main. |
+| Scheduler-in-git + macro-thesis loop | PR #76, merge `9f3b81405496`, head `5bd9a844a942` | Added/extended the ordered daily brief, weekly research, US-position, and backup workflows; updated pipeline-health expectations; placed `score_macro_theses` after brief delivery; and repaired backup, redaction, fallback-email, and price-validation defects. The PR explicitly performed no deployment. |
+| Portable authority guard | PR #77, merge `cda6b1b96323`, reconciled head `2d7ce8af0dbb` | The macOS/Linux path-canonicalisation hotfix was rerun against post-PR76 `main`; all three exact-head GitHub checks passed before merge. It does not increase Arbi's authority. |
+| Gate0 control hardening | local `agent/arbi-authority-gate0@eeed24019edf` | Recorded `CODE_READY / MCP_CANARY_PENDING / NO AUTHORITY INCREASE` against the PR #72 base. Local-only at close; it now requires narrow extraction and reverification against post-PR77 main. |
 | Arbi future-state proposal | local `agent/arbi-future-state-operating-model@33eb00e3cd34` | Reviewed `CHALLENGE / CONDITIONAL ADOPT`; local-only, branch-only, and non-authoritative. |
 | Investment-engine dossier | local `agent/investment-engine-dossier@6cfaf15518d8` | Large source-material branch; its matching remote branch is four commits behind. Not a release or replacement roadmap. |
-| This closeout | local `agent/arbi-session-close-2026-08-08`; remote transport `agent/arbi-session-close-2026-08-08-api` | Must merge to `main` before a normal `/arbi` wake can rely on it. |
+| This closeout | PR #75 on `agent/arbi-session-close-2026-08-08-api`; preserved source branch `agent/arbi-session-close-2026-08-08@b0980f4` | Must merge to `main` before a normal `/arbi` wake can rely on it. Do not force-push the preserved source branch. |
 
 The three pre-existing worktrees were clean when inspected. A separate latest-main worktree was
 created for this closeout so no Claude or Arbi implementation branch was edited.
 
-Direct Git transport was DNS-blocked in this environment. The closeout itself was published
-through GitHub's API, but the exact Gate0, future-state, and dossier heads above remain local; the
-remote handoff records their identities but GitHub cannot resolve those three SHAs yet. Preserve
-the clean worktrees and publish them deliberately later—do not reconstruct them from this summary.
+The first closeout publication used an API transport branch during a DNS-restricted session. That
+remote branch has now been reconciled through current `main`; the original local source branch is
+intentionally preserved rather than force-pushed. The exact Gate0, future-state, and dossier heads
+above remain local/branch-only evidence. Publish or extract them deliberately later—do not
+reconstruct them from this summary or treat their SHAs as merged state.
 
-PR #74 merged after that local inspection. Its activation packet requires the Actions secrets
-`DATABASE_URL`, `EODHD_API_KEY`, `FRED_API_KEY`, `RESEND_API_KEY`, `BRIEF_FROM_EMAIL`, and
-`BRIEF_TO_EMAIL`, followed by a manual `daily-brief` run. The PR says Render decommissioning is a
-separate James-gated step. Therefore code is merged, but live news, delivery, scheduler ownership,
-and absence of duplicate production runs are all still **UNVERIFIED** here.
+PR #76 superseded the narrower PR #74 activation target. Its merged workflows require the existing
+daily-pipeline secrets plus `BACKUP_GITHUB_TOKEN` and `BACKUP_REPO`; secret *presence*, workflow
+runs, delivered output, and the backup artifact were not independently verified in this handoff.
+James reports the transcript-exposed credentials were rotated, but that is not a production
+canary. PR #76's own decommission gates are: first scheduled green daily run, green Saturday
+research chain, and green backup with a verified artifact before deleting Render services. Those
+gates are necessary, not sufficient: independent closeout review found that `us-positions.yml`
+calls 13:30 UTC "after NYSE close," although it is 09:30 EDT (market open) in August and 08:30 EST
+(pre-open) in standard time. Correct or explicitly re-decide that schedule, then prove exact-SHA
+green `us-positions` and `pipeline-health` runs too. Until those receipts exist, live news,
+delivery, position monitoring, thesis scoring, scheduler ownership, backup recovery, and absence
+of duplicate production runs remain **UNVERIFIED** here. Render decommission remains blocked.
 
 ### Gate0 evidence and caveat
 
@@ -169,19 +180,28 @@ handoff.
 
 ### Next wake's ONE THING
 
-**Activate and prove PR #74 without accidentally creating two production schedulers.** The code is
-now on main; the remaining outcome is an exact-SHA live canary and an explicit scheduler-ownership
-decision. First inventory GitHub Actions secret presence and runs plus the still-live Render cron
-fleet. Then, with James's authority for any external change, configure missing Actions secrets and
-manually dispatch `daily-brief` at current main. Prove all three news states are honest:
+**Prove the post-PR76 operating cutover without losing the brief/news or running duplicate
+schedulers.** The code is on `main`; merge is not outcome proof. First inventory GitHub Actions
+secret presence (names only), current/recent workflow runs, and the still-live Render cron fleet.
+Confirm neither substrate has an active conflicting run before any dispatch. Correct or explicitly
+re-decide the erroneous 13:30 UTC `us-positions` schedule in a narrow reviewed change. Then, with
+James's authority for each external change, run `daily-brief` at the exact current main SHA and
+prove the naturally occurring live-news state plus delivery. Prove the other states through
+isolated fixtures or a shadow path with no production writes and no email:
 
 1. recent relevant news is visible when present;
 2. a valid empty result renders an explicit calm empty state rather than disappearing;
 3. provider/data failure is distinct from "no relevant news" and is observable.
 
 Also verify ordered upstream blocking, `job_runs` freshness/degradation evidence, the delivered
-email, and whether both Actions and Render could run the same chain. Do not decommission Render or
-accept dual scheduling implicitly; make the cutover a separate, evidence-backed James decision.
+email, post-brief `score_macro_theses`, AU-position checks, thesis-invalidations, the corrected
+US-position monitor, pipeline health, and the weekly research chain. James's receipt should record
+whether the brief arrived, was read, and was useful, missing something material, or materially
+wrong. Verify backup integrity with an isolated scratch restore; never restore into production or
+the shared Supabase project without separate James approval. Record the exact SHA and
+run/delivery/artifact receipts. Do not decommission Render or accept dual scheduling implicitly;
+make the cutover a separate, evidence-backed James decision only after every operating gate above
+is green.
 
 This is a narrow activation gate, not the final investment engine. It closes the in-flight loop
 before new architecture accumulates.
@@ -202,13 +222,17 @@ governed thesis
   → Arbi learning record
 ```
 
-Keep these contracts separate:
+Keep these semantic/audit contracts separate; this is not a mandate for separate services or
+tables, and the first implementation should reuse the existing thesis and brief structures where
+they can express the contract faithfully:
 
 1. `DecisionView` — immutable, evidence-linked truth shown to James;
 2. `SurfaceRender` — email/CLI/web representation of that truth;
 3. `DeliveryReceipt` — what was delivered, when, through which surface;
 4. `Disposition` — James's actual response and rationale;
-5. `StagedOrderSet` — separate and paper-only until explicitly promoted.
+
+`StagedOrderSet` is outside the first vertical. Add it only after the decision-utility loop is
+proven and a concrete paper-only need exists; it remains separate from any execution authority.
 
 Only after that vertical is used should the team generalise the view, add a read-only static
 cockpit experiment, evaluate a persistent cockpit, then consider Ask Arbi. Persistent autonomy is
@@ -232,11 +256,15 @@ not a promise of continuous token use.
    PR as the first process blocker.
 2. Run `git fetch --all --prune`; record current main, open PRs, worktrees, dirty indexes, and the
    exact head of every branch named above. Never reuse a verdict across a changed digest.
-3. Re-probe PR #72 and PR #74 live state. Inspect Actions runs/secret presence and the Render cron
-   fleet before changing either scheduler; do not assume merge equals outcome proof.
-4. Complete the PR #74 activation ONE THING above and record exact-SHA receipts.
+3. Inspect the post-PR76 Actions workflows, secret presence, active/recent runs, and the Render cron
+   fleet before changing either scheduler. Correct or explicitly re-decide the erroneous
+   `us-positions` schedule; do not assume merge or a mistimed green run equals outcome proof.
+4. Complete the post-PR76 operating-proof ONE THING above and record exact-SHA run, delivery,
+   James-usage, and scratch-restore receipts, including `us-positions` and `pipeline-health`. Keep
+   Render until James approves a proven cutover.
 5. Reconcile Gate0 by retaining safe deny-only controls and holding the premature risk-tier policy
-   cutover. Run its MCP command-shape canary before proposing any authority change.
+   cutover. Extract against post-PR77 main and run its MCP command-shape canary before proposing any
+   authority change.
 6. Reconcile `docs/product/roadmap-state.md` and the backlog against this handoff; do not create a
    ninth roadmap. Mark extracted dossier items with provenance rather than copying the dossier.
 7. Present the one-thesis vertical as the next bounded mission, with acceptance tied to James's
@@ -249,15 +277,16 @@ not a promise of continuous token use.
 **James explicitly directed:** end the session; preserve the work locally and remotely; ensure
 the next Arbi/future-state wake receives the discussion; prioritise investment and wealth outcomes
 over software output; make Arbi the future outcome brain/chief of staff; master the existing
-investment engine before expansion.
+investment engine before expansion; recognise PR #76 as merged; merge PR #77 if green; then move
+to PR #75 and merge it if open and green. PR #77 has now satisfied that exact-head condition and
+merged.
 
-**Not newly approved by this close:** any merge, deployment, migration, live canary, frontend,
-trade, capital action, persistent autonomy, authority escalation, dossier-wide adoption, or
-commercial/multi-user expansion.
+**Not newly approved by this close:** deployment, migration, workflow dispatch/live canary,
+frontend, Render decommissioning, trade, capital action, persistent autonomy, authority escalation,
+dossier-wide adoption, or commercial/multi-user expansion.
 
-**Closeout completion condition:** local commit plus remote branch/draft PR. Direct Git transport
-was unavailable from the Codex sandbox, so the remote branch is a GitHub API transport commit
-rebased onto the final observed main; the four scoped file blobs are identical to the local
-closeout, while the commit/tree include newer PR #74 main state. Do not force-push either branch;
-merge the docs PR or reconcile the four scoped paths after networked Git is available. The handoff
-becomes normal wake-up authority only when deliberately merged to `main` by James.
+**Closeout completion condition:** PR #75's refreshed exact head must pass the required checks and
+merge to `main`. Until then this handoff is branch-only and cannot govern a normal `/arbi` wake.
+The original local source branch remains divergent archival evidence; do not force-push it. After
+merge, treat the resulting `main` commit—not this branch name or an earlier check run—as the
+authoritative closeout identity.
