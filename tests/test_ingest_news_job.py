@@ -3,7 +3,7 @@ Tests for jobs/ingest_news.py — job-level behaviour with AsyncMock.
 
 Coverage:
   _fetch_and_upsert():
-    - Returns 0 and logs a warning when news_for_symbol raises
+    - Returns None (NOT 0) and logs a warning when news_for_symbol raises
     - Returns the upsert count on success
 
   main():
@@ -11,11 +11,15 @@ Coverage:
     - Exits cleanly with no API calls when holdings table is empty
     - Aggregates rows_written correctly across multiple symbols
     - One failing symbol does not abort the rest (gather return_exceptions)
+    - Every symbol failing hard-fails (the false-green regression)
+    - A genuine 0-article day still passes (the other side of the sentinel)
+    - End-to-end against the real worker: a total vendor outage hard-fails
 """
 from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from datetime import date
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -23,20 +27,49 @@ import pytest
 # jobs/ is added to sys.path via tests/conftest.py
 from jobs.ingest_news import _fetch_and_upsert, main
 
+
+def _stats(
+    *,
+    fetched: int = 0,
+    stale: int = 0,
+    no_match: int = 0,
+    malformed: int = 0,
+    duplicate: int = 0,
+    tags: tuple = (),
+):
+    """ParseStats for tests that fake the worker's (written, stats) return."""
+    from asxos.ingestion.news import ParseStats
+
+    return ParseStats(
+        fetched=fetched,
+        dropped_stale=stale,
+        dropped_no_match=no_match,
+        unmatched_tags=tags,
+        dropped_malformed=malformed,
+        dropped_duplicate=duplicate,
+    )
+
 # ---------------------------------------------------------------------------
 # _fetch_and_upsert
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_fetch_and_upsert_returns_zero_on_api_failure() -> None:
-    """API exception is swallowed; 0 returned; job continues."""
+async def test_fetch_and_upsert_returns_none_on_api_failure() -> None:
+    """API exception is swallowed; None returned; job continues.
+
+    The sentinel must be None and NOT 0: main()'s aggregate guard distinguishes
+    "this symbol failed" from "this symbol had no news today" purely by type.
+    Returning 0 here collapsed that distinction, so the guard could not fail —
+    22 consecutive runs recorded status='success' with rows_written=0 against an
+    empty holding_news table (docs/market-trends-report-2026-08-05.md §1).
+    """
     client = AsyncMock()
     client.news_for_symbol.side_effect = Exception("EODHD 503")
     conn = AsyncMock()
 
     result = await _fetch_and_upsert(client, "BHP.AU", "2026-05-22", {"BHP.AU"}, conn)
-    assert result == 0
+    assert result is None
     # Conn upsert should NOT have been called
     conn.executemany.assert_not_called()
 
@@ -61,8 +94,60 @@ async def test_fetch_and_upsert_returns_count_on_success() -> None:
         result = await _fetch_and_upsert(
             client, "BHP.AU", "2026-05-22", {"BHP.AU"}, conn
         )
-    assert result == 1
+    written, stats = result
+    assert written == 1
+    assert stats.fetched == 1
     mock_upsert.assert_awaited_once()
+    # ASX symbols are already in EODHD's namespace — the remap must be a no-op,
+    # not a corruption.
+    client.news_for_symbol.assert_awaited_once_with(
+        "BHP.AU", limit=10, from_date="2026-05-22"
+    )
+
+
+@pytest.mark.asyncio
+async def test_us_holding_is_requested_in_eodhd_namespace_and_stored_as_held() -> None:
+    """The round trip for a non-ASX holding: request .US, store the held symbol.
+
+    This is the regression pin for the REQUEST half of the fix, and it was the
+    half with no coverage at all — reverting `eodhd_symbol(symbol)` back to a raw
+    `symbol` in _fetch_and_upsert left every other news test green, because they
+    all use ASX symbols where the remap is a no-op.
+
+    Both directions matter and both were broken:
+      - out: EODHD addresses NYSE/NASDAQ listings as `.US`, so asking it for
+        `HUBS.NYSE` addresses a namespace it does not serve.
+      - back: articles come tagged `HUBS`, and `holding_news.symbols` must carry
+        the HELD form, because asxos/brief/compose.py re-intersects it against
+        current_holdings and jobs/ingest_sentiment.py unnests it into
+        signal_sentiment.symbol (a PK with no FK to catch a wrong format).
+    """
+    today = date.today().isoformat()
+    client = AsyncMock()
+    client.news_for_symbol.return_value = [
+        {
+            "link": "https://example.com/hubs",
+            "title": "HubSpot reports Q2",
+            "date": f"{today}T05:00:00+00:00",
+            "symbols": ["HUBS"],          # vendor tags with the bare ticker
+            "sentiment": "positive",
+        }
+    ]
+
+    conn = AsyncMock()
+    with patch("jobs.ingest_news.upsert_news", new=AsyncMock(return_value=1)) as mock_upsert:
+        result = await _fetch_and_upsert(
+            client, "HUBS.NYSE", today, {"HUBS.NYSE"}, conn
+        )
+
+    written, _stats_out = result
+    assert written == 1
+    client.news_for_symbol.assert_awaited_once_with(
+        "HUBS.US", limit=10, from_date=today
+    )
+    items = mock_upsert.await_args.args[1]
+    assert len(items) == 1, "a bare-ticker tag must resolve against the held symbol"
+    assert items[0].symbols == ["HUBS.NYSE"], "must store the HELD form, not HUBS or HUBS.US"
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +227,7 @@ async def test_rows_written_set_correctly() -> None:
         patch("jobs.ingest_news.get_client"),
         patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
         # Each symbol upserts 3 rows
-        patch("jobs.ingest_news._fetch_and_upsert", new=AsyncMock(return_value=3)),
+        patch("jobs.ingest_news._fetch_and_upsert", new=AsyncMock(return_value=(3, _stats(fetched=3)))),
     ):
         await main()
 
@@ -185,8 +270,8 @@ async def test_symbol_failures_above_threshold_proceed() -> None:
     async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
         call_count["n"] += 1
         if symbol == "CBA.AU":
-            raise RuntimeError("API error for CBA")
-        return 2  # 2 rows for the other symbols
+            return None  # real contract: failures return None, never raise
+        return 2, _stats(fetched=2)  # 2 rows for the other symbols
 
     with (
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
@@ -236,8 +321,8 @@ async def test_symbol_failures_below_threshold_hard_fail() -> None:
 
     async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
         if symbol == "CBA.AU":
-            raise RuntimeError("API error for CBA")
-        return 2
+            return None  # real contract: failures return None, never raise
+        return 2, _stats(fetched=2)
 
     with (
         patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
@@ -251,3 +336,378 @@ async def test_symbol_failures_below_threshold_hard_fail() -> None:
         # 2/3 = 66.7% < 75% threshold → hard-fail
         with pytest.raises(RuntimeError, match=r"ingest_news.*only 2/3"):
             await main()
+
+
+# ---------------------------------------------------------------------------
+# main() — the false-green regression (docs/market-trends-report-2026-08-05.md §1)
+#
+# Which test actually pins the bug, verified by running this file against
+# pre-fix HEAD: only test_end_to_end_all_symbols_erroring_hard_fails_with_real_
+# worker (below) and test_fetch_and_upsert_returns_none_on_api_failure (above)
+# FAIL there. The two main()-level tests in this block PASS against the buggy
+# code, because they patch _fetch_and_upsert out and so never exercise the
+# worker/predicate mismatch that was the defect. They are guards, not the
+# regression pin — do not cite them as proof the bug cannot return.
+#
+# That distinction is the whole lesson: the pre-existing threshold tests passed
+# for exactly this reason. Their fake RAISES, while the real _fetch_and_upsert
+# catches everything, so they exercised a path production cannot reach. Any test
+# that patches the worker out can only ever check main() against a hand-written
+# contract — never against the worker's real behaviour.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_all_symbols_failing_hard_fails() -> None:
+    """Every symbol failing must hard-fail, not record a silent success.
+
+    Guard, not regression pin (see block comment above): this passes against the
+    buggy code too, because patching _fetch_and_upsert out means the old
+    predicate still rejects these None results. It defends the 0/N boundary of
+    main()'s aggregate guard, nothing more.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [
+        {"symbol": "BHP.AU"},
+        {"symbol": "CBA.AU"},
+        {"symbol": "WBC.AU"},
+    ]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
+        return None  # every symbol fails
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
+    ):
+        with pytest.raises(RuntimeError, match=r"ingest_news.*only 0/3"):
+            await main()
+
+
+@pytest.mark.asyncio
+async def test_genuine_zero_news_day_succeeds() -> None:
+    """A real quiet news day (0 articles, no errors) must NOT hard-fail.
+
+    This is the over-correction guard: a "fix" that tightened the predicate to
+    `r > 0` would trade the false green for a false red on every quiet day, and
+    this test fails it. Like its sibling above it passes against the original
+    bug, so it is a guard rather than the regression pin.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [
+        {"symbol": "BHP.AU"},
+        {"symbol": "CBA.AU"},
+        {"symbol": "WBC.AU"},
+    ]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    captured_monitor = {}
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+            captured_monitor["monitor"] = self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
+        return 0, _stats(fetched=0)  # genuinely no articles, no failure
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
+    ):
+        await main()  # 3/3 healthy — must not raise
+
+    assert captured_monitor["monitor"].rows_written == 0
+
+
+@pytest.mark.asyncio
+async def test_end_to_end_all_symbols_erroring_hard_fails_with_real_worker() -> None:
+    """main() + the REAL _fetch_and_upsert: a total vendor outage must hard-fail.
+
+    This is the test that would have caught the original bug on its own, and the
+    one whose absence let it ship. Every other threshold test patches
+    _fetch_and_upsert out, so they verify main()'s guard against a hand-written
+    contract rather than against the worker's actual behaviour — and when the two
+    drifted apart (worker returning 0, guard accepting every int), nothing failed.
+
+    Here the only thing faked is the vendor client. The worker, its exception
+    handling, its sentinel, the gather, and the aggregate guard all run for real,
+    so the halves cannot silently disagree again.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [
+        {"symbol": "BHP.AU"},
+        {"symbol": "CBA.AU"},
+        {"symbol": "WBC.AU"},
+    ]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    # The only fake: the vendor. Every symbol errors, as in a total outage.
+    failing_client = AsyncMock()
+    failing_client.news_for_symbol.side_effect = Exception("EODHD 503")
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client", return_value=failing_client),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+    ):
+        with pytest.raises(RuntimeError, match=r"ingest_news.*only 0/3"):
+            await main()
+
+
+@pytest.mark.asyncio
+async def test_quiet_day_sets_no_note_but_degraded_drops_do() -> None:
+    """INVERTED from test_zero_rows_written_sets_degraded_note.
+
+    The old test pinned the overcorrection: it required a note on EVERY
+    zero-row run, which fires on every genuinely quiet news day. error_message
+    is load-bearing in both directions — check_cron_health pages on it, and the
+    brief's freshness gate requires it NULL on the latest run — so a note
+    attached for a benign reason suppresses the news section daily AND pages.
+    That is row-count-as-health again (rule 2 of the incident).
+
+    The replacement contract: a quiet day (0 rows, no degraded drops) leaves
+    error_message NULL; degradation is now defined by the drop COUNTERS the
+    worker reports (malformed / no_match) and by outright fetch failures — not
+    by the row count. Both directions asserted here, so neither can silently
+    regress into the other.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [{"symbol": "HUBS.NYSE"}]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    captured_monitor = {}
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+            self.note = None
+            captured_monitor["monitor"] = self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    calls = {"n": 0}
+
+    async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # First main() run: a genuinely quiet day — vendor sent nothing.
+            return 0, _stats(fetched=0)
+        # Second main() run: zero rows because everything was MALFORMED.
+        return 0, _stats(fetched=3, malformed=3)
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
+    ):
+        await main()  # must NOT raise — 0 is a valid count
+
+    quiet_note = captured_monitor["monitor"].note
+    assert quiet_note is None, (
+        "a genuinely quiet day must NOT set a note — it would suppress the "
+        "brief's news section and page, every day the market is boring"
+    )
+
+    # Same run shape, but the zero comes from malformed drops → degraded.
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
+    ):
+        await main()
+
+    degraded_note = captured_monitor["monitor"].note
+    assert degraded_note is not None, "malformed drops must mark the run degraded"
+    assert "malformed=3" in degraded_note
+    assert "degraded" in degraded_note
+
+
+@pytest.mark.asyncio
+async def test_partial_failure_sets_degraded_note() -> None:
+    """Failures inside the tolerated 25% band must still leave a marker.
+
+    Mirrors ingest_regulatory._degraded_note: clearing the threshold is not a
+    reason for a dead symbol to vanish behind a 'success' row.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [
+        {"symbol": "BHP.AU"},
+        {"symbol": "CBA.AU"},
+        {"symbol": "WBC.AU"},
+        {"symbol": "ANZ.AU"},
+    ]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    captured_monitor = {}
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+            self.note = None
+            captured_monitor["monitor"] = self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    async def fake_fetch_and_upsert(client, symbol, from_date, holdings, conn):
+        return None if symbol == "CBA.AU" else (2, _stats(fetched=2))
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.close_pool", new=AsyncMock()),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=fake_fetch_and_upsert),
+    ):
+        await main()  # 3/4 clears the threshold
+
+    note = captured_monitor["monitor"].note
+    assert note is not None and "1/4 symbols failed" in note
+
+
+@pytest.mark.asyncio
+async def test_no_match_drops_set_a_note_but_stale_and_duplicate_do_not() -> None:
+    """Pins the disputed half of the note policy, both directions.
+
+    no_match is the namespace-fault signature of the incident itself, so it
+    notes. Stale and duplicate drops are the time window and dedup working as
+    designed — near-daily by construction — so they must NOT note: the note
+    suppresses the brief's news section and pages, and a note that fires on
+    routine operation is the rows_written overcorrection wearing a new field.
+
+    Honest caveat, per the frozen-head review: whether no_match>0 occurs on
+    NORMAL days is uncited in either direction. If the live probe shows it is
+    routine, narrow the policy to the total-wipeout signature — and this test
+    is the one to update, deliberately, not silently.
+    """
+    conn = AsyncMock()
+    conn.fetch.return_value = [{"symbol": "HUBS.NYSE"}]
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    captured_monitor = {}
+
+    class FakeJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+            self.note = None
+            captured_monitor["monitor"] = self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    async def stale_dup_only(client, symbol, from_date, holdings, conn):
+        return 0, _stats(fetched=4, stale=3, duplicate=1)
+
+    async def no_match_only(client, symbol, from_date, holdings, conn):
+        return 0, _stats(fetched=2, no_match=2, tags=("TSLA.US",))
+
+    base_patches = {"init_pool": AsyncMock(), "close_pool": AsyncMock()}
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=base_patches["init_pool"]),
+        patch("jobs.ingest_news.close_pool", new=base_patches["close_pool"]),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=stale_dup_only),
+    ):
+        await main()
+    assert captured_monitor["monitor"].note is None, (
+        "stale/duplicate-only drops are routine operation — a note here would "
+        "suppress the news section and page on ordinary days"
+    )
+
+    with (
+        patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}),
+        patch("jobs.ingest_news.init_pool", new=base_patches["init_pool"]),
+        patch("jobs.ingest_news.close_pool", new=base_patches["close_pool"]),
+        patch("jobs.ingest_news.acquire", new=fake_acquire),
+        patch("jobs.ingest_news.get_client"),
+        patch("jobs.ingest_news.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.ingest_news._fetch_and_upsert", new=no_match_only),
+    ):
+        await main()
+    note = captured_monitor["monitor"].note
+    assert note is not None and "no_match=2" in note, (
+        "unmatched articles are the incident's namespace-fault signature"
+    )
+    assert "TSLA.US" not in note, "no vendor string may reach the persisted field"

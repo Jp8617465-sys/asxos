@@ -1,0 +1,968 @@
+<title>ASX Trends Report — Month & Week to 4 Aug 2026</title>
+<style>
+:root{
+  --ground:#F6F7F6; --surface:#FFFFFF; --surface-2:#EEF1F0;
+  --ink:#141A18; --ink-2:#3B4744; --muted:#5E6B66; --line:#DCE2E0;
+  --accent:#166B63; --accent-soft:#DCEBE8;
+  --gain:#2C7A57; --loss:#A8453B; --warn:#9A6B15;
+  --gain-bar:#8FC2A8; --loss-bar:#D9A79F;
+  --crit-bg:#FBEDE9; --crit-line:#E3B5AC;
+  --warn-bg:#FBF3E2; --warn-line:#E0C88C;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#0E1413; --surface:#161E1C; --surface-2:#1E2826;
+    --ink:#E6ECE9; --ink-2:#C2CEC9; --muted:#8FA09A; --line:#2A3634;
+    --accent:#4FB3A6; --accent-soft:#17322F;
+    --gain:#5FB98B; --loss:#D97565; --warn:#D9A143;
+    --gain-bar:#2F6E52; --loss-bar:#7E3B33;
+    --crit-bg:#251513; --crit-line:#5C302A;
+    --warn-bg:#241D0E; --warn-line:#574620;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1413; --surface:#161E1C; --surface-2:#1E2826;
+  --ink:#E6ECE9; --ink-2:#C2CEC9; --muted:#8FA09A; --line:#2A3634;
+  --accent:#4FB3A6; --accent-soft:#17322F;
+  --gain:#5FB98B; --loss:#D97565; --warn:#D9A143;
+  --gain-bar:#2F6E52; --loss-bar:#7E3B33;
+  --crit-bg:#251513; --crit-line:#5C302A;
+  --warn-bg:#241D0E; --warn-line:#574620;
+}
+:root[data-theme="light"]{
+  --ground:#F6F7F6; --surface:#FFFFFF; --surface-2:#EEF1F0;
+  --ink:#141A18; --ink-2:#3B4744; --muted:#5E6B66; --line:#DCE2E0;
+  --accent:#166B63; --accent-soft:#DCEBE8;
+  --gain:#2C7A57; --loss:#A8453B; --warn:#9A6B15;
+  --gain-bar:#8FC2A8; --loss-bar:#D9A79F;
+  --crit-bg:#FBEDE9; --crit-line:#E3B5AC;
+  --warn-bg:#FBF3E2; --warn-line:#E0C88C;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  line-height:1.6;margin:0;padding:0}
+.wrap{max-width:1060px;margin:0 auto;padding:56px 28px 96px;
+  display:flex;flex-direction:column;gap:44px}
+.prose{max-width:68ch}
+h1,h2,h3{font-family:Georgia,"Iowan Old Style","Times New Roman",serif;
+  font-weight:600;text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(2rem,4.4vw,3rem);line-height:1.1}
+h2{font-size:1.6rem;line-height:1.2}
+h3{font-size:1.08rem;line-height:1.3}
+p{margin:0 0 1em}
+p:last-child{margin-bottom:0}
+.eyebrow{font-size:.72rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin:0 0 .7em}
+.lede{font-size:1.14rem;color:var(--ink-2);max-width:64ch}
+header{border-bottom:2px solid var(--ink);padding-bottom:26px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:20px;
+  font-size:.8rem;color:var(--muted);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+section{display:flex;flex-direction:column;gap:18px}
+.sec-head{border-top:1px solid var(--line);padding-top:22px;
+  display:flex;flex-direction:column;gap:6px}
+/* callouts */
+.callout{border:1px solid var(--line);border-left:4px solid var(--muted);
+  background:var(--surface);padding:20px 22px;border-radius:3px;
+  display:flex;flex-direction:column;gap:10px}
+.callout.crit{background:var(--crit-bg);border-color:var(--crit-line);
+  border-left-color:var(--loss)}
+.callout.warn{background:var(--warn-bg);border-color:var(--warn-line);
+  border-left-color:var(--warn)}
+.callout h3{font-family:system-ui,sans-serif;font-size:.95rem;
+  letter-spacing:.02em;text-transform:uppercase}
+.chip{display:inline-block;font-size:.68rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;
+  border-radius:2px;font-family:system-ui,sans-serif;
+  background:var(--loss);color:#fff;vertical-align:middle}
+.chip.w{background:var(--warn)}
+.chip.ok{background:var(--gain)}
+.chip.n{background:var(--muted)}
+/* tables */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.87rem;min-width:520px}
+th,td{text-align:right;padding:9px 13px;border-bottom:1px solid var(--line);
+  white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);font-weight:700;background:var(--surface-2);
+  position:sticky;top:0}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums}
+.sym{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600}
+.up{color:var(--gain);font-weight:600}
+.dn{color:var(--loss);font-weight:600}
+/* diverging bar chart */
+.chart{display:flex;flex-direction:column;gap:2px;
+  border:1px solid var(--line);border-radius:3px;
+  background:var(--surface);padding:18px 20px}
+.crow{display:grid;grid-template-columns:150px 1fr 62px;
+  align-items:center;gap:12px;padding:3px 0}
+.clabel{font-size:.82rem;color:var(--ink-2);text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{position:relative;height:19px;background:var(--surface-2);
+  border-radius:2px;overflow:hidden}
+.zero{position:absolute;top:0;bottom:0;left:50%;width:1px;
+  background:var(--muted);opacity:.55;z-index:2}
+.bar{position:absolute;top:3px;bottom:3px;border-radius:1.5px}
+.bar.p{background:var(--gain-bar)}
+.bar.n{background:var(--loss-bar)}
+.cval{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums;font-size:.8rem;text-align:right}
+.legend{display:flex;gap:18px;font-size:.74rem;color:var(--muted);
+  margin-top:10px;flex-wrap:wrap;align-items:center}
+.sw{display:inline-block;width:11px;height:11px;border-radius:2px;
+  margin-right:6px;vertical-align:-1px}
+/* stat row */
+.stats{display:grid;gap:14px;
+  grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--line);
+  border-radius:3px;padding:15px 17px;display:flex;
+  flex-direction:column;gap:3px}
+.stat .k{font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);font-weight:700}
+.stat .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums;
+  line-height:1.15}
+.stat .s{font-size:.76rem;color:var(--muted)}
+ul{margin:0;padding-left:1.15em;display:flex;flex-direction:column;gap:.5em}
+li{padding-left:.15em}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.87em;background:var(--surface-2);padding:1px 5px;
+  border-radius:2px}
+.note{font-size:.8rem;color:var(--muted);max-width:74ch}
+footer{border-top:1px solid var(--line);padding-top:22px;
+  font-size:.8rem;color:var(--muted)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:620px){
+  .crow{grid-template-columns:104px 1fr 54px;gap:8px}
+  .clabel{font-size:.74rem}
+  .wrap{padding:36px 18px 64px;gap:34px}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">asxos · market intelligence</p>
+  <h1>What moved, and what the data can&nbsp;actually tell&nbsp;us</h1>
+  <p class="lede">One month and one week to 4 August 2026. A decisive rotation
+  showed up in the last five sessions — and the news pipeline that should have
+  narrated it has written zero rows in thirty days. This revision adds a
+  <strong>live market and news layer</strong> fetched from outside the system,
+  plus a live test of what changes if PR #70 merges.</p>
+  <div class="meta">
+    <span>Report date 2026-08-05</span>
+    <span>Month anchor 2026-07-03</span>
+    <span>Week anchor 2026-07-28</span>
+    <span>DB latest 2026-08-04</span>
+    <span>Live as-of 2026-08-05 close</span>
+  </div>
+</header>
+
+<!-- ============ 0. LIVE TEST ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Live test — run 2026-08-05, outside the system</p>
+    <h2>The system says risk-off. The market just printed an all-time high.</h2>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="k">ASX 200 — live</span><span class="v up">9,227.80</span><span class="s">+0.9% · record close, 5 Aug</span></div>
+    <div class="stat"><span class="k">ASX 200 — our DB</span><span class="v">9,145.80</span><span class="s">stops 4 Aug · 82pts behind</span></div>
+    <div class="stat"><span class="k">Our regime label</span><span class="v" style="font-size:1.15rem">risk_off_orderly</span><span class="s">24/24 days</span></div>
+    <div class="stat"><span class="k">Rules firing</span><span class="v">1 of 5</span><span class="s">breadth_200_thin only</span></div>
+  </div>
+
+  <div class="callout crit">
+    <h3><span class="chip">Live finding</span>&nbsp; the regime label is now visibly contradicted by the tape</h3>
+    <p>The market closed at <strong>9,227.80 on 5 August — a new record high</strong>
+    (intraday 9,230), up 0.9% on the day. Our system's newest row is 9,145.80 from
+    4 August, and its regime classifier has read <code>risk_off_orderly</code> on
+    every one of the last 24 days.</p>
+    <p>That label was never a risk assessment — it is <code>breadth_200_thin</code>
+    firing alone, with two of the other four rules structurally unable to fire at
+    all (§7). A single-rule label that says "risk-off" into an all-time high is not
+    a market call; it is a threshold with a name attached. The underlying
+    observation is still true and still useful — 73% of the market is below its
+    200-day average — but <strong>"risk_off_orderly" is the wrong label for it</strong>,
+    and anything downstream consuming that string is being misled.</p>
+  </div>
+</section>
+
+<!-- ============ 1. PIPELINE TRUTH ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 01 — before you read the rest</p>
+    <h2>The news feed is empty, and it reports success every day</h2>
+  </div>
+
+  <div class="callout warn">
+    <h3><span class="chip w">Correction — rev 3</span>&nbsp; the root cause below is real, but not the operative one</h3>
+    <p>Security review of the fix found a third path, which I then verified
+    directly against the parser using the live holdings set (no API key needed).
+    EODHD tags articles <code>"HUBS"</code>; <code>_normalise_symbol</code> appends
+    <code>.AU</code> to any suffix-less ticker
+    (<code>asxos/ingestion/news.py:104-108</code>), giving <code>"HUBS.AU"</code>,
+    which <strong>never matches the held <code>"HUBS.NYSE"</code></strong>. Every
+    article is dropped by the holdings filter, a legitimate <code>0</code> is
+    returned, and <strong>no exception is ever raised</strong>.</p>
+    <p>Probe: <code>['HUBS'] → DROPPED</code>, <code>['HUBS.US'] → DROPPED</code>,
+    <code>['HUBS.NYSE'] → KEPT</code>; ASX control <code>['BHP']</code> vs
+    <code>{'BHP.AU'}</code> → KEPT. Since the sole holding is US-listed, this alone
+    empties the table — and the predicate fix <strong>does not catch it</strong>,
+    because <code>0</code> is a valid count the guard must keep accepting.</p>
+    <p>Both defects below are genuine and are now fixed (<code>deea76a</code>) —
+    they made every real outage invisible. But the empty table is most likely
+    explained by symbol normalisation, not by the predicate. I got the operative
+    cause wrong by reading code rather than probing it.</p>
+  </div>
+
+  <div class="callout crit">
+    <h3><span class="chip">Critical</span>&nbsp; <code>ingest_news</code> — 22 consecutive green runs, 0 rows written</h3>
+    <p><code>holding_news</code> contains <strong>zero rows</strong>. Every
+    <code>ingest_news</code> run from 2026-07-06 to 2026-08-04 recorded
+    <code>status='success'</code> with <code>rows_written = 0</code>. There is no
+    article-level news in this system for the past month, the past week, or at
+    all.</p>
+    <p>The cause is the success predicate in <code>jobs/ingest_news.py:156</code>:
+    <code>is_ok=lambda r: isinstance(r, int) and r >= 0</code>. Its companion
+    <code>_fetch_and_upsert()</code> catches every exception and
+    <code>return 0</code> (line 70). Because <code>0 >= 0</code> is true, a run in
+    which <em>every single symbol fails</em> scores 100% healthy and sails past the
+    <code>threshold=0.75</code> gate in <code>assert_partial_success</code>. The job
+    cannot fail. This is the failure mode CLAUDE.md non-negotiable #10 exists to
+    prevent.</p>
+    <p><strong>The same fabricated field defeats a second, independent guard.</strong>
+    <code>compose.py</code> documents three-layer gating on the news section, and
+    layer 3 is a freshness check — <code>_news_ingest_fresh()</code>
+    (<code>compose.py:514-525</code>) queries
+    <code>job_runs WHERE job_name='ingest_news' AND status='success'</code>. That is
+    the identical field the bug forges. So the ship condition and the runtime
+    freshness gate are not two checks; they are the same check twice, and one bug
+    clears both. Defence in depth that shares a single point of failure isn't depth.</p>
+  </div>
+
+  <div class="callout warn">
+    <h3><span class="chip w">Consequence</span>&nbsp; the news brief was signed off on this green</h3>
+    <p><code>docs/product/dark-launch-exit-plan.md</code> ships surface #2 on ship
+    condition (a): <em>“<code>job_runs</code> shows <code>ingest_news</code>
+    status='success' every scheduled business day for 3+ weeks … zero
+    failures.”</em> That is precisely the signal the bug fabricates. The
+    verification checked job status; it never checked row count.</p>
+    <p><strong>This is not pending — it is already live.</strong>
+    <code>ASXOS_NEWS_BRIEF_ENABLED = "1"</code> is on <code>origin/main</code>
+    (<code>render.yaml:414</code>), and <code>compose_brief</code> has run
+    successfully 22 times in the last 30 days. <code>compose.py:507</code> gates
+    the section on that flag alone, then calls <code>_holding_news()</code> against
+    an empty table. The daily brief has been shipping an <strong>empty news
+    section</strong> every day since the redeploy — a surface marked SHIPPED,
+    rendering nothing.</p>
+  </div>
+
+  <p class="note">Two related gaps, for completeness. <code>signal_sentiment</code>
+  is also empty — but that is <em>expected</em>: it aggregates from
+  <code>holding_news</code>, which is empty, and EODHD <code>/sentiments</code> has
+  no ASX coverage on the current plan tier (documented REV-K pivot, 2026-05-24).
+  <code>rs_factor_scores</code> covers only 11 symbols with every factor scoring
+  0.000, so no factor lens is available; it is excluded from this report rather
+  than reported as noise.</p>
+</section>
+
+<!-- ============ 2. THE NEWS WE DO HAVE ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 02 — the surviving feed</p>
+    <h2>Relevant news: two RBA items in six weeks, both payments regulation</h2>
+  </div>
+  <p class="prose">The only working news-type ingest is
+  <code>ingest_regulatory</code> (RBA RSS; Treasury and ATO were removed as dead
+  feeds). It writes 1 row per run and holds <strong>two items in total</strong>
+  — neither inside the past week.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Published</th><th>Source</th><th>Item</th><th>Window</th></tr></thead>
+      <tbody>
+        <tr><td class="num">2026-07-08</td><td>RBA</td>
+          <td>A2A Payments Roundtable releases vision for account-to-account payments in Australia</td>
+          <td><span class="chip n">Month</span></td></tr>
+        <tr><td class="num">2026-06-25</td><td>RBA</td>
+          <td>Review of Payments System Regulation commences</td>
+          <td><span class="chip n">Pre-window</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="prose">Both are payments-infrastructure regulation. The honest read:
+  they are <em>directionally relevant to the one theme the system has an approved
+  view on</em> (Big 4 Banks — payments rails are a bank revenue and
+  compliance-cost surface), but two RSS headlines are not a news signal, and
+  neither mentions a held symbol. <strong>There is no evidentiary basis in this
+  system for a news-driven narrative this month.</strong> Everything below is
+  derived from prices and market context, which are healthy.</p>
+</section>
+
+<!-- ============ 2b. LIVE NEWS ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Live news — fetched 2026-08-05, not from our DB</p>
+    <h2>What the pipeline should have captured</h2>
+  </div>
+
+  <p class="prose">Queried live to fill the gap. Every item below is news our
+  system had no row for — and each one independently corroborates a finding the
+  price data produced blind.</p>
+
+  <h3>The past month</h3>
+  <ul class="prose">
+    <li><strong>Financials +5.85% in July, "the majority of the ASX 200's gains."</strong>
+    Derived independently from prices: Banks +8.5%, index +3.41% vs median stock
+    +0.53%. Same conclusion, two sources.</li>
+    <li><strong>The lithium/battery-metals cycle reset.</strong> Lithium prices
+    down, Chinese conversion capacity expanding, EV demand normalising. Liontown
+    (LTR) fell 9.28% on 30 July as the materials index dropped 1.36% in a session
+    driven by a steady-rates Fed decision and a firmer US dollar. Our data has
+    LTR.AU at <span class="dn">−39.6%</span> for the month — the single worst
+    liquid Materials name.</li>
+    <li><strong>Base and precious metals wipeout</strong> is the recurring wrap
+    language for the month — matching Basic Materials <span class="dn">−5.17%</span>
+    at 30% breadth.</li>
+  </ul>
+
+  <h3>The past week</h3>
+  <ul class="prose">
+    <li><strong>APX.AU — this is the answer to the open question in §6.</strong>
+    Appen released its <strong>Q2 FY26 quarterly report on 29 July</strong>:
+    revenue US$65.1m (+26% on prior corresponding period), Appen China US$41.3m
+    (+75%), FY26 guidance reaffirmed at US$270–300m. That is the announcement
+    behind the <span class="up">+52.0%</span> week. The report flagged that a move
+    that size is normally an announcement and that we had no row to explain it —
+    <strong>this is precisely the article the dead pipeline was supposed to
+    deliver.</strong></li>
+    <li><strong>Tech ran six-to-seven consecutive sessions</strong>, one of them
+    +3.9% for the IT index, led by Life360 +11.4%, Appen +6.0%, Catapult +6.0%,
+    Megaport +5.7%. Our data has Technology at <span class="up">+5.80%</span> on
+    the week with 88% breadth, and 360.AU at +13.2%.</li>
+    <li><strong>Healthcare +2.4% in a session</strong>, with Neuren up more than
+    17% on record quarterly DAYBUE sales and raised royalty guidance. Our data has
+    Healthcare 8th → 2nd at <span class="up">+2.82%</span>, breadth 56% → 77%.</li>
+    <li><strong>CBA fell 2.6% in a session</strong> as traders cut exposure ahead
+    of results — consistent with Banks decelerating to +1.6% on the week, below
+    the +1.65% median stock.</li>
+  </ul>
+
+  <div class="callout warn">
+    <h3><span class="chip w">Forward catalysts</span>&nbsp; none of these exist anywhere in our data</h3>
+    <ul>
+      <li><strong>RBA decision Tuesday 11 August, 2:30pm AEST.</strong> Consensus
+      is a hold at 4.35% — CBA, NAB, ANZ and Westpac all moved to hold after June
+      CPI printed 3.8% headline / 3.6% trimmed mean. Westpac is the outlier,
+      calling +25bp in August and again in September.</li>
+      <li><strong>CBA FY26 full-year results Wednesday 12 August, 10:30am AEST.</strong>
+      Directly material to <code>big-4-banks</code> — the one theme the system holds
+      an approved view on and owns none of.</li>
+      <li><strong>August reporting season is underway</strong>, which is the
+      mechanism behind most of the single-name dispersion in §6.</li>
+    </ul>
+  </div>
+
+  <p class="prose"><strong>The live cross-check also settles one data question.</strong>
+  The real RBA cash rate is 4.35% and has been — so the 4.350 stored in
+  <code>market_context</code> is the correct <em>value</em>, but the 4.310 → 4.350
+  step on 2026-07-16 was definitively an ingestion artifact, not a policy move.
+  §7's "suspect" rating stands, narrowed to a confirmed backfill.</p>
+</section>
+
+<!-- ============ 3. THE MONTH VS THE WEEK ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 03 — the shape of the move</p>
+    <h2>A narrow, bank-led month became a broad, growth-led week</h2>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="k">ASX 200 · month</span>
+      <span class="v up">+3.41%</span><span class="s">8,844 → 9,146</span></div>
+    <div class="stat"><span class="k">Median liquid stock · month</span>
+      <span class="v">+0.53%</span><span class="s">n = 515 · breadth 53%</span></div>
+    <div class="stat"><span class="k">ASX 200 · week</span>
+      <span class="v up">+2.21%</span><span class="s">two-thirds of the month's gain</span></div>
+    <div class="stat"><span class="k">Median liquid stock · week</span>
+      <span class="v up">+1.65%</span><span class="s">n = 515 · breadth 69%</span></div>
+  </div>
+
+  <p class="prose">This is the single most important number pair in the report.
+  Over the month the cap-weighted index gained <strong>6.4×</strong> what the
+  median liquid stock did (+3.41% vs +0.53%), with barely half of names
+  advancing. That is a narrow, top-heavy grind — and the industry table below
+  identifies the engine precisely: <strong>Banks +8.5%</strong>, the heaviest
+  weights in the index.</p>
+
+  <p class="prose">In the last week the gap closes hard. The median stock
+  captures three-quarters of the index move (+1.65% vs +2.21%) and breadth jumps
+  to 69%. Participation broadened materially, and it broadened into different
+  sectors than the ones that led the month.</p>
+
+  <div class="callout">
+    <h3>The breadth caveat that keeps this honest</h3>
+    <p>Long-horizon breadth did <em>not</em> repair. <code>pct_above_200d_ma</code>
+    moved only 25.9% → 26.8% across the month and never crossed its 40%
+    threshold on any of 24 days. <code>pct_above_50d_ma</code> improved sharply
+    (30.4% → 40.2%). The rally is broad on a one-quarter lookback and still
+    narrow on a one-year lookback — 73% of the market remains below its 200-day
+    average.</p>
+  </div>
+</section>
+
+<!-- ============ 4. SECTOR PERFORMANCE ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 04 — what is performing</p>
+    <h2>Sector returns: the leadership table inverted in five sessions</h2>
+  </div>
+
+  <p class="prose">Median return of liquid names per sector (≥ A$250k average
+  daily turnover, close &gt; $0.02). Median rather than mean, so a single
+  outlier cannot carry a sector.</p>
+
+  <div class="chart">
+    <p class="eyebrow" style="margin-bottom:12px">Month · 3 Jul → 4 Aug</p>
+    <div class="crow"><span class="clabel">Consumer Cyclical</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:24.9%"></span></span><span class="cval up">+6.24</span></div>
+    <div class="crow"><span class="clabel">Communication Svcs</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:18.9%"></span></span><span class="cval up">+4.74</span></div>
+    <div class="crow"><span class="clabel">Consumer Defensive</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:14.8%"></span></span><span class="cval up">+3.70</span></div>
+    <div class="crow"><span class="clabel">Real Estate</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:10.4%"></span></span><span class="cval up">+2.59</span></div>
+    <div class="crow"><span class="clabel">Technology</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:7.7%"></span></span><span class="cval up">+1.93</span></div>
+    <div class="crow"><span class="clabel">Utilities</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:7.2%"></span></span><span class="cval up">+1.79</span></div>
+    <div class="crow"><span class="clabel">Financial Services</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:5.8%"></span></span><span class="cval up">+1.45</span></div>
+    <div class="crow"><span class="clabel">Healthcare</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:3.9%"></span></span><span class="cval up">+0.97</span></div>
+    <div class="crow"><span class="clabel">Energy</span><span class="track"><span class="zero"></span><span class="bar n" style="right:50%;width:1.9%"></span></span><span class="cval dn">−0.48</span></div>
+    <div class="crow"><span class="clabel">Industrials</span><span class="track"><span class="zero"></span><span class="bar n" style="right:50%;width:5.6%"></span></span><span class="cval dn">−1.40</span></div>
+    <div class="crow"><span class="clabel">Basic Materials</span><span class="track"><span class="zero"></span><span class="bar n" style="right:50%;width:20.7%"></span></span><span class="cval dn">−5.17</span></div>
+    <div class="legend"><span><span class="sw" style="background:var(--gain-bar)"></span>gain</span><span><span class="sw" style="background:var(--loss-bar)"></span>loss</span><span>scale ±12.5%</span></div>
+  </div>
+
+  <div class="chart">
+    <p class="eyebrow" style="margin-bottom:12px">Week · 28 Jul → 4 Aug</p>
+    <div class="crow"><span class="clabel">Technology</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:23.2%"></span></span><span class="cval up">+5.80</span></div>
+    <div class="crow"><span class="clabel">Healthcare</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:11.3%"></span></span><span class="cval up">+2.82</span></div>
+    <div class="crow"><span class="clabel">Consumer Cyclical</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:10.4%"></span></span><span class="cval up">+2.60</span></div>
+    <div class="crow"><span class="clabel">Communication Svcs</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:8.8%"></span></span><span class="cval up">+2.19</span></div>
+    <div class="crow"><span class="clabel">Basic Materials</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:7.4%"></span></span><span class="cval up">+1.85</span></div>
+    <div class="crow"><span class="clabel">Real Estate</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:6.8%"></span></span><span class="cval up">+1.70</span></div>
+    <div class="crow"><span class="clabel">Industrials</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:4.9%"></span></span><span class="cval up">+1.22</span></div>
+    <div class="crow"><span class="clabel">Financial Services</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:3.9%"></span></span><span class="cval up">+0.97</span></div>
+    <div class="crow"><span class="clabel">Consumer Defensive</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:3.5%"></span></span><span class="cval up">+0.88</span></div>
+    <div class="crow"><span class="clabel">Energy</span><span class="track"><span class="zero"></span><span class="bar p" style="left:50%;width:3.0%"></span></span><span class="cval up">+0.75</span></div>
+    <div class="crow"><span class="clabel">Utilities</span><span class="track"><span class="zero"></span><span class="bar n" style="right:50%;width:1.0%"></span></span><span class="cval dn">−0.26</span></div>
+    <div class="legend"><span><span class="sw" style="background:var(--gain-bar)"></span>gain</span><span><span class="sw" style="background:var(--loss-bar)"></span>loss</span><span>scale ±12.5%</span></div>
+  </div>
+
+  <p class="prose"><strong>Technology went from 5th to 1st and Healthcare from
+  8th to 2nd.</strong> Both moves are broad, not single-name: Tech breadth 88%
+  (n=34), Healthcare 77% (n=39). Utilities is the only negative sector on the
+  week and the only one with sub-50% breadth (38%).</p>
+
+  <p class="prose"><strong>Basic Materials is the swing factor.</strong> It was
+  the month's worst sector at −5.17% with just 30% of names advancing — then
+  turned positive on the week (+1.85%) as breadth more than doubled to 65%. That
+  is a genuine reversal in participation, not a dead-cat print in a couple of
+  large caps.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Sector</th><th class="num">n</th><th class="num">Month</th><th class="num">Week</th><th class="num">Breadth 1M</th><th class="num">Breadth 1W</th></tr></thead>
+      <tbody>
+        <tr><td>Consumer Cyclical</td><td class="num">41</td><td class="num up">+6.24%</td><td class="num up">+2.60%</td><td class="num">76%</td><td class="num">73%</td></tr>
+        <tr><td>Communication Services</td><td class="num">16</td><td class="num up">+4.74%</td><td class="num up">+2.19%</td><td class="num">81%</td><td class="num">88%</td></tr>
+        <tr><td>Consumer Defensive</td><td class="num">17</td><td class="num up">+3.70%</td><td class="num up">+0.88%</td><td class="num">88%</td><td class="num">53%</td></tr>
+        <tr><td>Real Estate</td><td class="num">36</td><td class="num up">+2.59%</td><td class="num up">+1.70%</td><td class="num">72%</td><td class="num">72%</td></tr>
+        <tr><td>Technology</td><td class="num">34</td><td class="num up">+1.93%</td><td class="num up">+5.80%</td><td class="num">62%</td><td class="num">88%</td></tr>
+        <tr><td>Utilities</td><td class="num">8</td><td class="num up">+1.79%</td><td class="num dn">−0.26%</td><td class="num">63%</td><td class="num">38%</td></tr>
+        <tr><td>Financial Services</td><td class="num">83</td><td class="num up">+1.45%</td><td class="num up">+0.97%</td><td class="num">64%</td><td class="num">70%</td></tr>
+        <tr><td>Healthcare</td><td class="num">39</td><td class="num up">+0.97%</td><td class="num up">+2.82%</td><td class="num">56%</td><td class="num">77%</td></tr>
+        <tr><td>Energy</td><td class="num">26</td><td class="num dn">−0.48%</td><td class="num up">+0.75%</td><td class="num">50%</td><td class="num">50%</td></tr>
+        <tr><td>Industrials</td><td class="num">55</td><td class="num dn">−1.40%</td><td class="num up">+1.22%</td><td class="num">42%</td><td class="num">65%</td></tr>
+        <tr><td>Basic Materials</td><td class="num">151</td><td class="num dn">−5.17%</td><td class="num up">+1.85%</td><td class="num">30%</td><td class="num">65%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 5. INDUSTRY DRILL ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 05 — one level down</p>
+    <h2>Industry detail: Banks carried the index; Metals &amp; Mining is a stock-picker's problem</h2>
+  </div>
+
+  <p class="prose">GICS industry medians (≥ A$1m average daily turnover), which
+  resolve what the sector labels blur.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Industry</th><th class="num">n</th><th class="num">Month</th><th class="num">Week</th></tr></thead>
+      <tbody>
+        <tr><td>Banks</td><td class="num">12</td><td class="num up">+8.5%</td><td class="num up">+1.6%</td></tr>
+        <tr><td>Professional Services</td><td class="num">5</td><td class="num up">+8.3%</td><td class="num up">+2.4%</td></tr>
+        <tr><td>Hotels, Restaurants &amp; Leisure</td><td class="num">9</td><td class="num up">+6.2%</td><td class="num up">+4.2%</td></tr>
+        <tr><td>Specialty Retail</td><td class="num">6</td><td class="num up">+6.0%</td><td class="num up">+5.3%</td></tr>
+        <tr><td>Food Products</td><td class="num">9</td><td class="num up">+5.3%</td><td class="num dn">−2.6%</td></tr>
+        <tr><td>IT Services</td><td class="num">4</td><td class="num up">+4.8%</td><td class="num up">+6.2%</td></tr>
+        <tr><td>Software</td><td class="num">10</td><td class="num up">+4.4%</td><td class="num up">+8.5%</td></tr>
+        <tr><td>Health Care Providers &amp; Services</td><td class="num">7</td><td class="num up">+4.2%</td><td class="num up">+1.2%</td></tr>
+        <tr><td>Diversified REITs</td><td class="num">17</td><td class="num up">+4.1%</td><td class="num up">+2.1%</td></tr>
+        <tr><td>Insurance</td><td class="num">9</td><td class="num up">+3.7%</td><td class="num dn">−0.5%</td></tr>
+        <tr><td>Retail REITs</td><td class="num">7</td><td class="num up">+2.9%</td><td class="num up">+1.0%</td></tr>
+        <tr><td>Oil, Gas &amp; Consumable Fuels</td><td class="num">18</td><td class="num up">+1.8%</td><td class="num up">+1.6%</td></tr>
+        <tr><td>Diversified Telecom Services</td><td class="num">8</td><td class="num up">+1.6%</td><td class="num up">+1.1%</td></tr>
+        <tr><td>Biotechnology</td><td class="num">7</td><td class="num up">+1.0%</td><td class="num up">+2.4%</td></tr>
+        <tr><td>Health Care Equipment &amp; Supplies</td><td class="num">7</td><td class="num up">+0.7%</td><td class="num up">+4.6%</td></tr>
+        <tr><td>Commercial Services &amp; Supplies</td><td class="num">6</td><td class="num up">+0.1%</td><td class="num up">+1.6%</td></tr>
+        <tr><td>Electronic Equipment &amp; Components</td><td class="num">4</td><td class="num dn">−0.2%</td><td class="num up">+1.8%</td></tr>
+        <tr><td>Capital Markets</td><td class="num">21</td><td class="num dn">−0.3%</td><td class="num up">+1.9%</td></tr>
+        <tr><td>Construction &amp; Engineering</td><td class="num">7</td><td class="num dn">−1.0%</td><td class="num up">+1.5%</td></tr>
+        <tr><td>Metals &amp; Mining</td><td class="num">82</td><td class="num dn">−5.6%</td><td class="num up">+2.0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="prose"><strong>Banks +8.5% is the month.</strong> It reconciles the
+  whole picture: the four largest index weights ran while the median stock did
+  +0.53%. Note the deceleration though — Banks contributed only +1.6% in the
+  final week, below the +1.65% median stock. The engine that drove the month
+  stopped leading in the week.</p>
+
+  <p class="prose"><strong>Software +8.5% on the week</strong> (vs +4.4% for the
+  month) is the sharpest acceleration in the table, with IT Services +6.2% behind
+  it. This is the Technology sector move resolved to its source.</p>
+
+  <div class="callout">
+    <h3>Metals &amp; Mining: the median hides everything that matters</h3>
+    <p>Month-return distribution across 82 liquid names — p10 <span class="dn">−22.7%</span>,
+    p25 <span class="dn">−14.0%</span>, p50 <span class="dn">−5.6%</span>,
+    p75 <span class="dn">−0.4%</span>, p90 <span class="up">+12.5%</span>. A
+    <strong>35-point spread</strong> between the 10th and 90th percentile inside
+    one industry. "Avoid resources" and "buy the dip in resources" are both wrong
+    framings — dispersion this wide means the sector call is nearly worthless and
+    the name-level call is nearly everything.</p>
+  </div>
+</section>
+
+<!-- ============ 6. MOVERS ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 06 — names</p>
+    <h2>Where the moves actually landed</h2>
+  </div>
+  <p class="prose">Liquid names only (≥ A$2m average daily turnover), so these are
+  tradeable moves rather than microcap noise.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Week leaders</th><th>Sector</th><th class="num">Week</th><th class="num">Month</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">APX.AU</td><td>Technology</td><td class="num up">+52.0%</td><td class="num up">+42.2%</td></tr>
+        <tr><td class="sym">4DX.AU</td><td>Healthcare</td><td class="num up">+32.3%</td><td class="num up">+1.2%</td></tr>
+        <tr><td class="sym">PYC.AU</td><td>Healthcare</td><td class="num up">+22.8%</td><td class="num up">+30.0%</td></tr>
+        <tr><td class="sym">VMM.AU</td><td>Basic Materials</td><td class="num up">+21.1%</td><td class="num dn">−4.1%</td></tr>
+        <tr><td class="sym">CU6.AU</td><td>Healthcare</td><td class="num up">+18.9%</td><td class="num up">+14.0%</td></tr>
+        <tr><td class="sym">SKS.AU</td><td>Industrials</td><td class="num up">+18.7%</td><td class="num up">+1.5%</td></tr>
+        <tr><td class="sym">DMP.AU</td><td>Consumer Cyclical</td><td class="num up">+16.8%</td><td class="num up">+25.6%</td></tr>
+        <tr><td class="sym">BMN.AU</td><td>Energy</td><td class="num up">+16.5%</td><td class="num up">+2.1%</td></tr>
+        <tr><td class="sym">ELS.AU</td><td>Technology</td><td class="num up">+15.7%</td><td class="num dn">−18.0%</td></tr>
+        <tr><td class="sym">DRO.AU</td><td>Industrials</td><td class="num up">+15.2%</td><td class="num dn">−13.7%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Month laggards</th><th>Sector</th><th class="num">Month</th><th class="num">Week</th></tr></thead>
+      <tbody>
+        <tr><td class="sym">WBT.AU</td><td>Technology</td><td class="num dn">−44.3%</td><td class="num dn">−6.4%</td></tr>
+        <tr><td class="sym">LTR.AU</td><td>Basic Materials</td><td class="num dn">−39.6%</td><td class="num dn">−14.2%</td></tr>
+        <tr><td class="sym">AYA.AU</td><td>Healthcare</td><td class="num dn">−34.4%</td><td class="num dn">−19.3%</td></tr>
+        <tr><td class="sym">ELV.AU</td><td>Basic Materials</td><td class="num dn">−27.9%</td><td class="num up">+1.7%</td></tr>
+        <tr><td class="sym">ARU.AU</td><td>Basic Materials</td><td class="num dn">−26.0%</td><td class="num num">0.0%</td></tr>
+        <tr><td class="sym">EOS.AU</td><td>Industrials</td><td class="num dn">−25.5%</td><td class="num up">+9.7%</td></tr>
+        <tr><td class="sym">IPX.AU</td><td>Basic Materials</td><td class="num dn">−24.6%</td><td class="num dn">−3.7%</td></tr>
+        <tr><td class="sym">DVP.AU</td><td>Basic Materials</td><td class="num dn">−22.7%</td><td class="num dn">−12.9%</td></tr>
+        <tr><td class="sym">KCN.AU</td><td>Basic Materials</td><td class="num dn">−21.9%</td><td class="num dn">−0.5%</td></tr>
+        <tr><td class="sym">CNI.AU</td><td>Real Estate</td><td class="num dn">−20.6%</td><td class="num dn">−1.3%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="prose">Six of the ten worst month performers are Basic Materials, and
+  the sector's four biggest gainers over the month (BNZ +48.8%, CNB +27.5%,
+  MLX +25.9%, plus MIN +11.8% on the week off a −8.8% month) sit in the same
+  industry. That is the 35-point dispersion made concrete.</p>
+
+  <p class="note">Note on APX.AU: +52.0% in a week and +42.2% over the month means
+  the entire month's gain arrived in the last five sessions. A move of that size
+  is normally an announcement — and this system has no news row to explain it,
+  which is exactly the cost of Finding 01. <strong>Resolved by the live query
+  (§2b): Appen's Q2 FY26 report, 29 July — revenue +26%, Appen China +75%, FY26
+  guidance reaffirmed.</strong> The pipeline had one job here and did not do it.</p>
+</section>
+
+<!-- ============ 7. MACRO / REGIME ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 07 — backdrop</p>
+    <h2>Regime says risk-off; the tape says otherwise</h2>
+  </div>
+
+  <p class="prose">The classifier has read <code>risk_off_orderly</code> on all 24
+  days in the window — but that label rests on a <strong>single firing rule</strong>,
+  <code>breadth_200_thin</code> (26.8% vs a 40% threshold). Every other rule
+  stayed quiet, and two of them cannot fire at all.</p>
+
+  <div class="callout warn">
+    <h3><span class="chip w">Unit bug</span>&nbsp; the credit-stress rules are dead switches</h3>
+    <p><code>hy_oas_elevated</code> and <code>hy_oas_stress</code> compare
+    <code>us_hy_oas</code> — stored in <strong>percent</strong> (2.78) — against
+    thresholds expressed in <strong>basis points</strong> (450 and 600). Spreads
+    would need to reach 450 <em>percent</em> to trip. Neither rule can ever fire
+    at current thresholds, so "no credit stress signal" carries no information.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Metric</th><th class="num">3 Jul</th><th class="num">28 Jul</th><th class="num">4 Aug</th><th class="num">Month Δ</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr><td>ASX 200</td><td class="num">8,844.40</td><td class="num">8,947.80</td><td class="num">9,145.80</td><td class="num up">+3.41%</td><td><span class="chip ok">Good</span></td></tr>
+        <tr><td>% above 50d MA</td><td class="num">30.36%</td><td class="num">35.66%</td><td class="num">40.21%</td><td class="num up">+9.85pp</td><td><span class="chip ok">Good</span></td></tr>
+        <tr><td>% above 200d MA</td><td class="num">25.88%</td><td class="num">25.28%</td><td class="num">26.81%</td><td class="num up">+0.93pp</td><td><span class="chip ok">Good</span></td></tr>
+        <tr><td>AVIX</td><td class="num">11.191</td><td class="num">11.162</td><td class="num">11.546</td><td class="num">+0.36</td><td><span class="chip ok">Good</span></td></tr>
+        <tr><td>AUD/USD</td><td class="num">0.6940</td><td class="num">0.6977</td><td class="num">0.7044</td><td class="num up">+1.50%</td><td><span class="chip ok">Good</span></td></tr>
+        <tr><td>US 10y–2y spread</td><td class="num">0.35</td><td class="num">0.34</td><td class="num">0.45</td><td class="num up">+10bp</td><td><span class="chip ok">Good</span></td></tr>
+        <tr><td>VIX</td><td class="num">—</td><td class="num">18.21</td><td class="num">16.50</td><td class="num">n/a</td><td><span class="chip w">Partial</span></td></tr>
+        <tr><td>AU 10y yield</td><td class="num">4.990</td><td class="num">4.831</td><td class="num">4.831</td><td class="num">−15.9bp</td><td><span class="chip">Frozen</span></td></tr>
+        <tr><td>RBA cash rate</td><td class="num">—</td><td class="num">4.350</td><td class="num">4.350</td><td class="num">n/a</td><td><span class="chip">Suspect</span></td></tr>
+        <tr><td>Iron ore 62% Fe</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">n/a</td><td><span class="chip">Dead</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ul class="prose">
+    <li><strong>Iron ore has never had a value.</strong> The <code>IRON.COMM</code>
+    feed returned HTTP 404 on all 24 days; <code>iron_ore_62fe</code> is 0-for-24.
+    Given Materials is the largest slice of the universe, any iron-ore narrative
+    about the Materials drawdown would be unsourced.</li>
+    <li><strong>AU 10y is frozen</strong> at 4.831 for 14 consecutive sessions.
+    The −15.9bp month move is one step, not a trend.</li>
+    <li><strong>RBA cash rate stepped 4.310 → 4.350 on 2026-07-16</strong> — a 4bp
+    move the RBA does not make. Both series stepped on the same date and pinned
+    afterwards, which points to a source swap or backfill, not two market events.</li>
+    <li><strong>The panel has cadence defects</strong>: every Friday is missing
+    (07-10, 07-17, 07-24, 07-31), five phantom Sunday rows exist, and at least two
+    rows are verbatim carry-forwards. 24 rows cover roughly 19 distinct sessions.</li>
+  </ul>
+</section>
+
+<!-- ============ 8. THESIS SCORING ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 08 — scoring our own calls</p>
+    <h2>Three approved macro theses, checked against the tape</h2>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Thesis</th><th>Claim</th><th>Status vs data</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="sym">#6</td>
+          <td>Breadth-led catch-down — index converges <em>down</em> toward its median constituent</td>
+          <td><span class="chip w">Going against</span> Not falsified (needs breadth ≥50% for 10 days; it is 26.8%), but the index moved the <strong>opposite</strong> way: +3.41% to a period high of 9,146 vs the ≤8,400 the catalyst wanted.</td>
+        </tr>
+        <tr>
+          <td class="sym">#7</td>
+          <td>Sticky ~5% AU long end keeps duration pressure on ASX</td>
+          <td><span class="chip">Untestable</span> Catalyst reads as met (yield 4.831 ≥ 4.75, breadth &lt;40%) — but the yield series is <strong>frozen for 14 sessions</strong>. It is being confirmed by a dead feed. Do not score this.</td>
+        </tr>
+        <tr>
+          <td class="sym">#11</td>
+          <td>Un-inverted US curve + benign credit — no near-term recession signal</td>
+          <td><span class="chip ok">Tracking</span> Spread positive and steepening (+0.35 → +0.45). Caveat: its falsifier ("HY OAS above 450") <strong>can never fire</strong> — same percent-vs-bps unit bug.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="prose">The honest summary: <strong>one thesis is being contradicted by
+  the tape, one is unscoreable because its input is stale, and one is tracking but
+  carries an unfalsifiable leg.</strong> Thesis #6's core observation is holding —
+  73% of the market is still below its 200-day average and the median stock did
+  +0.53% — but its directional call that the index would catch <em>down</em> has
+  not happened. Its September deadline is the moment of truth.</p>
+</section>
+
+<!-- ============ 9. WHAT TO WATCH ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 09 — the read</p>
+    <h2>Which segments deserve attention</h2>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Strongest signal</span><span class="v" style="font-size:1.15rem">Software / IT Services</span><span class="s">+8.5% / +6.2% week · Tech breadth 88%</span></div>
+    <div class="stat"><span class="k">Cleanest trend</span><span class="v" style="font-size:1.15rem">Consumer Cyclical</span><span class="s">Top-3 both windows · breadth 76/73%</span></div>
+    <div class="stat"><span class="k">Highest dispersion</span><span class="v" style="font-size:1.15rem">Metals &amp; Mining</span><span class="s">35pp p10–p90 spread</span></div>
+    <div class="stat"><span class="k">Losing leadership</span><span class="v" style="font-size:1.15rem">Banks</span><span class="s">+8.5% month → +1.6% week</span></div>
+  </div>
+
+  <ul class="prose">
+    <li><strong>Technology, on evidence of breadth rather than price.</strong> The
+    +5.80% weekly median matters far less than the 88% breadth behind it, up from
+    62% over the month. Software (+8.5%) and IT Services (+6.2%) are the engine.
+    The caution: one month does not make a trend, and WBT.AU at −44.3% shows the
+    sector still carries violent single-name risk.</li>
+    <li><strong>Consumer Cyclical is the only sector in the top three of both
+    windows</strong> (+6.24% month, +2.60% week) with breadth in the 70s
+    throughout — the most persistent, least reversal-dependent trend in the data.
+    Specialty Retail (+6.0%/+5.3%) and Hotels &amp; Leisure (+6.2%/+4.2%) are
+    consistent underneath it.</li>
+    <li><strong>Healthcare deserves a look precisely because it was ignored.</strong>
+    +0.97% over the month (8th) and +2.82% on the week (2nd) with breadth
+    56% → 77%. Health Care Equipment went +0.7% → +4.6%. An early rotation
+    candidate, on one week of evidence only.</li>
+    <li><strong>Basic Materials is a stock-selection question, not a sector
+    call.</strong> The breadth reversal (30% → 65%) is real, but the 35-point
+    dispersion means the sector median tells you almost nothing. Any work here has
+    to happen name-by-name — and it is handicapped by iron ore having no price in
+    the system at all.</li>
+    <li><strong>Watch Banks for the rotation-out.</strong> The month's engine
+    (+8.5%) trailed the median stock last week (+1.6% vs +1.65%). If that
+    persists, the index's cap-weighted advantage over the median stock closes —
+    and that is also the mechanism thesis #6 is waiting on.</li>
+  </ul>
+
+</section>
+
+<!-- ============ 9b. PORTFOLIO ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 10 — positioning</p>
+    <h2>The portfolio owns none of this</h2>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Positions</span><span class="v">1</span><span class="s">target 20 (balanced) · 19 short</span></div>
+    <div class="stat"><span class="k">Sole holding</span><span class="v" style="font-size:1.2rem">HUBS.NYSE</span><span class="s">Technology · USD · 100% weight</span></div>
+    <div class="stat"><span class="k">Position return</span><span class="v up">+32.7%</span><span class="s">USD · +21.5% AUD after FX</span></div>
+    <div class="stat"><span class="k">ASX exposure</span><span class="v">0.0%</span><span class="s">cash A$0.00 · no franking</span></div>
+  </div>
+
+  <p class="prose">Everything above describes a market the portfolio has no
+  position in. The single holding is <strong>HubSpot (HUBS.NYSE)</strong> — 24
+  shares, A$8,480 at the 4 Aug close of US$248.89 and AUD/USD 0.7044 — which is
+  <strong>100% of capital in one name, one sector, one currency, unhedged</strong>,
+  with zero cash. Against the active <em>balanced</em> profile that is a 10×
+  breach of the 10% per-name cap and a 70pp breach of the 30% sector cap.</p>
+
+  <p class="prose">This is <em>not</em> a discipline failure, and it should not be
+  read as one. <code>thesis_revisions.revision_id=13</code> records the position as
+  sitting in a locked employee-share-scheme window — <strong>non-disposable, with
+  the 2026-07-03 stop breach explicitly logged as monitor-only</strong>. The
+  concentration is involuntary and documented. What is missing is any funded
+  expression of anything else.</p>
+
+  <div class="callout warn">
+    <h3><span class="chip w">Coherence gap</span>&nbsp; the theme layer describes 0% of invested capital</h3>
+    <p>The one approved theme — <code>big-4-banks</code>, medium conviction —
+    maps to <strong>CBA.AU, which is not held</strong> (thesis 1 is
+    <code>watching</code>, and its 42.00–45.00 entry band sits ~300% below the
+    180.72 close, so the band is stale and unusable). Its <code>theme_holdings</code>
+    row is still <code>draft</code>, never promoted. Meanwhile HUBS carries theme
+    tags <code>us-saas-ai</code> and <code>us-equities</code>, and
+    <strong>neither exists as a row in <code>themes</code></strong>. So the segment
+    the system has an opinion about is unowned, and the segment that holds 100% of
+    the capital is undeclared.</p>
+    <p>The irony is sharp in both directions: Banks — the theme the system holds an
+    approved view on but owns none of — was <strong>the best industry of the
+    month at +8.5%</strong>. And Technology — the sector holding all the capital by
+    accident of an ESPP — was <strong>the best sector of the week at +5.80%</strong>.
+    Both calls were right; neither was expressed on purpose.</p>
+  </div>
+
+  <p class="prose">Of the three approved macro theses, two have no expression at
+  all, and thesis #7 (sticky ~5% AU long end, pressure on long-duration assets) is
+  arguably <em>inverted</em> by the book — a high-multiple US SaaS name is the most
+  duration-sensitive equity type available. Only thesis #11 is directionally
+  consistent with holding US risk assets. The eleven remaining theses are
+  <code>research</code> stubs auto-seeded from paper-build run 1, with degenerate
+  entry bands and no stop or target — <strong>no thesis is currently in-band</strong>,
+  so the zero cash balance is not what blocks deployment; the absence of a governed
+  candidate set is.</p>
+
+  <p class="note"><strong>One genuinely open data-integrity item:</strong>
+  <code>profiles.capital_aud</code> (6,666.98) is stale against the snapshot's
+  8,224.65 — computing weights off the profile would show the position at ~127% of
+  capital. The lot's 0.6450 acquisition FX, which the coherence check raised
+  against the 0.7171 vendor rate, is <strong>already ruled and not open</strong>:
+  both <code>.claude/rules/portfolio-conventions.md</code> and
+  <code>docs/product/james-inbox.md:31</code> record it as confirmed against the
+  brokerage statement — an ESPP fill rate that legitimately differs from spot. Not
+  worth reopening.</p>
+</section>
+
+<!-- ============ PR70 ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Live test — PR #70</p>
+    <h2>What changes if the investment-engine dossier merges</h2>
+  </div>
+
+  <p class="prose">PR #70 — <em>“docs: add investment-engine implementation
+  dossier”</em> — is open as a <strong>draft</strong> since 2026-07-25:
+  157 files, +39,974/−88, <code>mergeable_state: clean</code>, one commit, base
+  <code>main</code>. I read the full changed-file list across both pages
+  (100 + 57 = 157 of 157).</p>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Doc files</span><span class="v">155</span><span class="s">143 under docs/programs</span></div>
+    <div class="stat"><span class="k">Non-doc files</span><span class="v">2</span><span class="s">a validator + its tests</span></div>
+    <div class="stat"><span class="k">Broken pipelines touched</span><span class="v">0</span><span class="s">of 6 checked</span></div>
+    <div class="stat"><span class="k">Report findings changed</span><span class="v">0</span><span class="s">of 11</span></div>
+  </div>
+
+  <div class="callout">
+    <h3>Answer: none of this report's findings change</h3>
+    <p>The only two non-documentation files in the entire PR are
+    <code>scripts/validate_investment_program.py</code> and
+    <code>tests/test_investment_program_dossier.py</code> — new dossier tooling
+    that validates the dossier's own hashes, references, and arithmetic. It
+    touches <strong>none</strong> of <code>jobs/ingest_news.py</code>,
+    <code>asxos/ingestion/news.py</code>, <code>jobs/ingest_market_context.py</code>,
+    <code>asxos/jobs/_helpers.py</code>, <code>migrations/0013</code>, or
+    <code>render.yaml</code>.</p>
+    <p>Every finding here is a runtime-data finding. A docs PR cannot move any of
+    them: the news table stays empty, the success predicate stays broken, iron ore
+    stays 404, the yield stays frozen, the HY OAS rules stay unfirable, and the
+    sector/rotation analysis is derived from prices that the PR does not touch.</p>
+  </div>
+
+  <div class="callout crit">
+    <h3><span class="chip">The one thing that does change</span>&nbsp; the false ship condition gets carried forward</h3>
+    <p>PR #70 <em>does</em> edit <code>docs/product/dark-launch-exit-plan.md</code>
+    — and this is the sharp part. It substantially rewrites <strong>three of the
+    four surfaces</strong>: the portfolio brief's gate becomes the S01–S12
+    acceptance chain, the V2 brief tree is re-scoped, and the paper-trade evaluator
+    is demoted to <em>“LEGACY PROTOTYPE · do not start its four-week promotion
+    clock.”</em></p>
+    <p><strong>Surface #2 — the news brief — is left verbatim.</strong> Ship
+    condition (a) still reads <em>“status='success' every scheduled business day
+    for 3+ weeks … zero failures,”</em> and the summary table still carries
+    <strong>SHIPPED 2026-07-11 · both conditions verified</strong>. So the merge
+    would promote the false verification, untouched, into the new canonical
+    programme doc set — the one artifact in the PR that most needed a live refresh
+    is the one it left alone.</p>
+    <p>In fairness the document flags its own limit in the header it adds:
+    <em>“Last verified: 2026-07-24 for programme precedence; individual
+    legacy-surface facts still require live refresh.”</em> That disclaimer is
+    honest and it is exactly the refresh this report performs. It does not,
+    however, stop the SHIPPED verdict propagating.</p>
+  </div>
+
+  <p class="prose"><strong>On priority.</strong> The dossier's programme raises the
+  stakes on <code>ingest_news</code> rather than lowering them. Its stated
+  direction is a <em>model-independent</em> PM review with persistent monitoring
+  and a Model A retirement plan — which removes the signal engine as an input and
+  leaves news, market context and price as the surviving evidence layer. Retiring
+  Model A while the news feed silently writes zero rows narrows the system to one
+  working input. Fix #1 gets <em>more</em> load-bearing under this programme, not
+  less.</p>
+
+  <div class="callout">
+    <h3>The one code-risk in the PR — checked, and it does not materialise</h3>
+    <p>The concern worth having about a 155-doc PR is its 2 code files: if
+    <code>scripts/validate_investment_program.py</code> asserted on the exit
+    plan's current text, merging would convert a wrong ship verdict from stale
+    prose into <strong>a green test defending it</strong>.</p>
+    <p>It does not. Searching the full validator for
+    <code>dark-launch</code>, <code>NEWS_BRIEF</code>, <code>ingest_news</code> and
+    <code>SHIPPED</code> returns <strong>zero matches</strong>. The five
+    <code>docs/product/*.md</code> files it does reference are
+    <code>investment-engine-roadmap.md</code>, <code>north-star.md</code>,
+    <code>portfolio-manager-charter.md</code>, <code>portfolio-policy.md</code>,
+    <code>recommendation-schema.md</code> and <code>arbi-permission-model.md</code>
+    — the exit plan is not among them. <em>(Scope note: this is a targeted search
+    of the whole file, not a full read of its ~223k characters.)</em></p>
+    <p>So the merge-order dependency is lifted. The fix can land before or after
+    #70 without either defending the other.</p>
+  </div>
+
+  <p class="note">Merge risk is otherwise low: draft, clean mergeable state,
+  docs-only, and its own PR body states <em>“no production mutation, migration
+  apply, deployment, broker capability, order routing, or service shutdown”</em>
+  and <em>“do not merge automatically.”</em> Nothing here argues against merging
+  it — only against letting surface #2 ride along unamended. Merge approval is
+  James's call, not arbi's.</p>
+</section>
+
+<!-- ============ 10. FIXES ============ -->
+<section>
+  <div class="sec-head">
+    <p class="eyebrow">Finding 11 — what to repair</p>
+    <h2>Pipeline fixes, in priority order</h2>
+  </div>
+  <div class="callout warn">
+    <h3><span class="chip w">Re-ranked</span>&nbsp; the honest case for fixing this is integrity, not news coverage</h3>
+    <p><code>ingest_news.py:106</code> fetches for
+    <code>SELECT DISTINCT symbol FROM current_holdings</code> — which is
+    <strong>one symbol, HUBS.NYSE</strong>: non-ASX, involuntary, locked,
+    non-disposable. Repairing the feed today restores article news for exactly one
+    position that cannot be acted on. The <em>evidential</em> value right now is
+    near zero.</p>
+    <p>The <em>integrity</em> value is very high, and that is the real argument: a
+    job that structurally cannot fail, which fabricated the evidence for a ship
+    decision and simultaneously fools the runtime freshness gate. Fixes #1 and #2
+    hold the top slots for that reason — not because the news is needed this
+    week.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>#</th><th>Fix</th><th>Location</th><th>Why it ranks here</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td><strong>Make <code>ingest_news</code> able to fail, and un-ship the surface</strong> — one change, not two</td><td><code>jobs/ingest_news.py:70,156</code> + <code>render.yaml:414</code></td><td>Predicate <code>r >= 0</code> accepts total failure. Change to <code>r > 0</code>, or return <code>None</code>/re-raise from <code>_fetch_and_upsert</code> so a genuine zero-news day stays distinguishable. Split them and you either leave the trap armed for the next ship check or keep shipping an empty section.</td></tr>
+        <tr><td class="num">2</td><td><strong>Audit every <code>assert_partial_success</code> predicate for the accepts-zero class</strong></td><td>repo-wide + <code>check_cron_health</code></td><td>Promoted out of a footnote: this is the class fix and the news bug is one instance. Add <code>rows_written &gt; 0</code> to the deadman — it watches job status, and status is exactly what was forged.</td></tr>
+        <tr><td class="num">3</td><td>Correct the HY OAS unit mismatch</td><td><code>migrations/0013_market_context.sql</code></td><td><strong>Promoted above the EODHD diagnosis.</strong> §8 shows two of three approved, governed macro theses are unscoreable or unfalsifiable. That corrupts the Layer A falsifier-scoring loop (<code>jobs/score_macro_theses.py</code>) — the model-independent product's only learning mechanism. A governance loop scoring itself against dead inputs is worse than one not running.</td></tr>
+        <tr><td class="num">4</td><td>Diagnose the actual EODHD <code>/news</code> failure</td><td><code>asxos/ingestion/news.py</code></td><td>Fix #1 makes the failure visible; it does not explain it. Budget for the answer being "no ASX coverage on this plan tier" — the same REV-K wall as <code>/sentiments</code>. If so the honest outcome is to <strong>retire the feed</strong>, as Treasury and ATO were, not patch it.</td></tr>
+        <tr><td class="num">5</td><td>Repair or drop the <code>IRON.COMM</code> feed</td><td><code>jobs/ingest_market_context.py</code></td><td>404 on 24/24 days. Iron ore is the most consequential missing input for a Materials-heavy universe.</td></tr>
+        <tr><td class="num">6</td><td>Investigate the frozen AU 10y and 4bp cash-rate step</td><td><code>jobs/ingest_market_context.py</code></td><td>Both pinned since 2026-07-16. Live check confirms the true cash rate is 4.35%, so the value is right and the step is an artifact. Thesis #7 is scored against a dead series.</td></tr>
+        <tr><td class="num">7</td><td>Reconcile the four documents that disagree about this flag</td><td>see below</td><td>New. <code>roadmap-state.md:121</code> and <code>:404</code> both say <code>ASXOS_NEWS_BRIEF_ENABLED=0</code>; <code>product-health-scorecard.md:101</code> and <code>dark-launch-exit-plan.md</code> say shipped/1; <code>render.yaml</code> says <code>"1"</code>. Four docs, two states — live state wins, so <code>roadmap-state.md</code> is stale.</td></tr>
+        <tr><td class="num">8</td><td>Fix the missing-Friday / phantom-Sunday cadence</td><td><code>jobs/ingest_market_context.py</code></td><td>Friday sessions appear stamped with a Sunday <code>as_of</code>; 24 rows cover ~19 sessions.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="prose">One governance gap sits underneath all of this. The exit plan's
+  own rules cover expired KEEP-DARK surfaces and never counting dark as delivered,
+  but <strong>there is no rule for a SHIPPED surface whose ship condition later
+  proves false</strong> — which is exactly the state here, and nothing in the
+  document forces a re-raise. That meta-rule is worth adding alongside fix #1.</p>
+</section>
+
+<footer>
+  <p><strong>Sources.</strong> All figures computed from
+  <code>prices</code> (733,719 rows to 2026-08-04), <code>universe</code>,
+  <code>rs_security_master</code> (GICS industry), <code>market_context</code>
+  (24 rows), <code>regulatory_events</code>, <code>job_runs</code>,
+  <code>themes</code>, <code>theme_holdings</code>, <code>macro_theses</code>.
+  Sector and industry figures are medians of liquid names, not cap-weighted index
+  returns — they will not reconcile to published sector indices and are not
+  intended to.</p>
+  <p><strong>Scope.</strong> Descriptive market and pipeline analysis. No Model A
+  output is used anywhere in this report (CLAUDE.md rule #11 — the ML engine is
+  shelved and quarantined). Nothing here is a buy, sell, or hold recommendation.</p>
+</footer>
+
+</div>

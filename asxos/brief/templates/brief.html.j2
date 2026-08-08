@@ -130,6 +130,10 @@
     <li>
       <strong>{{ n.symbols | join(", ") }}</strong> ·
       <a href="{{ n.url }}">{{ n.title }}</a>
+      {# Publisher before the date: who said it changes what the headline is
+         worth. Omitted entirely when the URL has no parseable host, rather
+         than printing an empty or invented attribution. #}
+      {% if n.source %}— <span class="source">{{ n.source }}</span>{% endif %}
       — {{ n.published_at }}
       {% if n.sentiment %}<em class="sentiment-{{ n.sentiment }}">({{ n.sentiment }})</em>{% endif %}
     </li>

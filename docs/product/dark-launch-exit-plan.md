@@ -33,18 +33,31 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 - **Owner of the flip:** James (firewall gate 1 + capital-adjacent) — a `james-inbox.md` item when
   the paper-trade window closes.
 
-### 2. News / sentiment brief — `ASXOS_NEWS_BRIEF_ENABLED=1` (SHIPPED 2026-07-11, draft-PR pending merge)
+### 2. News / sentiment brief — `ASXOS_NEWS_BRIEF_ENABLED=1` (SHIPPED 2026-07-11 · **ship condition (a) VOID 2026-08-05**)
 
-- **Verdict: SHIP · both conditions verified 2026-07-11.**
+- **Verdict: SHIPPED, but condition (a) is void — the surface has been rendering
+  empty every day since the redeploy.** Condition (b) still holds. Condition (a) was
+  verified against `job_runs.status`, a field the ingest job could not fail to write
+  as `success`: `holding_news` had **zero rows** for the entire window, and the
+  operative cause (`_normalise_symbol` mapping the sole US holding to a symbol the
+  filter drops) is still open. See `docs/market-trends-report-2026-08-05.md` §1.
+  **Re-verify before this may be called shipped again** — the restated condition is
+  in (a) below.
+- ~~**Verdict: SHIP · both conditions verified 2026-07-11.**~~
 - **Why:** News/sentiment (`asxos/ingestion/{news,sentiment}.py`, M14a/b) is fully
   model-independent — it feeds the market-context and discipline narrative, not a signal. It
   directly serves the "know the backdrop before it costs money" moat layer and has no rule-#11
   exposure. This is exactly the kind of surface the post-shelf product should turn on.
-- **Ship conditions — both verified 2026-07-11 (arbi wake + autonomy window):**
-  (a) **ingestion cron green + fresh** — `job_runs` shows `ingest_news` status='success' every
-  scheduled business day for 3+ weeks (2026-06-21 through 2026-07-09, zero failures); the
-  `check_cron_health` deadman that watches it was itself fixed this session (shelf-aware
-  `check_model_staleness`, no longer polluting the deadman).
+- **Ship conditions — (a) VOID as of 2026-08-05, (b) still holds:**
+  (a) **RESTATED, and currently NOT MET** — `job_runs` must show `ingest_news` runs with
+  `status='success'` **AND `rows_written > 0`**, *and* `holding_news` must be non-empty.
+  Status alone is not evidence of work.
+  ~~*(original, void)*: `job_runs` shows `ingest_news` status='success' every scheduled
+  business day for 3+ weeks (2026-06-21 through 2026-07-09, zero failures).~~ That streak
+  was produced by a guard that could not fail (`is_ok=lambda r: isinstance(r, int) and
+  r >= 0` against a worker returning `0` on caught exceptions), and every one of those runs
+  wrote zero rows. The predicate and the brief's freshness gate were fixed 2026-08-05
+  (`deea76a`); the reason the table is empty is a separate, still-open symbol-mapping bug.
   (b) **reads as context, never implied buy/sell** — verified by direct read + a `security-engineer`
   s766B pass (PASS): `brief.html.j2`'s `news_items` block (lines 106-118) renders only symbol,
   linked article title, publish date, and an optional sentiment tag — zero generated advisory
@@ -105,7 +118,7 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 | Surface | Verdict | Gate | Expiry / condition | Flip owner |
 |---|---|---|---|---|
 | Portfolio brief | KEEP-DARK | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | 2026-08-31 · re-scope to model-independent cards + 4wk sign-off | James |
-| News/sentiment brief | **SHIPPED 2026-07-11** | `ASXOS_NEWS_BRIEF_ENABLED=1` (drafted, pending PR merge) | both conditions verified | arbi/main loop |
+| News/sentiment brief | **SHIPPED — condition (a) VOID 2026-08-05** | `ASXOS_NEWS_BRIEF_ENABLED=1` (live on `main`) | re-verify (a): `rows_written > 0` **and** non-empty `holding_news` | arbi/main loop |
 | V2 brief tree | KEEP-DARK | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 · descope to model-independent collectors | arbi / James |
 | Paper-trade evaluator | KEEP-DARK | start the 4wk run (internal) | 2026-08-31 · re-raise with surface #1 | James |
 
@@ -117,3 +130,14 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   completed" (risk R4). Built is not released; the ledger is honest about the difference.
 - **A SHIP verdict that only arbi can flip, arbi flips** (reversible, non-capital). A SHIP/START
   that crosses a firewall or capital gate becomes a `james-inbox.md` row.
+- **A SHIPPED surface whose ship condition is later falsified reverts to un-shipped, and must
+  earn a fresh verdict.** Added 2026-08-05, from the news-brief incident: this document had a
+  rule for an expired KEEP-DARK and no rule for a SHIP whose evidence turned out to be wrong,
+  so nothing forced a re-raise. Shipping is not a one-way ratchet. When the condition is
+  falsified, strike the verdict in place (do not delete the history), restate the condition so
+  it cannot be satisfied the same false way twice, and re-raise the surface.
+- **A ship condition must assert on the ARTIFACT, never on a job's status alone.** `job_runs.status`
+  records that a job completed, not that work happened — the news brief shipped on a 3-week green
+  streak from a job that wrote zero rows on every run. Require `rows_written > 0`, or join the
+  table the job is supposed to populate (as the portfolio gate joins `rebalance_runs`). Two checks
+  reading the same field are one check, and one defect clears both.

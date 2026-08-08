@@ -2,10 +2,13 @@
 Brief composition tests.
 
 `render_html` is pure over BriefData — we synthesize the dataclass
-directly. `collect` is exercised under a MagicMock conn that returns
-canned rows for each of the five queries.
+directly. `collect` is exercised under a MagicMock conn (`_make_conn`) that
+routes each query it issues to canned rows.
 
 M14a additions: NewsItem dataclass, news section HTML, _news_section() gating.
+A mocked conn returns its canned rows whatever the WHERE clause says, so the
+freshness gate's own SQL is asserted directly instead — see the
+`_news_ingest_fresh` block at the end of this file.
 """
 from __future__ import annotations
 
@@ -717,7 +720,7 @@ def test_collect_news_section_absent_when_flag_off() -> None:
             "symbols": ["BHP.AU"],
             "sentiment": "positive",
         }],
-        news_job_rows=[{"job_name": "ingest_news"}],  # fresh job run exists
+        news_job_rows=[{"as_of": today, "status": "success", "error_message": None}],
     )
 
     @asynccontextmanager
@@ -752,7 +755,7 @@ def test_collect_assembles_news_items() -> None:
             "symbols": ["BHP.AU"],
             "sentiment": "positive",
         }],
-        news_job_rows=[{"job_name": "ingest_news"}],  # non-empty → fresh
+        news_job_rows=[{"as_of": today, "status": "success", "error_message": None}],
     )
 
     @asynccontextmanager
@@ -775,7 +778,13 @@ def test_collect_assembles_news_items() -> None:
 
 
 def test_collect_news_absent_when_ingest_stale() -> None:
-    """news_items=[] when ingest_news has no recent successful job_run."""
+    """news_items=[] when no recent ingest_news run passes the freshness gate.
+
+    "Passes" means the LATEST run was clean (success, NULL error_message) —
+    not a row count. The mock returns no rows for
+    the gate query either way, so this covers both halves at the collect() level;
+    the SQL itself is pinned by test_news_ingest_fresh_reads_the_latest_run_*.
+    """
     today = date(2026, 5, 22)
     conn = _make_conn(
         regime_row={"regime": "neutral"},
@@ -1093,3 +1102,216 @@ def test_collect_discipline_section_failure_isolated() -> None:
     assert len(data.discipline_findings) == 1
     assert data.discipline_findings[0].level == DisciplineLevel.error
     assert "boom" in data.discipline_findings[0].message
+
+
+# ---------------------------------------------------------------------------
+# _news_ingest_fresh — the false-green regression
+# (docs/market-trends-report-2026-08-05.md §1)
+#
+# The freshness gate previously keyed off `status='success'` alone — the same
+# field as the surface's ship condition in dark-launch-exit-plan.md surface #2.
+# One defect therefore cleared both: 22 consecutive ingest_news runs recorded
+# status='success' with rows_written=0 while holding_news stayed empty, and this
+# gate passed every one of them.
+# ---------------------------------------------------------------------------
+
+
+def _run_row(day: int, *, status: str = "success", error: str | None = None) -> dict:
+    """One ingest_news job_runs row, dated 2026-05-<day>."""
+    return {"as_of": date(2026, 5, day), "status": status, "error_message": error}
+
+
+def _job_runs_conn(*runs: dict):
+    """A conn that models job_runs well enough to fail a wrong freshness query.
+
+    Applies both window bounds, the ORDER BY and the LIMIT itself, and honours
+    any status/error_message/rows_written predicate that appears in the WHERE
+    clause even though the correct query now has none — a mock returning canned
+    rows regardless of the WHERE clause scores the defect and the fix
+    identically, which is how the last two wrong gates survived review.
+    """
+    conn = MagicMock()
+
+    async def _fetch(query, *args, **kwargs):
+        sql = " ".join(query.split())
+        lo = args[0] if len(args) > 0 else None
+        hi = args[1] if len(args) > 1 and "as_of <= $2" in sql else None
+        rows = [
+            r for r in runs
+            if (lo is None or r["as_of"] >= lo) and (hi is None or r["as_of"] <= hi)
+        ]
+        if "status = 'success'" in sql:
+            rows = [r for r in rows if r["status"] == "success"]
+        if "error_message IS NULL" in sql:
+            rows = [r for r in rows if r["error_message"] is None]
+        if "rows_written > 0" in sql:
+            rows = []  # column not modelled; a query relying on it gets nothing
+        rows = sorted(rows, key=lambda r: r["as_of"],
+                      reverse="ORDER BY as_of DESC" in sql)
+        return rows[:1] if "LIMIT 1" in sql else rows
+
+    conn.fetch = AsyncMock(side_effect=_fetch)
+    return conn
+
+
+_GATE_TODAY = date(2026, 5, 22)
+_DEGRADED_NOTE = "ingest_news degraded: malformed=2"
+
+
+def test_news_ingest_fresh_reads_the_latest_run_and_judges_it_in_python() -> None:
+    """INVERTED from test_news_ingest_fresh_requires_rows_written_not_just_status.
+
+    That test pinned the overcorrection — it asserted `rows_written > 0` in the
+    SQL. A row count on the WRITER is not a health signal for the READER:
+    holding_news keeps 7 days, the brief reads 24h, so a quiet ingest this
+    morning would hide an article ingested yesterday that is still current.
+
+    The health predicates must also NOT be WHERE filters: next to LIMIT 1 they
+    ask "did ANY clean run happen?", so an older clean run conceals the latest
+    degraded one. The gate selects the latest run in a both-sided window and
+    judges status/error_message in Python.
+    """
+    from asxos.brief.compose import _news_ingest_fresh
+
+    captured: list[str] = []
+    conn = MagicMock()
+
+    async def _fetch(query, *args, **kwargs):
+        captured.append(" ".join(query.split()))
+        return []
+
+    conn.fetch = AsyncMock(side_effect=_fetch)
+    assert asyncio.run(_news_ingest_fresh(conn, _GATE_TODAY)) is False
+
+    sql = captured[0]
+    assert "ORDER BY as_of DESC" in sql, f"must select the LATEST run: {sql}"
+    assert "as_of <= $2" in sql, f"window must be bounded above too: {sql}"
+    assert "rows_written" not in sql, f"row count is not a health signal: {sql}"
+    assert "status = 'success'" not in sql, f"health must not be a WHERE filter: {sql}"
+    assert "error_message" not in sql.split("WHERE")[1], (
+        f"health must not be a WHERE filter: {sql}"
+    )
+
+
+def test_news_ingest_fresh_true_when_a_qualifying_run_exists() -> None:
+    """The latest run succeeded with no degraded note — gate opens."""
+    from asxos.brief.compose import _news_ingest_fresh
+
+    conn = _job_runs_conn(_run_row(22))
+    assert asyncio.run(_news_ingest_fresh(conn, _GATE_TODAY)) is True
+
+
+def test_latest_degraded_run_is_not_concealed_by_an_older_clean_one() -> None:
+    """The concealment itself: yesterday clean, today degraded → NOT fresh."""
+    from asxos.brief.compose import _news_ingest_fresh
+
+    conn = _job_runs_conn(_run_row(21), _run_row(22, error=_DEGRADED_NOTE))
+    assert asyncio.run(_news_ingest_fresh(conn, _GATE_TODAY)) is False
+
+
+def test_older_degraded_run_does_not_veto_a_clean_latest_one() -> None:
+    """Negative control: without it, 'False whenever any run is degraded' would
+    pass the concealment test and wedge the section shut after every recovered
+    blip."""
+    from asxos.brief.compose import _news_ingest_fresh
+
+    conn = _job_runs_conn(_run_row(21, error=_DEGRADED_NOTE), _run_row(22))
+    assert asyncio.run(_news_ingest_fresh(conn, _GATE_TODAY)) is True
+
+
+def test_latest_failed_run_is_not_fresh_and_no_run_is_not_fresh() -> None:
+    from asxos.brief.compose import _news_ingest_fresh
+
+    conn = _job_runs_conn(_run_row(21), _run_row(22, status="failure"))
+    assert asyncio.run(_news_ingest_fresh(conn, _GATE_TODAY)) is False
+    assert asyncio.run(_news_ingest_fresh(_job_runs_conn(), _GATE_TODAY)) is False
+
+
+def test_a_future_run_cannot_make_a_historical_brief_fresh() -> None:
+    """collect() takes an explicit as_of, so briefs are re-run for past days.
+
+    Without the upper bound, "latest run in window" means "latest run EVER from
+    that date onward" — tomorrow's clean run would retroactively open the gate
+    on a day whose own ingest failed. And symmetrically, a future degraded run
+    must not close a gate that was legitimately open on the day.
+    """
+    from asxos.brief.compose import _news_ingest_fresh
+
+    conn = _job_runs_conn(_run_row(22, status="failure"), _run_row(23))
+    assert asyncio.run(_news_ingest_fresh(conn, _GATE_TODAY)) is False
+
+    conn = _job_runs_conn(_run_row(22), _run_row(23, error=_DEGRADED_NOTE))
+    assert asyncio.run(_news_ingest_fresh(conn, _GATE_TODAY)) is True
+
+
+# ---------------------------------------------------------------------------
+# M0: source/publisher must be visible
+#
+# The rendered item previously carried instrument, citation and publication
+# time but no publisher. `holding_news` has no source column and the vendor
+# does not reliably supply one, so `source` is derived from the citation host —
+# the strongest publisher claim the data actually supports, always available
+# because `url` is NOT NULL.
+# ---------------------------------------------------------------------------
+
+
+def _news(url: str) -> NewsItem:
+    return NewsItem(symbols=["HUBS.NYSE"], title="HubSpot beats Q2",
+                    url=url, published_at=date(2026, 8, 8), sentiment="")
+
+
+def test_source_strips_scheme_and_www() -> None:
+    assert _news("https://www.reuters.com/tech/x").source == "reuters.com"
+    assert _news("https://reuters.com/tech/x").source == "reuters.com"
+    assert _news("http://SUB.AFR.COM.AU/story").source == "sub.afr.com.au"
+
+
+def test_source_is_empty_when_host_unparseable() -> None:
+    """Must not invent an attribution. Empty lets the template omit it."""
+    assert _news("not-a-url").source == ""
+    assert _news("").source == ""
+
+
+def test_render_shows_all_four_required_fields() -> None:
+    """M0: instrument, source, publication time and citation all visible."""
+    html = render_html(_brief(news_items=[_news("https://www.reuters.com/tech/hubspot")]))
+    assert "HUBS.NYSE" in html, "instrument"
+    assert "reuters.com" in html, "source/publisher"
+    assert "2026-08-08" in html, "publication time"
+    assert 'href="https://www.reuters.com/tech/hubspot"' in html, "citation"
+
+
+def test_render_omits_source_rather_than_printing_empty() -> None:
+    """An unattributable item shows no publisher, not a blank one."""
+    html = render_html(_brief(news_items=[_news("not-a-url")]))
+    assert 'class="source"' not in html
+    assert "HubSpot beats Q2" in html, "the item itself still renders"
+
+
+def test_source_strips_bidi_override_that_survives_autoescape() -> None:
+    """A hostile host must not display as a different publisher than it links to.
+
+    Autoescape neutralises `< > & " '` only. Bidi controls are category Cf and
+    pass through it verbatim, so an unterminated U+202E renders the host
+    reversed — displaying "reuters.com" while the href goes elsewhere — and
+    bleeds past </span> to reverse the rest of the item.
+    """
+    item = _news("https://‮moc.sretuer/article")
+    assert "‮" not in item.source, "bidi override must not reach the brief"
+    assert item.source == "moc.sretuer", "host survives, minus the control char"
+
+    # The href still carries the raw URL, and that is correct: it is the genuine
+    # citation, and rewriting it would misrepresent where the article actually
+    # lives. Attribute values are not rendered as text, so the display risk is
+    # confined to the visible span — which must be clean.
+    import re
+
+    html = render_html(_brief(news_items=[item]))
+    span = re.search(r'<span class="source">(.*?)</span>', html, re.S)
+    assert span is not None, "source span should render"
+    assert "‮" not in span.group(1), "no bidi control in displayed text"
+
+
+def test_source_is_length_bounded() -> None:
+    """Untrusted strings are capped everywhere else in this codebase."""
+    assert len(_news("https://" + "a" * 400 + ".com/x").source) <= 64

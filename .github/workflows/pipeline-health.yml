@@ -1,0 +1,45 @@
+# Daily pipeline watchdog — same substrate rationale as daily-brief.yml.
+#
+# check_cron_health inspects job_runs for stuck runs, missing expected-daily
+# jobs, consecutive failures and degraded success rows, and (post-PR72) sends
+# a correctly-escaped alert email. It hard-fails when it finds issues — that
+# exit 1 is the alarm working, and under GitHub Actions the red run + GitHub's
+# failure notification are visible even if the email path is down, which is
+# precisely how the 2026-08 fleet outage stayed invisible under Render.
+
+name: pipeline-health
+
+on:
+  schedule:
+    - cron: "0 22 * * *"   # 22:00 UTC daily, matching the Render schedule
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-health
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      BRIEF_FROM_EMAIL: ${{ secrets.BRIEF_FROM_EMAIL }}
+      BRIEF_TO_EMAIL: ${{ secrets.BRIEF_TO_EMAIL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[ml]"
+
+      - name: Check pipeline health
+        run: python jobs/check_cron_health.py

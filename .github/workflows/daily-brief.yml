@@ -1,0 +1,103 @@
+# Daily data + brief pipeline — GitHub Actions as the cron substrate.
+#
+# WHY THIS EXISTS (2026-08-08). The Render cron fleet failed for 3+ days as 29
+# independently-configured services with per-service env vars: a rotated DB
+# password had to be corrected in up to 29 places, `fromService` references
+# re-materialised stale values on every deploy, 13 services silently lost their
+# deadman URLs, and the wall-clock schedule (20:30, 20:33, 20:40, ...) was a
+# dependency graph encoded as minute offsets — a slow upstream silently fed
+# stale data to every downstream job, and there was no way to run anything
+# manually without the dashboard.
+#
+# This workflow replaces that class of failure, not just the instance:
+#   - config lives HERE, in git, reviewed — no repo/deploy drift possible;
+#   - secrets live in ONE store (repo Settings -> Actions secrets);
+#   - steps run IN ORDER and a failed step BLOCKS its dependents instead of
+#     letting them read stale data;
+#   - workflow_dispatch gives a one-click / one-command manual run;
+#   - every run is pinned to the exact commit it executed.
+#
+# Job code is unchanged: each step runs the same jobs/*.py, which still writes
+# job_runs rows and pings Healthchecks when HEALTHCHECK_URL_* is set. Only the
+# scheduler moved.
+#
+# Honest limitations, stated rather than discovered later:
+#   - GitHub cron is best-effort: runs can start minutes late at busy hours.
+#     Acceptable for a daily brief; not for market-microstructure timing.
+#   - `schedule:` only fires from the default branch, so this file must merge
+#     to main before the schedule is live. workflow_dispatch works immediately
+#     after merge and accepts any ref.
+#   - HEALTHCHECK_URL_* left unset skips the deadman ping silently (known
+#     JobMonitor behaviour, recorded in the session findings). GitHub's own
+#     run-failure notifications cover the gap in the interim.
+
+name: daily-brief
+
+on:
+  schedule:
+    # 20:30 UTC Sun-Thu == 06:30 AEST Mon-Fri, matching the Render chain start.
+    - cron: "30 20 * * 0-4"
+  workflow_dispatch: {}
+
+concurrency:
+  group: daily-brief
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      BRIEF_FROM_EMAIL: ${{ secrets.BRIEF_FROM_EMAIL }}
+      BRIEF_TO_EMAIL: ${{ secrets.BRIEF_TO_EMAIL }}
+      ASXOS_PERSONAL_USE: "1"
+      ASXOS_NEWS_BRIEF_ENABLED: "1"
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[ml]"
+
+      # Order is the dependency graph, made real: a failed step blocks every
+      # step below it. Under Render these were minute-offset crons that ran
+      # regardless of whether their upstream had produced anything.
+
+      - name: Sync prices
+        run: python jobs/sync_prices.py
+
+      - name: Validate price data
+        run: python jobs/validate_price_data.py
+
+      - name: Snapshot portfolio
+        run: python jobs/snapshot_portfolio.py
+
+      - name: Ingest market context
+        run: python jobs/ingest_market_context.py
+
+      - name: Ingest underlyings
+        run: python jobs/ingest_underlyings.py
+
+      - name: Ingest regulatory
+        run: python jobs/ingest_regulatory.py
+
+      - name: Ingest news
+        run: python jobs/ingest_news.py
+
+      - name: Ingest sentiment
+        run: python jobs/ingest_sentiment.py
+
+      - name: Compose and send brief
+        run: python jobs/compose_brief.py

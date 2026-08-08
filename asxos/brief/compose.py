@@ -25,7 +25,9 @@ Sections (in order):
   6. Market news on holdings (M14a) — gated by ALL of:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_NEWS_BRIEF_ENABLED=1 (paper-trade dark gate, plan M14a)
-       ingest_news job_runs success within 24h (freshness gate)
+       the LATEST ingest_news job_run in the window being status='success'
+         with a NULL error_message (freshness gate — status alone was
+         forgeable, a row count was the overcorrection; see _news_ingest_fresh)
      Section absent entirely when any gate fails.
   7. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
@@ -41,6 +43,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 import jinja2
 from dateutil.relativedelta import relativedelta
@@ -100,6 +103,45 @@ class NewsItem:
     url: str
     published_at: date
     sentiment: str
+
+    @property
+    def source(self) -> str:
+        """Publisher host derived from ``url`` — e.g. ``reuters.com``.
+
+        Derived, not stored. ``holding_news`` has no publisher column and the
+        vendor does not reliably supply one, so persisting a source would mean
+        adding a field we cannot populate honestly. The citation host is the
+        strongest publisher claim the data actually supports, and it is always
+        available because ``url`` is ``NOT NULL``.
+
+        Why it earns a place in the brief: a reader needs to know *who said it*
+        before deciding what a headline is worth. "reuters.com" and an unknown
+        aggregator carry very different weight on the same words.
+
+        Returns "" when the URL has no parseable host, so the template omits the
+        field rather than printing a fabricated one.
+
+        Scrubbed and bounded, because this is an ATTRIBUTION surface fed by a
+        vendor-controlled URL. Jinja's autoescape only neutralises ``< > & " '``;
+        Unicode bidi controls are category ``Cf`` and pass through it verbatim.
+        An unterminated ``U+202E`` in a hostname renders ``‮moc.sretuer`` as
+        "reuters.com" while the href navigates somewhere else entirely — a
+        displayed publisher that contradicts the actual link target, on the
+        surface James weighs financially. It also bleeds past ``</span>`` and
+        reverses the rest of the item.
+
+        ``isprintable()`` drops every ``Cf``/control character; this is the same
+        idiom ``asxos/ingestion/news.py`` already applies to vendor tags for the
+        log sink, reused rather than reinvented. The 64-char cap matches the
+        neighbouring convention of bounding every untrusted string.
+
+        Known residual: this does NOT defeat IDN homographs — Cyrillic
+        ``rеuters.com`` is printable and survives. Punycode display is the fix
+        and is deliberately out of scope here; recorded, not silently ignored.
+        """
+        host = (urlparse(self.url).hostname or "").lower()
+        host = "".join(c for c in host if c.isprintable())[:64]
+        return host[4:] if host.startswith("www.") else host
 
 
 @dataclass(frozen=True)
@@ -498,7 +540,9 @@ async def _news_section(
     Three-layer gating (mirrors M13.7 Amendment C):
       1. ASXOS_PERSONAL_USE=1  (regulatory firewall)
       2. ASXOS_NEWS_BRIEF_ENABLED=1  (paper-trade dark gate; default 0)
-      3. ingest_news had a successful job_run within 24h  (freshness gate)
+      3. the LATEST ingest_news run in the window succeeded with no degraded
+         note (freshness gate — see _news_ingest_fresh for why the latest run,
+         and why not a row count)
 
     Section absent entirely when any gate fails.
     """
@@ -512,17 +556,57 @@ async def _news_section(
 
 
 async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
-    """True when ingest_news has a successful job_run within the last 24 hours."""
+    """True when the LATEST ingest_news run in the window was clean.
+
+    "Clean" is ``status='success' AND error_message IS NULL`` — evaluated in
+    Python, on the most recent run only. Three prior designs each failed a
+    different way, and this docstring records all three so none returns:
+
+    1. ``status='success'`` alone shared one forgeable field with the surface's
+       ship condition: 22 consecutive runs reported success over an empty table
+       (``docs/market-trends-report-2026-08-05.md`` §1).
+    2. The overcorrection added ``rows_written > 0`` — a row count on the WRITER
+       as a health signal for the READER. ``holding_news`` keeps 7 days and this
+       brief reads a 24h window, so an article ingested yesterday is still
+       current today, and a genuinely quiet run this morning would have hidden
+       it. The two queries do not share a window.
+    3. Any predicate placed in the WHERE clause next to ``LIMIT 1`` asks "did
+       ANY qualifying run happen in the window?" — so an older clean run
+       satisfied the filter and the latest degraded or failed run was never
+       examined. Filtering the evidence of a problem out of the query is the
+       incident's own shape, one level up.
+
+    Hence: select the latest run inside a BOTH-SIDED window, then judge it.
+    The upper bound matters because ``collect()`` accepts an explicit historical
+    ``as_of`` (re-sends, backfills): without it, a run dated after the brief
+    would decide whether a past day was fresh. A freshness gate must answer
+    from what was knowable on the day it describes.
+
+    ``error_message IS NULL`` is meaningful because ``jobs/ingest_news.py``
+    writes a note ONLY on real degradation (fetch failures, malformed payloads,
+    unmatched articles) — never on a quiet day. That coupling is load-bearing
+    and recorded at the note-writing site.
+
+    The two other consumers of the same job_runs row still read status alone
+    (``jobs/ingest_sentiment.py::_upstream_ok`` — soft, WARNING only; and the
+    ``asx news signoff`` prerequisite in ``asxos/cli/news.py``). Widen those
+    before treating a green ingest_news as evidence of anything.
+    """
     cutoff = as_of - timedelta(days=1)
     rows = await conn.fetch(
         """
-        SELECT 1 FROM job_runs
-        WHERE job_name = 'ingest_news' AND as_of >= $1 AND status = 'success'
+        SELECT status, error_message FROM job_runs
+        WHERE job_name = 'ingest_news' AND as_of >= $1 AND as_of <= $2
+        ORDER BY as_of DESC
         LIMIT 1
         """,
         cutoff,
+        as_of,
     )
-    return bool(rows)
+    if not rows:
+        return False
+    latest = rows[0]
+    return latest["status"] == "success" and latest["error_message"] is None
 
 
 async def _holding_news(
