@@ -31,10 +31,9 @@ that, read:
   last wake's "one thing" was actually done and whether it worked, and let that reshape
   today's ranking. A recommendation that didn't pan out is data; don't just re-issue it.
 - The **newest** `docs/session-handoff-*.md` — the authoritative "what matters right
-  now." **On any conflict, the handoff outranks the roadmap docs on priority.** (The last
-  dated handoff is `2026-07-04`; its P0 — the Model A dispute — is **RESOLVED 2026-07-11**
-  against Model A, so until a newer handoff lands, `roadmap-state.md` carries the current
-  state. Do not re-open a resolved P0.)
+  now." Resolve it dynamically; never rely on a hard-coded handoff date. **On any conflict,
+  the handoff outranks the roadmap docs on priority.** The Model A dispute remains resolved
+  against Model A unless a later, higher-authority artifact explicitly changes that policy.
 - `docs/product/james-inbox.md` — the decisions **only James** can settle (capital, merge,
   migration, policy/conviction, broker execution). Surface every open row in the brief's
   "Decisions needed from James" line; never treat one as resolved until James rules.
