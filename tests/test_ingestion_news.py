@@ -617,3 +617,34 @@ def test_all_five_drop_paths_reconcile_together() -> None:
     assert stats.dropped_no_match == 1
     assert stats.dropped_malformed == 1
     assert _reconciles(items, stats), f"counts must reconcile: {stats}"
+
+
+def test_non_list_payload_is_malformed_not_a_quiet_day() -> None:
+    """A JSON object error envelope is the shape EODHD actually returns.
+
+    `news_for_symbol` no longer coerces it to []. Previously that coercion made
+    this shape unreachable: fetched=0 with every counter zero, arithmetically
+    identical to a genuinely quiet day. It is now one malformed unit.
+    """
+    for payload in ({"code": 402, "message": "payment required"}, {}, "nope", 42, None):
+        items, stats = parse_news_response_with_stats(
+            payload, holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+        )
+        assert items == [], f"no items from {payload!r}"
+        assert stats.dropped_malformed == 1, f"must be counted: {payload!r}"
+        assert stats.fetched == 1
+        assert _reconciles(items, stats), f"identity must hold for {payload!r}"
+
+
+def test_empty_list_is_still_a_quiet_day_not_malformed() -> None:
+    """The negative control that keeps the guard honest.
+
+    `[]` is a real, valid, empty response. If the shape guard treated it as
+    malformed, every quiet day would page.
+    """
+    items, stats = parse_news_response_with_stats(
+        [], holdings=_HOLDINGS, as_of=_AS_OF, requested_symbol="BHP.AU",
+    )
+    assert stats.fetched == 0
+    assert stats.dropped_malformed == 0
+    assert _reconciles(items, stats)

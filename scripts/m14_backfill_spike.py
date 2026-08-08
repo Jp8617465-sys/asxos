@@ -96,16 +96,39 @@ async def fetch_news_polarity(
     """Fetch news for a symbol, extract polarity, aggregate to daily mean.
 
     Returns DataFrame with columns: [date, polarity, article_count].
-    Empty DataFrame if no news with polarity found.
+    Empty DataFrame if no news with polarity found — a genuinely quiet symbol.
+
+    Raises ``ValueError`` if the vendor payload is not a list of objects.
+    ``news_for_symbol`` no longer coerces a non-list HTTP-200 body to ``[]``
+    (that coercion was why a real error envelope could never be classified), so
+    this caller must now classify the shape itself. Two failures were otherwise
+    reachable here: a dict payload iterates its KEYS, so ``item.get`` raised
+    ``AttributeError`` on a str; a scalar raised ``TypeError`` at the ``for``.
+
+    Raising rather than returning an empty frame is the point. An empty frame is
+    indistinguishable from a quiet symbol, which is the same
+    invalid-looks-like-no-data equivalence the contract change exists to remove.
+
+    The diagnostic carries type names and counts ONLY, never payload contents —
+    a vendor error envelope can embed the request URL and its credentials.
     """
     try:
         raw = await client.news_for_symbol(symbol, limit=1000, from_date=from_date)
     except Exception as exc:
-        log.warning("  %s: news fetch failed — %s", symbol, exc)
+        log.warning("  %s: news fetch failed — %s", symbol, type(exc).__name__)
         return pd.DataFrame(columns=["date", "polarity", "article_count"])
 
+    if not isinstance(raw, list):
+        raise ValueError(
+            f"news_for_symbol({symbol}) returned {type(raw).__name__}, expected list"
+        )
+
     daily: dict[str, list[float]] = defaultdict(list)
+    malformed = 0
     for item in raw:
+        if not isinstance(item, dict):
+            malformed += 1
+            continue
         pol = _extract_polarity(item.get("sentiment"))
         if pol is None:
             continue
@@ -113,6 +136,14 @@ async def fetch_news_polarity(
         if not dt_str or dt_str < from_date:
             continue
         daily[dt_str].append(pol)
+
+    if malformed:
+        # Fail closed on a mixed batch: a schema change landing on SOME articles
+        # must not be averaged into a polarity series and presented as signal.
+        raise ValueError(
+            f"news_for_symbol({symbol}) returned {malformed}/{len(raw)} "
+            "non-object items; refusing to derive polarity from a partial batch"
+        )
 
     if not daily:
         return pd.DataFrame(columns=["date", "polarity", "article_count"])

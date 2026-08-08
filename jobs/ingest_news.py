@@ -75,13 +75,18 @@ async def _fetch_and_upsert(
     here (rather than raising) is still deliberate: one bad ticker must not abort
     the gather across all holdings.
 
-    Scope limit — a returned ``0`` is not proof of a quiet day. Two silent paths
-    still produce one without ever raising: ``news_for_symbol`` coerces a non-list
-    (error / no-data) payload to ``[]``, and the parser drops every article whose
-    tags resolve to no held symbol. This sentinel cannot see either; only a
-    row-count check downstream of the write can (see
-    ``compose._news_ingest_fresh``), and only ``ParseStats.unmatched_tags``
-    (logged below) names what was dropped.
+    Scope limit — a returned ``0`` is still not proof of a quiet day, but both
+    silent paths that used to produce one are now counted rather than invisible.
+    ``news_for_symbol`` no longer coerces a non-list payload to ``[]``: the
+    parser classifies it as one malformed unit, so an error envelope is no longer
+    arithmetically identical to a quiet response. Articles whose tags resolve to
+    no held symbol are counted in ``dropped_no_match``, and every remaining drop
+    path (stale, malformed, duplicate) now has its own counter.
+
+    The sentinel itself still cannot distinguish them — a row count never could.
+    What changed is that the counters are now READ: the warning below fires on
+    ANY drop, not only ``dropped_no_match``, so a malformed-only or
+    duplicate-only batch is visible instead of passing as a quiet day.
 
     The 2026-08 zero-row incident had two candidate causes, and this job now
     closes both: the request asked for a namespace EODHD does not serve
@@ -102,12 +107,29 @@ async def _fetch_and_upsert(
         items, stats = parse_news_response_with_stats(
             raw, holdings=holdings, as_of=date.today(), requested_symbol=symbol
         )
-        if stats.dropped_no_match:
-            # The diagnostic that was missing: a namespace mismatch and a genuine
-            # quiet day both write zero rows, and only the tags tell them apart.
+        dropped_total = (
+            stats.dropped_no_match
+            + stats.dropped_stale
+            + stats.dropped_malformed
+            + stats.dropped_duplicate
+        )
+        if dropped_total:
+            # Gate on ANY drop, not just no-match. Gating on `dropped_no_match`
+            # alone meant a malformed-only or duplicate-only batch logged
+            # nothing, persisted nothing, and still reported success — the
+            # counters existed with no consumer, so a loss that WAS counted in
+            # memory stayed invisible in operation.
+            #
+            # Everything interpolated is bounded: counts are ints, and tags are
+            # already stripped of non-printables and capped at 32 chars each,
+            # first 10 (asxos/ingestion/news.py). No unbounded vendor string
+            # reaches this line.
             log.warning(
-                "ingest_news: %s — %d/%d articles matched no holding; tags seen: %s",
-                symbol, stats.dropped_no_match, stats.fetched,
+                "ingest_news: %s — %d/%d articles dropped "
+                "(no_match=%d stale=%d malformed=%d duplicate=%d); tags seen: %s",
+                symbol, dropped_total, stats.fetched,
+                stats.dropped_no_match, stats.dropped_stale,
+                stats.dropped_malformed, stats.dropped_duplicate,
                 ", ".join(stats.unmatched_tags) or "(none)",
             )
         return await upsert_news(conn, items)

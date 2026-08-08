@@ -106,17 +106,39 @@ class EODHDClient:
         *,
         limit: int = 10,
         from_date: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> Any:
         """Fetch recent news headlines for a single symbol from EODHD /news.
 
-        EODHD returns a list directly (unlike most endpoints that return a dict).
-        The isinstance guard converts a no-data ``{}`` response to ``[]``.
+        Returns the decoded payload UNMODIFIED — ``Any``, not ``list[dict]``.
+
+        This used to end ``return result if isinstance(result, list) else []``,
+        under a docstring asserting that a ``{}`` response meant "no data". That
+        belief is uncited: no fixture, no provider documentation and no probe in
+        this repo establishes it. What it did establish is that an error
+        envelope, a quota body and a genuinely quiet day all arrived downstream
+        as the same empty list.
+
+        That coercion is why the malformed counter added alongside this change
+        could never fire in production. A real EODHD error body is a JSON
+        *object* (``{"code": 402, ...}``), so it was flattened to ``[]`` before
+        the parser saw it — ``fetched=0``, every counter zero, arithmetically
+        identical to a quiet day. The parser could count malformed items all it
+        liked; none could reach it.
+
+        Classification now happens in ``asxos/ingestion/news.py``, which is a
+        pure function: every payload shape is testable with no HTTP mock, and it
+        does not raise, so a shape fault stays data instead of sharing an
+        ``except`` block with genuine network errors.
+
+        Scope note: ``daily_prices`` and ``sentiments_for_symbol`` still carry
+        the identical coercion. Deliberately untouched — each needs its own
+        tests, and widening this slice would put three vendor paths under one
+        unreviewed change.
         """
         params: dict[str, Any] = {"s": symbol, "limit": limit}
         if from_date:
             params["from"] = from_date
-        result = await self._get("/news", **params)
-        return result if isinstance(result, list) else []
+        return await self._get("/news", **params)
 
     async def sentiments_for_symbol(
         self,

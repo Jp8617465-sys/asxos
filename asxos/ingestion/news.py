@@ -283,6 +283,25 @@ def parse_news_response_with_stats(
     Deduplicates by URL within the batch.
     Returns results in input order (caller can sort if needed).
     """
+    # Whole-payload shape guard. `news_for_symbol` no longer coerces a non-list
+    # HTTP-200 body to []; that coercion is precisely why a real EODHD error
+    # envelope — a JSON *object* like {"code": 402, ...} — could never reach the
+    # malformed counter. Classify it here, where it is a pure function and every
+    # shape is testable without an HTTP mock.
+    #
+    # Counted as one malformed unit rather than fetched=0, so the reconciliation
+    # identity still holds (1 == 0 kept + 1 malformed) and the run is visibly
+    # degraded instead of arithmetically identical to a quiet day.
+    if not isinstance(raw, list):
+        return [], ParseStats(
+            fetched=1,
+            dropped_stale=0,
+            dropped_no_match=0,
+            unmatched_tags=(),
+            dropped_malformed=1,
+            dropped_duplicate=0,
+        )
+
     alias = build_symbol_alias(holdings, requested_symbol)
     cutoff = as_of - timedelta(days=2)
     dropped_stale = 0
