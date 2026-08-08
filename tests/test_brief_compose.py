@@ -1198,3 +1198,32 @@ def test_render_omits_source_rather_than_printing_empty() -> None:
     html = render_html(_brief(news_items=[_news("not-a-url")]))
     assert 'class="source"' not in html
     assert "HubSpot beats Q2" in html, "the item itself still renders"
+
+
+def test_source_strips_bidi_override_that_survives_autoescape() -> None:
+    """A hostile host must not display as a different publisher than it links to.
+
+    Autoescape neutralises `< > & " '` only. Bidi controls are category Cf and
+    pass through it verbatim, so an unterminated U+202E renders the host
+    reversed — displaying "reuters.com" while the href goes elsewhere — and
+    bleeds past </span> to reverse the rest of the item.
+    """
+    item = _news("https://‮moc.sretuer/article")
+    assert "‮" not in item.source, "bidi override must not reach the brief"
+    assert item.source == "moc.sretuer", "host survives, minus the control char"
+
+    # The href still carries the raw URL, and that is correct: it is the genuine
+    # citation, and rewriting it would misrepresent where the article actually
+    # lives. Attribute values are not rendered as text, so the display risk is
+    # confined to the visible span — which must be clean.
+    import re
+
+    html = render_html(_brief(news_items=[item]))
+    span = re.search(r'<span class="source">(.*?)</span>', html, re.S)
+    assert span is not None, "source span should render"
+    assert "‮" not in span.group(1), "no bidi control in displayed text"
+
+
+def test_source_is_length_bounded() -> None:
+    """Untrusted strings are capped everywhere else in this codebase."""
+    assert len(_news("https://" + "a" * 400 + ".com/x").source) <= 64

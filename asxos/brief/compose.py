@@ -120,8 +120,27 @@ class NewsItem:
 
         Returns "" when the URL has no parseable host, so the template omits the
         field rather than printing a fabricated one.
+
+        Scrubbed and bounded, because this is an ATTRIBUTION surface fed by a
+        vendor-controlled URL. Jinja's autoescape only neutralises ``< > & " '``;
+        Unicode bidi controls are category ``Cf`` and pass through it verbatim.
+        An unterminated ``U+202E`` in a hostname renders ``‮moc.sretuer`` as
+        "reuters.com" while the href navigates somewhere else entirely — a
+        displayed publisher that contradicts the actual link target, on the
+        surface James weighs financially. It also bleeds past ``</span>`` and
+        reverses the rest of the item.
+
+        ``isprintable()`` drops every ``Cf``/control character; this is the same
+        idiom ``asxos/ingestion/news.py`` already applies to vendor tags for the
+        log sink, reused rather than reinvented. The 64-char cap matches the
+        neighbouring convention of bounding every untrusted string.
+
+        Known residual: this does NOT defeat IDN homographs — Cyrillic
+        ``rеuters.com`` is printable and survives. Punycode display is the fix
+        and is deliberately out of scope here; recorded, not silently ignored.
         """
         host = (urlparse(self.url).hostname or "").lower()
+        host = "".join(c for c in host if c.isprintable())[:64]
         return host[4:] if host.startswith("www.") else host
 
 
