@@ -43,6 +43,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 import jinja2
 from dateutil.relativedelta import relativedelta
@@ -102,6 +103,26 @@ class NewsItem:
     url: str
     published_at: date
     sentiment: str
+
+    @property
+    def source(self) -> str:
+        """Publisher host derived from ``url`` — e.g. ``reuters.com``.
+
+        Derived, not stored. ``holding_news`` has no publisher column and the
+        vendor does not reliably supply one, so persisting a source would mean
+        adding a field we cannot populate honestly. The citation host is the
+        strongest publisher claim the data actually supports, and it is always
+        available because ``url`` is ``NOT NULL``.
+
+        Why it earns a place in the brief: a reader needs to know *who said it*
+        before deciding what a headline is worth. "reuters.com" and an unknown
+        aggregator carry very different weight on the same words.
+
+        Returns "" when the URL has no parseable host, so the template omits the
+        field rather than printing a fabricated one.
+        """
+        host = (urlparse(self.url).hostname or "").lower()
+        return host[4:] if host.startswith("www.") else host
 
 
 @dataclass(frozen=True)

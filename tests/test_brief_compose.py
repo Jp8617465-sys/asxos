@@ -1154,3 +1154,47 @@ def test_news_ingest_fresh_true_when_a_qualifying_run_exists() -> None:
     conn.fetch = AsyncMock(return_value=[{"?column?": 1}])
 
     assert asyncio.run(_news_ingest_fresh(conn, date(2026, 5, 22))) is True
+
+
+# ---------------------------------------------------------------------------
+# M0: source/publisher must be visible
+#
+# The rendered item previously carried instrument, citation and publication
+# time but no publisher. `holding_news` has no source column and the vendor
+# does not reliably supply one, so `source` is derived from the citation host —
+# the strongest publisher claim the data actually supports, always available
+# because `url` is NOT NULL.
+# ---------------------------------------------------------------------------
+
+
+def _news(url: str) -> NewsItem:
+    return NewsItem(symbols=["HUBS.NYSE"], title="HubSpot beats Q2",
+                    url=url, published_at=date(2026, 8, 8), sentiment="")
+
+
+def test_source_strips_scheme_and_www() -> None:
+    assert _news("https://www.reuters.com/tech/x").source == "reuters.com"
+    assert _news("https://reuters.com/tech/x").source == "reuters.com"
+    assert _news("http://SUB.AFR.COM.AU/story").source == "sub.afr.com.au"
+
+
+def test_source_is_empty_when_host_unparseable() -> None:
+    """Must not invent an attribution. Empty lets the template omit it."""
+    assert _news("not-a-url").source == ""
+    assert _news("").source == ""
+
+
+def test_render_shows_all_four_required_fields() -> None:
+    """M0: instrument, source, publication time and citation all visible."""
+    html = render_html(_brief(news_items=[_news("https://www.reuters.com/tech/hubspot")]))
+    assert "HUBS.NYSE" in html, "instrument"
+    assert "reuters.com" in html, "source/publisher"
+    assert "2026-08-08" in html, "publication time"
+    assert 'href="https://www.reuters.com/tech/hubspot"' in html, "citation"
+
+
+def test_render_omits_source_rather_than_printing_empty() -> None:
+    """An unattributable item shows no publisher, not a blank one."""
+    html = render_html(_brief(news_items=[_news("not-a-url")]))
+    assert 'class="source"' not in html
+    assert "HubSpot beats Q2" in html, "the item itself still renders"
