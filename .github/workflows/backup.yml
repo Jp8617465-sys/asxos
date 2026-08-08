@@ -1,0 +1,41 @@
+# Daily backup of irreplaceable tables — same substrate rationale as
+# daily-brief.yml. The dump list and the git push live in
+# scripts/backup_irreplaceable.sh, unchanged in role; only the scheduler moved.
+#
+# ubuntu-24.04 runners ship postgresql-client 16, matching Supabase's PG16 —
+# the explicit install + version print makes a future runner-image drift loud
+# instead of a silent pg_dump version-mismatch failure.
+
+name: backup
+
+on:
+  schedule:
+    - cron: "30 13 * * *"   # daily 13:30 UTC, matching the Render schedule
+  workflow_dispatch: {}
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BACKUP_GITHUB_TOKEN: ${{ secrets.BACKUP_GITHUB_TOKEN }}
+      BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install postgresql-client
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-client
+          pg_dump --version
+
+      - name: Run backup
+        run: bash scripts/backup_irreplaceable.sh

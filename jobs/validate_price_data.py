@@ -26,6 +26,7 @@ from datetime import date
 
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "validate_price_data"
@@ -137,13 +138,39 @@ async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type
     return issues
 
 
-async def _run(as_of: date) -> None:
+async def _run(as_of: date, *, anchor: bool = True) -> None:
     healthcheck_url = settings.healthcheck_url_validate_price_data
     await init_pool()
     try:
         async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
             async with acquire() as conn:
-                issues = await _query_anomalies(conn, as_of)
+                # Anchor to the latest COMPLETE trading day (same util and
+                # rationale as the brief): asking "who is missing a price for
+                # <calendar today>" on a weekend/holiday reports every active
+                # symbol missing — a Saturday manual dispatch paged
+                # "MISSING_PRICES: 1880" about a day the ASX never traded.
+                # A day with no complete data is not a data-quality finding
+                # about the SYMBOLS; validate the last day that actually was.
+                #
+                # Deliberate trade-off, stated: if the whole pipeline stops,
+                # the anchor walks back to the last good day and this check
+                # stays quiet — the day-gap alarm is the workflow ordering
+                # (a failed sync blocks this step entirely) plus
+                # pipeline-health's degraded check reading the note that
+                # sync_prices now attaches to any non-COMPLETE day (R1: that
+                # note is what makes this sentence true — without it a
+                # PARTIAL day was invisible to every check).
+                # An explicit --as-of bypasses anchoring (anchor=False).
+                effective = as_of
+                if anchor:
+                    latest = await latest_complete_trading_day(conn)
+                    if latest is not None and latest != as_of:
+                        print(
+                            f"[validate] anchoring to latest complete trading "
+                            f"day {latest} (as_of {as_of} has no complete data)"
+                        )
+                        effective = latest
+                issues = await _query_anomalies(conn, effective)
 
             monitor.rows_written = len(issues)
 
@@ -153,17 +180,17 @@ async def _run(as_of: date) -> None:
             body = "\n".join(f"• {i}" for i in issues)
             if len(issues) <= _HARD_FAIL_THRESHOLD:
                 _send_alert(
-                    f"[asxos] price anomalies detected — {as_of}",
+                    f"[asxos] price anomalies detected — {effective}",
                     body,
                 )
                 return
             else:
                 _send_alert(
-                    f"[asxos] PRICE VALIDATION HARD FAIL — {len(issues)} anomalies — {as_of}",
+                    f"[asxos] PRICE VALIDATION HARD FAIL — {len(issues)} anomalies — {effective}",
                     body,
                 )
                 raise RuntimeError(
-                    f"price validation failed: {len(issues)} anomalies on {as_of}"
+                    f"price validation failed: {len(issues)} anomalies on {effective}"
                 )
     finally:
         await close_pool()
@@ -176,4 +203,5 @@ if __name__ == "__main__":
     parser.add_argument("--as-of", metavar="YYYY-MM-DD", help="Date override (default: today)")
     args = parser.parse_args()
     as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
-    asyncio.run(_run(as_of))
+    # An explicit --as-of means "validate exactly this day" — no anchoring.
+    asyncio.run(_run(as_of, anchor=args.as_of is None))

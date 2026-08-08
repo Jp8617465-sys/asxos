@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import os
 import sys
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -54,7 +55,7 @@ def test_send_fallback_email_calls_resend_with_correct_args() -> None:
     fake_send = MagicMock(return_value="msg_123")
     with (
         patch("asxos.brief.email._send_via_resend", new=fake_send),
-        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+        patch("asxos.brief.email._EmailSettings", return_value=_stub_settings()),
     ):
         send_fallback_email(subject="[asxos] FAIL", body_text="something broke")
 
@@ -74,7 +75,7 @@ def test_send_fallback_email_escapes_html_injection() -> None:
     fake_send = MagicMock(return_value="msg_1")
     with (
         patch("asxos.brief.email._send_via_resend", new=fake_send),
-        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+        patch("asxos.brief.email._EmailSettings", return_value=_stub_settings()),
     ):
         send_fallback_email(
             subject="[asxos] FAIL",
@@ -97,7 +98,7 @@ def test_send_fallback_email_swallows_resend_failure_and_writes_job_runs() -> No
     fake_record = AsyncMock()
     with (
         patch("asxos.brief.email._send_via_resend", new=fake_send),
-        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+        patch("asxos.brief.email._EmailSettings", return_value=_stub_settings()),
         patch(
             "asxos.jobs.utils.fallback_email._record_fallback_failure",
             new=fake_record,
@@ -113,7 +114,7 @@ def test_send_fallback_email_swallows_resend_failure_and_writes_job_runs() -> No
 
 
 def test_send_fallback_email_swallows_settings_validation_error() -> None:
-    """Missing env vars → BriefSettings() raises → swallowed; never raises out."""
+    """Missing env vars → _EmailSettings() raises → swallowed; never raises out."""
     fake_record = AsyncMock()
     with (
         patch(
@@ -136,7 +137,7 @@ def test_send_fallback_email_writes_stderr_when_resend_and_db_both_fail() -> Non
     captured = io.StringIO()
     with (
         patch("asxos.brief.email._send_via_resend", new=fake_send),
-        patch("asxos.config.BriefSettings", return_value=_stub_settings()),
+        patch("asxos.brief.email._EmailSettings", return_value=_stub_settings()),
         patch(
             "asxos.jobs.utils.fallback_email._record_fallback_failure",
             new=fake_record,
@@ -329,3 +330,35 @@ def _minimal_brief() -> MagicMock:
     brief = MagicMock()
     brief.sections = ()
     return brief
+
+
+def test_fallback_works_with_email_only_env_no_supabase_vars() -> None:
+    """The H8 pin: the notifier must construct its settings from the three
+    email vars ALONE.
+
+    The original code called BriefSettings(), which also requires SUPABASE_URL
+    and SUPABASE_ANON_KEY — vars the brief runtime does not carry. So the
+    last-resort notifier raised ValidationError on every real invocation and
+    was swallowed: a correct alarm wired to a bell that could never ring. The
+    prior tests missed it because they patched the settings class; this one
+    constructs it for real. Reverting to BriefSettings fails here.
+    """
+    sent = {}
+
+    def fake_send(**kwargs):
+        sent.update(kwargs)
+
+    env = {
+        "RESEND_API_KEY": "dummy-key-not-real",
+        "BRIEF_FROM_EMAIL": "from@example.com",
+        "BRIEF_TO_EMAIL": "to@example.com",
+        # Deliberately NO SUPABASE_URL / SUPABASE_ANON_KEY.
+    }
+    with (
+        patch.dict(os.environ, env, clear=True),
+        patch("asxos.brief.email._send_via_resend", new=fake_send),
+    ):
+        send_fallback_email(subject="[asxos] test", body_text="body")
+
+    assert sent.get("api_key") == "dummy-key-not-real"
+    assert sent.get("to_address") == "to@example.com"
