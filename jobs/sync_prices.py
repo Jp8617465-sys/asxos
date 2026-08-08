@@ -370,6 +370,17 @@ async def main(from_date: date | None) -> None:
                     us_rows,
                     fx_rows,
                 )
+                # A non-COMPLETE day must reach job_runs.error_message, not
+                # just the log (R1, 2026-08-08 review). A PARTIAL EODHD day
+                # exits 0, workflow ordering does not block it, and
+                # validate_price_data now anchors to the last COMPLETE day —
+                # so without this note, a partial day was invisible to every
+                # check: pipeline-health's degraded check reads exactly this
+                # field. Counts + status only; nothing vendor-controlled.
+                monitor.note = (
+                    f"sync_prices degraded: {latest_day} "
+                    f"{verdict.status.value.upper()} — ASX={latest_au}"
+                )
 
         monitor.rows_written = au_rows + us_rows + fx_rows + idx_rows
 

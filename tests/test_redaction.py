@@ -123,3 +123,29 @@ def test_bearer_in_prose_without_token_survives() -> None:
     assert redact_secrets("the bearer of this message") == (
         "the bearer of this message"
     )
+
+
+def test_dsn_userinfo_password_is_redacted() -> None:
+    """postgresql://user:PASSWORD@host — the highest-value leakable secret."""
+    msg = (
+        "connect failed: postgresql://postgres.gxjq:S3cretPass99@"
+        "aws-1.pooler.example.com:5432/postgres"
+    )
+    out = redact_secrets(msg)
+    assert "S3cretPass99" not in out
+    assert "postgres.gxjq" in out, "username survives for diagnostics"
+    assert "aws-1.pooler.example.com" in out, "host survives for diagnostics"
+    assert "://postgres.gxjq:***@" in out
+
+
+def test_no_digit_resend_key_two_segment_form_is_redacted() -> None:
+    """No published guarantee that Resend keys contain a digit — the
+    two-segment shape (re_XXXX_LONGSEGMENT) is covered without one."""
+    out = redact_secrets("key re_AbCdEfGh_AbCdEfGhIjKlMnOpQrSt used")
+    assert "AbCdEfGhIjKlMnOpQrSt" not in out
+    assert "***" in out
+
+
+def test_plain_url_without_password_survives() -> None:
+    msg = "GET https://eodhd.com/api/news failed with 502"
+    assert redact_secrets(msg) == msg

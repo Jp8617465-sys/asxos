@@ -156,8 +156,10 @@ async def _run(as_of: date, *, anchor: bool = True) -> None:
                 # the anchor walks back to the last good day and this check
                 # stays quiet — the day-gap alarm is the workflow ordering
                 # (a failed sync blocks this step entirely) plus
-                # pipeline-health's job_runs checks, both of which fire
-                # louder and more precisely than 1,880 per-symbol lines.
+                # pipeline-health's degraded check reading the note that
+                # sync_prices now attaches to any non-COMPLETE day (R1: that
+                # note is what makes this sentence true — without it a
+                # PARTIAL day was invisible to every check).
                 # An explicit --as-of bypasses anchoring (anchor=False).
                 effective = as_of
                 if anchor:

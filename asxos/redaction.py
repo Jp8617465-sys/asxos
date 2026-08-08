@@ -43,9 +43,19 @@ _SECRET_BEARER_RE = re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}")
 # additionally requires a digit so ordinary snake_case words
 # ("re_authenticate") survive. Over-matching redacts a word; under-matching
 # leaks a credential — the asymmetry favours the former, narrowly.
+# DSN userinfo: postgresql://user:PASSWORD@host — the highest-value secret
+# that can plausibly reach job_runs.error_message, and invisible to all other
+# passes (userinfo is neither name=value nor Bearer). Value-only: user + host
+# survive for diagnostics.
+_SECRET_DSN_RE = re.compile(r"(://[^/:@\s]+:)[^@\s]+(@)")
+
 _SECRET_PREFIX_RE = re.compile(
     r"\b(?:"
-    r"re_(?=[A-Za-z0-9_]*\d)[A-Za-z0-9_]{10,}"      # Resend
+    r"re_(?=[A-Za-z0-9_]*\d)[A-Za-z0-9_]{10,}"      # Resend (digit form)
+    r"|re_[A-Za-z0-9]{6,}_[A-Za-z0-9]{16,}"          # Resend (two-segment form;
+                                                     # no digit guarantee exists —
+                                                     # a 16+-char second segment
+                                                     # never occurs in prose)
     r"|sk-ant-[A-Za-z0-9_-]{10,}"                    # Anthropic
     r"|ghp_[A-Za-z0-9]{10,}"                         # GitHub classic PAT
     r"|github_pat_[A-Za-z0-9_]{10,}"                 # GitHub fine-grained PAT
@@ -70,6 +80,7 @@ def redact_secrets(text: str) -> str:
     that have actually leaked.
     """
     text = _SECRET_QS_RE.sub(r"\1=***", text)
+    text = _SECRET_DSN_RE.sub(r"\1***\2", text)
     text = _SECRET_BEARER_RE.sub(r"\1 ***", text)
     return _SECRET_PREFIX_RE.sub("***", text)
 
