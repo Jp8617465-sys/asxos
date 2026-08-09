@@ -12,7 +12,7 @@ _brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
 from asxos.domain.models.cache import get_cache  # noqa: E402
 
-REQUIRED_MIGRATIONS = 95  # bump each time a new migration is applied; 0041 (macro_thesis_learning_loop, applied 2026-07-24) — observed count from supabase_migrations.schema_migrations
+REQUIRED_MIGRATIONS = 96  # bump each time a new migration is applied; 0042 (rules_integrity — landed as .sql with this PR, James-gated apply via Supabase MCP; re-verify against the observed supabase_migrations.schema_migrations count at apply time, expected 96)
 
 
 async def _check_migration_drift() -> None:

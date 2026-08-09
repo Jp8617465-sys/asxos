@@ -78,3 +78,22 @@ async def test_no_false_return_line_from_capital_diff() -> None:
     joined = " ".join(i.message for i in result.items)
     for banned in ("XJO-TR", "alpha", "Portfolio +", "Portfolio -", "lagging"):
         assert banned not in joined
+
+
+@pytest.mark.asyncio
+async def test_holdings_price_join_is_latest_close_not_exact_date() -> None:
+    """Register #8 (2026-08-09 red-team): the holdings join must take the latest
+    close ON OR BEFORE the brief date. The brief's calendar as_of is always ahead
+    of the newest price row, so an exact `p.dt = $1` join returned zero holdings
+    on every brief and the concentration RED (a 100% single-name book!) could
+    never render. Text-level pin on the emitted SQL."""
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(side_effect=[_snapshot(), {"peak": None}])
+    conn.fetch = AsyncMock(return_value=[])
+
+    await collect_wealth_state(conn, __import__("datetime").date(2026, 6, 1))
+
+    holdings_sql = conn.fetch.await_args.args[0]
+    assert "dt <= $1" in holdings_sql, "holdings join regressed to an exact-date match"
+    assert "p.dt = $1" not in holdings_sql
+    assert "LATERAL" in holdings_sql

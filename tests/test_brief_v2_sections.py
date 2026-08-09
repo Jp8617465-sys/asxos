@@ -163,13 +163,70 @@ class TestCollectWatchlist:
 # ── new_ideas ──────────────────────────────────────────────────────────────────
 
 class TestCollectNewIdeas:
-    def test_suppressed_under_risk_off_orderly(self):
-        result = _run(collect_new_ideas(AS_OF, regime_label="risk_off_orderly"))
-        assert result.status == SectionStatus.suppressed
+    @staticmethod
+    def _patched_acquire(conn):
+        p = patch("asxos.domain.brief.collectors.new_ideas.acquire")
+        mock_acquire = p.start()
+        mock_acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+        return p
+
+    def test_suppressed_under_risk_off_orderly_with_counted_line(self):
+        """Spec :359 — suppression carries the governed count, zero items."""
+        async def _run_test():
+            conn = AsyncMock()
+            conn.fetchrow.return_value = _make_row(n=2)  # the count query
+            p = self._patched_acquire(conn)
+            try:
+                result = await collect_new_ideas(AS_OF, regime_label="risk_off_orderly")
+            finally:
+                p.stop()
+            assert result.status == SectionStatus.suppressed
+            assert result.items == ()          # no symbols leak into a risk-off brief
+            assert "regime=risk_off_orderly" in result.error
+            assert "2 ideas identified but suppressed" in result.error
+            # count query is governance-filtered — approved research theses only
+            count_sql = conn.fetchrow.await_args.args[0]
+            assert "governance_status = 'approved'" in count_sql
+            assert "status = 'research'" in count_sql
+
+        _run(_run_test())
 
     def test_suppressed_under_risk_off_disorderly(self):
-        result = _run(collect_new_ideas(AS_OF, regime_label="risk_off_disorderly"))
-        assert result.status == SectionStatus.suppressed
+        async def _run_test():
+            conn = AsyncMock()
+            conn.fetchrow.return_value = _make_row(n=1)
+            p = self._patched_acquire(conn)
+            try:
+                result = await collect_new_ideas(AS_OF, regime_label="risk_off_disorderly")
+            finally:
+                p.stop()
+            assert result.status == SectionStatus.suppressed
+            assert "1 idea identified but suppressed" in result.error
+
+        _run(_run_test())
+
+    def test_fail_closed_when_regime_unavailable(self):
+        """Register #17 — a missing market_context row must SUPPRESS, not render.
+
+        Previously effective_regime=None fell through to a normal render: a
+        broken regime ingest silently un-suppressed ideas.
+        """
+        async def _run_test():
+            conn = AsyncMock()
+            # 1st fetchrow: regime lookup → no row; 2nd: count query
+            conn.fetchrow.side_effect = [None, _make_row(n=3)]
+            p = self._patched_acquire(conn)
+            try:
+                result = await collect_new_ideas(AS_OF, regime_label=None)
+            finally:
+                p.stop()
+            assert result.status == SectionStatus.suppressed
+            assert "failing closed" in result.error
+            assert "regime unavailable" in result.error
+            assert "3 ideas identified but suppressed" in result.error
+
+        _run(_run_test())
 
     def test_not_suppressed_under_risk_on(self):
         async def _run_test():
@@ -204,17 +261,24 @@ class TestCollectNewIdeas:
         _run(_run_test())
 
     def test_regime_fetched_from_db_when_none(self):
-        """When regime_label is None, collector queries market_context_current."""
+        """When regime_label is None, collector queries market_context_current
+        (windowed, latest ≤ as_of — not an exact-date match) then suppresses."""
         async def _run_test():
             conn = AsyncMock()
-            # Returns risk_off_orderly from DB → should suppress
-            conn.fetchrow.return_value = _make_row(regime_label="risk_off_orderly")
-            conn.fetch.return_value = []
-            with patch("asxos.domain.brief.collectors.new_ideas.acquire") as mock_acquire:
-                mock_acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
-                mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+            # 1st fetchrow: regime lookup → risk_off_orderly; 2nd: count query
+            conn.fetchrow.side_effect = [
+                _make_row(regime_label="risk_off_orderly"),
+                _make_row(n=0),
+            ]
+            p = self._patched_acquire(conn)
+            try:
                 result = await collect_new_ideas(AS_OF, regime_label=None)
+            finally:
+                p.stop()
             assert result.status == SectionStatus.suppressed
+            regime_sql = conn.fetchrow.await_args_list[0].args[0]
+            assert "as_of <= $1" in regime_sql  # windowed self-heal, not `= $1`
+            assert "0 ideas identified but suppressed" in result.error
 
         _run(_run_test())
 

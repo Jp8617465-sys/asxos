@@ -52,11 +52,23 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
         as_of,
     )
 
+    # Latest close on or before the brief date, NOT an exact date match. The brief's
+    # calendar as_of (today) is always ahead of the newest price row (yesterday's
+    # close), so `p.dt = $1` returned zero holdings on every brief and the
+    # per-holding concentration check below could never fire — a 100% single-name
+    # book produced no RED (2026-08-08 red-team register #8). Same self-heal
+    # pattern as the snapshot query above.
     holdings_rows = await conn.fetch(
         """
         SELECT ch.symbol, (ch.quantity * p.close)::numeric AS mv_local
         FROM current_holdings ch
-        JOIN prices p ON p.symbol = ch.symbol AND p.dt = $1
+        JOIN LATERAL (
+            SELECT close
+            FROM prices
+            WHERE symbol = ch.symbol AND dt <= $1
+            ORDER BY dt DESC
+            LIMIT 1
+        ) p ON TRUE
         ORDER BY mv_local DESC
         """,
         as_of,

@@ -13,6 +13,21 @@ from decimal import Decimal
 from typing import Any
 
 from asxos.domain.position_monitor.types import MonitorInput, MonitorResult
+from asxos.domain.prices.fx import is_foreign_symbol
+
+# Canonical, version-stamped regime thresholds — quoted (never restated) so the
+# monitor's prose can't drift from the classifier (red-team register #18). The
+# private-name import is deliberate: these are the single source of truth and
+# D6's classifier v1.1 work will re-export them publicly.
+from asxos.domain.regime.classifier import (
+    _AVIX_RISK_OFF as _AVIX_RISK_OFF,
+)
+from asxos.domain.regime.classifier import (
+    _HY_OAS_ELEVATED as _HY_OAS_ELEVATED,
+)
+from asxos.domain.regime.classifier import (
+    CLASSIFIER_VERSION,
+)
 from asxos.domain.tax.cgt import cgt_break_even_price
 from asxos.domain.themes.stage_classifier import StageThresholds
 
@@ -20,19 +35,39 @@ _T = StageThresholds()
 
 
 def _break_even_lot(inp: MonitorInput) -> tuple[Decimal, date] | None:
-    """Per-share cost + acquired of the earliest-still-ineligible lot, or None.
+    """Per-share AUD cost + acquired of the earliest-still-ineligible lot, or None.
 
     The break-even is a single-lot CGT-friction comparison (sell now at the full
     rate vs wait for the discount on that lot), so it must use ONE lot's economics
     — the earliest-maturing ineligible lot, the one with a live deferral decision —
-    NOT the position weighted-average `cost_usd`, which would mix two lots' costs
-    against one lot's acquisition date and produce a meaningless number.
+    NOT the position weighted-average `cost_native`, which would mix two lots'
+    costs against one lot's acquisition date and produce a meaningless number.
+
+    The returned cost is the lot's AUD CGT base per share (`cost_base_normal`):
+    §5.4 requires both legs in one currency, and CGT math is AUD, so the caller
+    must supply an AUD price leg (native close ÷ AUDUSD for foreign symbols).
     """
     pending = [lot for lot in inp.lots if not lot.is_eligible]  # lots are acquired ASC
     if not pending:
         return None
     lot = pending[0]
     return lot.cost_base_normal / lot.quantity, lot.acquired_at
+
+
+def _break_even_price_leg(inp: MonitorInput) -> Decimal | None:
+    """The §5.4 price leg in AUD, or None when it cannot be honestly produced.
+
+    Previously the native close was passed straight in against the AUD lot cost —
+    the documented R10 currency error, which made `cgt_break_even_price` silently
+    return None for every foreign lot (AUD cost/share > USD price) and suppressed
+    the hint on exactly the position that needed it (2026-08-09 red-team register
+    #11). A missing FX rate now yields a NAMED refusal line, never a silent skip.
+    """
+    if not is_foreign_symbol(inp.symbol):
+        return inp.current_price  # .AU: native IS AUD
+    if inp.fx_rate_audusd is None or inp.fx_rate_audusd == 0:
+        return None
+    return inp.current_price / inp.fx_rate_audusd
 
 
 _STAGE_EMOJI: dict[str, str] = {
@@ -79,13 +114,15 @@ def format_monitor(result: MonitorResult) -> str:
         f"║  {inp.symbol}{intraday_flag} — Weekly Monitor{' ' * (pad - 13)}{header_date}  ║"
     )
 
-    if inp.cost_usd is not None and inp.shares is not None:
+    if inp.cost_native is not None and inp.shares is not None:
+        # Native-vs-native legs (R10): cost_native shares the symbol's listing
+        # currency with current_price, so this P&L is currency-consistent.
         unrealised_pct = (
-            (price - inp.cost_usd) / inp.cost_usd * Decimal("100")
+            (price - inp.cost_native) / inp.cost_native * Decimal("100")
         ).quantize(Decimal("0.1"))
         sign = "+" if unrealised_pct >= 0 else ""
         lines.append(
-            f"║  Position: {inp.shares}×  Cost: ${inp.cost_usd}  "
+            f"║  Position: {inp.shares}×  Cost: ${inp.cost_native}  "
             f"Current: ${price}  P&L: {sign}{unrealised_pct}%"
         )
         if inp.cgt_date:
@@ -242,16 +279,25 @@ def format_monitor(result: MonitorResult) -> str:
     be_lot = _break_even_lot(inp)
     if be_lot is not None and inp.cgt_date is not None:
         lot_cost, lot_acquired = be_lot
-        be = cgt_break_even_price(
-            inp.current_price, lot_cost,
-            inp.account_type, lot_acquired, inp.as_of,
-        )
-        if be is not None:
-            days = max(0, (inp.cgt_date - inp.as_of).days)
+        price_aud = _break_even_price_leg(inp)
+        if price_aud is None:
+            # Named refusal (register #11 acceptance: never a silent None on a
+            # foreign lot) — the hint needs an AUDUSD rate that isn't available.
             lines.append(
-                f"  CGT break-even: ${be} — selling below this today loses vs"
-                f" holding to {inp.cgt_date} ({days}d)"
+                "  CGT break-even: unavailable — no AUDUSD rate to convert the"
+                " price leg (both §5.4 legs must be AUD)"
             )
+        else:
+            be = cgt_break_even_price(
+                price_aud, lot_cost,
+                inp.account_type, lot_acquired, inp.as_of,
+            )
+            if be is not None:
+                days = max(0, (inp.cgt_date - inp.as_of).days)
+                lines.append(
+                    f"  CGT break-even: A${be} — selling below this (AUD) today"
+                    f" loses vs holding to {inp.cgt_date} ({days}d)"
+                )
     if inp.price_type == "intraday" and inp.stop_price is not None:
         pct_to_stop_intraday = (
             (price - inp.stop_price) / price * Decimal("100")
@@ -265,15 +311,30 @@ def format_monitor(result: MonitorResult) -> str:
 
     if inp.cgt_date:
         days_to_cgt = (inp.cgt_date - inp.as_of).days
-        lines.append("  ┌─────────────────────────────────────────────────────────┐")
-        lines.append("  │  HOLD — CGT clock ticking. Macro confirming.            │")
-        lines.append("  │                                                         │")
-        lines.append("  │  Watch this week:                                       │")
-        lines.append(f"  │  · Price vs 50d MA (${inp.ma_50d}) — don't break below  │")
-        lines.append("  │  · VIX: stay below 20                                   │")
-        lines.append(f"  │  · Retail ratio: watch for fade below {_T.retail_mention_spike_pct}×           │")
-        lines.append("  │  · HY OAS: stay below 300bps                            │")
-        lines.append("  └─────────────────────────────────────────────────────────┘")
+        # 2026-08-09 (red-team register #18, D5/D6): this box previously said
+        # "HOLD — CGT clock ticking. Macro confirming." unconditionally — an
+        # action verb about a live position (the wording firewall strips those
+        # from every other discipline surface) plus a static macro claim that
+        # printed straight through risk-off days, and watch-thresholds ("VIX
+        # below 20", "OAS below 300bps") that existed nowhere else in the
+        # system. The header now states the COMPUTED macro read, and the
+        # threshold line quotes the regime classifier's canonical, version-
+        # stamped constants so the numbers cannot drift from the classifier.
+        macro_line = f"Macro: {result.underlying_label} (computed this run)."
+        watch = [
+            f"CGT clock: {max(0, days_to_cgt)}d to discount. {macro_line}",
+            "",
+            "Watch this week:",
+            f"· Price vs 50d MA (${inp.ma_50d})",
+            f"· Retail ratio: watch for fade below {_T.retail_mention_spike_pct}×",
+            f"· Regime flips risk-off above A-VIX {_AVIX_RISK_OFF}"
+            f" / US HY OAS {_HY_OAS_ELEVATED}bps ({CLASSIFIER_VERSION})",
+        ]
+        width = max(len(w) for w in watch) + 2
+        lines.append(f"  ┌{'─' * width}┐")
+        for w in watch:
+            lines.append(f"  │ {w.ljust(width - 2)} │")
+        lines.append(f"  └{'─' * width}┘")
         lines.append("")
         lines.append(f"  CGT discount: {max(0, days_to_cgt)} days to {inp.cgt_date}")
     elif inp.all_eligible:

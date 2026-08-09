@@ -11,6 +11,8 @@ Commands:
   asx thesis approve ID    — governance_status pending_review -> approved
   asx thesis reject ID     — governance_status draft/evidence_complete/
                              pending_review -> rejected
+  asx thesis attest ID     — attestation placeholder <-> underwritten (0042)
+  asx thesis condition add|resolve|list — invalidation condition management (0042)
   asx thesis revise SYMBOL — revise one field with an audit event
   asx thesis review SYMBOL — discipline event: reviewed, no change
   asx thesis hold SYMBOL   — alias for review
@@ -35,7 +37,10 @@ from rich.table import Table
 
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.theses import conditions as conditions_svc
+from asxos.domain.theses import lint
 from asxos.domain.theses import service as svc
+from asxos.domain.theses.condition_parser import lint_echo
 from asxos.domain.theses.schemas import REPORT_SECTION_KINDS, ReportFigure, ReportSectionKind
 from asxos.domain.theses.types import REVISABLE_FIELDS, Thesis
 from asxos.domain.underlyings import service as underlying_svc
@@ -89,6 +94,46 @@ def _parse_decimal(value: str, label: str) -> Decimal:
         return Decimal(value)
     except InvalidOperation as exc:
         raise typer.BadParameter(f"Invalid {label}: {value!r}") from exc
+
+
+def _parse_condition_option(raw: str) -> dict[str, str]:
+    """Parse a repeatable ``--condition`` value into the service's
+    {"text", "trigger_semantics"} shape.
+
+    Format: 'TEXT' (defaults to alert_review — the conservative authored
+    intent) or an explicit 'hard_exit::TEXT' / 'alert_review::TEXT' prefix.
+    """
+    semantics = "alert_review"
+    text = raw
+    if "::" in raw:
+        prefix, _, rest = raw.partition("::")
+        prefix = prefix.strip()
+        if prefix not in ("hard_exit", "alert_review"):
+            raise typer.BadParameter(
+                f"Invalid --condition prefix {prefix!r}. Use 'hard_exit::TEXT' "
+                "or 'alert_review::TEXT' (or plain TEXT for alert_review)."
+            )
+        semantics = prefix
+        text = rest
+    text = text.strip()
+    if not text:
+        raise typer.BadParameter(f"Invalid --condition {raw!r}: text is empty")
+    return {"text": text, "trigger_semantics": semantics}
+
+
+def _print_ladder_lint(t: Thesis) -> None:
+    """Echo ladder lint findings for a PLACEHOLDER thesis — visibly wrong, not
+    blocked (0042 D4: the service hard-fails only for underwritten rows)."""
+    if t.attestation == "underwritten":
+        return
+    findings = lint.lint_ladder(
+        stop_price=t.stop_price,
+        entry_band_lower=t.entry_band_lower,
+        entry_band_upper=t.entry_band_upper,
+        target_price=t.target_price,
+    )
+    for f in findings:
+        console.print(f"[yellow]placeholder lint [{f.code}]:[/yellow] {escape(f.message)}")
 
 
 def _parse_figure(raw: str) -> ReportFigure:
@@ -166,6 +211,13 @@ def thesis_open(
     themes: str = typer.Option("", "--themes", help="Comma-separated theme codes"),
     conviction: int = typer.Option(0, "--conviction", help="PM conviction 1-5 (0 = unset)"),
     tax_notes: str = typer.Option("", "--tax-notes", help="CGT / franking / holding-period notes"),
+    # Typer's repeatable-option pattern; default None (not a mutable []) —
+    # same shape/noqa rationale as add-section's --figure below.
+    condition: list[str] | None = typer.Option(  # noqa: B008
+        None, "--condition",
+        help="Repeatable invalidation condition: 'TEXT' (alert_review) or "
+             "'hard_exit::TEXT'. The parser echo prints what will be enforced.",
+    ),
     reason: str = typer.Option("Initial thesis", "--reason", help="Opening rationale"),
     from_agent_run: int = typer.Option(
         0, "--from-agent-run",
@@ -202,10 +254,11 @@ def thesis_open(
     timeline_days: int | None = _parse_timeline(timeline) if timeline else None
     theme_list = [c.strip() for c in themes.split(",") if c.strip()] if themes else []
     thesis_text: str | None = thesis.strip() or None
+    condition_list = [_parse_condition_option(c) for c in (condition or [])]
 
     asyncio.run(_open_thesis(
         symbol, status, thesis_text, entry_lo, entry_hi,
-        stop_d, target_d, timeline_days, theme_list,
+        stop_d, target_d, timeline_days, theme_list, condition_list,
         (conviction or None), (tax_notes.strip() or None), reason,
     ))
 
@@ -215,6 +268,7 @@ async def _open_thesis(
     entry_lo: Decimal | None, entry_hi: Decimal | None,
     stop_d: Decimal | None, target_d: Decimal | None,
     timeline_days: int | None, theme_list: list[str],
+    condition_list: list[dict[str, str]],
     conviction: int | None, tax_notes: str | None, reason: str,
 ) -> None:
     await init_pool()
@@ -230,12 +284,21 @@ async def _open_thesis(
                 target_price=target_d,
                 timeline_days=timeline_days,
                 themes=theme_list,
+                conditions=condition_list,
                 conviction_level=conviction,
                 tax_notes=tax_notes,
                 reasoning=reason,
             )
         console.print(f"[green]✓[/green] Opened thesis #{t.thesis_id} for {t.symbol} ({t.status})")
         _print_thesis_detail(t)
+        # 0042: the authoring echo — what the machine will (and will NOT)
+        # enforce, plus placeholder ladder lint. A narrowing is never silent.
+        if condition_list:
+            console.print(lint_echo([c["text"] for c in condition_list]), markup=False)
+        _print_ladder_lint(t)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
     finally:
         await close_pool()
 
@@ -274,10 +337,12 @@ async def _show_thesis(symbol: str, full_report: bool = False) -> None:
     try:
         async with acquire() as conn:
             t = await svc.get_thesis_by_symbol(conn, symbol)
-        if t is None:
-            console.print(f"[yellow]No thesis found for {symbol}[/yellow]")
-            raise typer.Exit(1)
-        _print_thesis_detail(t)
+            if t is None:
+                console.print(f"[yellow]No thesis found for {symbol}[/yellow]")
+                raise typer.Exit(1)
+            _print_thesis_detail(t)
+            # 0042: conditions + events live in their own tables now.
+            await _print_conditions(conn, t.thesis_id, symbol)
         if full_report:
             _print_report_sections(t)
     finally:
@@ -411,6 +476,174 @@ async def _reject_thesis(thesis_id: int, reason: str) -> None:
         await close_pool()
 
 
+# ---------------------------------------------------------------------------
+# attest — attestation transitions (0042, D4/R9)
+# ---------------------------------------------------------------------------
+
+@thesis_app.command("attest")
+def thesis_attest(
+    thesis_id: int = typer.Argument(..., help="Thesis ID (numeric), not symbol"),
+    to: str = typer.Option("underwritten", "--to", help="underwritten|placeholder"),
+    basis: str = typer.Option("", "--basis", help="The underwriting basis (required for underwritten)"),
+    reason: str = typer.Option("", "--reason", help="Reasoning (required for demotion; defaults to basis for underwritten)"),
+) -> None:
+    """Attest a thesis' rule set — attestation placeholder <-> underwritten.
+
+    To 'underwritten' the full gate runs: basis required, ladder coherent,
+    stop not currently breached vs the latest close, condition baselines
+    current. Demotion to 'placeholder' is always allowed with --reason.
+    """
+    _require_personal_use()
+    if to not in ("underwritten", "placeholder"):
+        raise typer.BadParameter("--to must be 'underwritten' or 'placeholder'")
+    basis = basis.strip()
+    reason = reason.strip()
+    if to == "placeholder" and not reason:
+        raise typer.BadParameter("--reason is required when demoting to placeholder")
+    if not reason:
+        reason = f"Underwritten: {basis}" if basis else "Attestation change"
+    asyncio.run(_attest_thesis(thesis_id, to, basis or None, reason))
+
+
+async def _attest_thesis(thesis_id: int, to: str, basis: str | None, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.attest_thesis(conn, thesis_id, to=to, basis=basis, reasoning=reason)
+        console.print(
+            f"[green]✓[/green] Thesis #{t.thesis_id} ({t.symbol}) attestation → {t.attestation}"
+        )
+        _print_thesis_detail(t)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+# ---------------------------------------------------------------------------
+# condition add|resolve|list — thesis_conditions management (0042, D1/R2)
+# ---------------------------------------------------------------------------
+
+condition_app = typer.Typer(
+    help="Invalidation condition management (0042).",
+    no_args_is_help=True,
+    add_completion=False,
+)
+thesis_app.add_typer(condition_app, name="condition")
+
+
+@condition_app.command("add")
+def condition_add(
+    symbol: str = typer.Argument(..., help="Symbol, e.g. HUBS.NYSE"),
+    text: str = typer.Option(..., "--text", help="The condition text"),
+    semantics: str = typer.Option(
+        "alert_review", "--semantics", help="hard_exit|alert_review (authored intent)"
+    ),
+    reason: str = typer.Option(..., "--reason", help="Why this condition exists"),
+) -> None:
+    """Add one invalidation condition — the parser echo prints exactly what
+    will (and will NOT) be machine-enforced."""
+    _require_personal_use()
+    if semantics not in ("hard_exit", "alert_review"):
+        raise typer.BadParameter("--semantics must be 'hard_exit' or 'alert_review'")
+    asyncio.run(_condition_add(symbol, text, semantics, reason))
+
+
+async def _condition_add(symbol: str, text: str, semantics: str, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.get_thesis_by_symbol(conn, symbol)
+            if t is None:
+                console.print(f"[red]No thesis found for {symbol}[/red]")
+                raise typer.Exit(1)
+            c = await conditions_svc.add_condition(
+                conn, t.thesis_id, text=text, trigger_semantics=semantics, reasoning=reason
+            )
+        console.print(
+            f"[green]✓[/green] Condition {c.ordinal} added to thesis #{c.thesis_id} "
+            f"({symbol}, {c.trigger_semantics})"
+        )
+        console.print(c.enforcement_note, markup=False)
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@condition_app.command("resolve")
+def condition_resolve(
+    condition_id: int = typer.Argument(..., help="Condition ID (see: asx thesis condition list)"),
+    reason: str = typer.Option(..., "--reason", help="Why this condition no longer applies"),
+) -> None:
+    """Resolve a condition (terminal, human-only). Re-opening = a new
+    condition with a fresh baseline."""
+    _require_personal_use()
+    asyncio.run(_condition_resolve(condition_id, reason))
+
+
+async def _condition_resolve(condition_id: int, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            c = await conditions_svc.resolve_condition(conn, condition_id, reasoning=reason)
+        console.print(
+            f"[green]✓[/green] Condition {c.ordinal} on thesis #{c.thesis_id} resolved"
+        )
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
+@condition_app.command("list")
+def condition_list(
+    symbol: str = typer.Argument(..., help="Symbol, e.g. HUBS.NYSE"),
+) -> None:
+    """List a thesis' conditions with their machine baselines and events."""
+    _require_personal_use()
+    asyncio.run(_condition_list(symbol))
+
+
+async def _condition_list(symbol: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.get_thesis_by_symbol(conn, symbol)
+            if t is None:
+                console.print(f"[red]No thesis found for {symbol}[/red]")
+                raise typer.Exit(1)
+            await _print_conditions(conn, t.thesis_id, symbol)
+    finally:
+        await close_pool()
+
+
+async def _print_conditions(conn: Any, thesis_id: int, symbol: str) -> None:
+    """Render conditions + their event history (0042 tables)."""
+    conds = await conditions_svc.list_conditions(conn, thesis_id)
+    if not conds:
+        console.print(f"[dim]No conditions on thesis #{thesis_id} ({symbol}).[/dim]")
+        return
+    console.print(f"\n[bold]Conditions — thesis #{thesis_id} ({symbol}):[/bold]")
+    colour_for = {"active": "yellow", "triggered": "red", "re_armed": "cyan", "resolved": "green"}
+    for c in conds:
+        colour = colour_for.get(c.status, "white")
+        console.print(
+            f"  [{colour}][{c.status}][/{colour}] "
+            f"[{c.ordinal}] {escape(c.condition_text)} ({c.trigger_semantics}, id={c.condition_id})"
+        )
+        console.print(f"      {escape(c.enforcement_note)}")
+        events = await conditions_svc.get_events(conn, c.condition_id)
+        for e in events:
+            close_str = f" close={e.observed_close}" if e.observed_close is not None else ""
+            console.print(
+                f"      [dim]{e.price_date} {e.event_type}{close_str} [{e.source}][/dim]"
+            )
+
+
 @thesis_app.command("revise")
 def thesis_revise(
     symbol: str = typer.Argument(..., help="Symbol, e.g. CBA.AU"),
@@ -475,6 +708,8 @@ async def _revise_thesis(symbol: str, changes: dict[str, Any], reason: str) -> N
 
         console.print(f"[green]✓[/green] Revised thesis #{t.thesis_id} for {symbol}")
         _print_thesis_detail(t)
+        # 0042: placeholder ladders are not blocked, but never silent either.
+        _print_ladder_lint(t)
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1) from exc
@@ -912,11 +1147,18 @@ def _print_thesis_detail(t: Thesis) -> None:
     if overdue:
         revisit_str = f"[red]{revisit_str} OVERDUE[/red]"
 
+    attest_str = (
+        f"underwritten — {t.attestation_basis}"
+        if t.attestation == "underwritten"
+        else "[yellow]PLACEHOLDER — not underwritten[/yellow]"
+    )
+
     rows = [
         ("ID", str(t.thesis_id)),
         ("Symbol", t.symbol),
         ("Status", t.status),
-        ("Governance", t.governance_status),  # NEW — migration 0033
+        ("Governance", t.governance_status),  # migration 0033
+        ("Attestation", attest_str),  # migration 0042 (D4/R9)
         ("Thesis", t.thesis_text or "[dim]not articulated[/dim]"),
         ("Entry band", f"{t.entry_band_lower}–{t.entry_band_upper}" if t.entry_band_lower else "—"),
         ("Stop", str(t.stop_price or "—")),
@@ -940,12 +1182,8 @@ def _print_thesis_detail(t: Thesis) -> None:
 
     console.print(table)
 
-    if t.invalidation_conditions:
-        console.print("\n[bold]Invalidation conditions:[/bold]")
-        for ic in t.invalidation_conditions:
-            colour = {"active": "yellow", "triggered": "red", "resolved": "green"}.get(ic.status, "white")
-            note = f" — {ic.note}" if ic.note else ""
-            console.print(f"  [{colour}][{ic.status}][/{colour}] {ic.condition}{note}")
+    # Invalidation conditions moved to thesis_conditions (0042) — rendered by
+    # _print_conditions() where a connection is available (show / condition list).
 
     if t.report_sections:
         console.print(

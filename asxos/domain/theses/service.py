@@ -26,6 +26,9 @@ import asyncpg
 from pydantic import ValidationError as PydanticValidationError
 
 from asxos.domain.governance import transitions as governance_transitions
+from asxos.domain.theses import conditions as conditions_svc
+from asxos.domain.theses import lint
+from asxos.domain.theses.condition_parser import PARSER_VERSION, parse_condition
 from asxos.domain.theses.schemas import (
     REPORT_SECTION_KINDS,
     ReportFigure,
@@ -35,7 +38,6 @@ from asxos.domain.theses.schemas import (
 from asxos.domain.theses.types import (
     _REVISION_TYPE_FOR_FIELD,
     REVISABLE_FIELDS,
-    InvalidationCondition,
     Thesis,
     ThesisRevision,
 )
@@ -44,6 +46,9 @@ _VALID_SYMBOL_SUFFIXES = (".AU", ".US")
 _REVISIT_INTERVAL_DAYS = 30
 _STALE_EVIDENCE_DAYS = 14
 _REJECTABLE_FROM = {"draft", "evidence_complete", "pending_review"}
+_VALID_ATTESTATIONS = ("placeholder", "underwritten")
+# Fields the underwritten ladder-coherence gate re-checks on revise (0042 D2).
+_LADDER_FIELDS = ("stop_price", "entry_band_lower", "entry_band_upper", "target_price")
 
 
 # ---------------------------------------------------------------------------
@@ -108,17 +113,6 @@ def _parse_report_sections(raw: Any) -> tuple[ReportSection, ...]:
 
 def _row_to_thesis(row: asyncpg.Record) -> Thesis:
     """Convert an asyncpg Record from the theses table to a Thesis dataclass."""
-    raw_ic = row["invalidation_conditions"]
-    if isinstance(raw_ic, str):
-        raw_ic = json.loads(raw_ic)
-    ic_tuple = tuple(
-        InvalidationCondition(
-            condition=ic["condition"],
-            status=ic["status"],
-            note=ic.get("note"),
-        )
-        for ic in (raw_ic or [])
-    )
     return Thesis(
         thesis_id=row["thesis_id"],
         symbol=row["symbol"],
@@ -129,7 +123,6 @@ def _row_to_thesis(row: asyncpg.Record) -> Thesis:
         stop_price=row["stop_price"],
         target_price=row["target_price"],
         timeline_days=row["timeline_days"],
-        invalidation_conditions=ic_tuple,
         themes=tuple(row["themes"] or []),
         actual_entry_price=row["actual_entry_price"],
         actual_entry_at=row["actual_entry_at"],
@@ -155,6 +148,10 @@ def _row_to_thesis(row: asyncpg.Record) -> Thesis:
         # migration 0040 field — .get() so a pre-migration synthetic test row
         # (no "report_sections" key at all) parses to () unchanged.
         report_sections=_parse_report_sections(row.get("report_sections")),
+        # migration 0042 fields — .get() default matches the DB DEFAULT
+        # 'placeholder' (every pre-0042 row was grandfathered to it, D4).
+        attestation=row.get("attestation", "placeholder"),
+        attestation_basis=row.get("attestation_basis"),
     )
 
 
@@ -211,9 +208,11 @@ async def open_thesis(
     target_price: Decimal | None = None,
     timeline_days: int | None = None,
     themes: list[str] | None = None,
-    invalidation_conditions: list[dict[str, Any]] | None = None,
+    conditions: list[dict[str, Any]] | None = None,
     conviction_level: int | None = None,
     tax_notes: str | None = None,
+    attestation: str = "placeholder",
+    attestation_basis: str | None = None,
     reasoning: str = "Initial thesis",
 ) -> Thesis:
     """Open a new investment thesis.
@@ -222,17 +221,42 @@ async def open_thesis(
     theme_holdings placeholder rows (source='system_default') in a single
     transaction.
 
+    conditions (0042, D1/R2): each element is {"text": ..., "trigger_semantics":
+    "hard_exit"|"alert_review"} — the shared parser runs at authoring and the
+    machine baseline + echo are stored per condition (thesis_conditions rows +
+    'condition_added' revisions, via conditions.add_condition()). The pre-0042
+    invalidation_conditions JSONB parameter is gone with the column.
+
+    attestation (0042, D4/R9): new theses are BORN 'placeholder' — ladder lint
+    findings are only ECHOED for placeholders (the caller/CLI prints them; a
+    placeholder may be wrong because it is *visibly* wrong and barred from
+    action surfaces). Passing 'underwritten' runs the FULL attest gate
+    (attest_thesis()) inside this same transaction — basis required, ladder
+    coherent, stop not born-breached, baselines current.
+
     Raises ValueError if:
       - symbol suffix is not .AU or .US
       - any theme_code in themes does not exist in the themes table
+      - a condition dict is missing "text"/"trigger_semantics"
+      - attestation='underwritten' and any attest gate fails
 
     Themes are upserted to theme_holdings with exposure_strength=0.5 and
     source='system_default'. Use ThemeService.attach_thesis() to set the
     actual exposure_strength and mechanism_text.
     """
     _validate_symbol(symbol)
+    if attestation not in _VALID_ATTESTATIONS:
+        raise ValueError(
+            f"attestation must be one of {list(_VALID_ATTESTATIONS)}, got {attestation!r}"
+        )
     themes = themes or []
-    invalidation_conditions = invalidation_conditions or []
+    conditions = conditions or []
+    for c in conditions:
+        if "text" not in c or "trigger_semantics" not in c:
+            raise ValueError(
+                "each condition must be {'text': ..., 'trigger_semantics': "
+                f"'hard_exit'|'alert_review'}} — got {c!r}"
+            )
     now = _now_utc()
     due = _revisit_due(now)
 
@@ -243,16 +267,16 @@ async def open_thesis(
                 symbol, status, thesis_text,
                 entry_band_lower, entry_band_upper,
                 stop_price, target_price, timeline_days,
-                invalidation_conditions, themes,
+                themes,
                 last_revisited_at, revisit_due_at, opened_at,
                 conviction_level, tax_notes
             ) VALUES (
                 $1, $2, $3,
                 $4, $5,
                 $6, $7, $8,
-                $9::jsonb, $10,
-                $11, $12, $11,
-                $13, $14
+                $9,
+                $10, $11, $10,
+                $12, $13
             )
             RETURNING *
             """,
@@ -264,7 +288,6 @@ async def open_thesis(
             stop_price,
             target_price,
             timeline_days,
-            json.dumps(invalidation_conditions),
             themes,
             now,
             due,
@@ -315,7 +338,30 @@ async def open_thesis(
                 now,
             )
 
-        return _row_to_thesis(row)
+        # 0042: conditions are normalised rows with a stored parse baseline.
+        # add_condition() nests a savepoint transaction inside this one and
+        # writes the thesis_conditions row + 'condition_added' revision.
+        for c in conditions:
+            await conditions_svc.add_condition(
+                conn,
+                thesis_id,
+                text=c["text"],
+                trigger_semantics=c["trigger_semantics"],
+                reasoning=f"Authored at open: {reasoning}",
+            )
+
+        thesis = _row_to_thesis(row)
+        if attestation == "underwritten":
+            # Full attest gate in the same transaction — an incoherent or
+            # born-breached ladder aborts the whole open (design §5, row 1).
+            thesis = await attest_thesis(
+                conn,
+                thesis_id,
+                to="underwritten",
+                basis=attestation_basis,
+                reasoning=f"Attested at open: {reasoning}",
+            )
+        return thesis
 
 
 async def get_thesis(conn: asyncpg.Connection, thesis_id: int) -> Thesis | None:
@@ -400,8 +446,15 @@ async def revise_thesis(
     Updates last_revisited_at and revisit_due_at.
     All writes in a single transaction.
 
-    For invalidation_conditions, pass a list of dicts:
-      [{"condition": "...", "status": "active", "note": None}]
+    0042 (D2/R1): a ladder-field revision on an UNDERWRITTEN thesis hard-fails
+    on incoherence — the service mirrors the theses_ladder_coherent_long_v1
+    CHECK with a readable error; the CHECK is the backstop. Placeholders are
+    deliberately NOT gated (they may be wrong; they are visibly wrong), which
+    is exactly what enables incremental rule repair: fix the stop first, then
+    the band, then attest (KD-4's rejection of a NOT VALID constraint).
+    Invalidation conditions are no longer revisable here — they live in
+    thesis_conditions with their own service (conditions.py). Attestation has
+    its own transition function (attest_thesis), like governance_status.
     """
     if field not in REVISABLE_FIELDS:
         raise ValueError(
@@ -420,45 +473,45 @@ async def revise_thesis(
         if existing is None:
             raise ValueError(f"Thesis {thesis_id} not found")
 
+        if field in _LADDER_FIELDS and existing["attestation"] == "underwritten":
+            prospective = {f: existing[f] for f in _LADDER_FIELDS}
+            prospective[field] = value
+            findings = lint.lint_ladder(
+                stop_price=prospective["stop_price"],
+                entry_band_lower=prospective["entry_band_lower"],
+                entry_band_upper=prospective["entry_band_upper"],
+                target_price=prospective["target_price"],
+            )
+            if findings:
+                details = "; ".join(f"[{f.code}] {f.message}" for f in findings)
+                raise ValueError(
+                    f"Cannot revise {field} on underwritten thesis {thesis_id} — "
+                    f"the resulting ladder is incoherent: {details}. For an "
+                    "incremental multi-field repair, demote first: "
+                    f"asx thesis attest {thesis_id} --to placeholder --reason '...'"
+                )
+
         old_raw = existing[sql_col]
         old_str = _serialise(old_raw)
         new_str = _serialise(value)
 
         diff = {field: {"old": old_str, "new": new_str}}
 
-        # JSONB fields need special handling for the parameterised query.
-        if field == "invalidation_conditions":
-            db_value: Any = json.dumps(value)
-            # sql_col is from REVISABLE_FIELDS allowlist — safe to interpolate
-            row = await conn.fetchrow(
-                f"""
-                UPDATE theses
-                SET {sql_col} = $1::jsonb,
-                    last_revisited_at = $2,
-                    revisit_due_at = $3
-                WHERE thesis_id = $4
-                RETURNING *
-                """,
-                db_value,
-                now,
-                due,
-                thesis_id,
-            )
-        else:
-            row = await conn.fetchrow(
-                f"""
-                UPDATE theses
-                SET {sql_col} = $1,
-                    last_revisited_at = $2,
-                    revisit_due_at = $3
-                WHERE thesis_id = $4
-                RETURNING *
-                """,
-                value,
-                now,
-                due,
-                thesis_id,
-            )
+        # sql_col is from REVISABLE_FIELDS allowlist — safe to interpolate
+        row = await conn.fetchrow(
+            f"""
+            UPDATE theses
+            SET {sql_col} = $1,
+                last_revisited_at = $2,
+                revisit_due_at = $3
+            WHERE thesis_id = $4
+            RETURNING *
+            """,
+            value,
+            now,
+            due,
+            thesis_id,
+        )
 
         await _insert_revision(
             conn,
@@ -505,7 +558,7 @@ async def add_report_section(
     function unchanged with cited/derived figures.
 
     Writes revision_type='assumption_change' — the same bucket thesis_text/
-    invalidation_conditions/conviction_level/tax_notes already use for
+    conviction_level/tax_notes already use for
     narrative-content changes (types.py::_REVISION_TYPE_FOR_FIELD). The diff
     stores the FULL old and new ReportSection (model_dump(mode="json")), not
     a summary — thesis_revisions is the irreplaceable audit log, so a
@@ -639,6 +692,166 @@ async def review_thesis(
         return _row_to_thesis(row)
 
 
+async def attest_thesis(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    *,
+    to: str,
+    basis: str | None = None,
+    reasoning: str,
+) -> Thesis:
+    """Transition attestation placeholder <-> underwritten (0042, D4/R9).
+
+    The ONLY write path for theses.attestation — like governance_status, it is
+    deliberately not in REVISABLE_FIELDS. No governance_events row is needed:
+    the 0034 trigger is BEFORE UPDATE OF governance_status only and this
+    UPDATE never touches that column.
+
+    To 'underwritten' (the underwriting gate), hard-fails unless:
+      - basis is non-empty (stored in attestation_basis; DB CHECK backstop)
+      - the ladder is coherent (service mirror of the
+        theses_ladder_coherent_long_v1 CHECK, readable error; the CHECK fires
+        on this UPDATE as the backstop — KD-4: you mechanically cannot attest
+        an incoherent ladder)
+      - the stop is not currently breached vs the latest close (the BB gate —
+        service-only, cross-table, cannot be a CHECK). A set stop with NO
+        price history at all also refuses: an unverifiable stop cannot be
+        underwritten (conservative reading).
+      - every condition's baseline is current at PARSER_VERSION: stale-version
+        baselines are re-parsed; identical kind+threshold → parser_version
+        silently refreshed; drifted → hard-fail (the enforced promise only
+        changes by human re-authoring, design §7.2).
+
+    Demotion to 'placeholder' is always allowed with reasoning;
+    attestation_basis is cleared so a stale basis can never imply
+    underwriting.
+
+    Does NOT touch last_revisited_at/revisit_due_at — attestation is a rule-
+    integrity act, not a thesis-content revisit (same stance as
+    approve_object()).
+    """
+    if to not in _VALID_ATTESTATIONS:
+        raise ValueError(f"to must be one of {list(_VALID_ATTESTATIONS)}, got {to!r}")
+    if not reasoning or not reasoning.strip():
+        raise ValueError("reasoning is required for an attestation change")
+
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM theses WHERE thesis_id = $1 FOR UPDATE", thesis_id
+        )
+        if existing is None:
+            raise ValueError(f"Thesis {thesis_id} not found")
+        old = existing["attestation"]
+        if old == to:
+            raise ValueError(f"Thesis {thesis_id} attestation is already {to!r}")
+
+        new_basis: str | None
+        if to == "underwritten":
+            if not basis or not basis.strip():
+                raise ValueError(
+                    f"Cannot attest thesis {thesis_id} as underwritten without a "
+                    "basis. Use: asx thesis attest "
+                    f"{thesis_id} --basis '...'"
+                )
+            findings = lint.lint_ladder(
+                stop_price=existing["stop_price"],
+                entry_band_lower=existing["entry_band_lower"],
+                entry_band_upper=existing["entry_band_upper"],
+                target_price=existing["target_price"],
+            )
+            if findings:
+                details = "; ".join(f"[{f.code}] {f.message}" for f in findings)
+                raise ValueError(
+                    f"Cannot attest thesis {thesis_id} — ladder incoherent: {details}"
+                )
+            if existing["stop_price"] is not None:
+                price_row = await conn.fetchrow(
+                    """
+                    SELECT close, dt FROM prices
+                    WHERE symbol = $1
+                    ORDER BY dt DESC LIMIT 1
+                    """,
+                    existing["symbol"],
+                )
+                if price_row is None:
+                    raise ValueError(
+                        f"Cannot attest thesis {thesis_id} — no price history for "
+                        f"{existing['symbol']} to verify the stop against (BB gate)"
+                    )
+                bb = lint.lint_born_breached(
+                    stop_price=existing["stop_price"],
+                    latest_close=Decimal(str(price_row["close"])),
+                )
+                if bb is not None:
+                    raise ValueError(
+                        f"Cannot attest thesis {thesis_id} — [{bb.code}] {bb.message} "
+                        f"(latest close {price_row['close']} on {price_row['dt']})"
+                    )
+            cond_rows = await conn.fetch(
+                """
+                SELECT condition_id, ordinal, condition_text, enforcement_kind,
+                       enforcement_threshold, parser_version
+                FROM thesis_conditions
+                WHERE thesis_id = $1 AND status <> 'resolved'
+                ORDER BY ordinal
+                """,
+                thesis_id,
+            )
+            for c in cond_rows:
+                if c["parser_version"] == PARSER_VERSION:
+                    continue
+                reparsed = parse_condition(c["condition_text"])
+                if (
+                    reparsed.kind == c["enforcement_kind"]
+                    and reparsed.threshold == c["enforcement_threshold"]
+                ):
+                    await conn.execute(
+                        """
+                        UPDATE thesis_conditions
+                        SET parser_version = $1, updated_at = NOW()
+                        WHERE condition_id = $2
+                        """,
+                        PARSER_VERSION,
+                        c["condition_id"],
+                    )
+                else:
+                    raise ValueError(
+                        f"Cannot attest thesis {thesis_id} — condition "
+                        f"{c['ordinal']} baseline drifted: stored "
+                        f"{c['enforcement_kind']}/{c['enforcement_threshold']} "
+                        f"(parser {c['parser_version']}) vs current "
+                        f"{reparsed.kind}/{reparsed.threshold} ({PARSER_VERSION}). "
+                        "Re-author the condition (asx thesis condition add + "
+                        "resolve the old one) so the enforced promise is the "
+                        "one you attest."
+                    )
+            new_basis = basis.strip()
+        else:
+            # Demotion — always allowed; clear the basis so it cannot go stale.
+            new_basis = None
+
+        row = await conn.fetchrow(
+            """
+            UPDATE theses
+            SET attestation = $1, attestation_basis = $2
+            WHERE thesis_id = $3
+            RETURNING *
+            """,
+            to,
+            new_basis,
+            thesis_id,
+        )
+        await _insert_revision(
+            conn,
+            thesis_id=thesis_id,
+            revised_at=_now_utc(),
+            revision_type="attestation_change",
+            diff={"attestation": {"old": old, "new": to}},
+            reasoning=reasoning,
+        )
+        return _row_to_thesis(row)
+
+
 async def enter_thesis(
     conn: asyncpg.Connection,
     thesis_id: int,
@@ -655,6 +868,9 @@ async def enter_thesis(
         "watching -> active (enter_thesis, investment lifecycle) — Existing
         hard-fails unchanged, plus: hard-fail unless governance_status =
         'approved'")
+      - attestation is not 'underwritten'  (migration 0042 — D4/R9's
+        capital-eligibility gate, distinct from born-approved governance:
+        capital never deploys against a placeholder)
       - thesis_text is None or empty  (cannot enter on unarticulated thesis)
       - stop_price is None
       - target_price is None
@@ -686,6 +902,13 @@ async def enter_thesis(
                 f"{existing['governance_status']!r}, must be 'approved'. "
                 "Agent-originated theses require human approval first: "
                 "asx thesis approve <id> --reason '...'"
+            )
+        if existing["attestation"] != "underwritten":
+            raise ValueError(
+                f"Cannot enter thesis {thesis_id} — attestation is "
+                f"{existing['attestation']!r}, must be 'underwritten'. Capital "
+                "never deploys against a placeholder rule set (D4/R9). Attest "
+                f"first: asx thesis attest {thesis_id} --basis '...'"
             )
         if not existing["thesis_text"]:
             raise ValueError(

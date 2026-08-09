@@ -1,81 +1,266 @@
-"""Tests for jobs/check_thesis_invalidations.py.
+"""Tests for jobs/check_thesis_invalidations.py — the 0042 rewrite.
 
-First test file for this job — written alongside the _normalize_conditions
-fix after the job's first live run (2026-07-03) crashed with
-AttributeError('str' object has no attribute 'get') on thesis #2
-(HUBS.NYSE), whose manually seeded invalidation_conditions are bare strings
-rather than the service-layer {"condition", "status"} dict contract.
+The pre-0042 file tested _normalize_conditions/_parse_price_condition; both
+are gone (the JSONB column is dropped in 0042 and the parser moved to
+asxos/domain/theses/condition_parser.py, tested in test_condition_parser.py).
+This rewrite drives _run() end-to-end with a scripted conn + stubbed
+JobMonitor and pins the fixtures from design §9: TR (price-date provenance,
+action framing), SP (stale-tape guard), RB no-op/re-arm branches, the
+unparseable loud count, the widened active+watching scope, and _send_alert's
+hard-fail on missing env (register #20).
 """
 from __future__ import annotations
 
-import json
+from contextlib import asynccontextmanager
+from datetime import date
 from decimal import Decimal
+from typing import Any, ClassVar
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from jobs.check_thesis_invalidations import _normalize_conditions, _parse_price_condition
+import pytest
 
-# --- _normalize_conditions — the live-run regression ---
+import jobs.check_thesis_invalidations as job
 
-
-def test_normalize_bare_strings_become_active_dicts():
-    raw = ["Price closes below $230 stop on volume", "Macro regime shifts"]
-    out = _normalize_conditions(raw)
-    assert out == [
-        {"condition": "Price closes below $230 stop on volume", "status": "active"},
-        {"condition": "Macro regime shifts", "status": "active"},
-    ]
+AS_OF = date(2026, 8, 7)
+PRICE_DATE = date(2026, 8, 6)
 
 
-def test_normalize_dicts_pass_through_unchanged():
-    raw = [
-        {"condition": "Price falls below $150", "status": "active"},
-        {"condition": "Price above $300", "status": "triggered", "note": "x"},
-    ]
-    assert _normalize_conditions(raw) == raw
+def _cond(**over) -> dict[str, Any]:
+    row = {
+        "condition_id": 5,
+        "thesis_id": 2,
+        "ordinal": 1,
+        "condition_text": "Price closes below $230 stop on volume",
+        "trigger_semantics": "hard_exit",
+        "condition_status": "active",
+        "enforcement_kind": "price_below",
+        "enforcement_threshold": Decimal("230.000000"),
+        "symbol": "HUBS.NYSE",
+        "attestation": "underwritten",
+    }
+    row.update(over)
+    return row
 
 
-def test_normalize_mixed_shapes():
-    # 45.5 (bare JSONB number) pins the str() coercion for non-string scalars.
-    raw = [
-        "Close under 45.50",
-        {"condition": "Price above $300", "status": "resolved"},
-        45.5,
-    ]
-    out = _normalize_conditions(raw)
-    assert out[0] == {"condition": "Close under 45.50", "status": "active"}
-    assert out[1] == {"condition": "Price above $300", "status": "resolved"}
-    assert out[2] == {"condition": "45.5", "status": "active"}
+class _StubMonitor:
+    instances: ClassVar[list[_StubMonitor]] = []
+
+    def __init__(self, *_a, **_k):
+        self.rows_written = 0
+        self.note: str | None = None
+        _StubMonitor.instances.append(self)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_exc):
+        return False
 
 
-def test_normalize_accepts_json_string_input():
-    # asyncpg returns JSONB as a str unless a codec is registered.
-    raw = json.dumps(["Price falls below $10"])
-    assert _normalize_conditions(raw) == [
-        {"condition": "Price falls below $10", "status": "active"}
-    ]
+@pytest.fixture
+def run_env(monkeypatch: pytest.MonkeyPatch):
+    """Patch pools, monitor, transitions, locks + alert send; return knobs."""
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    _StubMonitor.instances = []
+
+    conn = MagicMock()
+    conn.fetch = AsyncMock(return_value=[])
+    conn.fetchrow = AsyncMock(return_value=None)
+
+    @asynccontextmanager
+    async def _acquire():
+        yield conn
+
+    sent: list[tuple[str, str]] = []
+
+    with (
+        patch.object(job, "init_pool", new=AsyncMock()),
+        patch.object(job, "close_pool", new=AsyncMock()),
+        patch.object(job, "acquire", side_effect=_acquire),
+        patch.object(job, "JobMonitor", _StubMonitor),
+        patch.object(job.conditions_svc, "record_trigger", new=AsyncMock(return_value=True)) as trig,
+        patch.object(job.conditions_svc, "record_re_arm", new=AsyncMock(return_value=True)) as rearm,
+        patch.object(job, "get_disposal_locks", new=AsyncMock(return_value={})) as locks,
+        patch.object(job, "_send_alert", side_effect=lambda s, b: sent.append((s, b))),
+    ):
+        yield {
+            "conn": conn, "trigger": trig, "re_arm": rearm,
+            "locks": locks, "sent": sent,
+        }
 
 
-def test_normalized_bare_string_survives_the_crash_path():
-    # The exact live failure: .get() on each entry must work post-normalize.
-    out = _normalize_conditions(["Price closes below $230 stop on volume"])
-    for cond in out:
-        assert cond.get("status") == "active"
-        parsed = _parse_price_condition(cond["condition"])
-        assert parsed == ("below", Decimal("230"))
+def _monitor() -> _StubMonitor:
+    assert _StubMonitor.instances
+    return _StubMonitor.instances[-1]
 
 
-# --- _parse_price_condition — pin the documented patterns ---
+# ---------------------------------------------------------------------------
+# TR — trigger uses the CLOSE's date, alert action-framed
+# ---------------------------------------------------------------------------
+
+async def test_trigger_records_price_date_not_run_date_and_sends_action_alert(run_env):
+    run_env["conn"].fetch = AsyncMock(return_value=[_cond()])
+    run_env["conn"].fetchrow = AsyncMock(
+        return_value={"close": Decimal("200.00"), "dt": PRICE_DATE}
+    )
+
+    await job._run(AS_OF)
+
+    trig = run_env["trigger"]
+    trig.assert_awaited_once()
+    kwargs = trig.await_args.kwargs
+    assert kwargs["price_date"] == PRICE_DATE  # ≠ AS_OF — register #21
+    assert kwargs["price_date"] != AS_OF
+    assert kwargs["observed_close"] == Decimal("200.00")
+    assert kwargs["source"] == "job"
+
+    assert len(run_env["sent"]) == 1
+    subject, body = run_env["sent"][0]
+    assert "HUBS.NYSE" in subject
+    assert str(PRICE_DATE) in subject
+    assert "Run: asx thesis exit HUBS.NYSE" in body  # underwritten+hard_exit+unlocked
+    assert _monitor().rows_written == 1
 
 
-def test_parse_below_variants():
-    assert _parse_price_condition("Price falls below $150") == ("below", Decimal("150"))
-    assert _parse_price_condition("Close under 45.50") == ("below", Decimal("45.50"))
+async def test_placeholder_trigger_alert_is_review_framed(run_env):
+    run_env["conn"].fetch = AsyncMock(return_value=[_cond(attestation="placeholder")])
+    run_env["conn"].fetchrow = AsyncMock(
+        return_value={"close": Decimal("200.00"), "dt": PRICE_DATE}
+    )
+
+    await job._run(AS_OF)
+
+    assert len(run_env["sent"]) == 1
+    _subject, body = run_env["sent"][0]
+    assert "asx thesis exit" not in body
+    assert "PLACEHOLDER — not underwritten" in body
 
 
-def test_parse_above_variants():
-    assert _parse_price_condition("Price above $300") == ("above", Decimal("300"))
-    assert _parse_price_condition("Stock rises above 8.20") == ("above", Decimal("8.20"))
+async def test_no_alert_when_transition_already_recorded(run_env):
+    """record_trigger returning False (idempotent re-run) → no alert, no
+    rows_written — a re-run is quiet."""
+    run_env["trigger"].return_value = False
+    run_env["conn"].fetch = AsyncMock(return_value=[_cond()])
+    run_env["conn"].fetchrow = AsyncMock(
+        return_value={"close": Decimal("200.00"), "dt": PRICE_DATE}
+    )
+
+    await job._run(AS_OF)
+
+    assert run_env["sent"] == []
+    assert _monitor().rows_written == 0
 
 
-def test_parse_unrecognized_returns_none():
-    assert _parse_price_condition("Macro regime shifts to risk_off_disorderly") is None
-    assert _parse_price_condition("Three sell-side downgrades") is None
+# ---------------------------------------------------------------------------
+# SP — stale-price guard
+# ---------------------------------------------------------------------------
+
+async def test_stale_tape_skips_evaluation_with_loud_note(run_env):
+    stale_dt = AS_OF - job.timedelta(days=7)
+    run_env["conn"].fetch = AsyncMock(return_value=[_cond()])
+    run_env["conn"].fetchrow = AsyncMock(
+        return_value={"close": Decimal("200.00"), "dt": stale_dt}
+    )
+
+    await job._run(AS_OF)
+
+    run_env["trigger"].assert_not_awaited()
+    run_env["re_arm"].assert_not_awaited()
+    assert run_env["sent"] == []
+    note = _monitor().note or ""
+    assert "stale tape" in note and str(stale_dt) in note
+
+
+async def test_missing_price_rows_is_a_loud_note_not_a_silent_skip(run_env):
+    run_env["conn"].fetch = AsyncMock(return_value=[_cond()])
+    run_env["conn"].fetchrow = AsyncMock(return_value=None)
+
+    await job._run(AS_OF)
+
+    run_env["trigger"].assert_not_awaited()
+    assert "NO price rows" in (_monitor().note or "")
+
+
+# ---------------------------------------------------------------------------
+# RB — re-arm and still-breached branches
+# ---------------------------------------------------------------------------
+
+async def test_recaptured_close_re_arms_without_alert(run_env):
+    run_env["conn"].fetch = AsyncMock(
+        return_value=[_cond(condition_status="triggered")]
+    )
+    run_env["conn"].fetchrow = AsyncMock(
+        return_value={"close": Decimal("245.00"), "dt": PRICE_DATE}
+    )
+
+    await job._run(AS_OF)
+
+    run_env["re_arm"].assert_awaited_once()
+    assert run_env["re_arm"].await_args.kwargs["price_date"] == PRICE_DATE
+    run_env["trigger"].assert_not_awaited()
+    assert run_env["sent"] == []  # a recovery is brief material, not an interrupt
+    assert _monitor().rows_written == 1
+
+
+async def test_still_breached_triggered_condition_is_a_noop(run_env):
+    run_env["conn"].fetch = AsyncMock(
+        return_value=[_cond(condition_status="triggered")]
+    )
+    run_env["conn"].fetchrow = AsyncMock(
+        return_value={"close": Decimal("200.00"), "dt": PRICE_DATE}
+    )
+
+    await job._run(AS_OF)
+
+    run_env["trigger"].assert_not_awaited()
+    run_env["re_arm"].assert_not_awaited()
+    assert _monitor().rows_written == 0
+
+
+# ---------------------------------------------------------------------------
+# Unparseable conditions — counted + surfaced, never silent (register #5)
+# ---------------------------------------------------------------------------
+
+async def test_unparseable_conditions_counted_in_note(run_env):
+    run_env["conn"].fetch = AsyncMock(return_value=[
+        _cond(),
+        _cond(
+            condition_id=6, ordinal=3,
+            condition_text="Macro regime shifts to risk_off_disorderly",
+            enforcement_kind="not_machine_checkable",
+            enforcement_threshold=None,
+        ),
+    ])
+    run_env["conn"].fetchrow = AsyncMock(
+        return_value={"close": Decimal("245.00"), "dt": PRICE_DATE}
+    )
+
+    await job._run(AS_OF)
+
+    note = _monitor().note or ""
+    assert "1 condition(s) NOT machine-checked" in note
+    assert "HUBS.NYSE" in note
+
+
+# ---------------------------------------------------------------------------
+# Scope + query shape
+# ---------------------------------------------------------------------------
+
+async def test_query_covers_active_and_watching(run_env):
+    """Divergence #3 (register #22): watching theses are in scope."""
+    await job._run(AS_OF)
+    sql = run_env["conn"].fetch.await_args.args[0]
+    assert "'active'" in sql and "'watching'" in sql
+    assert "thesis_conditions" in sql
+
+
+# ---------------------------------------------------------------------------
+# _send_alert — hard-fail on missing env (register #20)
+# ---------------------------------------------------------------------------
+
+def test_send_alert_raises_on_missing_env(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("RESEND_API_KEY", raising=False)
+    monkeypatch.delenv("BRIEF_TO_EMAIL", raising=False)
+    monkeypatch.delenv("BRIEF_FROM_EMAIL", raising=False)
+    with pytest.raises(RuntimeError, match="RESEND_API_KEY"):
+        job._send_alert("subject", "body")

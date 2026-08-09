@@ -110,6 +110,7 @@ def _ctx_row() -> dict[str, object]:
         "analyst_sell_count": 0,
         "analyst_consensus_target": Decimal("140"),
         "total_cost": Decimal("7000"),
+        "total_cost_native": Decimal("7000"),
         "total_qty": Decimal("200"),
         "lots": [_lot("100", "2024-01-01", "3000"), _lot("100", "2026-06-01", "4000")],
     }
@@ -126,7 +127,7 @@ async def test_load_position_context_scopes_by_account_type() -> None:
     assert args[1] == "BHP.AU"
     assert args[2] == "smsf"
     assert ctx["account_type"] == "smsf"
-    assert ctx["cost_usd"] == Decimal("35")
+    assert ctx["cost_native"] == Decimal("35")
     assert ctx["shares"] == Decimal("200")
     assert ctx["cgt_date"] == date(2027, 6, 2)
     assert ctx["all_eligible"] is False
@@ -152,7 +153,7 @@ def _input_with_lots(lots: tuple[LotCgt, ...], *, all_eligible: bool) -> Monitor
         current_price=Decimal("100"), ma_50d=Decimal("95"), ma_200d=Decimal("90"),
         avg_weekly_move=Decimal("2"), vix_5d_move=Decimal("1"), hy_oas_5d_move=Decimal("0.1"),
         retail_ratio=Decimal("1"), news_sentiment=Decimal("0.5"),
-        cost_usd=Decimal("35"),  # weighted average — must NOT be what break-even uses
+        cost_native=Decimal("35"),  # weighted average — must NOT be what break-even uses
         lots=lots, all_eligible=all_eligible,
     )
 
@@ -166,7 +167,7 @@ def test_break_even_uses_earliest_ineligible_lot_not_weighted_average() -> None:
     assert result is not None
     lot_cost, lot_acquired = result
     assert lot_cost == Decimal("40")              # the pending lot's 4000/100
-    assert lot_cost != inp.cost_usd               # NOT the weighted-average 35
+    assert lot_cost != inp.cost_native            # NOT the weighted-average 35
     assert lot_acquired == date(2026, 6, 1)
 
 

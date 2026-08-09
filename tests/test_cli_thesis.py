@@ -49,7 +49,7 @@ def _thesis(report_sections: tuple[ReportSection, ...] = ()) -> Thesis:
         thesis_text="Rate cycle play — NIM expansion when RBA cuts",
         entry_band_lower=None, entry_band_upper=None,
         stop_price=None, target_price=None, timeline_days=None,
-        invalidation_conditions=(), themes=(),
+        themes=(),
         actual_entry_price=None, actual_entry_at=None,
         actual_exit_price=None, actual_exit_at=None,
         last_revisited_at=now, revisit_due_at=now, opened_at=now, closed_at=None,
@@ -337,6 +337,9 @@ def test_open_without_from_agent_run_uses_normal_path(
             thesis_mod.svc, "create_thesis_from_agent_run", new=AsyncMock()
         ) as agent_run_patch,
         patch.object(thesis_mod, "_print_thesis_detail"),  # see comment above
+        # _print_ladder_lint (0042) compares ladder Decimals — same
+        # MagicMock-arithmetic hazard as _print_thesis_detail; no-op it too.
+        patch.object(thesis_mod, "_print_ladder_lint"),
     ):
         result = runner.invoke(cli_main.app, ["thesis", "open", "CBA.AU"])
 
@@ -392,6 +395,105 @@ def test_add_section_requires_exactly_one_of_body_or_body_file(
     assert result.exit_code != 0
     assert "exactly one" in result.output
     init_patch.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# attest / condition — 0042 wiring
+# ---------------------------------------------------------------------------
+
+def test_attest_without_personal_use_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
+    with (
+        patch.object(thesis_mod, "init_pool", new=AsyncMock()) as init_patch,
+        patch.object(thesis_mod, "acquire") as acquire_patch,
+    ):
+        result = runner.invoke(
+            cli_main.app, ["thesis", "attest", "1", "--basis", "Q3 numbers hold"]
+        )
+
+    assert result.exit_code != 0
+    assert "ASXOS_PERSONAL_USE=1" in result.output
+    init_patch.assert_not_awaited()
+    acquire_patch.assert_not_called()
+
+
+def test_attest_invokes_service_with_basis(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    fake = MagicMock(thesis_id=1, symbol="CBA.AU", attestation="underwritten")
+    with (
+        patch.object(
+            thesis_mod.svc, "attest_thesis", new=AsyncMock(return_value=fake)
+        ) as attest_patch,
+        patch.object(thesis_mod, "_print_thesis_detail"),
+    ):
+        result = runner.invoke(
+            cli_main.app, ["thesis", "attest", "1", "--basis", "Q3 numbers hold"]
+        )
+
+    assert result.exit_code == 0, result.output
+    kwargs = attest_patch.await_args.kwargs
+    assert kwargs["to"] == "underwritten"
+    assert kwargs["basis"] == "Q3 numbers hold"
+
+
+def test_attest_demotion_requires_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    result = runner.invoke(
+        cli_main.app, ["thesis", "attest", "1", "--to", "placeholder"]
+    )
+    assert result.exit_code != 0
+
+
+def test_parse_condition_option_defaults_alert_review() -> None:
+    out = thesis_mod._parse_condition_option("Price falls below $150")
+    assert out == {"text": "Price falls below $150", "trigger_semantics": "alert_review"}
+
+
+def test_parse_condition_option_hard_exit_prefix() -> None:
+    out = thesis_mod._parse_condition_option("hard_exit::Price falls below $150")
+    assert out == {"text": "Price falls below $150", "trigger_semantics": "hard_exit"}
+
+
+def test_parse_condition_option_bad_prefix_rejected() -> None:
+    with pytest.raises(typer.BadParameter):
+        thesis_mod._parse_condition_option("soft_exit::Price falls below $150")
+
+
+def test_condition_add_invokes_service(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    fake_cond = MagicMock(
+        thesis_id=1, ordinal=1, trigger_semantics="hard_exit",
+        enforcement_note="will enforce: close < 150.000000.",
+    )
+    with (
+        patch.object(
+            thesis_mod.svc, "get_thesis_by_symbol",
+            new=AsyncMock(return_value=_thesis()),
+        ),
+        patch.object(
+            thesis_mod.conditions_svc, "add_condition",
+            new=AsyncMock(return_value=fake_cond),
+        ) as add_patch,
+    ):
+        result = runner.invoke(
+            cli_main.app,
+            ["thesis", "condition", "add", "CBA.AU",
+             "--text", "Price falls below $150",
+             "--semantics", "hard_exit", "--reason", "stop discipline"],
+        )
+
+    assert result.exit_code == 0, result.output
+    kwargs = add_patch.await_args.kwargs
+    assert kwargs["trigger_semantics"] == "hard_exit"
+    assert kwargs["text"] == "Price falls below $150"
+    # The parser echo is printed — the narrowing/enforcement is never silent.
+    assert "will enforce" in result.output
 
 
 # ---------------------------------------------------------------------------

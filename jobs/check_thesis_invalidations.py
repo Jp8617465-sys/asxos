@@ -1,191 +1,228 @@
 #!/usr/bin/env python
 """
-Thesis invalidation condition checker — daily.
+Thesis invalidation condition checker — daily (0042 rules-integrity core, D1/R2).
 
-For each active thesis, evaluates price-based invalidation conditions against
-the most recent close price. On a match:
-  1. Sets status='triggered' in the JSONB array (direct UPDATE — no revision
-     event since this is automated bookkeeping, not a user discipline event)
-  2. Sends an interrupt email so the user can review and decide to exit
+Evaluates the STORED machine baseline on thesis_conditions
+(enforcement_kind / enforcement_threshold) — never re-parsing condition text
+at runtime. The baseline is what the shared parser
+(asxos/domain/theses/condition_parser.py) echoed to James at authoring, and
+that promise is the thing being enforced; the R8 sweep
+(jobs/sweep_rule_integrity.py) detects baseline-vs-current-parser drift.
 
-Patterns recognized (case-insensitive, first match wins per condition):
-  "Price falls below $150"   → trigger if close < 150
-  "Close under 45.50"        → trigger if close < 45.50
-  "Price above $300"         → trigger if close > 300
-  "Stock rises above 8.20"   → trigger if close > 8.20
+Scope: theses with status IN ('active', 'watching') — widened from
+active-only during the 0042 rewrite (design divergence #3, register #22:
+a watching thesis' rules rotting silently is the CBA blind spot).
 
-Conditions that don't match a price pattern are skipped (manual check required).
-Already-triggered or resolved conditions are not re-evaluated.
+State machine per condition (asxos/domain/theses/conditions.py, one
+transaction per transition, idempotent via the events UNIQUE):
+  active|re_armed + breaching close  → triggered   (event + revision + alert)
+  triggered + recaptured close (v1: single close) → re_armed (event + revision)
+  triggered + still breached         → no-op (duration is DERIVED from events,
+                                      never a counter — no daily spam)
 
-Entries may be {"condition", "status", ...} dicts (the service-layer write
-contract) or bare strings (legacy manually seeded rows). Strings are read as
-active conditions, and the whole array is rewritten in dict shape whenever a
-trigger fires — see _normalize_conditions().
+Stale-price guard (SP): if the latest close's dt < as_of − 5 calendar days
+the symbol is NOT evaluated — no transition on stale tape; the skip is a
+loud JobMonitor.note finding, as is a symbol with no price rows at all.
+
+Unparseable (not_machine_checkable) conditions are counted and surfaced in
+JobMonitor.note — a skip is never silent (register #5).
+
+Alerts (asxos/domain/theses/alerts.py): action verbs appear only for
+underwritten + hard_exit + not disposal-locked; otherwise review-framed with
+the demotion reason on the face. Alert bodies are html-escaped by the
+builder. DB transitions are committed BEFORE any send, so the email is
+at-most-once and a send retry cannot double-write. _send_alert RAISES on
+missing RESEND env and lets send exceptions propagate → JobMonitor 'failure'
+→ Healthchecks /fail (design divergence #1; register #20's silent swallow is
+gone).
 """
 from __future__ import annotations
 
 import asyncio
-import json
 import os
-import re
-from collections.abc import Iterable
-from datetime import date
+from collections import defaultdict
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.portfolio.locks import get_disposal_locks
+from asxos.domain.theses import conditions as conditions_svc
+from asxos.domain.theses.alerts import build_invalidation_alert
+from asxos.domain.theses.condition_parser import evaluate
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "check_thesis_invalidations"
-
-_PRICE_BELOW_RE = re.compile(
-    r'(?i)\b(?:price|close|stock)\b.{0,40}(?:below|under|falls?\s+below|<|<=)\s*\$?\s*(\d+(?:\.\d+)?)'
-)
-_PRICE_ABOVE_RE = re.compile(
-    r'(?i)\b(?:price|close|stock)\b.{0,40}(?:above|over|rises?\s+above|>|>=)\s*\$?\s*(\d+(?:\.\d+)?)'
-)
+_STALE_CLOSE_DAYS = 5
 
 
-def _normalize_conditions(raw: str | Iterable[Any]) -> list[dict[str, Any]]:
-    """Return invalidation_conditions as a list of {"condition", "status", ...} dicts.
-
-    The service layer writes dicts, but manually seeded theses store bare
-    strings (e.g. thesis #2 HUBS.NYSE — found by this job's first live run,
-    2026-07-03). A bare string means an active, never-evaluated condition, so
-    coerce rather than crash; the dict shape is written back on any trigger,
-    normalizing the row permanently.
-    """
-    entries = json.loads(raw) if isinstance(raw, str) else raw
-    return [
-        e if isinstance(e, dict) else {"condition": str(e), "status": "active"}
-        for e in entries
-    ]
-
-
-def _parse_price_condition(condition: str) -> tuple[str, Decimal] | None:
-    """Return ('below', threshold) or ('above', threshold), or None if not parseable."""
-    m = _PRICE_BELOW_RE.search(condition)
-    if m:
-        return ("below", Decimal(m.group(1)))
-    m = _PRICE_ABOVE_RE.search(condition)
-    if m:
-        return ("above", Decimal(m.group(1)))
-    return None
-
-
-async def _fetch_active_theses_with_conditions(conn) -> list[dict]:  # type: ignore[no-untyped-def, type-arg]
+async def _fetch_conditions(conn) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
+    """All open conditions (machine-checkable AND unparseable — the latter are
+    counted, never silently dropped) for live theses."""
     rows = await conn.fetch(
         """
-        SELECT thesis_id, symbol, invalidation_conditions
-        FROM   theses
-        WHERE  status = 'active'
-          AND  invalidation_conditions IS NOT NULL
-          AND  jsonb_array_length(invalidation_conditions) > 0
-        ORDER  BY symbol
+        SELECT c.condition_id, c.thesis_id, c.ordinal, c.condition_text,
+               c.trigger_semantics, c.status AS condition_status,
+               c.enforcement_kind, c.enforcement_threshold,
+               t.symbol, t.attestation
+        FROM   thesis_conditions c
+        JOIN   theses t ON t.thesis_id = c.thesis_id
+        WHERE  t.status IN ('active', 'watching')
+          AND  c.status IN ('active', 'triggered', 're_armed')
+        ORDER  BY t.symbol, c.ordinal
         """
     )
     return [dict(r) for r in rows]
 
 
-async def _fetch_latest_close(conn, symbol: str, as_of: date) -> Decimal | None:  # type: ignore[no-untyped-def]
+async def _fetch_latest_close(conn, symbol: str, as_of: date) -> tuple[Decimal, date] | None:  # type: ignore[no-untyped-def]
+    """(close, dt) — the dt is the price-date provenance every event carries
+    (register #21: the pre-0042 note stamped the RUN date)."""
     row = await conn.fetchrow(
         """
-        SELECT close FROM prices
+        SELECT close, dt FROM prices
         WHERE  symbol = $1 AND dt <= $2
         ORDER  BY dt DESC LIMIT 1
         """,
         symbol,
         as_of,
     )
-    return Decimal(str(row["close"])) if row else None
+    return (Decimal(str(row["close"])), row["dt"]) if row else None
 
 
-def _send_alert(subject: str, body: str) -> None:
-    try:
-        import resend
+def _send_alert(subject: str, escaped_body: str) -> None:
+    """Send one invalidation email. escaped_body is already html-escaped by
+    the alert builder — interpolated into <pre> verbatim.
 
-        api_key = os.environ.get("RESEND_API_KEY", "")
-        to = os.environ.get("BRIEF_TO_EMAIL", "")
-        sender = os.environ.get("BRIEF_FROM_EMAIL", "")
-        if not (api_key and to and sender):
-            return
+    Hard-fails (CLAUDE.md #10) on missing env and lets resend exceptions
+    propagate: a discipline event must reach James before it costs money, and
+    an unsendable alert is a job FAILURE, not a shrug (register #20). The DB
+    transitions are already committed and idempotent, so the retry path is
+    safe.
+    """
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    to = os.environ.get("BRIEF_TO_EMAIL", "")
+    sender = os.environ.get("BRIEF_FROM_EMAIL", "")
+    if not (api_key and to and sender):
+        raise RuntimeError(
+            "check_thesis_invalidations: RESEND_API_KEY / BRIEF_TO_EMAIL / "
+            "BRIEF_FROM_EMAIL must all be set — an invalidation alert with "
+            "nowhere to go is a silent discipline failure"
+        )
 
-        resend.api_key = api_key
-        resend.Emails.send({
-            "from": sender,
-            "to": to,
-            "subject": subject,
-            "html": f"<pre>{body}</pre>",
-        })
-    except Exception:
-        pass
+    import resend  # deferred: only needed once there is something to send
+
+    resend.api_key = api_key
+    resend.Emails.send({
+        "from": sender,
+        "to": to,
+        "subject": subject,
+        "html": f"<pre>{escaped_body}</pre>",
+    })
 
 
 async def _run(as_of: date) -> None:
     # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
-    # missing flag fails loud rather than relying on render.yaml alone.
+    # missing flag fails loud rather than relying on the scheduler env alone.
     require_personal_use_job()
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_CHECK_THESIS_INVALIDATIONS", "")
     await init_pool()
     try:
         async with JobMonitor(JOB_NAME, as_of, healthcheck_url) as monitor:
             async with acquire() as conn:
-                theses = await _fetch_active_theses_with_conditions(conn)
+                conds = await _fetch_conditions(conn)
 
-            triggered_count = 0
-            for t in theses:
-                symbol = t["symbol"]
-                thesis_id = t["thesis_id"]
-                conditions = _normalize_conditions(t["invalidation_conditions"])
+            by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
+            for c in conds:
+                by_symbol[c["symbol"]].append(c)
 
+            notes: list[str] = []
+            transitions = 0
+            # (symbol, condition-row, close, price_date) for post-commit sends.
+            pending_alerts: list[tuple[str, dict[str, Any], Decimal, date]] = []
+
+            for symbol in sorted(by_symbol):
                 async with acquire() as conn:
-                    close = await _fetch_latest_close(conn, symbol, as_of)
-
-                if close is None:
+                    got = await _fetch_latest_close(conn, symbol, as_of)
+                if got is None:
+                    notes.append(f"{symbol}: NO price rows — not evaluated")
+                    continue
+                close, price_date = got
+                if price_date < as_of - timedelta(days=_STALE_CLOSE_DAYS):
+                    # SP guard: no transition on stale tape — loud, counted.
+                    notes.append(
+                        f"{symbol}: stale tape (latest close {price_date}, "
+                        f"as_of {as_of}) — not evaluated"
+                    )
                     continue
 
-                newly_triggered: list[str] = []
-                updated = False
+                for c in by_symbol[symbol]:
+                    if c["enforcement_kind"] == "not_machine_checkable":
+                        continue  # counted + surfaced below, never transitioned
+                    threshold = Decimal(str(c["enforcement_threshold"]))
+                    breached = evaluate(c["enforcement_kind"], threshold, close)
 
-                for i, cond in enumerate(conditions):
-                    if cond.get("status") != "active":
-                        continue
-                    parsed = _parse_price_condition(cond["condition"])
-                    if parsed is None:
-                        continue
-                    direction, threshold = parsed
-                    hit = (direction == "below" and close < threshold) or (
-                        direction == "above" and close > threshold
+                    if c["condition_status"] in ("active", "re_armed") and breached:
+                        async with acquire() as conn:
+                            applied = await conditions_svc.record_trigger(
+                                conn,
+                                c["condition_id"],
+                                price_date=price_date,
+                                observed_close=close,
+                                source="job",
+                            )
+                        if applied:
+                            transitions += 1
+                            pending_alerts.append((symbol, c, close, price_date))
+                    elif c["condition_status"] == "triggered" and not breached:
+                        async with acquire() as conn:
+                            applied = await conditions_svc.record_re_arm(
+                                conn,
+                                c["condition_id"],
+                                price_date=price_date,
+                                observed_close=close,
+                                source="job",
+                            )
+                        if applied:
+                            transitions += 1
+                    # triggered + still breached → deliberate no-op (no spam;
+                    # breach duration is derived from events, never counted).
+
+            unparseable = [c for c in conds if c["enforcement_kind"] == "not_machine_checkable"]
+            if unparseable:
+                syms = ", ".join(sorted({c["symbol"] for c in unparseable}))
+                notes.append(
+                    f"{len(unparseable)} condition(s) NOT machine-checked — "
+                    f"manual review only ({syms})"
+                )
+
+            # Alerts AFTER all transitions are committed (at-most-once email;
+            # the events UNIQUE makes the DB side idempotent on retry).
+            if pending_alerts:
+                alert_symbols = sorted({s for s, _c, _cl, _d in pending_alerts})
+                async with acquire() as conn:
+                    locks = await get_disposal_locks(conn, alert_symbols, as_of)
+                for symbol, c, close, price_date in pending_alerts:
+                    alert = build_invalidation_alert(
+                        thesis={
+                            "symbol": symbol,
+                            "thesis_id": c["thesis_id"],
+                            "attestation": c["attestation"],
+                        },
+                        condition=c,
+                        event={
+                            "price_date": price_date,
+                            "observed_close": close,
+                            "threshold": c["enforcement_threshold"],
+                        },
+                        lock=locks.get(symbol),
                     )
-                    if hit:
-                        conditions[i] = {
-                            **cond,
-                            "status": "triggered",
-                            "note": f"auto: close={close} {direction} {threshold} on {as_of}",
-                        }
-                        newly_triggered.append(
-                            f"{cond['condition']}  (close={close})"
-                        )
-                        updated = True
+                    _send_alert(alert.subject, alert.body)
 
-                if updated:
-                    async with acquire() as conn:
-                        await conn.execute(
-                            "UPDATE theses SET invalidation_conditions = $1::jsonb WHERE thesis_id = $2",
-                            json.dumps(conditions),
-                            thesis_id,
-                        )
-                    body = (
-                        f"{symbol} invalidation condition triggered:\n\n"
-                        + "\n".join(f"  • {m}" for m in newly_triggered)
-                        + "\n\nReview thesis and consider exit.\n"
-                        + f"Run: asx thesis exit {symbol}"
-                    )
-                    _send_alert(f"asxos [INVALIDATION] {symbol} — {as_of}", body)
-                    triggered_count += 1
-
-            monitor.rows_written = triggered_count
+            monitor.rows_written = transitions
+            if notes:
+                monitor.note = "; ".join(notes)
     finally:
         await close_pool()
 

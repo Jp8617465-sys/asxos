@@ -40,8 +40,15 @@ def _make_thesis_row(
     actual_exit_price: Decimal | None = None,
     actual_exit_at: datetime | None = None,
     governance_status: str = "approved",
+    attestation: str = "underwritten",
 ) -> dict:
-    """Return a dict shaped like an asyncpg theses row."""
+    """Return a dict shaped like an asyncpg theses row.
+
+    attestation defaults to 'underwritten' here (NOT the DB default
+    'placeholder') so the pre-0042 lifecycle tests — enter, revise, exit —
+    exercise their own gates rather than tripping the 0042 attestation gate;
+    the placeholder paths are pinned explicitly in test_thesis_attestation.py.
+    """
     return {
         "thesis_id": thesis_id,
         "symbol": symbol,
@@ -52,7 +59,6 @@ def _make_thesis_row(
         "stop_price": stop_price,
         "target_price": target_price,
         "timeline_days": timeline_days,
-        "invalidation_conditions": [],
         "themes": [],
         "actual_entry_price": actual_entry_price,
         "actual_entry_at": actual_entry_at,
@@ -63,6 +69,8 @@ def _make_thesis_row(
         "opened_at": _NOW,
         "closed_at": None,
         "governance_status": governance_status,
+        "attestation": attestation,
+        "attestation_basis": "Test basis" if attestation == "underwritten" else None,
     }
 
 
@@ -490,6 +498,18 @@ async def test_enter_thesis_pending_review_governance_status_raises() -> None:
     conn = _make_conn(fetchrow_returns=[existing])
 
     with pytest.raises(ValueError, match=r"governance_status is .pending_review."):
+        await svc.enter_thesis(conn, thesis_id=1, entry_price=Decimal("43"))
+
+
+async def test_enter_thesis_placeholder_attestation_raises() -> None:
+    """0042 D4/R9: capital never deploys against a placeholder — even with
+    governance approved and a complete ladder. Full attestation coverage
+    lives in test_thesis_attestation.py; this pins the enter gate here next
+    to its governance sibling."""
+    existing = _make_thesis_row(status="watching", attestation="placeholder")
+    conn = _make_conn(fetchrow_returns=[existing])
+
+    with pytest.raises(ValueError, match=r"attestation is .placeholder."):
         await svc.enter_thesis(conn, thesis_id=1, entry_price=Decimal("43"))
 
 

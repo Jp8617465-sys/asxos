@@ -67,3 +67,12 @@ jobs:
 
       - name: Sync fundamentals
         run: python jobs/sync_fundamentals.py
+
+      # Rules-integrity sweep (0042, R8 per D7) — scheduling lives HERE, not
+      # render.yaml (Render is being decommissioned). Needs DATABASE_URL
+      # (job-level env above) + the personal-use firewall flag only: the
+      # sweep writes integrity flags + JobMonitor notes, no alert email.
+      - name: Sweep rule integrity
+        env:
+          ASXOS_PERSONAL_USE: "1"
+        run: python jobs/sweep_rule_integrity.py

@@ -44,9 +44,16 @@ class MonitorInput:
     retail_ratio: Decimal       # current mentions / 90d avg; 1.0 = normal
     news_sentiment: Decimal     # normalised [0, 1]; Stocktwits bullish ratio
 
-    # Optional position context (loaded from thesis + holding_lots if available)
+    # Optional position context (loaded from thesis + holding_lots if available).
+    # cost_native is the weighted-average cost per share in the SYMBOL'S NATIVE
+    # currency (cost_base_usd for foreign lots, cost_base_normal for .AU lots) —
+    # renamed from `cost_usd`, which despite its name carried the AUD CGT base and
+    # produced cross-currency P&L/break-even errors on foreign symbols (R10;
+    # 2026-08-09 red-team register #11). fx_rate_audusd (latest available) is set
+    # for foreign symbols only, for the §5.4 break-even's AUD price leg.
     stop_price: Decimal | None = None
-    cost_usd: Decimal | None = None
+    cost_native: Decimal | None = None
+    fx_rate_audusd: Decimal | None = None
     shares: Decimal | None = None
     acquired: date | None = None
     cgt_date: date | None = None
@@ -70,7 +77,7 @@ class MonitorInput:
     analyst_consensus_target: Decimal | None = None
 
     # Per-lot CGT ladder (scoped to the active account_type; empty when no open
-    # lots). `cost_usd`/`shares`/`cgt_date` are the position-level headline scalars
+    # lots). `cost_native`/`shares`/`cgt_date` are the position-level headline scalars
     # derived from these. `all_eligible` is True iff `lots` is non-empty AND every
     # lot is already CGT-discount-eligible — distinct from the empty-ladder case
     # where `cgt_date` is also None.

@@ -194,14 +194,14 @@ class TestBuildMonitorResult:
         assert result.underlying_label == "diverging"
 
     def test_scenarios_empty_without_position_context(self):
-        """No cost_usd / acquired → no scenarios generated."""
+        """No cost_native / acquired → no scenarios generated."""
         result = build_monitor_result(_make_inputs())
         assert result.scenarios == ()
 
     def test_scenarios_populated_with_position_context(self):
         result = build_monitor_result(
             _make_inputs(
-                cost_usd=Decimal("187.54"),
+                cost_native=Decimal("187.54"),
                 shares=Decimal("24"),
                 acquired=date(2026, 5, 31),
                 cgt_date=date(2027, 6, 1),

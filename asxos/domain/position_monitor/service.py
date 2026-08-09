@@ -28,6 +28,7 @@ from asxos.domain.position_monitor.types import (
     MonitorResult,
     ScenarioState,
 )
+from asxos.domain.prices.fx import is_foreign_symbol
 from asxos.domain.themes.stage_classifier import (
     ClassifierInput,
     StageThresholds,
@@ -78,11 +79,13 @@ def _moves_for_underlyings(
 
 
 def _build_scenarios(inputs: MonitorInput) -> tuple[ScenarioState, ...]:
-    if inputs.cost_usd is None or inputs.acquired is None:
+    if inputs.cost_native is None or inputs.acquired is None:
         return ()
 
+    # Native-vs-native legs (R10): cost_native and current_price share the
+    # symbol's listing currency, so this percentage is currency-consistent.
     price = inputs.current_price
-    cost = inputs.cost_usd
+    cost = inputs.cost_native
     unrealised_pct = ((price - cost) / cost * Decimal("100")).quantize(Decimal("0.1"))
 
     scenarios: list[ScenarioState] = []
@@ -193,11 +196,22 @@ async def load_position_context(
     re-introduce the "assume individual" bug. Returns an empty dict if no active
     thesis is found.
 
-    The headline scalars (`cost_usd` = weighted-average cost-per-share, `shares`,
-    `cgt_date`) are derived from all matching open lots, and the full per-lot ladder
-    is returned under `lots`. `cgt_date` is the earliest-still-ineligible lot's
-    eligible date (the next tranche to mature) — None when there are no lots OR when
-    every lot is already eligible; `all_eligible` disambiguates those two cases.
+    The headline scalars (`cost_native` = weighted-average cost-per-share in the
+    symbol's NATIVE currency, `shares`, `cgt_date`) are derived from all matching
+    open lots, and the full per-lot ladder is returned under `lots`. `cgt_date` is
+    the earliest-still-ineligible lot's eligible date (the next tranche to mature)
+    — None when there are no lots OR when every lot is already eligible;
+    `all_eligible` disambiguates those two cases.
+
+    Currency discipline (R10, 2026-08-09 red-team register #11): the previous
+    headline key `cost_usd` was populated with `cost_base_normal/quantity` — the
+    AUD CGT base per share — and compared downstream against native USD closes,
+    which rendered a foreign position's P&L wrong (−27.6% instead of +12% USD on
+    HUBS) and structurally suppressed the §5.4 break-even hint. `cost_native` is
+    now derived from `cost_base_usd` where present (foreign lots), falling back to
+    `cost_base_normal` (native AUD for .AU lots). The AUD ladder amounts stay on
+    `lots` for CGT math; `fx_rate_audusd` (latest available) rides along for the
+    break-even's AUD price leg on foreign symbols.
     """
     row = await conn.fetchrow(
         """
@@ -209,11 +223,14 @@ async def load_position_context(
                t.analyst_sell_count,
                t.analyst_consensus_target,
                agg.total_cost,
+               agg.total_cost_native,
                agg.total_qty,
                agg.lots
         FROM   theses t
         LEFT   JOIN LATERAL (
             SELECT SUM(hl.cost_base_normal) AS total_cost,
+                   SUM(COALESCE(hl.cost_base_usd, hl.cost_base_normal))
+                                            AS total_cost_native,
                    SUM(hl.quantity)         AS total_qty,
                    jsonb_agg(jsonb_build_object(
                        'quantity',         hl.quantity,
@@ -237,14 +254,30 @@ async def load_position_context(
     if not row:
         return {}
 
-    lots, cost_per_share, total_qty, cgt_date, all_eligible = _build_lot_ladder(
+    lots, _cost_per_share_aud, total_qty, cgt_date, all_eligible = _build_lot_ladder(
         row["lots"], row["total_cost"], row["total_qty"], as_of,
     )
+    cost_native = (
+        Decimal(str(row["total_cost_native"])) / total_qty
+        if row["total_cost_native"] is not None and total_qty
+        else None
+    )
+    # Latest AUDUSD for the break-even's AUD price leg on foreign symbols.
+    # Best-available (not per-lot-date): the §5.4 hint is a today-decision aid,
+    # so today's rate is the correct leg; absence yields a named refusal in
+    # display, never a silently wrong number.
+    fx_rate_audusd = None
+    if is_foreign_symbol(symbol):
+        fx_row = await conn.fetchrow(
+            "SELECT rate FROM fx_rates WHERE pair = 'AUDUSD' ORDER BY dt DESC LIMIT 1"
+        )
+        fx_rate_audusd = Decimal(str(fx_row["rate"])) if fx_row else None
     return {
         "thesis_id": row["thesis_id"],
         "stop_price": row["stop_price"],
         "target_price": row["target_price"],
-        "cost_usd": cost_per_share,
+        "cost_native": cost_native,
+        "fx_rate_audusd": fx_rate_audusd,
         "shares": total_qty,
         "acquired": lots[0].acquired_at if lots else None,
         "cgt_date": cgt_date,

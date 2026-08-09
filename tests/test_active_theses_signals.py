@@ -12,12 +12,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from asxos.domain.brief.types import SectionStatus
+from asxos.domain.brief.types import SectionStatus, SeverityLevel
 
 _MODULE = "asxos.domain.brief.collectors.active_theses"
 
 
-def _thesis_row(symbol: str = "BHP.AU") -> dict:
+def _thesis_row(symbol: str = "BHP.AU", attestation: str = "underwritten") -> dict:
     return {
         "thesis_id": 1,
         "symbol": symbol,
@@ -35,20 +35,34 @@ def _thesis_row(symbol: str = "BHP.AU") -> dict:
         "analyst_consensus_target": None,
         "next_earnings_date": None,
         "earnings_notes": None,
+        "attestation": attestation,  # migration 0042
+    }
+
+
+def _cond_row(status="active", semantics="alert_review", kind="price_below") -> dict:
+    return {
+        "thesis_id": 1,
+        "status": status,
+        "trigger_semantics": semantics,
+        "enforcement_kind": kind,
     }
 
 
 async def _run_collector(
-    theses_rows, signal_rows, as_of=date(2026, 6, 1), model_gate_rows=None
+    theses_rows, signal_rows, as_of=date(2026, 6, 1), model_gate_rows=None,
+    condition_rows=None, locks=None,
 ):
     conn = MagicMock()
-    # conn.fetch: 1st call = theses query, 2nd = the contamination-isolation
-    # model gate, 3rd = signals query (underlyings are patched out, so they
-    # don't touch conn.fetch).
+    # conn.fetch: 1st call = theses query, 2nd = thesis_conditions (0042),
+    # 3rd = the contamination-isolation model gate, 4th = signals query
+    # (underlyings + disposal locks are patched out, so they don't touch
+    # conn.fetch).
     gate_rows = (
         model_gate_rows if model_gate_rows is not None else [{"model": "model_a"}]
     )
-    conn.fetch = AsyncMock(side_effect=[theses_rows, gate_rows, signal_rows])
+    conn.fetch = AsyncMock(
+        side_effect=[theses_rows, condition_rows or [], gate_rows, signal_rows]
+    )
 
     score = MagicMock()
     score.label = "confirming"
@@ -56,6 +70,7 @@ async def _run_collector(
 
     with (
         patch(f"{_MODULE}.acquire") as mock_acquire,
+        patch(f"{_MODULE}.get_disposal_locks", AsyncMock(return_value=locks or {})),
         patch(f"{_MODULE}.bulk_list_thesis_underlyings", AsyncMock(return_value={})),
         patch(f"{_MODULE}.get_5d_moves", AsyncMock(return_value={})),
         patch(f"{_MODULE}.score_thesis_underlying", return_value=score),
@@ -137,3 +152,78 @@ async def test_date_typed_earnings_value_does_not_call_date_method():
     result = await _run_collector([row], [], model_gate_rows=[])
 
     assert result.status == SectionStatus.ok
+
+
+# ---------------------------------------------------------------------------
+# 0042 — attestation tag, lock badge, condition-state line, severity
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_placeholder_attestation_tag_on_card():
+    result = await _run_collector(
+        [_thesis_row(attestation="placeholder")], [], model_gate_rows=[]
+    )
+    assert "PLACEHOLDER — not underwritten" in result.items[0].message
+
+
+@pytest.mark.asyncio
+async def test_condition_state_line_renders_counts():
+    conds = [
+        _cond_row(status="triggered"),
+        _cond_row(kind="not_machine_checkable"),
+        _cond_row(kind="not_machine_checkable"),
+        _cond_row(status="active"),
+    ]
+    result = await _run_collector(
+        [_thesis_row(attestation="placeholder")], [], model_gate_rows=[],
+        condition_rows=conds,
+    )
+    msg = result.items[0].message
+    assert "conditions: 1 triggered · 2 not machine-checked · 1 active" in msg
+
+
+@pytest.mark.asyncio
+async def test_triggered_hard_exit_underwritten_unlocked_is_red():
+    conds = [_cond_row(status="triggered", semantics="hard_exit")]
+    result = await _run_collector(
+        [_thesis_row(attestation="underwritten")], [], model_gate_rows=[],
+        condition_rows=conds,
+    )
+    assert result.items[0].level == SeverityLevel.red
+
+
+@pytest.mark.asyncio
+async def test_triggered_on_placeholder_is_yellow_not_red():
+    conds = [_cond_row(status="triggered", semantics="hard_exit")]
+    result = await _run_collector(
+        [_thesis_row(attestation="placeholder")], [], model_gate_rows=[],
+        condition_rows=conds,
+    )
+    assert result.items[0].level == SeverityLevel.yellow
+
+
+@pytest.mark.asyncio
+async def test_locked_symbol_demotes_red_and_shows_badge():
+    from asxos.domain.portfolio.locks import LockState
+
+    conds = [_cond_row(status="triggered", semantics="hard_exit")]
+    lock = LockState(symbol="BHP.AU", lock_end=None, lock_note="ESS window")
+    result = await _run_collector(
+        [_thesis_row(attestation="underwritten")], [], model_gate_rows=[],
+        condition_rows=conds, locks={"BHP.AU": lock},
+    )
+    assert result.items[0].level == SeverityLevel.yellow
+    assert "LOCKED (end unknown)" in result.items[0].message
+
+
+@pytest.mark.asyncio
+async def test_unparseable_conditions_emit_visible_yellow_line():
+    conds = [_cond_row(kind="not_machine_checkable")]
+    result = await _run_collector(
+        [_thesis_row()], [], model_gate_rows=[], condition_rows=conds
+    )
+    loud = [
+        i for i in result.items
+        if "NOT MACHINE-CHECKED" in i.message and i.level == SeverityLevel.yellow
+    ]
+    assert loud, "unparseable conditions must be a visible yellow line, never absent"
