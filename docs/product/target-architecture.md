@@ -1628,11 +1628,11 @@ merge**. **No code changes belong in this PR.**
 | 3 | `roadmap-state.md` is the single live queue, mapped to Stages 0–6 | ✅ **MET** |
 | 4 | The eight Appendix F decisions answered, or deferred with a named blocker | ✅ **MET** — seven ruled; **F4 deferred with the named blocker** *"James must complete the capital/risk calibration before Stage 4"* |
 | 5 | Authority-file amendments applied | ⏳ **PENDING** — governor-**authorised** but **not applied**. Blocked by hard `permissions.deny` entries in `.claude/settings.json` (lines 56, 57, 72); line 45 denies editing that file, so arbi cannot lift its own boundary. Exact text is in Appendix H; **no workaround was attempted.** Authorisation is not application |
-| 6 | Parked work preserved, not lost | ⏳ **PARTIAL** — `claude/rules-integrity-build` **is** preserved in a remote draft PR (Appendix I). The **decision-engine prototype is NOT yet preserved**: it exists only in the local working tree. Gate 6 stays PENDING until it is committed, pushed, and live in a remote draft PR |
+| 6 | Parked work preserved, not lost | ✅ **MET** — both branches are now live in remote draft PRs: `claude/rules-integrity-build` @ `3f6fd51` (PR #80, PARKED / DO NOT MERGE) and `claude/decision-engine-prototype` @ `c6ff3c3` (PR #81, PROTOTYPE / DO NOT MERGE, all ten findings disclosed). Both labelled, both draft, neither mergeable. Nothing now lives only on one laptop |
 | 7 | No implementation has occurred | ✅ **MET** — `REQUIRED_MIGRATIONS` still 95, applied migrations still end at 0041, this PR is documentation-only, migration 0042 unapplied |
 
-**Stage 0 is NOT complete.** Three gates are open: 1 (digest approval), 5 (authority amendments) and
-6 (prototype preservation). No implementation is authorised by this document. Each subsequent stage
+**Stage 0 is NOT complete.** Two gates remain open: **1** (digest approval) and **5** (authority
+amendments, authorised but mechanically blocked). No implementation is authorised by this document. Each subsequent stage
 requires its own approved work order — and per F1, F5 and F6, three of the ruled decisions each
 explicitly name a *later* work order before any action (benchmark data acquisition; Dagster
 deployment/cost/cutover; S3 bucket and credential creation).
@@ -1649,38 +1649,35 @@ NOT MERGE, and exist so that tested work stops living on a single laptop.
 | Branch | Commit | Status |
 |---|---|---|
 | `claude/rules-integrity-build` | `3f6fd51` | ✅ **PRESERVED** — PR #80, **PARKED / DO NOT MERGE**; review loop incomplete (security-engineer, refactoring-expert, technical-writer never completed); red-team findings attached; **migration 0042 unaltered and unapplied** |
-| `claude/decision-engine-prototype` | — | ⏳ **NOT YET PRESERVED** — see I.1 |
+| `claude/decision-engine-prototype` | `c6ff3c3` | ✅ **PRESERVED** — PR #81, **PROTOTYPE / DO NOT MERGE**; review complete with **CHANGES REQUIRED**; all ten findings disclosed (I.2); nine paths, 1,279 insertions, snapshot exactly as reviewed |
 
-Neither may be merged, and migration 0042 may not be applied, without a separate governor decision.
+Both are draft and labelled. Neither may be merged, and migration 0042 may not be applied, without a
+separate governor decision.
 
-### I.1 — Prototype preservation: blocked, and by what
+### I.1 — Prototype preservation record
 
-The independent review loop **is complete** (2026-08-10). Checks passed: 7 focused tests · ruff ·
-mypy · `git diff --cached --check` · staged scope confirmed as exactly the nine intended paths.
+The independent review loop completed 2026-08-10 on staged-diff key `570be24bb3b1`. Checks passed:
+7 focused tests · ruff · mypy · `git diff --cached --check` · staged scope confirmed as exactly the
+nine intended paths.
 
 **Consolidated verdict: CHANGES REQUIRED for adoption or merge; ACCEPTABLE TO PRESERVE as a draft
 PROTOTYPE / DO NOT MERGE PR provided every finding is disclosed.** The review authorises no real
 data, production use, adoption, merge, or Stage 1 work.
 
-**The preservation commit is nonetheless blocked, and the distinction matters:**
+The snapshot was preserved **exactly as reviewed** — no fixes implemented, because implementing them
+would have invalidated the review key. The key was re-verified byte-identical at commit time.
 
-- **The review gate is *not* the blocker.** `.claude/hooks/review-gate.sh` defines its marker as
-  recording that "the subagent review loop **has run** for that exact staged diff" (header, lines
-  4–7), and states it "cannot itself spawn an agent or prove one ran." It has **no concept of a
-  verdict** and does not require a passing one. The only dishonesty it names is writing the marker
-  *without running the loop*. The loop has run, on the byte-identical staged diff
-  (key `570be24bb3b1`), so the marker would be truthful.
-- **The blocker is the Claude Code auto-mode classifier** — a separate harness-level control that
-  refused the marker write twice, regardless of review status.
+**Process note, recorded because the distinction is easy to lose.** The preservation commit was
+initially blocked, and the blocker was **not** the review gate. `.claude/hooks/review-gate.sh`
+defines its marker as recording that "the subagent review loop **has run** for that exact staged
+diff" (header, lines 4–7), states it "cannot itself spawn an agent or prove one ran," has **no
+concept of a verdict**, and names exactly one dishonesty — writing the marker without running the
+loop. A "changes required" verdict is therefore fully compatible with it. The actual blocker was the
+Claude Code auto-mode classifier, a separate harness-level control that refused the marker write
+regardless of review status. **No workaround was attempted**, and no false or verdict-laundering
+marker was ever written or described; the governor wrote the marker after the loop completed.
 
-**No workaround was attempted** — not a different tool matcher, not a shell redirect. A false or
-verdict-laundering marker was never written or described.
-
-**Resolution (governor's choice):** James runs `touch .claude/.review-passed-570be24bb3b1`, or adds
-a Bash permission rule; arbi then commits, pushes and opens the draft PR. Re-staging the same nine
-paths reproduces the identical diff key, so the completed review remains valid.
-
-### I.2 — Adoption blockers that must be disclosed on the prototype PR
+### I.2 — Adoption blockers (disclosed on PR #81)
 
 Ten findings, all open. **These are adoption blockers, not preservation blockers.**
 

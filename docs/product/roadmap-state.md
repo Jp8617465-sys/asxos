@@ -73,11 +73,12 @@ lost again:
   local-only, single point of failure.** Review loop incomplete (security-engineer /
   refactoring-expert / technical-writer never completed). **`migrations/0042_rules_integrity.sql`
   must not be applied.** Preservation is a separately-authorised action.
-- Untracked decision-engine prototype — 7 tests passing; ruled **AMEND AND ADOPT** (F7). Independent
-  review complete: **CHANGES REQUIRED for adoption/merge, ACCEPTABLE TO PRESERVE as a draft**.
-  **NOT yet preserved remotely** — the marker write is blocked by the auto-mode classifier (not by
-  the review gate, which only records that the loop ran). Ten adoption blockers listed in
-  `target-architecture.md` Appendix I.2; findings 1, 2 and 7 are capital-safety.
+- Decision-engine prototype — **PRESERVED** in PR #81 @ `c6ff3c3` (PROTOTYPE / DO NOT MERGE), ruled
+  **AMEND AND ADOPT** (F7). Independent review complete: **CHANGES REQUIRED for adoption/merge,
+  ACCEPTABLE TO PRESERVE as a draft.** Ten adoption blockers in `target-architecture.md` Appendix
+  I.2; **findings 1, 2 and 7 are capital-safety** (a blocking/revise challenge can accompany
+  `initiate`; an unknown constraint can permit capital deployment; expired packets stay visually
+  actionable). Not adopted — Appendix B remains the canonical logical contract.
 
 ### Governor rulings (2026-08-10) — all eight decided
 
