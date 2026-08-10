@@ -1627,13 +1627,14 @@ merge**. **No code changes belong in this PR.**
 | 2 | Single canonical target architecture; competitors superseded or uncommitted | ✅ **MET** — this document; the three backlogs carry NOT-A-QUEUE banners; the convergence sprint and live-slice brief are superseded and never committed |
 | 3 | `roadmap-state.md` is the single live queue, mapped to Stages 0–6 | ✅ **MET** |
 | 4 | The eight Appendix F decisions answered, or deferred with a named blocker | ✅ **MET** — seven ruled; **F4 deferred with the named blocker** *"James must complete the capital/risk calibration before Stage 4"* |
-| 5 | Authority-file amendments applied | ✅ **MET** — `portfolio-policy.md`, `docs/README.md`, `north-star.md` amended under explicit governor authorisation (2026-08-10) |
-| 6 | Parked work preserved, not lost | ✅ **MET** — see Appendix I |
+| 5 | Authority-file amendments applied | ⏳ **PENDING** — governor-**authorised** but **not applied**. Blocked by hard `permissions.deny` entries in `.claude/settings.json` (lines 56, 57, 72); line 45 denies editing that file, so arbi cannot lift its own boundary. Exact text is in Appendix H; **no workaround was attempted.** Authorisation is not application |
+| 6 | Parked work preserved, not lost | ⏳ **PARTIAL** — `claude/rules-integrity-build` **is** preserved in a remote draft PR (Appendix I). The **decision-engine prototype is NOT yet preserved**: it exists only in the local working tree. Gate 6 stays PENDING until it is committed, pushed, and live in a remote draft PR |
 | 7 | No implementation has occurred | ✅ **MET** — `REQUIRED_MIGRATIONS` still 95, applied migrations still end at 0041, this PR is documentation-only, migration 0042 unapplied |
 
-**Stage 0 is complete on gate 1.** No implementation is authorised by this document. Each subsequent
-stage requires its own approved work order — and per F1, F5 and F6, three of the ruled decisions
-each explicitly name a *later* work order before any action (benchmark data acquisition; Dagster
+**Stage 0 is NOT complete.** Three gates are open: 1 (digest approval), 5 (authority amendments) and
+6 (prototype preservation). No implementation is authorised by this document. Each subsequent stage
+requires its own approved work order — and per F1, F5 and F6, three of the ruled decisions each
+explicitly name a *later* work order before any action (benchmark data acquisition; Dagster
 deployment/cost/cutover; S3 bucket and credential creation).
 
 **Known-blocked at Stage 4:** the F4 capital/risk calibration. Stage 1 is not blocked by it.
@@ -1645,13 +1646,60 @@ deployment/cost/cutover; S3 bucket and credential creation).
 Preservation is **not adoption and not merge authority**. Both branches below are draft, marked DO
 NOT MERGE, and exist so that tested work stops living on a single laptop.
 
-| Branch | Commit | PR | Status |
-|---|---|---|---|
-| `claude/rules-integrity-build` | `3f6fd51` | see PR description | **PARKED / DO NOT MERGE** — review loop incomplete (security-engineer, refactoring-expert, technical-writer never completed); red-team findings attached; **migration 0042 unaltered and unapplied** |
-| `claude/decision-engine-prototype` | — | see PR description | **PROTOTYPE / DO NOT MERGE** — the exact prototype files plus the `Makefile` `decision-demo` hunk only; 7 tests passing; B.3 conformance gaps open |
+| Branch | Commit | Status |
+|---|---|---|
+| `claude/rules-integrity-build` | `3f6fd51` | ✅ **PRESERVED** — PR #80, **PARKED / DO NOT MERGE**; review loop incomplete (security-engineer, refactoring-expert, technical-writer never completed); red-team findings attached; **migration 0042 unaltered and unapplied** |
+| `claude/decision-engine-prototype` | — | ⏳ **NOT YET PRESERVED** — see I.1 |
 
-Neither PR may be merged, and migration 0042 may not be applied, without a separate governor
-decision.
+Neither may be merged, and migration 0042 may not be applied, without a separate governor decision.
+
+### I.1 — Prototype preservation: blocked, and by what
+
+The independent review loop **is complete** (2026-08-10). Checks passed: 7 focused tests · ruff ·
+mypy · `git diff --cached --check` · staged scope confirmed as exactly the nine intended paths.
+
+**Consolidated verdict: CHANGES REQUIRED for adoption or merge; ACCEPTABLE TO PRESERVE as a draft
+PROTOTYPE / DO NOT MERGE PR provided every finding is disclosed.** The review authorises no real
+data, production use, adoption, merge, or Stage 1 work.
+
+**The preservation commit is nonetheless blocked, and the distinction matters:**
+
+- **The review gate is *not* the blocker.** `.claude/hooks/review-gate.sh` defines its marker as
+  recording that "the subagent review loop **has run** for that exact staged diff" (header, lines
+  4–7), and states it "cannot itself spawn an agent or prove one ran." It has **no concept of a
+  verdict** and does not require a passing one. The only dishonesty it names is writing the marker
+  *without running the loop*. The loop has run, on the byte-identical staged diff
+  (key `570be24bb3b1`), so the marker would be truthful.
+- **The blocker is the Claude Code auto-mode classifier** — a separate harness-level control that
+  refused the marker write twice, regardless of review status.
+
+**No workaround was attempted** — not a different tool matcher, not a shell redirect. A false or
+verdict-laundering marker was never written or described.
+
+**Resolution (governor's choice):** James runs `touch .claude/.review-passed-570be24bb3b1`, or adds
+a Bash permission rule; arbi then commits, pushes and opens the draft PR. Re-staging the same nine
+paths reproduces the identical diff key, so the completed review remains valid.
+
+### I.2 — Adoption blockers that must be disclosed on the prototype PR
+
+Ten findings, all open. **These are adoption blockers, not preservation blockers.**
+
+1. A **blocking/revise challenge can still accompany `initiate`**.
+2. An **unknown constraint can still permit capital deployment**.
+3. `constraints_checked` is **not reconciled** to `PortfolioAssessment`.
+4. Hashes validate **format, not content integrity** — the decision hash does not commit to upstream
+   artifact contents.
+5. `frozen=True` is **shallow**: `model_and_prompt_manifest` is mutable.
+6. Cross-artifact `as_of` / cutoff / expiry / `created_at` / `observed_at` and **timezone invariants
+   are incomplete**.
+7. **Expired packets remain visually actionable.**
+8. **Stage 0 F3 expiry defaults are not implemented.**
+9. Renderer states **do not implement the ruled state→verdict mapping**.
+10. **All five B.3 amendments remain open** — `security_id`, `evidence_tier`/`data_mode`,
+    `model_independence`, typed tax reference, state→verdict mapping.
+
+Findings 1, 2 and 7 are the capital-safety ones: each would let an artifact that should have been
+stopped appear actionable.
 
 ---
 

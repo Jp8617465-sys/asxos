@@ -73,7 +73,11 @@ lost again:
   local-only, single point of failure.** Review loop incomplete (security-engineer /
   refactoring-expert / technical-writer never completed). **`migrations/0042_rules_integrity.sql`
   must not be applied.** Preservation is a separately-authorised action.
-- Untracked decision-engine prototype — 7 tests passing; disposition requested in Appendix E.
+- Untracked decision-engine prototype — 7 tests passing; ruled **AMEND AND ADOPT** (F7). Independent
+  review complete: **CHANGES REQUIRED for adoption/merge, ACCEPTABLE TO PRESERVE as a draft**.
+  **NOT yet preserved remotely** — the marker write is blocked by the auto-mode classifier (not by
+  the review gate, which only records that the loop ran). Ten adoption blockers listed in
+  `target-architecture.md` Appendix I.2; findings 1, 2 and 7 are capital-safety.
 
 ### Governor rulings (2026-08-10) — all eight decided
 
