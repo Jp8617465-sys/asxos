@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ brief.title }} — {{ brief.as_of }}</title>
+  <style>
+    :root {
+      --ink: #17211f;
+      --muted: #61706b;
+      --paper: #f4f3ed;
+      --panel: #fffefa;
+      --line: #d9ddd5;
+      --green: #176b4d;
+      --green-soft: #e4f1e9;
+      --amber: #996515;
+      --amber-soft: #fff1ce;
+      --red: #a33b35;
+      --red-soft: #f8e4df;
+      --blue: #315d73;
+      --blue-soft: #e6f0f3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    .shell { max-width: 1180px; margin: 0 auto; padding: 40px 24px 72px; }
+    .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(36px, 6vw, 68px); line-height: .98; max-width: 820px; margin: 12px 0 18px; letter-spacing: -.035em; }
+    h2 { font-family: Georgia, "Times New Roman", serif; font-size: 28px; margin: 0; }
+    h3 { font-size: 17px; margin: 0; }
+    p { margin: 0; }
+    a { color: var(--blue); }
+    .lede { max-width: 770px; color: var(--muted); font-size: 18px; }
+    .disclaimer { margin-top: 22px; background: var(--amber-soft); border-left: 4px solid var(--amber); padding: 12px 16px; font-size: 13px; }
+    .one-thing { margin: 28px 0 36px; padding: 20px; border: 1px solid var(--line); background: var(--panel); display: grid; grid-template-columns: 130px 1fr; gap: 16px; }
+    .one-thing strong { color: var(--green); text-transform: uppercase; letter-spacing: .08em; font-size: 12px; padding-top: 4px; }
+    .architecture { display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 8px; margin: 16px 0 44px; }
+    .stage { min-height: 145px; border: 1px solid var(--line); background: var(--panel); padding: 14px; position: relative; }
+    .stage:not(:last-child)::after { content: "→"; position: absolute; right: -9px; top: 56px; z-index: 2; color: var(--green); font-weight: 800; }
+    .stage-name { font-weight: 750; font-size: 14px; }
+    .stage-detail { color: var(--muted); font-size: 12px; margin-top: 8px; }
+    .pill { display: inline-block; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; margin-top: 12px; }
+    .pill-reused { background: var(--green-soft); color: var(--green); }
+    .pill-demonstrated { background: var(--blue-soft); color: var(--blue); }
+    .pill-adapter_needed { background: var(--amber-soft); color: var(--amber); }
+    .pill-future { background: #ecebea; color: #696762; }
+    .case { margin-top: 20px; background: var(--panel); border: 1px solid var(--line); }
+    .case-head { padding: 22px; display: flex; gap: 18px; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .case-kicker { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .verdict { min-width: 170px; text-align: right; }
+    .verdict strong { display: block; font-size: 22px; text-transform: uppercase; }
+    .verdict-initiate strong { color: var(--green); }
+    .verdict-abstain strong { color: var(--red); }
+    .size { color: var(--muted); font-size: 12px; }
+    .change { margin-top: 10px; color: var(--blue); font-size: 14px; }
+    .decision-grid { display: grid; grid-template-columns: 1.15fr .85fr; }
+    .main, .rail { padding: 22px; }
+    .rail { border-left: 1px solid var(--line); background: #faf9f4; }
+    .block + .block { margin-top: 24px; }
+    .block-label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; }
+    .variant { font-family: Georgia, "Times New Roman", serif; font-size: 21px; line-height: 1.35; }
+    .scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 9px; }
+    .scenario { border: 1px solid var(--line); padding: 12px; }
+    .scenario-bull { border-top: 3px solid var(--green); }
+    .scenario-base { border-top: 3px solid var(--blue); }
+    .scenario-bear { border-top: 3px solid var(--red); }
+    .scenario-label { text-transform: uppercase; font-size: 10px; color: var(--muted); font-weight: 800; }
+    .scenario-return { font-family: Georgia, "Times New Roman", serif; font-size: 28px; }
+    .scenario-prob { color: var(--muted); font-size: 11px; }
+    .scenario p { font-size: 12px; margin-top: 6px; }
+    .challenge { border-left: 4px solid var(--amber); padding-left: 14px; }
+    .challenge-abstain { border-color: var(--red); }
+    .finding { font-size: 13px; margin-top: 10px; }
+    .finding strong { text-transform: uppercase; font-size: 9px; letter-spacing: .06em; }
+    .constraint { display: grid; grid-template-columns: 58px 1fr; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .constraint-status { font-weight: 800; text-transform: uppercase; }
+    .constraint-pass .constraint-status { color: var(--green); }
+    .constraint-fail .constraint-status { color: var(--red); }
+    .constraint-unknown .constraint-status { color: var(--amber); }
+    .ask { background: var(--green-soft); border-left: 4px solid var(--green); padding: 14px; }
+    .ask-abstain { background: var(--red-soft); border-color: var(--red); }
+    .ask strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+    details { border-top: 1px solid var(--line); padding: 14px 22px; }
+    summary { cursor: pointer; font-weight: 700; font-size: 13px; }
+    .evidence-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
+    .evidence-item { border: 1px solid var(--line); padding: 12px; font-size: 12px; }
+    .evidence-id, .hash { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; word-break: break-all; }
+    .packet { margin-top: 12px; color: var(--muted); font-size: 11px; }
+    .footer { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 900px) {
+      .architecture { grid-template-columns: repeat(2, 1fr); }
+      .stage::after { display: none; }
+      .decision-grid { grid-template-columns: 1fr; }
+      .rail { border-left: 0; border-top: 1px solid var(--line); }
+    }
+    @media (max-width: 620px) {
+      .shell { padding: 24px 14px 48px; }
+      .architecture, .scenario-grid, .evidence-list { grid-template-columns: 1fr; }
+      .case-head, .footer { display: block; }
+      .verdict { text-align: left; margin-top: 14px; }
+      .one-thing { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="eyebrow">Target architecture · live vertical slice · {{ brief.as_of }}</div>
+    <h1>{{ brief.title }}</h1>
+    <p class="lede">One governed spine from point-in-time evidence to a capital decision—and an equally valid path to abstain when the evidence or constraints fail.</p>
+    <p class="disclaimer"><strong>Prototype boundary:</strong> {{ brief.disclaimer }}</p>
+
+    <div class="one-thing">
+      <strong>One thing</strong>
+      <span>{{ brief.one_thing }}</span>
+    </div>
+
+    <h2>The operating chain</h2>
+    <section class="architecture" aria-label="Target architecture stages">
+      {% for stage in brief.architecture_stages %}
+      <article class="stage">
+        <div class="stage-name">{{ stage.name }}</div>
+        <div class="stage-detail">{{ stage.detail }}</div>
+        <span class="pill pill-{{ stage.status }}">{{ stage.status | replace('_', ' ') }}</span>
+      </article>
+      {% endfor %}
+    </section>
+
+    <h2>Today’s decision packets</h2>
+    {% for case in brief.cases %}
+    <article class="case" id="{{ case.case_id }}">
+      <header class="case-head">
+        <div>
+          <div class="case-kicker">{{ case.label }}</div>
+          <h3>{{ case.thesis.symbol }} · {{ case.thesis.theme }}</h3>
+          <p class="change"><strong>Changed:</strong> {{ case.changed_since_prior }}</p>
+        </div>
+        <div class="verdict verdict-{{ case.decision.recommendation_state }}">
+          <strong>{{ case.decision.recommendation_state | replace('_', ' ') }}</strong>
+          <span class="size">size {{ case.decision.size_range.minimum_pct }}–{{ case.decision.size_range.maximum_pct }}% · paper only</span>
+        </div>
+      </header>
+
+      <div class="decision-grid">
+        <div class="main">
+          <section class="block">
+            <div class="block-label">Investment question</div>
+            <p>{{ case.thesis.investment_question }}</p>
+          </section>
+          <section class="block">
+            <div class="block-label">Variant view</div>
+            <p class="variant">{{ case.thesis.variant_view }}</p>
+          </section>
+          <section class="block">
+            <div class="block-label">Thesis</div>
+            <p>{{ case.thesis.thesis_summary }}</p>
+          </section>
+          <section class="block">
+            <div class="block-label">Scenario set · {{ case.thesis.horizon_months }}-month horizon</div>
+            <div class="scenario-grid">
+              {% for scenario in case.thesis.scenarios %}
+              <div class="scenario scenario-{{ scenario.label }}">
+                <div class="scenario-label">{{ scenario.label }}</div>
+                <div class="scenario-return">{% if scenario.return_pct > 0 %}+{% endif %}{{ scenario.return_pct }}%</div>
+                <div class="scenario-prob">{{ scenario.probability_pct }}% illustrative probability</div>
+                <p>{{ scenario.rationale }}</p>
+              </div>
+              {% endfor %}
+            </div>
+          </section>
+          <section class="block challenge challenge-{{ case.challenge.outcome }}">
+            <div class="block-label">Independent challenge · {{ case.challenge.outcome }}</div>
+            <p><strong>Strongest bear case:</strong> {{ case.challenge.strongest_bear_case }}</p>
+            {% for finding in case.challenge.findings %}
+            <p class="finding"><strong>{{ finding.severity }}:</strong> {{ finding.finding }} <em>{{ finding.required_response }}</em></p>
+            {% endfor %}
+          </section>
+        </div>
+
+        <aside class="rail">
+          <section class="block">
+            <div class="block-label">Portfolio assessment</div>
+            <p>{{ case.portfolio.marginal_risk }}</p>
+            <p style="margin-top:8px"><strong>Loss budget:</strong> A${{ case.portfolio.loss_budget_aud }}</p>
+            <p style="margin-top:8px"><strong>Opportunity cost:</strong> {{ case.portfolio.opportunity_cost }}</p>
+          </section>
+          <section class="block">
+            <div class="block-label">Deterministic gates</div>
+            {% for constraint in case.portfolio.constraints %}
+            <div class="constraint constraint-{{ constraint.status }}">
+              <span class="constraint-status">{{ constraint.status }}</span>
+              <span><strong>{{ constraint.name | replace('_', ' ') }}</strong><br>{{ constraint.detail }}</span>
+            </div>
+            {% endfor %}
+          </section>
+          {% if case.decision.missing_or_uncertain_inputs %}
+          <section class="block">
+            <div class="block-label">Missing or uncertain</div>
+            <ul>
+              {% for item in case.decision.missing_or_uncertain_inputs %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+          </section>
+          {% endif %}
+          <section class="block ask ask-{{ case.decision.recommendation_state }}">
+            <strong>James decision</strong>
+            <p>{{ case.decision.decision_ask }}</p>
+          </section>
+          <div class="packet">
+            Packet {{ case.decision.decision_packet_id }} · expires {{ case.decision.expires_at }}<br>
+            <span class="hash">{{ case.decision.content_hash }}</span><br>
+            <a href="/api/cases/{{ case.case_id }}">Inspect exact JSON contract</a>
+          </div>
+        </aside>
+      </div>
+
+      <details>
+        <summary>Evidence packet · {{ case.evidence.items | length }} admitted items · cutoff {{ case.evidence.knowledge_cutoff }}</summary>
+        <div class="evidence-list">
+          {% for item in case.evidence.items %}
+          <div class="evidence-item">
+            <strong>{{ item.title }}</strong><br>
+            {{ item.claim }}<br>
+            <span class="evidence-id">{{ item.evidence_id }} · known {{ item.known_at }} · {{ item.quality }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+    </article>
+    {% endfor %}
+
+    <footer class="footer">
+      <span>Evidence → thesis → challenge → portfolio → immutable decision → disposition → outcome</span>
+      <span><a href="/api/brief">Full JSON</a> · <a href="/docs">API schema</a> · read-only · no broker integration</span>
+    </footer>
+  </main>
+</body>
+</html>
