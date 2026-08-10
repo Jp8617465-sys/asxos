@@ -20,8 +20,10 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 2. `session-handoff-2026-08-08.md` — the newest dated handoff and current priority state; it separates shipped evidence, branch-only work, and unratified future-state recommendations
 3. `product/target-architecture.md` — **the ratified target (2026-08-10).** asxos is a
    research-to-capital-decision-to-learning engine; the brief is an experience layer over an
-   immutable decision. Read its Errata §0 and Appendix F (the eight decisions reserved for James)
-   before proposing work
+   immutable decision. Read its Errata §0 and Appendix F (the governor rulings) before proposing
+   work. **Ratified and canonical since 2026-08-10** (PR #79, merged `9ede7ad`); Stage 0 is
+   complete, but that is **not** implementation authority — each stage needs its own approved
+   work order
 4. `product/roadmap-state.md` — **the single live queue** (Stages 0→6); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. Where priority conflicts, the newest handoff wins and the roadmap must be reconciled
 5. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
 6. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
