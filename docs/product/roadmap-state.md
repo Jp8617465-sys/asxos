@@ -24,7 +24,7 @@ James ratified a product reframe on 2026-08-10. asxos is a
 brief is an experience layer over an immutable decision and must carry no financial logic of its own.
 
 **The canonical target is [`target-architecture.md`](target-architecture.md)** (with its Errata §0
-and Appendices A–G). This file remains the **single live queue**; that file defines what "done" means.
+and Appendices A–I). This file remains the **single live queue**; that file defines what "done" means.
 
 **This file is now the only ranked queue.** Superseded to reference-only, none of which may be read
 as a next-action list: `arbi-operating-backlog.md`, `cleanup-backlog.md`,
@@ -75,11 +75,23 @@ lost again:
   must not be applied.** Preservation is a separately-authorised action.
 - Untracked decision-engine prototype — 7 tests passing; disposition requested in Appendix E.
 
-### Eight bounded decisions awaiting James
+### Governor rulings (2026-08-10) — all eight decided
 
-Benchmark series · global exposure · evaluation windows/expiry · risk mandate · scheduler target ·
-object store · prototype disposition · canonical decision contract. Full options in
-`target-architecture.md` Appendix F. **No implementation agent may invent these answers.**
+Full text in `target-architecture.md` Appendix F. Summary:
+
+| # | Ruling |
+|---|---|
+| F1 | Benchmark = **S&P/ASX 200 Accumulation (XJOAI)**. `AXJO.INDX` is price-context only and must never carry a total-return label. **If licensed history is unavailable, report benchmark measurement as `unavailable` — never substitute a proxy silently.** Data acquisition is a later work order |
+| F2 | Global exposure = **separately reported sleeve**. Do not blend HUBS into the ASX benchmark |
+| F3 | Outcomes observed at **21 / 63 / 126 trading days**. Packet expiry: 5td for initiate/add/trim/exit_review, 21td for watch/avoid/abstain; all expire earlier on material event, stale evidence, constraint change or snapshot change. **Contract defaults, not trading instructions** |
+| F4 | Risk mandate **DEFERRED** — blocker: *"James must complete the capital/risk calibration before Stage 4."* Hard universal gates meanwhile: no leverage · no Model A capital input · no action on unresolved tradeability/ownership · no action on stale/missing decision-critical evidence · no broker execution. Vol/beta/correlation/drawdown are **reporting-only**. **Stage 1 is not blocked by this** |
+| F5 | Scheduler = **Dagster** as target owner. Existing schedules are time-bounded safety coverage only. **No new GitHub production schedules.** Stage 1 must deliver the deployment/cost/cutover work order first |
+| F6 | Object store = **AWS S3 `ap-southeast-2`**, versioning + Object Lock (governance mode) + encryption + least-privilege creds + lifecycle + observed restore test. No bucket/credential creation authorised yet |
+| F7 | Prototype = **AMEND AND ADOPT**; preserve separately, close conformance gaps before real-data use |
+| F8 | Canonical contract = the **`types.py` design**, subject to five mandatory amendments (canonical `security_id`; `evidence_tier` split from `data_mode`; explicit `model_independence`; typed tax-assessment reference; state→verdict mapping). Appendix B stays the canonical *logical* contract until an adoption PR merges |
+
+**No implementation agent may invent or reinterpret these.** F1, F5 and F6 each name a later work
+order that must precede any action.
 
 ---
 
