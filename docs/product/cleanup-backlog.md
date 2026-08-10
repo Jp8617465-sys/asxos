@@ -3,7 +3,11 @@
 **Status:** current
 **Scope:** the prioritised cleanup work surfaced by the 2026-07-10 arbi scan (`wf_f54323f5-d7d`)
 **Owner:** arbi tracks; work dispatched via `/arbi-run`; irreversible items need James
-**Superseded by:** N/A
+**Superseded by:** `roadmap-state.md` (2026-08-10 programme reframe) — **REFERENCE ONLY.**
+
+> ⚠️ **NOT A QUEUE (2026-08-10).** The single live queue is the Stages 0→6 table in
+> `roadmap-state.md`. Individual cleanup items here remain valid as *evidence*; their ranking does
+> not compete with the stage sequence.
 
 Every item is file-cited and tagged **[REV]** (reversible — arbi can do via `/arbi-run` +
 review loop) or **[GATED]** (irreversible / boundary / precondition — needs James). Work

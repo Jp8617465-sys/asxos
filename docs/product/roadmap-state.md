@@ -1,8 +1,10 @@
 # asxos Roadmap & State — the reconciled picture
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
-**Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
+**Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
+**Last verified:** 2026-08-10 (Stage 0 ratification — see "PROGRAMME REFRAME" immediately below;
+the 2026-07-14 reconciliation notes are retained further down as history)
+**Prior verification:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
 #32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
 hardening, Guilfoyle mission-control, overnight governance record, orchestrator-mode sketch.
 Monitoring lane fixes all on main. **Confirmed (2026-07-14, later same day): #29 (discipline
@@ -12,6 +14,89 @@ recommend close, superseded by the ML shelf; #39 (permission-friction/guard pack
 `full-check` CI failing.)
 **Owner:** arbi (`.claude/agents/arbi.md`) reads and refreshes this; humans may edit freely
 **Superseded by:** N/A
+
+---
+
+## PROGRAMME REFRAME (2026-08-10) — read this before anything below
+
+James ratified a product reframe on 2026-08-10. asxos is a
+**research-to-capital-decision-to-learning engine**, not an agent that writes a morning brief. The
+brief is an experience layer over an immutable decision and must carry no financial logic of its own.
+
+**The canonical target is [`target-architecture.md`](target-architecture.md)** (with its Errata §0
+and Appendices A–I). This file remains the **single live queue**; that file defines what "done" means.
+
+**This file is now the only ranked queue.** Superseded to reference-only, none of which may be read
+as a next-action list: `arbi-operating-backlog.md`, `cleanup-backlog.md`,
+`docs/next-session-backlog.md`, and the untracked 2026-08-08 convergence sprint. `james-inbox.md`
+remains valid but is governor-scoped decisions, not build work.
+
+### The queue — Stages 0→6
+
+| Stage | Goal | State |
+|---|---|---|
+| **0** | Ratify objective + contracts; one canonical queue; scheduler + prototype dispositions | **IN REVIEW** — this PR |
+| **1** | Evidence foundation. **Order matters: contain irreversible loss first**, then repair PIT | blocked on Stage 0 + Appendix F decisions 5/6 |
+| **2** | Research registry + evaluation (method-agnostic; reproducibility and failed-variant retention) | not started |
+| **3** | Theme + candidate engine | not started |
+| **4** | One governed paper investment case, end-to-end (**new screened candidates** — governor ruling) | not started |
+| **5** | Outcome learning — **initially a process audit + descriptive outcome evidence**, not statistical validation | not started |
+| **6** | Portfolio scale + surface cutover | not started |
+
+### Live defects carried into Stage 1 / the remediation work order (verified 2026-08-10)
+
+These are **not** Stage 0 work and are not fixed by this PR. They are recorded so they cannot be
+lost again:
+
+1. **`backup.yml` has never succeeded** — 2 runs, 2 failures. Fails in an `apt-get` step
+   (`packages.microsoft.com` 403, exit 100) before reaching `backup_irreplaceable.sh`. The
+   irreplaceable-data backup has been non-functional since the Render exit. **Highest-severity
+   operational item.**
+2. **`derive_fundamentals_pit` has failed 4 consecutive weekly runs** (`TimeoutError`; last success
+   2026-07-11). This is why `rs_fundamentals_pit` holds 63 rows / 11 symbols of a 2,438 universe.
+3. **`prices` is destructively upserted** (`asxos/ingestion/prices.py:53-59`) — every dividend/split
+   silently rewrites `adj_close` history. The only defect where delay causes permanent loss.
+4. **9 orphaned jobs** declared in `render.yaml`, in no workflow, not executing since 2026-08-01/05.
+   `render.yaml`'s "source of truth" header is factually wrong. Manifest: `target-architecture.md`
+   Appendix D.2.
+5. **`us-positions` cron `30 13 * * 1-5` is US market *open*, not close** — the header comment is
+   wrong. Also a bounded coverage gap 2026-08-06/07 when Render stopped and the workflow was not yet
+   due.
+6. **`composer.py:142-143` swallows all persistence exceptions** (`except Exception: pass`) —
+   violates CLAUDE.md #10.
+7. **V2 brief is dark** — `ASXOS_V2_BRIEF_ENABLED` is set nowhere, so `composer.py:95-98` falls back
+   to V1. The 10-section collector architecture is built, tested, and never runs.
+
+### Parked / preserved work
+
+- `claude/rules-integrity-build` @ `3f6fd51` — **PRESERVED** in PR #80 (PARKED / DO NOT MERGE),
+  4,869 lines and 2,035 tests passing at park. Review loop incomplete (security-engineer /
+  refactoring-expert / technical-writer never completed). **`migrations/0042_rules_integrity.sql`
+  must not be applied.** Preservation is not adoption or merge authority.
+- Decision-engine prototype — **PRESERVED** in PR #81 @ `c6ff3c3` (PROTOTYPE / DO NOT MERGE), ruled
+  **AMEND AND ADOPT** (F7). Independent review complete: **CHANGES REQUIRED for adoption/merge,
+  ACCEPTABLE TO PRESERVE as a draft.** Ten adoption blockers in `target-architecture.md` Appendix
+  I.2; **findings 1, 2 and 7 are capital-safety** (a blocking/revise challenge can accompany
+  `initiate`; an unknown constraint can permit capital deployment; expired packets stay visually
+  actionable). Not adopted — Appendix B remains the canonical logical contract.
+
+### Governor rulings (2026-08-10) — all eight decided
+
+Full text in `target-architecture.md` Appendix F. Summary:
+
+| # | Ruling |
+|---|---|
+| F1 | Benchmark = **S&P/ASX 200 Accumulation (XJOAI)**. `AXJO.INDX` is price-context only and must never carry a total-return label. **If licensed history is unavailable, report benchmark measurement as `unavailable` — never substitute a proxy silently.** Data acquisition is a later work order |
+| F2 | Global exposure = **separately reported sleeve**. Do not blend HUBS into the ASX benchmark |
+| F3 | Outcomes observed at **21 / 63 / 126 trading days**. Packet expiry: 5td for initiate/add/trim/exit_review, 21td for watch/avoid/abstain; all expire earlier on material event, stale evidence, constraint change or snapshot change. **Contract defaults, not trading instructions** |
+| F4 | Risk mandate **DEFERRED** — blocker: *"James must complete the capital/risk calibration before Stage 4."* Hard universal gates meanwhile: no leverage · no Model A capital input · no action on unresolved tradeability/ownership · no action on stale/missing decision-critical evidence · no broker execution. Vol/beta/correlation/drawdown are **reporting-only**. **Stage 1 is not blocked by this** |
+| F5 | Scheduler = **Dagster** as target owner. Existing schedules are time-bounded safety coverage only. **No new GitHub production schedules.** Stage 1 must deliver the deployment/cost/cutover work order first |
+| F6 | Object store = **AWS S3 `ap-southeast-2`**, versioning + Object Lock (governance mode) + encryption + least-privilege creds + lifecycle + observed restore test. No bucket/credential creation authorised yet |
+| F7 | Prototype = **AMEND AND ADOPT**; preserve separately, close conformance gaps before real-data use |
+| F8 | Canonical contract = the **`types.py` design**, subject to five mandatory amendments (canonical `security_id`; `evidence_tier` split from `data_mode`; explicit `model_independence`; typed tax-assessment reference; state→verdict mapping). Appendix B stays the canonical *logical* contract until an adoption PR merges |
+
+**No implementation agent may invent or reinterpret these.** F1, F5 and F6 each name a later work
+order that must precede any action.
 
 ---
 
@@ -219,7 +304,14 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-**CURRENT queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
+> ⚠️ **SUPERSEDED 2026-08-10.** The queue below is the pre-reframe 2026-07-24 ranking and is
+> retained as history only. **The live queue is the Stages 0→6 table in "PROGRAMME REFRAME" at the
+> top of this file.** Its #1 (the macro-brief render layer) is a Stage 6 surface concern under the
+> ratified architecture and is not the current next action. Three items below remain genuinely open
+> and are carried forward: migration `0041` unapplied, the CBA discipline confirm, and the RLS /
+> agent-DB-role posture.
+
+**Historic queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
 audit backlog is fully retired (landed via #65); the two 2026-07-21 proposals are built and
 merged (#67); #64's net-new work is extracted and merged (#68). Zero open PRs. The discovery
 pipeline now has governed macro theses (#6/#7), the macro→theme→sector→instrument agents wired
