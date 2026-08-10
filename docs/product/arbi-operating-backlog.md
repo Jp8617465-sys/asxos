@@ -3,7 +3,11 @@
 **Status:** current · arbi-owned ranked backlog · **Source:** ChatGPT strategy note (James
 relayed 2026-07-11), **debated against live repo state** by arbi.
 **Owner:** arbi ranks + drives; James owns capital/merge/policy checkpoints.
-**Superseded by:** N/A
+**Superseded by:** `roadmap-state.md` (2026-08-10 programme reframe) — **REFERENCE ONLY.**
+
+> ⚠️ **NOT A QUEUE (2026-08-10).** The single live queue is the Stages 0→6 table in
+> `roadmap-state.md`. This file is retained for the debate and the file-cited evidence in it, not
+> for its ranking. Do not read a next action from here.
 
 The debate matters more than the list. ChatGPT's 12 items are strong, but **4 already exist**
 (built this session) — capturing them as "create" would be exactly the fake-progress arbi is

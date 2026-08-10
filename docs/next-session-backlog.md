@@ -4,7 +4,11 @@
 **Scope:** backlog
 **Last verified:** 2026-07-04
 **Read priority:** read after the current session-handoff
-**Superseded by:** N/A
+**Superseded by:** `docs/product/roadmap-state.md` (2026-08-10 programme reframe) — **REFERENCE ONLY.**
+
+> ⚠️ **NOT A QUEUE (2026-08-10).** The single live queue is the Stages 0→6 table in
+> `docs/product/roadmap-state.md`. This file keeps itemised detail that the queue does not carry,
+> but it may not be read as a next-action list.
 
 ---
 
