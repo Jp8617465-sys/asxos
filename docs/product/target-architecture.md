@@ -1,6 +1,7 @@
 # ASXOS research-to-decision investment engine — target architecture
 
-**Status:** CANONICAL on merge — the ratified target architecture for asxos
+**Status:** CANONICAL — the ratified target architecture for asxos (ratified 2026-08-10, digest
+`d6d888a`, merged as `9ede7ad` via PR #79)
 **Scope:** product objective, logical architecture, technology boundaries, brownfield migration, and acceptance gates
 **Prepared:** 2026-08-10 (Australia/Brisbane) · **Governor:** James
 **Observed repository base:** `main@1b471b60cdaa176692cc5f987e8399acfdab03d9`
@@ -14,7 +15,7 @@ under a separately approved work order per stage (§15).
 
 **Ratification flow.** James approves one exact PR commit SHA/digest; that approval permits merge;
 the merged document is then canonical. Approval is of the digest, not of a document already on
-`main`.
+`main`. **This flow completed on 2026-08-10** and governs every future amendment to this document.
 
 **Standing constraints that this architecture does not relax:**
 - **CLAUDE.md rule #11 — the Model A quarantine stands.** No Model A output may enter the
@@ -1631,19 +1632,21 @@ merge**. **No code changes belong in this PR.**
 
 | # | Gate | Status |
 |---|---|---|
-| 1 | James approves one exact PR commit SHA/digest | ⏳ **PENDING** — directional approval given 2026-08-10; the digest changed with these amendments and awaits final approval |
+| 1 | James approves one exact PR commit SHA/digest | ✅ **MET** — James approved digest `d6d888a` on 2026-08-10 and merged it as `9ede7ad` (PR #79). This document became canonical on that merge |
 | 2 | Single canonical target architecture; competitors superseded or uncommitted | ✅ **MET** — this document; the three backlogs carry NOT-A-QUEUE banners; the convergence sprint and live-slice brief are superseded and never committed |
 | 3 | `roadmap-state.md` is the single live queue, mapped to Stages 0–6 | ✅ **MET** |
 | 4 | The eight Appendix F decisions answered, or deferred with a named blocker | ✅ **MET** — seven ruled; **F4 deferred with the named blocker** *"James must complete the capital/risk calibration before Stage 4"* |
-| 5 | Authority-file amendments applied | ✅ **MET** — James authorised the exact Appendix H text on 2026-08-10; it is applied in this PR to `portfolio-policy.md`, `docs/README.md`, and `north-star.md`. The arbi deny rules remain intact and arbi did not self-grant authority |
+| 5 | Authority-file amendments applied | ✅ **MET** — James authorised the exact Appendix H text on 2026-08-10; it landed in PR #79 to `portfolio-policy.md`, `docs/README.md`, and `north-star.md`. The arbi deny rules remain intact and arbi did not self-grant authority |
 | 6 | Parked work preserved, not lost | ✅ **MET** — both branches are now live in remote draft PRs: `claude/rules-integrity-build` @ `3f6fd51` (PR #80, PARKED / DO NOT MERGE) and `claude/decision-engine-prototype` @ `c6ff3c3` (PR #81, PROTOTYPE / DO NOT MERGE, all ten findings disclosed). Both are labelled and draft; neither is authorised for merge. Nothing in this preservation scope now lives only on one laptop |
-| 7 | No implementation has occurred | ✅ **MET** — `REQUIRED_MIGRATIONS` still 95, applied migrations still end at 0041, this PR is documentation-only, migration 0042 unapplied |
+| 7 | No implementation has occurred | ✅ **MET** — `REQUIRED_MIGRATIONS` still 95, applied migrations still end at 0041, PR #79 was documentation-only, migration 0042 unapplied |
 
-**Stage 0 is NOT complete.** One gate remains open: **1** (approval of the exact final PR digest).
-No implementation is authorised by this document. Each subsequent stage requires its own approved
-work order — and per F1, F5 and F6, three of the ruled decisions each explicitly name a *later*
-work order before any action (benchmark data acquisition; Dagster deployment/cost/cutover; S3
-bucket and credential creation).
+**Stage 0 is COMPLETE** (2026-08-10). All seven gates are met; this document is canonical on `main`.
+
+**Completion is not implementation authority.** Stage 0 ratified an objective, a set of contracts and
+a queue — nothing more. Each subsequent stage requires its own approved work order, and per F1, F5
+and F6 three of the ruled decisions each explicitly name a *later* work order before any action
+(benchmark data acquisition; Dagster deployment/cost/cutover; S3 bucket and credential creation).
+Stage 1 has **not** been authorised by the completion of Stage 0.
 
 **Known-blocked at Stage 4:** the F4 capital/risk calibration. Stage 1 is not blocked by it.
 
