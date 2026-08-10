@@ -35,8 +35,8 @@ remains valid but is governor-scoped decisions, not build work.
 
 | Stage | Goal | State |
 |---|---|---|
-| **0** | Ratify objective + contracts; one canonical queue; scheduler + prototype dispositions | **IN REVIEW** — this PR |
-| **1** | Evidence foundation. **Order matters: contain irreversible loss first**, then repair PIT | blocked on Stage 0 + Appendix F decisions 5/6 |
+| **0** | Ratify objective + contracts; one canonical queue; scheduler + prototype dispositions | ✅ **COMPLETE 2026-08-10** — digest `d6d888a`, merged `9ede7ad` (PR #79). All seven gates met |
+| **1** | Evidence foundation. **Order matters: contain irreversible loss first**, then repair PIT | **NOT STARTED — not authorised.** Stage 0 completion is not Stage 1 authority; it needs its own approved work order. F5 (Dagster deployment/cost/cutover) and F6 (S3 bucket/credentials) each name a prior work order |
 | **2** | Research registry + evaluation (method-agnostic; reproducibility and failed-variant retention) | not started |
 | **3** | Theme + candidate engine | not started |
 | **4** | One governed paper investment case, end-to-end (**new screened candidates** — governor ruling) | not started |
