@@ -20,9 +20,9 @@ the merged document is then canonical. Approval is of the digest, not of a docum
 - **CLAUDE.md rule #11 — the Model A quarantine stands.** No Model A output may enter the
   capital-evidence path. The decay analysis (19,032 matured signals, `corr(ml_prob, 21d) = −0.03`,
   conviction inverted at the top) is the reason, and this architecture does not reopen it.
-- **`migrations/0042_rules_integrity.sql` must not be applied.** It is not on `main`; it exists only
-  in the unpushed worktree `.claude/worktrees/rules-build`. Compatibility with this architecture is
-  not authority to apply it.
+- **`migrations/0042_rules_integrity.sql` must not be applied.** It is not on `main`; it is preserved
+  on the draft `claude/rules-integrity-build` branch in PR #80 and remains in the local worktree.
+  Compatibility with this architecture is not authority to apply it.
 - The **personal-advice firewall** (execution stays with James) and **Decimal-only domain
   arithmetic** are unchanged.
 
@@ -48,8 +48,9 @@ the risk/loss mandate all remain open. See **Appendix F** for the eight bounded 
 
 **E2 — §8.5 `DecisionPacket` is not a new contract, and it is not `recommendation-schema.md` restated.**
 Three definitions now exist: `docs/product/recommendation-schema.md` (a human memo/view contract, on
-`main`), §8.5 of this document, and `asxos/domain/decision_engine/types.py` (an untracked, tested
-prototype implementing a canonical cross-domain aggregate). **Appendix B** reconciles them
+`main`), §8.5 of this document, and `asxos/domain/decision_engine/types.py` (a tested, branch-only
+prototype preserved in PR #81, implementing a candidate canonical cross-domain aggregate).
+**Appendix B** reconciles them
 field-by-field and designates one canonical. No fourth definition may be created.
 
 **E3 — §9.4's learning loop already exists and has already failed once, for a non-architectural reason.**
@@ -65,8 +66,8 @@ constraint" is nonetheless in tension with `docs/research/operating-model-archit
 ("the structural edges available are patience, tax (franking + CGT), low turnover"). The resolution
 is the measurement contract in **Appendix C**, not a claim either way.
 
-**E5 — §0 and §14 mislocate migration 0042.** It is not "in the repo, unapplied." It is absent from
-`main` entirely and lives only in the unpushed worktree. It also carries an irreversible
+**E5 — §0 and §14 mislocate migration 0042.** It is not "on `main`, unapplied." It is absent from
+`main`, preserved in draft PR #80, and retained in the local worktree. It also carries an irreversible
 `ALTER TABLE theses DROP COLUMN invalidation_conditions` whose safety rests on a comment rather than
 on the migration's own precondition assertions.
 
@@ -1327,12 +1328,12 @@ as the target implementation contract**, subject to the mandatory amendments in 
 
 | Stage | What is canonical |
 |---|---|
-| **Now (this PR)** | **Appendix B is the canonical *logical* contract.** `asxos/domain/decision_engine/types.py` is **untracked and not on `main`** — it is the selected design, not a canonical artifact. |
+| **Now (this PR)** | **Appendix B is the canonical *logical* contract.** `asxos/domain/decision_engine/types.py` is **preserved only on the draft PR #81 branch and is not on `main`** — it is the selected design, not a canonical artifact. |
 | **On merge of a later reviewed prototype/adoption PR** | `types.py` (as amended per B.3) becomes the **executable canonical contract**. |
 
 **Do not describe `types.py` as already canonical on `main`.** It is not on `main`. Until the
 adoption PR merges, any implementation question resolves against Appendix B, not against the
-untracked file.
+branch-only prototype.
 
 Rationale for selecting the design: it is the only one of the three that is executable, tested, and
 enforces its own invariants — content hashing, the `known_at <= knowledge_cutoff` gate,
@@ -1444,7 +1445,8 @@ GitHub would contradict §11.2's "GitHub is CI/release, not production schedulin
 fails in an `apt-get` step: `packages.microsoft.com` returns 403 and the repo is "no longer signed",
 exit code 100 — `scripts/backup_irreplaceable.sh` is never reached. **The irreplaceable-data backup
 (themes, theses, thesis_revisions, theme_holdings, macro_theses) has been non-functional since the
-Render exit.** This compounds with the 4,869 lines of unpushed work in Track B.
+Render exit.** At discovery this compounded with 4,869 lines of local-only Track B work; that
+preservation risk is now mitigated by draft PR #80, while the backup failure itself remains open.
 
 **D.1.b — `derive_fundamentals_pit` has failed 4 consecutive weekly runs** (2026-07-18, 07-25,
 08-01, 08-08; `TimeoutError`). Last success 2026-07-11 — 30 days. `check_cron_health` has correctly
@@ -1488,8 +1490,8 @@ retired — that correction is itself part of the later work order, not Stage 0.
 
 ## Appendix E — Prototype disposition
 
-An untracked, tested research-to-decision prototype exists in the working tree. It is not on `main`
-and not in production.
+A tested research-to-decision prototype is preserved on the draft PR #81 branch. It is not on
+`main`, is not adopted, and is not in production.
 
 | Path | Content |
 |---|---|
@@ -1501,8 +1503,9 @@ and not in production.
 | `tests/test_decision_engine_prototype.py` | **7 tests, all passing** (verified 2026-08-10, `.venv` Python 3.12.11) |
 | `Makefile` | modified — adds the `decision-demo` target (the only tracked file altered) |
 
-**Verified behaviour.** Immutable, unknown-field-rejecting Pydantic contracts; float input rejected
-recursively so capital values stay Decimal-exact; `EvidencePacket` rejects any item with
+**Verified behaviour of the preserved fixtures.** Unknown-field-rejecting, shallow-frozen Pydantic
+contracts; float input rejected recursively so capital values stay Decimal-exact; `EvidencePacket`
+rejects any item with
 `known_at > knowledge_cutoff` (a real point-in-time gate) and requires `expires_at > knowledge_cutoff`;
 `ChallengeResult` rejects a non-independent author and forbids `pass` alongside a blocking finding;
 `PortfolioAssessment` forces a failed constraint into `avoid`/`abstain`/`exit_review` and zero size;
@@ -1511,16 +1514,21 @@ recursively so capital values stay Decimal-exact; `EvidencePacket` rejects any i
 frozen packet. Two controls run end-to-end: a synthetic `initiate` with a size range, and an
 `abstain` with a zero size range forced by unresolved tradeability and concentration.
 
-**Recommended disposition: AMEND AND ADOPT** as the canonical contract source (Appendix B.2),
-conditional on closing the three conformance gaps in B.3 and adding `model_independence` and a tax
-reference. Its evidence is synthetic and it has no database or agent binding — adoption is of the
-*contracts*, not of the demo data.
+These checks do **not** establish deep immutability or complete capital safety. The independent
+review found ten adoption blockers, including mutable nested manifest data, format-only hashes,
+`revise`/unknown-constraint gate bypasses, incomplete temporal coherence, and visually actionable
+expired packets. The complete record is Appendix I.2 and PR #81.
 
-**Handling constraints — binding until James rules:** do not overwrite, duplicate, stage or
-reimplement these files. Any parallel implementation of the same contracts is the fourth-definition
-failure E2 exists to prevent.
+**Governor ruling F7: AMEND AND ADOPT.** PR #81 completes only the preservation half. Adoption as
+the canonical executable contract requires every Appendix B.3 and I.2 blocker to close in a
+separately reviewed PR. Its evidence is synthetic and it has no database or agent binding —
+adoption is of the corrected contracts, not of the demo data.
 
-**Decision requested:** Appendix F decision 7.
+**Handling constraint:** evolve this selected design through the later adoption PR; do not create a
+parallel fourth contract definition. PR #81 remains preservation-only and is not the branch on
+which to conceal or silently resolve its disclosed findings.
+
+**Preservation record:** Appendix I and PR #81.
 
 ---
 
@@ -1627,86 +1635,26 @@ merge**. **No code changes belong in this PR.**
 | 2 | Single canonical target architecture; competitors superseded or uncommitted | ✅ **MET** — this document; the three backlogs carry NOT-A-QUEUE banners; the convergence sprint and live-slice brief are superseded and never committed |
 | 3 | `roadmap-state.md` is the single live queue, mapped to Stages 0–6 | ✅ **MET** |
 | 4 | The eight Appendix F decisions answered, or deferred with a named blocker | ✅ **MET** — seven ruled; **F4 deferred with the named blocker** *"James must complete the capital/risk calibration before Stage 4"* |
-| 5 | Authority-file amendments applied | ⏳ **PENDING** — governor-**authorised** but **not applied**. Blocked by hard `permissions.deny` entries in `.claude/settings.json` (lines 56, 57, 72); line 45 denies editing that file, so arbi cannot lift its own boundary. Exact text is in Appendix H; **no workaround was attempted.** Authorisation is not application |
-| 6 | Parked work preserved, not lost | ✅ **MET** — both branches are now live in remote draft PRs: `claude/rules-integrity-build` @ `3f6fd51` (PR #80, PARKED / DO NOT MERGE) and `claude/decision-engine-prototype` @ `c6ff3c3` (PR #81, PROTOTYPE / DO NOT MERGE, all ten findings disclosed). Both labelled, both draft, neither mergeable. Nothing now lives only on one laptop |
+| 5 | Authority-file amendments applied | ✅ **MET** — James authorised the exact Appendix H text on 2026-08-10; it is applied in this PR to `portfolio-policy.md`, `docs/README.md`, and `north-star.md`. The arbi deny rules remain intact and arbi did not self-grant authority |
+| 6 | Parked work preserved, not lost | ✅ **MET** — both branches are now live in remote draft PRs: `claude/rules-integrity-build` @ `3f6fd51` (PR #80, PARKED / DO NOT MERGE) and `claude/decision-engine-prototype` @ `c6ff3c3` (PR #81, PROTOTYPE / DO NOT MERGE, all ten findings disclosed). Both are labelled and draft; neither is authorised for merge. Nothing in this preservation scope now lives only on one laptop |
 | 7 | No implementation has occurred | ✅ **MET** — `REQUIRED_MIGRATIONS` still 95, applied migrations still end at 0041, this PR is documentation-only, migration 0042 unapplied |
 
-**Stage 0 is NOT complete.** Two gates remain open: **1** (digest approval) and **5** (authority
-amendments, authorised but mechanically blocked). No implementation is authorised by this document. Each subsequent stage
-requires its own approved work order — and per F1, F5 and F6, three of the ruled decisions each
-explicitly name a *later* work order before any action (benchmark data acquisition; Dagster
-deployment/cost/cutover; S3 bucket and credential creation).
+**Stage 0 is NOT complete.** One gate remains open: **1** (approval of the exact final PR digest).
+No implementation is authorised by this document. Each subsequent stage requires its own approved
+work order — and per F1, F5 and F6, three of the ruled decisions each explicitly name a *later*
+work order before any action (benchmark data acquisition; Dagster deployment/cost/cutover; S3
+bucket and credential creation).
 
 **Known-blocked at Stage 4:** the F4 capital/risk calibration. Stage 1 is not blocked by it.
 
----
-
-## Appendix I — Preservation record
-
-Preservation is **not adoption and not merge authority**. Both branches below are draft, marked DO
-NOT MERGE, and exist so that tested work stops living on a single laptop.
-
-| Branch | Commit | Status |
-|---|---|---|
-| `claude/rules-integrity-build` | `3f6fd51` | ✅ **PRESERVED** — PR #80, **PARKED / DO NOT MERGE**; review loop incomplete (security-engineer, refactoring-expert, technical-writer never completed); red-team findings attached; **migration 0042 unaltered and unapplied** |
-| `claude/decision-engine-prototype` | `c6ff3c3` | ✅ **PRESERVED** — PR #81, **PROTOTYPE / DO NOT MERGE**; review complete with **CHANGES REQUIRED**; all ten findings disclosed (I.2); nine paths, 1,279 insertions, snapshot exactly as reviewed |
-
-Both are draft and labelled. Neither may be merged, and migration 0042 may not be applied, without a
-separate governor decision.
-
-### I.1 — Prototype preservation record
-
-The independent review loop completed 2026-08-10 on staged-diff key `570be24bb3b1`. Checks passed:
-7 focused tests · ruff · mypy · `git diff --cached --check` · staged scope confirmed as exactly the
-nine intended paths.
-
-**Consolidated verdict: CHANGES REQUIRED for adoption or merge; ACCEPTABLE TO PRESERVE as a draft
-PROTOTYPE / DO NOT MERGE PR provided every finding is disclosed.** The review authorises no real
-data, production use, adoption, merge, or Stage 1 work.
-
-The snapshot was preserved **exactly as reviewed** — no fixes implemented, because implementing them
-would have invalidated the review key. The key was re-verified byte-identical at commit time.
-
-**Process note, recorded because the distinction is easy to lose.** The preservation commit was
-initially blocked, and the blocker was **not** the review gate. `.claude/hooks/review-gate.sh`
-defines its marker as recording that "the subagent review loop **has run** for that exact staged
-diff" (header, lines 4–7), states it "cannot itself spawn an agent or prove one ran," has **no
-concept of a verdict**, and names exactly one dishonesty — writing the marker without running the
-loop. A "changes required" verdict is therefore fully compatible with it. The actual blocker was the
-Claude Code auto-mode classifier, a separate harness-level control that refused the marker write
-regardless of review status. **No workaround was attempted**, and no false or verdict-laundering
-marker was ever written or described; the governor wrote the marker after the loop completed.
-
-### I.2 — Adoption blockers (disclosed on PR #81)
-
-Ten findings, all open. **These are adoption blockers, not preservation blockers.**
-
-1. A **blocking/revise challenge can still accompany `initiate`**.
-2. An **unknown constraint can still permit capital deployment**.
-3. `constraints_checked` is **not reconciled** to `PortfolioAssessment`.
-4. Hashes validate **format, not content integrity** — the decision hash does not commit to upstream
-   artifact contents.
-5. `frozen=True` is **shallow**: `model_and_prompt_manifest` is mutable.
-6. Cross-artifact `as_of` / cutoff / expiry / `created_at` / `observed_at` and **timezone invariants
-   are incomplete**.
-7. **Expired packets remain visually actionable.**
-8. **Stage 0 F3 expiry defaults are not implemented.**
-9. Renderer states **do not implement the ruled state→verdict mapping**.
-10. **All five B.3 amendments remain open** — `security_id`, `evidence_tier`/`data_mode`,
-    `model_independence`, typed tax reference, state→verdict mapping.
-
-Findings 1, 2 and 7 are the capital-safety ones: each would let an artifact that should have been
-stopped appear actionable.
-
----
-
 ## Appendix H — Amendments to guard-protected authority files
 
-**Status: AUTHORISED BY THE GOVERNOR (2026-08-10) BUT MECHANICALLY BLOCKED — NOT YET APPLIED.**
+**Status: APPLIED IN THIS PR under explicit governor authorisation (2026-08-10); final digest
+approval remains pending.**
 
-James explicitly authorised these three amendments. They could not be written because
-`.claude/settings.json` carries hard `permissions.deny` entries that no in-session instruction can
-lift:
+James explicitly authorised these three amendments. Arbi's self-protection remained intact:
+`.claude/settings.json` carries hard `permissions.deny` entries preventing arbi from writing them
+or lifting its own boundary:
 
 ```
 line 56   "Edit(/docs/README.md)"
@@ -1717,17 +1665,16 @@ line 45   "Edit(/.claude/settings.json)"      ← so arbi cannot lift its own bo
 
 That last line is the point: the deny list is self-protecting by design, and arbi routing around it —
 via a different tool matcher, a shell heredoc, or any other technicality — would be exactly the
-self-granting of authority the control exists to prevent. **arbi did not attempt a workaround.**
-
-**Two clean routes, James's choice:**
-1. **He applies the text below himself** (copy-paste; it is exact and final), or
-2. **He removes the three deny lines**, tells arbi, and arbi applies them in this PR.
+self-granting of authority the control exists to prevent. **Arbi did not attempt a workaround.**
+The already-authorised text was applied in a separate governor-directed editing session; no deny
+rule was removed or weakened.
 
 Files arbi *did* amend, because they are arbi-owned and not on the deny list: `roadmap-state.md`
 ("arbi reads and refreshes this"), `arbi-operating-backlog.md`, `cleanup-backlog.md`,
 `next-session-backlog.md`.
 
-The text below reflects the **final governor rulings** (Appendix F), not the earlier draft.
+The applied text below is retained as the ratification record and reflects the **final governor
+rulings** (Appendix F), not the earlier draft.
 
 ### H.1 — `docs/product/portfolio-policy.md`
 
@@ -1835,3 +1782,62 @@ firewall is unchanged, and Decimal-only domain arithmetic is unchanged.
   never find it. Move to `docs/`.
 - `render.yaml`'s header still claims to be "the source of truth for what Render runs" while 9 of
   its crons no longer execute. Correct or retire it — Appendix D.2, after decision 5.
+
+---
+
+## Appendix I — Preservation record
+
+Preservation is **not adoption and not merge authority**. Both branches below are draft, marked DO
+NOT MERGE, and exist so that tested work stops living on a single laptop.
+
+| Branch | Commit | Status |
+|---|---|---|
+| `claude/rules-integrity-build` | `3f6fd51` | ✅ **PRESERVED** — PR #80, **PARKED / DO NOT MERGE**; review loop incomplete (security-engineer, refactoring-expert, technical-writer never completed); red-team findings attached; **migration 0042 unaltered and unapplied** |
+| `claude/decision-engine-prototype` | `c6ff3c3` | ✅ **PRESERVED** — PR #81, **PROTOTYPE / DO NOT MERGE**; review complete with **CHANGES REQUIRED**; all ten findings disclosed (I.2); nine paths, 1,279 insertions, snapshot exactly as reviewed |
+
+Both are draft and labelled. Neither may be merged, and migration 0042 may not be applied, without a
+separate governor decision.
+
+### I.1 — Prototype preservation record
+
+The independent review loop completed 2026-08-10 on staged-diff key `570be24bb3b1`. Checks passed:
+7 focused tests · ruff · mypy · `git diff --cached --check` · staged scope confirmed as exactly the
+nine intended paths.
+
+**Consolidated verdict: CHANGES REQUIRED for adoption or merge; ACCEPTABLE TO PRESERVE as a draft
+PROTOTYPE / DO NOT MERGE PR provided every finding is disclosed.** The review authorises no real
+data, production use, adoption, merge, or Stage 1 work.
+
+The snapshot was preserved **exactly as reviewed** — no fixes implemented, because implementing them
+would have invalidated the review key. The key was re-verified byte-identical at commit time.
+
+**Process note, recorded because the distinction is easy to lose.** The preservation commit was
+initially blocked, and the blocker was **not** the review gate. `.claude/hooks/review-gate.sh`
+defines its marker as recording that "the subagent review loop **has run** for that exact staged
+diff" (header, lines 4–7), states it "cannot itself spawn an agent or prove one ran," has **no
+concept of a verdict**, and names exactly one dishonesty — writing the marker without running the
+loop. A "changes required" verdict is therefore fully compatible with it. The actual blocker was the
+Claude Code auto-mode classifier, a separate harness-level control that refused the marker write
+regardless of review status. **No workaround was attempted**, and no false or verdict-laundering
+marker was ever written or described; the governor wrote the marker after the loop completed.
+
+### I.2 — Adoption blockers (disclosed on PR #81)
+
+Ten findings, all open. **These are adoption blockers, not preservation blockers.**
+
+1. A **blocking/revise challenge can still accompany `initiate`**.
+2. An **unknown constraint can still permit capital deployment**.
+3. `constraints_checked` is **not reconciled** to `PortfolioAssessment`.
+4. Hashes validate **format, not content integrity** — the decision hash does not commit to upstream
+   artifact contents.
+5. `frozen=True` is **shallow**: `model_and_prompt_manifest` is mutable.
+6. Cross-artifact `as_of` / cutoff / expiry / `created_at` / `observed_at` and **timezone invariants
+   are incomplete**.
+7. **Expired packets remain visually actionable.**
+8. **Stage 0 F3 expiry defaults are not implemented.**
+9. Renderer states **do not implement the ruled state→verdict mapping**.
+10. **All five B.3 amendments remain open** — `security_id`, `evidence_tier`/`data_mode`,
+    `model_independence`, typed tax reference, state→verdict mapping.
+
+Findings 1, 2 and 7 are the capital-safety ones: each would let an artifact that should have been
+stopped appear actionable.

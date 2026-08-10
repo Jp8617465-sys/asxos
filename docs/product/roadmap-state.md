@@ -69,10 +69,10 @@ lost again:
 
 ### Parked / preserved work
 
-- `claude/rules-integrity-build` @ `3f6fd51` — 4,869 lines, 2,035 tests passing at park, **unpushed,
-  local-only, single point of failure.** Review loop incomplete (security-engineer /
+- `claude/rules-integrity-build` @ `3f6fd51` — **PRESERVED** in PR #80 (PARKED / DO NOT MERGE),
+  4,869 lines and 2,035 tests passing at park. Review loop incomplete (security-engineer /
   refactoring-expert / technical-writer never completed). **`migrations/0042_rules_integrity.sql`
-  must not be applied.** Preservation is a separately-authorised action.
+  must not be applied.** Preservation is not adoption or merge authority.
 - Decision-engine prototype — **PRESERVED** in PR #81 @ `c6ff3c3` (PROTOTYPE / DO NOT MERGE), ruled
   **AMEND AND ADOPT** (F7). Independent review complete: **CHANGES REQUIRED for adoption/merge,
   ACCEPTABLE TO PRESERVE as a draft.** Ten adoption blockers in `target-architecture.md` Appendix

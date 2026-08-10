@@ -2,7 +2,7 @@
 
 **Status:** current
 **Scope:** whole repo — the product charter arbi measures every recommendation against
-**Last verified:** 2026-07-10
+**Last verified:** 2026-08-10
 **Read priority:** read after the newest `session-handoff-*.md`
 **Owner:** arbi (`.claude/agents/arbi.md`) reads this every wake; humans amend it rarely
 **Superseded by:** N/A
@@ -34,6 +34,17 @@ around them.** Every position is a structured thesis: entry band · stop · targ
 timeline · thesis statement · theme attribution · invalidation conditions · path-vs-plan
 state · opportunity-cost framing. A small number of opinionated, explainable ideas — not
 "BHP went up 2%," not 50 screener matches.
+
+## The reframe (ratified 2026-08-10)
+
+The output is **better investment decisions and outcomes**, benchmark-relative and risk-controlled —
+not a brief, and not feature count. The brief remains the experience layer over an immutable
+decision and must carry no financial logic of its own. The canonical target is
+`target-architecture.md`; the three-layer moat below is *how* the engine earns its edge, not a
+substitute for it.
+
+This does not relax any non-negotiable: rule #11 (Model A quarantine) stands, the personal-advice
+firewall is unchanged, and Decimal-only domain arithmetic is unchanged.
 
 ## What a thesis IS — a broker report (governor reframe, 2026-07-13)
 
