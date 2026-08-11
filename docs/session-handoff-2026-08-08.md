@@ -1,8 +1,9 @@
 # asxos — Session handoff — 2026-08-08
 
-**Status:** current after merge to `main`; branch-only closeout candidate until then
+**Status:** SUPERSEDED 2026-08-11 by `session-handoff-2026-08-11.md` — read that one first. This
+document remains accurate as the record of the 2026-08-08 session; it is no longer current state.
 
-**Read priority:** read first (newest handoff; supersedes `session-handoff-2026-07-24.md` on priority)
+**Read priority:** historical (was: read first; superseded `session-handoff-2026-07-24.md` on priority)
 
 **Owner:** arbi (`/arbi-close`)
 

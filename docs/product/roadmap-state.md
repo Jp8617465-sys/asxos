@@ -2,9 +2,11 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-08-10 (Stage 0 ratification — see "PROGRAMME REFRAME" immediately below;
-the 2026-07-14 reconciliation notes are retained further down as history)
-**Prior verification:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
+**Last verified:** 2026-08-11 (`/arbi-close`, retrospective — the 08-11 build session shipped five
+merged PRs and stood down without a close; this refresh reconciles the defect list against `main`
+@ `7aa8507`. See "PROGRAMME REFRAME" immediately below; the 2026-07-14 notes are retained as history)
+**Prior verification:** 2026-08-10 (Stage 0 ratification — digest `d6d888a`, merged `9ede7ad`/PR #79)
+**Earlier verification:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
 #32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
 hardening, Guilfoyle mission-control, overnight governance record, orchestrator-mode sketch.
 Monitoring lane fixes all on main. **Confirmed (2026-07-14, later same day): #29 (discipline
@@ -36,36 +38,33 @@ remains valid but is governor-scoped decisions, not build work.
 | Stage | Goal | State |
 |---|---|---|
 | **0** | Ratify objective + contracts; one canonical queue; scheduler + prototype dispositions | ✅ **COMPLETE 2026-08-10** — digest `d6d888a`, merged `9ede7ad` (PR #79). All seven gates met |
-| **1** | Evidence foundation. **Order matters: contain irreversible loss first**, then repair PIT | **NOT STARTED — not authorised.** Stage 0 completion is not Stage 1 authority; it needs its own approved work order. F5 (Dagster deployment/cost/cutover) and F6 (S3 bucket/credentials) each name a prior work order |
+| **1** | Evidence foundation. **Order matters: contain irreversible loss first**, then repair PIT | **STILL NOT AUTHORISED as a stage.** What ran on 2026-08-11 was the *remediation work order* against the live-defect list below (defects 1/2/3/6 fixed in code, five PRs merged) — **not** Stage 1's evidence-foundation build. F5 (Dagster deployment/cost/cutover) and F6 (S3 bucket/credentials) each still name a prior work order that has not been written |
 | **2** | Research registry + evaluation (method-agnostic; reproducibility and failed-variant retention) | not started |
 | **3** | Theme + candidate engine | not started |
 | **4** | One governed paper investment case, end-to-end (**new screened candidates** — governor ruling) | not started |
 | **5** | Outcome learning — **initially a process audit + descriptive outcome evidence**, not statistical validation | not started |
 | **6** | Portfolio scale + surface cutover | not started |
 
-### Live defects carried into Stage 1 / the remediation work order (verified 2026-08-10)
+### Live defects carried into Stage 1 / the remediation work order
 
-These are **not** Stage 0 work and are not fixed by this PR. They are recorded so they cannot be
-lost again:
+**Originally recorded 2026-08-10. Status reconciled 2026-08-11 against `main` @ `7aa8507`.**
+Four of seven are now fixed *in code*; three remain open. **"Merged" is not "in production"** —
+each closed row names the production gate that is still James's.
 
-1. **`backup.yml` has never succeeded** — 2 runs, 2 failures. Fails in an `apt-get` step
-   (`packages.microsoft.com` 403, exit 100) before reaching `backup_irreplaceable.sh`. The
-   irreplaceable-data backup has been non-functional since the Render exit. **Highest-severity
-   operational item.**
-2. **`derive_fundamentals_pit` has failed 4 consecutive weekly runs** (`TimeoutError`; last success
-   2026-07-11). This is why `rs_fundamentals_pit` holds 63 rows / 11 symbols of a 2,438 universe.
-3. **`prices` is destructively upserted** (`asxos/ingestion/prices.py:53-59`) — every dividend/split
-   silently rewrites `adj_close` history. The only defect where delay causes permanent loss.
-4. **9 orphaned jobs** declared in `render.yaml`, in no workflow, not executing since 2026-08-01/05.
-   `render.yaml`'s "source of truth" header is factually wrong. Manifest: `target-architecture.md`
-   Appendix D.2.
-5. **`us-positions` cron `30 13 * * 1-5` is US market *open*, not close** — the header comment is
-   wrong. Also a bounded coverage gap 2026-08-06/07 when Render stopped and the workflow was not yet
-   due.
-6. **`composer.py:142-143` swallows all persistence exceptions** (`except Exception: pass`) —
-   violates CLAUDE.md #10.
-7. **V2 brief is dark** — `ASXOS_V2_BRIEF_ENABLED` is set nowhere, so `composer.py:95-98` falls back
-   to V1. The 10-section collector architecture is built, tested, and never runs.
+| # | Defect | Status |
+|---|---|---|
+| 1 | **`backup.yml` had never succeeded** — apt step failed (`packages.microsoft.com` 403, exit 100) before reaching `backup_irreplaceable.sh`; pg16 client could not dump a pg17 server | ✅ **FIXED + OBSERVED GREEN.** PR #83 (`8975e41`). Run `31465179375` @ `9d6bffd`: `backup: success` **and** `restore_drill: success` — a real restore against a clean schema built from repo migrations, with every table count verified. This is the first end-to-end proof the irreplaceable backup works |
+| 2 | **`derive_fundamentals_pit` failed 4 consecutive weekly runs** (`TimeoutError`; last success 2026-07-11) | ⚠️ **FIXED IN CODE, NOT YET RUN.** PR #85 (`36b07fb`) — keyset-paged source reads (50 symbols default) + bounded write chunks (250 rows), resumable and idempotent, without raising the 30s command timeout. **Live state unchanged: `rs_fundamentals_pit` = 63 rows / 11 symbols of a 2,391 active universe.** Gate: one full scheduled run must complete, reconcile coverage, then `compute_factor_scores` consumes the cross-section |
+| 3 | **`prices` destructively upserted** (`asxos/ingestion/prices.py:53-59`) — every dividend/split silently rewrote `adj_close` history. The only defect where delay causes permanent loss | ⚠️ **CONTAINED IN CODE, MIGRATION UNAPPLIED.** PR #84 (`d0dbee0`) adds `migrations/0043_price_revisions.sql`: append-only revision ledger, DELETE tombstones, UPDATE/DELETE/TRUNCATE blocked on the ledger, TRUNCATE blocked on `prices`, SECURITY DEFINER trigger with fixed `search_path`. **DB shows 95 applied migrations, latest `20260724110030` (0041) — 0043 is NOT applied, so history is still being overwritten today.** Gate: rehearse 0043 against a disposable Postgres (update/delete/no-op/immutability observed end to end), then James applies and bumps `REQUIRED_MIGRATIONS` 95→96. Prospective only — **no historical backfill**, the pre-0043 `adj_close` rewrites are already lost |
+| 4 | **9 orphaned jobs** declared in `render.yaml`, in no workflow, not executing since 2026-08-01/05. `render.yaml`'s "source of truth" header is factually wrong. Manifest: `target-architecture.md` Appendix D.2 | ❌ **OPEN** — untouched by the 08-11 session |
+| 5 | **`us-positions` cron `30 13 * * 1-5` is US market *open*, not close** — header comment is wrong | ❌ **OPEN** — verified still present at `.github/workflows/us-positions.yml:12` and `render.yaml:654`. Also the bounded 2026-08-06/07 coverage gap |
+| 6 | **`composer.py` swallowed all persistence exceptions** (`except Exception: pass`) — violated CLAUDE.md #10 | ✅ **FIXED.** PR #86 (`e130240`) — composer returns a redacted persistence error, the job sends the primary brief first then raises a typed failure inside `JobMonitor`; the run records failed, the failure healthcheck pings, cron exits non-zero, and a confirmed primary delivery suppresses duplicate fallback mail |
+| 7 | **V2 brief is dark** — `ASXOS_V2_BRIEF_ENABLED` set nowhere, so `composer.py:94` falls back to V1. The 10-section collector architecture is built, tested, and never runs | ❌ **OPEN** — verified still unset anywhere outside docs |
+
+**Live consequence of #2 still being unrun (observed 2026-08-11):** `check_cron_health` has failed
+every run for at least 7 days — correctly. Its error is verbatim
+`CONSECUTIVE FAILURES: derive_fundamentals_pit last 3 runs all failed`. The monitor is a **true
+positive, not a broken monitor**; one successful PIT run clears both reds at once.
 
 ### Parked / preserved work
 
@@ -73,12 +72,23 @@ lost again:
   4,869 lines and 2,035 tests passing at park. Review loop incomplete (security-engineer /
   refactoring-expert / technical-writer never completed). **`migrations/0042_rules_integrity.sql`
   must not be applied.** Preservation is not adoption or merge authority.
-- Decision-engine prototype — **PRESERVED** in PR #81 @ `c6ff3c3` (PROTOTYPE / DO NOT MERGE), ruled
-  **AMEND AND ADOPT** (F7). Independent review complete: **CHANGES REQUIRED for adoption/merge,
-  ACCEPTABLE TO PRESERVE as a draft.** Ten adoption blockers in `target-architecture.md` Appendix
-  I.2; **findings 1, 2 and 7 are capital-safety** (a blocking/revise challenge can accompany
-  `initiate`; an unknown constraint can permit capital deployment; expired packets stay visually
-  actionable). Not adopted — Appendix B remains the canonical logical contract.
+- Decision-engine prototype — **ADOPTED 2026-08-11 via PR #87 (`7aa8507`).** F7's "amend and adopt"
+  is executed: a new branch from `main` closed all ten Appendix I.2 blockers — including the three
+  capital-safety ones (challenge/action gating so a blocking or revise challenge can no longer
+  accompany `initiate`; unknown-constraint capital blocking; expired packets rendered
+  non-actionable with the original ask suppressed) — plus all five F8 amendments (canonical
+  `security_id`, `evidence_tier` split from `data_mode`, mandatory `model_independence` with
+  adversarial identifier rejection, typed content-addressed tax-assessment reference, exhaustive
+  state→verdict mapping). F3's 5/21-session horizons resolved through a required versioned
+  `TradingSessionCalendar`. 72 focused adversarial tests; two independent review rounds to PASS.
+  **Still read-only and synthetic** — no production DB or provider adapter, no credentials, no
+  mutation endpoint, no broker integration, no real-data decision path. `asxos/domain/decision_engine/`
+  + `asxos/prototype/app.py`, run via `make decision-demo`.
+  **PR #81 CLOSED as superseded 2026-08-11** (governor decision, taken at the `/arbi-close`), with a
+  comment pointing to #87. It received no adoption commits, per the ruling. The branch
+  `claude/decision-engine-prototype` @ `c6ff3c3` is **retained** — closing the PR removes a stale
+  open draft, not the preserved history; do not delete the branch.
+  Appendix B remains the canonical *logical* contract; whether #87 supersedes it is a governor call.
 
 ### Governor rulings (2026-08-10) — all eight decided
 
@@ -573,6 +583,52 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-11 `/arbi-close` (**retrospective — there was no `/arbi` wake this
+session**; the 08-11 build session ran five parallel missions and stood down without a close, so
+this block is reconstructed from commits, PR bodies, CI runs and live DB probes, not from
+first-hand session observation). Supersedes the 07-22 snapshot below._
+
+```
+Close: 2026-08-11 (retrospective /arbi-close, no wake)
+- branch: main @ 7aa8507, clean tree, even with origin. Local main was 5 behind at session
+  start (fast-forwarded 3f515ac→7aa8507). agent/fix-backup-pg17-client is fully merged —
+  its tree is byte-identical to main's (blob 8dbbf14 for backup.yml on both).
+- landed 2026-08-11 (5 squash merges, all CI-green): 8975e41 #83 backup pg17+restore drill ·
+  d0dbee0 #84 price-revision containment · 36b07fb #85 PIT bounded/resumable ·
+  e130240 #86 brief persistence failures surfaced · 7aa8507 #87 decision engine adopted.
+- tests: 2033 passed / 0 failed / 2 xfailed in 39s, run against the FULL dependency set
+  (/Users/jpcino/Desktop/asxos-wt-pr71/.venv/bin/python). No sandbox collection gaps in
+  this venv — the CLAUDE.md joblib/lightgbm caveat does not apply to this runner.
+- migrations: 0043_price_revisions.sql on disk, UNAPPLIED. DB applied = 95, latest
+  20260724110030 (0041). REQUIRED_MIGRATIONS = 95 — consistent. 0042 remains RESERVED for
+  the parked rules-integrity branch (not on main).
+- freshness: prices.dt max = 2026-08-10. rs_fundamentals_pit = 63 rows / 11 symbols
+  (UNCHANGED — the #85 fix has not been run). active universe = 2,391.
+- job_runs (last 4d): all green EXCEPT check_cron_health 0/3 and derive_fundamentals_pit
+  0/1. check_cron_health's failure is a TRUE POSITIVE — it fires on PIT's consecutive
+  failures. Last PIT attempt 2026-08-08 18:05 UTC (TimeoutError). No job ran on 08-11.
+- open PRs: #81 (prototype preservation — superseded by #87, close candidate) · #80
+  (rules-integrity, PARKED, 0042 must not be applied) · #78 (finance red-team evidence) ·
+  #73 (M0 news empty-state) · #70 (investment-engine dossier). All draft.
+- untracked in the working tree: docs/proposals/arbi-outcome-programme-convergence-sprint-
+  2026-08-08.md and docs/proposals/asxos-research-to-decision-live-slice-brief-2026-08-10.md
+  — both superseded-to-reference by the reframe, neither committed.
+- ledger gap found: arbi-run-ledger.md and decision-log.md both end at 2026-07-24. The
+  entire August arc (08-05, 08-08, 08-09, 08-10, 08-11) went unrecorded until this close.
+```
+
+_The 08-11 session's effective ONE THING (never formally named — no wake ran): execute the
+remediation work order against the live-defect list. **Outcome: 4 of 7 defects fixed in code,
+5 PRs merged, 0 defects fully closed in production** — #84 and #85 each stop at a James-gated
+production step, so the live database is materially unchanged. **Next wake's ONE THING:
+rehearse migration 0043 against a disposable Postgres and hand James the observed evidence**
+— it is the only defect where every further day of delay destroys data permanently
+(`prices.adj_close` is still being overwritten on every dividend/split as of this close)._
+
+---
+
+_Prior snapshot (2026-07-22) retained below for diffing._
 
 _Recorded by the 2026-07-22 interactive `/arbi` wake + build session ("wake up @arbi —
 then start building the two approved workflow proposals"). Supersedes the 07-21 snapshot._
