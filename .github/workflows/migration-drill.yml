@@ -1,0 +1,129 @@
+name: migration-drill
+
+# Rehearses an unapplied migration against a DISPOSABLE PostgreSQL 17 instance
+# and observes its runtime behaviour end to end.
+#
+# This is NOT a production schedule (governor ruling F5) and touches no
+# production system: no secrets, no DATABASE_URL, no Supabase, no Render. It
+# builds a throwaway database from the repository's own migration files inside
+# a service container that is destroyed when the job ends.
+#
+# It exists because tests/test_price_revision_migration.py asserts migration
+# 0043's TEXT with regex and never executes it. Per
+# .claude/rules/portfolio-conventions.md, text-level and mocked tests do not
+# enforce trigger semantics — that lesson cost a live-fire bug in Phase 2a. PR
+# #84 names an observed rehearsal as its own gate before production apply.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'migrations/**'
+      - 'scripts/migration_drill_*.sql'
+      - '.github/workflows/migration-drill.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  drill_0043:
+    name: 0043 price-revision containment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: asxos_drill
+          POSTGRES_PASSWORD: drill-only-throwaway
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: drill-only-throwaway
+      PGDATABASE: asxos_drill
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install postgresql-client 17 from PGDG
+        run: |
+          set -euo pipefail
+          # Runner-image third-party sources intermittently 403 and abort
+          # `apt-get update`. Irrelevant to this job — drop them first.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list \
+                     /etc/apt/sources.list.d/microsoft-prod.sources \
+                     /etc/apt/sources.list.d/microsoft.list \
+                     /etc/apt/sources.list.d/microsoft.sources \
+                     /etc/apt/sources.list.d/azure-cli.list \
+                     /etc/apt/sources.list.d/azure-cli.sources || true
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail -sS \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Confirm the target is disposable, not production
+        run: |
+          set -euo pipefail
+          # Fail loudly rather than ever pointing this at a real database.
+          if [ -n "${DATABASE_URL:-}" ]; then
+            echo "DATABASE_URL is set in this job — refusing to run a destructive drill." >&2
+            exit 1
+          fi
+          psql -tAc 'SELECT version()'
+
+      - name: Build base schema from repository migration 0001
+        run: |
+          set -euo pipefail
+          # prices is created in 0001 and never altered by a later migration,
+          # so 0001 reproduces today's production shape exactly.
+          psql -v ON_ERROR_STOP=1 -q -f migrations/0001_initial.sql
+          echo "--- prices columns as built ---"
+          psql -c "\d prices"
+
+      - name: Apply migration 0043 verbatim
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f migrations/0043_price_revisions.sql
+          echo "--- triggers now present ---"
+          psql -c "
+            SELECT event_object_table AS table_name, trigger_name, action_timing,
+                   string_agg(event_manipulation, ', ' ORDER BY event_manipulation) AS events
+              FROM information_schema.triggers
+             WHERE event_object_table IN ('prices','price_revisions')
+             GROUP BY 1,2,3
+             ORDER BY 1,2;"
+
+      - name: Observe update / no-op / delete / immutability behaviour
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/migration_drill_0043.sql
+
+      - name: Confirm the drill proved containment, not just a clean apply
+        run: |
+          set -euo pipefail
+          # A drill that applied the migration but captured nothing would be a
+          # false green. Require the ledger to be non-empty.
+          psql -v ON_ERROR_STOP=1 -q -c "
+            DO \$\$
+            BEGIN
+              IF (SELECT count(*) FROM price_revisions) = 0 THEN
+                RAISE EXCEPTION 'drill produced an empty ledger — containment not demonstrated';
+              END IF;
+            END \$\$;"
+          echo "OBSERVED: containment demonstrated on a disposable instance."
