@@ -198,6 +198,10 @@ jobs:
 
           {
             echo "SET session_replication_role = replica;"
+            # Schema migrations include a model_versions seed. The data-only
+            # dump is authoritative for every table in its declared set, so
+            # clear those targets before replay to avoid seed collisions.
+            echo "TRUNCATE TABLE holding_lots, decisions, screening_rules, model_versions, profiles, themes, theses, thesis_revisions, theme_holdings, macro_theses, agent_runs, agent_evidence, governance_events RESTART IDENTITY CASCADE;"
             gzip -dc "$dump"
             echo "SET session_replication_role = origin;"
           } | psql -X -q -v ON_ERROR_STOP=1
