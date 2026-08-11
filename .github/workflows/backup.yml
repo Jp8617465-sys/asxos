@@ -1,17 +1,30 @@
 # Daily backup of irreplaceable tables — same substrate rationale as
 # daily-brief.yml. The dump list and the git push live in
-# scripts/backup_irreplaceable.sh, unchanged in role; only the scheduler moved.
+# scripts/backup_irreplaceable.sh, unchanged in role.
 #
-# ubuntu-24.04 runners ship postgresql-client 16, matching Supabase's PG16 —
-# the explicit install + version print makes a future runner-image drift loud
-# instead of a silent pg_dump version-mismatch failure.
+# pg_dump MUST be >= the server's major version — it refuses to dump from a
+# NEWER server. Supabase is PostgreSQL 17 (verified 2026-08-10), while
+# ubuntu-24.04 runners ship postgresql-client 16, so the client comes from the
+# PGDG apt repo rather than the distro. The version assertion below turns a
+# future server upgrade into a loud, named failure instead of a mid-dump abort.
+#
+# apt-get update previously aborted (exit 100) on the runner image's
+# packages.microsoft.com / azure-cli sources returning 403. Those repos are
+# irrelevant here and are removed before updating — that failure masked the
+# pg_dump version mismatch above for the entire life of this workflow.
 
 name: backup
 
 on:
   schedule:
-    - cron: "30 13 * * *"   # daily 13:30 UTC, matching the Render schedule
-  workflow_dispatch: {}
+    - cron: "30 13 * * *"   # daily 13:30 UTC
+  workflow_dispatch:
+    inputs:
+      restore_drill:
+        description: Restore today's dump into clean ephemeral PostgreSQL 17 and verify row counts
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: backup
@@ -28,14 +41,185 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       BACKUP_GITHUB_TOKEN: ${{ secrets.BACKUP_GITHUB_TOKEN }}
       BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+      EXPECTED_SUPABASE_PROJECT_REF: gxjqezqndltaelmyctnl
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install postgresql-client
+      - name: Install postgresql-client 17 from PGDG
         run: |
+          set -euo pipefail
+          # Runner-image third-party sources intermittently 403 and abort
+          # `apt-get update`. Irrelevant to this job — drop them first.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list \
+                     /etc/apt/sources.list.d/microsoft-prod.sources \
+                     /etc/apt/sources.list.d/microsoft.list \
+                     /etc/apt/sources.list.d/microsoft.sources \
+                     /etc/apt/sources.list.d/azure-cli.list \
+                     /etc/apt/sources.list.d/azure-cli.sources || true
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail -sS \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update -q
-          sudo apt-get install -y -q postgresql-client
-          pg_dump --version
+          sudo apt-get install -y -q postgresql-client-17
+          # ubuntu-latest also has PostgreSQL 16 on PATH. Prepend the
+          # versioned PGDG bin directory for every following workflow step.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Verify backup source identity and inventory
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from urllib.parse import unquote, urlsplit
+
+          expected = os.environ["EXPECTED_SUPABASE_PROJECT_REF"]
+          parsed = urlsplit(os.environ["DATABASE_URL"])
+          identity_parts = (parsed.hostname or "", unquote(parsed.username or ""))
+          if not any(expected in part for part in identity_parts):
+              raise SystemExit(
+                  "DATABASE_URL does not identify the expected Supabase project; "
+                  "refusing to back up an unverified database"
+              )
+          print(f"backup source project verified: {expected}")
+          PY
+          psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT 'backup source inventory: '
+              || 'holding_lots=' || (SELECT count(*) FROM holding_lots)
+              || ' theses=' || (SELECT count(*) FROM theses)
+              || ' thesis_revisions=' || (SELECT count(*) FROM thesis_revisions)
+              || ' governance_events=' || (SELECT count(*) FROM governance_events);
+          SQL
+
+      - name: Assert pg_dump can dump this server
+        run: |
+          set -euo pipefail
+          client_major="$(pg_dump --version | awk '{print $3}' | cut -d. -f1)"
+          server_major="$(psql "$DATABASE_URL" -tAc \
+            "SELECT current_setting('server_version_num')::int / 10000")"
+          echo "pg_dump major=${client_major}  server major=${server_major}"
+          if [ "$client_major" -lt "$server_major" ]; then
+            echo "::error::pg_dump ${client_major} cannot dump a PostgreSQL ${server_major} server — bump the postgresql-client-NN install in the step above."
+            exit 1
+          fi
 
       - name: Run backup
         run: bash scripts/backup_irreplaceable.sh
+
+  restore_drill:
+    needs: backup
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.restore_drill }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: asxos_restore
+          POSTGRES_PASSWORD: restore-drill-only
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d asxos_restore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      BACKUP_GITHUB_TOKEN: ${{ secrets.BACKUP_GITHUB_TOKEN }}
+      BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+      PGDATABASE: asxos_restore
+      PGHOST: localhost
+      PGPASSWORD: restore-drill-only
+      PGPORT: "5432"
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install postgresql-client 17 from PGDG
+        run: |
+          set -euo pipefail
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list \
+                     /etc/apt/sources.list.d/microsoft-prod.sources \
+                     /etc/apt/sources.list.d/microsoft.list \
+                     /etc/apt/sources.list.d/microsoft.sources \
+                     /etc/apt/sources.list.d/azure-cli.list \
+                     /etc/apt/sources.list.d/azure-cli.sources || true
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail -sS \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Build clean schema from repository migrations
+        run: |
+          set -euo pipefail
+          # Supabase supplies these API roles. A vanilla postgres:17 recovery
+          # target needs inert stand-ins so the schema's GRANT statements can
+          # be replayed exactly; they receive NOLOGIN in this isolated job.
+          psql -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN;
+          SQL
+          for migration in migrations/*.sql; do
+            name="${migration##*/}"
+            if [[ "$name" == 0030_* ]]; then
+              echo "restore drill: skip $name (one-time legacy-project cleanup)"
+              continue
+            fi
+            echo "restore drill: apply $name"
+            psql -X -q -v ON_ERROR_STOP=1 -f "$migration"
+          done
+
+      - name: Restore private dump and verify every table count
+        run: |
+          set -euo pipefail
+          restore_date="$(date -u +%Y-%m-%d)"
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+
+          credential_file="$work/.git-credentials"
+          umask 077
+          printf 'https://x-access-token:%s@github.com\n' "$BACKUP_GITHUB_TOKEN" > "$credential_file"
+          git -C "$work" clone --depth=1 \
+            --config credential.helper="store --file=$credential_file" \
+            "https://github.com/${BACKUP_REPO}.git" repo
+
+          dump="$work/repo/asxos-${restore_date}.sql.gz"
+          test -s "$dump"
+          gzip -t "$dump"
+
+          {
+            echo "SET session_replication_role = replica;"
+            # Schema migrations include a model_versions seed. The data-only
+            # dump is authoritative for every table in its declared set, so
+            # clear those targets before replay to avoid seed collisions.
+            echo "TRUNCATE TABLE holding_lots, decisions, screening_rules, model_versions, profiles, themes, theses, thesis_revisions, theme_holdings, macro_theses, agent_runs, agent_evidence, governance_events RESTART IDENTITY CASCADE;"
+            gzip -dc "$dump"
+            echo "SET session_replication_role = origin;"
+          } | psql -X -q -v ON_ERROR_STOP=1
+
+          tables=(
+            holding_lots decisions screening_rules model_versions profiles themes
+            theses thesis_revisions theme_holdings macro_theses agent_runs
+            agent_evidence governance_events
+          )
+          for table in "${tables[@]}"; do
+            expected="$(gzip -dc "$dump" | awk -v target="public.${table}" \
+              '$1 == "INSERT" && $2 == "INTO" && $3 == target { count++ } END { print count + 0 }')"
+            actual="$(psql -X -qAt -v ON_ERROR_STOP=1 \
+              -c "SELECT count(*) FROM ${table}")"
+            echo "restore count ${table}: expected=${expected} actual=${actual}"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::restore count mismatch for ${table}: expected=${expected} actual=${actual}"
+              exit 1
+            fi
+          done
+          echo "restore drill complete: all 13 table counts match"
