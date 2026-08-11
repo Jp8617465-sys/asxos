@@ -160,6 +160,14 @@ jobs:
       - name: Build clean schema from repository migrations
         run: |
           set -euo pipefail
+          # Supabase supplies these API roles. A vanilla postgres:17 recovery
+          # target needs inert stand-ins so the schema's GRANT statements can
+          # be replayed exactly; they receive NOLOGIN in this isolated job.
+          psql -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN;
+          SQL
           for migration in migrations/*.sql; do
             name="${migration##*/}"
             if [[ "$name" == 0030_* ]]; then
