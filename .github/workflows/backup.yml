@@ -18,7 +18,13 @@ name: backup
 on:
   schedule:
     - cron: "30 13 * * *"   # daily 13:30 UTC
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      restore_drill:
+        description: Restore today's dump into clean ephemeral PostgreSQL 17 and verify row counts
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: backup
@@ -101,3 +107,107 @@ jobs:
 
       - name: Run backup
         run: bash scripts/backup_irreplaceable.sh
+
+  restore_drill:
+    needs: backup
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.restore_drill }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: asxos_restore
+          POSTGRES_PASSWORD: restore-drill-only
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d asxos_restore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      BACKUP_GITHUB_TOKEN: ${{ secrets.BACKUP_GITHUB_TOKEN }}
+      BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+      PGDATABASE: asxos_restore
+      PGHOST: localhost
+      PGPASSWORD: restore-drill-only
+      PGPORT: "5432"
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install postgresql-client 17 from PGDG
+        run: |
+          set -euo pipefail
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list \
+                     /etc/apt/sources.list.d/microsoft-prod.sources \
+                     /etc/apt/sources.list.d/microsoft.list \
+                     /etc/apt/sources.list.d/microsoft.sources \
+                     /etc/apt/sources.list.d/azure-cli.list \
+                     /etc/apt/sources.list.d/azure-cli.sources || true
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail -sS \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Build clean schema from repository migrations
+        run: |
+          set -euo pipefail
+          for migration in migrations/*.sql; do
+            name="${migration##*/}"
+            if [[ "$name" == 0030_* ]]; then
+              echo "restore drill: skip $name (one-time legacy-project cleanup)"
+              continue
+            fi
+            echo "restore drill: apply $name"
+            psql -X -q -v ON_ERROR_STOP=1 -f "$migration"
+          done
+
+      - name: Restore private dump and verify every table count
+        run: |
+          set -euo pipefail
+          restore_date="$(date -u +%Y-%m-%d)"
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+
+          credential_file="$work/.git-credentials"
+          umask 077
+          printf 'https://x-access-token:%s@github.com\n' "$BACKUP_GITHUB_TOKEN" > "$credential_file"
+          git -C "$work" clone --depth=1 \
+            --config credential.helper="store --file=$credential_file" \
+            "https://github.com/${BACKUP_REPO}.git" repo
+
+          dump="$work/repo/asxos-${restore_date}.sql.gz"
+          test -s "$dump"
+          gzip -t "$dump"
+
+          {
+            echo "SET session_replication_role = replica;"
+            gzip -dc "$dump"
+            echo "SET session_replication_role = origin;"
+          } | psql -X -q -v ON_ERROR_STOP=1
+
+          tables=(
+            holding_lots decisions screening_rules model_versions profiles themes
+            theses thesis_revisions theme_holdings macro_theses agent_runs
+            agent_evidence governance_events
+          )
+          for table in "${tables[@]}"; do
+            expected="$(gzip -dc "$dump" | awk -v target="public.${table}" \
+              '$1 == "INSERT" && $2 == "INTO" && $3 == target { count++ } END { print count + 0 }')"
+            actual="$(psql -X -qAt -v ON_ERROR_STOP=1 \
+              -c "SELECT count(*) FROM ${table}")"
+            echo "restore count ${table}: expected=${expected} actual=${actual}"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::restore count mismatch for ${table}: expected=${expected} actual=${actual}"
+              exit 1
+            fi
+          done
+          echo "restore drill complete: all 13 table counts match"
