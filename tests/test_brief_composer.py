@@ -16,9 +16,13 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+from unittest.mock import patch
+
+import pytest
 
 from asxos.domain.brief._runner import safe_collect
 from asxos.domain.brief.collectors.section_health import collect_section_health
+from asxos.domain.brief.composer import _persist_brief_run
 from asxos.domain.brief.renderer import render_html
 from asxos.domain.brief.severity import (
     cgt_boundary_approaching,
@@ -323,3 +327,83 @@ def test_render_html_fallback_when_no_rendered_html() -> None:
     html = render_html(brief)
     assert "asxos brief" in html.lower() or "2026-06-01" in html
     assert "All systems green" in html
+
+
+def test_brief_run_persistence_failure_is_returned_not_swallowed() -> None:
+    """The delivery layer needs a typed signal so it can send, then fail red."""
+
+    class FailingAcquire:
+        async def __aenter__(self):
+            raise RuntimeError("brief_runs write failed")
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    brief = Brief(
+        as_of=date(2026, 6, 1),
+        sections=(),
+        snapshot=_snapshot(),
+        rendered_html="<html/>",
+    )
+    with patch(
+        "asxos.domain.brief.composer.acquire",
+        return_value=FailingAcquire(),
+    ):
+        error = asyncio.run(_persist_brief_run(brief))
+
+    assert error == "RuntimeError: brief_runs write failed"
+
+
+def test_brief_run_persistence_cancel_keeps_render_deliverable() -> None:
+    """A driver-originated CancelledError without task cancellation is classified."""
+
+    class CancelledAcquire:
+        async def __aenter__(self):
+            raise asyncio.CancelledError()
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    brief = Brief(
+        as_of=date(2026, 6, 1),
+        sections=(),
+        snapshot=_snapshot(),
+        rendered_html="<html/>",
+    )
+    with patch(
+        "asxos.domain.brief.composer.acquire",
+        return_value=CancelledAcquire(),
+    ):
+        error = asyncio.run(_persist_brief_run(brief))
+
+    assert error == "CancelledError: "
+
+
+@pytest.mark.asyncio
+async def test_brief_run_persistence_preserves_external_task_cancellation() -> None:
+    """A real task.cancel() must not be converted into a persistence error string."""
+    entered = asyncio.Event()
+
+    class BlockingAcquire:
+        async def __aenter__(self):
+            entered.set()
+            await asyncio.Future()
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    brief = Brief(
+        as_of=date(2026, 6, 1),
+        sections=(),
+        snapshot=_snapshot(),
+        rendered_html="<html/>",
+    )
+    with patch(
+        "asxos.domain.brief.composer.acquire",
+        return_value=BlockingAcquire(),
+    ):
+        task = asyncio.create_task(_persist_brief_run(brief))
+        await entered.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
