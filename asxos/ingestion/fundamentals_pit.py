@@ -14,12 +14,15 @@ Quarterly-rolling TTM is a v2 refinement. Ratios computed where both operands ex
 else NULL. Absolute-dollar columns are NUMERIC(24,6) (migration 0028) — bank/large-cap
 line items exceed NUMERIC(18,6).
 """
+
 from __future__ import annotations
 
 import json
+import logging
+from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypedDict, TypeVar
 
 import asyncpg
 from dateutil.relativedelta import relativedelta
@@ -27,6 +30,35 @@ from dateutil.relativedelta import relativedelta
 from asxos.ingestion.financial_statements import derive_knowledge_date
 
 _Q6 = Decimal("0.000001")
+
+# Each source read is scoped to one deterministic symbol page. The conservative
+# default avoids whole-universe materialisation without changing the 30-second
+# command timeout; the first production run still has to prove the chosen size
+# against real row depth and latency. A full ~3,400-symbol run becomes ~68
+# resumable pages. The upper bound prevents an operator override from silently
+# restoring the original unbounded source fetch.
+DEFAULT_PIT_BATCH_SIZE = 50
+MAX_PIT_BATCH_SIZE = 200
+
+# A symbol page can contain decades of statements, so bound each UPSERT command
+# independently of the symbol read page. This avoids recreating the original
+# timeout as one very large ``executemany`` call for history-rich symbols.
+DEFAULT_PIT_WRITE_BATCH_SIZE = 250
+MAX_PIT_WRITE_BATCH_SIZE = 1_000
+
+_T = TypeVar("_T")
+
+log = logging.getLogger(__name__)
+
+
+class FundamentalsPitCounts(TypedDict):
+    rows: int
+    symbols: int
+    source_symbols: int
+    symbols_without_pit: int
+    symbols_scanned: int
+    symbols_without_source: int
+    batches: int
 
 
 def _num(x: Any) -> Decimal | None:
@@ -121,6 +153,41 @@ ON CONFLICT (symbol, knowledge_date) DO UPDATE SET
     franking_avg_pct=EXCLUDED.franking_avg_pct, source='eodhd_derived', computed_at=now()
 """
 
+_FIRST_SOURCE_SYMBOL_BATCH = """
+SELECT DISTINCT symbol
+FROM rs_financial_statements
+WHERE period_type = 'yearly'
+ORDER BY symbol
+LIMIT $1
+"""
+
+_NEXT_SOURCE_SYMBOL_BATCH = """
+SELECT DISTINCT symbol
+FROM rs_financial_statements
+WHERE period_type = 'yearly' AND symbol > $1
+ORDER BY symbol
+LIMIT $2
+"""
+
+_STATEMENTS_BY_SYMBOL_BATCH = """
+SELECT symbol, period_end, statement_type, filing_date, report_date,
+       total_revenue, net_income, total_assets, total_equity, total_debt,
+       shares_diluted, line_items
+FROM rs_financial_statements
+WHERE period_type = 'yearly' AND symbol = ANY($1::text[])
+ORDER BY symbol, period_end, statement_type
+"""
+
+_DIVIDENDS_BY_SYMBOL_BATCH = """
+SELECT symbol, ex_date, dividend_amount, franking_pct
+FROM rs_corporate_actions
+WHERE action_type = 'dividend'
+  AND symbol = ANY($1::text[])
+  AND ex_date > $2
+  AND ex_date <= $3
+ORDER BY symbol, ex_date
+"""
+
 
 def _stmt_dict(row: asyncpg.Record | None) -> dict[str, Any] | None:
     if row is None:
@@ -139,65 +206,112 @@ def _stmt_dict(row: asyncpg.Record | None) -> dict[str, Any] | None:
     }
 
 
-async def refresh_fundamentals_pit(
+def _validate_batch_size(name: str, batch_size: int, maximum: int) -> None:
+    if not 1 <= batch_size <= maximum:
+        raise ValueError(f"{name} must be between 1 and {maximum}")
+
+
+def _normalise_symbols(symbols: list[str]) -> list[str]:
+    normalised = sorted({symbol.strip() for symbol in symbols if symbol.strip()})
+    if not normalised:
+        raise ValueError("symbols was provided but contained no non-blank symbols")
+    return normalised
+
+
+def _chunks(values: list[_T], batch_size: int) -> Iterator[list[_T]]:
+    for start in range(0, len(values), batch_size):
+        yield values[start : start + batch_size]
+
+
+async def _source_symbol_batches(
     conn: asyncpg.Connection,
     *,
+    batch_size: int,
+) -> AsyncIterator[list[str]]:
+    """Yield all yearly-statement symbols in stable, bounded keyset pages."""
+    after: str | None = None
+    while True:
+        if after is None:
+            rows = await conn.fetch(_FIRST_SOURCE_SYMBOL_BATCH, batch_size)
+        else:
+            rows = await conn.fetch(_NEXT_SOURCE_SYMBOL_BATCH, after, batch_size)
+        batch = [row["symbol"] for row in rows]
+        if not batch:
+            return
+        yield batch
+        after = batch[-1]
+
+
+def _pit_upsert_args(symbol: str, factors: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        symbol,
+        factors["as_of"],
+        factors["knowledge_date"],
+        factors["book_value_ps"],
+        factors["eps_ttm"],
+        factors["revenue_ttm"],
+        factors["net_income_ttm"],
+        factors["roe"],
+        factors["roa"],
+        factors["gross_margin"],
+        factors["operating_margin"],
+        factors["net_debt"],
+        factors["total_equity"],
+        factors["shares_outstanding"],
+        factors["dividend_ttm"],
+        factors["franking_avg_pct"],
+    )
+
+
+async def _derive_symbol_batch(
+    conn: asyncpg.Connection,
+    *,
+    symbols: list[str],
     as_of: date,
-    symbols: list[str] | None = None,
-    lag_days: int = 75,
-) -> dict[str, int]:
-    """Derive rs_fundamentals_pit from yearly rs_financial_statements + dividends.
+    lag_days: int,
+) -> tuple[list[tuple[Any, ...]], set[str], set[str]]:
+    """Read and derive one bounded symbol batch without writing it."""
+    fin = await conn.fetch(_STATEMENTS_BY_SYMBOL_BATCH, symbols)
+    source_symbols = {row["symbol"] for row in fin}
 
-    Idempotent UPSERT on (symbol, knowledge_date). Reads only the research store;
-    writes only rs_fundamentals_pit.
-    """
-    filt = " AND symbol = ANY($1)" if symbols else ""
-    args: list[Any] = [symbols] if symbols else []
-
-    fin = await conn.fetch(
-        f"""
-        SELECT symbol, period_end, statement_type, filing_date, report_date,
-               total_revenue, net_income, total_assets, total_equity, total_debt,
-               shares_diluted, line_items
-        FROM rs_financial_statements
-        WHERE period_type = 'yearly'{filt}
-        ORDER BY symbol, period_end
-        """,
-        *args,
-    )
     groups: dict[tuple[str, date], dict[str, asyncpg.Record]] = {}
-    for r in fin:
-        groups.setdefault((r["symbol"], r["period_end"]), {})[r["statement_type"]] = r
+    for row in fin:
+        groups.setdefault((row["symbol"], row["period_end"]), {})[row["statement_type"]] = row
 
-    divrows = await conn.fetch(
-        f"""
-        SELECT symbol, ex_date, dividend_amount, franking_pct
-        FROM rs_corporate_actions
-        WHERE action_type = 'dividend'{filt}
-        """,
-        *args,
-    )
     divs_by_symbol: dict[str, list[asyncpg.Record]] = {}
-    for r in divrows:
-        divs_by_symbol.setdefault(r["symbol"], []).append(r)
+    if groups:
+        period_ends = [period_end for _symbol, period_end in groups]
+        dividend_start = min(period_ends) - relativedelta(years=1)
+        dividend_end = max(period_ends)
+        divrows = await conn.fetch(
+            _DIVIDENDS_BY_SYMBOL_BATCH,
+            sorted(source_symbols),
+            dividend_start,
+            dividend_end,
+        )
+        for row in divrows:
+            divs_by_symbol.setdefault(row["symbol"], []).append(row)
 
-    counts = {"rows": 0, "symbols": 0}
-    seen: set[str] = set()
-    for (sym, pe), stmts in groups.items():
-        anchor = stmts.get("income") or stmts.get("balance_sheet")
+    upsert_rows: list[tuple[Any, ...]] = []
+    derived_symbols: set[str] = set()
+    for (symbol, period_end), statements in groups.items():
+        anchor = statements.get("income") or statements.get("balance_sheet")
         if anchor is None:
             continue
-        window_start = pe - relativedelta(years=1)
+        window_start = period_end - relativedelta(years=1)
         window_divs = [
-            {"dividend_amount": d["dividend_amount"], "franking_pct": d["franking_pct"]}
-            for d in divs_by_symbol.get(sym, [])
-            if d["ex_date"] and window_start < d["ex_date"] <= pe
+            {
+                "dividend_amount": dividend["dividend_amount"],
+                "franking_pct": dividend["franking_pct"],
+            }
+            for dividend in divs_by_symbol.get(symbol, [])
+            if dividend["ex_date"] and window_start < dividend["ex_date"] <= period_end
         ]
         factors = compute_pit_factors(
-            _stmt_dict(stmts.get("income")),
-            _stmt_dict(stmts.get("balance_sheet")),
+            _stmt_dict(statements.get("income")),
+            _stmt_dict(statements.get("balance_sheet")),
             window_divs,
-            period_end=pe,
+            period_end=period_end,
             report_date=anchor["report_date"],
             filing_date=anchor["filing_date"],
             as_of=as_of,
@@ -205,15 +319,119 @@ async def refresh_fundamentals_pit(
         )
         if factors is None:
             continue
-        await conn.execute(
-            _UPSERT,
-            sym, factors["as_of"], factors["knowledge_date"], factors["book_value_ps"],
-            factors["eps_ttm"], factors["revenue_ttm"], factors["net_income_ttm"],
-            factors["roe"], factors["roa"], factors["gross_margin"], factors["operating_margin"],
-            factors["net_debt"], factors["total_equity"], factors["shares_outstanding"],
-            factors["dividend_ttm"], factors["franking_avg_pct"],
+        upsert_rows.append(_pit_upsert_args(symbol, factors))
+        derived_symbols.add(symbol)
+
+    return upsert_rows, source_symbols, derived_symbols
+
+
+async def refresh_fundamentals_pit(
+    conn: asyncpg.Connection,
+    *,
+    as_of: date,
+    symbols: list[str] | None = None,
+    lag_days: int = 75,
+    batch_size: int = DEFAULT_PIT_BATCH_SIZE,
+    write_batch_size: int = DEFAULT_PIT_WRITE_BATCH_SIZE,
+    on_rows_committed: Callable[[int], None] | None = None,
+) -> FundamentalsPitCounts:
+    """Derive rs_fundamentals_pit from yearly rs_financial_statements + dividends.
+
+    Idempotent UPSERT on (symbol, knowledge_date). Reads only the research store;
+    writes only rs_fundamentals_pit. Source reads are bounded by a deterministic
+    symbol batch and UPSERT commands by an independent PIT-row batch. Each
+    successful write command is committed before the next one in the normal job
+    path; a rerun converges through the idempotent conflict key. ``on_rows_committed``
+    receives the cumulative row count after every successful write command so a
+    caller can retain truthful progress if a later command fails.
+
+    Coverage identities:
+
+    - ``symbols_scanned = source_symbols + symbols_without_source``
+    - ``source_symbols = symbols + symbols_without_pit``
+
+    ``symbols_without_source`` is normally zero and is useful for an explicit
+    ``symbols`` request containing names absent from yearly source statements.
+    """
+    _validate_batch_size("batch_size", batch_size, MAX_PIT_BATCH_SIZE)
+    _validate_batch_size(
+        "write_batch_size", write_batch_size, MAX_PIT_WRITE_BATCH_SIZE
+    )
+    requested = _normalise_symbols(symbols) if symbols is not None else None
+    explicit_batches = _chunks(requested, batch_size) if requested is not None else None
+
+    counts = FundamentalsPitCounts(
+        rows=0,
+        symbols=0,
+        source_symbols=0,
+        symbols_without_pit=0,
+        symbols_scanned=0,
+        symbols_without_source=0,
+        batches=0,
+    )
+
+    async def process_batch(batch: list[str]) -> None:
+        upsert_rows, source_symbols, derived_symbols = await _derive_symbol_batch(
+            conn,
+            symbols=batch,
+            as_of=as_of,
+            lag_days=lag_days,
         )
-        counts["rows"] += 1
-        seen.add(sym)
-    counts["symbols"] = len(seen)
+        without_pit = sorted(source_symbols - derived_symbols)
+        without_source = sorted(set(batch) - source_symbols)
+
+        symbol_batch_number = counts["batches"] + 1
+        for write_batch_number, write_batch in enumerate(
+            _chunks(upsert_rows, write_batch_size), start=1
+        ):
+            await conn.executemany(_UPSERT, write_batch)
+            counts["rows"] += len(write_batch)
+            if on_rows_committed is not None:
+                on_rows_committed(counts["rows"])
+            log.info(
+                "fundamentals PIT write symbol_batch=%d write_batch=%d rows=%d "
+                "cumulative_rows=%d",
+                symbol_batch_number,
+                write_batch_number,
+                len(write_batch),
+                counts["rows"],
+            )
+
+        counts["symbols"] += len(derived_symbols)
+        counts["source_symbols"] += len(source_symbols)
+        counts["symbols_without_pit"] += len(without_pit)
+        counts["symbols_scanned"] += len(batch)
+        counts["symbols_without_source"] += len(without_source)
+        counts["batches"] += 1
+
+        log.info(
+            "fundamentals PIT batch=%d first=%s last=%s scanned=%d source=%d "
+            "derived=%d no_pit=%d no_source=%d rows=%d cumulative_source=%d "
+            "cumulative_rows=%d",
+            counts["batches"],
+            batch[0],
+            batch[-1],
+            len(batch),
+            len(source_symbols),
+            len(derived_symbols),
+            len(without_pit),
+            len(without_source),
+            len(upsert_rows),
+            counts["source_symbols"],
+            counts["rows"],
+        )
+        if without_pit:
+            log.info("fundamentals PIT no-row source symbols=%s", ",".join(without_pit))
+        if without_source:
+            log.info(
+                "fundamentals PIT requested symbols without source=%s", ",".join(without_source)
+            )
+
+    if explicit_batches is not None:
+        for batch in explicit_batches:
+            await process_batch(batch)
+    else:
+        async for batch in _source_symbol_batches(conn, batch_size=batch_size):
+            await process_batch(batch)
+
     return counts

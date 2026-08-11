@@ -1,9 +1,11 @@
-# `derive_fundamentals_pit` — derivation job scope (BUILT + validated)
+# `derive_fundamentals_pit` — derivation job scope
 
-**Date:** 2026-06-24 · **Status:** BUILT, validated end-to-end on real data. The fourth
+**Original validation:** 2026-06-24 · **Remediation contract:** 2026-08-11 · **Status:**
+BUILT; bounded implementation validated locally; full production rerun pending. The fourth
 research-store job and the one that **uses** the leak guard. Pure DB-to-DB: reads raw
 `rs_financial_statements` (yearly) + `rs_corporate_actions`, writes `rs_fundamentals_pit`
-— the point-in-time factor INPUTS for Layer-1 alpha. No EODHD.
+— the point-in-time factor INPUTS for Layer-1 alpha. No EODHD and no command-timeout
+increase.
 
 ## What it computes (`compute_pit_factors`)
 
@@ -19,6 +21,51 @@ dividends, and derives:
 v1 derives one snapshot per **fiscal year** from yearly statements (the annual figure IS
 the TTM at year end). Quarterly-rolling TTM is a v2 refinement. Ratios are NULL where an
 operand is missing/zero.
+
+## Bounded execution and resume contract
+
+The default whole-universe path discovers yearly-statement symbols using deterministic
+keyset pages ordered by symbol. `--symbols` remains available for repair runs; its input is
+trimmed, deduplicated, and sorted before the same bounded path is used.
+
+- `--batch-size` controls symbols per source-read page: default **50**, valid range
+  **1–200**. Statement and dividend queries are restricted to that page; there is no
+  whole-universe statement or corporate-action fetch.
+- `--write-batch-size` independently controls PIT rows per `executemany` UPSERT command:
+  default **250**, valid range **1–1,000**. This matters because one symbol can have decades
+  of annual history. There is no awaited write call per individual PIT row.
+- The normal job path does not wrap the complete run in one transaction. A successful
+  write chunk remains present if a later chunk fails. The job monitor is updated after
+  each successful chunk, so a failed `job_runs` record reports the rows actually written
+  before the failure rather than zero.
+- Rerunning the same scope is safe: `ON CONFLICT (symbol, knowledge_date) DO UPDATE` makes
+  completed chunks converge idempotently, including after a partial failure.
+
+Example invocations:
+
+```bash
+python jobs/derive_fundamentals_pit.py
+python jobs/derive_fundamentals_pit.py --symbols CBA.AU,BHP.AU
+python jobs/derive_fundamentals_pit.py --batch-size 50 --write-batch-size 250
+```
+
+Every successful run returns and logs source-relative coverage:
+
+| Field | Meaning |
+|---|---|
+| `rows` | PIT rows successfully UPSERTed during this run |
+| `symbols` | source symbols that produced at least one PIT row |
+| `source_symbols` | scanned symbols with at least one yearly source statement |
+| `symbols_without_pit` | source symbols that produced no PIT row |
+| `symbols_scanned` | all symbols examined, including explicit names with no source |
+| `symbols_without_source` | explicitly requested symbols absent from yearly statements; normally zero for discovery runs |
+| `batches` | completed symbol-read pages |
+
+The accounting identities are `symbols_scanned = source_symbols +
+symbols_without_source` and `source_symbols = symbols + symbols_without_pit`. Exact
+no-PIT and no-source symbol lists are logged deterministically for investigation. On a
+failed run, `job_runs.rows_written` still captures successful write chunks; the remaining
+coverage fields are only final-run outputs and are not claimed complete.
 
 ## Schema fix forced by validation — migration 0028
 
@@ -46,12 +93,19 @@ no future-date leakage**; the franking spread (100% vs 0%) is captured; CBA's A$
 assets stored without overflow. The validation slice (5 names, latest year) is left in place;
 full survivorship-free population is the cron's job.
 
-## Acceptance criteria — met
+## Test and acceptance contract
 
-Idempotent UPSERT on (symbol, knowledge_date) · reads only the research store, writes only
-`rs_fundamentals_pit` · ratios NULL-safe · guarded knowledge_date · hard-fail if
-`rs_financial_statements` is empty. **9 unit tests** (ratios, the guard in context, dividend
-window, orchestrator).
+The focused suite covers ratio/null semantics, guarded knowledge dates, dividend windows,
+research-store-only access, deterministic symbol paging, independently bounded writes on
+a multi-period fixture, bounds validation before database access, explicit-symbol coverage
+and logging, partial-failure/rerun convergence, durable failed-run progress reporting, and
+compatibility of the derived row with the downstream `compute_factor_scores` consumer.
+
+Local tests establish the command-shape and semantic contract; they do not prove Supabase
+latency. Production acceptance still requires one full scheduled run to finish under the
+unchanged 30-second database command timeout, source-relative coverage to reconcile, and a
+subsequent factor-score run to consume the resulting PIT cross-section. Until that evidence
+exists, this document must not claim the full-universe repair is production-proven.
 
 ## Cadence
 
