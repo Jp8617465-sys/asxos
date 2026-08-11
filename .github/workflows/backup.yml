@@ -57,6 +57,9 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update -q
           sudo apt-get install -y -q postgresql-client-17
+          # ubuntu-latest also has PostgreSQL 16 on PATH. Prepend the
+          # versioned PGDG bin directory for every following workflow step.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
       - name: Assert pg_dump can dump this server
         run: |
