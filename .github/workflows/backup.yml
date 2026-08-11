@@ -201,15 +201,26 @@ jobs:
             # Schema migrations include a model_versions seed. The data-only
             # dump is authoritative for every table in its declared set, so
             # clear those targets before replay to avoid seed collisions.
-            echo "TRUNCATE TABLE holding_lots, decisions, screening_rules, model_versions, profiles, themes, theses, thesis_revisions, theme_holdings, macro_theses, agent_runs, agent_evidence, governance_events RESTART IDENTITY CASCADE;"
+            echo "TRUNCATE TABLE holding_lots, decisions, screening_rules, model_versions, profiles, themes, theses, thesis_revisions, theme_holdings, macro_theses, agent_runs, agent_evidence, governance_events, price_revisions RESTART IDENTITY CASCADE;"
             gzip -dc "$dump"
             echo "SET session_replication_role = origin;"
           } | psql -X -q -v ON_ERROR_STOP=1
 
+          # Column-insert dumps preserve explicit revision_id values. Advance
+          # the BIGSERIAL sequence to the restored maximum so the first live
+          # post-restore revision cannot collide with historical identity.
+          psql -X -q -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT setval(
+              pg_get_serial_sequence('public.price_revisions', 'revision_id'),
+              COALESCE((SELECT max(revision_id) FROM price_revisions), 1),
+              EXISTS (SELECT 1 FROM price_revisions)
+          );
+          SQL
+
           tables=(
             holding_lots decisions screening_rules model_versions profiles themes
             theses thesis_revisions theme_holdings macro_theses agent_runs
-            agent_evidence governance_events
+            agent_evidence governance_events price_revisions
           )
           for table in "${tables[@]}"; do
             expected="$(gzip -dc "$dump" | awk -v target="public.${table}" \
@@ -222,4 +233,4 @@ jobs:
               exit 1
             fi
           done
-          echo "restore drill complete: all 13 table counts match"
+          echo "restore drill complete: all 14 table counts match"

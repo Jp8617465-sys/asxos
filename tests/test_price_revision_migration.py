@@ -1,9 +1,7 @@
 """Static safety contract for migration 0043 price-revision containment.
 
-The migration is intentionally not applied in CI, so these tests pin the
-load-bearing PostgreSQL design: same-transaction trigger capture, complete
-OLD/NEW price values, delete tombstones, no-op idempotency, append-only history,
-and an explicit block on unobservable TRUNCATE operations.
+These fast tests pin the load-bearing SQL shape. A separate PostgreSQL 17
+integration lane executes the migration and proves its runtime behaviour.
 """
 from __future__ import annotations
 
@@ -43,6 +41,24 @@ def test_migration_0043_exists_and_is_transactional() -> None:
     assert sql.startswith("BEGIN;")
     assert sql.endswith("COMMIT;")
     assert "0042" in _sql() and "reserved" in _sql()
+
+
+def test_migration_preflights_schema_and_refuses_long_lock_waits() -> None:
+    sql = _normalised_sql()
+    assert "SET LOCAL lock_timeout = '5s'" in sql
+    assert "SET LOCAL statement_timeout = '30s'" in sql
+    assert "0043 preflight: public.prices shape mismatch" in sql
+    assert "0043 preflight: public.prices primary key mismatch" in sql
+    assert "symbol:text:true" in sql
+    assert "adj_close:numeric(18,6):false" in sql
+
+
+def test_migration_documents_data_preserving_emergency_rollback() -> None:
+    text = _sql()
+    assert "Emergency rollback (data preserving)" in text
+    assert "drops only" in text
+    assert "public.prices_revision_capture" in text
+    assert "Keep public.price_revisions" in text
 
 
 def test_revision_ledger_preserves_typed_prior_and_replacement_rows() -> None:

@@ -22,6 +22,8 @@
 #   - governance_events  (governance audit: every governance_status transition —
 #                         the record that makes agent-originated approvals
 #                         defensible after the fact; losing it loses the audit)
+#   - price_revisions    (0043: post-containment record of every destructive price
+#                         replacement/deletion; included once the table exists)
 #
 # Tables NOT backed up (re-derivable from EODHD + the model pickles + inputs):
 #   - prices, fundamentals, signals, universe, regulatory_events, job_runs
@@ -48,6 +50,20 @@ trap 'rm -rf "$WORK"' EXIT
 DUMP="$WORK/asxos-${DATE}.sql"
 
 echo "[backup] pg_dump of irreplaceable tables (date=${DATE})"
+
+# This script must be deployable before migration 0043 is applied. Add the new
+# ledger as soon as it exists, while keeping the pre-migration backup green.
+OPTIONAL_TABLE_ARGS=()
+if [ "$(
+  psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 \
+    -c "SELECT to_regclass('public.price_revisions') IS NOT NULL"
+)" = "t" ]; then
+  OPTIONAL_TABLE_ARGS+=(--table=price_revisions)
+  echo "[backup] price_revisions exists — include append-only price history"
+else
+  echo "[backup] price_revisions absent — pre-0043 backup compatibility mode"
+fi
+
 pg_dump \
   --no-owner --no-privileges --no-acl \
   --data-only \
@@ -65,6 +81,7 @@ pg_dump \
   --table=agent_runs \
   --table=agent_evidence \
   --table=governance_events \
+  "${OPTIONAL_TABLE_ARGS[@]}" \
   "$DATABASE_URL" > "$DUMP"
 
 gzip -9 "$DUMP"
