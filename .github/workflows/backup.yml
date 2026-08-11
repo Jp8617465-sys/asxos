@@ -44,8 +44,11 @@ jobs:
           # Runner-image third-party sources intermittently 403 and abort
           # `apt-get update`. Irrelevant to this job — drop them first.
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list \
+                     /etc/apt/sources.list.d/microsoft-prod.sources \
                      /etc/apt/sources.list.d/microsoft.list \
-                     /etc/apt/sources.list.d/azure-cli.list || true
+                     /etc/apt/sources.list.d/microsoft.sources \
+                     /etc/apt/sources.list.d/azure-cli.list \
+                     /etc/apt/sources.list.d/azure-cli.sources || true
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl --fail -sS \
             -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
