@@ -8,7 +8,7 @@ Covers:
   - Resend failure → synthetic job_runs row written
   - Resend + DB both fail → stderr, NO raise (last-resort path)
   - compose_brief.main fires fallback when collect() raises
-  - compose_brief.main fires fallback when JobMonitor itself raises
+  - compose_brief.main avoids duplicate fallback after confirmed primary delivery
   - compose_brief.main catches asyncio.CancelledError
   - compose_brief.main includes traceback in fallback body
   - compose_brief.main does NOT fire fallback when --no-send
@@ -195,11 +195,14 @@ async def test_main_sends_fallback_when_collect_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_sends_fallback_when_job_monitor_aexit_raises() -> None:
+async def test_main_suppresses_duplicate_when_job_monitor_aexit_raises_after_send() -> None:
     """If JobMonitor's own __aexit__ fails (e.g. DB unreachable when writing
-    the failure row), the fallback STILL fires because we wrap the entire
-    JobMonitor block in an outer try/except."""
+    the success row), the job still fails but the delivered brief is not sent
+    again as a fallback."""
     fake_fallback = MagicMock()
+    fake_send = MagicMock(return_value=MagicMock(
+        to="a", subject="b", message_id="c",
+    ))
 
     class FailingJobMonitor:
         def __init__(self, *a, **kw):
@@ -218,16 +221,15 @@ async def test_main_sends_fallback_when_job_monitor_aexit_raises() -> None:
             new=AsyncMock(return_value=_minimal_brief()),
         ),
         patch("jobs.compose_brief.v2_render_html", return_value="<html/>"),
-        patch("jobs.compose_brief.send_brief", return_value=MagicMock(
-            to="a", subject="b", message_id="c",
-        )),
+        patch("jobs.compose_brief.send_brief", new=fake_send),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
     ):
         from jobs.compose_brief import main
         with pytest.raises(RuntimeError, match="JobMonitor DB write failed"):
             await main(date(2026, 5, 28), send=True)
 
-    fake_fallback.assert_called_once()
+    fake_send.assert_called_once()
+    fake_fallback.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -325,10 +327,58 @@ async def test_main_no_fallback_on_happy_path() -> None:
     fake_fallback.assert_not_called()
 
 
+@pytest.mark.asyncio
+async def test_persistence_failure_delivers_primary_then_fails_loudly() -> None:
+    """A missing brief_runs row must not suppress the stop-breach brief.
+
+    Delivery happens first; the typed failure then reaches JobMonitor so the
+    cron exits non-zero. Because that failure was durably recorded, a duplicate
+    fallback email is intentionally suppressed.
+    """
+    fake_fallback = MagicMock()
+    fake_send = MagicMock(return_value=MagicMock(
+        to="a", subject="b", message_id="c",
+    ))
+    monitor_exit: dict[str, object] = {}
+
+    class RecordingJobMonitor:
+        def __init__(self, *a, **kw):
+            self.rows_written = 0
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            monitor_exit["exc_type"] = exc_type
+            monitor_exit["rows_written"] = self.rows_written
+            return False
+
+    brief = _minimal_brief()
+    brief.sections = (MagicMock(), MagicMock())
+    brief.persistence_error = "RuntimeError: brief_runs unavailable"
+
+    with (
+        patch("jobs.compose_brief.init_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.close_pool", new=AsyncMock()),
+        patch("jobs.compose_brief.JobMonitor", new=RecordingJobMonitor),
+        patch("jobs.compose_brief.v2_compose", new=AsyncMock(return_value=brief)),
+        patch("jobs.compose_brief.v2_render_html", return_value="<html/>"),
+        patch("jobs.compose_brief.send_brief", new=fake_send),
+        patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
+    ):
+        from jobs.compose_brief import BriefRunPersistenceError, main
+        with pytest.raises(BriefRunPersistenceError, match="brief_runs unavailable"):
+            await main(date(2026, 5, 28), send=True)
+
+    fake_send.assert_called_once()
+    fake_fallback.assert_not_called()
+    assert monitor_exit["exc_type"] is BriefRunPersistenceError
+    assert monitor_exit["rows_written"] == 2
+
+
 def _minimal_brief() -> MagicMock:
     """Minimal Brief-shape stub for v2_compose return value."""
     brief = MagicMock()
     brief.sections = ()
+    brief.persistence_error = None
     return brief
 
 

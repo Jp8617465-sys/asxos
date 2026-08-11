@@ -40,6 +40,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 
+class BriefRunPersistenceError(RuntimeError):
+    """Primary brief delivered, but its required audit row was not persisted."""
+
+
 async def main(as_of: date, send: bool) -> None:
     # Personal-use firewall, top-level (Part 0 Q1 / CLAUDE.md #10). The brief's
     # sections already self-gate at the data layer (compose.py checks
@@ -78,11 +82,10 @@ async def main(as_of: date, send: bool) -> None:
 
     await _init_pool()
     try:
-        # Outer try wraps the entire JobMonitor block so the fallback email
-        # fires whether the body OR JobMonitor's own DB writes raise.
-        # If we only wrapped the inner body, a failure in JobMonitor.__aexit__
-        # (e.g. DB unreachable when writing the failure row) would lose BOTH
-        # signals: no job_runs record AND no email.
+        primary_delivered = False
+        # Outer try wraps the entire JobMonitor block. Failures before primary
+        # delivery produce a fallback; failures after a confirmed primary send
+        # still make the job red without sending a duplicate email.
         try:
             async with _JobMonitor(
                 job_name="compose_brief",
@@ -95,17 +98,24 @@ async def main(as_of: date, send: bool) -> None:
 
                 if send:
                     result = _send_brief(html, as_of=as_of)
+                    primary_delivered = True
                     log.info(f"sent to {result.to}: subject={result.subject} id={result.message_id}")
                 else:
                     log.info("--no-send: skipped Resend dispatch")
 
                 monitor.rows_written = len(brief.sections)
+                if brief.persistence_error is not None:
+                    # Raise only after the primary brief has had its delivery
+                    # opportunity. JobMonitor records failure + pings /fail;
+                    # the outer handler suppresses a duplicate fallback when
+                    # the primary was already delivered.
+                    raise BriefRunPersistenceError(brief.persistence_error)
         # asyncio.CancelledError is a BaseException in Py3.12; asyncpg pool
         # timeouts in collect() propagate as CancelledError and would slip
         # past a bare `except Exception:`.
         except (Exception, asyncio.CancelledError) as exc:
-            log.exception("compose_brief failed; sending fallback notification")
-            if send:
+            log.exception("compose_brief failed")
+            if send and not primary_delivered:
                 # Tail of traceback — Render log retention is finite, so the
                 # email is the durable record. ~3.5KB keeps the total body
                 # under ~4KB once HTML-escaped + wrapped.
@@ -118,6 +128,11 @@ async def main(as_of: date, send: bool) -> None:
                         f"Traceback (tail):\n{tb}\n\n"
                         "Render log retention is finite; the traceback above is the full record."
                     ),
+                )
+            elif send:
+                log.error(
+                    "failure occurred after confirmed primary delivery; duplicate fallback "
+                    "suppressed"
                 )
             raise  # JobMonitor (if it survived) records failure; cron exits non-zero
     finally:
