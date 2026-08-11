@@ -35,6 +35,7 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       BACKUP_GITHUB_TOKEN: ${{ secrets.BACKUP_GITHUB_TOKEN }}
       BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+      EXPECTED_SUPABASE_PROJECT_REF: gxjqezqndltaelmyctnl
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +61,31 @@ jobs:
           # ubuntu-latest also has PostgreSQL 16 on PATH. Prepend the
           # versioned PGDG bin directory for every following workflow step.
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Verify backup source identity and inventory
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          from urllib.parse import unquote, urlsplit
+
+          expected = os.environ["EXPECTED_SUPABASE_PROJECT_REF"]
+          parsed = urlsplit(os.environ["DATABASE_URL"])
+          identity_parts = (parsed.hostname or "", unquote(parsed.username or ""))
+          if not any(expected in part for part in identity_parts):
+              raise SystemExit(
+                  "DATABASE_URL does not identify the expected Supabase project; "
+                  "refusing to back up an unverified database"
+              )
+          print(f"backup source project verified: {expected}")
+          PY
+          psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT 'backup source inventory: '
+              || 'holding_lots=' || (SELECT count(*) FROM holding_lots)
+              || ' theses=' || (SELECT count(*) FROM theses)
+              || ' thesis_revisions=' || (SELECT count(*) FROM thesis_revisions)
+              || ' governance_events=' || (SELECT count(*) FROM governance_events);
+          SQL
 
       - name: Assert pg_dump can dump this server
         run: |
