@@ -2,7 +2,9 @@
 
 **Status:** current
 **Scope:** the bounded operating contract for arbi, the asxos program-manager agent
-**Last verified:** 2026-07-14 (autonomy unlock pack cross-reference added; tiers unchanged)
+**Last verified:** 2026-08-12 (guard carve-outs — the workflow-dispatch exception re-cut by
+*attendance*; branch-protection status corrected; tiers unchanged) · 2026-07-14 (autonomy
+unlock pack cross-reference added; tiers unchanged)
 **Owner:** humans amend the tiers/boundaries; arbi obeys them
 **Superseded by:** N/A
 
@@ -152,6 +154,24 @@ safety/compliance boundary** (including this file, rule #11, and the s766B firew
 Claude Execute's validation-only workflow dispatch/result inspection is the narrow exception
 to the "CI changes" shorthand: editing workflow definitions, enabling/disabling workflows, or
 running production/secret-bearing jobs remains approval-gated.
+
+**Amended 2026-08-12 (guard carve-outs) — the exception splits by *attendance*, not by
+workflow class.** The paragraph above still describes the **unattended in-CI harness**
+exactly: `claude-execute.yml`'s own `--allowedTools` carries the three validation lanes
+(`full-check.yml`, `targeted-ml-tests.yml`, `migration-integration.yml`) and nothing else —
+never `backup.yml`, never itself, pinned by `tests/test_claude_execute_harness.py`. It no
+longer describes the **local attended session**, whose `push-guard.sh` allowlist now also
+carries `backup.yml` and `claude-execute.yml`. `backup.yml` **is** secret-bearing
+(`DATABASE_URL`, `BACKUP_GITHUB_TOKEN`, `BACKUP_REPO`; its default path commits a dump to an
+external repo, and only `restore_drill=true` is the disposable-container replay), so this is a
+**narrowing exception to the standing rule, not an instance of it**. Two grants were removed
+in the same change: `gh run rerun` in any form (it re-executes a prior run with its secrets
+re-injected, up to 30 days, on any workflow) and any `gh workflow run` combined with command
+substitution. Production dispatches — `daily-brief`, `us-positions`, `weekly-research`,
+`pipeline-health` — plus workflow-definition edits, enable/disable, secrets, migrations,
+merge and `gh pr ready` stay James's on **every** surface. Detail:
+`arbi-permission-model.md` §"Dispatch splits by *attendance*"; rationale and behavioural
+matrix: `docs/proposals/arbi-guard-carveouts-2026-08-12.md`.
 
 ## Required citations
 
