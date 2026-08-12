@@ -127,6 +127,11 @@ Parallel execution requires a direct James instruction naming both mission IDs. 
 proof requirements live in sections 6-8 of this packet; they are referenced by the canonical
 roadmap rather than copied into another backlog.
 
+James also placed the programme executor in Claude Code's session-local task list as **Task #13**.
+That number is an execution alias, not a second repository queue or durable mission identity. The
+canonical identity remains this packet plus the one selected work-order ID. Task #13 must return
+`WAITING` until this file is on `main` and the entry gate above is evidenced closed.
+
 ---
 
 ## 3. Programme architecture
@@ -435,17 +440,41 @@ operational:
 This means the second brain has substantial prose memory but weak state projection, retrieval,
 evaluation, and feedback mechanics.
 
+### 5.2 Knowledge-compilation pattern ruling
+
+The 2026-08-12 review of Andrej Karpathy's LLM knowledge-base workflow is recorded in
+[`arbi-second-brain-karpathy-pattern-review-2026-08-12.md`](arbi-second-brain-karpathy-pattern-review-2026-08-12.md).
+It validates Markdown-first retrieval, generated indexes/backlinks, durable query outputs, and
+knowledge health checks. ASXOS adapts those patterns inside the existing trust model:
+
+```text
+source artifact -> rebuildable compiled view -> ContextManifest/query output
+  -> working memory or dream candidate -> independent promotion
+```
+
+Source and generated view are different trust roles. A compiled view carries source identity,
+generator version, freshness, confidence/conflict state, and supersession; it never replaces a
+canonical document, a live observation, or a financial `EvidencePacket`. Until `SB0` ratifies a
+different path, persisted compiled views are ladder-8 `working_output` files under the existing
+`docs/product/memory/working/` path on `claude/**` branches. Committing them does not promote their
+claims, and they must not be filed among ordinary canonical product docs. Obsidian is an optional
+Markdown viewer only. Custom search, RAG/vector storage, knowledge graphs, and image tooling are
+deferred until file-backed retrieval fails a named, measured consumer need. Fine-tuning is
+rejected under the current no-weight-learning policy; reconsideration requires a James-approved
+policy amendment and a separate rights, threat, evaluation, freshness, citation, and rollback case.
+
 ### SB0 - Reconcile truth and retire contradictions
 
 **Objective:** establish a small, current authority surface before adding machinery.
 
 **Route:** `/arbi-team`; this is a cross-document reality sweep with independent governance review.
 
-**Work:** classify current/historical/superseded claims; split current roadmap state from retained
-history without deleting evidence; reconcile memory-policy contradictions; refresh pointer indexes;
-align eval safety language with the current permission ladders; and add stale-claim checks for known
-high-risk facts such as migration count, scheduler ownership, branch protection, Model A status,
-and active workflow names.
+**Work:** classify current/historical/superseded claims and the distinct trust roles `source`,
+`compiled_view`, `working_output`, `dream_candidate`, and `approved_memory`; split current roadmap
+state from retained history without deleting evidence; reconcile memory-policy contradictions;
+refresh pointer indexes; align eval safety language with the current permission ladders; and add
+stale-claim checks for known high-risk facts such as migration count, scheduler ownership, branch
+protection, Model A status, and active workflow names.
 
 **Boundary:** authority wording changes are proposals until James approves them. The mission may
 correct factual drift but cannot broaden a permission tier or standing autonomy.
@@ -515,10 +544,13 @@ The contradiction detector should flag:
 - a PR described as complete without merge or observed runtime evidence;
 - a live claim older than its declared freshness window;
 - a roadmap task closed without named proof; and
-- approved memory contradicted by higher-authority current state.
+- approved memory contradicted by higher-authority current state;
+- a compiled view whose source digest, freshness, or supersession state no longer matches; and
+- a generated summary carrying a material claim that no declared source supports.
 
 **Acceptance:** seeded event histories reduce deterministically; correction/supersession works;
-known repository contradictions are detected; and no generated tool edits canonical docs directly.
+known repository contradictions are detected; indexes/backlinks and summaries can be rebuilt from
+their source manifest; and no generated tool edits canonical docs directly.
 
 ### SB3 - Mission registry and compact context manifests
 
@@ -550,9 +582,13 @@ rollback:
 outcome_observation:
 ```
 
-The `ContextManifest` should select the constitution/permission references, relevant target
-architecture section, exact source contracts, current snapshot fields, tests, and prior outcome
-records. It should not load the entire roadmap, all handoffs, or all memory into every run.
+The `ContextManifest` is a compiled retrieval view. It should select the
+constitution/permission references, relevant target architecture section, exact source contracts,
+current snapshot fields, tests, compiled indexes/backlinks, and prior outcome records. Every
+selected current claim resolves to its underlying source, not only to a generated summary. It
+should not load the entire roadmap, all handoffs, or all memory into every run. File indexes and
+brief summaries remain the default until a versioned query set proves a named recall, citation,
+freshness, context-size, or latency failure that justifies more search infrastructure.
 
 **Acceptance:** invalid or stale baselines fail closed; dependencies and file ownership are
 explicit; every acceptance check has a command or named observation; and Claude Code can produce a
@@ -570,6 +606,8 @@ receipt without inventing scope.
 4. Use a separate-context grader only for qualitative ranking and brief quality.
 5. Persist the model/prompt/version, fixture digest, deterministic result, grader result, and cost.
 6. Compare candidate versus incumbent on holdout fixtures before promotion.
+7. Add knowledge-integrity fixtures for broken source links, stale compiled views, unsupported
+   summaries, conflicting current pages, missing backlinks, and silent factual imputation.
 
 **Acceptance:** hard gates are executable; a known-bad candidate fails; an unavailable probe does
 not receive a state-accuracy pass; the producer cannot grade itself; and promotion can cite a real
@@ -595,6 +633,10 @@ MissionEnvelope
 A memory candidate must state provenance, validity scope, confidence, expiry/recheck trigger,
 falsifier, and what earlier lesson it supersedes. Dreaming may deduplicate and propose lessons; it
 may not edit authority, approve itself, or silently remove contrary evidence.
+
+A durable Q&A or generated report enters this chain as `working_output`. It may become a dream
+candidate only when its sources, consumer, and observed usefulness are recorded. Filing an answer
+never writes directly to approved lessons or upgrades a compiled view into authority.
 
 **Acceptance:** no lesson is promoted without an observed outcome, holdout eval result where
 applicable, separate reviewer, and James-controlled merge; rejected lessons remain auditable; and
