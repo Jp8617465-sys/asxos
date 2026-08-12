@@ -62,10 +62,14 @@ authorise that exact PR, migration `0042`, or any Model A / capital-execution bo
   applies to every run.
 - **Mechanical backstop:** `push-guard.sh` blocks direct `main` pushes, force/delete
   shapes, non-draft PR creates, PR ready/merge, non-allowlisted workflow runs, and release
-  mutations. Server-side branch protection on `main` — required `full-check`, required PR
-  with Code Owner review, force-push and deletion blocked, `enforce_admins: false` so James
-  is never deadlocked — **was configured 2026-08-12** and is the real backstop for every
-  guard's admitted regex gaps. Verify with
+  mutations. Server-side branch protection on `main` — required `full-check`, a PR
+  required, force-push and deletion blocked — has been live as rulesets since 2026-07-17
+  and was re-asserted as classic protection 2026-08-12. It is the real backstop for every
+  guard's admitted regex gaps, with two limits that must not be overstated:
+  `required_approving_review_count` is **0** (a 1-approval setting was tried and reverted
+  — on a solo repo GitHub forbids self-approval, so it made every merge an admin bypass),
+  which leaves `.github/CODEOWNERS` **advisory, not mechanical**; and
+  `enforce_admins: false`, so an admin-scoped token bypasses all of it. Verify with
   `gh api repos/Jp8617465-sys/asxos/branches/main/protection` before relying on it.
 
 Validation workflow dispatch is intentionally narrow. The harness may run

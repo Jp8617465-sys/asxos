@@ -142,12 +142,23 @@ detail behind these lines.
   (`memory/dream-candidates/2026-07-15-dream.md`, lessons L8–L17) + the dream-automation plan
   (`docs/proposals/arbi-dream-automation-2026-07-15.md`) + risk-register R5 amendment.
   Promoting #46 via `/arbi-promote` is the first-ever exercise of the promotion gate (Phase 0
-  of the automation plan) — James's action. **Also learned 2026-07-15: branch protection on
+  of the automation plan) — James's action. ~~**Also learned 2026-07-15: branch protection on
   `main` is PLAN-GATED** (free private repo — paid feature, no API workaround; upgrade
   declined), so CODEOWNERS is inert on this plan; substitute = detective `main-push-guard`
   Action (James to add; YAML in the plan's §Amendment) + fork/machine-identity model for any
   future unattended-write tier. Every "configure branch protection" reference in this file's
-  autonomy section should be read through that amendment.
+  autonomy section should be read through that amendment.~~
+  **SUPERSEDED 2026-08-12 — the PLAN-GATED premise was invalidated on 2026-07-17.** Branch
+  protection on `main` IS configured: rulesets `asxos-main` (19077432) and `main` (18221894)
+  live since 2026-07-17 (PR required, `full-check` required, deletion and non-fast-forward
+  blocked), re-asserted as classic protection 2026-08-12. Two limits that must not be
+  overstated: `required_approving_review_count` is **0** — a 1-approval setting was tried
+  and reverted the same day because on a solo repo GitHub forbids self-approval, making
+  every merge an admin bypass — so **CODEOWNERS is advisory, not mechanical**; and
+  `enforce_admins: false`, so an admin-scoped token bypasses it. Making CODEOWNERS
+  mechanical needs a review identity that is not the PR author (second account or GitHub
+  App) — a governor decision, not a settings tweak. Verify before relying on it:
+  `gh api repos/Jp8617465-sys/asxos/branches/main/protection`.
 - **Recently completed (on `main`, 2026-07-13/14 merge train):** monitoring lane restored +
   batched (`track_signal_outcomes` cast, `snapshot_portfolio` trading-day anchor,
   `sync_financial_statements` OOM fix + `executemany` batching — PRs #30/#32); **R12 resolved**

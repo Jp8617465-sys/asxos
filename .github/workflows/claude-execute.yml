@@ -22,11 +22,13 @@
 # Safety model: workflow_dispatch only (no automatic event triggers — repo
 # events can carry untrusted text); scoped --allowedTools (no unrestricted
 # shell); draft-PR ceiling and never-commit-to-main enforced in the prompt and
-# push/PR guards. Branch protection on `main` (required full-check + Code Owner
-# review, force-push/deletion blocked) was configured 2026-08-12 and is the
-# server-side backstop. Repo rules in CLAUDE.md (incl. rule #11 Model A
-# quarantine and migration/deploy boundaries) load with the checkout and apply
-# to every run.
+# push/PR guards. Branch protection on `main` (a PR required, full-check
+# required, force-push/deletion blocked) has been live since 2026-07-17 and is
+# the server-side backstop — but note approvals are 0, so CODEOWNERS is
+# advisory rather than mechanical, and enforce_admins is false, so an
+# admin-scoped token bypasses it. Repo rules in CLAUDE.md (incl. rule #11 Model
+# A quarantine and migration/deploy boundaries) load with the checkout and
+# apply to every run.
 
 name: Claude Execute
 
