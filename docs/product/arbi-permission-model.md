@@ -3,9 +3,10 @@
 **Status:** current
 **Scope:** the authoritative permission model for arbi (the `arbi-harness.md` tier table
 points here)
-**Last verified:** 2026-07-14 (PR-2 Permission Friction Pack — settings `deny` array +
-authority-guard/push-guard/pr-draft-guard hooks; see §Runtime enforcement honesty) · (autonomy unlock pack — skills / builder / `/arbi-team` placed
-on the existing ladder; no grant changed)
+**Last verified:** 2026-08-12 (PR-2 Permission Friction Pack — settings `deny` array +
+authority-guard/push-guard/pr-draft-guard hooks; see §Runtime enforcement honesty) ·
+(autonomy unlock pack — skills / builder / `/arbi-team` placed on the existing ladder; no
+grant changed) · (Claude Execute installed by PR #91 and placed on the attended I3/I4 path)
 **Owner:** James (governor); changing a grant is a boundary change (constitution §reserved)
 **Superseded by:** N/A
 
@@ -89,6 +90,25 @@ tiers that already exist** — it changes **no grant** on either ladder:
 All three are **attended** (governor/arbi-invoked per mission). None is standing/unattended
 autonomy — that promotion still requires the preconditions below and an explicit James
 decision, unchanged. `bypassPermissions` remains forbidden for every launch.
+
+### Claude Execute harness (2026-08-12) — attended I3/I4 GitHub execution
+
+`.github/workflows/claude-execute.yml` is another structured attended form of I3/I4. A
+manual `workflow_dispatch` by James supplies the mission prompt; Claude executes inside
+GitHub Actions with a scoped `--allowedTools` set and the repo rules loaded from this
+checkout. This **authorises** the run, within that prompt's scope, to create a
+`claude/<short-slug>` branch, edit code/docs/configuration, run local tests and validation,
+commit, push the branch, open or update a draft PR by pushing commits/commenting, inspect
+workflow results, and continue through recoverable failures by fixing and rerunning checks.
+
+This changes no standing unattended grant. I5/I6 remain gated: credentials and secret
+creation, destructive DB operations, production data mutation, Render/prod deployment or
+irreversible production writes, direct pushes to `main`, PR ready/merge actions,
+self-merging unless repository policy and James's explicit instruction authorise that exact
+PR, migration `0042`, and safety/compliance boundary weakening all stop for James. Workflow
+dispatch from the harness is limited to validation-only workflows (`full-check.yml`,
+`targeted-ml-tests.yml`, `migration-integration.yml`); production or secret-bearing
+workflows stay approval-gated.
 
 ## Portfolio decision-support ladder (P0–P6) — operating the portfolio
 

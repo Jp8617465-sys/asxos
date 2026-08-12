@@ -23,7 +23,9 @@
 # Scope: `git push` destined at a protected ref (main/master) with force or delete, any
 # repo-wide push (--mirror/--all/--tags), and the `gh` CLI shapes that would let a Bash
 # command bypass the MCP-level PR/merge denies (gh pr merge/ready, gh pr create without
-# --draft, gh api POST/PUT/PATCH/DELETE to pulls/merge, gh workflow/release mutation).
+# --draft, gh api POST/PUT/PATCH/DELETE to pulls/merge, non-validation gh workflow mutation,
+# release mutation). Attended Claude Execute may dispatch only validation-only workflows:
+# full-check.yml, targeted-ml-tests.yml, and migration-integration.yml.
 #
 # HONEST LIMITS (same class as unattended-guard.sh's, see its header): Bash is not fully
 # parseable. A non-`git`/`gh` code path — a Python/Node script invoked via a pre-allowed
@@ -137,8 +139,22 @@ fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+api[^|;&]*(--method|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)[^|;&]*/(pulls|merge)\b'; then
   deny "push-guard: 'gh api' mutating a pulls/merge endpoint directly is blocked — the same PR/merge policy applies regardless of surface."
 fi
-if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+workflow[[:space:]]+(run|enable|disable)|gh[[:space:]]+release[[:space:]]+(create|edit|delete)'; then
-  deny "push-guard: CI/release mutation via gh is blocked (I6), reserved to James."
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+workflow[[:space:]]+(enable|disable)'; then
+  deny "push-guard: enabling/disabling workflows via gh is blocked (I6), reserved to James."
+fi
+workflow_run_segments="$(printf '%s' "$cmd" | grep -Eio 'gh[[:space:]]+workflow[[:space:]]+run[^|;&]*' || true)"
+if [ -n "$workflow_run_segments" ]; then
+  while IFS= read -r workflow_run_segment; do
+    [ -n "$workflow_run_segment" ] || continue
+    if ! printf '%s' "$workflow_run_segment" | grep -Eiq '^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(full-check\.yml|targeted-ml-tests\.yml|migration-integration\.yml)([[:space:]]|$)'; then
+      deny "push-guard: workflow_dispatch is allowed only for validation-only workflows (full-check.yml, targeted-ml-tests.yml, migration-integration.yml). Production/secret-bearing workflow runs are reserved to James."
+    fi
+  done <<EOF
+$workflow_run_segments
+EOF
+fi
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+release[[:space:]]+(create|edit|delete)'; then
+  deny "push-guard: release mutation via gh is blocked (I6), reserved to James."
 fi
 
 exit 0

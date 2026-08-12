@@ -14,10 +14,11 @@
 #
 # Safety model: workflow_dispatch only (no automatic event triggers — repo
 # events can carry untrusted text); scoped --allowedTools (no unrestricted
-# shell); draft-PR ceiling and never-commit-to-main enforced in the prompt;
-# GitHub branch protection on main is the mechanical backstop. Repo rules in
-# CLAUDE.md (incl. rule #11 Model A quarantine and migration/deploy
-# boundaries) load with the checkout and apply to every run.
+# shell); draft-PR ceiling and never-commit-to-main enforced in the prompt and
+# push/PR guards. Server-side branch protection/rulesets, if configured, are an
+# extra backstop; do not assume them in place. Repo rules in CLAUDE.md (incl.
+# rule #11 Model A quarantine and migration/deploy boundaries) load with the
+# checkout and apply to every run.
 
 name: Claude Execute
 
@@ -89,16 +90,23 @@ jobs:
             - If you change files: work on a branch named claude/<short-slug>
               (never main), commit, push the branch, and open or update a
               DRAFT pull request describing what changed and why.
+            - Continue through recoverable failures inside the task scope
+              (test, lint, type, dependency-resolution, merge-base, or CI
+              validation failures) by fixing, rerunning, and reporting the
+              final status.
             - If no changes are needed: make no commits and finish with a
               concise summary of what you checked and found.
             - STOP and report the exact blocker instead of proceeding if the
-              task would need missing credentials, a destructive action
-              (force-push, deletion, DB migration apply, data mutation), or
-              any production-risk operation (deploys, schedule changes,
+              task would need missing credentials or secret creation, a
+              destructive action (force-push, deletion, DB migration apply,
+              data mutation), a direct push to main, a PR ready/merge action
+              or self-merge not explicitly authorized by repository policy and
+              James for that exact PR, or any production-risk operation
+              (deploys, schedule changes, irreversible production writes,
               secrets). Never apply migration 0042. Never use Model A output
               in any decision basis (CLAUDE.md rule #11).
             - Never print secret or environment-variable values into logs,
               commits, or PR text.
           claude_args: |
             --max-turns ${{ inputs.max_turns }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout:*),Bash(git switch:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(ruff check:*),Bash(mypy:*),Bash(make check:*),Bash(gh workflow run:*),Bash(gh run watch:*),Bash(gh run view:*),Bash(gh run list:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout:*),Bash(git switch:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(ruff check:*),Bash(mypy:*),Bash(make check:*),Bash(gh workflow run full-check.yml:*),Bash(gh workflow run targeted-ml-tests.yml:*),Bash(gh workflow run migration-integration.yml:*),Bash(gh run watch:*),Bash(gh run view:*),Bash(gh run list:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*)"

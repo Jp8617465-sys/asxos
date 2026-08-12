@@ -37,11 +37,14 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0040) is the canonical schema** — roughly 40
+**`migrations/` (currently through 0043; `REQUIRED_MIGRATIONS = 96`) is the canonical schema** — roughly 40
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
 the migrations.
+Migration `0042` remains reserved for the parked rules-integrity branch and must
+not be applied; `0043_price_revisions.sql` was applied to production on 2026-08-12
+as version `20260812092925`.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
@@ -69,6 +72,22 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `make check` — ruff + mypy + pytest (enforced in CI by the `full-check` workflow on PRs to `main` and `claude/**` pushes; `targeted-ml-tests` is the fast ML lane)
 - `make migrate` — reminder only; actual apply via Supabase MCP
 - `make check-drift` — reconcile `render.yaml` against the live Render services via the Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`)
+
+## Claude-driven GitHub execution
+
+`.github/workflows/claude-execute.yml` is an attended, manually dispatched GitHub
+Actions harness for scoped repo work. When James triggers it with a task prompt,
+Claude may create a `claude/<short-slug>` branch, edit code/docs/configuration
+inside that task scope, run tests and validation, commit, push the branch, open
+or update a draft PR by pushing commits/commenting, inspect workflow results, and
+continue through recoverable failures such as test, lint, type, or merge-base
+failures by fixing and rerunning the relevant checks.
+
+It must stop and report the exact blocker for credentials or secret creation,
+destructive DB work or production data mutation, production deployment or
+irreversible production writes, direct pushes to `main`, PR ready/merge actions,
+self-merging unless repository policy and James's explicit instruction authorize
+that exact PR, migration `0042`, and any Model A or capital-execution boundary.
 
 ## Known test environment gaps (do not chase)
 

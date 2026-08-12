@@ -113,6 +113,11 @@ def test_deny_dangerous_push_shape(repo: Path, command: str) -> None:
         "gh pr create --title x",  # no --draft
         "gh api -X PUT /repos/o/r/pulls/5/merge",
         "gh workflow run deploy.yml",
+        "gh workflow run backup.yml -f restore_drill=true --ref main",
+        "gh workflow run daily-brief.yml",
+        "gh workflow run full-check.yml && gh workflow run backup.yml",
+        "gh workflow run",
+        "gh workflow disable full-check.yml",
         "gh release create v1",
     ],
 )
@@ -132,6 +137,10 @@ def test_deny_dangerous_gh_shape(repo: Path, command: str) -> None:
         "git push origin refs/heads/claude/x:refs/heads/claude/x",
         "git add . && git commit -m x && git push origin claude/x",
         "gh pr create --draft --base main --head claude/x --title x",
+        "gh workflow run full-check.yml --ref claude/x",
+        "gh workflow run targeted-ml-tests.yml --ref claude/x",
+        "gh workflow run migration-integration.yml --ref claude/x",
+        "git push origin claude/x && gh workflow run full-check.yml --ref claude/x",
         "git push -f origin claude/x",  # force to own branch: reversible, not denied
         "git push --force-with-lease origin claude/x",
         "git status",
