@@ -1,0 +1,103 @@
+# Claude Execute — attended-triggered automation harness.
+#
+# Runs Claude Code inside GitHub Actions via anthropics/claude-code-action@v1
+# so repo work (build/fix/runbook tasks) can be dispatched with
+# `gh workflow run claude-execute.yml -f prompt="..."` instead of driving
+# everything from an interactive chat session.
+#
+# Required repo secret:  ANTHROPIC_API_KEY
+# Optional repo secret:  CLAUDE_WORKFLOW_PAT — a fine-grained PAT used as
+#   GH_TOKEN so Claude can trigger/inspect OTHER workflows (the default
+#   GITHUB_TOKEN cannot start new workflow runs from within a run).
+#   Falls back to GITHUB_TOKEN when absent.
+#
+# Safety model: workflow_dispatch only (no automatic event triggers — repo
+# events can carry untrusted text); scoped --allowedTools (no unrestricted
+# shell); draft-PR ceiling and never-commit-to-main enforced in the prompt;
+# GitHub branch protection on main is the mechanical backstop. Repo rules in
+# CLAUDE.md (incl. rule #11 Model A quarantine and migration/deploy
+# boundaries) load with the checkout and apply to every run.
+
+name: Claude Execute
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Task for Claude to execute"
+        required: true
+        type: string
+      max_turns:
+        description: "Maximum agent turns"
+        required: false
+        default: "20"
+        type: string
+      run_tests:
+        description: "Run relevant tests before declaring done"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: claude-execute
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project with test dependencies
+        if: ${{ inputs.run_tests }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.CLAUDE_WORKFLOW_PAT || secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            ${{ inputs.prompt }}
+
+            ---
+            Operating rules for this automated run (in addition to CLAUDE.md):
+            - Work autonomously on the task above; prefer building, testing,
+              and verifying over writing documentation.
+            - Keep changes scoped to what the task requires; no broad
+              refactors unless the task explicitly asks for one.
+            - run_tests=${{ inputs.run_tests }}: when true and you changed
+              code, run the relevant pytest selection (plus ruff/mypy on
+              touched files) and report results before declaring done.
+            - If you change files: work on a branch named claude/<short-slug>
+              (never main), commit, push the branch, and open or update a
+              DRAFT pull request describing what changed and why.
+            - If no changes are needed: make no commits and finish with a
+              concise summary of what you checked and found.
+            - STOP and report the exact blocker instead of proceeding if the
+              task would need missing credentials, a destructive action
+              (force-push, deletion, DB migration apply, data mutation), or
+              any production-risk operation (deploys, schedule changes,
+              secrets). Never apply migration 0042. Never use Model A output
+              in any decision basis (CLAUDE.md rule #11).
+            - Never print secret or environment-variable values into logs,
+              commits, or PR text.
+          claude_args: |
+            --max-turns ${{ inputs.max_turns }}
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout:*),Bash(git switch:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(ruff check:*),Bash(mypy:*),Bash(make check:*),Bash(gh workflow run:*),Bash(gh run watch:*),Bash(gh run view:*),Bash(gh run list:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
