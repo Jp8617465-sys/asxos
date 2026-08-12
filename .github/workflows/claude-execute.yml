@@ -45,6 +45,7 @@ permissions:
   pull-requests: write
   issues: write
   actions: write
+  id-token: write  # required by claude-code-action's OIDC token exchange
 
 concurrency:
   group: claude-execute
