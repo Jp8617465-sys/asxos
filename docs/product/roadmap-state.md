@@ -45,6 +45,22 @@ remains valid but is governor-scoped decisions, not build work.
 | **5** | Outcome learning — **initially a process audit + descriptive outcome evidence**, not statistical validation | not started |
 | **6** | Portfolio scale + surface cutover | not started |
 
+### Queued after the current remediation work (James, 2026-08-12)
+
+James queued
+[`asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`](../proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md)
+after the live remediation/defect work below. The linked packet is the detailed candidate backlog;
+this file remains the only live queue.
+
+Entry gate: every earlier live remediation item is completed, explicitly deferred by James, or
+superseded with cited evidence; required post-merge production/scheduled-run observations are
+recorded; and `/arbi` refreshes current state before selecting work. Then activate exactly one
+packet item as THE ONE THING. Default order begins `P1-01` (Model A reference manifest), then
+`SB0-01` (Arbi truth reconciliation). Parallel execution requires an explicit James instruction
+naming both mission IDs. Queue placement is not blanket implementation, production, authority, or
+capital-action approval; the existing `/arbi-mission`, `/arbi-team`, and Claude Execute gates apply
+to every item.
+
 ### Live defects carried into Stage 1 / the remediation work order
 
 **Originally recorded 2026-08-10. Status reconciled 2026-08-11 against `main` @ `7aa8507`.**
