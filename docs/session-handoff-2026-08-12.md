@@ -26,6 +26,15 @@ See `docs/model-a-decay-analysis-2026-07-11.md`. A queued mission (#11 below) pr
 retiring Model A from all active surfaces entirely — that mission *strengthens* the rule, it
 does not touch it.
 
+### 0. Campaign status (appended 2026-08-12 21:15Z)
+
+`GOV-01` merged (PR #96, `65966d7`). The **§2.4 entry gate is closed on all four conditions** —
+the last one closed at 21:13Z when the scheduled `sync_prices` succeeded with the 0043 trigger
+live (2,366 rows; `price_revisions` = 0, which is the pre-registered correct outcome). The
+programme is **eligible**; `P1-01` (Model A reference manifest, route `/arbi-team`) is the next
+work order. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is now set in user config and takes effect
+at the next session start.
+
 ### 2. `prices` history is now contained — but nothing before 2026-08-12 is recoverable
 
 Migration `0043_price_revisions.sql` **is applied** (see below). Every destructive UPDATE or
