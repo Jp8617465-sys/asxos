@@ -5,7 +5,8 @@
 # `gh workflow run claude-execute.yml -f prompt="..."` instead of driving
 # everything from an interactive chat session.
 #
-# Required repo secret:  ANTHROPIC_API_KEY
+# Required repo secret:  CLAUDE_CODE_OAUTH_TOKEN — minted via `claude setup-token`
+#   (bills usage to the Claude subscription, not a metered API key).
 # Optional repo secret:  CLAUDE_WORKFLOW_PAT — a fine-grained PAT used as
 #   GH_TOKEN so Claude can trigger/inspect OTHER workflows (the default
 #   GITHUB_TOKEN cannot start new workflow runs from within a run).
@@ -72,7 +73,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.CLAUDE_WORKFLOW_PAT || secrets.GITHUB_TOKEN }}
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             ${{ inputs.prompt }}
 
