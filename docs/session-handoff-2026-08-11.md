@@ -40,6 +40,12 @@ it will not recover anything already lost.
 This is the only open defect where delay causes permanent, unrecoverable loss. It is the
 recommended next action.
 
+> **RESOLVED 2026-08-12:** 0043 applied to production as version `20260812092925`
+> (observed count 96), capture triggers live, runbook probe green — see
+> `docs/product/runbooks/price-revisions-0043.md` for the recorded evidence. The
+> "prospective only" caveat stands forever: nothing overwritten before the apply is
+> recoverable.
+
 ---
 
 ## What shipped
@@ -90,6 +96,9 @@ production artifact, not on a merge SHA.
 
 ## Recommended next action
 
+*(OVERTAKEN 2026-08-12 — the rehearsal gate was met via PR #88's `migration-integration`
+lane and run `31574011421`, and the apply itself is done; see the resolution notes above.)*
+
 **Rehearse migration 0043 against a disposable PostgreSQL instance and hand James the observed
 evidence.** PR #84 names this as its own gate: observe update, delete, no-op and immutability
 behaviour end to end before production application. It is reversible, needs no governor decision
@@ -105,8 +114,8 @@ wrong header comment) as the cheapest remaining win.
 
 | # | Item | Why it's yours |
 |---|---|---|
-| 1 | **Apply migration 0043** and bump `REQUIRED_MIGRATIONS` 95→96 (`asxos/api/main.py:15`) | Migration approval. Do this *after* the disposable-Postgres rehearsal above |
-| 2 | **Authorise one full `derive_fundamentals_pit` run**, then `compute_factor_scores` on the resulting cross-section | PR #85's stated production gate |
+| ~~1~~ | ~~**Apply migration 0043**~~ — **RESOLVED 2026-08-12**: applied as `20260812092925`, observed count 96, bump PR on `claude/required-migrations-96`. Post-apply drill + ingestion observation still open | Was migration approval; James authorised and the attended session executed |
+| ~~2~~ | ~~**Authorise one full `derive_fundamentals_pit` run**~~ — **RESOLVED 2026-08-12**: first production success — 53,624 rows / 3,357 symbols in 148s (`job_runs` success, was 63/11); `compute_factor_scores` then scored 3,308 symbols at `as_of` 2026-08-11; `check_cron_health` observed green same session | Was PR #85's stated production gate; James authorised |
 | ~~3~~ | ~~**PR #81**~~ — **RESOLVED 2026-08-11: closed as superseded**, with a comment pointing to #87. Branch `claude/decision-engine-prototype` @ `c6ff3c3` retained; do not delete it | Was merge/close authority; James ruled at the close |
 | 4 | **PR #80** (rules-integrity, PARKED at `3f6fd51`) — 4,869 lines, 2,035 tests passing, review loop never completed. `migrations/0042_rules_integrity.sql` **must not be applied** | Resume, or formally retire? Preservation is not adoption |
 | 5 | **Does #87 supersede Appendix B** as the canonical contract, or does Appendix B remain the logical authority with #87 as its implementation? | Governor call on the source-of-truth ladder |

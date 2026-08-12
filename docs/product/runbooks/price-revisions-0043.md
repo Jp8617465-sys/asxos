@@ -1,6 +1,8 @@
 # Migration 0043 — production apply and verification
 
-**Status:** production-ready procedure; migration not yet applied
+**Status:** APPLIED to production 2026-08-12 as version `20260812092925` (observed live
+count 96); close-out steps 1 (post-apply restore drill) and 3 (observed ingestion run)
+still pending
 **Target:** Supabase project `gxjqezqndltaelmyctnl`
 **Owner:** James authorises; an attended operator executes and records evidence
 
@@ -62,6 +64,16 @@ migrations/0043_price_revisions.sql
 Record the Supabase migration result, resulting migration-history count, actor, timestamp,
 and exact git SHA. The expected count is likely 96, but the observed live value is the only
 authority.
+
+> **Applied 2026-08-12 — recorded evidence:** version `20260812092925`; observed
+> `schema_migrations` count **96** (95 at preflight); actor: James authorised (I5,
+> attended session 2026-08-12), agent operator executed via asyncpg against the exact
+> repository file (SHA-1 `b348b74b9b1e26daf147117a8ca5cb6de86fd155`); git SHA `97cdc5c`;
+> pre-apply gate: manual `backup.yml` run `31574011421` green with `restore_drill=true`
+> on the same SHA. Transactional probe: exactly one `update` revision captured
+> same-transaction (`0P000079J8.AU` @ 2026-08-11, `adj_close` +0.000001), rolled back;
+> `recorded_application='asxos-0043-production-probe'` residue = 0. All three triggers
+> present and enabled.
 
 ## Verify without leaving a production mutation
 
@@ -127,6 +139,9 @@ Expected: `0`.
    `asxos/api/main.py` from 95 to the observed live count and records the applied migration.
    Do not merge that bump before the database apply: the API is designed to fail startup
    when its required count is ahead of production.
+   **Executed 2026-08-12** — this step is the PR that carries this annotation
+   (branch `claude/required-migrations-96`; bump to the observed 96). Steps 1, 3
+   and 4 remain open until the post-apply drill and the next ingestion run are observed.
 3. Observe the next normal price-ingestion run. It must succeed; revision growth may be zero
    when the provider returns byte-equivalent rows.
 4. Record links to the migration result, transactional probe, backup/restore run, and price
