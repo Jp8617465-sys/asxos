@@ -1,5 +1,11 @@
-# US position monitor — its own schedule because US market close (13:30 UTC
+# US position monitor — its own schedule because US market close (21:30 UTC
 # Mon-Fri check, after NYSE close) doesn't align with the AU daily chain.
+# 21:30 UTC is 16:30 ET under EST (UTC-5) and 17:30 ET under EDT (UTC-4), so the
+# check always lands after the 16:00 ET close on both sides of the DST boundary.
+# It ran at 13:30 UTC until 2026-08-12 — that is 08:30/09:30 ET, i.e. market
+# *open*, so every alert reflected the prior session's stale closing prices.
+# Note the EST margin is only 30 minutes past the close; if consolidated closing
+# prices prove not to be final that early, move this later rather than earlier.
 # Alert-only: reads positions + prices, emails on stop/target/trajectory
 # breaches. The founding failure this exists to prevent: a HUBS stop breach
 # went unseen for three weeks because alert crons were never provisioned
@@ -9,7 +15,7 @@ name: us-positions
 
 on:
   schedule:
-    - cron: "30 13 * * 1-5"
+    - cron: "30 21 * * 1-5"
   workflow_dispatch: {}
 
 concurrency:
