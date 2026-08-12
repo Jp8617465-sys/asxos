@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import httpx
 
@@ -63,7 +63,12 @@ class JobMonitor:
         self._started_at: datetime | None = None
 
     async def __aenter__(self) -> "JobMonitor":
-        self._started_at = datetime.utcnow()
+        # Timezone-aware, always: asyncpg's binary codec encodes a naive
+        # datetime via astimezone(utc), which treats it as the CLIENT machine's
+        # local time — so a local AEST run stored started_at 10 hours in the
+        # past and check_cron_health flagged the job's own fresh row as STUCK
+        # (observed live 2026-08-12, run id 849).
+        self._started_at = datetime.now(UTC)
         async with acquire() as conn:
             # Stale-row reset + fresh INSERT are one atomic transaction so no
             # concurrent job instance can see a partially-updated state.
@@ -113,7 +118,7 @@ class JobMonitor:
         exc_tb: object,
     ) -> bool:
         assert self._started_at is not None
-        finished_at = datetime.utcnow()
+        finished_at = datetime.now(UTC)
         duration_ms = int((finished_at - self._started_at).total_seconds() * 1000)
 
         # Status mapping: UpstreamBlocked / ModelGateDormant → 'blocked'
