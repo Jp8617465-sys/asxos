@@ -275,6 +275,22 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+- **2026-08-12 — production remediation session (mid-session checkpoint).** Migration 0043
+  **applied** (`20260812092925`, count 96) with probe + post-apply drill `31593927269` green;
+  `derive_fundamentals_pit` succeeded in production for the first time (53,624 rows / 3,357
+  symbols); `compute_factor_scores` 3,308 symbols; `check_cron_health` green after 12 days;
+  `us-positions` cron moved to post-close; `claude-execute` harness live and validated (run
+  `31595260041`). PRs #91/#92/#93 merged; **#94 open and CI-green** (governor ruling (c) on
+  #87 vs Appendix B encoded as B.4/B.5, plus branch-protection reconciliation). See
+  `docs/session-handoff-2026-08-12.md`.
+- **Awaiting one observation:** tonight's scheduled `sync_prices` (~20:30 UTC) is the first
+  ingestion against the live 0043 capture trigger — the last open item on defect #3. Local
+  runs cannot substitute (this machine's Python rejects the intercepting TLS certificate).
+- **Queued missions, not started:** #11 retire Model A from all active surfaces (needs
+  `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`); #12 ASX Results-to-Thesis Review slice (depends
+  on #11); #13 bounded outcome-engine executor — **BLOCKED**, its required input
+  `docs/proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`
+  does not exist in the repo, and §2.4 of that plan is the entry gate.
 - **MERGED 2026-07-11 as PR #25 (`eff3732`):** the post-shelf reconciliation + arbi operating
   docs + **ETF Slice 2a** kind-aware ingestion (`asxos/ingestion/universe.py`, with
   `refresh_universe` test coverage) — formerly branch `claude/asxos-product-manager-agent-tzszlv`,
@@ -595,10 +611,41 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-08-11 `/arbi-close` (**retrospective — there was no `/arbi` wake this
-session**; the 08-11 build session ran five parallel missions and stood down without a close, so
-this block is reconstructed from commits, PR bodies, CI runs and live DB probes, not from
-first-hand session observation). Supersedes the 07-22 snapshot below._
+_Recorded by the 2026-08-12 **mid-session** `/arbi-close` (a checkpoint at James's request —
+the session continued past it). Supersedes the 08-11 snapshot below._
+
+```
+Checkpoint: 2026-08-12 (mid-session /arbi-close)
+- branch: main @ 8037137 (was 7a0b9e1 at session start). Landed today: 97cdc5c #88 ·
+  ec30d20 #91 · 7cae4b5 #92 · 8037137 #93. PR #94 open + CI-green (governance docs).
+- tests: 2060 passed / 0 failed / 1 skipped / 2 xfailed, full dependency set
+  (/Users/jpcino/Desktop/asxos-wt-pr71/.venv/bin/python). ruff + mypy clean.
+- migrations: 0043 APPLIED to production as 20260812092925. DB applied = 96,
+  REQUIRED_MIGRATIONS = 96 — consistent. 0042 still RESERVED (PR #80 parked, must not
+  be applied). price_revisions ledger live, 0 rows (no destructive change has occurred
+  since apply — the probe was rolled back).
+- freshness: rs_fundamentals_pit = 53,624 rows / 3,357 symbols (was 63 / 11); coverage
+  1,853 of 2,391 active — the 538 uncovered have no rs_financial_statements source rows.
+  rs_factor_scores = 3,308 symbols @ as_of 2026-08-11 (was 11).
+- job_runs: derive_fundamentals_pit SUCCESS (53,624 rows, 148s) · compute_factor_scores
+  SUCCESS · check_cron_health SUCCESS 09:40:44Z (first green in 12+ days) · one
+  sync_prices FAILURE row for 2026-08-12 from a blocked LOCAL attempt (TLS interception
+  on this machine, not a code fault) — tonight's scheduled 20:30 UTC run supersedes it.
+- harness: claude-execute live on main and validated — run 31595260041, is_error:false,
+  18 turns. Branch runs of a MODIFIED claude-execute.yml report a skip inside a run that
+  still concludes success (run 31591940172) — never trust a green branch run of it.
+- branch protection: LIVE (rulesets asxos-main 19077432 + main 18221894 since 2026-07-17;
+  classic protection re-asserted 2026-08-12). approvals=0 → CODEOWNERS advisory not
+  mechanical; enforce_admins=false → an admin token bypasses it.
+- open PRs: #94 (governance, CI-green) · #90 · #80 (PARKED) · #78 · #73 · #70.
+- queued missions: #11 Model A retirement · #12 ASX results review (depends on #11) ·
+  #13 outcome-engine executor — BLOCKED, its required plan doc does not exist in the repo.
+```
+
+_Prior snapshot — recorded by the 2026-08-11 `/arbi-close` (**retrospective — there was no
+`/arbi` wake that session**; the 08-11 build session ran five parallel missions and stood down
+without a close, so that block was reconstructed from commits, PR bodies, CI runs and live DB
+probes, not from first-hand session observation)._
 
 ```
 Close: 2026-08-11 (retrospective /arbi-close, no wake)
