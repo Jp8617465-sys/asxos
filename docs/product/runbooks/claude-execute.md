@@ -24,7 +24,7 @@ Claude declares done).
 
 | Secret | Required | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | yes | Claude API authentication for the action |
+| `CLAUDE_CODE_OAUTH_TOKEN` | yes | Claude authentication for the action — minted with `claude setup-token`, bills to the Claude subscription rather than a metered API key |
 | `CLAUDE_WORKFLOW_PAT` | optional | Used as `GH_TOKEN` so Claude can trigger/inspect *other* workflows (`gh workflow run` / `gh run watch`); the default `GITHUB_TOKEN` cannot start new workflow runs from inside a run. Falls back to `GITHUB_TOKEN` when absent |
 
 ## Safety model
