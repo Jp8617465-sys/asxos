@@ -11,14 +11,22 @@
 #   GH_TOKEN so Claude can trigger/inspect OTHER workflows (the default
 #   GITHUB_TOKEN cannot start new workflow runs from within a run).
 #   Falls back to GITHUB_TOKEN when absent.
+#   ADDING THIS PAT IS ITSELF A BOUNDARY CHANGE, not a convenience toggle.
+#   Branch protection runs with `enforce_admins: false`, and a PAT acts as its
+#   owner — so a PAT minted from James's admin account would let this workflow
+#   bypass every protection on `main`, and would also restore its ability to
+#   dispatch other workflows. Today's fallback to GITHUB_TOKEN is what keeps
+#   both closed. Set `enforce_admins: true`, or enumerate bypass actors in a
+#   ruleset, BEFORE introducing the PAT.
 #
 # Safety model: workflow_dispatch only (no automatic event triggers — repo
 # events can carry untrusted text); scoped --allowedTools (no unrestricted
 # shell); draft-PR ceiling and never-commit-to-main enforced in the prompt and
-# push/PR guards. Server-side branch protection/rulesets, if configured, are an
-# extra backstop; do not assume them in place. Repo rules in CLAUDE.md (incl.
-# rule #11 Model A quarantine and migration/deploy boundaries) load with the
-# checkout and apply to every run.
+# push/PR guards. Branch protection on `main` (required full-check + Code Owner
+# review, force-push/deletion blocked) was configured 2026-08-12 and is the
+# server-side backstop. Repo rules in CLAUDE.md (incl. rule #11 Model A
+# quarantine and migration/deploy boundaries) load with the checkout and apply
+# to every run.
 
 name: Claude Execute
 
@@ -38,6 +46,11 @@ on:
         description: "Run relevant tests before declaring done"
         required: false
         default: true
+        type: boolean
+      debug:
+        description: "Log Claude's full transcript (see show_full_output note below)"
+        required: false
+        default: false
         type: boolean
 
 permissions:
@@ -76,6 +89,22 @@ jobs:
           GH_TOKEN: ${{ secrets.CLAUDE_WORKFLOW_PAT || secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # OPT-IN ONLY (default false). The action's own docs warn that this
+          # logs every Claude message including tool results, "which may contain
+          # secrets, API keys, or other sensitive information." Accepting that
+          # warning permanently is not justified here: this repo's own docs carry
+          # real position data (e.g. the HUBS lot in
+          # .claude/rules/portfolio-conventions.md), the harness can Read/Grep
+          # all of it, and Actions logs are a separate 90-day-retained,
+          # downloadable surface that travels with any future visibility change.
+          # GitHub's masking only covers registered secrets, literally matched.
+          # What makes debug runs tolerable when needed: this workflow mounts NO
+          # DATABASE_URL / RESEND_API_KEY / EODHD_API_KEY, so it has no live prod
+          # reach. Enable per-run with -f debug=true when a run's findings are
+          # otherwise unreadable (the result envelope alone cannot distinguish
+          # "3 tests failed" from "nothing to report" — observed on run
+          # 31595260041).
+          show_full_output: ${{ inputs.debug }}
           prompt: |
             ${{ inputs.prompt }}
 

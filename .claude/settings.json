@@ -36,6 +36,8 @@
       "Bash(gh workflow run full-check.yml:*)",
       "Bash(gh workflow run targeted-ml-tests.yml:*)",
       "Bash(gh workflow run migration-integration.yml:*)",
+      "Bash(gh workflow run backup.yml:*)",
+      "Bash(gh workflow run claude-execute.yml:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(gh run watch:*)",

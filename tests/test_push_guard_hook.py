@@ -113,9 +113,23 @@ def test_deny_dangerous_push_shape(repo: Path, command: str) -> None:
         "gh pr create --title x",  # no --draft
         "gh api -X PUT /repos/o/r/pulls/5/merge",
         "gh workflow run deploy.yml",
-        "gh workflow run backup.yml -f restore_drill=true --ref main",
         "gh workflow run daily-brief.yml",
-        "gh workflow run full-check.yml && gh workflow run backup.yml",
+        "gh workflow run us-positions.yml",
+        # A compound smuggling a non-allowlisted dispatch alongside an
+        # allowlisted one is denied on the offending segment.
+        "gh workflow run backup.yml && gh workflow run daily-brief.yml",
+        # Command substitution is not a segment separator, so the inner (denied)
+        # dispatch would ride inside an allowlisted outer segment AND prefix-match
+        # the settings allow-rule, executing with no prompt at all. The guard
+        # refuses the combination rather than parsing it.
+        "gh workflow run backup.yml $(gh workflow run daily-brief.yml)",
+        "gh workflow run backup.yml -f x=$(gh workflow run us-positions.yml)",
+        "gh workflow run backup.yml `gh workflow run daily-brief.yml`",
+        # rerun re-executes a prior run with its secrets re-injected — any
+        # workflow, up to 30 days back.
+        "gh run rerun 12345678",
+        "gh run rerun 12345678 --failed",
+        "gh run rerun --job 99887766",
         "gh workflow run",
         "gh workflow disable full-check.yml",
         "gh release create v1",
@@ -140,6 +154,13 @@ def test_deny_dangerous_gh_shape(repo: Path, command: str) -> None:
         "gh workflow run full-check.yml --ref claude/x",
         "gh workflow run targeted-ml-tests.yml --ref claude/x",
         "gh workflow run migration-integration.yml --ref claude/x",
+        # Carve-outs (James, 2026-08-12): backup.yml restores into a disposable
+        # CI container; claude-execute.yml is the governed harness, whose own
+        # workflow file carries its tool ceiling. Both fall through to the
+        # normal permission prompt rather than a hard deny.
+        "gh workflow run backup.yml -f restore_drill=true --ref main",
+        "gh workflow run claude-execute.yml -f prompt=x",
+        "gh workflow run full-check.yml && gh workflow run backup.yml",
         "git push origin claude/x && gh workflow run full-check.yml --ref claude/x",
         "git push -f origin claude/x",  # force to own branch: reversible, not denied
         "git push --force-with-lease origin claude/x",

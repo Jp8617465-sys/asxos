@@ -1461,6 +1461,13 @@ alert protecting the single live holding. Separately, `30 13 * * 1-5` is **09:30
 open, not close**; the workflow header describing it as "after NYSE close" is wrong and the check
 will run against a stale prior close.
 
+> **Update 2026-08-12 (this appendix stays a dated 08-10 evidence record; correction noted, not
+> rewritten):** the schedule fix is in a branch diff on `claude/ops-housekeeping-0812` —
+> `us-positions.yml` moves to `30 21 * * 1-5` (17:30 ET under EST, 16:30 ET under EDT, after the
+> 16:00 ET close on both sides of the DST boundary) with the header corrected. `render.yaml:654`
+> still declares `30 13 * * 1-5`; that copy belongs to D.1.d's orphaned-Render set. Live status is
+> tracked at `roadmap-state.md` defect #5.
+
 **D.1.d — 9 jobs are orphaned.** Declared in `render.yaml`, absent from every workflow, and stopped
 executing. `render.yaml` was last touched 2026-07-21 — before the Render exit — and its header still
 claims to be "the source of truth for what Render runs."
