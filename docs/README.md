@@ -68,6 +68,18 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 - `executable-roadmap-2026-07-04.md` — the sequencer (5 workstreams + PR plan)
 - `pr2a-supabase-ro-provisioning-plan-2026-07-05.md` — PR 2A: the `supabase-ro` provisioning-route decision (local-stdio recommended; the hosted/custom connector is transport-unstable; stop/go gate before the six frontmatter flips)
 
+## Current proposed execution programmes (reference-only; not the live queue)
+
+- `proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md` — candidate
+  two-lane programme for the outcome engine and Arbi second brain. It sequences bounded work orders
+  and a Claude Code handoff; it grants no implementation or authority change. An approved item must
+  still be reduced into `product/roadmap-state.md` as the one live next action.
+- `proposals/asxos-research-to-decision-live-slice-brief-2026-08-10.md` — prototype evidence and
+  the bounded read-only real-data adapter recommendation; the prototype was later adopted by PR #87.
+- `proposals/arbi-outcome-programme-convergence-sprint-2026-08-08.md` — pre-Stage-0 convergence
+  source material. Its dated repository/PR state is historical; retain its contract-reuse and
+  exact-evidence principles, but do not revive it as a queue.
+
 ## Historical / background (do not treat as current)
 - `foundation/phase-*.md` — rebuild history. `foundation/phase-4-architecture-system-architect.md` describes an abandoned VPS/systemd/local-Postgres design, superseded by the live Render/Supabase stack (see its banner).
 - `audit-2026-06-27.md`, `strategy/*` — dated snapshots.
