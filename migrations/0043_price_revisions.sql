@@ -1,8 +1,9 @@
 -- 0043_price_revisions.sql
 --
--- DRAFT — NOT applied by this build. Apply only through the separately approved
--- Supabase migration workflow, then bump REQUIRED_MIGRATIONS to the observed
--- schema_migrations count. Migration number 0042 is deliberately skipped here:
+-- PRODUCTION-READY — still unapplied. Apply only through the separately approved
+-- Supabase migration workflow in docs/product/runbooks/price-revisions-0043.md,
+-- then bump REQUIRED_MIGRATIONS to the observed schema_migrations count. Migration
+-- number 0042 is deliberately skipped here:
 -- it is reserved by the parked rules-integrity PR #80 and must remain unapplied.
 --
 -- Stage 1 price-history containment. The serving `prices` table remains the
@@ -26,8 +27,70 @@
 --   * DELETE is retained as an explicit tombstone;
 --   * TRUNCATE prices is rejected because row triggers cannot audit it;
 --   * UPDATE/DELETE/TRUNCATE price_revisions are rejected by the database.
+--
+-- Emergency rollback (data preserving): if the trigger causes a confirmed ingestion
+-- outage, apply a NEW governed migration that drops only
+-- public.prices_revision_capture. Keep public.price_revisions and its append-only
+-- trigger intact. Never edit this file after production application and never drop the
+-- ledger merely to restore ingestion; doing so would destroy the evidence this migration
+-- exists to preserve.
 
 BEGIN;
+
+-- DDL must fail rather than wait indefinitely behind a live price writer. A retry in a
+-- confirmed quiet window is safer than an unbounded production lock.
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+
+-- The ledger below is intentionally a complete typed copy of the current prices row.
+-- Refuse application if the live table has drifted: otherwise a newly added column could
+-- change alongside a captured column and escape revision history.
+DO $migration_preflight$
+DECLARE
+    actual_shape TEXT;
+    primary_key_definition TEXT;
+    expected_shape CONSTANT TEXT :=
+        'symbol:text:true,dt:date:true,open:numeric(18,6):false,'
+        'high:numeric(18,6):false,low:numeric(18,6):false,'
+        'close:numeric(18,6):true,volume:bigint:false,'
+        'adj_close:numeric(18,6):false';
+BEGIN
+    IF to_regclass('public.prices') IS NULL THEN
+        RAISE EXCEPTION '0043 preflight: public.prices does not exist';
+    END IF;
+
+    SELECT string_agg(
+        attribute.attname || ':'
+        || format_type(attribute.atttypid, attribute.atttypmod) || ':'
+        || attribute.attnotnull::TEXT,
+        ',' ORDER BY attribute.attnum
+    )
+    INTO actual_shape
+    FROM pg_attribute AS attribute
+    WHERE attribute.attrelid = 'public.prices'::regclass
+      AND attribute.attnum > 0
+      AND NOT attribute.attisdropped;
+
+    IF actual_shape IS DISTINCT FROM expected_shape THEN
+        RAISE EXCEPTION
+            '0043 preflight: public.prices shape mismatch; expected %, observed %',
+            expected_shape,
+            actual_shape;
+    END IF;
+
+    SELECT pg_get_constraintdef(constraint_row.oid)
+    INTO primary_key_definition
+    FROM pg_constraint AS constraint_row
+    WHERE constraint_row.conrelid = 'public.prices'::regclass
+      AND constraint_row.contype = 'p';
+
+    IF primary_key_definition IS DISTINCT FROM 'PRIMARY KEY (symbol, dt)' THEN
+        RAISE EXCEPTION
+            '0043 preflight: public.prices primary key mismatch; observed %',
+            primary_key_definition;
+    END IF;
+END;
+$migration_preflight$;
 
 CREATE TABLE public.price_revisions (
     revision_id             BIGSERIAL      PRIMARY KEY,
