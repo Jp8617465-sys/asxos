@@ -2,7 +2,8 @@
 
 **Status:** current (machinery built; **standing activation gated — see §Activation**)
 **Scope:** how arbi runs the observe→decide→act→learn loop on a schedule, in Claude Code
-**Last verified:** 2026-07-15 (live `list_triggers` probe; 7a re-wired — see §The Routine)
+**Last verified:** 2026-08-12 (`claude-execute.yml` installed by PR #91; standing scheduled
+activation still gated — see §Activation)
 **Owner:** James enables standing autonomy; arbi runs within the guardrails
 **Superseded by:** N/A
 
@@ -74,6 +75,19 @@ as this session did (the loop's inner cycle, run by hand). That already works to
 **The step-by-step path from here to the flip — including who owns each precondition, the
 one-action activation procedure, and every kill switch — is
 `arbi-full-auto-activation-2026-07-15.md`.**
+
+## Attended GitHub Actions harness
+
+`claude-execute.yml` is the GitHub Actions form of the attended loop. It is manually
+dispatched, branch-and-draft-PR bounded, and does not make the scheduled 7b loop live. Inside
+the task prompt James gives it, Claude may build, test, commit, push a `claude/**` branch,
+open/update a draft PR, inspect validation results, and continue through recoverable failures
+until the scoped work is done or an approval gate is reached.
+
+The approval gates are unchanged: credentials/secrets, destructive DB operations, production
+data mutation, production deploys or irreversible writes, direct `main` pushes, PR
+ready/merge or self-merge without the existing James-instructed policy path, migration
+`0042`, Model A decision use, and capital execution all stop for James.
 
 ## The Routine (7a live; 7b ready to enable — do NOT enable before the gate)
 
