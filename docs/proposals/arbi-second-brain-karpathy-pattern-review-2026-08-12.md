@@ -189,6 +189,9 @@ validation:
   mypy: passed_160_source_files
   pytest: 1926_passed_1_failed_16_collection_errors_1_skipped_2_xfailed
   pytest_environment_note: shared_local_venv_missing_joblib_and_lightgbm
-draft_pr: pending_publication_of_existing_docs_branch
-readiness: READY_FOR_DRAFT_PR_WITH_LOCAL_ENVIRONMENT_NOTE
+github_ci:
+  full_check: passed_2_of_2
+  targeted_ml_tests: passed_2_of_2
+draft_pr: https://github.com/Jp8617465-sys/asxos/pull/95
+readiness: READY_FOR_REVIEW
 ```
