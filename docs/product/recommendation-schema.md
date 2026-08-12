@@ -1,12 +1,36 @@
 # Recommendation schema — the shape of an action memo
 
-**Status:** current
+**Status:** current — **DERIVED RENDER VIEW** (see the boundary note below)
 **Scope:** the required structure of every decision-support artifact arbi produces under the
 portfolio-manager charter (single-position memo or portfolio allocation proposal), so none is
 uncited, incomplete, or silently model-dependent.
-**Last verified:** 2026-07-10
+**Last verified:** 2026-08-12 (declared a derived render view of the canonical contract per
+`target-architecture.md` B.2 + the governor's 2026-08-12 (c) ruling; fields unchanged) · 2026-07-10
 **Owner:** James (governor) approves the schema; arbi fills it. arbi may draft schema changes.
 **Superseded by:** N/A
+
+> **This file is a DERIVED RENDER VIEW of the canonical decision contract. It is not a rival
+> contract.** Required by `target-architecture.md` Appendix **B.2** ("`recommendation-schema.md` →
+> **ADAPTED** to the human memo/render view *derived from* a `DecisionPacket`. It is not a rival
+> contract and must carry a header saying so") and recorded here on **2026-08-12** under the
+> governor's ruling (c) in **B.4**.
+>
+> The canonical contract is `asxos/domain/decision_engine/types.py`, on `main` since commit
+> `7aa8507` (PR #87). What that means in practice:
+>
+> - **Where this file and the code disagree, the code wins** on validator strictness, hashing,
+>   temporal enforcement and internal structure; **Appendix B** wins on which artifacts exist,
+>   which fields are mandatory, and the ruled semantic tables (state→verdict, F3 horizons, the
+>   five F4 universal gates).
+> - A memo's `verdict` vocabulary is **not** free here: it is the B.3 mapping from
+>   `DecisionPacket.recommendation_state`, implemented as `memo_verdict_for()`
+>   (`types.py:85-99`). **No surface may invent a third vocabulary** — the
+>   no-fourth-definition rule is part of Appendix B.
+> - **Known shape divergence, to be resolved in favour of the code.** The `model_independence`
+>   row below defines an enum, `model-independent | uses-model-A`. The canonical contract types it
+>   as `Literal[True]` (`types.py:466`), which makes non-independence **unrepresentable** rather
+>   than merely invalid — strictly stronger, and consistent with rule #11. Treat the code as the
+>   binding shape; this row is retained as the memo-render wording until it is amended.
 
 A recommendation is a **memo James reads and acts on**, never an order (`portfolio-manager-charter.md`).
 This schema is what makes every memo decision-ready and auditable: it forces the evidence,
