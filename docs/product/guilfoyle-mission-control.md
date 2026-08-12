@@ -2,7 +2,7 @@
 
 **Status:** current (autonomy unlock pack, 2026-07-14)
 **Scope:** the narrative of the arbi → Guilfoyle → builders execution stack; routing rules for missions
-**Last verified:** 2026-07-14
+**Last verified:** 2026-08-12 (branch-protection gate status corrected in §Enforcement honesty; routing, ownership and grants unchanged) · 2026-07-14
 **Owner:** James (governor); Guilfoyle's charter is `.claude/agents/guilfoyle.md`, its command is `.claude/commands/arbi-mission.md` — those are normative, this doc narrates
 **Superseded by:** N/A
 
@@ -81,3 +81,17 @@ gitignored. Skill `allowed-tools` is friction-removal, **not** a security bounda
 rules and hooks are the floor (`arbi-permission-model.md` §Runtime enforcement honesty).
 Standing/unattended operation of any of this remains gated on branch protection for `main`,
 the agent read-only DB role (R2), and the scorecard track record — unchanged by the pack.
+
+**Gate status, recorded 2026-08-12: one of those three is now satisfied — standing autonomy
+is still NOT granted.** Branch protection on `main` is **configured** (two rulesets live
+since 2026-07-17, `asxos-main` id 19077432 and `main` id 18221894; classic protection
+re-asserted 2026-08-12: PR required, `full-check` required, force-push and deletion blocked).
+The other two gates — the agent read-only DB role (R2) and the scorecard track record —
+are unchanged and still open, so the gate itself still holds and every mission stays
+**attended, reversible, draft-PR-ceilinged** exactly as described above. Two caveats travel
+with the satisfied gate: `enforce_admins: false`, so an admin-owned token bypasses it; and at
+`required_approving_review_count: 0`, `.github/CODEOWNERS` is **advisory, not mechanical** —
+so "hooks/permissions/branch protection stop dangerous work" (the design principle above)
+holds for agents and non-admin credentials, not for an admin-scoped token. Verify before
+citing: `gh api repos/Jp8617465-sys/asxos/branches/main/protection`. Rationale and full
+record: `docs/proposals/arbi-guard-carveouts-2026-08-12.md`.

@@ -5,7 +5,7 @@
 **Scope:** product objective, logical architecture, technology boundaries, brownfield migration, and acceptance gates
 **Prepared:** 2026-08-10 (Australia/Brisbane) · **Governor:** James
 **Observed repository base:** `main@1b471b60cdaa176692cc5f987e8399acfdab03d9`
-**Last verified:** 2026-08-10
+**Last verified:** 2026-08-12 (Appendix B amended under the governor's source-of-truth ruling — B.1 rows ratified, B.2 corrected, B.4/B.5 added; §1–§23 body unchanged) · 2026-08-10 (ratification)
 **Owner:** James ratifies; arbi drafts amendments via reviewed PR and never self-approves
 **Superseded by:** N/A
 
@@ -1319,6 +1319,18 @@ aggregate*; §8.5 is a *logical sketch* of the latter.
 | **rule #11 assertion** | `model_independence` | (prose only) | **ABSENT** | **GAP — must be added** |
 | standing disclaimer | `not_this` | — | — | render-layer concern; keep in memo view |
 | outcome | `outcome` (filled later) | — | — | belongs to `OutcomeObservation`, not the packet |
+| **trading calendar** | — | — | `trading_calendar: TradingSessionCalendar`, required (`types.py:449`; contract `:163-195`) | **RATIFIED 2026-08-12 (#87)** — F3's horizons are trading-day counts, so the calendar is part of the contract, not an implementation detail |
+| **upstream artifact hashes** | — | — | `upstream_hashes: UpstreamArtifactHashes` — five mandatory lowercase SHA-256 digests (`:428-441`; field at `:457`) | **RATIFIED 2026-08-12 (#87)** — closes I.2 finding 4 (hashes previously validated format, not content) |
+| **expiry reason** | — | — | `expiry_reason` (`:451`) with the strictly-earlier-than-default validator (`:504-507`) | **RATIFIED 2026-08-12 (#87)** — an event-driven expiry may only *shorten* the F3 default, never extend it |
+| **manifest components** | — | `model_and_prompt_manifest` | mandatory `{composition, llm, market_data, code_contract}` plus an adversarial regex rejecting `model a` / `v1_5` (`:56-62`, `:521-528`) | **RATIFIED 2026-08-12 (#87)** — rule #11 enforced mechanically in the manifest, not by prose |
+| **universal constraints** | `policy_check` | (F4 prose) | `UNIVERSAL_CONSTRAINTS` — the five F4 hard gates, with `model_a_quarantine` required present, **blocking**, and **passing exactly once** (`:45-53`, `:631-646`) | **RATIFIED 2026-08-12 (#87)** — F4's non-deferrable gates become a validator |
+| **cross-artifact gating** | — | — | `DecisionCase` validators (`:616-671`) | **RATIFIED 2026-08-12 (#87)** — blocking/revise challenge forces abstain; portfolio and decision state/size must agree; `constraints_checked` reconciles exactly; shared `as_of`/cutoff and created-at chain order |
+
+**The six rows above were added by PR #87 (commit `7aa8507`) and ratified into this table on
+2026-08-12.** They are requirements the merged contract enforces *beyond* what Appendix B
+originally specified, recorded here so this appendix remains the complete statement of which
+fields are mandatory. Per **B.4**, adding or removing a field row here — or a row in a ruled
+semantic table — is a governor amendment; tightening a validator is not.
 
 ### B.2 — Designated canonical, and *when* it becomes canonical
 
@@ -1329,12 +1341,16 @@ as the target implementation contract**, subject to the mandatory amendments in 
 
 | Stage | What is canonical |
 |---|---|
-| **Now (this PR)** | **Appendix B is the canonical *logical* contract.** `asxos/domain/decision_engine/types.py` is **preserved only on the draft PR #81 branch and is not on `main`** — it is the selected design, not a canonical artifact. |
+| **At ratification (2026-08-10)** — *superseded 2026-08-12; retained as the dated record* | **Appendix B is the canonical *logical* contract.** `asxos/domain/decision_engine/types.py` is **preserved only on the draft PR #81 branch and is not on `main`** — it is the selected design, not a canonical artifact. |
 | **On merge of a later reviewed prototype/adoption PR** | `types.py` (as amended per B.3) becomes the **executable canonical contract**. |
+| **Now (from 2026-08-12)** | ✅ **That merge condition is MET.** The reviewed engine merged to `main` at commit **`7aa8507`** (PR #87), so `asxos/domain/decision_engine/types.py` **is** the executable canonical contract. Appendix B remains authoritative for artifact inventory, mandatory fields and the ruled semantic tables — see the **B.4 boundary clause**. |
 
-**Do not describe `types.py` as already canonical on `main`.** It is not on `main`. Until the
+~~**Do not describe `types.py` as already canonical on `main`.** It is not on `main`. Until the
 adoption PR merges, any implementation question resolves against Appendix B, not against the
-branch-only prototype.
+branch-only prototype.~~ **SUPERSEDED 2026-08-12 by commit `7aa8507` (PR #87)** — retained rather
+than deleted, because it was correct from ratification until that merge. `types.py` **is** on
+`main` and **is** the executable canonical contract; implementation questions now resolve through
+the **B.4** boundary clause below, which states which source governs which kind of question.
 
 Rationale for selecting the design: it is the only one of the three that is executable, tested, and
 enforces its own invariants — content hashing, the `known_at <= knowledge_cutoff` gate,
@@ -1382,6 +1398,50 @@ belongs in this PR.**
    | *(no state)* | GOOD HOLD — the absence of a live packet on a held position |
 
    `GOOD HOLD` deliberately has no `recommendation_state`: it is the steady state, not a decision.
+
+### B.4 — Boundary clause: which source governs which question (James, 2026-08-12)
+
+**Governor ruling, 2026-08-12 — option (c), the hybrid.** Appendix B is not demoted to history by
+the adoption merge, and `types.py` is not merely an implementation of it. The two are authoritative
+over *different questions*:
+
+1. **B.2's merge condition is MET** as of commit **`7aa8507`** (PR #87), so
+   `asxos/domain/decision_engine/types.py` **is** the executable canonical contract.
+2. **Appendix B remains authoritative for:** which artifacts exist; which fields are mandatory; and
+   the ruled semantic tables — B.3's state→verdict map, F3's evaluation horizons and expiry
+   defaults, F4's five universal gates, and the **no-fourth-definition** rule.
+3. **`types.py` is authoritative for:** validator strictness, the hashing scheme, temporal
+   enforcement, and internal structure.
+4. **Amendment rule:** adding or removing a **field**, or a **row in a ruled table**, is a
+   **governor amendment** to this appendix. **Tightening a validator is not.** PR #87 did both —
+   its added fields are ratified into B.1 above by this same 2026-08-12 ruling, and any future
+   field or ruled-row change needs a fresh one.
+
+Where the two ever conflict inside the other's domain, the owner above wins and the loser is a
+defect to be fixed — not a fourth definition to be tolerated.
+
+**This clause resolves the source-of-truth question only. It authorises no implementation**; every
+stage still requires its own approved work order (§15), and the merged engine remains read-only and
+synthetic.
+
+### B.5 — Pre-approved amendment (James, 2026-08-12): `DecisionBrief` real-data mode
+
+`DecisionBrief` pins `mode: Literal["synthetic_prototype"]` (`types.py:686`) and its validator
+rejects any case whose evidence is not synthetic (`:700-701`). That is correct for the adopted
+read-only engine, and it is the reason the merged contract cannot silently render real evidence.
+
+**James has PRE-APPROVED widening `mode` to admit a real-data brief** — recorded here so the change
+does not need a second governor decision when it is built. Conditions:
+
+- **It is implemented inside the queued ASX results-review mission**, where it has a real consumer
+  and tests — not as an isolated contract edit. A widened `mode` with no consumer is an
+  unexercised capital-path surface.
+- **The synthetic/real non-mixing invariant must be preserved.** A brief may be all-synthetic or
+  all-real; one brief must never mix the two, and a synthetic case must never become renderable as
+  real evidence. The current validator's *intent* survives the widening — only its single-mode
+  literal is lifted.
+- B.4 still applies: this is a **field-domain change**, so it is a governor amendment —
+  pre-approved here for this one change, not delegated in general.
 
 ---
 
@@ -1500,6 +1560,16 @@ retired — that correction is itself part of the later work order, not Stage 0.
 
 A tested research-to-decision prototype is preserved on the draft PR #81 branch. It is not on
 `main`, is not adopted, and is not in production.
+
+> **SUPERSEDED 2026-08-12 by commit `7aa8507` (PR #87).** The paragraph above is retained as the
+> record of the position from 2026-08-10 until the adoption merge; it is no longer true. PR #87 is
+> the "separately reviewed PR" that F7 below requires: the reviewed engine was adopted from the
+> preserved #81 snapshot onto a fresh branch from `main` and merged, so
+> `asxos/domain/decision_engine/types.py` **is on `main`, is adopted, and is the executable
+> canonical contract** (B.2/B.4). PR #81 itself was closed as superseded on 2026-08-11 with its
+> branch `claude/decision-engine-prototype` @ `c6ff3c3` retained
+> (`docs/session-handoff-2026-08-11.md:119`). What has **not** changed: the adopted engine remains
+> **read-only and synthetic** — no real-data path, no capital path (see B.5).
 
 | Path | Content |
 |---|---|
@@ -1833,7 +1903,13 @@ marker was ever written or described; the governor wrote the marker after the lo
 
 ### I.2 — Adoption blockers (disclosed on PR #81)
 
-Ten findings, all open. **These are adoption blockers, not preservation blockers.**
+Ten findings, **all CLOSED as of commit `7aa8507` (PR #87)** — the architect verified each against
+the merged code on 2026-08-12. **These are adoption blockers, not preservation blockers.**
+
+> **Read the list below as the PR #81 disclosure record, not as the state of `main`.** It is
+> preserved verbatim (it was accurate on 2026-08-10) and deliberately not rewritten. The
+> requirements that closed it are folded into **B.1** above and governed by **B.4**; finding 10's
+> five B.3 amendments are likewise closed by the same merge.
 
 1. A **blocking/revise challenge can still accompany `initiate`**.
 2. An **unknown constraint can still permit capital deployment**.
@@ -1851,3 +1927,4 @@ Ten findings, all open. **These are adoption blockers, not preservation blockers
 
 Findings 1, 2 and 7 are the capital-safety ones: each would let an artifact that should have been
 stopped appear actionable.
+
