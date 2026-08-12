@@ -1,6 +1,6 @@
 # ASXOS outcome engine and Arbi second-brain execution plan
 
-**Status:** proposed planning packet; not canonical queue or execution authority
+**Status:** queued after existing remediation by James on 2026-08-12; planning authority only
 **Prepared:** 2026-08-12 (Australia/Brisbane)
 **Observed repository base:** `main@8037137e3de3dfd576d51fb0905adbf5ffe7f2b1`
 **North star:** `docs/product/target-architecture.md`
@@ -17,8 +17,10 @@ a useful brief, and an outcome-learning loop. It gives the Arbi second brain the
 an architecture, bounded missions, typed artifacts, acceptance evidence, and a sequenced backlog.
 
 It deliberately does not amend authority, apply a migration, create credentials, mutate
-production, produce a capital instruction, or create a competing roadmap. After James ratifies a
-work order, the selected item must be reduced into `roadmap-state.md` as the one live next action.
+production, produce a capital instruction, or create a competing roadmap. James placed this
+programme after the existing remediation queue on 2026-08-12. That placement does not grant a
+blanket implementation window: when the entry gate clears, Arbi must select one work order into
+`roadmap-state.md` as the one live next action and apply the existing mission gates.
 
 ---
 
@@ -109,6 +111,21 @@ Every implementation mission must re-freeze its base SHA and live probes before 
 Repository observations in this packet are evidence at `8037137`, not permanent facts. A live
 claim without `observed_at`, source, and unavailable/error state is not admissible second-brain
 input.
+
+### 2.4 Queue placement
+
+James queued this programme after the existing remediation work on 2026-08-12. The entry gate is:
+
+1. every live remediation/defect row ahead of this programme is completed, explicitly deferred by
+   James, or superseded with cited evidence;
+2. merged fixes have their required production or scheduled-run observations recorded;
+3. `roadmap-state.md` is refreshed against the then-current `main` and live probes; and
+4. `/arbi` selects exactly one unblocked item from this packet as THE ONE THING.
+
+The default first item after that gate is `P1-01`. The default next candidate is `SB0-01`.
+Parallel execution requires a direct James instruction naming both mission IDs. Detailed order and
+proof requirements live in sections 6-8 of this packet; they are referenced by the canonical
+roadmap rather than copied into another backlog.
 
 ---
 
@@ -718,7 +735,52 @@ For every selected item:
 
 ### First dispatch package
 
-Do not run these until James has ratified the selected item into the canonical queue.
+Do not run these until the existing-remediation entry gate in section 2.4 is closed and Arbi has
+selected the named item into the canonical queue.
+
+Programme intake prompt for Claude Code:
+
+```text
+Act as the bounded ASXOS implementation executor. Do not redesign the programme.
+
+Read, in authority order:
+1. CLAUDE.md
+2. docs/product/arbi-constitution.md
+3. docs/product/arbi-authority.md
+4. docs/product/arbi-permission-model.md
+5. docs/product/target-architecture.md, including Errata 0 and Appendix F
+6. docs/product/roadmap-state.md
+7. docs/proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md
+8. docs/product/runbooks/claude-execute.md
+
+First re-freeze current main, open PR/task state, executing workflows, required observations, and
+the live remediation rows that precede this programme. Do not trust the proposal's dated base SHA
+as current state.
+
+Preserve every existing higher-priority task. If any entry-gate item in plan section 2.4 remains
+open, do not begin the programme. Return WAITING with the exact open item, source, owner, and proof
+needed to close it. Keep the programme queued after those items and make no speculative code edit.
+
+When and only when the entry gate is evidenced closed:
+- run /arbi to refresh state and select exactly one packet item as THE ONE THING;
+- default to P1-01 unless a newer James ruling changes the order;
+- run arbi-red-team on the exact mission envelope;
+- use /arbi-team for P1-01 and the routing rules in the plan for later items;
+- create a scoped claude/<mission-slug> branch from current main;
+- execute only that mission's declared scope and acceptance checks;
+- run the required tests and independent reviews;
+- commit, push, and open or update one draft PR;
+- emit the MissionReceipt and stop.
+
+Do not start the next programme item in the same invocation. The next item becomes eligible only
+after James handles the PR, the mission's required runtime/user outcome is observed, /arbi-close
+records it, and a fresh /arbi selects the next item.
+
+Mandatory stops: credentials or secret creation; destructive DB operations; migration apply;
+production mutation or deployment; scheduler cutover; direct main push; PR ready/merge/auto-merge;
+self-merge; authority or permission change; Model A in a decision basis; personalised financial
+instruction; broker action; or real capital execution. Report the exact blocker instead.
+```
 
 Recommended first Claude Code mission:
 
@@ -828,5 +890,6 @@ evidence work.
 5. Select the first real ordinary ASX equity case only after P2 and Stage 3 admission criteria are
    ready. The plan should not hard-code a ticker now.
 
-Until those rulings, this file is a reviewed planning candidate. Claude Code may inspect it, but it
-must not infer implementation authority from its presence on a branch or on `main`.
+Queue placement is approved; individual execution remains work-order gated. Claude Code may
+inspect this file, but it must not infer implementation authority from its presence on a branch or
+on `main`.

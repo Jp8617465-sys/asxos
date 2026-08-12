@@ -70,10 +70,11 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 
 ## Current proposed execution programmes (reference-only; not the live queue)
 
-- `proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md` — candidate
-  two-lane programme for the outcome engine and Arbi second brain. It sequences bounded work orders
-  and a Claude Code handoff; it grants no implementation or authority change. An approved item must
-  still be reduced into `product/roadmap-state.md` as the one live next action.
+- `proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md` — two-lane
+  programme for the outcome engine and Arbi second brain, queued by James after the existing
+  remediation work on 2026-08-12. It sequences bounded work orders and a Claude Code handoff; it
+  grants no blanket implementation or authority change. `product/roadmap-state.md` retains the
+  canonical queue and activates one packet item at a time.
 - `proposals/asxos-research-to-decision-live-slice-brief-2026-08-10.md` — prototype evidence and
   the bounded read-only real-data adapter recommendation; the prototype was later adopted by PR #87.
 - `proposals/arbi-outcome-programme-convergence-sprint-2026-08-08.md` — pre-Stage-0 convergence
