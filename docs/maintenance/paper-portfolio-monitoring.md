@@ -38,7 +38,11 @@ it replays the entered positions forward against realised `prices`, and reports:
 - per-position return, P&L and contribution; sector attribution
 - hit rate, average winner / loser, payoff ratio
 - max drawdown, annualised realised volatility, one-way turnover
-- performance bucketed by `signal_label`, `prob_up`, and `expected_return`
+- ~~performance bucketed by `signal_label`, `prob_up`, and `expected_return`~~
+  **— SUPERSEDED 2026-08-13 (`P1-05`).** These are Model A output columns on a table that
+  **no longer has a writer**: `asxos/domain/signals/writer.py` was deleted by mission `P1-02`.
+  This bucketing can still run over historical rows, but it is a **reporting axis over a shelved
+  engine**, not a live performance dimension. It is retained as a dated capability record.
 - estimated transaction costs (configurable bps — an **assumption**, not measured)
 - explicit missing-data events (no silent forward-fill)
 
@@ -122,8 +126,29 @@ Not scheduled. To run weekly after `build_portfolio`, add a Render cron invoking
 
 ## What this does NOT establish
 
-Realised paper P&L is not statistical evidence of alpha. `expected_return` is
-uncalibrated (treat `prob_up` as the conviction signal). The v1 allocator is
+Realised paper P&L is not statistical evidence of alpha. ~~`expected_return` is
+uncalibrated (treat `prob_up` as the conviction signal).~~ The v1 allocator is
 risk-blind to market-wide co-movement. See `.claude/rules/portfolio-conventions.md`
 and the alpha-research audit (Prompt 2) for the validation work that *would*
 establish edge.
+
+> **⛔ CORRECTED IN PLACE — 2026-08-13, mission `P1-05`.** The struck sentence told the reader to
+> **treat `prob_up` as the conviction signal.** **Do not.** That advice is not merely stale, it is
+> **inverted**: the 2026-07-11 decay analysis measured `corr(ml_prob, 21d return) = −0.03` over
+> **19,032 matured signals**, with STRONG_BUY returning **−0.09%** at 21d against HOLD's
+> **+5.07%** — conviction is inverted **at the top**, which is precisely where this sentence
+> directs attention. Following it would rank a paper book by a quantity that is anti-correlated
+> with the outcome it claims to predict.
+>
+> James **shelved the ML engine** the same day (`docs/product/ml-engine-shelf-2026-07-11.md`) and
+> CLAUDE.md rule **#11** bars Model A output from any real capital decision. As of mission
+> `P1-02` (2026-08-13) the `signals` table has **no writer at all**.
+>
+> **Why this line survived every earlier sweep:** it asserts Model A trustworthiness using only
+> the tokens `prob_up` / `expected_return`, so the token-driven denominator behind
+> `docs/product/model-a-reference-manifest.md` is **structurally blind to it**. Found by `SB0-01`
+> (`docs/product/doc-truth-map-2026-08-13.md` §6.1), corrected here.
+>
+> **The rest of this section stands unchanged and is the reason the doc is kept:** realised paper
+> P&L is still not evidence of alpha, and the v1 allocator is still risk-blind to market-wide
+> co-movement. Those two cautions are model-independent and remain live.
