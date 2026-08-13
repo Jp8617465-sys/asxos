@@ -70,8 +70,53 @@ ruling on 2026-08-12; this section is the amendment.
 **Ruling.** Execute the Model A retirement lane first, then the results-review slice, then the
 programme executor, then the memory-consolidation pair. `P1-01` is the first work order.
 `SB0-01` remains the default next second-brain candidate. One PR-bounded mission per invocation;
-no mission proceeds until its predecessor is merged, observed where required, and closed through
-`/arbi-close`.
+~~no mission proceeds until its predecessor is merged, observed where required, and closed through
+`/arbi-close`.~~ **— amended 2026-08-13, see Amendment A.**
+
+#### Amendment A — stacked successor branches (James, 2026-08-13)
+
+Drafted in `docs/proposals/arbi-automation-amendment-pack-2026-08-13.md` and **ruled by James on
+2026-08-13** ("take amendment A"). It replaces only the struck clause above; every other part of
+the `GOV-01` ruling stands.
+
+> A successor mission may proceed on a *stacked* `claude/**` branch whose PR base is its
+> predecessor's branch, **before** the predecessor is merged, provided each work order remains one
+> branch and one draft PR, `arbi-red-team` and `/arbi-close` still run per mission, and the merge
+> order remains strictly `P1-01` → `P1-02` → `P1-03` → `P1-04` → `P1-05` → `SB0-01`. **Merge, ready
+> and un-draft remain James-only.** If a predecessor PR is closed unmerged, every stacked
+> descendant is abandoned rather than re-based.
+
+**What this changes:** work continues while James sleeps. **What it does not change:** he reviews
+exactly what he reviewed before, in the same order, and no merge authority moves — the campaign
+loop still cannot merge, un-draft, or self-approve.
+
+**Mechanical obligations this creates for the executor.** James squash-merges (measured: every
+`origin/main` commit has one parent and a `(#N)` subject, and merged branch tips are not ancestors
+of `main`). On a squash-merge GitHub retargets the child PR's base to `main` automatically, but the
+child's *history* still carries the parent's commits. The executor must therefore:
+
+1. **Detect** — `git merge-base --is-ancestor <parent-tip> origin/main` exits 1 (squash, repair
+   needed) vs 0 (true merge, no repair); and `--is-ancestor <parent-tip> <child-branch>` exits 0
+   while the child still carries them.
+2. **Repair** — `git rebase --onto origin/main <fork-point> --empty=drop`, which drops the parent's
+   now-duplicated commits.
+3. **Guard before pushing** — `git rev-list --count origin/main..HEAD` **must be ≥ 1**. A
+   force-push that leaves head == base **auto-closes the PR** (the #29 incident,
+   `docs/product/memory/working/2026-07-14-pr-transaction-discipline.md`). If the count is 0, do
+   not push; stop and hand back.
+4. **Push** with `--force-with-lease` (never bare `--force`) to the child's own `claude/**` branch —
+   permitted by `push-guard.sh`, which only guards `main` — then immediately re-read the PR's state,
+   base and changed-file count.
+5. **Cascade in order** — if two levels merge at once, repair bottom-up, one branch at a time. A
+   parent force-push orphans every descendant not yet rebased onto the new tip.
+6. **Conflicts stop the loop.** `git rebase --abort`, do not push, report the conflicting paths.
+   Never resolve a conflict against James's edit unattended.
+
+**Known interaction, not yet resolved:** `unattended-guard.sh` denies *every* force-push under
+`ARBI_UNATTENDED=1`, including to `claude/**` — so stacking and unattended operation are currently
+mutually exclusive. Amendment C in the pack narrows that to permit `--force-with-lease` on
+`claude/**`; it is **not** part of this ruling and is only needed if James later wants the loop
+running with no session open.
 
 **Alias mapping — session task numbers are NOT a second queue.** Per the packet (§2.4), Claude
 Code's session-local task numbers are execution aliases only; the canonical identity is the packet
