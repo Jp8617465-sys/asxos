@@ -1,10 +1,16 @@
 # Model A reference manifest — the retirement contract
 
-**Status:** current · frozen contract for mission P1-02
+**Status:** current · frozen contract for mission P1-02 · **reconciled 2026-08-13 by mission
+P1-05** against the merged P1-02/03/04 tree — see
+[P1-05 reconciliation](#p1-05-reconciliation--2026-08-13)
 **Scope:** every Model A reference in the repo, classified so that P1-02 (remove runtime/API/job
 dependencies) can proceed without silently disarming rule #11
 **Last verified:** 2026-08-13 against pinned base SHA `fad62159f5d6585588d47bbac763687da55f0002`
 (`origin/main`, observed 2026-08-12T21:29:56Z)
+**Re-verified:** 2026-08-13 by mission P1-05 against
+`6327a61793927b078d69460562477a04751257ae` (`origin/main`, after PR #100 `P1-02`, #101 `P1-03`,
+#102 `SB0-01`, #103 `P1-04`, #104 `P2-01`). **Every `ENFORCEMENT_KEEP` citation was re-checked
+line by line**; corrections are marked `CORRECTION (P1-05 reconciliation, 2026-08-13)` in place.
 **Produced by:** mission P1-01 — exploration + contract-freeze. **No retirement edits were made;
 this file is the only file the mission created or changed.**
 **Challenged:** 2026-08-12 by an independent `security-engineer` review. **Seven corrections plus
@@ -13,7 +19,82 @@ one framing softening were applied in place**, marked `CORRECTION (independent c
 [Independent challenge](#independent-challenge--security-engineer-review-2026-08-12) for the
 verification record and what the review confirmed unchanged.
 **Owner:** arbi maintains; James governs the retirement decision
-**Superseded by:** N/A
+**Superseded by:** N/A as a whole. Two *sections* are superseded: **Finding 2's `make check-drift`
+remedy** (by `docs/product/scheduler-inventory-2026-08-13.md`, mission P1-03) and **the S1 counts**
+(now dated historical measurements — see the S1 section).
+
+---
+
+## P1-05 reconciliation — 2026-08-13
+
+> **Read this before trusting any `file:line` citation below.** Missions P1-02 (#100) and
+> P1-04 (#103) moved code. This section is the verification record; the corrected citations are
+> applied inline in the rows themselves.
+
+### What was re-verified, and the result
+
+| Row | Cited site | Result at `6327a61` |
+|---|---|---|
+| **E1** | `build.py:184-189` | **MOVED → `:209-214`.** Corrected in all four places it appears. The block itself is byte-identical: P1-04 deliberately left it untouched and added a `DO NOT DELETE` comment above it naming this manifest row. |
+| **E2** | `production_gate.py:47-87` | **Unchanged** — `:47` is still `def resolve_production_model`; the file is exactly 87 lines. |
+| **E3** | `production_gate.py:20-34` | **Unchanged** — `:20` is still `class ModelGateDormant(RuntimeError):`; its docstring closes at `:34`. |
+| **E4** | `job_monitor.py:124-134` | **Unchanged** — `:131-132` still map `ModelGateDormant` → `'blocked'`. |
+| **E5** | `decision_engine/types.py:56-62` | **Unchanged** — `_MODEL_A_RE` still opens at `:56`. |
+| **E6** | `decision_engine/types.py:524-528` | **Unchanged** — the `quarantined from the decision basis` raise is still `:528`. |
+| **E7** | `decision_engine/types.py:45-53` | **Unchanged** — `UNIVERSAL_CONSTRAINTS` at `:45`, `"model_a_quarantine"` at `:48`. |
+| **E8** | `decision_engine/types.py:631-635` | **Unchanged** — the exactly-once/blocking/pass check still at `:634-635`. |
+| **E9** | `theses/schemas.py:216,227,263,338,380,388` | **Unchanged** — file untouched. (`:216` carries `Model A`, not `monitor_only`, which is why a `monitor_only`-only grep appears to miss it. It is correct as cited.) |
+| **E10** | `theses/discipline.py:15-24` | **Unchanged.** |
+| **E11** | `screening/types.py:10` | **Unchanged.** |
+| **E12** | `decision_engine/demo.py:256-261, 492-497` | **Unchanged.** |
+| **E13** | `scripts/alpha_eval.py:33,93` | **Unchanged.** |
+| **E14** | `research/alpha_loader.py:32-61, :24, :69` | **Unchanged.** |
+| **E15** | `research/alpha_eval.py` | **Unchanged.** |
+| **T1** | `test_production_gate.py:33-40, 42-49, 52-62` | **Unchanged.** |
+| **T2** | `test_portfolio_build.py:64-67, 70-83` | **MOVED and EXTENDED** — see the corrected T2 row. |
+| **T3** | `test_job_monitor.py:23, 101, 112-113` | **Unchanged.** |
+| **T4** | `test_decision_engine_prototype.py:357-378, …` | **Unchanged.** |
+| **T5** | `test_screening_evaluator.py:115-133` | **Unchanged.** |
+| **T6** | `test_thesis_discipline.py:302-336` | **Unchanged.** |
+| **T7** | `test_thesis_proposal_schema.py:126-137, 243-256` | **Unchanged.** |
+| **T8** | `test_thesis_service.py:938-951` | **Unchanged.** |
+| **T9** | `test_brief_compose.py:548-578, 582-607, 139-166, 644` | **SUBJECT REMOVED; REWRITTEN by P1-04** — see the corrected T9 row. |
+| **T10** | `test_active_theses_signals.py:105-115, 117-129, 49` | **SUBJECT REMOVED; REWRITTEN by P1-04** — see the corrected T10 row. |
+
+**Method.** `git diff --stat fad6215 HEAD -- asxos/ tests/ jobs/ scripts/ models/` produced the
+changed-file set; every `ENFORCEMENT_KEEP` file *outside* that set is unchanged by construction
+and its citations hold without re-reading. The four that were *inside* it (`build.py`,
+`test_portfolio_build.py`, `test_brief_compose.py`, `test_active_theses_signals.py`) were read
+directly and re-cited. **13 of 15 code rows and 8 of 10 test rows needed no correction.**
+
+### The structural finding P1-05 wants on the record
+
+**T9 and T10 did not merely move — their subject stopped existing.** Both asserted a
+*conditional* property: *under a quarantine (0 or >1 approved models), the display path skips its
+Model A surface.* P1-04 removed the display path's model gate outright, so "what does it do under
+a quarantine" is no longer a question that can be asked of that code. Their replacements assert
+the **unconditional** property — the composer and the collector issue **no** `model_versions`
+query and **no** `signals` query in *any* gate state — which is strictly stronger and, unlike the
+original, cannot be satisfied by a gate that is still present but mis-wired.
+
+That is the right direction of travel, and it carries a documentation consequence worth naming:
+**a manifest row whose *assertion* was replaced cannot be reconciled by editing a line number.**
+Both rows are rewritten below with the superseded citation retained in strike, so a reader
+working from an older copy sees the change rather than the original.
+
+### Cross-mission supersessions
+
+- **Finding 2's remedy is void.** It instructs P1-02 to run `make check-drift` before removing
+  R22/R24/R25. James ruled on 2026-08-12 that **Render was deleted** and explicitly forbade
+  probing it; mission P1-03 then answered Finding 2's question *without* the probe. See the
+  corrected Finding 2.
+- **Finding 3 is still OPEN** and is now formally P1-05's hand-off to James — see the corrected
+  Finding 3.
+- **The S1 counts are dated.** They are a measurement at `fad6215`, not a current state; the
+  corpus has since grown. Re-derived at `6327a61` in the S1 section.
+- **The denominator has confirmed false negatives.** SB0-01 (#102) found two capital-adjacent
+  docs asserting a live Model A path with **zero Model A tokens**. Recorded under
+  [Token-blind documentation](#token-blind-documentation--the-denominators-false-negatives).
 
 ---
 
@@ -21,8 +102,16 @@ verification record and what the review confirmed unchanged.
 
 Rule #11's **mechanical enforcement point contains zero Model A tokens.**
 
-`asxos/domain/portfolio/build.py:184-189` is the code that actually stops Model A from reaching
-real capital. It queries `model_versions WHERE is_active = TRUE AND approved_for_allocation =
+`asxos/domain/portfolio/build.py:209-214` is the code that actually stops Model A from reaching
+real capital.
+
+> **CORRECTION (P1-05 reconciliation, 2026-08-13).** This citation read `build.py:184-189` — the
+> location at `fad6215`. Mission P1-04 (#103) removed the `FROM signals` candidate query that sat
+> immediately below the gate and replaced it with a call into
+> `asxos/domain/portfolio/candidates.py`, shifting the gate down 25 lines. **The gate block itself
+> is byte-identical** — P1-04 left it deliberately untouched and added a `DO NOT DELETE` comment
+> above it that names this manifest row. A stale citation on *this* row is the worst possible
+> staleness in this document, since it is the row every other mission is told to protect. It queries `model_versions WHERE is_active = TRUE AND approved_for_allocation =
 TRUE` and passes the result to `resolve_production_model()`, which raises `ModelGateDormant` on
 zero approved rows. Because `approved_for_allocation` was revoked for `model_a`/`v1_5` on
 2026-07-11, that query returns **0 rows** and the allocator **refuses to run**. That is the
@@ -75,6 +164,34 @@ git grep -cE 'model_a|Model A|MODEL_A|model-a' fad62159f5d6585588d47bbac763687da
 **S1 = 207 files / 989 matching lines** at the pinned SHA. (`git grep -c` counts matching
 *lines*, not occurrences; a line with two matches counts once.)
 
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — every count in this section is a DATED
+> HISTORICAL MEASUREMENT, not current state.** They are correct **at `fad6215` only** and are
+> retained as the frozen baseline the CI assertion was specified against. Re-derived at
+> `6327a61793927b078d69460562477a04751257ae` (`origin/main`, post-P1-02/03/04):
+>
+> | Pattern | At `fad6215` (frozen baseline) | At `6327a61` (P1-05 re-derivation) | Δ |
+> |---|---:|---:|---:|
+> | Loose — files | 207 | **210** | **+3** |
+> | Loose — lines | 989 | **1,166** | **+177** |
+> | Boundary-aware — files | 203 | **207** | **+4** |
+> | Boundary-aware — lines | 969 | **1,143** | **+174** |
+>
+> **The count went UP while the retirement was executing, and that is not a regression.** P1-02
+> deleted seven Model-A-consuming modules and three jobs, yet the corpus grew — because
+> `P1-01`…`P1-05` and `SB0-01` *themselves* wrote ~2,800 lines of new prose whose subject is
+> Model A: this manifest (1,074 lines), `doc-truth-map-2026-08-13.md`,
+> `scheduler-inventory-2026-08-13.md`, and `finance-capability-matrix-2026-08-13.md`. Per-area,
+> `docs/` went 99 files / 524 lines → **106 files / 767 lines** while `asxos/` went 26 → **25
+> files** and `jobs/` went 6 → **3 files**.
+>
+> **The consequence for the CI assertion is direct and was not anticipated by the original
+> design.** A tripwire whose trip condition is "the token count rose" would have fired on the
+> retirement's own paperwork. The assertion must be **allowlist-difference**-based (a *new
+> unallowlisted file* appeared), never count-based — and the allowlist must cover the retirement's
+> own artifacts. `docs/product/` is **not** a directory prefix in the drafted allowlist, so all
+> four new documents above are currently unallowlisted survivors, on top of the 56 the independent
+> challenge already measured. See [Allowlist completeness](#allowlist-completeness--measured-not-estimated).
+
 ### Why not filesystem grep
 
 | Method | Files | Lines |
@@ -88,19 +205,28 @@ repo. Any count quoted from `grep -r` is not reproducible and must not be used.
 
 ### Per-area breakdown
 
-| Area | Files | Lines |
-|---|---:|---:|
-| `docs/` | 99 | 524 |
-| `tests/` | 32 | 217 |
-| `asxos/` | 26 | 99 |
-| `.claude/` | 27 | 79 |
-| `jobs/` | 6 | 33 |
-| `migrations/` | 7 | 17 |
-| root (`.env.example`, `CLAUDE.md`, `README.md`, `render.yaml`) | 4 | 13 |
-| `.github/` | 3 | 4 |
-| `scripts/` | 2 | 2 |
-| `models/` | 1 | 1 |
-| **Total** | **207** | **989** |
+**At `fad6215` (frozen baseline) · with the P1-05 re-derivation at `6327a61` alongside.**
+
+| Area | Files @`fad6215` | Lines @`fad6215` | Files @`6327a61` | Lines @`6327a61` |
+|---|---:|---:|---:|---:|
+| `docs/` | 99 | 524 | **106** | **767** |
+| `tests/` | 32 | 217 | 32 | **164** |
+| `asxos/` | 26 | 99 | **25** | 99 |
+| `.claude/` | 27 | 79 | 27 | 79 |
+| `jobs/` | 6 | 33 | **3** | **20** |
+| `migrations/` | 7 | 17 | 7 | 17 |
+| root (`.env.example`, `CLAUDE.md`, `README.md`, `render.yaml`) | 4 | 13 | 4 | 13 |
+| `.github/` | 3 | 4 | 3 | 4 |
+| `scripts/` | 2 | 2 | 2 | 2 |
+| `models/` | 1 | 1 | 1 | 1 |
+| **Total** | **207** | **989** | **210** | **1,166** |
+
+> **Reading the deltas (P1-05, 2026-08-13).** `jobs/` 6→3 and `asxos/` 26→25 are P1-02's
+> removals landing. `tests/` holds at 32 files but drops 53 lines: P1-02/04 deleted ML test
+> files while T9/T10's rewrites *added* model-independence assertions in the same files.
+> `docs/` +7 files / +243 lines is the retirement programme documenting itself. **The
+> `docs/` growth is the only line in this table that is not evidence of progress**, and it is
+> why the counts must not be read as a health metric.
 
 ### Precision caveat — the pattern over-matches
 
@@ -197,15 +323,15 @@ is the silent-weakening path this manifest exists to block.
 
 ### The seven token-blind sites (S1 cannot see these)
 
-| Site | Category | Why it matters |
-|---|---|---|
-| `asxos/domain/portfolio/build.py:184-189` | **ENFORCEMENT_KEEP** | **The rule #11 enforcer.** |
-| `asxos/domain/models/cache.py` | ACTIVE_REMOVE | The joblib artefact loader; also the *ungated* version resolver. |
-| `asxos/domain/signals/thresholds.py` | ACTIVE_REMOVE | The signal threshold ladder / `classify_batch`. |
-| `render.yaml:276-296` (`asxos-generate-signals`) | ACTIVE_REMOVE | The weekday cron that **produces** Model A signals. |
-| `asxos/cli/main.py:21` — `from asxos.cli.predict import predict` | ACTIVE_REMOVE (with R13) | **Added 2026-08-12.** Zero Model A tokens. Import-time chain into `joblib`; **the whole `asx` CLI dies if the `[ml]` extra goes first.** See Finding 4. |
-| `asxos/cli/signal.py:27`, `asxos/cli/journal.py:43`, `jobs/compute_opportunity_cost.py:47` | ADAPT | Three `FROM signals` readers. |
-| `tests/test_job_monitor.py:23,101,112` | **ENFORCEMENT_KEEP** | Pins `ModelGateDormant` → `'blocked'`. |
+| Site | Category | Why it matters | Status @`6327a61` |
+|---|---|---|---|
+| `asxos/domain/portfolio/build.py:209-214` (was `:184-189`) | **ENFORCEMENT_KEEP** | **The rule #11 enforcer.** | **KEPT, moved** (P1-05) |
+| `asxos/domain/models/cache.py` | ACTIVE_REMOVE | The joblib artefact loader; also the *ungated* version resolver. | **REMOVED** by P1-02 |
+| `asxos/domain/signals/thresholds.py` | ACTIVE_REMOVE | The signal threshold ladder / `classify_batch`. | **STILL PRESENT** — see the ACTIVE_REMOVE status column |
+| `render.yaml:276-296` (`asxos-generate-signals`) | ACTIVE_REMOVE | The weekday cron that **produces** Model A signals. | Declared-but-dead; disposed by P1-03 |
+| `asxos/cli/main.py:21` — `from asxos.cli.predict import predict` | ACTIVE_REMOVE (with R13) | **Added 2026-08-12.** Zero Model A tokens. Import-time chain into `joblib`; **the whole `asx` CLI dies if the `[ml]` extra goes first.** See Finding 4. | **REMOVED** by P1-02 |
+| `asxos/cli/signal.py:27`, `asxos/cli/journal.py:43`, `jobs/compute_opportunity_cost.py:47` | ADAPT | Three `FROM signals` readers. | **ALL THREE STILL READ `FROM signals`** |
+| `tests/test_job_monitor.py:23,101,112` | **ENFORCEMENT_KEEP** | Pins `ModelGateDormant` → `'blocked'`. | **KEPT, unchanged** (P1-05) |
 
 > **CORRECTION (independent challenge, 2026-08-12).** This table listed six sites. The seventh
 > (`asxos/cli/main.py:21`) was missed because R14 cites `asxos/cli/main.py:17,46` — the `model_app`
@@ -221,7 +347,7 @@ is the silent-weakening path this manifest exists to block.
 
 | # | Site | Tok | What it enforces | What breaks if removed |
 |---|---|---:|---|---|
-| **E1** | `asxos/domain/portfolio/build.py:184-189` | **0** | The allocator's `model_versions WHERE is_active AND approved_for_allocation` query + `resolve_production_model(model_rows)` at `required=True` | **Rule #11 loses its teeth.** This is the single point where a revoked approval becomes a refusal to allocate. Delete it and the allocator runs against whatever candidate source replaces signals with no approval gate at all. |
+| **E1** | `asxos/domain/portfolio/build.py:209-214` ~~`:184-189`~~ | **0** | The allocator's `model_versions WHERE is_active AND approved_for_allocation` query + `resolve_production_model(model_rows)` at `required=True` | **Rule #11 loses its teeth.** This is the single point where a revoked approval becomes a refusal to allocate. Delete it and the allocator runs against whatever candidate source replaces signals with no approval gate at all. |
 | **E2** | `asxos/domain/models/production_gate.py:47-87` | 3 | `resolve_production_model()` — the gate condition and both hard-fail messages, in one place | The gate condition disappears; `build.py` and any future consumer drift apart on the invariant. The `required=True`/`required=False` split (risk-register R9) that lets the quarantine harden without breaking the brief is lost. |
 | **E3** | `asxos/domain/models/production_gate.py:20-34` | — | `class ModelGateDormant(RuntimeError)` — the *distinctly named* dormant exception | Dormancy becomes indistinguishable from a crash. `JobMonitor` can no longer classify it (E4), so the deliberate quarantine pages as `failure` — creating standing pressure to "fix" it by re-approving the model. |
 | **E4** | `asxos/jobs/utils/job_monitor.py:124-134` | 1 | Maps `ModelGateDormant` (by `exc_type.__name__`) to `job_runs.status='blocked'`, **not** `'failure'`; Healthchecks is not pinged for blocked runs | The weekly `build_portfolio` dormancy alerts every Saturday forever — the alert-fatigue failure mode that gets quarantines quietly reverted. |
@@ -275,6 +401,34 @@ is the silent-weakening path this manifest exists to block.
 > **Same file, two classifications.** `build.py:184-189` is `ENFORCEMENT_KEEP` (E1) while
 > `build.py:191-215` (the `FROM signals` fetch) is `ADAPT` (A1). **P1-02 must split this file at
 > the line level**, not delete or keep it wholesale.
+>
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — this split HAPPENED, and it is the single
+> best evidence that the E1/A1 distinction was the right call.** P1-04 (#103) did exactly what
+> this note demanded: the `FROM signals` fetch (A1) and its staleness hard-fails (A2) were lifted
+> out into `asxos/domain/portfolio/candidates.py` behind one seam that raises
+> `CandidateSourceUnavailable`, while **the gate above it was left byte-identical.** The gate is
+> now at **`build.py:209-214`**; the code that replaced A1/A2 is the
+> `load_allocation_candidates(...)` call directly beneath it.
+>
+> Three properties of the result are worth pinning, because they are what a future reader needs
+> and none of them is obvious from a diff:
+>
+> 1. **The gate no longer has a consumer for its return value's original purpose.** It resolved a
+>    model name so the signals query could filter `WHERE model = $1`. That query is gone, yet the
+>    gate still runs first and still hard-fails — `production_model` is now threaded into the
+>    unavailability message only. **This is deliberate**, is stated in `build.py`'s own comment,
+>    and is pinned by `test_model_gate_runs_before_the_candidate_source`. A future reader who
+>    notices the gate "isn't used for anything" and deletes it as dead scaffolding disarms rule
+>    #11 — that is precisely the failure this manifest exists to prevent, and it is now *more*
+>    likely than before P1-04, not less, because the gate's original justification has evaporated.
+> 2. **`candidates.py` is NOT rule #11's enforcement point** and its own module docstring says so
+>    in as many words. Two independent hard-fails now sit on the capital path (`ModelGateDormant`,
+>    then `CandidateSourceUnavailable`); **both must survive**, and satisfying the second does not
+>    substitute for the first.
+> 3. **`CandidateSourceUnavailable` is not yet in E4's `'blocked'` tuple** — a known, documented
+>    gap carried in `candidates.py`'s docstring. Latent only because E1 raises first while zero
+>    models are approved. It goes live the moment any model earns `approved_for_allocation`, and
+>    must be fixed **in the same change** that wires a real candidate source.
 
 ---
 
@@ -285,15 +439,38 @@ is the silent-weakening path this manifest exists to block.
 | # | Site | Tok | Load-bearing assertion | What breaks if removed |
 |---|---|---:|---|---|
 | **T1** | `tests/test_production_gate.py:33-40, 42-49, 52-62` | 8 | `pytest.raises(ModelGateDormant)` on 0 rows; `assert not isinstance(exc, ModelGateDormant)` on >1; `required=False` returns `None` | The 0-vs->1 exception-type split collapses. `ModelGateDormant` could degrade to a bare `RuntimeError` (breaking E4), or a >1 misconfig could be reclassified as "dormant" and stop paging. |
-| **T2** | `tests/test_portfolio_build.py:64-67, 70-83` | 2 | `pytest.raises(RuntimeError, match="approved_for_allocation")`; `match="multiple models"`; comment at `:8-13` pins gate-before-signals ordering | **The allocator's capital-safety hard-fail becomes untested.** `build()` could start silently picking an arbitrary model. This is E1's alarm. |
+| **T2** | `tests/test_portfolio_build.py:74-80, 83-95, 157-171, 174-211, 213-225` ~~`:64-67, 70-83`~~ | 2 | `pytest.raises(RuntimeError, match="approved_for_allocation")` (`:74-80`); `match="multiple models"` (`:83-95`); **NEW** `test_model_gate_runs_before_the_candidate_source` (`:157-171`) asserts the ordering *as a test* rather than a comment; **NEW** `test_candidates_module_is_model_independent` (`:174-211`) source-inspects `candidates.py` imports + AST-strips docstrings before scanning for `signals` SQL; **NEW** `test_build_issues_no_signals_query` (`:213-225`) walks every query `build()` actually issued | **The allocator's capital-safety hard-fail becomes untested.** `build()` could start silently picking an arbitrary model. This is E1's alarm. |
 | **T3** | `tests/test_job_monitor.py:23, 101, 112-113` | **0** | `pytest.raises(ModelGateDormant, match="approved_for_allocation")`; `assert update_call.args[1] == "blocked"` | **Highest-value blind spot.** `test_production_gate.py:36-38` names this file as the *reason* `ModelGateDormant` must stay a distinct type — the two are a mutually-referencing pair, and a token sweep keeps one and drops the other. |
 | **T4** | `tests/test_decision_engine_prototype.py:357-378, 380-400, 386-388, 292-297` | 15 | Parametrized rejection of `model_a`, `model_a_ml`, `model_a_v2`, `Model-A`, `model a`, `v1_5` → `match="quarantined"`; dropping `model_a_quarantine` → `match="Model A quarantine constraint"` | Model A could re-enter a decision brief's manifest unchallenged. **Single point of failure:** this is the *only* file testing `_MODEL_A_RE`, `UNIVERSAL_CONSTRAINTS`, and `verify_content_hash` — treat as non-retirable in full, do not prune test-by-test. |
 | **T5** | `tests/test_screening_evaluator.py:115-133` | 5 | Parametrized whitelist rejection of `signal_label`, `prob_up`, `expected_return`, `shap_factors` → `match="unknown field"` | The screening rule DSL's field whitelist loses its rule #11 coverage; a screen could reach ML columns. (Same test also carries the SQL-injection-via-field-name case.) |
 | **T6** | `tests/test_thesis_discipline.py:302-336` | 2 | `test_module_imports_are_model_independent` — reads `discipline.py`, asserts no import contains `signals`, `models`, `model_a`, `production_gate`, `shap`, `predict`, `cache` | E10's only mechanical enforcement. Without it the contract is docstring-only. |
 | **T7** | `tests/test_thesis_proposal_schema.py:126-137, 243-256` | 5 | `monitor_only=True` in a basis section → `ValidationError`; a Model A figure may never be `target_price`/`stop_price`/`entry_band_*` | A Model A number could become the actual trade lever inside a thesis. |
 | **T8** | `tests/test_thesis_service.py:938-951` | 2 | `pytest.raises(ValueError, match="monitor_only")` on `add_report_section` | The service write path could bypass `schemas._check_monitor_placement`; this test exists to prove reuse, not reimplementation. |
-| **T9** | `tests/test_brief_compose.py:548-578, 582-607, 139-166, 644` | 10 | 0 approved → brief renders, `regime is None`, `model_shelved is True`; >1 approved → `model_shelved is False` ("misconfig, NOT the shelf"); `:152-158` proves shelving doesn't suppress a genuine model-independent warning | Either the brief starts hard-failing under a standing quarantine (pressure to lift it), or model-derived sections leak through while quarantined. |
-| **T10** | `tests/test_active_theses_signals.py:105-115, 117-129, 49` | 12 | 0 approved → `status == SectionStatus.ok` and `"Model A:" not in message`; >1 approved → same skip | The display-only thesis card path could hard-fail, or keep printing a Model A driver line while quarantined. |
+| **T9** | `tests/test_brief_compose.py:203-215, 250-259, 262-281, 284-300, 303-316` ~~`:548-578, 582-607, 139-166, 644`~~ | 10 | **REWRITTEN by P1-04 — assertion replaced, not relocated.** `test_collect_never_queries_model_versions_or_signals` (`:676-726`) is parametrized over **zero / one / multiple** approved models and asserts collect() issues no `model_versions`, no `FROM signals`, no `shap_factors` query in *any* of the three; `test_brief_data_has_no_model_fields` (`:250-259`) asserts `regime`/`signal_changes`/`latest_signal_date`/`model_shelved` are **gone from the dataclass**, not merely unused; `test_compose_module_imports_are_model_independent` (`:262-281`) is a source-level import contract that matches `line.strip()` so a *function-local* re-import cannot slip past; `test_brief_template_source_has_no_model_references` (`:284-300`) reads the `.j2` directly; `test_rendered_brief_contains_no_model_vocabulary` (`:203-215`) renders four brief states | Either the brief starts hard-failing under a standing quarantine (pressure to lift it), or model-derived sections leak through while quarantined. |
+| **T10** | `tests/test_active_theses_signals.py:111-129, 131-139, 141-153` ~~`:105-115, 117-129, 49`~~ | 12 | **REWRITTEN by P1-04 — assertion replaced, not relocated.** `test_collector_issues_only_the_theses_query` (`:111`) asserts the collector's *entire* query set is the theses query; `test_no_model_vocabulary_on_any_card` (`:131`); `test_card_carries_no_trade_direction` (`:141`). Cards now carry a four-state review status (`asxos/domain/review/status.py`) in place of the Model A label. **The filename is retained deliberately** — the file's own docstring says so, because it is cited as T10 here and a rename would dangle this row | The display-only thesis card path could hard-fail, or keep printing a Model A driver line while quarantined. |
+
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — T9 and T10 are the two rows this
+> reconciliation could not fix by renumbering.** Their original assertion was *conditional*
+> ("under 0 or >1 approved models, the display path skips its Model A surface"). P1-04 deleted
+> the display path's model gate, so the condition has no subject: there is no configuration of
+> `model_versions` that re-enables a model surface, because no model surface remains. The
+> replacements assert the *unconditional* property instead — **no `model_versions` query and no
+> `signals` query in any state** — which is strictly stronger and cannot be satisfied by a gate
+> that is present but mis-wired.
+>
+> **What must not be lost in the swap.** The old T9 set included
+> `test_brief_compose.py:139-166`, which rendered real HTML and asserted the shelved-model
+> strings were absent — the mitigation the independent challenge identified for A6's
+> silent-`Undefined` failure mode. P1-04 did not merely keep that guard, it **closed the
+> underlying hole**: `compose.brief_env()` now passes `undefined=jinja2.StrictUndefined`, and
+> `test_template_environment_is_strict_about_undefined_names` (`:303-316`) asserts it on the real
+> environment `render_html` uses. **A6's silent-failure class is now structurally impossible in
+> this template, not merely covered by a string assertion.** That test is `ENFORCEMENT_KEEP` for
+> the same reason the rest of T9 is.
+>
+> **Both files remain non-retirable in full.** Neither carries a Model A *dependency* any more —
+> what they carry is the *proof of absence*, which is the only thing standing between a future
+> change and a silent reintroduction.
 
 ---
 
@@ -308,6 +485,59 @@ is the silent-weakening path this manifest exists to block.
 ---
 
 ### `ACTIVE_REMOVE` — live Model A consumption, deleted by P1-02/03/04 (25)
+
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — the heading overstates what happened.
+> P1-02/04 removed roughly half of this set; the other half is still on disk at `6327a61`.**
+> Verified by direct filesystem check, not by reading the PR descriptions.
+>
+> **REMOVED (10 rows):** R1 (`api/main.py` model warm) · R2/R3 (`domain/models/cache.py`, whole
+> file) · R4 (`domain/models/model_a.py`, whole file) · R11 (`domain/signals/writer.py`, whole
+> file) · R13 (`cli/predict.py`, whole file) · R13b (`cli/main.py:21,37`) · R15
+> (`jobs/generate_signals.py`) · R17 (`jobs/check_model_staleness.py`) · R18
+> (`jobs/track_signal_outcomes.py`).
+>
+> **STILL PRESENT (11 rows) — the training chain and the artefacts:** R5
+> (`domain/models/train.py`) · R6 (`training_config.py`) · R7 (`validation.py`) · R8
+> (`metadata.py`) · R9 (`domain/signals/feature_engine.py`) · R10 (`domain/signals/loader.py`) ·
+> R12 (`domain/signals/thresholds.py`) · R14 (`cli/model.py`) · R16
+> (`jobs/retrain_model_a.py`) · R19 (all four `models/*.pkl`/`.json` artefacts) · R21
+> (`config.py:54` `healthcheck_url_retrain_model_a`). R22-R25 are `render.yaml` crons —
+> declared-but-dead, disposed by P1-03, and `render.yaml` is an authority path.
+>
+> **R26 is ALREADY DISCHARGED, and the row's premise was stale before P1-02 ran.** It cites
+> `README.md:22` as *"LightGBM Model A producing daily signals with inline SHAP factors"* — the
+> repo's front-door claim. That line now reads *"Model-independent by design: the ML signal engine
+> (\"Model A\") is shelved and quarantined from every capital decision."* **The front door was
+> corrected before this manifest was written**; the row records a claim that no longer existed at
+> `fad6215`. It still matches the S1 token — which is the correct outcome, since the sentence's
+> purpose is now to *state* the quarantine — so R26 should be **reclassified `ENFORCEMENT_KEEP`
+> in spirit** (an inverse-polarity reference, the same shape as E5-E8/E12) rather than deleted.
+> **Do not "finish" R26 by removing that sentence.**
+>
+> **Adjacent, out of scope, recorded so it is not lost:** `README.md:23-24` still describe *"Render
+> cron services driving the daily/weekly pipelines (see `render.yaml` for the authoritative
+> list)"* and *"MCP servers (Render, Supabase, GitHub)"*. Both are false — Render was deleted
+> 2026-08-12, and CLAUDE.md #2 states there is **no Render MCP**. That is `RENDER-RETIRE` scope,
+> owned by `P1-03`/`P3-01`, not a Model A reference. P1-05 leaves it to its owner rather than
+> widening this diff.
+>
+> **This remainder is coherent, not an oversight, and it is one connected component.**
+> `jobs/retrain_model_a.py` imports R5, R6, R7, R8, R9 and R10 directly; it is the only importer
+> of most of them. So the surviving set is *the training pipeline plus the artefacts it writes* —
+> exactly the part P1-02's brief did not cover (it removed **runtime/API/job dependencies**; the
+> retrain job is not on any runtime path and, per P1-03, is invoked by no executing workflow).
+>
+> **Two consequences P1-05 will not paper over:**
+>
+> 1. **R19 + `tests/test_model_artifact_contract.py` remain a same-commit constraint.** That test
+>    still reads the real `models/` directory with pure stdlib, so it runs in the sandbox lane.
+>    Deleting the artefacts without deleting the test in the same commit turns `make check` red.
+>    The constraint has not expired — it has simply not been reached yet.
+> 2. **The `[ml]` extra is still declared** (`pyproject.toml:42-47`, `lightgbm==4.5.0`,
+>    `joblib==1.4.2`). Finding 4's *ordering* hazard is **discharged** — R13/R13b are gone, so
+>    `asx` no longer imports `joblib` at startup — but the dependency itself survives because
+>    `jobs/retrain_model_a.py` still needs it. **Removing the `[ml]` extra is now gated on R5-R10
+>    and R16, not on the CLI.** Finding 4's step-5 precondition is therefore *not* satisfied.
 
 | # | Site | Tok | What it does |
 |---|---|---:|---|
@@ -375,6 +605,33 @@ counted as S2 sites because they carry no independent decision.
 ---
 
 ### `ADAPT` — must survive, rewritten model-independently (11)
+
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — status at `6327a61`.**
+>
+> **DONE (5):** **A1/A2** — lifted into `asxos/domain/portfolio/candidates.py`; the seam raises
+> `CandidateSourceUnavailable` and **nothing was substituted for the retired ranking**, which is
+> the correct outcome under packet P1's non-goals (no like-for-like model swap, no fallback
+> candidate set). **A3/A4** — `compose.py`'s gate call and all four `signals` reads are gone;
+> this closes cleanup-backlog **R6**. **A5** — the V2 `active_theses` collector is
+> model-independent and its cards render a four-state review status
+> (`asxos/domain/review/status.py`) in place of the Model A driver line. **A6** — all five
+> `model_shelved` references are gone from `brief.html.j2` *and* the field is gone from
+> `BriefData`; the prescribed **template-first, field-second** order was followed, and the
+> environment now uses `StrictUndefined` so the silent-failure class is closed structurally.
+>
+> **NOT DONE (4):** **A7** `asxos/cli/signal.py:27`, **A8** `asxos/cli/journal.py:43`, **A9**
+> `jobs/compute_opportunity_cost.py:47` — **all three still issue `FROM signals`.** They query a
+> table that **no longer has a writer** (R11 `signals/writer.py` was deleted by P1-02), so each
+> now reads a frozen historical table that can only get staler. That is a different and quieter
+> failure mode than the one this row was written for: not "a display leaks a live model figure"
+> but "a live surface silently presents indefinitely-ageing data as current." **A9 in particular
+> is a scheduled job**, so it will keep producing opportunity-cost numbers off a table nobody
+> writes. Cleanup-backlog **R4** is therefore still open, and its rationale has changed.
+> **A10** — the dated `check_cron_health` comments must stay until the crons are actually gone;
+> P1-03 disposed them on paper but `render.yaml` is unchanged.
+>
+> **A11** (`.github/workflows/targeted-ml-tests.yml`) is an authority path and is untouched. It
+> still gates ML tests whose subjects R5-R10/R16 still exist, so it is not yet retirable.
 
 | # | Site | Tok | Consumer | Proposed destination |
 |---|---|---:|---|---|
@@ -462,6 +719,33 @@ probe, out of P1-01's scope. **P1-02 must run `make check-drift` first** (Render
 `api.render.com/v1`, `$RENDER_API_KEY`) to establish whether these crons are live before removing
 anything. If they are live, R22/R24/R25 are a live-service removal, not a config cleanup.
 
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — FINDING 2 IS RESOLVED, AND ITS PRESCRIBED
+> REMEDY IS VOID. Do not run `make check-drift`.**
+>
+> **The remedy is void on governor authority.** James ruled on 2026-08-12 (authority ladder level
+> 0) that **Render was deleted**, and explicitly forbade requesting a key, probing, inspecting,
+> mutating or recreating it (`docs/product/roadmap-state.md:165`). `make check-drift` reconciles
+> against a platform that no longer exists. **Every instruction in this manifest to run it is
+> superseded** — the affected passages are the `render.yaml` authority note under `ACTIVE_REMOVE`,
+> this paragraph, the "Related" note below, and Limit #2.
+>
+> **The question it asked was nevertheless answered, without the probe.** Mission P1-03 (#101)
+> produced `docs/product/scheduler-inventory-2026-08-13.md`, now **the single authoritative
+> scheduler record, superseding `render.yaml` for every scheduling question.** It disposes all 29
+> declared services (20 ADOPTED into GitHub Actions · 6 RETIRE, five of them Model A · 3 DECIDE)
+> and **proves at `origin/main` that zero Model A jobs are invoked by any of the ten workflows** —
+> a grep for `generate_signals|retrain_model_a|check_model_staleness|track_signal_outcomes|compute_opportunity_cost`
+> across `.github/workflows/` returns no matches.
+>
+> **So Finding 2's worst case did not obtain.** The producer is not running unmonitored: it is not
+> running at all, and as of P1-02 `jobs/generate_signals.py` no longer exists to run. R22/R24/R25
+> are a **config cleanup of a dead manifest**, not a live-service removal — the opposite of what
+> this Finding warned P1-02 to prepare for.
+>
+> **What is left is a documentation hazard, not an operational one.** `render.yaml` remains
+> in-repo, still headed "source of truth", still declaring these crons. Removing it is the
+> `RENDER-RETIRE` scope owned by P1-03/P3-01 and needs the draft-PR route (authority path).
+
 Rule #11 is not violated either way — it bars *using* Model A output as a decision basis, not
 generating rows. But a producer running unmonitored, whose output no approved consumer reads, is
 exactly the drift this manifest exists to surface.
@@ -481,6 +765,28 @@ Retirement is a third state neither rubric anticipates, and both are read on eve
 If Model A is *removed* rather than *cleared*, rule #11 never "lifts" and these rubrics would
 keep a permanently-unsatisfiable P0 pinned. **Only James can amend these** (governance set —
 arbi may draft, not edit). Flagging as a P1-05 / governor dependency, not a P1-02 blocker.
+
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — this Finding is now OPEN AND OWNED, and it is
+> the one P1 item that cannot be closed by any mission.** Both files are governance-set authority
+> paths. P1-05 confirms the finding still holds verbatim at `6327a61` and hands it to James as a
+> drafted amendment; SB0-01 independently reached the same conclusion
+> (`docs/product/doc-truth-map-2026-08-13.md` §2.8).
+>
+> **The precise hazard, restated now that the retirement has actually happened.** Rule #11's
+> literal text conditions its own removal on *"a **new** model version passes a pre-registered
+> decay bar … AND earns `approved_for_allocation`"*. After a retirement there is no model, no
+> candidate successor, and — once R5-R10/R16 go — no training pipeline to produce one. The exit
+> condition becomes unreachable **in practice**, so a rubric that pins a P0 "until rule #11 lifts"
+> pins it forever. **The failure mode is not that the quarantine is too strong. It is that a
+> permanently-unsatisfiable P0 blocks the queue and creates standing pressure to "resolve" it —
+> and the cheapest way to resolve an unsatisfiable blocker is to weaken its condition.** That is
+> how a quarantine gets lifted by administrative fatigue rather than by evidence.
+>
+> **Rule #11 itself must not change, and P1-05 proposes no change to it.** Retirement
+> *strengthens* the quarantine — removing the code is a superset of refusing to use it. What
+> needs amending is the two rubrics' assumption that "lifted" is the only terminal state. The
+> drafted wording is in P1-05's report: the third state is **RETIRED**, which satisfies the
+> rubric's visibility requirement without asserting Model A was cleared.
 
 ### Finding 4 — the whole `asx` CLI transitively imports `joblib` (second removal-order constraint)
 
@@ -530,6 +836,83 @@ won't boot), one layer up: **delete the dependency before the importer → the C
 | 4 | R19 (`models/*.pkl`) **+ `tests/test_model_artifact_contract.py` in the same commit** | Or `make check` goes red |
 | 5 | `pyproject.toml:42-47` `[ml]` extra, Render `buildCommand` | Safe only once 1-4 are done |
 
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — steps 1-3 are DONE; steps 4-5 are NOT, and
+> step 5's precondition has changed.**
+>
+> **Steps 1-3 complete.** P1-02 removed R1, then R13 + R13b, then R2/R3 (`cache.py` and
+> `model_a.py` are both gone as whole files). **Both removal-order traps were avoided.** The
+> `asx` CLI no longer imports `joblib` at startup, and `tests/test_cli_model_independence.py`
+> (new, 176 lines) now pins that property — so Finding 4's hazard is not merely discharged, it is
+> **regression-guarded**, which the original finding asked for only implicitly.
+>
+> **Step 4 not done.** All four `models/*` artefacts are still tracked, and
+> `tests/test_model_artifact_contract.py` still reads them. The same-commit constraint is
+> unexpired.
+>
+> **Step 5's gate MOVED.** The `[ml]` extra (`lightgbm==4.5.0`, `joblib==1.4.2`) is still
+> declared, and it is no longer the CLI that holds it there: `jobs/retrain_model_a.py` (R16) and
+> the chain it imports (R5-R10) are the remaining consumers. **Finding 4 framed the CLI as the
+> blocker on the `[ml]` extra; after P1-02 the blocker is the training pipeline.** A future reader
+> who checks only Finding 4's stated condition ("R13 and R13b removed") would conclude step 5 is
+> safe. It is not — removing the extra today breaks `retrain_model_a.py` at import. The Render
+> `buildCommand` half of step 5 is moot: Render was deleted (see Finding 2's correction).
+
+---
+
+## `ORPHANED_BY_P1-04` — modules with no production caller (added by P1-05, 2026-08-13)
+
+**A new category, because neither `ACTIVE_REMOVE` nor `ENFORCEMENT_KEEP` describes these
+honestly.** P1-04 removed their last production caller without removing them. Each is now
+reachable only from tests. **An unclassified module with no caller is what a dead-code sweep
+deletes**, and in both cases below that would be wrong for a *different* reason — so both are
+recorded here rather than left to a future reader's judgement.
+
+| # | Module | Reachable from | Disposition | Why it must not be swept |
+|---|---|---|---|---|
+| **O1** | `asxos/domain/brief/shap.py` | `tests/test_brief_shap.py` only | **ACTIVE_REMOVE — but not yet, and not silently** | Its two documented callers (`compose.py::_signal_changes` and the V2 `active_theses` collector) were both removed by P1-04. Its whole purpose is formatting `signals.shap_factors`, a Model A output column with no writer left. **It is genuinely dead Model A display code** and belongs in `ACTIVE_REMOVE`. It was **unclassified in the original manifest** — the same profile as E12, and the reason it is being named now rather than discovered by a sweep. Delete it **with `tests/test_brief_shap.py` in the same commit**. Note it is already named in the `banned` import tuple of *two* enforcement tests (`test_brief_compose.py:278`, `test_portfolio_build.py:191`) — **those tuples must keep naming it after the file is gone**, since their job is to stop it coming back. |
+| **O2** | `asxos/domain/portfolio/volatility.py` | `tests/test_volatility.py`, `tests/test_portfolio_allocator.py` | **KEEP — required by the replacement candidate source** | Never Model A code. It is Decimal-only realised-vol estimation (`annualised_vol_from_prices`, `load_vols_for_symbols`) and it is **the sizing input the allocator cannot work without**: `allocator.py:170-172,212` divides by `candidate.daily_vol` to build inverse-vol weights. It lost its production caller only because `build.py`'s candidate loading moved into `candidates.py`, whose docstring **explicitly carries the 60-day-vol obligation forward** to whatever real source is wired in. **Deleting it as dead code would silently remove the risk-sizing leg of the allocator** and force whoever wires the replacement to re-implement Decimal-only vol from scratch, against `.claude/rules/portfolio-conventions.md`'s no-numpy invariant. |
+
+> **The asymmetry is the point.** Both modules look identical to a dead-code tool: zero production
+> importers, tests only. One should go and one must stay, and **nothing in the code distinguishes
+> them** — the distinction lives in `candidates.py`'s docstring (an obligation) and in this table.
+> That is exactly the failure mode this manifest was created for, reproduced at a smaller scale by
+> the retirement itself.
+
+---
+
+## Token-blind documentation — the denominator's false negatives
+
+**Added by P1-05, 2026-08-13, from SB0-01's finding (#102,
+`docs/product/doc-truth-map-2026-08-13.md` §6.1).**
+
+This manifest's S1 denominator matches `model_a|Model A|MODEL_A|model-a`. The manifest already
+proves this is blind to *code* (seven token-blind sites). **It is equally blind to prose, and
+SB0-01 found two confirmed misses — both capital-adjacent, both asserting a live Model A path,
+both with zero Model A tokens:**
+
+| Doc | Line | The false claim | Why the token search cannot see it |
+|---|---|---|---|
+| `docs/maintenance/guards-backlog.md` | `:107` | *"signals are generated on stale prices … Tomorrow's `build_portfolio` reads them and proposes trades against yesterday's reality … **production trading proposals on stale inputs**."* | Names `generate_signals` and `build_portfolio`, never Model A. **Worse: this file auto-attaches to `system-architect`**, so the framing reaches architecture work unprompted. |
+| `docs/maintenance/paper-portfolio-monitoring.md` | `:106`, `:21` | *"`expected_return` is uncalibrated (**treat `prob_up` as the conviction signal**)"* — advice to trust the exact quantity the decay analysis found **inverted at the top**. | Names only `prob_up` / `expected_return` / `signal_label`. |
+
+**Both are classified `LIVING` and both were corrected in place by P1-05** (banner by SB0-01,
+line-level annotation by P1-05 — see each file). Neither was deleted: they are dated maintenance
+records and the *non-Model-A* content of both is still valid.
+
+**The finding that matters more than the two files.** The whole `docs/**` classification below —
+99 files then, 106 now — is drawn from a denominator with known false negatives, so
+**"58 HISTORICAL / 41 LIVING" is a partition of the *matched* corpus, not of the corpus that
+makes Model A claims.** The two documents above were in neither number.
+
+**Required change to the CI assertion design, before it is enabled.** The specification below
+greps the boundary-aware pattern only. **An assertion built on this denominator will go green
+while capital-adjacent misinformation persists** — the precise failure the CI step exists to
+prevent. The denominator must become **claim-driven**: add at minimum
+`prob_up|expected_return|shap_factors|signal_label|generate_signals|retrain_model_a` to the swept
+pattern. That is SB0-01's recommendation and P1-05 adopts it. Note the cost is real and should be
+stated: `prob_up` alone adds 29 files outside S1, so widening the pattern widens the allowlist
+too — but an allowlist entry is a reviewed line, whereas a false negative is silent.
+
 ---
 
 ## `HISTORICAL_KEEP` — `docs/**`, at file granularity
@@ -543,18 +926,41 @@ safe. **Line-level supersession is mission P1-05's job. Do not edit doc bodies i
 
 **99 files / 524 lines**, splitting **41 LIVING / 58 HISTORICAL**.
 
-| Subdirectory | Files | Lines |
-|---|---:|---:|
-| `docs/` (root) | 23 | 148 |
-| `docs/product/` (root) | 27 | 144 |
-| `docs/proposals/` | 12 | 81 |
-| `docs/foundation/` | 8 | 73 |
-| `docs/research/` | 5 | 21 |
-| `docs/product/memory/` (all depths) | 10 | 31 |
-| `docs/product/evals/` | 3 | 9 |
-| `docs/product/rubrics/` | 4 | 6 |
-| `docs/assets/` · `docs/strategy/` · `docs/discovery-runs/` · `docs/product/runbooks/` · `docs/harden/` | 7 | 11 |
-| **Total** | **99** | **524** |
+| Subdirectory | Files | Lines | Files @`6327a61` | Lines @`6327a61` |
+|---|---:|---:|---:|---:|
+| `docs/` (root) | 23 | 148 | 23 | 148 |
+| `docs/product/` (root) | 27 | 144 | **31** | **364** |
+| `docs/proposals/` | 12 | 81 | 12 | 81 |
+| `docs/foundation/` | 8 | 73 | 8 | **79** |
+| `docs/research/` | 5 | 21 | 5 | **25** |
+| `docs/product/memory/` (all depths) | 10 | 31 | 10 | 31 |
+| `docs/product/evals/` | 3 | 9 | **4** | **10** |
+| `docs/product/rubrics/` | 4 | 6 | 4 | 6 |
+| `docs/maintenance/` — **absent from the original table** | 0 | 0 | **2** | **12** |
+| `docs/assets/` · `docs/strategy/` · `docs/discovery-runs/` · `docs/product/runbooks/` · `docs/harden/` | 7 | 11 | 7 | 11 |
+| **Total** | **99** | **524** | **106** | **767** |
+
+> **CORRECTION (P1-05 reconciliation, 2026-08-13) — the corpus is now 106 files / 767 lines, and
+> the LIVING/HISTORICAL split needs restating rather than recounting.**
+>
+> **Seven files entered the corpus, all of them written by this programme.** `docs/product/`
+> gained `model-a-reference-manifest.md` (this file), `doc-truth-map-2026-08-13.md` (SB0-01),
+> `scheduler-inventory-2026-08-13.md` (P1-03) and `finance-capability-matrix-2026-08-13.md`
+> (P2-01); `docs/product/evals/` gained one fixture; and **`docs/maintenance/` appears for the
+> first time with 2 files / 12 lines** — because SB0-01's banners put Model A tokens into two
+> files that previously had none. **That subdirectory was missing from the original table
+> entirely**, which is how its two capital-adjacent claims went unclassified; see
+> [Token-blind documentation](#token-blind-documentation--the-denominators-false-negatives).
+>
+> **All seven are LIVING, and all seven are `HISTORICAL_KEEP` in the retention sense** — they are
+> the retirement's own audit trail. **New LIVING total: 48.** The HISTORICAL set is unchanged at
+> 58: no dated record was added, removed, or reclassified by P1-02/03/04/05.
+>
+> **`docs/foundation/` +6 lines and `docs/research/` +4 lines are SB0-01's supersession banners**
+> (`BUILD_GUIDE.md`, `alpha-research-audit.md`), not new claims. A banner that says "this is
+> superseded" necessarily adds Model A tokens — **the count rises as the documentation gets more
+> truthful**, which is the second place in this manifest where the metric moves opposite to the
+> outcome. Do not read either count as progress or regress.
 
 ### LIVING (41) — `HISTORICAL_KEEP` for P1-02, but **P1-05 must update the claim**
 
@@ -573,6 +979,21 @@ These carry a *currently-asserted* Model A claim. P1-02 must not touch them; P1-
 | `docs/product/risk-register.md` | 4 | R1, R8 (quarantine is MECHANICAL), R9. R8 carries a drafted-not-built follow-up that E4 has since landed. |
 | `docs/next-session-backlog.md` | 4 | Stale claim that migration 0032 grandfathered `model_a/v1_5` — revoked 2026-07-11 per R8. |
 | `docs/product/runbooks/claude-execute.md` | 2 | Harness guard wording: "no Model A in any decision". |
+
+> **P1-05 disposition of Tier 1 (2026-08-13).** This is the row-by-row record of what P1-05 did
+> with the nine highest-leverage LIVING surfaces, and what it deliberately did not.
+>
+> | File | Disposition | Note |
+> |---|---|---|
+> | `docs/foundation/BUILD_GUIDE.md` | **CORRECTED — and a defect in the existing banner fixed** | SB0-01 added a `DO NOT EXECUTE` banner. **Every line number in that banner was wrong**, uniformly by +37 — the banner was written against the pre-banner file and then inserted at the top, shifting the whole document. Its citation of the reactivation seed pointed at `:1435`, which post-insert is *"Cancel Render `asx-weekly-features`"* — innocuous text — while **the actual seed sat unmarked**. All ten citations corrected, and an inline `DO NOT EXECUTE` marker placed **at the seed itself**, because a banner at the top of a 2,912-line file does not reach a reader who jumps to M6. |
+> | `docs/product/roadmap-state.md` | **No P1-05 edit needed** | Already reconciled by P1-03 (defect row #4) and SB0-01 (§3.2). Its Render drift baselines are superseded by the scheduler inventory. |
+> | `docs/product/target-architecture.md` | **Authority path — no edit** | Its `retrain_model_a → RETIRE` disposition is now *executed on paper* by P1-03 and is consistent. E5-E8 remain bound as ratified architecture. |
+> | `docs/product/north-star.md` | **Authority path — no edit** | Charter §1's *"do NOT recommend acting on Model A output"* is **strengthened**, not invalidated, by retirement. No draft needed. |
+> | `docs/README.md` | **AUTHORITY-GUARDED — drafted, not applied** | Exact replacement text is in P1-05's report; it supersedes SB0-01 §5.1(c) for the BUILD_GUIDE row. |
+> | `docs/product/cleanup-backlog.md` | **Partially closed by P1-04** | **R6 is closed** (V1's `signals.regime` read is gone). **R4 is NOT** — `jobs/compute_opportunity_cost.py:47` still reads `FROM signals`, and its rationale has changed: the table now has no writer, so the job reads indefinitely-ageing data. See the `ADAPT` correction. |
+> | `docs/product/risk-register.md` | **No P1-05 edit needed** | R8's drafted-not-built follow-up landed as E4; R9's `required=True`/`required=False` split survived P1-04 intact (the `required=False` overload is retained in `production_gate.py` for future display consumers even though its only two callers were removed). |
+> | `docs/next-session-backlog.md` | **Stale claim stands, but is now harmless** | Its claim that 0032 grandfathered `model_a/v1_5` is wrong (revoked 2026-07-11). Reference-only by `docs/README.md:30`, so it cannot set priority. Left for `SB0-02`. |
+> | `docs/product/runbooks/claude-execute.md` | **Authority path — no edit** | "No Model A in any decision" remains correct and is now trivially satisfied. |
 
 **Tier 2 — standing governance / operating contracts (all `Status: current`)**
 `arbi-harness.md`:8 · `arbi-permission-model.md`:8 · `portfolio-policy.md`:5 ·
@@ -965,6 +1386,28 @@ today.
 ## Limits of this manifest
 
 Stated plainly, because a manifest that oversells its coverage is worse than none.
+
+> **P1-05 update (2026-08-13) — which limits have moved.**
+>
+> - **Limit #2 (no live-state verification) is PARTLY DISCHARGED and its remedy is void.** P1-03
+>   established the executing inventory from `.github/workflows/` at `origin/main`, so Finding 2's
+>   contradiction is resolved by repository evidence. **`make check-drift` must not be run** —
+>   Render was deleted (governor ruling, 2026-08-12).
+> - **Limit #4 (docs classified at file granularity only) is DISCHARGED for the Tier 1 set** —
+>   P1-05 read those files and dispositioned them line-level. It **stands for Tiers 2-4 and the
+>   58 HISTORICAL files**, which remain filename/header judgements.
+> - **Limit #5 (counts frozen at one SHA) is CONFIRMED, harder than written.** The counts did not
+>   merely drift — they moved *upward* while the retirement succeeded. See the S1 correction.
+> - **Limit #7 (no test executed) is DISCHARGED for P1-05:** the full suite was run at
+>   `6327a61` + this documentation change. **2,085 passed · 1 skipped · 2 xfailed**; `ruff` and
+>   `mypy` clean. **P1-05 changed no code**, so this is a baseline confirmation, not a proof of
+>   the documentation's correctness — prose cannot be unit-tested, which is exactly why the
+>   citation re-verification above was done by hand, file by file.
+> - **Limit #8 (S2 is a floor, not a boundary) is CONFIRMED AGAIN, by this mission.** P1-05 found
+>   two more unclassified modules (**O1** `brief/shap.py`, **O2** `portfolio/volatility.py`) that
+>   no seed reached, and two capital-adjacent documents the token denominator structurally cannot
+>   see. **Four misses across two independent reviews of the same manifest.** Treat any future
+>   claim that S2 is complete as unsupported.
 
 1. **S2 is a static graph closure, not a runtime trace.** It follows imports and literal SQL
    strings. It cannot see dynamic dispatch, string-built SQL, or a Model A read arriving through
