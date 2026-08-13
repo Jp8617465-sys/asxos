@@ -5,7 +5,7 @@
 **Scope:** product objective, logical architecture, technology boundaries, brownfield migration, and acceptance gates
 **Prepared:** 2026-08-10 (Australia/Brisbane) · **Governor:** James
 **Observed repository base:** `main@1b471b60cdaa176692cc5f987e8399acfdab03d9`
-**Last verified:** 2026-08-12 (Appendix B amended under the governor's source-of-truth ruling — B.1 rows ratified, B.2 corrected, B.4/B.5 added; §1–§23 body unchanged) · 2026-08-10 (ratification)
+**Last verified:** 2026-08-13 (Appendix B.6 added — the governor's review-state altitude ruling; **additive only**, B.1–B.5 and the §1–§23 body unchanged) · 2026-08-12 (Appendix B amended under the governor's source-of-truth ruling — B.1 rows ratified, B.2 corrected, B.4/B.5 added; §1–§23 body unchanged) · 2026-08-10 (ratification)
 **Owner:** James ratifies; arbi drafts amendments via reviewed PR and never self-approves
 **Superseded by:** N/A
 
@@ -1442,6 +1442,62 @@ does not need a second governor decision when it is built. Conditions:
   literal is lifted.
 - B.4 still applies: this is a **field-domain change**, so it is a governor amendment —
   pre-approved here for this one change, not delegated in general.
+
+### B.6 — Ruled clarification (James, 2026-08-13): review states and memo verdicts are different altitudes
+
+**The question.** Mission P1-04 made every portfolio/thesis **review surface** emit one of four
+review states — `CLEAR` / `ATTENTION` / `BLOCKED` / `EVIDENCE_THIN`
+(`asxos/domain/review/status.py`). B.3 rules the state→verdict map
+(`GOOD HOLD` / `ADD` / `TRIM` / `EXIT-CANDIDATE` / `REVIEW`) and B.2 closes with
+**"No fourth definition may be created."** Both P1-04 and P2-01 flagged the apparent collision and
+asked for a governor ruling before either vocabulary was changed to accommodate the other.
+
+**The ruling: they are different ALTITUDES, not rivals.** Review surfaces emit the four review
+states. **B.3's map is untouched and remains the decision engine's.**
+
+| | Decision states / memo verdicts | Review states |
+|---|---|---|
+| **Question answered** | "What should James consider doing about this position?" | "Can we say anything reliable about this position right now?" |
+| **Vocabulary** | `RecommendationState` → `MemoVerdict` (B.3) | `CLEAR` · `ATTENTION` · `BLOCKED` · `EVIDENCE_THIN` |
+| **Definition site** | `asxos/domain/decision_engine/types.py:85-99` (`memo_verdict_for()`) | `asxos/domain/review/status.py` (`ReviewStatus`, `classify()`) |
+| **Producer** | the decision engine's memo path — synthetic-only behind the `DecisionBrief` lock (`types.py:686`, `:700-701`) | review surfaces: `/pm-review`, the five investment-analysis agents, the brief's review header and thesis cards |
+| **Describes** | an action under consideration | the state of the **evidence** |
+
+**Neither vocabulary maps onto the other, and no conversion function between them may be written.**
+There is no `review_status_for(state)` and no `memo_verdict_for(review_status)`. An `ATTENTION` is
+not a weak `TRIM`; a `CLEAR` is not a `GOOD HOLD`. Anything that pairs them mechanically re-creates
+the collision this clause resolves, and is a defect under B.4's "the owner wins and the loser is a
+defect" rule.
+
+**Reasoning of record:**
+
+1. **B.3 answers an action question.** `memo_verdict_for()` (`types.py:85-99`) maps a canonical
+   **decision state** to a **human-memo verdict**. It belongs to the decision engine's memo path
+   and is reachable today only through a brief that pins `mode: "synthetic_prototype"` and rejects
+   any non-synthetic evidence (`types.py:686`, `:700-701`).
+2. **The four review states answer an evidence question.** They describe whether the inputs were
+   present, fresh and sufficient — not what to do about the answer.
+3. **This ENFORCES an existing rule rather than creating one.** Packet P1's required-work item 4
+   already rules that review surfaces emit the four states, *"not a synthetic buy/add/trim/exit
+   signal"*. B.6 records that ruling in the appendix that governs the vocabulary question; it
+   introduces no new obligation.
+4. **It is the safer side of the s766B personal-advice firewall.** A review surface emitting
+   `TRIM` is materially closer to an instruction than one emitting `ATTENTION`. The five
+   investment-analysis agents are chartered as evidence-only, never orders
+   (`.claude/rules/portfolio-conventions.md`, "Regulatory firewall").
+5. **No fourth definition of the DECISION CONTRACT is created.** B.2's ban is on rival definitions
+   of the decision contract. A review-state vocabulary is a *different concept* with a different
+   producer and a different consumer, so it is not a rival definition — and the two are kept
+   separate precisely so neither drifts into the other.
+
+**ADDITIVE — nothing is superseded.** B.3's table and `memo_verdict_for()` are **unchanged**.
+Nothing in `types.py` changes. `RecommendationState`, `MemoVerdict` and the eight-row map keep
+exactly the meanings ratified on 2026-08-10 and reaffirmed on 2026-08-12. This clause adds a
+boundary statement; it removes and rewrites nothing.
+
+**Amendment status under B.4.** This adds no field and changes no row of a ruled table, so it is
+not a B.4 field-domain amendment. It is a governor clarification of scope, recorded here because
+B.2's no-fourth-definition rule is the sentence that made the question ambiguous.
 
 ---
 
