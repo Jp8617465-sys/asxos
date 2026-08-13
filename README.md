@@ -19,7 +19,7 @@ The "Foundation documents" and "Lessons" sections below are background/history; 
 ## Architecture
 
 - Python 3.12, FastAPI, Postgres 16 (Supabase).
-- LightGBM Model A producing daily signals with inline SHAP factors.
+- Model-independent by design: the ML signal engine ("Model A") is shelved and quarantined from every capital decision (see `docs/model-a-decay-analysis-2026-07-11.md` and rule #11 in `CLAUDE.md`). The product is discipline, tax, themes and ETFs — not a signal engine.
 - Render cron services driving the daily/weekly pipelines (see `render.yaml` for the authoritative list), monitored by Healthchecks.io.
 - All operations driven through Claude Code with MCP servers (Render, Supabase, GitHub).
 - No Render dashboard clicks for routine changes — `make check-drift` enforces parity between `render.yaml` and deployed state.

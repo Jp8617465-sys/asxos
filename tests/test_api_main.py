@@ -5,10 +5,13 @@ Covers asxos/api/main.py: _check_migration_drift (drift / ok / skip) and the
 FastAPI lifespan (success + each hard-fail branch), plus the /health route.
 This establishes the FastAPI lifespan test harness the repo previously lacked.
 
-NB: importing asxos.api.main instantiates BriefSettings() at import time and warms
-the model cache import, so the brief env vars must be present before the import
-below, and the module may collection-error in the bare sandbox (no ML deps) — it
-runs on CI where `.[ml]` is installed, like the other documented ML-import tests.
+The lifespan has two hard-fail gates: the DB ping and the migration-drift check.
+The third (the Model A artefact warm) was removed with the Model A runtime
+dependencies — see docs/product/model-a-reference-manifest.md R1. Removing it
+must not soften the remaining two into warnings (CLAUDE.md #1 and #10).
+
+NB: importing asxos.api.main instantiates BriefSettings() at import time, so the
+brief env vars must be present before the import below.
 """
 from __future__ import annotations
 
@@ -79,37 +82,34 @@ async def test_migration_drift_skipped_by_config(monkeypatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_lifespan_success_warms_and_closes(monkeypatch) -> None:
+async def test_lifespan_success_pings_db_and_closes(monkeypatch) -> None:
     conn = MagicMock()
     conn.fetchval = AsyncMock(return_value=1)
     close = AsyncMock()
-    cache = MagicMock()
-    cache.get = AsyncMock(return_value=object())
+    drift = AsyncMock()
     monkeypatch.setattr(main, "init_pool", AsyncMock())
     monkeypatch.setattr(main, "close_pool", close)
-    monkeypatch.setattr(main, "_check_migration_drift", AsyncMock())
+    monkeypatch.setattr(main, "_check_migration_drift", drift)
     monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
-    monkeypatch.setattr(main, "get_cache", lambda: cache)
 
     async with main.lifespan(main.app):
         pass
 
-    cache.get.assert_awaited_once_with("model_a")
+    conn.fetchval.assert_awaited_once_with("SELECT 1")
+    drift.assert_awaited_once()
     close.assert_awaited_once()
 
 
-async def test_lifespan_hard_fails_on_missing_model_artefact(monkeypatch) -> None:
+async def test_lifespan_hard_fails_on_db_ping(monkeypatch) -> None:
+    """The DB-ping gate still hard-fails (CLAUDE.md non-negotiable #1)."""
     conn = MagicMock()
-    conn.fetchval = AsyncMock(return_value=1)
-    cache = MagicMock()
-    cache.get = AsyncMock(side_effect=RuntimeError("model_a artefact missing"))
+    conn.fetchval = AsyncMock(side_effect=RuntimeError("db unreachable"))
     monkeypatch.setattr(main, "init_pool", AsyncMock())
     monkeypatch.setattr(main, "close_pool", AsyncMock())
     monkeypatch.setattr(main, "_check_migration_drift", AsyncMock())
     monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
-    monkeypatch.setattr(main, "get_cache", lambda: cache)
 
-    with pytest.raises(RuntimeError, match="artefact missing"):
+    with pytest.raises(RuntimeError, match="db unreachable"):
         async with main.lifespan(main.app):
             pass
 
@@ -121,7 +121,6 @@ async def test_lifespan_hard_fails_on_migration_drift(monkeypatch) -> None:
     monkeypatch.setattr(main, "close_pool", AsyncMock())
     monkeypatch.setattr(main, "_check_migration_drift", AsyncMock(side_effect=RuntimeError("Migration drift")))
     monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
-    monkeypatch.setattr(main, "get_cache", lambda: MagicMock(get=AsyncMock()))
 
     with pytest.raises(RuntimeError, match="Migration drift"):
         async with main.lifespan(main.app):
