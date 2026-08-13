@@ -2,8 +2,12 @@
 asx — Typer CLI entrypoint.
 
 Commands added per BUILD_GUIDE milestone:
-  M6  — `asx predict <date>`
   M7+ — `asx signal`, `asx tax-view`, `asx journal`, ...
+
+This module must stay free of the Model A / joblib import chain: it imports every
+command module at load time, so a single ML import here makes EVERY `asx` command
+(tax-view, thesis, portfolio, brief) fail with `No module named 'joblib'`.
+Pinned by tests/test_cli_model_independence.py.
 """
 from __future__ import annotations
 
@@ -18,7 +22,6 @@ from asxos.cli.model import model_app
 from asxos.cli.news import news_app
 from asxos.cli.portfolio import build_portfolio, portfolio_app, propose_trades
 from asxos.cli.position import position_app
-from asxos.cli.predict import predict
 from asxos.cli.profile import profile_app
 from asxos.cli.screen import screen_app
 from asxos.cli.signal import signal
@@ -34,7 +37,6 @@ def _main() -> None:
     """asx — asxos CLI."""
 
 
-app.command()(predict)
 app.command()(signal)
 app.command("import-holdings")(import_holdings)
 app.command("tax-view")(tax_view)
