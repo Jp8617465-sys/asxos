@@ -5,6 +5,10 @@
 **Last verified:** 2026-08-11 (`/arbi-close`, retrospective — the 08-11 build session shipped five
 merged PRs and stood down without a close; this refresh reconciles the defect list against `main`
 @ `7aa8507`. See "PROGRAMME REFRAME" immediately below; the 2026-07-14 notes are retained as history)
+**Docs-truth correction:** 2026-08-13 (`SB0-01` sweep — the *State header* block was found four
+weeks stale and is now boxed with a freshness correction; the news-brief gate source and the
+08-12 snapshot's "plan doc does not exist" line were corrected. **This was a documentation
+sweep, not a state refresh** — no live probes were taken, so `Last verified` above is unchanged.)
 **Prior verification:** 2026-08-10 (Stage 0 ratification — digest `d6d888a`, merged `9ede7ad`/PR #79)
 **Earlier verification:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
 #32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
@@ -217,6 +221,28 @@ order that must precede any action.
 The at-a-glance fields `/arbi` reads and `/arbi-close` refreshes. Everything below is the
 detail behind these lines.
 
+> ### ⚠️ HEADER FRESHNESS CORRECTION — 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> **The bulleted header below is HISTORICAL, dated 2026-07-11 → 2026-07-21.** Its own
+> `Last verified` line (at the end of the block) reads **2026-07-11**, which contradicts this
+> file's frontmatter (`:5`, 2026-08-11) and is four weeks behind `main`. It was never
+> refreshed by the 08-11 or 08-12 closes, which wrote to the *Live defects* table and the
+> *Last wake snapshot* instead. Nothing below is deleted — but **do not read it as current
+> state.** The current state is:
+>
+> | Field | Current value (2026-08-13, `main` @ `6360dbb`) | Where it is maintained |
+> |---|---|---|
+> | Current workstream | The **outcome-engine + second-brain programme** (`proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`), one work order at a time. `GOV-01` ruled and closed (PR #96/#97); `P1-01` Model A reference manifest merged (PR #98, `6360dbb`); `SB0-01` is the active docs sweep | §Queued after the current remediation work (`:48-103`) |
+> | Top blocker | None at the product level. The programme entry gate is **closed on all four items** (`:87-96`); missions are individually work-order gated | §GOV-01 amendment |
+> | Open PRs | **Not tracked in this header** — the 2026-07-14 list below is void. Last observed set is in the *Last wake snapshot* (`:697`), itself pre-#96/#97/#98 | Last wake snapshot / live `gh pr list` |
+> | Next action | Per the packet's §7 order after `P1-01`: `P1-02`…`P1-05` (Model A retirement lane) and `SB0-01`/`SB0-02` (truth + wording reconciliation) | §Queued after the current remediation work |
+> | Decisions needed from James | The 2026-07-21 list below is stale (PR #65 merged 2026-07-21). Live governor items now live in `james-inbox.md` + the packet §10 | `james-inbox.md` |
+> | Deployment platform | **Render was DELETED** (governor ruling 2026-08-12, defect #4 at `:116`). The executing scheduler is GitHub Actions (`.github/workflows/`). Any header/queue text below citing live Render state is historical | Defect #4 / `RENDER-RETIRE` |
+>
+> Two known-stale claims inside the header block are struck in place below. The rest is left
+> intact as a dated record. **Whoever runs the next `/arbi-close` owns rewriting this block**
+> — that is the durable fix; this box is the stop-gap that prevents it misinforming meanwhile.
+
 - **Current status:** M1–M14a built (M13/M14a **dark-launched**); governance through
   Phase 2b. **P0 Model A dispute RESOLVED 2026-07-11 (no usable edge); James SHELVED the ML
   engine** — the product is now explicitly the **model-independent moat** (discipline, tax,
@@ -285,7 +311,10 @@ detail behind these lines.
   07-16, retirement write awaiting a one-word confirm; VGS/VAS not-held → demo lots 07-16).
   Live asks: merge PR #65; rule on held agent_runs #6/#7 (rec: reject-6/approve-7); sign off
   the two 2026-07-21 proposals. (Header un-rotted 2026-07-21 — it had trailed the inbox by
-  a week; the dream candidate flagged the drift.)
+  a week; the dream candidate flagged the drift.) **STALE 2026-08-13 (SB0-01):** the "Live
+  asks" are all closed or superseded — PR #65 merged 2026-07-21 (`decision-log.md:53`), runs
+  #6/#7 were dispositioned 2026-07-24 (`decision-log.md:55`), and both 2026-07-21 proposals
+  were built. Current governor items are in `james-inbox.md` and the programme packet §10.
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
   auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
   cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
@@ -303,6 +332,10 @@ detail behind these lines.
   (`dark-launch-exit-plan.md`); (4) R5 — the scheduled 7a brief's read-only guarantee is
   prompt-enforced only.
 - **Last verified:** 2026-07-11 (post-shelf; reflects the P0 resolution + ML-shelf decision).
+  **⚠️ This date is the header block's own, and it is four weeks behind the file's frontmatter
+  (`:5`, 2026-08-11) and five weeks behind `main`. See the HEADER FRESHNESS CORRECTION box at
+  the top of this section (2026-08-13, SB0-01) for current state. Two "last verified" dates in
+  one file is itself the defect; the next `/arbi-close` should collapse them to one.**
 
 ---
 
@@ -632,7 +665,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 | Gate | Guards | State |
 |---|---|---|
 | `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
-| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — live since 2026-07-11 (`render.yaml:414`); ship condition void, see `dark-launch-exit-plan.md` surface #2 |
+| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — set in the **executing scheduler**, `.github/workflows/daily-brief.yml:61`. *(Corrected 2026-08-13, SB0-01: this cell previously cited `render.yaml:414`; Render was deleted 2026-08-12, so `render.yaml` sets nothing live.)* **Verdict reverted to UN-SHIPPED / RE-RAISED 2026-08-13** — the flag is still `1` but the surface has no valid SHIP verdict; see `dark-launch-exit-plan.md` surface #2 |
 | `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |
 
@@ -743,6 +776,17 @@ Checkpoint: 2026-08-12 (mid-session /arbi-close)
 - queued missions: #11 Model A retirement · #12 ASX results review (depends on #11) ·
   #13 outcome-engine executor — BLOCKED, its required plan doc does not exist in the repo.
 ```
+
+_**Snapshot correction — 2026-08-13 (SB0-01).** Two lines in the block above have been
+overtaken and must not be read as current. (1) The **open-PRs** line predates #96/#97/#98,
+all since merged; re-probe rather than cite it. (2) The **queued-missions** line says the
+outcome-engine executor is "BLOCKED, its required plan doc does not exist in the repo" —
+that plan doc **does** exist on `main` now
+(`docs/proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`,
+referenced by `docs/README.md:73` and by `:51` of this file). Per packet §2.4, Task #13
+returns `WAITING` on the entry gate, and that gate closed on all four items 2026-08-12 21:13Z
+(`:87-96`). The snapshot itself is left unedited above — it is a dated observation and
+correct as of when it was taken._
 
 _Prior snapshot — recorded by the 2026-08-11 `/arbi-close` (**retrospective — there was no
 `/arbi` wake that session**; the 08-11 build session ran five parallel missions and stood down

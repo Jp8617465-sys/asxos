@@ -9,7 +9,40 @@ auto_activate:
 priority_review_cadence: weekly during paper-trade window, monthly thereafter
 owner: james
 last_updated: 2026-05-28
+docs_truth_correction: 2026-08-13 (SB0-01) — see the STALE PREMISE banner below
 ---
+
+> ### ⚠️ STALE PREMISE — annotated 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> **This file auto-attaches to `system-architect`, so its framing reaches architecture work
+> unprompted — which is exactly why this banner is here rather than in a report.**
+>
+> Its risk narrative assumes a **live Model A signals → allocator → trade-proposal path in
+> production**. Most sharply at `:107`: *"if `sync_prices` failed in the cron and
+> `generate_signals` ran anyway, signals are generated on stale prices … Tomorrow's
+> `build_portfolio` reads them and proposes trades against yesterday's reality … production
+> trading proposals on stale inputs."*
+>
+> **That path is dormant and being retired.** (1) Model A was **shelved 2026-07-11** after the
+> decay analysis found no usable edge on 19,032 matured signals
+> (`docs/model-a-decay-analysis-2026-07-11.md`); CLAUDE.md rule **#11** bars its output from any
+> real capital decision. (2) The allocator is mechanically gated on
+> `model_versions.approved_for_allocation`, which was revoked — with 0 approved rows it
+> **refuses to run** (`.claude/rules/portfolio-conventions.md` §Contamination-isolation).
+> (3) Render was **deleted** 2026-08-12 (`docs/product/roadmap-state.md:116`), so the crons this
+> file reasons about are not executing on the platform it assumes. (4) A Model A **retirement**
+> programme (`P1-01`…`P1-05`) is in progress.
+>
+> **This banner does not retire the guards.** The *staleness-propagation* class of defect it
+> describes is real and generalises to every scheduled job (it is the same shape as the
+> 2026-08-05 news-brief incident: a guard that asserts on job status rather than on the
+> artifact). Read the guards as **model-independent pipeline-integrity requirements**; do not
+> read the Model-A-and-trade-proposal framing as a description of the live system.
+>
+> Noted for `P1-05`: this file carries live capital-adjacent Model A assertions with **zero
+> `model_a`/`Model A` tokens**, so the token-driven sweep behind
+> `docs/product/model-a-reference-manifest.md` cannot see it. See the truth map
+> (`docs/product/doc-truth-map-2026-08-13.md` §6) for the false-negative finding.
 <!--
 ================================================================================
 CLAUDE CODE — AUTO-ACTIVATION DIRECTIVE

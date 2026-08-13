@@ -1,5 +1,25 @@
 # Paper-portfolio performance monitor (M13.8+)
 
+> ### ⚠️ MODEL A CONVICTION GUIDANCE IS SUPERSEDED — annotated 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> **`:106` instructs the reader to "treat `prob_up` as the conviction signal". Do not.** That
+> is Model A output, and on 2026-07-11 the decay analysis found conviction **inverted at the
+> top** on 19,032 matured signals: `corr(ml_prob, 21d return) = −0.03`, STRONG_BUY returned
+> −0.09% at 21d vs HOLD's +5.07%. James **shelved the ML engine** the same day
+> (`docs/product/ml-engine-shelf-2026-07-11.md`), CLAUDE.md rule **#11** bars Model A output
+> from any real capital decision, and a retirement programme (`P1-01`…`P1-05`) is in progress.
+> The doc's other Model A framing — bucketing performance by `signal_label` / `prob_up` /
+> `expected_return` (`:21`) — is likewise a reporting axis over a shelved engine.
+>
+> The **monitor itself is model-independent and still valid**: NAV path, total vs price
+> return, benchmark-relative return, and the pipeline-ran-vs-portfolio-performed distinction
+> all stand. Read the Model-A-conviction passages as history.
+>
+> Noted for `P1-05`: `:106` and `:21` assert Model A trustworthiness using only `prob_up` /
+> `expected_return` / `signal_label` tokens, so the token-driven sweep behind
+> `docs/product/model-a-reference-manifest.md` does not see them. See
+> `docs/product/doc-truth-map-2026-08-13.md` §6.
+
 The **scoreboard** for persisted `build-portfolio` runs. It measures whether the
 model portfolio *performs*, as distinct from whether the *pipeline ran*. Treat
 it as a strategy-incubation book: a single run's realised P&L is one noisy data

@@ -1,10 +1,47 @@
 # asxos build guide
 
-**Status:** current
+**Status:** current **as a build record**; **NOT current as an executable instruction set** —
+see the banner below
 **Scope:** executable manual (M1–M12)
 **Last verified:** 2026-07-04
-**Read priority:** read first
-**Superseded by:** N/A
+**Docs-truth correction:** 2026-08-13 (`SB0-01` sweep)
+**Read priority:** read first — **with the banner below**
+**Superseded by:** N/A as a whole; its **Model A sections and its architecture pointer are
+superseded** (below)
+
+> ### ⛔ DO NOT EXECUTE THE MODEL A SECTIONS — annotated 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> This guide is ~2,900 lines and contains **zero** mentions of "rule #11", "quarantine", or
+> "shelved". It was written before the decisions that govern the system today, and `docs/README.md`
+> routes new sessions here as "the executable manual". Followed literally, it would **re-arm the
+> exact machinery the project deliberately switched off.** Two corrections:
+>
+> **1. Model A is shelved and being retired. Its sections here are history, not instructions.**
+> On 2026-07-11 the decay analysis found **no usable edge** on 19,032 matured signals
+> (`corr(ml_prob, 21d) = −0.03`; STRONG_BUY 21d −0.09% vs HOLD +5.07% — conviction inverted at
+> the top), James **shelved the ML engine**, and CLAUDE.md rule **#11** became standing policy.
+> A retirement programme (`P1-01`…`P1-05`) is in progress; the classified reference manifest is
+> `docs/product/model-a-reference-manifest.md`. Specifically **do not execute**:
+>
+> | Here | What it would do | Why not |
+> |---|---|---|
+> | §M6 (`:1400`) | Load Model A, serve predictions + SHAP at API startup | Re-introduces a runtime dependency `P1-02` exists to remove |
+> | `:1435` | Seed `model_versions` with `('model_a','v1_5', …, TRUE)` | Re-activates the model row; `approved_for_allocation` was **revoked** 2026-07-11 (R8) and that revocation is rule #11's mechanical enforcement point |
+> | `:459`, `:1975` | `make retrain`; "`asx model activate v1_6` flips active" | Omits the two gates a *new* model must clear before it may influence capital: a **pre-registered decay bar** (positive, monotonic conviction→21d return) **and** a separate explicit `approved_for_allocation` grant. Activation alone is not approval |
+> | `:180`, `:2197`, `:2205`, `:2258`, `:2334`, `:2864` | Weekly `asxos-retrain-model-a` schedule | Job is RETIRE-dispositioned; and see (2) — the platform is gone |
+>
+> **2. The deployment architecture described here is superseded, twice over.** `:17` names
+> "six systemd-timer-driven jobs, ten Postgres tables" and calls
+> `phase-4-architecture-system-architect.md` "authoritative on every technical choice." That
+> document describes an **abandoned VPS/systemd/local-Postgres design** and carries its own
+> supersede banner (`docs/README.md:85`). The system then ran on **Render cron + Supabase
+> Postgres** — and as of **2026-08-12 Render itself was deleted** (governor ruling,
+> `docs/product/roadmap-state.md:116`), leaving **GitHub Actions** (`.github/workflows/`) as the
+> executing scheduler. Table count is ~40, not ten. For deployment truth read `docs/README.md`
+> §"Authoritative source by area" and the newest `session-handoff-*.md`, never this section.
+>
+> **What this guide is still good for:** the M1–M12 build narrative, the schema/tax/CLI/brief
+> sections, and the rationale for why the rebuild is shaped as it is. Those are unaffected.
 
 A working manual for the rebuild from "nothing" to a working personal investment OS. Read in order. Each section is meant to be executable end-to-end with Claude Code, with the design rationale already settled in `phase-4-architecture-system-architect.md` and `phase-5-milestones.md`. Cross-references to those documents are deliberate — this guide does not re-litigate decisions.
 
