@@ -496,13 +496,30 @@ is the silent-weakening path this manifest exists to block.
 > (`jobs/generate_signals.py`) · R17 (`jobs/check_model_staleness.py`) · R18
 > (`jobs/track_signal_outcomes.py`).
 >
-> **STILL PRESENT (12 rows) — the training chain and the artefacts:** R5
+> **STILL PRESENT (11 rows) — the training chain and the artefacts:** R5
 > (`domain/models/train.py`) · R6 (`training_config.py`) · R7 (`validation.py`) · R8
 > (`metadata.py`) · R9 (`domain/signals/feature_engine.py`) · R10 (`domain/signals/loader.py`) ·
 > R12 (`domain/signals/thresholds.py`) · R14 (`cli/model.py`) · R16
 > (`jobs/retrain_model_a.py`) · R19 (all four `models/*.pkl`/`.json` artefacts) · R21
-> (`config.py` healthcheck field) · R26 (`README.md:22`). R22-R25 are `render.yaml` crons —
+> (`config.py:54` `healthcheck_url_retrain_model_a`). R22-R25 are `render.yaml` crons —
 > declared-but-dead, disposed by P1-03, and `render.yaml` is an authority path.
+>
+> **R26 is ALREADY DISCHARGED, and the row's premise was stale before P1-02 ran.** It cites
+> `README.md:22` as *"LightGBM Model A producing daily signals with inline SHAP factors"* — the
+> repo's front-door claim. That line now reads *"Model-independent by design: the ML signal engine
+> (\"Model A\") is shelved and quarantined from every capital decision."* **The front door was
+> corrected before this manifest was written**; the row records a claim that no longer existed at
+> `fad6215`. It still matches the S1 token — which is the correct outcome, since the sentence's
+> purpose is now to *state* the quarantine — so R26 should be **reclassified `ENFORCEMENT_KEEP`
+> in spirit** (an inverse-polarity reference, the same shape as E5-E8/E12) rather than deleted.
+> **Do not "finish" R26 by removing that sentence.**
+>
+> **Adjacent, out of scope, recorded so it is not lost:** `README.md:23-24` still describe *"Render
+> cron services driving the daily/weekly pipelines (see `render.yaml` for the authoritative
+> list)"* and *"MCP servers (Render, Supabase, GitHub)"*. Both are false — Render was deleted
+> 2026-08-12, and CLAUDE.md #2 states there is **no Render MCP**. That is `RENDER-RETIRE` scope,
+> owned by `P1-03`/`P3-01`, not a Model A reference. P1-05 leaves it to its owner rather than
+> widening this diff.
 >
 > **This remainder is coherent, not an oversight, and it is one connected component.**
 > `jobs/retrain_model_a.py` imports R5, R6, R7, R8, R9 and R10 directly; it is the only importer
