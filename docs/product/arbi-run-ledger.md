@@ -10,6 +10,27 @@ Every arbi run leaves a row here. This is the audit trail the scorecard trends o
 promotion gate reads, and James audits. **Append-only — never edit or delete a past row.** A
 correction is a new row that references the old one.
 
+> **⚠️ KNOWN COVERAGE GAP — recorded 2026-08-13 (SB0-01 doc-truth sweep).** The invariant above
+> ("every arbi run leaves a row here") is **not currently satisfied**, so absence of a row must
+> not be read as absence of a run. The last row is `gov-01-2026-08-12`. Since then at least two
+> further campaign units completed and are recorded in `decision-log.md` but have **no ledger
+> row**: the **`GOV-01` close + entry-gate observation** (`decision-log.md:67`, merged PR #97,
+> `fad6215`) and **`P1-01`** (Model A reference manifest + historical allowlist, merged PR #98,
+> `6360dbb`). This sweep (`SB0-01`) is a third.
+>
+> **No row was fabricated for them.** Scoring a run this sweep did not observe would put an
+> invented `episode_score` into the series the promotion gate trends over — a worse defect than
+> the gap itself, and precisely the reward-hacking surface R6 exists to prevent. The rows are
+> owed by whoever runs `/arbi-close` for those units.
+>
+> This is the **second** recorded instance of the same failure: the 2026-08-11 close found this
+> ledger and `decision-log.md` had both "run dry after 2026-07-24 — the whole August arc
+> (08-05/08/09/10/11) went unrecorded, so the compounding loop was broken for five sessions
+> before anyone noticed" (`decision-log.md:57`). The recurrence is the signal: ledger rows are
+> written by a closing ritual, so **any campaign that merges work without running `/arbi-close`
+> silently breaks the audit trail.** Worth a mechanical check (a merged `claude/**` PR with no
+> matching ledger row) rather than a third manual rediscovery.
+
 ---
 
 ## What a run record captures

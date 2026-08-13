@@ -1,12 +1,35 @@
 # arbi full-auto activation — runbook (2026-07-15)
 
-**Status:** current (activation in progress — 7a live again; 7b staged, gated)
+**Status:** current **as a runbook**, but **two of its blockers are STALE — see the
+correction box below before following any step.**
 **Scope:** the exact remaining distance between today's attended loop and standing
 unattended autonomy (PR 7b), what was activated 2026-07-15, who owns each remaining step,
 and the one-action flip + kill switches.
 **Last verified:** 2026-07-15 (live `list_triggers` probe + repo state)
+**Docs-truth correction:** 2026-08-13 (`SB0-01` sweep — §3.2 and §3.3 corrected against
+repository evidence; **no gate lifted, no precondition marked met that was not already met by
+an independent record**)
 **Owner:** James (governor — every gate below clears only on his action or explicit enable)
 **Superseded by:** N/A
+
+> ### ⚠️ STALE-BLOCKER CORRECTION — 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> This runbook is the document James would follow to turn on standing autonomy. Two of its
+> blockers were overtaken by events within days of it being written and were never corrected,
+> so following it as written would send him to **buy a GitHub plan he already has** and
+> **apply a migration that is already applied**.
+>
+> | § | What this doc says | What actually happened | Evidence |
+> |---|---|---|---|
+> | 3.2 | `0039` "NOT applied. Apply is James's (step 3.2)" | **Applied 2026-07-16** (James-instructed, via Supabase MCP; observed count 93). The step that remains is **3.2 step 4** — re-pointing the `supabase-ro` MCP connection at the role | `session-handoff-2026-07-17.md:43`; `roadmap-state.md:959`; `risk-register.md` R16 |
+> | 3.3 | Branch protection "BLOCKED on the GitHub plan… **cannot be configured**" | **GitHub Pro was activated and branch protection went LIVE on `main` 2026-07-17.** Rulesets `asxos-main` (19077432) + `main` (18221894); re-asserted as classic protection 2026-08-12 | `session-handoff-2026-07-17.md:16`; `arbi-autonomy-loop.md:45-61`; `roadmap-state.md:694-696` |
+>
+> **Net effect on the gate: precondition 3.3 is MET; 3.2 is partially met (migration applied,
+> re-point outstanding).** Preconditions 3.4 (track record) and 3.5 (James's explicit enable)
+> are untouched by this correction and remain open, so **standing activation is still OFF.**
+> This box corrects facts; it does not and cannot flip a gate.
+
+---
 
 James's directive (2026-07-15): *"make the full auto loop a reality."* This runbook is that
 directive turned into a checklist. It does not change any gate — the 7b preconditions in
