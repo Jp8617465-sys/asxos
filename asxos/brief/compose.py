@@ -4,9 +4,33 @@ Morning-brief composer.
 Pulls sections from Postgres and renders them through a Jinja template.
 Keep the prose under 200 words — this brief is consumed daily, so density matters.
 
-Sections (in order):
+**Model-independent by construction (mission P1-04, manifest A3/A4/A6).** This
+module reads no ``signals`` / ``shap_factors`` / ``prob_up`` / ``expected_return``
+/ ``signals.regime``, and never calls ``resolve_production_model()``. The market
+regime line, the overnight signal-label table and the ``model_shelved``
+suppression flag were all removed with the engine that produced them — the brief
+no longer has a state in which a model can influence it, so it no longer needs a
+flag describing whether one does. What replaced the regime headline is a
+:class:`~asxos.domain.review.status.ReviewStatus` — ``CLEAR`` / ``ATTENTION`` /
+``BLOCKED`` / ``EVIDENCE_THIN`` — derived from the user's own authored theses,
+holdings and job health (packet P1 required-work item 4). It is never a
+trade instruction.
+
+The template is rendered with ``jinja2.StrictUndefined`` (see :func:`render_html`)
+so that removing a ``BriefData`` field fails loudly instead of silently
+resurrecting whatever the field used to suppress.
+
+Sections. The numbers are stable identifiers, not positions — plan documents and
+`.claude/rules/portfolio-conventions.md` cite sections by number — so a retired
+section keeps its slot instead of shifting every later number underneath an
+external reference. (Pre-existing, unrelated to P1-04: portfolio-conventions.md
+calls the portfolio-adjustments gate "section 6" while this list has always
+numbered it 7. Left as found; renumbering here would not fix it.)
+
   1. Job failures banner (if any in the last 24h)
-  2. Market regime
+  2. RETIRED (mission P1-04, manifest A4) — market regime, read from
+     `signals.regime`. Replaced by the review status in the header, which is
+     derived from the user's own data rather than a model's regime call.
   3. Portfolio discipline (portfolio-team-visibility lane, PR2a/PR2b —
      `docs/proposals/portfolio-team-visibility-2026-07-12.md` §8): revisit-
      overdue, stop/target trajectory, conviction-unset, concentration,
@@ -20,7 +44,10 @@ Sections (in order):
      ASXOS_PORTFOLIO_BRIEF_ENABLED, which is orthogonal — §4). Quiet when
      every check is clean; a check that errors renders a loud "could not run"
      line rather than vanishing (CLAUDE.md #10).
-  4. Signal label changes on current holdings (today vs yesterday)
+  4. RETIRED (mission P1-04, manifest A6) — signal label changes on current
+     holdings, the Model A five-rung ladder plus its top SHAP driver. Removed
+     whole rather than emptied: an empty section header still advertises an
+     engine that no longer exists.
   5. Regulatory hits on holdings in the last 24h
   6. Market news on holdings (M14a) — gated by ALL of:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
@@ -48,10 +75,9 @@ from urllib.parse import urlparse
 import jinja2
 from dateutil.relativedelta import relativedelta
 
-from asxos.domain.brief.shap import format_top_factors
-from asxos.domain.models.production_gate import resolve_production_model
 from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.prices.fx import is_foreign_symbol
+from asxos.domain.review.status import ReviewOutcome, classify
 from asxos.domain.tax.cgt import days_to_eligibility
 from asxos.domain.theses.discipline import (
     DisciplineFinding,
@@ -70,14 +96,6 @@ if TYPE_CHECKING:
 # Tests patch asxos.brief.compose.acquire directly; production collect()
 # falls through to the lazy import below.
 acquire: Any = None
-
-
-@dataclass(frozen=True)
-class SignalChange:
-    symbol: str
-    old_label: str
-    new_label: str
-    top_factor: str  # e.g. "mom_12_1+0.953"
 
 
 @dataclass(frozen=True)
@@ -181,47 +199,26 @@ class PortfolioSection:
 @dataclass(frozen=True)
 class BriefData:
     as_of: date
-    regime: str | None          # None when no signal row exists for as_of
     holdings_count: int
-    signal_changes: list[SignalChange] = field(default_factory=list)
     regulatory_hits: list[RegulatoryHit] = field(default_factory=list)
     job_failures: list[JobFailure] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
     portfolio_section: PortfolioSection | None = None
     # PR2a: collected, not yet rendered (PR2b adds the brief.html.j2 block).
     discipline_findings: list[DisciplineFinding] = field(default_factory=list)
-    latest_signal_date: date | None = None
     latest_price_date: date | None = None
-    # Latest *complete* trading day the regime/signal queries were anchored to
-    # (not the calendar as_of). None only when no complete day exists at all.
+    # Latest *complete* trading day in `prices` (not the calendar as_of). It is a
+    # statement about PRICE completeness and nothing else: since the signal and
+    # regime queries it used to anchor were retired (manifest A4), every
+    # remaining collector takes the calendar `as_of`. Labelling it "evidence as
+    # of" would be a fabricated provenance claim — the exact failure item 5 is
+    # about — so the template says "Prices complete to". None only when no
+    # complete day exists at all.
     data_as_of: date | None = None
-    # True only when 0 models are approved_for_allocation — the deliberate Model A
-    # shelf (rule #11), distinct from a >1-approved misconfig (a loud error). Drives
-    # the calm "Model A shelved" brief state instead of the red "Regime: unavailable"
-    # / "Signals stale" banners that are shelf artifacts.
-    model_shelved: bool = False
 
     @property
     def has_failures(self) -> bool:
         return bool(self.job_failures)
-
-    @property
-    def signals_stale(self) -> bool:
-        """True only when signals genuinely lag the latest complete trading day.
-
-        The brief is titled with the calendar ``as_of`` but anchors its regime
-        and signal queries on ``data_as_of`` = latest_complete_trading_day (the
-        same anchor generate_signals uses), because EOD data lands ~1 day late.
-        Stale when there are no signals at all, or the freshest signal is
-        *behind* that anchor (e.g. generate_signals was blocked) — not merely
-        because no row exists for today's calendar date. This preserves the
-        anti-fabrication intent (genuinely-missing signals still warn) without
-        the daily false alarm.
-        """
-        if self.latest_signal_date is None:
-            return True
-        anchor = self.data_as_of or self.as_of
-        return self.latest_signal_date < anchor
 
     @property
     def prices_stale(self) -> bool:
@@ -229,73 +226,91 @@ class BriefData:
             return True
         return (self.as_of - self.latest_price_date).days > 5
 
+    @property
+    def review(self) -> ReviewOutcome:
+        """The brief's single headline state (packet P1 required-work item 4).
+
+        Derived, never stored, so a caller cannot hand-assemble a ``BriefData``
+        whose headline disagrees with its own findings.
+
+        Mapping — deliberately narrow, since every input is the user's own
+        authored data or this system's own job health:
+
+        * ``error`` findings and job failures are **blocking**: a check that
+          could not run, or a pipeline that failed, means the brief cannot
+          claim to have looked. (``DisciplineLevel.error`` is already defined
+          as "could not be computed" rather than "bad news".)
+        * ``red`` / ``yellow`` findings are **attention**.
+        * ``info`` findings never raise the status — but they do not count as
+          discipline evidence either. ``_cgt_boundary_findings`` appends
+          ``info`` rows into the same list, so testing that list for emptiness
+          would let a single CGT-boundary fact make a wholly unchecked portfolio
+          read ``CLEAR``. The unknown below is therefore keyed on *non-info*
+          findings.
+        * Stale prices, and holdings with no discipline evidence at all, are
+          **unknowns** — the two ways this brief can look calm while knowing
+          nothing (packet P1 required-work item 5).
+
+        A brief with no holdings, no findings and fresh prices is ``CLEAR``:
+        there is genuinely nothing to review, which is a different statement from
+        "we could not review it". The price condition is load-bearing — with no
+        price data at all, ``prices_stale`` is ``True`` and the same brief is
+        ``EVIDENCE_THIN``.
+        """
+        # Equality, not identity, throughout — `DisciplineLevel` is a `StrEnum`
+        # and the template filters the same field with Jinja's `equalto`. Using
+        # `is` here would let a raw-string level render the "could not run"
+        # banner while leaving the headline un-BLOCKED.
+        blocking = [
+            f.message
+            for f in self.discipline_findings
+            if f.level == DisciplineLevel.error
+        ]
+        blocking += [
+            f"job {f.job_name} failed on {f.as_of}" for f in self.job_failures
+        ]
+        attention = [
+            f.message
+            for f in self.discipline_findings
+            if f.level in (DisciplineLevel.red, DisciplineLevel.yellow)
+        ]
+        unknowns: list[str] = []
+        if self.prices_stale:
+            unknowns.append(
+                "Prices stale — latest price date: "
+                f"{self.latest_price_date or 'no data'}"
+            )
+        checked = any(
+            f.level != DisciplineLevel.info for f in self.discipline_findings
+        )
+        if self.holdings_count and not checked:
+            unknowns.append(
+                f"{self.holdings_count} holding(s) with no discipline evidence"
+            )
+        return classify(blocking=blocking, attention=attention, unknowns=unknowns)
+
 
 async def collect(as_of: date) -> BriefData:
-    """Single async DB session, five sections + optional portfolio section."""
+    """Single async DB session, four sections + optional portfolio section.
+
+    No model gate and no ``signals`` read (manifest A3/A4). The gate call that
+    used to open this block was ``resolve_production_model(required=False)``,
+    whose only job was deciding whether the Model A regime/signal reads below it
+    could run; with those reads gone there is nothing left for it to gate, so it
+    goes with them. The ``required=False`` overload itself stays on
+    ``production_gate.py`` — that is risk-register R9's fix and it belongs to any
+    future display consumer, not to this one.
+    """
     # Use module-level `acquire` if set (e.g. by tests); otherwise lazy-import
     # from asxos.db to avoid pulling pydantic_settings in at collection time.
     _acquire: Any = globals().get("acquire")
     if _acquire is None:
         from asxos.db import acquire as _acquire
     async with _acquire() as conn:
-        # Governance gate (Section 4.4 Step B): resolve the single
-        # active+approved_for_allocation production model. The *allocator*
-        # (build.py) calls the gate with required=True and fails loudly — that
-        # is rule #11's mechanical enforcement point. The brief is display-only,
-        # so it passes required=False and DEGRADES gracefully (returns None →
-        # skips the Model A signal reads below) rather than hard-failing when a
-        # Model A quarantine revokes approval (see risk-register R9). Gate
-        # condition + error messages live in production_gate.py so build.py
-        # (the other model_versions consumer) can't drift apart on the invariant.
-        model_rows = await conn.fetch(
-            "SELECT model FROM model_versions "
-            "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
-        )
-        production_model = resolve_production_model(model_rows, required=False)
-        # 0 approved models == the deliberate Model A shelf (rule #11); >1 approved
-        # is a governance misconfig (resolve() returns None for BOTH, but only the
-        # 0-case is the calm "shelved" state — the >1-case must stay a loud error).
-        model_shelved = len(model_rows) == 0
-
-        # Anchor signal/regime queries on the latest *complete* trading day
-        # (the anchor generate_signals uses), not the calendar as_of — EOD data
-        # lands ~1 day late, so "today" usually has no signal row yet. The
-        # calendar as_of is still the brief's title/delivery date.
+        # Anchor the brief's evidence on the latest *complete* trading day, not
+        # the calendar as_of — EOD data lands ~1 day late. The calendar as_of is
+        # still the brief's title/delivery date.
         data_as_of = await latest_complete_trading_day(conn)
-        signals_as_of = data_as_of or as_of
-
-        # regime, latest_signal_date and signal_changes are Model-A-derived and
-        # display-only. Under a deliberate Model A quarantine (rule #11 →
-        # approved_for_allocation revoked → 0 approved models) resolve returns
-        # None; skip the signal reads so the model-INDEPENDENT brief (tax,
-        # regulatory, job failures, portfolio) still renders instead of
-        # hard-failing. The allocator keeps its own hard-fail (build.py) — that
-        # is rule #11's real enforcement point; this is only the cosmetic signal
-        # surface. See risk-register R9.
-        regime: str | None = None
-        latest_signal_date: date | None = None
-        signal_changes: list[SignalChange] = []
-        if production_model is not None:
-            # regime is market-wide for an as_of but rows are keyed by
-            # (model, model_version, symbol); a bare LIMIT 1 returns an
-            # arbitrary, non-reproducible row. Pin a deterministic order.
-            regime_row = await conn.fetchrow(
-                """
-                SELECT regime FROM signals
-                WHERE model = $1 AND as_of = $2
-                ORDER BY model_version DESC, model, symbol
-                LIMIT 1
-                """,
-                production_model,
-                signals_as_of,
-            )
-            regime = regime_row["regime"] if regime_row else None
-            latest_signal_date = await conn.fetchval(
-                "SELECT MAX(as_of) FROM signals WHERE model = $1", production_model
-            )
-            signal_changes = await _signal_changes(
-                conn, signals_as_of, production_model
-            )
 
         holdings_count = await conn.fetchval(
             "SELECT COUNT(*) FROM current_holdings"
@@ -346,70 +361,15 @@ async def collect(as_of: date) -> BriefData:
 
     return BriefData(
         as_of=as_of,
-        regime=regime,
         holdings_count=int(holdings_count),
-        signal_changes=signal_changes,
         regulatory_hits=regulatory_hits,
         job_failures=job_failures,
         news_items=news_items,
         portfolio_section=portfolio_section,
         discipline_findings=discipline_findings,
-        latest_signal_date=latest_signal_date,
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
-        model_shelved=model_shelved,
     )
-
-
-async def _signal_changes(
-    conn: asyncpg.Connection, as_of: date, production_model: str
-) -> list[SignalChange]:
-    rows = await conn.fetch(
-        """
-        WITH today AS (
-            SELECT DISTINCT ON (s.symbol)
-                s.symbol, s.signal_label, s.shap_factors
-            FROM signals s
-            JOIN current_holdings h ON h.symbol = s.symbol
-            WHERE s.model = $2 AND s.as_of = $1
-            ORDER BY s.symbol, s.as_of DESC
-        ),
-        yesterday AS (
-            SELECT DISTINCT ON (s.symbol)
-                s.symbol, s.signal_label
-            FROM signals s
-            JOIN current_holdings h ON h.symbol = s.symbol
-            WHERE s.model = $2
-              AND s.as_of < $1
-              AND s.as_of >= $1::date - 7
-            ORDER BY s.symbol, s.as_of DESC
-        )
-        SELECT
-            t.symbol,
-            COALESCE(y.signal_label, '(new)') AS old_label,
-            t.signal_label AS new_label,
-            t.shap_factors
-        FROM today t
-        LEFT JOIN yesterday y ON y.symbol = t.symbol
-        WHERE COALESCE(y.signal_label, '') <> t.signal_label
-        ORDER BY t.symbol
-        """,
-        as_of,
-        production_model,
-    )
-    out: list[SignalChange] = []
-    for r in rows:
-        # Single strongest driver — same ranking the V2 thesis cards use.
-        top = format_top_factors(r["shap_factors"], n=1)
-        out.append(
-            SignalChange(
-                symbol=r["symbol"],
-                old_label=r["old_label"],
-                new_label=r["new_label"],
-                top_factor=top,
-            )
-        )
-    return out
 
 
 async def _cgt_boundary_findings(
@@ -889,8 +849,33 @@ async def _discipline_findings(
 
 
 def render_html(data: BriefData) -> str:
-    env = jinja2.Environment(
+    """Render the brief template. Any undefined name is a hard failure.
+
+    ``undefined=StrictUndefined`` is load-bearing, not tidiness. Jinja's default
+    ``Undefined`` is falsy and renders as an empty string, so a template
+    referencing a ``BriefData`` field that no longer exists produces a page that
+    looks fine. That is exactly how this brief could have gone wrong during the
+    Model A retirement: three of the five ``model_shelved`` references were
+    suppression conditions (``{% if not d.model_shelved %}`` gated the whole
+    signal section), so deleting the field before the template would have
+    silently *un*-suppressed every dead-engine banner and section, with no
+    exception, no failing job and no alert. Strict undefined turns that entire
+    class of failure into a loud ``UndefinedError``.
+
+    ``asxos/domain/decision_engine/renderer.py`` already renders this way; this
+    environment was the outlier.
+    """
+    return brief_env().get_template("brief.html.j2").render(d=data)
+
+
+def brief_env() -> jinja2.Environment:
+    """The brief's Jinja environment. Exposed so its strictness is testable.
+
+    See :func:`render_html` for why ``StrictUndefined`` is a safety property here
+    rather than a style preference.
+    """
+    return jinja2.Environment(
         loader=jinja2.FileSystemLoader(Path(__file__).parent / "templates"),
         autoescape=True,
+        undefined=jinja2.StrictUndefined,
     )
-    return env.get_template("brief.html.j2").render(d=data)

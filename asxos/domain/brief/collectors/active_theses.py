@@ -5,13 +5,32 @@ For each active thesis: format a thesis card, compute underlying score,
 detect hidden risk. Severity based on revisit overdue / underlying divergence.
 
 SeverityItem levels:
-  - red:    revisit overdue
+  - red:    timeline expired (takes priority) OR revisit overdue
   - yellow: underlying diverging OR revisit due within 7d OR hidden risk
   - green:  all ok
+
+**Model-independent by construction (mission P1-04, manifest A5).** The
+contamination-isolation model gate and the ``FROM signals`` batch read that fed
+each card's ``Model A: <label> | Top drivers: …`` line are gone. Every card now
+carries a :class:`~asxos.domain.review.status.ReviewStatus` in their place —
+``CLEAR`` / ``ATTENTION`` / ``BLOCKED`` / ``EVIDENCE_THIN`` (packet P1
+required-work item 4) — computed from the thesis's own revisit cadence,
+timeline and linked underlyings. The severity ladder (red/yellow/green) and the
+items this section emits are unchanged. The card *text* has two deliberate
+changes: a trailing ``Review: <STATUS>`` line, and an ``Underlying: unavailable``
+variant where a fabricated ``+0.00%`` used to print.
+
+**Explicit unknowns (packet P1 required-work item 5).** ``score_thesis_underlying``
+returns ``label="mixed", weighted_movement=0`` for a thesis with *no* linked
+underlyings, and the same for one whose every underlying has a stale move. Both
+read on a card as a measured neutral. This collector distinguishes them: when
+there is nothing to measure, the card says ``Underlying: unavailable`` and the
+card's review status is ``EVIDENCE_THIN``, never a silent zero.
 """
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from datetime import date, datetime
 
 from asxos.db import acquire
@@ -20,9 +39,8 @@ from asxos.domain.brief.severity import (
     thesis_revisit_overdue,
     thesis_timeline_expired,
 )
-from asxos.domain.brief.shap import format_top_factors
 from asxos.domain.brief.types import SectionResult, SectionStatus, SeverityItem, SeverityLevel
-from asxos.domain.models.production_gate import resolve_production_model
+from asxos.domain.review.status import classify
 from asxos.domain.underlyings.attribution import score_thesis_underlying
 from asxos.domain.underlyings.divergence import detect_hidden_risk
 from asxos.domain.underlyings.service import bulk_list_thesis_underlyings, get_5d_moves
@@ -66,40 +84,6 @@ async def collect_active_theses(as_of: date) -> SectionResult:
         })
         all_moves = await get_5d_moves(conn, all_underlying_ids, as_of) if all_underlying_ids else {}
 
-        # Governance Section 4.4 Step B / portfolio-conventions.md: resolve the
-        # single active+approved_for_allocation production model before
-        # reading signals, so an unapproved model can't surface on a thesis
-        # card any more than it can reach the allocator or the V1 brief.
-        model_rows = await conn.fetch(
-            "SELECT model FROM model_versions "
-            "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
-        )
-        # Display-only: under a deliberate Model A quarantine (rule #11 → 0
-        # approved models) resolve returns None; skip the signal fetch so every
-        # thesis card still renders with full discipline severity, just without
-        # the cosmetic "Model A:" driver line. The allocator keeps its own
-        # hard-fail (build.py) — that is rule #11's real enforcement. See R9.
-        production_model = resolve_production_model(model_rows, required=False)
-
-        # Steady-state ML explainability: latest Model A signal per thesis symbol.
-        # One batch query (DISTINCT ON, latest as_of) — same pattern as the V1
-        # signal-change line. Missing signal → no drivers line on that card.
-        all_symbols = [r["symbol"] for r in rows]
-        if production_model is not None:
-            sig_rows = await conn.fetch(
-                """
-                SELECT DISTINCT ON (symbol) symbol, signal_label, shap_factors
-                FROM signals
-                WHERE symbol = ANY($1) AND model = $2
-                ORDER BY symbol, as_of DESC
-                """,
-                all_symbols,
-                production_model,
-            )
-            sig_by_symbol = {r["symbol"]: r for r in sig_rows}
-        else:
-            sig_by_symbol = {}
-
         for row in rows:
             thesis_id = row["thesis_id"]
             symbol = row["symbol"]
@@ -130,38 +114,69 @@ async def collect_active_theses(as_of: date) -> SectionResult:
 
             timeline_mo = f"{row['timeline_days'] // 30}mo" if row["timeline_days"] else "—"
 
-            # Steady-state ML driver line — why Model A rates this symbol today.
-            sig = sig_by_symbol.get(symbol)
-            signal_line = ""
-            if sig is not None:
-                drivers = format_top_factors(sig["shap_factors"], n=3)
-                drivers_str = f" | Top drivers: {drivers}" if drivers else ""
-                signal_line = f"\nModel A: {sig['signal_label']}{drivers_str}"
+            # A weighted movement of 0.00% means one of two very different
+            # things: every underlying moved and they cancelled, or there was
+            # nothing to measure. Only the first is a result. `score` cannot tell
+            # them apart (it returns "mixed"/0 for both), so decide here from the
+            # inputs and say "unavailable" rather than print a fabricated neutral.
+            measured = any(move is not None for move in moves.values())
+            if measured:
+                underlying_line = (
+                    f"Underlying: {score.label} (weighted {score.weighted_movement:+.2f}%)"
+                )
+                card_unknowns: list[str] = []
+            else:
+                underlying_line = "Underlying: unavailable — no current 5d move to measure"
+                card_unknowns = [
+                    "no linked underlying has a current 5d move"
+                    if thesis_underlyings
+                    else "no underlyings linked to this thesis"
+                ]
+
+            # The card's own review state (packet P1 item 4). Advisory evidence
+            # about the thesis's upkeep — never a direction to act.
+            card_attention: list[str] = []
+            if expiry_item and expiry_item.level == SeverityLevel.red:
+                card_attention.append("timeline expired")
+            if overdue_item:
+                card_attention.append("revisit overdue")
+            if measured and score.label == "diverging":
+                card_attention.append("underlyings diverging")
+            if days_to_revisit <= 7:
+                card_attention.append("revisit due within 7d")
+            review = classify(attention=card_attention, unknowns=card_unknowns)
 
             msg = (
                 f"{symbol} | Active | {days_since}d\n"
                 f"{entry_str}"
                 f"Stop: {row['stop_price'] or '—'} | Target: {row['target_price'] or '—'} | {timeline_mo}\n"
-                f"Underlying: {score.label} (weighted {score.weighted_movement:+.2f}%)\n"
+                f"{underlying_line}\n"
                 f"Revisit: {'overdue' if days_to_revisit < 0 else f'due in {days_to_revisit}d'}"
-                f"{signal_line}"
             )
 
             # Determine severity — expiry and overdue both red; expiry takes priority
             if expiry_item and expiry_item.level == SeverityLevel.red:
-                items.append(expiry_item)
+                card = expiry_item
             elif overdue_item:
-                items.append(overdue_item)
+                card = overdue_item
             elif expiry_item:
-                items.append(expiry_item)
+                card = expiry_item
             elif score.label == "diverging" or days_to_revisit <= 7:
-                items.append(SeverityItem(
+                card = SeverityItem(
                     level=SeverityLevel.yellow, message=msg, section=_SECTION
-                ))
+                )
             else:
-                items.append(SeverityItem(
+                card = SeverityItem(
                     level=SeverityLevel.green, message=msg, section=_SECTION
-                ))
+                )
+            # Append the review state to whichever card won, not to `msg`. The
+            # red branches render the severity helper's own message and never
+            # touch `msg` at all — so a Review line written into `msg` would be
+            # invisible on exactly the overdue and expired cards that most need
+            # a state on them.
+            items.append(
+                replace(card, message=f"{card.message}\nReview: {review.status}")
+            )
 
             # Earnings risk
             next_ed = row.get("next_earnings_date")

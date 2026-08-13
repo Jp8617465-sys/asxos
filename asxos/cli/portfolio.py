@@ -23,7 +23,7 @@ portfolio_app = typer.Typer(
 def build_portfolio(
     profile_name: str | None = typer.Option(None, "--profile", help="Profile name (default: active)"),
     as_of: str | None = typer.Option(None, "--as-of", help="Build date YYYY-MM-DD (default: today)"),
-    signals_date: str | None = typer.Option(None, "--signals", help="Signals date YYYY-MM-DD (default: latest)"),
+    signals_date: str | None = typer.Option(None, "--signals", help="Candidate evidence date YYYY-MM-DD (default: latest). Retained for the replacement candidate source; today it only appears in the unavailability message."),
     no_tax_overlay: bool = typer.Option(False, "--no-tax-overlay", help="Skip loss-harvest tagging"),
     no_constraints: bool = typer.Option(False, "--no-constraints", help="Skip constraint waterfall"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print result without writing to DB"),

@@ -163,9 +163,23 @@ class Profile:
 
 @dataclass(frozen=True)
 class AllocationCandidate:
-    """Signal row joined to universe + computed vol — input to the allocator.
+    """One allocatable name + its sizing inputs — input to the allocator.
 
-    Constructed by the orchestrator (M13.6 build.py) from signals × universe × vol.
+    **Nothing constructs this today.** It was built by the orchestrator (M13.6
+    build.py) from signals × universe × vol; mission P1-04 retired the signals
+    read (manifest A1), and the replacement seam is
+    ``asxos/domain/portfolio/candidates.py::load_allocation_candidates``, which
+    currently raises.
+
+    Three fields below still carry the retired feed's schema — ``signal_label``
+    (its five-rung ladder), ``prob_up`` and ``expected_return`` — and
+    ``allocator.py`` scores on the latter two via
+    ``Profile.score_weights_json``. A model-independent candidate source cannot
+    populate any of them honestly, so retiring them (here, in the profile
+    weighting, and in the ``target_allocations`` columns behind a migration) is
+    the precondition for wiring one. Out of P1-04's scope; recorded here so the
+    next reader does not mistake these for live, meaningful inputs.
+
     daily_vol is annualised (misleading name retained from the plan).
     """
 
