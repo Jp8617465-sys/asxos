@@ -5,8 +5,15 @@ DB I/O is isolated here; domain functions in rebalance.py, allocator.py,
 constraints.py, and tax_overlay.py remain pure.
 
 Plan compliance notes:
-  H.1 CRITICAL-3 — signals recency asserted: signals_as_of must be within
-                    2 days of the build date.
+  H.1 CRITICAL-3 — candidate recency. NO LONGER ENFORCED HERE, and enforced
+                    nowhere else today. The Model A signals fetch and its
+                    empty / >2-day-stale hard-fails were retired by mission
+                    P1-04 (manifest A1/A2) along with the feed they guarded.
+                    Nothing can go stale while no candidates load at all, so
+                    this is a debt rather than a live hole — the assertion is
+                    owed by whatever candidate source replaces them, inside
+                    candidates.py, as a raise and never a warning
+                    (CLAUDE.md #10).
   H.1 CRITICAL-4 / governance Section 4.4 Step B — model_version fetched
                     from model_versions WHERE is_active=TRUE AND
                     approved_for_allocation=TRUE, hard-failing on 0 or >1
@@ -28,13 +35,9 @@ from asxos.domain.portfolio import allocator as _allocator
 from asxos.domain.portfolio import constraints as _constraints
 from asxos.domain.portfolio import rebalance as _rebalance
 from asxos.domain.portfolio import tax_overlay as _tax
+from asxos.domain.portfolio.candidates import load_allocation_candidates
 from asxos.domain.portfolio.profile import load_active, load_by_name
-from asxos.domain.portfolio.types import (
-    AllocationCandidate,
-    HoldingSnapshot,
-    RebalanceResult,
-)
-from asxos.domain.portfolio.volatility import load_vols_for_symbols
+from asxos.domain.portfolio.types import HoldingSnapshot, RebalanceResult
 from asxos.domain.prices.fx import is_foreign_symbol
 from asxos.domain.tax.cgt import days_to_eligibility
 
@@ -134,29 +137,38 @@ class PortfolioService:
     ) -> RebalanceResult:
         """Run the full portfolio construction pipeline.
 
+        **This pipeline cannot complete today, by design.** Step 3 always raises
+        ``CandidateSourceUnavailable`` — mission P1-04 retired the Model A
+        candidate feed and substituted nothing — so steps 4-10 are unreachable
+        and ``asx build-portfolio`` exits 1. The list below is the contract a
+        replacement candidate source slots into, not a description of a working
+        run.
+
         Steps (plan Part B M13.6):
         1. Load profile — hard-fail if none active
         2. Resolve the production model — hard-fail if 0 or >1 rows are
            both is_active AND approved_for_allocation (governance Section
-           4.4 Step B). Runs before signals because that query filters on
-           the resolved model name.
-        3. Load latest signals for that model — hard-fail if empty or stale
+           4.4 Step B). Runs before candidates are loaded, and STAYS ahead
+           of whatever candidate source replaces the retired Model A feed:
+           it is rule #11's mechanical enforcement point (manifest E1).
+        3. Load allocation candidates — currently raises
+           CandidateSourceUnavailable (manifest A1/A2, mission P1-04)
         4. Load universe rows
-        5. Load 60-day vol for candidate symbols
-        6. Build AllocationCandidate[]
-        7. allocator.allocate() → AllocationTarget[]
-        8. (optional) constraints.apply_constraints() + trim_min_position()
-        9. Load current_holdings + latest prices → HoldingSnapshot[]
-        10. rebalance.compute_deltas() [§5.1 check inside]
-        11. (optional) tax_overlay.tag_loss_harvest()
-        12. assemble_result()
+        5. allocator.allocate() → AllocationTarget[]
+        6. (optional) constraints.apply_constraints() + trim_min_position()
+        7. Load current_holdings + latest prices → HoldingSnapshot[]
+        8. rebalance.compute_deltas() [§5.1 check inside]
+        9. (optional) tax_overlay.tag_loss_harvest()
+        10. assemble_result()
 
         Hard-fails (RuntimeError) on:
         - No active profile (plan H.1 CRITICAL-5)
         - No model_version is both active and approved_for_allocation, or
           more than one is (plan H.1 CRITICAL-4 / governance Section 4.4
-          Step B) — checked before signals are fetched
-        - No signals / stale signals (>2 days old, plan H.1 CRITICAL-3)
+          Step B) — checked before candidates are loaded
+        - No candidate source wired (CandidateSourceUnavailable, a
+          RuntimeError subclass) — the retired Model A signals read is not
+          replaced by an assumed or synthesised candidate set
         - Empty buy universe after filtering
         - Non-convergent constraint waterfall
         - Missing prices for any held or target symbol
@@ -175,12 +187,25 @@ class PortfolioService:
 
         build_date = as_of or date.today()
 
-        # Governance Section 4.4 Step B / plan H.1 CRITICAL-4: resolve the
-        # single active+approved_for_allocation model before the signals
-        # fetch, since that query needs the gated model name to filter on.
-        # Gate condition + error messages live in production_gate.py so
-        # build.py and compose.py (the other model_versions consumer) can't
-        # drift apart on the invariant.
+        # Step 2. Governance Section 4.4 Step B / plan H.1 CRITICAL-4: resolve the
+        # single active+approved_for_allocation model. Gate condition + error
+        # messages live in production_gate.py so every consumer of the
+        # invariant states it identically.
+        #
+        # DO NOT DELETE. This is rule #11's mechanical enforcement point
+        # (docs/product/model-a-reference-manifest.md, row E1) — the one place
+        # where a revoked `approved_for_allocation` becomes a refusal to
+        # allocate. It contains no Model A token, so a token-driven cleanup
+        # cannot see it.
+        #
+        # It originally sat here because the signals query below needed the
+        # gated model name to filter on. That query is gone (mission P1-04,
+        # manifest A1) and this block is deliberately unchanged: the gate is
+        # NOT scaffolding for the query it used to feed. Whatever candidate
+        # source is eventually wired into candidates.py must be loaded BELOW
+        # this point, so that revoking approval still stops allocation.
+        # `tests/test_portfolio_build.py::test_model_gate_runs_before_the_candidate_source`
+        # holds that ordering.
         model_rows = await conn.fetch(
             "SELECT model, version FROM model_versions "
             "WHERE is_active = TRUE AND approved_for_allocation = TRUE"
@@ -188,94 +213,39 @@ class PortfolioService:
         production_model = resolve_production_model(model_rows)
         model_version: str = model_rows[0]["version"]
 
-        # Step 2: signals.
-        if signals_date:
-            signals_rows = await conn.fetch(
-                """
-                SELECT symbol, as_of, signal_label, prob_up,
-                       expected_return, confidence, model_version
-                FROM signals
-                WHERE model = $1 AND as_of = $2
-                ORDER BY symbol
-                """,
-                production_model,
-                signals_date,
-            )
-        else:
-            signals_rows = await conn.fetch(
-                """
-                SELECT symbol, as_of, signal_label, prob_up,
-                       expected_return, confidence, model_version
-                FROM signals
-                WHERE model = $1
-                  AND as_of = (SELECT MAX(as_of) FROM signals WHERE model = $1)
-                ORDER BY symbol
-                """,
-                production_model,
-            )
-        if not signals_rows:
-            raise RuntimeError(
-                f"no signals for {'date ' + signals_date.isoformat() if signals_date else 'latest date'}; "
-                "run the signal-generation job first"
-            )
+        # Step 3: candidates (manifest A1/A2 — the retired Model A `signals`
+        # read). The candidate source now lives behind one seam in
+        # candidates.py, which raises CandidateSourceUnavailable until a
+        # model-independent source is wired. The approval gate above is
+        # UNCHANGED and still runs first: it is rule #11's mechanical
+        # enforcement point (manifest E1) and must outlive the query it used to
+        # feed. `production_model` is threaded through so the unavailability
+        # message can name which approved model the retired feed belonged to.
+        candidates, candidates_as_of = await load_allocation_candidates(
+            conn,
+            approved_model=production_model,
+            build_date=build_date,
+            as_of=signals_date,
+        )
 
-        signals_as_of: date = signals_rows[0]["as_of"]
-
-        # Plan H.1 CRITICAL-3: reject stale signals.
-        if (build_date - signals_as_of).days > 2:
-            raise RuntimeError(
-                f"signals are stale: signals_as_of={signals_as_of} is more than "
-                f"2 days before build date {build_date}. "
-                "Run the signal-generation job to refresh."
-            )
-
-        # Step 3: universe.
+        # Step 4: universe.
         universe_rows = await conn.fetch(
             "SELECT symbol, sector, market_cap, is_active, security_kind FROM universe ORDER BY symbol"
         )
         universe_by_symbol = {r["symbol"]: r for r in universe_rows}
         inactive_symbols = forced_sell_inactive_symbols(universe_rows)
 
-        # Step 4+5: vol + candidates (plan H.2 QUICK-WIN-6: vol for buys only).
-        signal_symbols = [r["symbol"] for r in signals_rows]
-        vols = await load_vols_for_symbols(conn, signal_symbols, build_date)
-
-        candidates: list[AllocationCandidate] = []
-        for r in signals_rows:
-            sym = r["symbol"]
-            if sym not in vols:
-                continue  # insufficient price history — silently omit
-            u = universe_by_symbol.get(sym)
-            if u is None:
-                continue  # not in universe
-            candidates.append(
-                AllocationCandidate(
-                    symbol=sym,
-                    sector=u["sector"],
-                    market_cap_aud=(
-                        Decimal(str(u["market_cap"]))
-                        if u["market_cap"] is not None
-                        else None
-                    ),
-                    signal_label=r["signal_label"],
-                    prob_up=Decimal(str(r["prob_up"])),
-                    expected_return=Decimal(str(r["expected_return"])),
-                    daily_vol=vols[sym],
-                    confidence=r["confidence"],
-                )
-            )
-
-        # Step 6: allocate.
+        # Step 5: allocate.
         targets = _allocator.allocate(candidates=candidates, profile=profile)
 
-        # Step 7: constraints.
+        # Step 6: constraints.
         if apply_constraints:
             targets = _constraints.apply_constraints(targets, profile)
             targets = _constraints.trim_min_position(
                 targets, profile.capital_aud, profile.min_position_aud
             )
 
-        # Step 8: current holdings + prices.
+        # Step 7: current holdings + prices.
         holdings_rows = await conn.fetch(
             """
             SELECT id AS lot_id, symbol, acquired_at, quantity,
@@ -312,7 +282,7 @@ class PortfolioService:
 
         current_qty = _rebalance.current_qty_by_symbol(holdings)
 
-        # Step 9: deltas (§5.1 inside compute_deltas).
+        # Step 8: deltas (§5.1 inside compute_deltas).
         trades = _rebalance.compute_deltas(
             targets=targets,
             current_qty=current_qty,
@@ -324,18 +294,23 @@ class PortfolioService:
             universe_inactive_symbols=inactive_symbols,
         )
 
-        # Step 10: loss-harvest tagging.
+        # Step 9: loss-harvest tagging.
         if apply_tax_overlay:
             losses = _tax.unrealised_losses(holdings)
             trades = _tax.tag_loss_harvest(trades, losses)
 
-        # Step 11: assemble.
+        # Step 10: assemble.
         result = _rebalance.assemble_result(
             profile=profile,
             targets=targets,
             trades=trades,
             as_of=build_date,
-            signals_as_of=signals_as_of,
+            # `signals_as_of` is the frozen name of the RebalanceResult field and
+            # of the rebalance_runs column behind it; renaming either needs a
+            # migration, which is out of P1-04's scope. The VALUE it now carries
+            # is the candidate evidence date from candidates.py, not a Model A
+            # signal date.
+            signals_as_of=candidates_as_of,
         )
         # Inject model_version into summary for persist() and Rich display.
         return replace(result, summary={**result.summary, "model_version": model_version})

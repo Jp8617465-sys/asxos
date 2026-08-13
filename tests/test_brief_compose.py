@@ -13,12 +13,18 @@ freshness gate's own SQL is asserted directly instead — see the
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import os
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import jinja2
+import pytest
+
+from asxos.brief import compose
 from asxos.brief.compose import (
     BriefData,
     DisciplineFinding,
@@ -26,12 +32,12 @@ from asxos.brief.compose import (
     JobFailure,
     NewsItem,
     RegulatoryHit,
-    SignalChange,
     _cgt_boundary_findings,
     _discipline_findings,
     collect,
     render_html,
 )
+from asxos.domain.review.status import ReviewStatus, directive_terms
 
 # ---------------------------------------------------------------------------
 # render_html — pure path
@@ -40,11 +46,8 @@ from asxos.brief.compose import (
 def _brief(**overrides) -> BriefData:
     defaults = {
         "as_of": date(2026, 5, 22),
-        "regime": "bear",
-        "latest_signal_date": date(2026, 5, 22),
         "latest_price_date": date(2026, 5, 22),
         "holdings_count": 3,
-        "signal_changes": [],
         "regulatory_hits": [],
         "job_failures": [],
     }
@@ -52,154 +55,294 @@ def _brief(**overrides) -> BriefData:
     return BriefData(**defaults)
 
 
-def test_render_html_contains_title_and_regime() -> None:
+def test_render_html_contains_title() -> None:
     html = render_html(_brief())
     assert "asxos brief — 2026-05-22" in html
-    assert "Regime: <strong>bear</strong>" in html
 
 
-def test_render_html_shows_stale_regime_warning() -> None:
-    """When regime is None, shows unavailable + latest signal date instead of regime label."""
-    html = render_html(_brief(regime=None, latest_signal_date=date(2026, 5, 20)))
-    assert "unavailable" in html
-    assert "2026-05-20" in html
-    assert "Regime: <strong>bear</strong>" not in html
+# ---------------------------------------------------------------------------
+# Review status — the model-independent headline (packet P1 item 4)
+# ---------------------------------------------------------------------------
 
 
-def test_signals_not_stale_when_anchored_to_complete_day() -> None:
-    """The reported scenario: brief dated 2026-06-18, but signals are anchored to
-    the latest complete trading day 2026-06-17 (the ~1-day EOD lag) → NOT stale,
-    regime is shown, no freshness banner."""
-    html = render_html(_brief(
-        as_of=date(2026, 6, 18),
-        regime="neutral",
-        latest_signal_date=date(2026, 6, 17),
-        latest_price_date=date(2026, 6, 17),
-        data_as_of=date(2026, 6, 17),
-    ))
-    assert "Regime: <strong>neutral</strong>" in html
-    assert "Data freshness warning" not in html
-    assert "unavailable" not in html
+def test_review_clear_when_nothing_flagged_and_nothing_unknown() -> None:
+    b = _brief(holdings_count=0)
+    assert b.review.status is ReviewStatus.clear
+    assert "CLEAR" in render_html(b)
 
 
-def test_signals_stale_when_behind_complete_day() -> None:
-    """Genuinely stale: the freshest signal is *behind* the latest complete
-    trading day (e.g. generate_signals was blocked) → unavailable + banner."""
-    b = _brief(
-        as_of=date(2026, 6, 18),
-        regime=None,
-        latest_signal_date=date(2026, 6, 17),
-        latest_price_date=date(2026, 6, 18),
-        data_as_of=date(2026, 6, 18),
+def test_review_evidence_thin_when_holdings_have_no_discipline_evidence() -> None:
+    """3 holdings, every check silent: that is 'we did not look', not 'all well'.
+
+    The failure this closes is the calm-looking brief. Before the four-state
+    vocabulary the header printed a regime label and moved on; a discipline
+    section that produced nothing was indistinguishable from one that ran clean.
+    """
+    b = _brief(holdings_count=3, discipline_findings=[])
+    assert b.review.status is ReviewStatus.evidence_thin
+    assert b.review.unknowns  # the reason is named, not implied
+    assert "EVIDENCE_THIN" in render_html(b)
+
+
+def test_an_info_finding_does_not_count_as_discipline_evidence() -> None:
+    """A CGT-boundary fact is evidence about tax, not about the thesis.
+
+    `_cgt_boundary_findings` appends `info` rows into the same
+    `discipline_findings` list the discipline checks use. Keying the "no
+    evidence" unknown on that list being *empty* would let one CGT line make a
+    wholly unchecked portfolio read CLEAR — the quiet neutral again, arriving
+    through a side door.
+    """
+    cgt_only = DisciplineFinding(
+        check="cgt_discount_boundary",
+        level=DisciplineLevel.info,
+        message="CBA.AU lot #7: 12-month CGT discount in 12d",
+        symbol="CBA.AU",
     )
-    assert b.signals_stale is True
-    html = render_html(b)
-    assert "unavailable" in html
-    assert "Signals stale — latest signal run: 2026-06-17" in html
+    b = _brief(holdings_count=3, discipline_findings=[cgt_only])
+    assert b.review.status is ReviewStatus.evidence_thin
+    assert any("no discipline evidence" in u for u in b.review.unknowns)
+
+    # A real discipline check having run does clear the unknown.
+    checked = _brief(
+        holdings_count=3, discipline_findings=[cgt_only, _REVISIT_OVERDUE_FINDING]
+    )
+    assert not any("no discipline evidence" in u for u in checked.review.unknowns)
 
 
-def test_signals_stale_when_no_signals_at_all() -> None:
-    b = _brief(regime=None, latest_signal_date=None, data_as_of=None)
-    assert b.signals_stale is True
+def test_review_attention_when_a_finding_needs_the_governor() -> None:
+    b = _brief(discipline_findings=[_REVISIT_OVERDUE_FINDING])
+    assert b.review.status is ReviewStatus.attention
+    assert "ATTENTION" in render_html(b)
+
+
+def test_review_blocked_when_a_check_could_not_run() -> None:
+    """An `error` finding means the check did not compute — no view is available."""
+    b = _brief(discipline_findings=[_TRAJECTORY_ERROR_FINDING])
+    assert b.review.status is ReviewStatus.blocked
+    assert "BLOCKED" in render_html(b)
+
+
+def test_review_blocked_outranks_attention() -> None:
+    b = _brief(discipline_findings=[_REVISIT_OVERDUE_FINDING, _TRAJECTORY_ERROR_FINDING])
+    assert b.review.status is ReviewStatus.blocked
+
+
+def test_review_attention_not_masked_by_an_unrelated_unknown() -> None:
+    """A real finding must not be downgraded to EVIDENCE_THIN because prices are
+    stale. The unknown is still carried on the outcome and still printed."""
+    b = _brief(
+        discipline_findings=[_REVISIT_OVERDUE_FINDING],
+        latest_price_date=date(2026, 5, 1),
+    )
+    assert b.review.status is ReviewStatus.attention
+    assert any("Prices stale" in u for u in b.review.unknowns)
+    assert "Prices stale" in render_html(b)
+
+
+def test_review_blocked_on_job_failure() -> None:
+    b = _brief(
+        job_failures=[
+            JobFailure(job_name="sync_prices", as_of=date(2026, 5, 22), error_message="HTTP 503")
+        ]
+    )
+    assert b.review.status is ReviewStatus.blocked
 
 
 def test_render_html_shows_freshness_banner_when_prices_stale() -> None:
-    """Freshness banner appears when latest_price_date is >5 days before as_of."""
+    """Freshness banner appears when latest_price_date is >5 days before as_of.
+
+    This is the model-INDEPENDENT warning that must never be suppressed. It
+    previously shared a banner with a Model A "Signals stale" line whose
+    suppression was wired to the shelf flag; the price warning survives that
+    removal unchanged.
+    """
     html = render_html(_brief(latest_price_date=date(2026, 5, 10)))
+    assert "Data freshness warning" in html
     assert "Prices stale" in html
     assert "2026-05-10" in html
 
 
 def test_render_html_freshness_banner_absent_when_fresh() -> None:
-    """No freshness banner when prices and signals are current."""
-    html = render_html(_brief())
+    html = render_html(_brief(holdings_count=0))
     assert "Data freshness warning" not in html
 
 
-def test_render_html_shows_signal_changes() -> None:
-    html = render_html(
-        _brief(
-            signal_changes=[
-                SignalChange("BHP.AU", "BUY", "STRONG_SELL", "mom_12_1-0.420"),
-                SignalChange("CSL.AU", "HOLD", "STRONG_BUY", "mom_12_1+1.002"),
-            ]
-        )
-    )
-    assert "BHP.AU" in html
-    assert "STRONG_SELL" in html
-    assert "mom_12_1-0.420" in html
-    assert "CSL.AU" in html
-
-
-# ---------------------------------------------------------------------------
-# Model A shelved — calm state (rule #11) replaces the dead-signal banners
-# ---------------------------------------------------------------------------
-
-
-def test_render_html_calm_model_shelved_state() -> None:
-    """0 approved models (the deliberate rule #11 shelf) → one calm 'Model A
-    shelved' line, not the red 'unavailable'/'Signals stale'/caveat noise, and no
-    Model-A 'Signal changes' section."""
-    html = render_html(_brief(model_shelved=True, regime=None, latest_signal_date=None))
-    assert "Model A" in html and "shelved" in html
-    assert "unavailable" not in html
-    assert "Signals stale" not in html
-    assert "Signal caveat:" not in html
-    assert "Signal changes on holdings" not in html
-
-
-def test_render_html_shelved_still_warns_on_genuine_price_staleness() -> None:
-    """Shelving Model A must NOT suppress a genuine, model-independent
-    price-staleness warning (James's guardrail: hide only shelf noise)."""
-    html = render_html(_brief(model_shelved=True, latest_price_date=date(2026, 5, 1)))
-    assert "Data freshness warning" in html
+def test_render_html_unknowns_are_printed_never_defaulted() -> None:
+    """No price data at all → the banner says so instead of rendering a blank."""
+    html = render_html(_brief(latest_price_date=None))
+    assert "no data" in html
     assert "Prices stale" in html
-    assert "Signals stale" not in html
-
-
-def test_render_html_not_shelved_keeps_signal_surface() -> None:
-    """The single-approved-model path is unchanged: caveat + signal-changes render."""
-    html = render_html(_brief())  # model_shelved defaults False
-    assert "Signal caveat:" in html
-    assert "Signal changes on holdings" in html
 
 
 # ---------------------------------------------------------------------------
-# Signal caveat (Brief QA Step 1) — labels experimental, not trade instructions
+# Adversarial: the brief is model-independent, and cannot quietly stop being so
+#
+# These replace the pre-retirement model-gate tests (manifest T9). Those asserted
+# that a *quarantined* model's sections were skipped — a property that only
+# exists while there is a model to quarantine. The assertions below are strictly
+# stronger: there is no state of `model_versions`, and no BriefData, that puts
+# model-derived content into this brief, because no code path reads one.
 # ---------------------------------------------------------------------------
 
-_CAVEAT_MARKER = "Signal caveat:"
+_MODEL_VOCABULARY = (
+    "Model A",
+    "model_a",
+    "shelved",
+    "Regime:",
+    "Signal caveat",
+    "Signal changes",
+    "Signals stale",
+    "top driver",
+    "STRONG_BUY",
+    "STRONG_SELL",
+    "shap",
+)
 
 
-def test_render_html_contains_signal_caveat() -> None:
+def test_rendered_brief_contains_no_model_vocabulary() -> None:
+    """Every Model A surface is gone from the rendered page, in every state."""
+    briefs = [
+        _brief(),
+        _brief(holdings_count=0),
+        _brief(latest_price_date=None, data_as_of=None),
+        _brief(discipline_findings=[_REVISIT_OVERDUE_FINDING, _TRAJECTORY_ERROR_FINDING]),
+    ]
+    for b in briefs:
+        html = render_html(b)
+        for token in _MODEL_VOCABULARY:
+            assert token not in html, f"{token!r} leaked into the brief"
+
+
+def test_review_status_surfaces_issue_no_trade_direction() -> None:
+    """The brief's OWN copy — headline, caveat, unknowns banner — is directive-free.
+
+    Read the scope narrowly, because a broader reading would be false comfort on
+    an s766B property:
+
+    * It covers the copy this module and template author: the review headline,
+      the evidence-only caveat, and the unknowns banner.
+    * It does NOT cover text this brief merely relays. Collector-authored finding
+      messages, news headlines (`{{ n.title }}`) and RBA titles (`{{ r.title }}`)
+      render verbatim, and routinely contain directive words for legitimate
+      reasons — `asxos/domain/brief/severity.py:67` emits "CGT boundary in 3d —
+      do not sell", which is a prohibition, not an instruction, and correctly
+      stays.
+    * It does NOT cover the gated "Portfolio adjustments" section, which is a
+      trade *proposal* surface by design (and cannot be populated at all while
+      the allocator's candidate source is retired).
+
+    So: findings and portfolio section deliberately empty, to isolate the copy.
+    """
+    b = _brief()
+    assert b.discipline_findings == []
+    assert b.portfolio_section is None
+    assert b.news_items == []
+    assert b.regulatory_hits == []
+    assert directive_terms(render_html(b)) == ()
+
+    # And in the states where the brief writes the most of its own copy.
+    thin = _brief(holdings_count=3, latest_price_date=None)
+    assert thin.review.status is ReviewStatus.evidence_thin
+    assert directive_terms(render_html(thin)) == ()
+
+
+def test_brief_data_has_no_model_fields() -> None:
+    """The fields that carried model state are gone, not merely unused.
+
+    `regime`, `signal_changes`, `latest_signal_date` and the `model_shelved`
+    suppression flag were the brief's entire model surface.
+    """
+    names = {f.name for f in dataclasses.fields(BriefData)}
+    for gone in ("regime", "signal_changes", "latest_signal_date", "model_shelved"):
+        assert gone not in names
+    assert not hasattr(BriefData, "signals_stale")
+
+
+def test_compose_module_imports_are_model_independent() -> None:
+    """Mechanical import contract, in the style of test_thesis_discipline.py.
+
+    A docstring promise that this module never reads a model is worth nothing on
+    its own — this is what makes re-adding the dependency fail a test.
+    """
+    source = Path(compose.__file__).read_text()
+    # `line.strip()`, not `line` — an indented import is still an import, and
+    # this module already uses one (`collect()` lazy-imports `asxos.db.acquire`
+    # inside the function body). Matching only column-0 imports would let a
+    # function-local `from asxos.domain.models.production_gate import ...` walk
+    # straight past the test whose entire job is to catch it.
+    import_lines = [
+        line for line in source.splitlines()
+        if line.strip().startswith(("import ", "from "))
+    ]
+    banned = ("production_gate", "domain.models", "domain.signals", "brief.shap")
+    for line in import_lines:
+        for token in banned:
+            assert token not in line, f"model-dependent import reintroduced: {line}"
+
+
+def test_brief_template_source_has_no_model_references() -> None:
+    """The template is checked directly, not only through a render.
+
+    Three of the five `model_shelved` references were `{% if %}` conditions, so a
+    render-only assertion can pass while the dead branches sit in the file.
+    """
+    template = (
+        Path(compose.__file__).parent / "templates" / "brief.html.j2"
+    ).read_text()
+    for token in ("model_shelved", "signal_changes", "signals_stale",
+                  "latest_signal_date", "d.regime", "label-"):
+        assert token not in template, f"{token!r} still in brief.html.j2"
+
+
+# ---------------------------------------------------------------------------
+# Adversarial: the silent-failure class this retirement could have shipped
+# ---------------------------------------------------------------------------
+
+
+def test_template_environment_is_strict_about_undefined_names() -> None:
+    """`StrictUndefined`, asserted on the real environment render_html uses.
+
+    Jinja's default `Undefined` is falsy and renders empty. Under it, deleting
+    `BriefData.model_shelved` while the template still said
+    `{% if not d.model_shelved %}` would have silently *un*-suppressed the whole
+    dead signal section — no exception, no failing job, no alert. This test is
+    the tripwire for that entire class of failure, not for one field.
+    """
+    env = compose.brief_env()
+    assert env.undefined is jinja2.StrictUndefined
+    with pytest.raises(jinja2.UndefinedError):
+        env.from_string("{% if d.model_shelved %}x{% endif %}").render(d=_brief())
+
+
+def test_render_html_raises_on_a_missing_field_rather_than_rendering_empty() -> None:
+    """End-to-end proof through the real template loader, not a string template."""
+    env = compose.brief_env()
+    with pytest.raises(jinja2.UndefinedError):
+        env.from_string("{{ d.regime }}").render(d=_brief())
+
+
+# ---------------------------------------------------------------------------
+# Evidence-only caveat (replaces the retired signal caveat)
+# ---------------------------------------------------------------------------
+
+
+def test_render_html_contains_evidence_only_caveat() -> None:
     html = render_html(_brief())
-    assert _CAVEAT_MARKER in html
-    assert "experimental model-derived rankings" in html
-    assert "decision-support context only" in html
-    assert "not trade instructions" in html
+    assert "Evidence only." in html
+    assert "model-independent" in html
+    assert "CLEAR / ATTENTION / BLOCKED / EVIDENCE_THIN" in html
+    assert "no instruction to act on any holding" in html
 
 
-def test_render_html_caveat_present_when_signals_stale() -> None:
-    """Caveat still appears when regime is unavailable (signals stale) — and the
-    existing stale behaviour is preserved."""
-    html = render_html(_brief(regime=None, latest_signal_date=date(2026, 5, 20)))
-    assert _CAVEAT_MARKER in html
-    assert "unavailable" in html  # existing stale-regime behaviour intact
-
-
-def test_render_html_caveat_near_signal_section_not_buried() -> None:
-    """Caveat sits in the regime/signal area: after the regime line and before
-    the 'Signal changes on holdings' section — not buried at the bottom."""
+def test_render_html_caveat_sits_under_the_headline_not_buried() -> None:
     html = render_html(_brief())
-    caveat_pos = html.index(_CAVEAT_MARKER)
-    regime_pos = html.index("Regime:")
-    signal_section_pos = html.index("Signal changes on holdings")
-    assert regime_pos < caveat_pos < signal_section_pos
+    assert html.index("Review:") < html.index("Evidence only.")
+    assert html.index("Evidence only.") < html.index("Regulatory hits on holdings")
 
 
 def test_render_html_renders_empty_states() -> None:
     html = render_html(_brief())
-    assert "No label changes overnight" in html
     # "No lots crossing" retired with the standalone tax-actions table —
     # CGT boundary facts now render as gated discipline findings.
     assert "No regulatory hits" in html
@@ -398,16 +541,13 @@ def test_cgt_boundary_malformed_acquired_at_is_loud_error() -> None:
 
 def _make_conn(
     *,
-    regime_row,
     holdings_count,
-    signal_rows,
     tax_rows,
     reg_rows,
     hold_syms,
     fail_rows,
     news_rows=None,
     news_job_rows=None,
-    latest_signal_date=None,
     latest_price_date=None,
     model_gate_rows=None,
 ):
@@ -415,27 +555,26 @@ def _make_conn(
 
     news_rows:          rows for ``FROM holding_news`` queries (_holding_news)
     news_job_rows:      rows for ``FROM job_runs … job_name = 'ingest_news'`` (_news_ingest_fresh)
-    latest_signal_date: return value for ``SELECT MAX(as_of) FROM signals``
     latest_price_date:  return value for ``SELECT MAX(p.dt) FROM prices ...``
-    model_gate_rows:    rows for the ``FROM model_versions`` contamination-isolation
-                         gate query; defaults to a single approved model_a row so
-                         existing tests don't need to know about the gate.
+    model_gate_rows:    rows this mock would return for a ``FROM model_versions``
+                        query. Kept deliberately, with no consumer: it is the
+                        instrument for
+                        ``test_collect_never_queries_model_versions_or_signals``,
+                        which proves collect() issues no such query in any
+                        model_versions state.
     """
-    _latest_signal_date = latest_signal_date
     _latest_price_date = latest_price_date
     _model_gate_rows = (
         model_gate_rows if model_gate_rows is not None else [{"model": "model_a"}]
     )
 
     conn = MagicMock()
-    conn.fetchrow = AsyncMock(return_value=regime_row)
+    conn.fetchrow = AsyncMock(return_value=None)
 
     async def _fetchval(query, *args, **kwargs):
         q = " ".join(query.split())
         if "COUNT(*)" in q:
             return holdings_count
-        if "MAX(as_of)" in q:
-            return _latest_signal_date
         if "MAX(p.dt)" in q:
             return _latest_price_date
         return None
@@ -446,8 +585,6 @@ def _make_conn(
         q = " ".join(query.split())
         if "FROM model_versions" in q:
             return _model_gate_rows
-        if "signals s\nJOIN current_holdings" in query or ("FROM signals" in q and "old_label" in q):
-            return signal_rows
         if "FROM current_holdings\nORDER BY acquired_at" in query:
             return tax_rows
         if "FROM regulatory_events" in q:
@@ -467,16 +604,18 @@ def _make_conn(
     return conn
 
 
+def _all_queries(conn) -> list[str]:
+    """Every SQL string collect() passed to this mock, across all three verbs."""
+    calls = (
+        list(conn.fetch.await_args_list)
+        + list(conn.fetchval.await_args_list)
+        + list(conn.fetchrow.await_args_list)
+    )
+    return [" ".join(str(c.args[0]).split()) for c in calls if c.args]
+
+
 def test_collect_assembles_brief_data() -> None:
     today = date(2026, 5, 22)
-    signal_rows = [
-        {
-            "symbol": "BHP.AU",
-            "old_label": "BUY",
-            "new_label": "STRONG_SELL",
-            "shap_factors": {"mom_12_1": -0.420, "market_cap": -0.310, "bias": 0.05},
-        }
-    ]
     tax_rows = [
         {"id": 7, "symbol": "CBA.AU", "acquired_at": today.replace(day=21).replace(year=today.year - 1)},
     ]
@@ -493,9 +632,7 @@ def test_collect_assembles_brief_data() -> None:
         {"job_name": "sync_fundamentals", "as_of": today, "error_message": "timeout"},
     ]
     conn = _make_conn(
-        regime_row={"regime": "bear"},
         holdings_count=2,
-        signal_rows=signal_rows,
         tax_rows=tax_rows,
         reg_rows=reg_rows,
         hold_syms=hold_syms,
@@ -509,10 +646,7 @@ def test_collect_assembles_brief_data() -> None:
     with patch("asxos.brief.compose.acquire", fake_acquire):
         data = asyncio.run(collect(today))
 
-    assert data.regime == "bear"
     assert data.holdings_count == 2
-    assert len(data.signal_changes) == 1
-    assert data.signal_changes[0].top_factor.startswith("mom_12_1")
     assert len(data.regulatory_hits) == 1
     assert data.regulatory_hits[0].symbol == "BHP.AU"
     assert data.has_failures
@@ -522,9 +656,7 @@ def test_collect_assembles_brief_data() -> None:
 def test_collect_handles_empty_db() -> None:
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row=None,
         holdings_count=0,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[],
@@ -538,29 +670,40 @@ def test_collect_handles_empty_db() -> None:
     with patch("asxos.brief.compose.acquire", fake_acquire):
         data = asyncio.run(collect(today))
 
-    assert data.regime is None
-    assert data.signals_stale is True
     assert data.holdings_count == 0
-    assert data.signal_changes == []
     assert not data.has_failures
 
 
-def test_collect_no_approved_model_renders_without_model_sections() -> None:
-    """R9: 0 active+approved_for_allocation models is the EXPECTED state under a
-    Model A quarantine (rule #11), not a misconfig for this display path. collect()
-    must render the model-INDEPENDENT brief (regime None, no signal changes) instead
-    of hard-failing and hiding it. The allocator still hard-fails on 0 approved —
-    see tests/test_portfolio_build.py."""
+@pytest.mark.parametrize(
+    "model_gate_rows",
+    [
+        pytest.param([], id="zero_approved_models"),
+        pytest.param([{"model": "model_a"}], id="one_approved_model"),
+        pytest.param(
+            [{"model": "model_a"}, {"model": "factor_sleeve"}],
+            id="multiple_approved_models",
+        ),
+    ],
+)
+def test_collect_never_queries_model_versions_or_signals(model_gate_rows) -> None:
+    """Adversarial, replacing manifest T9's two model-gate tests.
+
+    Those asserted the brief *skipped* its model sections when 0 or >1 models
+    were approved — a conditional property, and one that quietly depends on the
+    gate call still being there to do the skipping. This asserts the
+    unconditional one: whatever `model_versions` contains, collect() issues no
+    `model_versions` query and no `signals` query at all, and the brief is
+    identical in all three states. There is no configuration that re-enables a
+    model surface, because there is no surface left to enable.
+    """
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row={"regime": "bear"},  # present, but must be skipped (model gated off)
         holdings_count=2,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[],
         fail_rows=[],
-        model_gate_rows=[],
+        model_gate_rows=model_gate_rows,
     )
 
     @asynccontextmanager
@@ -570,57 +713,36 @@ def test_collect_no_approved_model_renders_without_model_sections() -> None:
     with patch("asxos.brief.compose.acquire", fake_acquire):
         data = asyncio.run(collect(today))
 
-    assert data.regime is None          # model-derived → skipped under quarantine
-    assert data.signal_changes == []    # model-derived → skipped
-    assert data.latest_signal_date is None
-    assert data.signals_stale is True
-    assert data.holdings_count == 2     # model-INDEPENDENT data survives
-    assert data.model_shelved is True   # 0 approved == the calm shelf state
+    queries = _all_queries(conn)
+    assert queries, "collect() issued no queries — the routing mock is misconfigured"
+    for q in queries:
+        assert "model_versions" not in q, f"model gate query survived: {q}"
+        assert "FROM signals" not in q, f"signals read survived: {q}"
+        assert "shap_factors" not in q, f"SHAP read survived: {q}"
 
-
-def test_collect_multiple_approved_models_renders_without_model_sections() -> None:
-    """R9: >1 approved is ambiguous (no single model to display) → skip the Model A
-    sections rather than hard-fail the whole brief. The allocator still hard-fails on
-    >1 approved — see tests/test_portfolio_build.py."""
-    today = date(2026, 5, 22)
-    conn = _make_conn(
-        regime_row={"regime": "bull"},
-        holdings_count=1,
-        signal_rows=[],
-        tax_rows=[],
-        reg_rows=[],
-        hold_syms=[],
-        fail_rows=[],
-        model_gate_rows=[{"model": "model_a"}, {"model": "factor_sleeve"}],
-    )
-
-    @asynccontextmanager
-    async def fake_acquire():
-        yield conn
-
-    with patch("asxos.brief.compose.acquire", fake_acquire):
-        data = asyncio.run(collect(today))
-
-    assert data.regime is None
-    assert data.signal_changes == []
-    assert data.holdings_count == 1
-    assert data.model_shelved is False  # >1 approved is a misconfig, NOT the shelf
+    # Model-INDEPENDENT data is unaffected in every gate state.
+    assert data.holdings_count == 2
 
 
 def test_collect_anchors_on_complete_trading_day() -> None:
-    """collect() queries regime/signals on the latest *complete* trading day,
-    not the calendar as_of, and records it as data_as_of → not stale."""
+    """collect() records the latest *complete* trading day as data_as_of.
+
+    The anchor outlived the signal queries it was introduced for, but its meaning
+    narrowed with them: it is now a statement about PRICE completeness only,
+    since every remaining collector is computed on the calendar as_of. The
+    template labels it "Prices complete to" for exactly that reason — calling it
+    "evidence as of" would assert a provenance no query backs, which is the same
+    fabrication the four-state vocabulary exists to stop.
+    """
     calendar_today = date(2026, 6, 18)
     complete_day = date(2026, 6, 17)
     conn = _make_conn(
-        regime_row={"regime": "neutral"},
         holdings_count=1,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[],
         fail_rows=[],
-        latest_signal_date=complete_day,
+        latest_price_date=complete_day,
     )
 
     @asynccontextmanager
@@ -637,12 +759,10 @@ def test_collect_anchors_on_complete_trading_day() -> None:
         data = asyncio.run(collect(calendar_today))
 
     assert data.data_as_of == complete_day
-    assert data.regime == "neutral"
-    assert data.signals_stale is False
-    # The regime query is pinned to the production model and used the
-    # complete-day anchor, not the calendar date.
-    assert conn.fetchrow.await_args.args[1] == "model_a"
-    assert conn.fetchrow.await_args.args[2] == complete_day
+    assert data.prices_stale is False
+    html = render_html(data)
+    assert "Prices complete to: 2026-06-17" in html
+    assert "Evidence as of" not in html
 
 
 # ---------------------------------------------------------------------------
@@ -706,9 +826,7 @@ def test_collect_news_section_absent_when_flag_off() -> None:
     """news_items=[] when ASXOS_NEWS_BRIEF_ENABLED is not '1'."""
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row={"regime": "neutral"},
         holdings_count=1,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[{"symbol": "BHP.AU"}],
@@ -741,9 +859,7 @@ def test_collect_assembles_news_items() -> None:
     """When all three gates pass, collect() populates news_items."""
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row={"regime": "neutral"},
         holdings_count=1,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[{"symbol": "BHP.AU"}],
@@ -787,9 +903,7 @@ def test_collect_news_absent_when_ingest_stale() -> None:
     """
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row={"regime": "neutral"},
         holdings_count=1,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[{"symbol": "BHP.AU"}],
@@ -1052,9 +1166,7 @@ def test_discipline_findings_appends_broker_matching_unrealised_return() -> None
 def test_collect_discipline_findings_quiet_by_default() -> None:
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row={"regime": "bear"},
         holdings_count=0,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[],
@@ -1076,9 +1188,7 @@ def test_collect_discipline_section_failure_isolated() -> None:
     it (CLAUDE.md #10) — it surfaces as one loud error finding instead."""
     today = date(2026, 5, 22)
     conn = _make_conn(
-        regime_row={"regime": "bear"},
         holdings_count=1,
-        signal_rows=[],
         tax_rows=[],
         reg_rows=[],
         hold_syms=[],
