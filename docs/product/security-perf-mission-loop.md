@@ -8,6 +8,45 @@ fixes for **security vulnerabilities and performance regressions only**
 **Owner:** James (governor — authorized the live posture; owns the kill switch, the merge
 gate, and the §10 mechanical prerequisites)
 **Superseded by:** N/A
+**Docs-truth correction:** 2026-08-14 (`SB0-02` — the two "outstanding server-side backstop"
+claims corrected against repository evidence. **No gate lifted; the write loop stays gated on
+§10 and on James.**)
+
+> ### ⚠️ STALE-PREMISE CORRECTION — 2026-08-14 (`SB0-02`)
+>
+> This document twice names branch protection and the `0039` DB role as *outstanding* backstops
+> (`:14` and the §"Honest limits" bullet near `:190`). Both moved after this file's last verified
+> date. Correcting the facts **does not clear §10 and does not enable the write loop** — that is
+> James's enactment and nothing in this box touches it.
+>
+> - **Branch protection on `main` — LANDED 2026-07-17**, not outstanding. Rulesets `asxos-main`
+>   (19077432) + `main` (18221894); classic protection re-asserted 2026-08-12. PR required,
+>   `full-check` required, force-push and deletion blocked. **It is a weaker backstop than this
+>   file's framing assumes:** `required_approving_review_count: 0` → `.github/CODEOWNERS` is
+>   **advisory, not mechanical**, and `enforce_admins: false` → an admin-scoped token bypasses it.
+>   So §Kill-switches' *"branch protection / `pr-draft-guard` prevent merge regardless"* row is
+>   **only true for non-admin credentials**; it does not bind James or an admin token, and
+>   `pr-draft-guard.sh` has never been verified to fire in this harness (`risk-register.md` R16).
+> - **Migration `0039` (the read-only DB role) — APPLIED 2026-07-16**, not outstanding as a
+>   migration. **But the residual is narrower than "no read-only access exists", and this file's
+>   framing should not imply otherwise.** A read-only Supabase MCP (`supabase-ro`) has been live
+>   since 2026-07-16 connecting as **`supabase_read_only_user`** — it is the only Supabase MCP in
+>   `.claude/settings.json`'s allow array, and the agent frontmatters under `.claude/agents/` all
+>   name `mcp__supabase-ro__execute_sql` (`roadmap-state.md:997-1000`, `:1048-1049`). What is
+>   outstanding is re-pointing `supabase-ro` at `0039`'s own **`asxos_agent_ro`** role: a swap
+>   **between two read-only roles**, not the gap between read-only and write-capable. Treat this
+>   precondition as **partially met, still open** — `arbi-autonomy-loop.md` layer 3,
+>   `arbi-full-auto-activation-2026-07-15.md` §3.2 step 4.
+> - **Unchanged:** the `pytest`-as-arbitrary-code-execution path, the "armed only under
+>   `ARBI_UNATTENDED=1`" limit on §7's primary blocks, the draft-PR ceiling, and **James's merge**
+>   as the load-bearing boundary. The always-on trio still does the real work.
+>
+> Also note `docs/proposals/arbi-guard-carveouts-2026-08-12.md` (PRs #92/#93): the workflow-
+> dispatch grant now splits by **attendance**, not by workflow class, and `gh run rerun` plus
+> substitution-compounded dispatches are **hard-denied**. Those are grant *removals* and a
+> narrowly-scoped attended-local widening James authorised — read them from
+> `arbi-permission-model.md` §"Dispatch splits by *attendance*", which is the authority, not from
+> this file.
 
 James's verdict as governor (2026-07-15): run the full arbi→guilfoyle→specialists execution
 loop **live**, scoped to security + performance, overriding the 7b *infra* preconditions

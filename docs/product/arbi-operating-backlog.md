@@ -9,6 +9,26 @@ relayed 2026-07-11), **debated against live repo state** by arbi.
 > `roadmap-state.md`. This file is retained for the debate and the file-cited evidence in it, not
 > for its ranking. Do not read a next action from here.
 
+> ### ⚠️ STALE-PREMISE CORRECTION — 2026-08-14 (`SB0-02` memory/eval/permission reconciliation)
+>
+> Reference-only does not mean unread. Four present-tense claims below were true on 2026-07-11
+> and are false today. Rows are **annotated, not rewritten** — the original text is the record of
+> what was believed then. **No permission tier is broadened by this box, no grant is created, and
+> no item is marked done that James has not himself enacted.**
+>
+> Rows are located by **label**, not line number — inserting this box shifts every line below it,
+> and a correction whose own citations rot is worse than none.
+>
+> | Claim in this file | Today (2026-08-14) |
+> |---|---|
+> | §"Already built" table, row *"Branch protection + CODEOWNERS is the real poisoning firewall"* — *"Branch protection on `main` is **NOT configured**"*; and **R-A2** *"Configure branch protection on `main`"*, plus §Sequencing item 2 | **CONFIGURED and enforcing since 2026-07-17** — rulesets `asxos-main` (19077432) + `main` (18221894); classic protection re-asserted 2026-08-12. PR required, `full-check` required, force-push and deletion blocked. **Two limits that must travel with any citation:** `required_approving_review_count: 0`, so **`.github/CODEOWNERS` is ADVISORY, not mechanical** (a 1-approval setting was tried and reverted 2026-08-12 — GitHub forbids self-approval on a solo repo, so requiring one made every merge an admin bypass); and `enforce_admins: false`, so an admin-scoped token bypasses all of it. R-A2's *"mechanical poisoning firewall"* framing therefore **overstates** what exists — the branch and path legs are mechanical; the *"who can merge it"* leg is process discipline. Sources: `session-handoff-2026-07-17.md:16`, `arbi-autonomy-loop.md:45-61`, `risk-register.md` R5, `arbi-permission-model.md` §Branch-protection status |
+> | §"Already built" table, row *"Split permissions into three operating profiles"* — *"today's `settings.json` only encodes the wake-readonly slice"*; and **R-A1** *"Materialise the reversible-work `permissions.allow` profile"* | **Largely materialised.** `.claude/settings.json`'s `allow` array now carries the reversible-work set R-A1 described — `git add`/`checkout`/`switch`/`commit`/`push`, `pytest`, `ruff`, `mypy`, `make check`, `gh pr create`/`view`/`comment`, `gh run list`/`view`/`watch` — alongside the read-only slice. It is **explicit rules, never `Bash(*)`**, exactly as R-A1 required. James signed it; arbi did not widen it. The I5/I6 deny set is intact and was **not** narrowed |
+> | **R-A4** *"**Verify** asxos's harness supports skill `allowed-tools` + `disable-model-invocation`"* | **Verified and built.** `.claude/skills/` holds four skills (`agent-team-mission`, `arbi-mission`, `pr-readiness`, `reversible-work-window`). Per `arbi-permission-model.md` §autonomy unlock pack, skill `allowed-tools` is **convenience, not a security boundary** — the hard floor stays the deny rules + hooks + branch protection + James's merge |
+> | **R-A5** *"Auto-mode … do LAST, after R-A1/R-A2"* | **Still James's, still last, still not enacted.** Its two named preconditions have moved: branch protection is configured (with the caveats above), and migration `0039` was **applied 2026-07-16** with a read-only Supabase MCP (`supabase-ro`, connecting as `supabase_read_only_user`) live since the same day and the only Supabase MCP in the settings allow array (`roadmap-state.md:997-1000`). What remains is re-pointing `supabase-ro` at `0039`'s own `asxos_agent_ro` — a swap **between two read-only roles**, so the DB role is partially landed rather than absent. **This is not a clearance.** `bypassPermissions` remains forbidden for every launch |
+>
+> One thing this box deliberately does **not** do: reorder, close, or re-own any R-A row. The
+> ranking here is superseded by `roadmap-state.md` regardless.
+
 The debate matters more than the list. ChatGPT's 12 items are strong, but **4 already exist**
 (built this session) — capturing them as "create" would be exactly the fake-progress arbi is
 supposed to catch. Deduped against ground truth, the genuinely-new high-value work is narrower.
