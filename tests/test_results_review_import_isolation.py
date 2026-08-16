@@ -58,7 +58,7 @@ def test_results_review_imports_without_secrets_or_config_execution(
         # Explicitly no DATABASE_URL / EODHD_API_KEY: config execution would
         # hard-fail here, which is exactly what makes the proof observable.
     }
-    result = subprocess.run(  # noqa: S603 — fixed argv, test-controlled input
+    result = subprocess.run(
         [sys.executable, "-c", _PROOF_SCRIPT],
         env=env,
         capture_output=True,
