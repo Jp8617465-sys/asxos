@@ -122,6 +122,39 @@ mutually exclusive. Amendment C in the pack narrows that to permit `--force-with
 `claude/**`; it is **not** part of this ruling and is only needed if James later wants the loop
 running with no session open.
 
+#### Amendment B — execute-to-completion chaining (James, 2026-08-16)
+
+Recorded per the GOV-01 two-artifact precedent (`decision-log.md` row `gov-01-2026-08-12`: a
+ruling requires the ruling AND the queue amendment) — and per the P2-03 red-team's binding
+constraint that this be recorded at mission start, not deferred to a close. On 2026-08-16 James
+instructed, verbatim: **"execute reMAINING TO DO LIST TO COMPLETIO"** (execute remaining to-do
+list to completion; session instruction, authority ladder level 0 — this row is its repository
+record). Effect on the queue:
+
+> Sequential mission chaining extends beyond Amendment A's enumerated order
+> (`P1-01 → … → SB0-01`) to the remaining packet work orders in dependency-and-GOV-01 order,
+> one mission per unit, each with an `arbi-red-team` vet, one branch, one draft PR, and a
+> per-unit close row. **Merge, ready and un-draft remain James-only** (observed mechanically
+> enforced this same day: `push-guard.sh` denies `gh pr ready` and `gh pr merge` from the agent
+> on any surface). **Parallel packet missions still require James naming both mission IDs**
+> (unchanged). Hard stops unchanged: credentials, migrations, destructive DB operations,
+> production writes, scheduler cutover, direct pushes to `main`, merge/self-approval, authority
+> or permission changes, personalised financial instructions, capital execution.
+
+Amendment A supplies stacking *mechanics* only; this instruction is the *authority* for chaining
+past SB0-01 — never cite Amendment A as authority for the P2/SB1+/P3 lanes.
+
+Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
+single-builder with the independent-review function preserved in separate documented passes;
+the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
+fit per mission.
+
+Fixture ruling recorded (P2-02, PR #113): acquisition path = **hashed fixture**. G2 assigned
+the decision to P2-02 in writing (`finance-capability-matrix-2026-08-13.md:358-360`); a real
+feed is not executable inside any mission (no endpoint exists; credential creation is a
+mandatory stop), and James's later feed decision is preserved at zero swap cost by
+source-agnostic contracts.
+
 **Alias mapping — session task numbers are NOT a second queue.** Per the packet (§2.4), Claude
 Code's session-local task numbers are execution aliases only; the canonical identity is the packet
 plus the selected work-order ID. Recorded here solely so the two never diverge:
