@@ -1,0 +1,55 @@
+{
+  "snapshot_id": "snap-synthetic-branch-only-0001",
+  "schema_version": 1,
+  "observed_at": "2026-01-16T04:00:00+00:00",
+  "repository": {
+    "base_sha": {"status": "observed", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "branch": {"status": "observed", "value": "claude/synthetic-feature-branch"},
+    "dirty_state": {"status": "observed", "value": false}
+  },
+  "github": {
+    "open_prs": {
+      "status": "observed",
+      "value": [
+        {
+          "number": 9002,
+          "title": "synthetic: feature built on a branch, not merged",
+          "state": "open",
+          "head": "claude/synthetic-feature-branch",
+          "merged": false,
+          "draft": true
+        }
+      ]
+    },
+    "recent_merges": {"status": "observed", "value": []},
+    "workflow_runs": {
+      "status": "observed",
+      "value": [{"workflow": "fake-check-workflow", "branch": "claude/synthetic-feature-branch", "conclusion": "success"}]
+    }
+  },
+  "production": {
+    "release_identity": {"status": "observed", "value": "cccccccccccccccccccccccccccccccccccccccc"},
+    "scheduler_owners": {"status": "observed", "value": [{"job": "fake_nightly_job", "owner": "fake-cron-host"}]}
+  },
+  "data": {
+    "migrations": {"status": "observed", "value": {"applied_count": 12, "latest": "0012_fake_example"}},
+    "freshness": {"status": "observed", "value": {"prices_as_of": "2026-01-15", "age_days": 1}},
+    "coverage": {"status": "observed", "value": {"symbols_with_prices": 7, "universe_size": 7}}
+  },
+  "probes": [
+    {
+      "name": "repository.branch",
+      "status": "observed",
+      "source": "git rev-parse --abbrev-ref HEAD (synthetic example)",
+      "observed_at": "2026-01-16T04:00:00+00:00",
+      "value": "claude/synthetic-feature-branch"
+    },
+    {
+      "name": "github.open_prs",
+      "status": "observed",
+      "source": "gh pr list (synthetic example)",
+      "observed_at": "2026-01-16T04:00:00+00:00",
+      "value": [{"number": 9002, "state": "open", "merged": false}]
+    }
+  ]
+}
