@@ -144,6 +144,20 @@ record). Effect on the queue:
 Amendment A supplies stacking *mechanics* only; this instruction is the *authority* for chaining
 past SB0-01 — never cite Amendment A as authority for the P2/SB1+/P3 lanes.
 
+**Rider — parallel authorization (James, 2026-08-17).** Recorded verbatim per the SB1-01
+red-team's condition precedent (the parallel rule contemplates pairs; a three-way concurrency
+needs the governor naming all of it, and the record must be a dated queue amendment, not a
+session transcript). James wrote:
+
+> Approved parallel: SB1-01 and P3-01, alongside the in-flight P2-04. Then P2-05 when P2-04
+> lands. Then approved parallel: SB1-02, SB2-01, SB3-01, SB4-01.
+
+Effect: (1) SB1-01 ∥ P3-01 ∥ P2-04 is the authorized three-way; (2) P2-05 is pre-authorized
+sequential on P2-04's completion; (3) the four-way SB1-02 ∥ SB2-01 ∥ SB3-01 ∥ SB4-01 is
+pre-authorized contingent on SB1-01 landing and a per-mission `arbi-red-team` vet each — a
+pre-authorization is not a vet waiver. Unchanged: merge/ready/un-draft remain James-only; every
+hard stop stands; one work order per branch per draft PR per close row.
+
 Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
 single-builder with the independent-review function preserved in separate documented passes;
 the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
