@@ -353,13 +353,41 @@ def test_module_imports_no_db_or_numpy() -> None:
     from this arithmetic, and this module must stay renderable without a database
     handle so its maths can be tested in isolation from any fixture.
     """
+    import ast
     from pathlib import Path
 
     import asxos.domain.benchmark.outcome as mod
 
-    source = Path(mod.__file__).read_text()
-    for banned in ("import numpy", "import asyncpg", "from asxos.db", "float("):
-        assert banned not in source, f"{banned!r} present in outcome.py"
+    tree = ast.parse(Path(mod.__file__).read_text())
+
+    # Parsed, not grepped. The previous version matched the literal string
+    # "import numpy", which missed `from numpy import ...` — the spelling a
+    # future edit is most likely to reach for. Widening it to a bare "numpy"
+    # substring then matched this module's own docstring ("no DB, no numpy"),
+    # i.e. the prose describing the invariant tripped the check on the
+    # invariant. The import graph is the thing under test, so read the import
+    # graph.
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+
+    for banned in ("numpy", "pandas", "asyncpg", "asxos.db"):
+        offenders = [m for m in modules if m == banned or m.startswith(f"{banned}.")]
+        assert not offenders, f"outcome.py imports {offenders} — {banned} is banned here"
+
+    # `float(...)` anywhere in the arithmetic would silently leave Decimal.
+    # A call-node walk, so the word appearing in a docstring cannot trip it.
+    float_calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "float"
+    ]
+    assert not float_calls, "outcome.py calls float() — Decimal-only invariant"
 
 
 def test_every_measured_number_is_a_decimal() -> None:

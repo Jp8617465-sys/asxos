@@ -315,9 +315,22 @@ class BriefData:
           would let a single CGT-boundary fact make a wholly unchecked portfolio
           read ``CLEAR``. The unknown below is therefore keyed on *non-info*
           findings.
-        * Stale prices, and holdings with no discipline evidence at all, are
-          **unknowns** — the two ways this brief can look calm while knowing
-          nothing (packet P1 required-work item 5).
+        * Stale prices, holdings with no discipline evidence at all, and a
+          section 8 that could not run are **unknowns** — the three ways this
+          brief can look calm while knowing nothing (packet P1 required-work
+          item 5).
+
+        ``outcome_error`` is an **unknown, not blocking**, and the distinction is
+        deliberate. Section 8 is a measurement, not a check: its failure means
+        "we cannot tell you how the lots did", not "a discipline check could not
+        run". ``EVIDENCE_THIN`` is the honest reading of that. What it must not
+        do is nothing at all — before this mapping, a brief with
+        ``holdings_count == 0``, fresh prices and a crashed outcome loader
+        rendered ``CLEAR`` in the header directly above a red "could not run"
+        banner. That is precisely the shape
+        :mod:`asxos.domain.review.status` exists to close ("an absence of
+        evidence presented as evidence of absence"), reappearing through a
+        section added after the module was written.
 
         A brief with no holdings, no findings and fresh prices is ``CLEAR``:
         there is genuinely nothing to review, which is a different statement from
@@ -348,6 +361,8 @@ class BriefData:
                 "Prices stale — latest price date: "
                 f"{self.latest_price_date or 'no data'}"
             )
+        if self.outcome_error:
+            unknowns.append(f"Outcome vs benchmark not measured — {self.outcome_error}")
         checked = any(
             f.level != DisciplineLevel.info for f in self.discipline_findings
         )
@@ -427,8 +442,14 @@ async def collect(as_of: date) -> BriefData:
                 )
             )
 
-        # Same fail-loud isolation: a broken outcome query must not take the brief
-        # down, and must not vanish either.
+        # Same fail-loud isolation as the two blocks above — with one deliberate
+        # difference. Those map their failure to a `DisciplineLevel.error`
+        # finding, which `BriefData.review` treats as **blocking** (BLOCKED). A
+        # section-8 failure is carried on its own `outcome_error` field and
+        # treated as an **unknown** (EVIDENCE_THIN) instead, because section 8 is
+        # a measurement rather than a discipline check. Both render loudly; only
+        # the headline differs. See `BriefData.review` for the full reasoning —
+        # what neither may do is leave the headline untouched.
         outcome_section: OutcomeSection | None = None
         outcome_error: str | None = None
         try:
@@ -1023,9 +1044,17 @@ async def _lot_outcomes(
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         return None
 
-    # `holding_lots`, not the `current_holdings` view: the view does not expose
-    # `cost_base_normal` (same reason `jobs/snapshot_portfolio.py:200-202` joins
-    # the table directly).
+    # `holding_lots`, not the `current_holdings` view — for an EXPLICIT
+    # `disposed_at IS NULL`, matching `jobs/snapshot_portfolio.py`.
+    #
+    # CORRECTION (2026-08-17): an earlier version of this comment claimed the
+    # view "does not expose cost_base_normal". That is FALSE — the view selects
+    # it (`migrations/0001_initial.sql`, the `current_holdings` definition), and
+    # no later migration redefines it. The claim was copied from a pre-existing
+    # wrong comment in `snapshot_portfolio.py` and was pinned into a test name
+    # before review caught it. Either source is correct to read; the reason is
+    # that the open-lot filter should be visible at the query, not implied by a
+    # view definition three migrations away.
     lot_rows = await conn.fetch(
         """
         SELECT id, symbol, quantity, acquired_at, cost_base_normal

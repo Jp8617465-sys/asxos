@@ -33,6 +33,8 @@ import pytest
 
 from asxos.brief.compose import (
     BriefData,
+    DisciplineFinding,
+    DisciplineLevel,
     _lot_outcomes,
     _resolve_anchor,
     collect,
@@ -45,6 +47,7 @@ from asxos.domain.benchmark.outcome import (
     ReturnState,
     Sleeve,
 )
+from asxos.domain.review.status import ReviewStatus
 
 # The frozen advice vocabulary the P2 results-review lane applies, imported
 # rather than copied. `tests` is a package (`tests/__init__.py`), so this is a
@@ -208,11 +211,24 @@ def test_loader_never_reads_capital_aud(personal_use: Any) -> None:
     _run_loader(conn)
 
     queries = _all_queries(conn)
-    assert any("portfolio_daily_snapshots" in q for q in queries), (
+    snapshot_queries = [q for q in queries if "portfolio_daily_snapshots" in q]
+    assert snapshot_queries, (
         "the benchmark query was not issued — this test would pass vacuously"
     )
     for q in queries:
         assert "capital_aud" not in q, f"capital_aud read on the outcome path: {q}"
+
+    # Positive companion to the negative above. A substring tripwire cannot see
+    # past a `SELECT *`, which would re-expose `capital_aud` while the
+    # `not in` assertion stayed green. Pinning the projection to exactly the
+    # three columns section 8 needs closes that hole.
+    projection = snapshot_queries[0].split("SELECT", 1)[1].split("FROM", 1)[0]
+    assert [c.strip() for c in projection.split(",")] == [
+        "as_of",
+        "benchmark_tr_level",
+        "trailing_div_yield_pct",
+    ]
+    assert "*" not in projection
 
 
 def test_collect_never_reads_capital_aud_and_never_touches_a_model(
@@ -252,10 +268,21 @@ def test_collect_never_reads_capital_aud_and_never_touches_a_model(
         assert "FROM signals" not in q, f"signals read: {q}"
 
 
-def test_loader_reads_cost_base_from_holding_lots_not_the_view(
-    personal_use: Any,
-) -> None:
-    """`current_holdings` does not expose `cost_base_normal`; the table does."""
+def test_the_open_lot_filter_is_visible_at_the_query(personal_use: Any) -> None:
+    """The lot query states `disposed_at IS NULL` itself.
+
+    CORRECTION (2026-08-17): this test was named
+    ``..._from_holding_lots_not_the_view`` and asserted that `current_holdings`
+    "does not expose `cost_base_normal`". **That is false** — the view selects
+    it (`migrations/0001_initial.sql`), and no later migration redefines it. The
+    claim was inherited from a wrong comment at `jobs/snapshot_portfolio.py:200-201`
+    and propagated into a test *name*, where a reviewer nearly cited it onward.
+
+    Either source would return correct rows. The real reason to read the table is
+    that the open-lot predicate is then legible at the call site, rather than
+    implied by a view definition in a migration forty files away — a reader
+    auditing "does this section include disposed lots?" can answer it here.
+    """
     conn = _make_conn()
     _run_loader(conn)
     lot_query = next(q for q in _all_queries(conn) if "cost_base_normal" in q)
@@ -532,6 +559,61 @@ def test_outcome_error_wins_over_a_partial_section(personal_use: Any) -> None:
     fragment = _outcome_fragment(html)
     assert "could not run" in fragment
     assert "+8.96%" not in fragment
+
+
+def test_a_failed_outcome_section_cannot_coexist_with_a_clear_headline() -> None:
+    """The exact co-reachable pair review found: CLEAR above a red banner.
+
+    Zero holdings + fresh prices + no findings is otherwise the one genuinely
+    ``CLEAR`` brief. Add a crashed section 8 and the header must stop saying
+    "nothing to review" — that is `asxos/domain/review/status.py`'s stated
+    purpose ("an absence of evidence presented as evidence of absence")
+    reappearing through a section added after the module was written.
+    """
+    clear = _brief(holdings_count=0)
+    assert clear.review.status is ReviewStatus.clear  # the control
+
+    failed = _brief(holdings_count=0, outcome_error="outcome section could not run: x")
+    assert failed.review.status is ReviewStatus.evidence_thin
+    assert any("Outcome vs benchmark not measured" in u for u in failed.review.unknowns)
+
+    html = render_html(failed)
+    assert "EVIDENCE_THIN" in html
+    assert "could not run" in _outcome_fragment(html)
+
+
+def test_a_measured_outcome_section_does_not_disturb_the_headline(
+    personal_use: Any,
+) -> None:
+    """Unknown only on failure — a section that ran must not itself raise state."""
+    section = _run_loader(_make_conn())
+    data = _brief(holdings_count=0, outcome_section=section)
+    assert data.review.status is ReviewStatus.clear
+    assert not any("Outcome vs benchmark" in u for u in data.review.unknowns)
+
+
+def test_outcome_error_is_an_unknown_not_a_blocker() -> None:
+    """EVIDENCE_THIN, not BLOCKED — section 8 measures, it does not check.
+
+    The adjacent discipline loaders map their failures to blocking. This one
+    deliberately does not, so the distinction is pinned rather than incidental:
+    a real `error` finding still outranks it.
+    """
+    only_outcome = _brief(outcome_error="boom")
+    assert only_outcome.review.status is ReviewStatus.evidence_thin
+    assert any("Outcome vs benchmark" in u for u in only_outcome.review.unknowns)
+
+    with_discipline_error = _brief(
+        outcome_error="boom",
+        discipline_findings=[
+            DisciplineFinding(
+                check="discipline_section",
+                level=DisciplineLevel.error,
+                message="⚠ discipline section could not run: x",
+            )
+        ],
+    )
+    assert with_discipline_error.review.status is ReviewStatus.blocked
 
 
 def test_a_loader_failure_does_not_take_down_the_brief(personal_use: Any) -> None:
