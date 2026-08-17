@@ -52,6 +52,12 @@ dev = [
     "ruff==0.7.0",
     "mypy==1.11.2",
     "types-python-dateutil==2.9.0.20240906",
+    # tests/test_corporate_actions.py reads .github/workflows/weekly-research.yml to
+    # assert the in-process deadline is a SHARE of the job-wide timeout. PyYAML was
+    # resolving only transitively via uvicorn[standard]; an extras change upstream would
+    # have turned that assertion into a collection error instead of a useful failure.
+    "pyyaml==6.0.3",
+    "types-PyYAML==6.0.12.20240917",
 ]
 # Full install for CI and production: pip install -e ".[ml,dev]"
 all = [
