@@ -34,11 +34,21 @@ import asyncio
 import json
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 
-from asxos.ingestion.eodhd import EODHDClient
+if TYPE_CHECKING:
+    # Deliberately NOT a module-top runtime import (P2-04 Step 0): importing
+    # `asxos.ingestion.eodhd` executes `asxos.config` (`config.py:108`
+    # instantiates `CoreSettings()`, which reads the secrets env file), and
+    # this module's pure `derive_knowledge_date()` is imported by
+    # `asxos/domain/results_review/contracts.py:49` — a path that must be
+    # importable in secrets-free environments (tests, contract consumers).
+    # `EODHDClient` is used only as a type annotation here (PEP 563 keeps it
+    # unevaluated at runtime); the job entry point
+    # (`jobs/sync_financial_statements.py`) imports the real client itself.
+    from asxos.ingestion.eodhd import EODHDClient
 
 # EODHD Financials block name -> our statement_type token.
 _STMT_MAP = {
