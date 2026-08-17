@@ -79,7 +79,12 @@ _SCALE = Decimal("0.000001")
 #: materially different window than the lot's, and quietly using it would reintroduce
 #: exactly the "compare two things that are not the same thing" failure this module
 #: exists to close — so it is reported unavailable instead.
-_MAX_ANCHOR_LAG_DAYS = 5
+#:
+#: Public because the brief's loader bounds its snapshot query by the same number.
+#: One constant, so the query window and the acceptance rule cannot drift apart —
+#: a loader that fetched a narrower window than this rule accepts would silently
+#: downgrade measurable lots to `unavailable_no_series`.
+MAX_ANCHOR_LAG_DAYS = 5
 
 
 class Sleeve(StrEnum):
@@ -295,7 +300,7 @@ def _benchmark_measurement(
         return (
             None,
             BenchmarkState.not_applicable_sleeve,
-            _SLEEVE_BENCHMARK_LABEL[sleeve],
+            "not applicable — this sleeve is reported separately (governor ruling F2)",
             None,
         )
     start, end = lot.benchmark_start, lot.benchmark_end
@@ -325,13 +330,13 @@ def _benchmark_measurement(
         )
     start_lag = (lot.acquired_at - start.as_of).days
     end_lag = (as_of - end.as_of).days
-    if not (0 <= start_lag <= _MAX_ANCHOR_LAG_DAYS and 0 <= end_lag <= _MAX_ANCHOR_LAG_DAYS):
+    if not (0 <= start_lag <= MAX_ANCHOR_LAG_DAYS and 0 <= end_lag <= MAX_ANCHOR_LAG_DAYS):
         return (
             None,
             BenchmarkState.unavailable_window_mismatch,
             (
                 f"benchmark window {start.as_of} → {end.as_of} does not match the "
-                f"lot's {lot.acquired_at} → {as_of} within {_MAX_ANCHOR_LAG_DAYS} days"
+                f"lot's {lot.acquired_at} → {as_of} within {MAX_ANCHOR_LAG_DAYS} days"
             ),
             None,
         )
