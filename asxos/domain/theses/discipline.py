@@ -4,7 +4,8 @@ PR1 of the portfolio-team-visibility lane
 (`docs/proposals/portfolio-team-visibility-2026-07-12.md`). This module is the
 compute core the `/pm-review` analysis agents' *deterministic* dimensions reduce
 to (~80-90% of what "the portfolio team flags"): revisit cadence, trajectory
-pace, stop/target, conviction coherence, concentration, unrealised return. It takes
+pace, stop/target, conviction coherence, concentration, unrealised return, and
+the unanswered-data-sanity escalation. It takes
 already-loaded thesis + portfolio data and returns an ordered list of discipline
 findings. It composes the existing pure functions in
 `asxos.domain.brief.severity` and `asxos.domain.theses.trajectory`, adds
@@ -60,10 +61,17 @@ from asxos.domain.theses.trajectory import Trajectory, classify_trajectory
 _DATA_SANITY_TARGET_MULTIPLE = Decimal("2")
 
 # Escalation threshold for an unanswered data-sanity red: one full revisit
-# cadence. `theses.revisit_due_at` resets to NOW() + 30 days on every revisit
-# action (migration 0012), so a red that outlives 30 days of revision silence
-# has, by the system's own cadence definition, been ignored for a whole cycle.
-# Strictly-greater-than, matching `_timeline`'s strictly-past-deadline red.
+# cadence, so a red that outlives it has — by the system's own cadence
+# definition — been ignored for a whole cycle. Strictly-greater-than, matching
+# `_timeline`'s strictly-past-deadline red.
+#
+# This 30 has a RUNTIME TWIN: `asxos/domain/theses/service.py:44`
+# `_REVISIT_INTERVAL_DAYS = 30`, which is what actually sets `revisit_due_at` on
+# every revisit (migration 0012's DEFAULT only covers the INSERT). The design
+# says the two must be equal; they cannot be shared by import, because
+# `service.py` pulls in asyncpg and this module is DB-free by contract (see the
+# module docstring). `tests/test_thesis_discipline.py` carries the drift guard
+# that fails if they diverge — change one, change the other.
 _DATA_SANITY_UNANSWERED_ESCALATION_DAYS = 30
 
 
@@ -90,6 +98,19 @@ class DisciplineFinding:
     level: DisciplineLevel
     message: str
     symbol: str | None = None
+    # True when the finding describes a WATCHLIST row — a thesis with no capital
+    # behind it. Such a finding is real and must be displayed, but it is not
+    # evidence that any *holding* was examined, so `BriefData.review` excludes it
+    # when deciding whether to raise the "N holding(s) with no discipline
+    # evidence" unknown. Without this, one watchlist escalation could make a
+    # wholly unchecked portfolio stop reporting that it is unchecked — the same
+    # side-door the `info`-level exclusion already closes for CGT facts.
+    #
+    # Defaulting to False is safe *because the loader is the only producer that
+    # can know a row's status*: every other call site here evaluates active
+    # theses or portfolio aggregates, which are holding-scoped by construction.
+    # A future watchlist-fed check must set this explicitly (and be tested).
+    watchlist_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -115,11 +136,17 @@ class ThesisDisciplineInput:
     target_price_native: Decimal | None
     stop_price_native: Decimal | None
     conviction_level: int | None
-    # Latest `thesis_revisions.revised_at` for this thesis (as a date), or None
-    # when the thesis has no revision rows / the caller did not derive it. Read
-    # only by `data_sanity_escalation()`; defaulted so call sites that predate
-    # the escalation check are unaffected.
-    last_revised_at: date | None = None
+    # Date of the latest `thesis_revisions` row whose `revision_type` could
+    # plausibly ANSWER a broken-ladder red (target adjusted / reviewed-no-change
+    # / status change / terminal) — see `data_sanity_escalation`. ``None`` when
+    # no such revision exists (a thesis carrying only its `opened` row), which
+    # the check reads as "never answered" and anchors on ``opened_at``.
+    #
+    # Deliberately NOT defaulted, like every other field here: a caller that
+    # omitted it would silently get the most escalation-prone anchor
+    # (``opened_at``), i.e. confident false escalations on every old detached
+    # thesis. Required means mypy names any new construction site instead.
+    last_answering_revision_at: date | None
 
 
 @dataclass(frozen=True)
@@ -167,28 +194,64 @@ def _from_severity(
     )
 
 
-def _data_sanity(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
-    """Red when the live price is an implausible multiple of the recorded target.
+def _fmt_price(value: Decimal) -> str:
+    """Render a NUMERIC(18,6) price without its trailing zeros — or its precision.
 
-    A live price ≥ ``_DATA_SANITY_TARGET_MULTIPLE`` × target signals a stale/broken
-    ladder (data-entry error), not a genuine hit. Both prices are native (R10).
+    ``prices.close`` and the thesis ladder arrive as NUMERIC(18,6), so a raw
+    render reads "168.000000". A blanket ``:.2f`` (as ``unrealised_return``
+    uses, where the values are always ordinary share prices) would instead
+    print a genuinely small figure as "0.00" — a *wrong* number in a message
+    whose whole purpose is to show the user his own recorded data. Trim the
+    zeros; keep whatever significant digits remain.
+    """
+    trimmed = value.normalize()
+    if trimmed == trimmed.to_integral_value():
+        # normalize() renders integral values in exponent form (1.68E+2).
+        trimmed = trimmed.quantize(Decimal("1"))
+    return f"{trimmed:f}"
+
+
+def _detached_ladder(
+    inp: ThesisDisciplineInput,
+) -> tuple[Decimal, Decimal, Decimal] | None:
+    """``(current, target, multiple)`` when the ladder is detached, else ``None``.
+
+    The single shared predicate behind both :func:`_data_sanity` (which reports
+    it) and :func:`data_sanity_escalation` (which escalates it once unanswered),
+    so the threshold and the arithmetic exist once. Returning the operands as
+    well as the verdict is what lets both callers format a message without
+    re-deriving the multiple or re-declaring the ``None`` guards.
+
+    A live price ≥ ``_DATA_SANITY_TARGET_MULTIPLE`` × target signals a
+    stale/broken ladder (data-entry error), not a genuine hit. The comparison
+    stays in multiplication form — dividing first and comparing the quotient to
+    2 would let ``Decimal`` division rounding decide a boundary case. Both
+    prices are native (R10).
     """
     current = inp.current_price_native
     target = inp.target_price_native
     if current is None or target is None or target <= 0:
         return None
-    if current >= _DATA_SANITY_TARGET_MULTIPLE * target:
-        multiple = current / target
-        return DisciplineFinding(
-            check="data_sanity",
-            level=DisciplineLevel.red,
-            message=(
-                f"{inp.symbol}: live price {current} is {multiple:.1f}× the recorded "
-                f"target {target} — likely stale/broken thesis data, review"
-            ),
-            symbol=inp.symbol,
-        )
-    return None
+    if current < _DATA_SANITY_TARGET_MULTIPLE * target:
+        return None
+    return current, target, current / target
+
+
+def _data_sanity(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
+    """Red when the live price is an implausible multiple of the recorded target."""
+    detached = _detached_ladder(inp)
+    if detached is None:
+        return None
+    current, target, multiple = detached
+    return DisciplineFinding(
+        check="data_sanity",
+        level=DisciplineLevel.red,
+        message=(
+            f"{inp.symbol}: live price {current} is {multiple:.1f}× the recorded "
+            f"target {target} — likely stale/broken thesis data, review"
+        ),
+        symbol=inp.symbol,
+    )
 
 
 def data_sanity_escalation(
@@ -205,51 +268,85 @@ def data_sanity_escalation(
     **"Unanswered", derived without a schema change.** Findings are computed
     fresh each run and never persisted, so "when did this red first appear?"
     has no stored answer. The derivable measure is ``thesis_revisions`` (the
-    append-only event log): every answer James can give — correcting the
-    target, a deliberate ``reviewed_no_change`` hold, a status change — lands
-    there as a row, so *days since the latest revision* (``last_revised_at``;
-    falling back to ``opened_at``, which matches the ``opened`` row
-    ``open_thesis()`` writes) measures how long the thesis has gone without a
-    response. A revision made after the red appeared either fixes the ladder
-    (the red stops firing, so no escalation is possible) or acknowledges it
-    (the clock resets). The proxy is conservative in one direction only: a
-    thesis already dormant for > N days escalates on the first day the price
-    crosses the 2× line — the message states precisely what is measured
-    (revision silence plus the multiple), never more.
+    append-only event log): the answers available to James — correcting the
+    target, a deliberate ``reviewed_no_change`` hold, a status change, retiring
+    the row — each land there as a row, so *days since the latest such row*
+    (``last_answering_revision_at``, falling back to ``opened_at``) measures how
+    long the thesis has gone without a response.
+
+    **The proxy errs in BOTH directions; neither is silent-by-design.** The
+    loader narrows the subquery to answering ``revision_type``s precisely so
+    that "a revision acknowledges the red" is true *by construction* — without
+    that filter, a ``--tax-notes`` or ``--conviction`` edit (or an appended
+    report section) would reset the clock while leaving the ladder untouched,
+    and for a ``watching`` row that means TOTAL silence, since the base
+    :func:`_data_sanity` red never runs on watchlist rows. Residual error each
+    way, stated plainly:
+
+    * *Over-escalation*: a thesis already dormant for > N days escalates on the
+      first day the price crosses the 2× line, since the clock predates the red.
+    * *Under-escalation*: an answering-type revision that does not actually fix
+      the ladder (a ``reviewed_no_change`` hold, say) buys another N days.
+
+    Both are bounded by one property: ``INSERT INTO thesis_revisions`` exists in
+    exactly one module, reached only from CLI commands, so every clock reset is
+    a human keystroke — no job, agent or model can suppress this finding.
 
     **s766B.** "Correct or retire" applies to the thesis ROW — a stale
     *record* — never to a holding. Evidence + arithmetic + the maintenance
     verb only; no trade-direction vocabulary (and no "close", per
-    :func:`_timeline`'s precedent). Pure and read-only: this path emits a
-    finding; it never writes ``theses``, ``thesis_revisions`` or
-    ``governance_events``. A human acts.
+    :func:`_timeline`'s precedent). The ``--target`` verb stays on the record
+    side **only because the message emits the literal placeholder
+    ``<corrected>`` and never a computed number**: a price target is the
+    canonical form of an opinion about a financial product, so interpolating
+    one here would cross s766B(3) no matter how the sentence were framed. The
+    wording tests pin both the placeholder and the vocabulary. Pure and
+    read-only: this path emits a finding; it never writes ``theses``,
+    ``thesis_revisions`` or ``governance_events``. A human acts.
+
+    **Known limitation (reported, not worked around).** ``asx thesis revise``
+    addresses a thesis by SYMBOL, resolving via ``get_thesis_by_symbol``
+    (``ORDER BY opened_at DESC LIMIT 1``, no status filter), and
+    ``open_thesis`` has no duplicate-symbol guard. For a symbol carrying more
+    than one thesis row the emitted command can therefore land on a different
+    row than the one that fired this finding. This check knows the right row;
+    the CLI has no id-addressed ``revise`` to name (``approve``/``reject`` take
+    a ``thesis_id``, ``revise`` does not). Naming an id-addressed verb that
+    does not exist would be worse than naming the real one — fix belongs in the
+    CLI.
 
     Loader-appended (like :func:`unrealised_return`) rather than folded into
     :func:`evaluate_thesis`: the brief loader runs this over ``watching`` AND
     ``active`` theses (the live CBA example is a ``watching`` row), while
     ``evaluate_thesis``'s full check battery stays active-only.
     """
-    if _data_sanity(inp) is None:
+    detached = _detached_ladder(inp)
+    if detached is None:
         return None
-    current = inp.current_price_native
-    target = inp.target_price_native
-    if current is None or target is None or target <= 0:
-        # Unreachable once _data_sanity fired; keeps the type-narrowing honest.
+    current, target, multiple = detached
+    answered_at = inp.last_answering_revision_at or inp.opened_at
+    silent_days = (as_of - answered_at).days
+    if silent_days <= _DATA_SANITY_UNANSWERED_ESCALATION_DAYS:
         return None
-    answered_at = inp.last_revised_at or inp.opened_at
-    unanswered_days = (as_of - answered_at).days
-    if unanswered_days <= _DATA_SANITY_UNANSWERED_ESCALATION_DAYS:
-        return None
-    multiple = current / target
+    # `expired` — "thesis invalidated or timeline lapsed without entry"
+    # (migration 0012) — is the terminal state for a RECORD that was never
+    # acted on. Do not "correct" this to `exited`: that word means a position
+    # was closed, which is a trade direction, and the s766B wording test bans
+    # it (`exited` is in the banned list; `expired` is not, deliberately).
     return DisciplineFinding(
         check="data_sanity_escalation",
         level=DisciplineLevel.red,
         message=(
-            f"{inp.symbol}: data-sanity red unanswered for {unanswered_days}d — no "
-            f"thesis-revision activity since {answered_at}, while the live price "
-            f"{current} is {multiple:.1f}× the recorded target {target}. The thesis "
-            f"row looks stale; correct or retire the record: asx thesis revise "
-            f'{inp.symbol} --target <corrected> --reason "..."'
+            f"{inp.symbol}: detached thesis ladder — no answering revision for "
+            # "no answering revision since", NOT "nothing since": the subquery
+            # is scoped to answering revision types, so unrelated edits after
+            # this date are invisible here and "nothing" would be false.
+            f"{silent_days}d (no answering revision since {answered_at}); live price "
+            f"{_fmt_price(current)} is {multiple:.1f}× the recorded target "
+            f"{_fmt_price(target)}. The thesis record looks stale; correct it: "
+            f'asx thesis revise {inp.symbol} --target <corrected> --reason "..." '
+            f"— or retire the record: asx thesis revise {inp.symbol} "
+            f'--status expired --reason "..."'
         ),
         symbol=inp.symbol,
     )
@@ -527,12 +624,27 @@ def evaluate_discipline(
     port: PortfolioDisciplineInput,
     as_of: date,
 ) -> list[DisciplineFinding]:
-    """Top-level: all per-thesis findings followed by all portfolio-level findings.
+    """The per-thesis check battery followed by the portfolio-level checks.
 
-    Returns ``[]`` when every thesis is clean and no portfolio-level issue fires
-    (quiet-by-default — the surface layer emits nothing on an empty list). An
-    ``error``-level finding in the result means a check could not be computed and
-    must be shown loudly, not treated as "no finding".
+    **Not the complete finding set — this entry point is not sufficient on its
+    own.** Two checks are deliberately *loader-appended* rather than called from
+    here, and a caller that uses only this function will silently drop them:
+
+    * :func:`unrealised_return` — an ``info`` display fact, kept out so this
+      function stays quiet-by-default (a clean portfolio returns ``[]``).
+    * :func:`data_sanity_escalation` — **a red**, kept out because it applies to
+      ``watching`` rows too, while everything here is active-thesis scoped. Miss
+      it and a stale-record escalation is computed nowhere and shown nowhere.
+
+    ``asxos/brief/compose.py::_discipline_findings`` is the reference caller and
+    runs all three. A new consumer (a ``/pm-review`` feed, an ``asx thesis
+    discipline`` CLI) must do the same — dropping a red on the floor is exactly
+    the "findings computed then invisible" failure this module exists to fix.
+
+    Returns ``[]`` when every thesis is clean of the checks *it* owns and no
+    portfolio-level issue fires. An ``error``-level finding in the result means a
+    check could not be computed and must be shown loudly, not treated as "no
+    finding".
     """
     findings: list[DisciplineFinding] = []
     for inp in inputs:
