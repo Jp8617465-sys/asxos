@@ -8,15 +8,19 @@ severity/trajectory dimensions.
 """
 from __future__ import annotations
 
-from datetime import date
+import re
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
+from asxos.domain.review.status import directive_terms
 from asxos.domain.theses.discipline import (
+    _DATA_SANITY_UNANSWERED_ESCALATION_DAYS,
     DisciplineLevel,
     HoldingWeight,
     PortfolioDisciplineInput,
     ThesisDisciplineInput,
+    data_sanity_escalation,
     evaluate_discipline,
     evaluate_portfolio,
     evaluate_thesis,
@@ -38,6 +42,7 @@ def _thesis(
     target: str | None = "15",
     stop: str | None = "9",
     conviction_level: int | None = 3,
+    last_answering_revision_at: date | None = None,
 ) -> ThesisDisciplineInput:
     def _d(v: str | None) -> Decimal | None:
         return None if v is None else Decimal(v)
@@ -53,6 +58,7 @@ def _thesis(
         target_price_native=_d(target),
         stop_price_native=_d(stop),
         conviction_level=conviction_level,
+        last_answering_revision_at=last_answering_revision_at,
     )
 
 
@@ -271,6 +277,266 @@ def test_unrealised_return_none_without_prices() -> None:
     assert unrealised_return(_thesis(entry=None)) is None
     assert unrealised_return(_thesis(current=None)) is None
     assert unrealised_return(_thesis(entry="0")) is None
+
+
+# --- Data-sanity escalation (James's 2026-07-16 CBA ruling) ------------------
+
+
+def _cba_detached(
+    *,
+    last_answering_revision_at: date | None,
+    opened_at: date = date(2026, 1, 1),
+    target: str = "60",
+    current: str = "168",
+) -> ThesisDisciplineInput:
+    """The live worked example's shape: recorded ladder ~60 vs live 168 (2.8×).
+
+    The thesis row is `watching` status in production — status lives at the
+    loader level (`_discipline_findings` feeds watching + active theses to this
+    check); the pure function sees only the row's dates and prices.
+    """
+    return _thesis(
+        symbol="CBA.AU",
+        opened_at=opened_at,
+        entry="42",
+        current=current,
+        target=target,
+        stop="38",
+        last_answering_revision_at=last_answering_revision_at,
+    )
+
+
+# The load-bearing s766B property (S1): the emitted `--target` flag must carry a
+# literal placeholder and NEVER a computed number. A price target is the
+# canonical form of an opinion about a financial product — interpolating one
+# would cross s766B(3) regardless of the surrounding framing — so this is the
+# single assertion keeping the message on the record-maintenance side.
+#
+# `[\s=]*` NOT `\s+`: typer/click accept `--target=84.00` identically to the
+# space form, and a `\s+` guard is blind to it. Verified evadable — a message
+# keeping the `<corrected>` placeholder AND appending `(e.g. --target=84.00)`
+# passed the whole suite, shipping a computed price target. The companion
+# placeholder assertion below does not close this: both hold at once.
+_TARGET_FLAG_WITH_A_NUMBER = re.compile(r"--target[\s=]*\S*\d")
+
+
+def test_escalation_never_emits_a_numeric_price_target() -> None:
+    # Across an ordinary ladder, the exact 2.0× boundary, and a sub-cent target
+    # (where a naive formatter is most tempted to interpolate) the flag is
+    # constant: `--target <corrected>`.
+    cases = (
+        _cba_detached(last_answering_revision_at=date(2026, 5, 1)),
+        _cba_detached(
+            last_answering_revision_at=date(2026, 5, 1), target="60", current="120"
+        ),
+        _cba_detached(
+            last_answering_revision_at=date(2026, 5, 1),
+            target="0.000001",
+            current="168",
+        ),
+    )
+    for inp in cases:
+        f = data_sanity_escalation(inp, AS_OF)
+        assert f is not None
+        assert "--target <corrected>" in f.message
+        assert not _TARGET_FLAG_WITH_A_NUMBER.search(f.message), (
+            f"a numeric price target leaked into the CLI verb: {f.message}"
+        )
+
+
+def test_cba_unanswered_data_sanity_red_escalates() -> None:
+    # Last answering revision 2026-05-01, as_of 2026-07-13 → 73 days of silence
+    # while the ladder is detached (> the 30-day cadence) → escalated red that
+    # names the exact CLI verbs.
+    f = data_sanity_escalation(
+        _cba_detached(last_answering_revision_at=date(2026, 5, 1)), AS_OF
+    )
+    assert f is not None
+    assert f.check == "data_sanity_escalation"
+    assert f.level is DisciplineLevel.red
+    assert f.symbol == "CBA.AU"
+    assert "no answering revision for 73d" in f.message
+    assert "2.8×" in f.message
+    assert "asx thesis revise CBA.AU --target <corrected>" in f.message
+    assert "asx thesis revise CBA.AU --status expired" in f.message
+    # The pure function never marks watchlist provenance — only the loader,
+    # which is the sole holder of the row's status, may set that.
+    assert f.watchlist_only is False
+
+
+def test_escalation_message_leads_with_what_is_measured() -> None:
+    # B: the message may claim only revision silence. For a `watching` row the
+    # base red was never surfaced (active-only battery), so calling it an
+    # "unanswered red" would overstate what is known.
+    f = data_sanity_escalation(
+        _cba_detached(last_answering_revision_at=date(2026, 5, 1)), AS_OF
+    )
+    assert f is not None
+    assert f.message.startswith("CBA.AU: detached thesis ladder — no answering revision")
+    assert "unanswered" not in f.message.lower()
+
+
+def test_escalation_trims_numeric_price_noise() -> None:
+    # NUMERIC(18,6) renders "168.000000" raw; trim to the significant digits…
+    f = data_sanity_escalation(
+        _cba_detached(last_answering_revision_at=date(2026, 5, 1)), AS_OF
+    )
+    assert f is not None
+    assert "live price 168 is" in f.message
+    assert "recorded target 60. The thesis record" in f.message  # 60, not 60.000000
+    assert "000000" not in f.message
+    # …without rounding a genuinely small figure away to "0.00" (which would be
+    # a wrong number about the user's own recorded data).
+    small = data_sanity_escalation(
+        _cba_detached(last_answering_revision_at=date(2026, 5, 1), target="0.000001"),
+        AS_OF,
+    )
+    assert small is not None
+    assert "recorded target 0.000001" in small.message
+
+
+def test_escalation_boundary_exactly_n_days_is_not_yet_escalated() -> None:
+    # Exactly N days of silence is NOT yet escalated (strictly-greater-than,
+    # matching _timeline's strictly-past-deadline red); N+1 days is.
+    n = _DATA_SANITY_UNANSWERED_ESCALATION_DAYS
+    at_boundary = _cba_detached(
+        last_answering_revision_at=AS_OF - timedelta(days=n)
+    )
+    assert data_sanity_escalation(at_boundary, AS_OF) is None
+
+    past_boundary = _cba_detached(
+        last_answering_revision_at=AS_OF - timedelta(days=n + 1)
+    )
+    f = data_sanity_escalation(past_boundary, AS_OF)
+    assert f is not None
+    assert f"no answering revision for {n + 1}d" in f.message
+
+
+def test_escalation_window_matches_the_runtime_revisit_interval() -> None:
+    """H: the escalation window and the revisit cadence are two independent
+    30s the design says must be equal — and nothing else pins either.
+
+    `service.py` (not migration 0012's DEFAULT) is the runtime source: every
+    revisit reset goes through Python. It cannot be imported at module scope
+    here — it pulls in asyncpg, and `discipline.py` is DB-free by contract — so
+    the guard is a test-level equality instead.
+    """
+    from asxos.domain.theses.service import _REVISIT_INTERVAL_DAYS
+
+    assert _DATA_SANITY_UNANSWERED_ESCALATION_DAYS == _REVISIT_INTERVAL_DAYS
+
+
+def test_answered_red_does_not_escalate() -> None:
+    # The real logic: an answering thesis_revisions row AFTER the red first
+    # appeared is a response. The ladder here detached long ago (thesis opened
+    # 2026-01-01), but James answered 5 days before as_of — that row resets the
+    # clock, so the still-firing base red does NOT escalate.
+    answered = _cba_detached(last_answering_revision_at=AS_OF - timedelta(days=5))
+    assert data_sanity_escalation(answered, AS_OF) is None
+    # The base data-sanity red itself still fires via evaluate_thesis — the
+    # answer suppresses only the escalation, never the evidence. (Non-vacuous:
+    # the same input escalates once the answer ages past the window.)
+    assert _by_check(evaluate_thesis(answered, AS_OF), "data_sanity")
+    stale_answer = _cba_detached(
+        last_answering_revision_at=AS_OF - timedelta(days=90)
+    )
+    assert data_sanity_escalation(stale_answer, AS_OF) is not None
+
+
+def test_no_escalation_without_a_live_data_sanity_red() -> None:
+    # A healthy ladder never escalates, no matter how long the revision
+    # silence — escalation only ever accompanies a currently-firing red.
+    dormant_but_healthy = _thesis(
+        opened_at=date(2025, 1, 1), last_answering_revision_at=date(2025, 1, 1)
+    )
+    assert data_sanity_escalation(dormant_but_healthy, AS_OF) is None
+
+
+def test_escalation_falls_back_to_opened_at_when_no_answering_revision() -> None:
+    # No answering revision → opened_at anchors the clock (a thesis carrying
+    # only its 'opened' row has never been answered). Opened 2026-01-01 → 193d.
+    f = data_sanity_escalation(
+        _cba_detached(last_answering_revision_at=None), AS_OF
+    )
+    assert f is not None
+    assert "no answering revision for 193d" in f.message
+    assert "2026-01-01" in f.message
+
+
+# s766B vocabulary guard.
+#
+# The CANONICAL list is `asxos/domain/review/status.py::DIRECTIVE_TERMS` /
+# `directive_terms()` — production code, pure, importable, exhaustively
+# parametrised in tests/test_review_status.py. Assert it as the FLOOR so this
+# surface inherits every future addition to it.
+#
+# An earlier version of this test hand-rolled a regex and claimed to be
+# "widened past" the repo's strongest assertion. It was NARROWER on six
+# canonical directive terms (accumulate, add, divest, overweight, short,
+# underweight) and simultaneously WIDER on `hold`/`holdings`, which
+# status.py:64-66 refuses to ban with a documented reason and a pinned test
+# (test_review_status.py::test_hold_is_deliberately_not_banned_and_the_gap_is
+# _pinned). The suite was asserting both positions ~500 lines apart, each
+# unaware of the other. Extras below are what THIS surface additionally
+# forbids — they must never contradict the canonical list.
+#
+# MEASURED (2026-08-17): the canonical guard matches EXACT terms, so
+# inflections escape it — `exit`/`sell`/`trim`/`reduce` are caught,
+# `exited`/`sold`/`trimmed`/`reduction` are not, and `dispose`/`disposal`
+# are absent entirely. The extras below are therefore NOT redundant with the
+# canonical list; they are the inflection and nominalisation layer over it.
+# Together: canonical = base directive terms (incl. accumulate/add/divest/
+# overweight/short/underweight, all six of which the previous hand-rolled
+# regex omitted); extras = the forms exact matching cannot reach.
+_EXTRA_BANNED_FOR_THIS_SURFACE = re.compile(
+    r"\b("
+    # Inflections and nominalisations the canonical exact-match guard misses.
+    r"sold|selling|bought|buying|trimmed|trimming|"
+    r"exited|exiting|reduced|reducing|reduction|"
+    r"dispose|disposes|disposed|disposal|"
+    r"liquidated|liquidation|allocated|allocation|"
+    # Surface-specific: `close` is a trade direction here (the `_timeline`
+    # precedent rejected "review or close" for exactly this reason), and the
+    # valuation adjectives are opinions about the security, not the record.
+    r"close|closes|closed|overvalued|undervalued|cheap|expensive"
+    r")\b"
+)
+
+
+def test_escalation_wording_carries_no_trade_direction() -> None:
+    # s766B: "retire" applies to the thesis ROW (a stale record), never to a
+    # position. Note `expired` (the status the message names) survives this
+    # guard while `exited` does NOT — that is the whole reason the retire verb
+    # is `--status expired`; see the comment in data_sanity_escalation().
+    f = data_sanity_escalation(
+        _cba_detached(last_answering_revision_at=date(2026, 5, 1)), AS_OF
+    )
+    assert f is not None
+    low = f.message.lower()
+    # The canonical production guard is the floor.
+    assert directive_terms(f.message) == (), (
+        f"canonical directive term leaked: {directive_terms(f.message)!r}"
+    )
+    leaked = _EXTRA_BANNED_FOR_THIS_SURFACE.search(low)
+    assert leaked is None, f"trade-direction wording leaked: {leaked!r}"
+    # Stems too, for forms the word list cannot anticipate.
+    for stem in ("sell", "trim", "alloc", "liquidat", "dispos", "recommend"):
+        assert stem not in low, f"trade-direction stem leaked: {stem}"
+    # …and it names the record-maintenance verbs, applied to the row.
+    assert "retire the record" in low
+    assert "asx thesis revise" in low
+    # The guard is non-vacuous: the banned form this message most nearly emits
+    # is caught — and by the CANONICAL guard, not just the local extras. This is
+    # exactly why the retire verb is `--status expired` and not `--status
+    # exited`; see the comment in data_sanity_escalation().
+    # `exited` is an INFLECTION, so the canonical exact-match guard returns ()
+    # for it — measured, not assumed. The extras layer is what catches it, and
+    # that division of labour is the whole reason both exist.
+    assert directive_terms("or retire the record: --status exited") == ()
+    assert _EXTRA_BANNED_FOR_THIS_SURFACE.search("--status exited") is not None
+    # And the canonical guard is live on this surface: a base directive term
+    # would be caught by it even though the extras list omits it.
+    assert directive_terms("divest the record") != ()
 
 
 # --- Ordering + composition -------------------------------------------------

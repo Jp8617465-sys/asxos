@@ -80,7 +80,7 @@ numbered it 7. Left as found; renumbering here would not fix it.)
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from decimal import Decimal
 from enum import StrEnum
@@ -111,6 +111,7 @@ from asxos.domain.theses.discipline import (
     HoldingWeight,
     PortfolioDisciplineInput,
     ThesisDisciplineInput,
+    data_sanity_escalation,
     evaluate_discipline,
     unrealised_return,
 )
@@ -316,6 +317,14 @@ class BriefData:
           would let a single CGT-boundary fact make a wholly unchecked portfolio
           read ``CLEAR``. The unknown below is therefore keyed on *non-info*
           findings.
+        * ``watchlist_only`` findings do not count as discipline evidence
+          either, for the same reason and through the same side door. A
+          ``data_sanity_escalation`` red can arise from a ``watching`` thesis —
+          a row with no capital behind it — and a finding about an
+          uninvested watchlist record says nothing about whether any *holding*
+          was examined. Counting it would let one stale watchlist row silence
+          the "N holding(s) with no discipline evidence" unknown for a portfolio
+          where zero holdings were checked.
         * Stale prices, holdings with no discipline evidence at all, and a
           section 8 that could not run are **unknowns** — the three ways this
           brief can look calm while knowing nothing (packet P1 required-work
@@ -332,6 +341,12 @@ class BriefData:
         :mod:`asxos.domain.review.status` exists to close ("an absence of
         evidence presented as evidence of absence"), reappearing through a
         section added after the module was written.
+
+        The two exclusions above and this mapping are the same defect caught
+        three times from three directions — an ``info`` row, a watchlist row,
+        and a crashed section each dressing "we checked nothing" as "nothing to
+        report". Any fourth path into ``discipline_findings`` gets the same
+        question asked of it.
 
         A brief with no holdings, no findings and fresh prices is ``CLEAR``:
         there is genuinely nothing to review, which is a different statement from
@@ -365,7 +380,8 @@ class BriefData:
         if self.outcome_error:
             unknowns.append(f"Outcome vs benchmark not measured — {self.outcome_error}")
         checked = any(
-            f.level != DisciplineLevel.info for f in self.discipline_findings
+            f.level != DisciplineLevel.info and not f.watchlist_only
+            for f in self.discipline_findings
         )
         if self.holdings_count and not checked:
             unknowns.append(
@@ -837,6 +853,11 @@ def _thesis_discipline_inputs(
     target/stop come straight from `theses` (authored in the holding's own
     native currency) and current comes from `prices.close` (also native) —
     all four legs are native-against-native, no FX step needed here.
+
+    ``last_answering_revision_at`` is the scoped per-thesis
+    ``MAX(thesis_revisions.revised_at)`` the loader's query derives (NULL when
+    the thesis carries no answering revision) — it feeds only the data-sanity
+    escalation check.
     """
     return tuple(
         ThesisDisciplineInput(
@@ -850,6 +871,11 @@ def _thesis_discipline_inputs(
             target_price_native=r["target_price"],
             stop_price_native=r["stop_price"],
             conviction_level=r["conviction_level"],
+            last_answering_revision_at=(
+                r["last_answering_revision_at"].date()
+                if r["last_answering_revision_at"] is not None
+                else None
+            ),
         )
         for r in thesis_rows
     )
@@ -903,12 +929,50 @@ async def _discipline_findings(
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         return []
 
+    # `watching` rows are fetched ONLY for the data-sanity escalation pass
+    # (James's 2026-07-16 CBA ruling — the live worked example is a `watching`
+    # thesis a stale ladder would otherwise never surface for); every other
+    # check still runs on active theses only, preserving the PR2a behaviour.
+    #
+    # `last_answering_revision_at` is the "was this red ever answered?" anchor,
+    # derived from the existing append-only log with no schema change. The
+    # `revision_type` filter is load-bearing, not tidiness: taking MAX over ALL
+    # revisions would let an unrelated edit (`--tax-notes`, `--conviction`, an
+    # appended report section) reset the clock without touching the ladder, and
+    # for a `watching` row that means total silence — the base data_sanity red
+    # never runs there. Restricting to types that plausibly ANSWER a ladder red
+    # makes `data_sanity_escalation`'s docstring claim true by construction.
+    # `entered` is included because `enter_thesis()` hard-fails without a target
+    # (`theses/service.py`), so entering IS an act of looking at the ladder — and
+    # it resets `revisit_due_at` to the same 30-day cadence this check is
+    # calibrated against. Omitting it made a thesis entered yesterday report
+    # "no answering revision for 193d", which is the over-escalation direction.
+    #
+    # `expired` is DEAD: no code path writes that `revision_type` — `asx thesis
+    # revise --status expired` (the verb this message emits) writes
+    # `status_change`. Listed only so a future writer of it is already covered.
+    # `exited`/`exited_by_stop`/`exited_by_target` cannot appear under the status
+    # filter below; all three are listed together so a widened filter stays
+    # correct, rather than the earlier set which listed one and omitted two.
+    #
+    # `governance_status = 'approved'` is a security boundary, not a
+    # convenience: without it, agent-authored `pending_review` theses would
+    # reach the brief unreviewed. Both filters are pinned by a test on the
+    # query text.
     thesis_rows = await conn.fetch(
         """
-        SELECT symbol, revisit_due_at, opened_at, timeline_days,
-               actual_entry_price, target_price, stop_price, conviction_level
+        SELECT symbol, status, revisit_due_at, opened_at, timeline_days,
+               actual_entry_price, target_price, stop_price, conviction_level,
+               (SELECT MAX(r.revised_at)
+                  FROM thesis_revisions r
+                 WHERE r.thesis_id = theses.thesis_id
+                   AND r.revision_type IN ('target_adjusted', 'reviewed_no_change',
+                                           'status_change', 'entered', 'expired',
+                                           'exited', 'exited_by_stop',
+                                           'exited_by_target')
+               ) AS last_answering_revision_at
         FROM theses
-        WHERE status = 'active'
+        WHERE status IN ('watching', 'active')
           AND governance_status = 'approved'
         ORDER BY opened_at
         """
@@ -945,11 +1009,50 @@ async def _discipline_findings(
     )
     fx_rate = Decimal(str(fx_rows[0]["fx_rate_audusd"])) if fx_rows else None
 
-    thesis_inputs = _thesis_discipline_inputs(thesis_rows, prices)
+    # Two input sets, deliberately different in scope — the names carry that,
+    # because a comment would not survive the next refactor. `active_inputs`
+    # feeds the full check battery (active theses only, exactly as PR2a);
+    # `all_inputs` is watching + active and feeds ONLY the escalation pass.
+    # Running the battery over `all_inputs` would emit revisit/timeline/stop
+    # findings for uninvested watchlist rows.
+    all_inputs = _thesis_discipline_inputs(thesis_rows, prices)
+    active_inputs = tuple(
+        ti
+        for row, ti in zip(thesis_rows, all_inputs, strict=True)
+        if row["status"] == "active"
+    )
     holdings = _holding_weights(holding_rows, prices, fx_rate)
 
     port_input = PortfolioDisciplineInput(holdings=holdings)
-    findings = evaluate_discipline(thesis_inputs, port_input, as_of)
+    findings = evaluate_discipline(active_inputs, port_input, as_of)
+    # Data-sanity escalation (the 2026-07-16 ruling's unbuilt half): a detached
+    # ladder carrying no answering revision past one revisit cadence escalates,
+    # naming the exact CLI verbs. Watching + active rows, same loud-error
+    # isolation idiom as the unrealised_return loop below.
+    #
+    # `watchlist_only` is stamped HERE because this is the only place that holds
+    # both the finding and the row's status. It keeps an uninvested watchlist
+    # row from counting as evidence that a HOLDING was checked
+    # (`BriefData.review`) — the finding is still displayed in full.
+    for row, ti in zip(thesis_rows, all_inputs, strict=True):
+        watchlist_only = row["status"] != "active"
+        try:
+            esc = data_sanity_escalation(ti, as_of)
+        except Exception as exc:  # isolate a malformed thesis, fail loud (#10)
+            findings.append(
+                DisciplineFinding(
+                    check="data_sanity_escalation",
+                    level=DisciplineLevel.error,
+                    message=(
+                        f"⚠ data_sanity_escalation could not run for {ti.symbol}: {exc}"
+                    ),
+                    symbol=ti.symbol,
+                    watchlist_only=watchlist_only,
+                )
+            )
+            continue
+        if esc is not None:
+            findings.append(replace(esc, watchlist_only=watchlist_only))
     # Per-holding unrealised return (native, broker-matching) — appended here as a
     # display fact (like the CGT-boundary line) so evaluate_discipline() stays
     # quiet-by-default. Native entry vs current price only; no cost base, no
@@ -957,7 +1060,7 @@ async def _discipline_findings(
     # loud-error idiom the per-thesis checks use, so a single malformed thesis
     # surfaces one error line rather than collapsing the whole section
     # (security-engineer review, 2026-07-19).
-    for ti in thesis_inputs:
+    for ti in active_inputs:
         try:
             pnl = unrealised_return(ti)
         except Exception as exc:  # isolate a malformed thesis, fail loud (#10)

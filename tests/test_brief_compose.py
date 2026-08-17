@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
@@ -1037,13 +1038,26 @@ def _disc_conn(
     price_rows=None,
     fx_rows=None,
 ):
-    thesis_rows = thesis_rows or []
+    # The loader's theses query also selects `status` and the derived
+    # `last_answering_revision_at`; default them here so fixtures predating the
+    # escalation check stay minimal. Explicit keys in a fixture row win.
+    #
+    # The default mirrors production rather than the maximally-escalating case:
+    # `open_thesis()` always writes an 'opened' revision, so no live thesis has
+    # a NULL anchor. Behaviour-identical (the check falls back to `opened_at`),
+    # but a fixture that says "never answered" should say so deliberately.
+    thesis_rows = [
+        {"status": "active", "last_answering_revision_at": r["opened_at"], **r}
+        for r in (thesis_rows or [])
+    ]
     holding_rows = holding_rows or []
     price_rows = price_rows or []
     fx_rows = fx_rows or []
+    captured: list[str] = []
 
     async def _fetch(query, *args, **kwargs):
         q = " ".join(query.split())
+        captured.append(q)
         if "FROM theses" in q:
             return thesis_rows
         if "SELECT symbol, quantity FROM current_holdings" in q:
@@ -1056,7 +1070,44 @@ def _disc_conn(
 
     conn = MagicMock()
     conn.fetch = AsyncMock(side_effect=_fetch)
+    # Exposed so a test can assert on the SQL itself: this fixture dispatches on
+    # a substring and ignores the rest of the query, so without this the WHERE
+    # clause is entirely unpinned.
+    conn.captured_queries = captured
     return conn
+
+
+def _theses_query(conn) -> str:
+    """The theses query as actually issued (whitespace-normalised)."""
+    return next(q for q in conn.captured_queries if "FROM theses" in q)
+
+
+def _cba_row(**overrides):
+    """The live worked example's row shape: recorded ladder 60 vs live 168.
+
+    Mirrors `_cba_detached` in test_thesis_discipline.py — three loader tests
+    need this same 10-field row and only ever differ in status / anchor date.
+    """
+    row = {
+        "symbol": "CBA.AU",
+        "status": "watching",
+        # 2026-06-27 is 16 days BEFORE the tests' as_of (2026-07-13), so the
+        # `revisit_overdue` arm of the watching-row negative control is LIVE.
+        # A future-dated default silently made that assertion vacuous.
+        "revisit_due_at": datetime(2026, 6, 27),
+        "opened_at": datetime(2026, 1, 10),
+        "timeline_days": None,
+        "actual_entry_price": None,
+        "target_price": Decimal("60"),
+        "stop_price": Decimal("42"),
+        "conviction_level": 3,
+        "last_answering_revision_at": datetime(2026, 5, 1),  # 73d before as_of
+    }
+    row.update(overrides)
+    return row
+
+
+_CBA_PRICE_ROWS = [{"symbol": "CBA.AU", "close": Decimal("168")}]
 
 
 _PERSONAL_USE_ON = {"ASXOS_PERSONAL_USE": "1"}
@@ -1121,6 +1172,13 @@ def test_discipline_findings_cba_revisit_and_data_sanity() -> None:
     sanity = next(f for f in findings if f.check == "data_sanity")
     assert sanity.level == DisciplineLevel.red
     assert "CBA.AU" in sanity.message
+    # This fixture (opened 2026-01-10, never answered, as_of 2026-07-13) is also
+    # past the escalation window, so it now emits a THIRD line. Pinned
+    # explicitly: the assertions above are membership checks and would have
+    # absorbed the new finding silently.
+    esc = next(f for f in findings if f.check == "data_sanity_escalation")
+    assert esc.level == DisciplineLevel.red
+    assert "no answering revision for 184d" in esc.message
 
 
 def test_discipline_findings_conviction_unset_summary() -> None:
@@ -1247,6 +1305,157 @@ def test_discipline_findings_appends_broker_matching_unrealised_return() -> None
     joined = " ".join(f.message for f in findings)
     assert "lagging" not in joined
     assert "benchmark" not in joined.lower()
+
+
+def test_discipline_findings_escalates_unanswered_watching_thesis() -> None:
+    """The 2026-07-16 CBA ruling's escalation half, end-to-end at the loader:
+    a `watching` thesis (which the full active-only check battery never sees)
+    carrying a detached ladder with no answering revision for more than one
+    revisit cadence emits the escalated red naming both CLI verbs."""
+    conn = _disc_conn(thesis_rows=[_cba_row()], price_rows=_CBA_PRICE_ROWS)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    esc = next(f for f in findings if f.check == "data_sanity_escalation")
+    assert esc.level == DisciplineLevel.red
+    assert esc.symbol == "CBA.AU"
+    assert "no answering revision for 73d" in esc.message
+    assert "asx thesis revise CBA.AU --target <corrected>" in esc.message
+    assert "asx thesis revise CBA.AU --status expired" in esc.message
+    # Provenance: an uninvested watchlist row is not evidence about a holding.
+    assert esc.watchlist_only is True
+    # The watching row runs ONLY the escalation pass — no revisit/timeline/
+    # data-sanity noise from the active-only battery leaks in for it.
+    assert not any(
+        f.check in ("revisit_overdue", "data_sanity", "timeline") for f in findings
+    )
+
+
+def test_watchlist_escalation_does_not_count_as_holding_evidence() -> None:
+    """A `watching` escalation must NOT silence the "no discipline evidence"
+    unknown: the row carries no capital, so it says nothing about whether any
+    HOLDING was checked. Before `watchlist_only` this was the one side door the
+    `info`-level exclusion did not cover — a portfolio where zero holdings were
+    evaluated would have read as checked (packet P1 required-work item 5)."""
+    conn = _disc_conn(thesis_rows=[_cba_row()], price_rows=_CBA_PRICE_ROWS)
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    b = _brief(holdings_count=3, discipline_findings=findings)
+    assert any("no discipline evidence" in u for u in b.review.unknowns)
+    # The red itself still raises ATTENTION (it is a real finding and must be
+    # acted on); what matters here is that the unknown survives beside it —
+    # "something is wrong with a watchlist record" and "no holding was checked"
+    # are both true, and the brief says both.
+    assert b.review.status is ReviewStatus.attention
+
+    # …while the same finding from an ACTIVE thesis is holding evidence and
+    # does clear the unknown.
+    active_conn = _disc_conn(
+        thesis_rows=[_cba_row(status="active", actual_entry_price=Decimal("50"))],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        active_findings = asyncio.run(
+            _discipline_findings(active_conn, date(2026, 7, 13))
+        )
+    checked = _brief(holdings_count=3, discipline_findings=active_findings)
+    assert not any("no discipline evidence" in u for u in checked.review.unknowns)
+
+
+def test_discipline_findings_active_thesis_gets_base_red_and_escalation() -> None:
+    """An active thesis past the window carries BOTH lines: the base
+    data-sanity red (evidence) and the escalation (the named verbs)."""
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(status="active", actual_entry_price=Decimal("50"))],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    checks = {f.check for f in findings}
+    assert "data_sanity" in checks
+    assert "data_sanity_escalation" in checks
+    esc = next(f for f in findings if f.check == "data_sanity_escalation")
+    assert esc.watchlist_only is False  # capital behind it → holding evidence
+
+
+def test_discipline_findings_answering_revision_suppresses_escalation() -> None:
+    """An answered red on an ACTIVE thesis: the base data-sanity red still
+    fires (the evidence is never suppressed) but the escalation does not.
+
+    Deliberately active, not watching — on a watching row the whole result is
+    `[]`, which would pass a "no escalation" assertion for the wrong reason.
+    """
+    conn = _disc_conn(
+        thesis_rows=[
+            _cba_row(
+                status="active",
+                actual_entry_price=Decimal("50"),
+                last_answering_revision_at=datetime(2026, 7, 8),  # 5d before as_of
+            )
+        ],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    checks = {f.check for f in findings}
+    assert "data_sanity" in checks  # evidence survives the answer
+    assert "data_sanity_escalation" not in checks
+
+
+def test_discipline_findings_watching_answered_red_is_wholly_silent() -> None:
+    """The honest limitation, pinned rather than papered over: on a `watching`
+    row an answering revision means TOTAL silence — the base red never runs
+    there, so nothing at all surfaces. The `revision_type` scoping in the query
+    is what keeps an unrelated edit (--tax-notes, --conviction) from reaching
+    this state; this test exists so a future widening of that filter is felt."""
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(last_answering_revision_at=datetime(2026, 7, 8))],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert findings == []
+
+
+def test_discipline_query_keeps_its_governance_and_status_filters() -> None:
+    """`_disc_conn` dispatches on a substring and ignores the rest of the SQL,
+    so without this the WHERE clause is unpinned: dropping
+    `governance_status = 'approved'` would admit agent-authored
+    `pending_review` theses into the brief with every other test still green
+    (adjacent to the documented `m14_candidate_agent_db_role_scoping` risk)."""
+    conn = _disc_conn(thesis_rows=[_cba_row()], price_rows=_CBA_PRICE_ROWS)
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    q = _theses_query(conn)
+    assert "governance_status = 'approved'" in q
+    assert "status IN ('watching', 'active')" in q
+    # The answering-revision scoping is equally load-bearing: MAX over ALL
+    # revisions would let an unrelated edit mute the escalation for 30 days.
+    # Set-equality, NOT prefix-plus-denylist: a denylist passes when a NEW type
+    # is added. Verified — adding 'analyst_action' (the type most likely to
+    # become a job-driven feed) to the SQL list passed the entire suite while
+    # silently re-opening the suppression hole this scoping exists to close.
+    scoped = re.search(r"revision_type IN \(([^)]*)\)", q)
+    assert scoped is not None, "the answering-revision scoping is gone"
+    assert {t.strip().strip("'") for t in scoped.group(1).split(",")} == {
+        "target_adjusted",
+        "reviewed_no_change",
+        "status_change",
+        "entered",
+        "expired",
+        "exited",
+        "exited_by_stop",
+        "exited_by_target",
+    }
 
 
 # ---------------------------------------------------------------------------
