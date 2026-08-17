@@ -1,4 +1,4 @@
-"""Frozen results-review contracts (P2-02), adapter (P2-03), reviewer (P2-04).
+"""Results-review contracts (P2-02), adapter (P2-03), review core (P2-04), presentation (P2-05).
 
 One package per major entity (house convention). `contracts.py` and
 `fixtures.py` freeze the contracts the ASX Results-to-Thesis Review slice
@@ -9,9 +9,11 @@ in-memory, read-only, no DB access, and no persistence of its output.
 `gates.py` / `reviewer.py` / `challenger.py` (P2-04) are the deterministic
 review core: the frozen mechanical acceptance gates, the
 ``complete | revise | abstain`` reviewer, and the first producer of the
-canonical `ChallengeResult` (gap G9). There is still no recommendation
-surface — recommendation generation stays disabled pending Australian legal
-review, and abstention is a valid, successful outcome.
+canonical `ChallengeResult` (gap G9). `presentation.py` (P2-05) runs that whole
+chain end to end over one hashed fixture and assembles the single presented
+package — deterministic, in-memory, and never persisted. There is still no
+recommendation surface — recommendation generation stays disabled pending
+Australian legal review, and abstention is a valid, successful outcome.
 """
 
 from asxos.domain.results_review.adapter import (
@@ -75,6 +77,21 @@ from asxos.domain.results_review.gates import (
     MechanicalGateReport,
     evaluate_case,
 )
+from asxos.domain.results_review.presentation import (
+    ABSTENTION_IS_SUCCESS,
+    CATEGORY_COULD_NOT_BUILD,
+    CATEGORY_PRESENTED,
+    NO_ADVICE_DISCLAIMER,
+    PRESENTATION_HASH_IDENTITY_AXIS,
+    PRESENTATION_NOT_CLAIMED,
+    PRESENTATION_SCHEMA_VERSION,
+    PresentedResultsReview,
+    ResultsReviewPresentationError,
+    canonical_decimal_text,
+    present_fixture,
+    present_hashed_fixture,
+    render_utc_timestamp,
+)
 from asxos.domain.results_review.reviewer import (
     VERDICT_SCOPE_STATEMENT,
     ChallengedReview,
@@ -85,49 +102,59 @@ from asxos.domain.results_review.reviewer import (
 )
 
 __all__ = [
+    "ABSTENTION_IS_SUCCESS",
     "ADMISSIBLE_SOURCE_CLASSES",
+    "AcquisitionPath",
+    "AdaptedResultsReview",
+    "CATEGORY_COULD_NOT_BUILD",
+    "CATEGORY_PRESENTED",
     "CHALLENGED_ARTIFACT_BINDING",
     "CHALLENGE_RESULT_ID_PREFIX",
+    "ChallengedReview",
+    "CitedStatement",
     "DEFAULT_TAX_READINESS",
     "DELTA_PCT_QUANT",
     "DOCUMENT_HASH_ALGORITHM",
-    "FROZEN_OUTCOME_TRIPLE",
-    "LOAD_BEARING_SOURCE_CLASSES",
-    "RESULTS_REVIEW_SCHEMA_VERSION",
-    "SCALE_EXPONENT",
-    "SECURITY_ID_BINDING",
-    "SOURCE_RANK",
-    "STATEMENT_KNOWN_AT_UTC_TIME",
-    "TAX_ASSESSMENT_PRODUCERS",
-    "TRADING_CALENDAR_ID_PREFIX",
-    "TRADING_CALENDAR_SOURCE",
-    "TRADING_SESSION_CLOSE_LOCAL",
-    "VERDICT_SCOPE_STATEMENT",
-    "AcquisitionPath",
-    "AdaptedResultsReview",
-    "ChallengedReview",
-    "CitedStatement",
     "DocumentKind",
     "EvidenceConflict",
+    "FROZEN_OUTCOME_TRIPLE",
     "FrozenInputTuple",
     "GateCheck",
     "GateName",
     "GuidanceChange",
+    "LOAD_BEARING_SOURCE_CLASSES",
     "MechanicalGateReport",
     "MetricAdjustment",
     "MetricDelta",
+    "NO_ADVICE_DISCLAIMER",
+    "PRESENTATION_HASH_IDENTITY_AXIS",
+    "PRESENTATION_NOT_CLAIMED",
+    "PRESENTATION_SCHEMA_VERSION",
     "PeriodType",
+    "PresentedResultsReview",
+    "RESULTS_REVIEW_SCHEMA_VERSION",
     "ResultsReviewAdapterError",
-    "ReviewerVerdict",
     "ResultsReviewArtifact",
     "ResultsReviewCase",
     "ResultsReviewOutcome",
+    "ResultsReviewPresentationError",
+    "ReviewerVerdict",
+    "SCALE_EXPONENT",
+    "SECURITY_ID_BINDING",
+    "SOURCE_RANK",
+    "STATEMENT_KNOWN_AT_UTC_TIME",
     "SourceClass",
     "SourceDocumentRecord",
     "StatutoryUnderlyingBridge",
+    "TAX_ASSESSMENT_PRODUCERS",
+    "TRADING_CALENDAR_ID_PREFIX",
+    "TRADING_CALENDAR_SOURCE",
+    "TRADING_SESSION_CLOSE_LOCAL",
     "UnitScale",
+    "VERDICT_SCOPE_STATEMENT",
     "adapt_hashed_fixture",
     "artifact_output_sha256",
+    "canonical_decimal_text",
     "challenge_adapted",
     "challenge_case",
     "challenged_review",
@@ -138,8 +165,11 @@ __all__ = [
     "map_statement_period_type",
     "normalize_scale",
     "partition_admissible_evidence",
+    "present_fixture",
+    "present_hashed_fixture",
     "render_artifact_json",
     "render_artifact_markdown",
+    "render_utc_timestamp",
     "review_adapted",
     "review_case",
     "unresolved_tax_assessment_reference",
