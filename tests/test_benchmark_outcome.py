@@ -22,15 +22,17 @@ measured flat return, which is the same class of lie as the −75.7%.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 
 from asxos.domain.benchmark.outcome import (
+    MAX_ANCHOR_LAG_DAYS,
     BenchmarkAnchor,
     BenchmarkState,
     LotInput,
+    Observation,
     OutcomeSection,
     ReturnState,
     Sleeve,
@@ -40,6 +42,11 @@ from asxos.domain.benchmark.outcome import (
 )
 
 AS_OF = date(2026, 8, 17)
+
+
+def _obs(value: str, day: date = AS_OF) -> Observation:
+    """A dated market observation, defaulting to the measurement date itself."""
+    return Observation(as_of=day, value=Decimal(value))
 
 # ---------------------------------------------------------------------------
 # Fixtures — today's actual state plus one synthetic ASX lot.
@@ -62,8 +69,8 @@ def _hubs(**overrides: object) -> LotInput:
         "quantity": HUBS_QUANTITY,
         "acquired_at": date(2025, 6, 2),
         "cost_base_aud": HUBS_COST_BASE_AUD,
-        "close_native": Decimal("205.92"),  # USD, ≈ +9.8% on the US$187.54 entry
-        "fx_audusd": Decimal("0.6500"),
+        "close": _obs("205.92"),  # USD, ≈ +9.8% on the US$187.54 entry
+        "fx_audusd": _obs("0.6500"),
         "benchmark_start": None,
         "benchmark_end": None,
     }
@@ -88,8 +95,8 @@ def _cba(**overrides: object) -> LotInput:
         "quantity": Decimal("100"),
         "acquired_at": date(2025, 8, 15),
         "cost_base_aud": Decimal("9000.00"),
-        "close_native": Decimal("108.00"),  # AUD — no FX step for an ASX symbol
-        "fx_audusd": Decimal("0.6500"),
+        "close": _obs("108.00"),  # AUD — no FX step for an ASX symbol
+        "fx_audusd": _obs("0.6500"),
         "benchmark_start": _real_anchor(date(2025, 8, 15), "80000"),
         "benchmark_end": _real_anchor(AS_OF, "84000"),
     }
@@ -161,7 +168,7 @@ def test_foreign_lot_without_fx_is_unavailable_not_zero() -> None:
 
 
 def test_missing_close_is_unavailable_not_zero() -> None:
-    outcome = build_lot_outcome(_cba(close_native=None), AS_OF)
+    outcome = build_lot_outcome(_cba(close=None), AS_OF)
     assert outcome.return_state is ReturnState.unavailable_no_price
     assert outcome.lot_return is None
     assert "no close" in outcome.return_note
@@ -179,6 +186,127 @@ def test_non_positive_cost_base_is_reported_not_raised() -> None:
     assert outcome.lot_return is None
     assert outcome.market_value_aud == Decimal("10800.000000")  # still stated
     assert "not positive" in outcome.return_note
+
+
+def test_non_positive_quantity_is_named_not_rendered_as_minus_100_percent() -> None:
+    """A zero quantity against a positive cost base computes exactly −100.00%.
+
+    That is a real-looking, catastrophic number produced entirely by a data
+    defect — the most dangerous shape a measurement surface can emit, because
+    nothing about it says "this is broken". It must be a named unavailable.
+    """
+    for bad in (Decimal("0"), Decimal("-5")):
+        outcome = build_lot_outcome(_cba(quantity=bad), AS_OF)
+        assert outcome.return_state is ReturnState.unavailable_quantity
+        assert outcome.lot_return is None
+        assert outcome.market_value_aud is None
+        assert outcome.alpha is None
+        assert "not positive" in outcome.return_note
+
+    # The number the guard prevents, computed the way the unguarded code would.
+    unguarded = (Decimal("0") - Decimal("9000")) / Decimal("9000")
+    assert unguarded == Decimal("-1")
+
+
+# ---------------------------------------------------------------------------
+# 1b. Window symmetry — the portfolio leg is staleness-checked too
+# ---------------------------------------------------------------------------
+
+
+def test_a_stale_close_is_unavailable_not_measured_against_a_current_benchmark() -> None:
+    """The asymmetry both reviewers flagged, closed.
+
+    Before this guard the benchmark leg refused an anchor more than
+    MAX_ANCHOR_LAG_DAYS off the window while the portfolio leg accepted a close
+    of any age. A halt, a delisting or a per-symbol sync gap therefore produced a
+    lot return measured to an old close, a benchmark measured to `as_of`, and an
+    alpha spanning two different windows — the same "compare two things that are
+    not the same thing" failure this module exists to close, on the other leg.
+    """
+    stale_day = AS_OF - timedelta(days=MAX_ANCHOR_LAG_DAYS + 1)
+    outcome = build_lot_outcome(_cba(close=_obs("108.00", stale_day)), AS_OF)
+
+    assert outcome.return_state is ReturnState.unavailable_stale_price
+    assert outcome.lot_return is None
+    assert outcome.alpha is None
+    assert str(stale_day) in outcome.return_note
+    # The benchmark leg is still measurable on its own; what is refused is the
+    # comparison, and alpha above is the thing that would have been wrong.
+    assert outcome.benchmark_return == Decimal("0.050000")
+
+
+def test_a_close_within_tolerance_is_accepted() -> None:
+    """A weekend or public holiday must not blank the section."""
+    friday = AS_OF - timedelta(days=MAX_ANCHOR_LAG_DAYS)
+    outcome = build_lot_outcome(_cba(close=_obs("108.00", friday)), AS_OF)
+    assert outcome.return_state is ReturnState.measured
+    assert outcome.priced_at == friday
+
+
+def test_a_stale_fx_rate_is_unavailable_rather_than_a_misstated_aud_value() -> None:
+    """AUDUSD is daily (`sync_prices` Phase 3). A stalled feed misstates AUD."""
+    stale_day = AS_OF - timedelta(days=MAX_ANCHOR_LAG_DAYS + 1)
+    outcome = build_lot_outcome(_hubs(fx_audusd=_obs("0.6500", stale_day)), AS_OF)
+
+    assert outcome.return_state is ReturnState.unavailable_stale_fx
+    assert outcome.lot_return is None
+    assert "AUDUSD" in outcome.return_note
+    assert str(stale_day) in outcome.return_note
+
+
+def test_a_future_dated_observation_is_refused() -> None:
+    """Every feeding query filters `dt <= as_of`, so this means a wiring bug."""
+    tomorrow = AS_OF + timedelta(days=1)
+    outcome = build_lot_outcome(_cba(close=_obs("108.00", tomorrow)), AS_OF)
+    assert outcome.return_state is ReturnState.unavailable_stale_price
+
+
+def test_the_two_legs_can_never_diverge_by_more_than_the_tolerance() -> None:
+    """Alpha's window guarantee, asserted as an exhaustive implication.
+
+    `build_lot_outcome` carries NO cross-leg window check, because one could
+    never fire: both ends are pinned to `as_of` by the same `_is_adjacent` rule,
+    so a measured alpha's two legs are within MAX_ANCHOR_LAG_DAYS of each other
+    by construction. This test is what makes that claim checkable — it sweeps
+    every close date and benchmark-end date in a window wider than the tolerance
+    on both sides, and asserts that in every case where alpha survives, the two
+    end dates are within tolerance. Relax a per-leg check and this fails.
+
+    It also pins the residual honestly: the bound is MAX_ANCHOR_LAG_DAYS, not
+    zero, so a surviving alpha may carry up to that much benchmark drift.
+    """
+    span = range(-2, MAX_ANCHOR_LAG_DAYS + 3)
+    measured_pairs = 0
+    for close_offset in span:
+        for bench_offset in span:
+            close_day = AS_OF - timedelta(days=close_offset)
+            bench_day = AS_OF - timedelta(days=bench_offset)
+            outcome = build_lot_outcome(
+                _cba(
+                    close=_obs("108.00", close_day),
+                    benchmark_end=_real_anchor(bench_day, "84000"),
+                ),
+                AS_OF,
+            )
+            if outcome.alpha is None:
+                continue
+            measured_pairs += 1
+            assert outcome.priced_at is not None
+            assert outcome.benchmark_window is not None
+            gap = abs((outcome.priced_at - outcome.benchmark_window[1]).days)
+            assert gap <= MAX_ANCHOR_LAG_DAYS, (
+                f"alpha survived with legs {gap} days apart "
+                f"({outcome.priced_at} vs {outcome.benchmark_window[1]})"
+            )
+    assert measured_pairs, "no pair produced an alpha — the sweep proves nothing"
+
+
+def test_legs_ending_on_the_same_day_keep_their_alpha() -> None:
+    """The ordinary case must survive every guard above."""
+    outcome = build_lot_outcome(_cba(), AS_OF)
+    assert outcome.alpha == Decimal("0.150000")
+    assert outcome.priced_at == AS_OF
+    assert outcome.benchmark_window == (date(2025, 8, 15), AS_OF)
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +353,28 @@ def test_real_accumulation_levels_measure_benchmark_and_alpha() -> None:
     assert outcome.benchmark_window == (date(2025, 8, 15), AS_OF)
 
 
+@pytest.mark.parametrize("endpoint", ["benchmark_start", "benchmark_end"])
+def test_a_non_positive_benchmark_level_is_refused_at_either_endpoint(
+    endpoint: str,
+) -> None:
+    """Both endpoints, not just the start.
+
+    A non-positive END level renders a benchmark return below −100%, which no
+    index can produce, sitting next to a real lot return as if comparable. The
+    start-only guard left that reachable.
+    """
+    outcome = build_lot_outcome(
+        _cba(**{endpoint: _real_anchor(
+            date(2025, 8, 15) if endpoint == "benchmark_start" else AS_OF, "0"
+        )}),
+        AS_OF,
+    )
+    assert outcome.benchmark_state is BenchmarkState.unavailable_no_series
+    assert outcome.benchmark_return is None
+    assert outcome.alpha is None
+    assert "not positive" in outcome.benchmark_note
+
+
 def test_missing_benchmark_series_is_unavailable_with_a_reason() -> None:
     outcome = build_lot_outcome(_cba(benchmark_start=None), AS_OF)
     assert outcome.benchmark_state is BenchmarkState.unavailable_no_series
@@ -251,7 +401,7 @@ def test_benchmark_anchor_within_tolerance_is_accepted() -> None:
 
 
 def test_alpha_is_absent_whenever_either_leg_is_absent() -> None:
-    no_price = build_lot_outcome(_cba(close_native=None), AS_OF)
+    no_price = build_lot_outcome(_cba(close=None), AS_OF)
     assert no_price.benchmark_return is not None  # benchmark leg still measured
     assert no_price.alpha is None  # but alpha needs both
 

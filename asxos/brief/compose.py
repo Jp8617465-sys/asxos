@@ -95,6 +95,7 @@ from asxos.domain.benchmark.outcome import (
     MAX_ANCHOR_LAG_DAYS,
     BenchmarkAnchor,
     LotInput,
+    Observation,
     OutcomeSection,
     Sleeve,
     build_outcome_section,
@@ -1066,10 +1067,15 @@ async def _lot_outcomes(
     if not lot_rows:
         return build_outcome_section([], as_of)
 
+    # `dt` is selected, not just `close`. Without it the outcome layer cannot tell
+    # a close from yesterday from one from three months ago — a halt, a delisting
+    # or a per-symbol sync gap would silently produce a lot return measured to an
+    # old close against a benchmark measured to `as_of`, i.e. an alpha spanning
+    # two different windows. The date is what makes that checkable.
     symbols = sorted({r["symbol"] for r in lot_rows})
     price_rows = await conn.fetch(
         """
-        SELECT DISTINCT ON (symbol) symbol, close
+        SELECT DISTINCT ON (symbol) symbol, dt, close
         FROM prices
         WHERE symbol = ANY($1) AND dt <= $2
         ORDER BY symbol, dt DESC
@@ -1077,16 +1083,22 @@ async def _lot_outcomes(
         symbols,
         as_of,
     )
-    closes = {r["symbol"]: Decimal(str(r["close"])) for r in price_rows}
+    closes = {
+        r["symbol"]: Observation(as_of=r["dt"], value=Decimal(str(r["close"])))
+        for r in price_rows
+    }
 
     # AUDUSD from `fx_rates` — the primary source `jobs/snapshot_portfolio.py`
     # itself reads, rather than the snapshot's derived copy. Fetched only when a
     # foreign lot is open, so an all-ASX portfolio issues no FX query at all.
-    fx_audusd: Decimal | None = None
+    # `dt` again: the rate is daily (sync_prices Phase 3 pulls AUDUSD.FOREX
+    # daily), so a rate more than a few days old means the FX feed has stalled,
+    # and valuing a USD lot at a stalled rate misstates it in AUD.
+    fx_audusd: Observation | None = None
     if any(is_foreign_symbol(s) for s in symbols):
         fx_row = await conn.fetchrow(
             """
-            SELECT rate FROM fx_rates
+            SELECT dt, rate FROM fx_rates
             WHERE pair = 'AUDUSD' AND dt <= $1
             ORDER BY dt DESC
             LIMIT 1
@@ -1094,7 +1106,9 @@ async def _lot_outcomes(
             as_of,
         )
         if fx_row is not None:
-            fx_audusd = Decimal(str(fx_row["rate"]))
+            fx_audusd = Observation(
+                as_of=fx_row["dt"], value=Decimal(str(fx_row["rate"]))
+            )
 
     # Benchmark levels, ASX lots only (F2). The window starts MAX_ANCHOR_LAG_DAYS
     # before the earliest ASX acquisition — the same tolerance the outcome layer
@@ -1132,7 +1146,7 @@ async def _lot_outcomes(
                 quantity=Decimal(str(r["quantity"])),
                 acquired_at=r["acquired_at"],
                 cost_base_aud=Decimal(str(r["cost_base_normal"])),
-                close_native=closes.get(r["symbol"]),
+                close=closes.get(r["symbol"]),
                 fx_audusd=fx_audusd,
                 benchmark_start=(
                     _resolve_anchor(benchmark_rows, r["acquired_at"]) if is_asx else None

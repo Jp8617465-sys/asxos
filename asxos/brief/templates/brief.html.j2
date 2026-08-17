@@ -185,10 +185,15 @@
         {%- endif -%}
       </td>
     </tr>
-    {% if lot.return_note or lot.benchmark_note or lot.benchmark_window %}
+    {% if lot.return_note or lot.benchmark_note or lot.benchmark_window or lot.priced_at %}
     <tr>
       <td colspan="8" class="unavailable">
-        {%- if lot.benchmark_window %}Window {{ lot.benchmark_window[0] }} → {{ lot.benchmark_window[1] }}.{% endif -%}
+        {# The valuation date is printed whenever there is one. "Value A$ 7,603.20"
+           with no date invites the reader to assume today; naming the close date
+           makes the measurement window visible on the page rather than only
+           enforced in code. #}
+        {%- if lot.priced_at %}Valued to {{ lot.priced_at }}.{% endif -%}
+        {%- if lot.benchmark_window %} Window {{ lot.benchmark_window[0] }} → {{ lot.benchmark_window[1] }}.{% endif -%}
         {%- if lot.return_note %} {{ lot.return_note }}{% endif -%}
         {%- if lot.benchmark_note %} Benchmark: {{ lot.benchmark_note }}{% endif -%}
       </td>

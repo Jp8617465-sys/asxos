@@ -24,7 +24,7 @@ import asyncio
 import os
 import re
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -41,8 +41,10 @@ from asxos.brief.compose import (
     render_html,
 )
 from asxos.domain.benchmark.outcome import (
+    MAX_ANCHOR_LAG_DAYS,
     BenchmarkAnchor,
     BenchmarkState,
+    Observation,
     OutcomeSection,
     ReturnState,
     Sleeve,
@@ -58,6 +60,12 @@ from asxos.domain.review.status import ReviewStatus
 from tests.test_results_review_reviewer_challenger import _ADVICE_PATTERNS
 
 AS_OF = date(2026, 8, 17)
+
+
+def _obs(value: str, day: date = AS_OF) -> Observation:
+    """A dated market observation, defaulting to the measurement date itself."""
+    return Observation(as_of=day, value=Decimal(value))
+
 
 # Today's actual state (2026-08-17): ONE open lot.
 HUBS_LOT = {
@@ -102,7 +110,7 @@ def _make_conn(
 
     * `FROM prices` matches BOTH section 8's per-symbol close query and
       `latest_complete_trading_day`'s coverage aggregate. Section 8's is
-      selected on its `DISTINCT ON (symbol) symbol, close` projection; the
+      selected on its `DISTINCT ON (symbol) symbol, dt, close` projection; the
       coverage query falls through to `[]`.
     * `FROM portfolio_daily_snapshots` matches both section 8's
       `benchmark_tr_level` read and the discipline section's `fx_rate_audusd`
@@ -115,9 +123,11 @@ def _make_conn(
     _prices = (
         price_rows
         if price_rows is not None
-        else [{"symbol": "HUBS.NYSE", "close": Decimal("205.92")}]
+        else [{"symbol": "HUBS.NYSE", "dt": AS_OF, "close": Decimal("205.92")}]
     )
-    _fx = {"rate": Decimal("0.650000")} if fx_row is _DEFAULT else fx_row
+    _fx = (
+        {"dt": AS_OF, "rate": Decimal("0.650000")} if fx_row is _DEFAULT else fx_row
+    )
     _benchmarks = benchmark_rows if benchmark_rows is not None else []
 
     conn = MagicMock()
@@ -142,7 +152,7 @@ def _make_conn(
             if lots_error is not None:
                 raise lots_error
             return _lots
-        if "DISTINCT ON (symbol) symbol, close" in q:
+        if "DISTINCT ON (symbol) symbol, dt, close" in q:
             return _prices
         if "FROM portfolio_daily_snapshots" in q and "benchmark_tr_level" in q:
             return _benchmarks
@@ -192,8 +202,8 @@ def test_loader_never_reads_capital_aud(personal_use: Any) -> None:
     conn = _make_conn(
         lot_rows=[HUBS_LOT, CBA_LOT],
         price_rows=[
-            {"symbol": "HUBS.NYSE", "close": Decimal("205.92")},
-            {"symbol": "CBA.AU", "close": Decimal("108.00")},
+            {"symbol": "HUBS.NYSE", "dt": AS_OF, "close": Decimal("205.92")},
+            {"symbol": "CBA.AU", "dt": AS_OF, "close": Decimal("108.00")},
         ],
         benchmark_rows=[
             {
@@ -238,8 +248,8 @@ def test_collect_never_reads_capital_aud_and_never_touches_a_model(
     conn = _make_conn(
         lot_rows=[HUBS_LOT, CBA_LOT],
         price_rows=[
-            {"symbol": "HUBS.NYSE", "close": Decimal("205.92")},
-            {"symbol": "CBA.AU", "close": Decimal("108.00")},
+            {"symbol": "HUBS.NYSE", "dt": AS_OF, "close": Decimal("205.92")},
+            {"symbol": "CBA.AU", "dt": AS_OF, "close": Decimal("108.00")},
         ],
         benchmark_rows=[
             {
@@ -371,6 +381,59 @@ def test_no_fx_rate_reports_unavailable_rather_than_a_number(
     assert hubs.lot_return is None
 
 
+def test_the_loader_selects_the_dates_the_staleness_checks_need(
+    personal_use: Any,
+) -> None:
+    """`dt` on both market queries — without it staleness is unknowable.
+
+    The close query originally selected only `symbol, close`, so the pure layer
+    could not tell yesterday's price from one three months old. The date is the
+    whole mechanism; asserting the projection keeps a future tidy-up from
+    dropping it and silently disabling the guard.
+    """
+    conn = _make_conn()
+    _run_loader(conn)
+    queries = _all_queries(conn)
+    close_query = next(q for q in queries if "DISTINCT ON (symbol)" in q)
+    assert "symbol, dt, close" in close_query
+    fx_query = next(q for q in queries if "FROM fx_rates" in q)
+    assert "SELECT dt, rate" in fx_query
+
+
+def test_a_stale_close_degrades_to_unavailable_through_the_loader(
+    personal_use: Any,
+) -> None:
+    """End to end: an old close reaches the render as a named unavailable."""
+    stale = AS_OF - timedelta(days=MAX_ANCHOR_LAG_DAYS + 30)
+    section = _run_loader(
+        _make_conn(
+            price_rows=[
+                {"symbol": "HUBS.NYSE", "dt": stale, "close": Decimal("205.92")}
+            ]
+        )
+    )
+    assert section is not None
+    hubs = _sleeve(section, Sleeve.global_).lots[0]
+    assert hubs.return_state is ReturnState.unavailable_stale_price
+    assert hubs.lot_return is None
+
+    fragment = _outcome_fragment(
+        render_html(_brief(outcome_section=section, holdings_count=1))
+    )
+    assert "+8.96%" not in fragment
+    assert "unavailable" in fragment
+    assert str(stale) in fragment
+
+
+def test_the_valuation_date_is_rendered(personal_use: Any) -> None:
+    """"Value A$ 7,603.20" with no date invites the reader to assume today."""
+    section = _run_loader(_make_conn())
+    fragment = _outcome_fragment(
+        render_html(_brief(outcome_section=section, holdings_count=1))
+    )
+    assert f"Valued to {AS_OF}" in fragment
+
+
 def test_no_open_lots_reports_two_empty_sleeves(personal_use: Any) -> None:
     section = _run_loader(_make_conn(lot_rows=[]))
     assert section is not None
@@ -380,7 +443,7 @@ def test_no_open_lots_reports_two_empty_sleeves(personal_use: Any) -> None:
 def test_no_fx_query_when_nothing_foreign_is_open(personal_use: Any) -> None:
     conn = _make_conn(
         lot_rows=[CBA_LOT],
-        price_rows=[{"symbol": "CBA.AU", "close": Decimal("108.00")}],
+        price_rows=[{"symbol": "CBA.AU", "dt": AS_OF, "close": Decimal("108.00")}],
     )
     _run_loader(conn)
     assert not any("FROM fx_rates" in q for q in _all_queries(conn))
@@ -418,7 +481,7 @@ def test_proxy_level_is_detected_from_trailing_div_yield_pct(
     """
     conn = _make_conn(
         lot_rows=[CBA_LOT],
-        price_rows=[{"symbol": "CBA.AU", "close": Decimal("108.00")}],
+        price_rows=[{"symbol": "CBA.AU", "dt": AS_OF, "close": Decimal("108.00")}],
         benchmark_rows=[
             {
                 "as_of": date(2025, 8, 15),
@@ -444,7 +507,7 @@ def test_proxy_level_is_detected_from_trailing_div_yield_pct(
 def test_real_index_levels_measure_the_benchmark(personal_use: Any) -> None:
     conn = _make_conn(
         lot_rows=[CBA_LOT],
-        price_rows=[{"symbol": "CBA.AU", "close": Decimal("108.00")}],
+        price_rows=[{"symbol": "CBA.AU", "dt": AS_OF, "close": Decimal("108.00")}],
         benchmark_rows=[
             {
                 "as_of": date(2025, 8, 15),
@@ -650,7 +713,7 @@ def _every_rendered_state() -> list[tuple[str, str]]:
         quantity=Decimal("100"),
         acquired_at=date(2025, 8, 15),
         cost_base_aud=Decimal("9000"),
-        close_native=Decimal("108"),
+        close=_obs("108"),
         fx_audusd=None,
         benchmark_start=anchor(date(2025, 8, 15), "80000"),
         benchmark_end=anchor(AS_OF, "84000"),
@@ -661,7 +724,7 @@ def _every_rendered_state() -> list[tuple[str, str]]:
         quantity=Decimal("50"),
         acquired_at=date(2025, 8, 15),
         cost_base_aud=Decimal("2000"),
-        close_native=Decimal("30"),  # a loss, so the negative branch renders too
+        close=_obs("30"),  # a loss, so the negative branch renders too
         fx_audusd=None,
         benchmark_start=anchor(date(2025, 8, 15), "80000", True),
         benchmark_end=anchor(AS_OF, "84000", True),
@@ -672,7 +735,7 @@ def _every_rendered_state() -> list[tuple[str, str]]:
         quantity=Decimal("5"),
         acquired_at=date(2025, 8, 15),
         cost_base_aud=Decimal("1000"),
-        close_native=None,
+        close=None,
         fx_audusd=None,
         benchmark_start=None,
         benchmark_end=None,
@@ -683,7 +746,7 @@ def _every_rendered_state() -> list[tuple[str, str]]:
         quantity=Decimal("5"),
         acquired_at=date(2025, 8, 15),
         cost_base_aud=Decimal("1000"),
-        close_native=Decimal("200"),
+        close=_obs("200"),
         fx_audusd=None,
         benchmark_start=anchor(date(2025, 1, 1), "70000"),
         benchmark_end=anchor(AS_OF, "84000"),
@@ -694,7 +757,7 @@ def _every_rendered_state() -> list[tuple[str, str]]:
         quantity=Decimal("5"),
         acquired_at=date(2025, 8, 15),
         cost_base_aud=Decimal("0"),
-        close_native=Decimal("4"),
+        close=_obs("4"),
         fx_audusd=None,
         benchmark_start=None,
         benchmark_end=None,
@@ -705,8 +768,8 @@ def _every_rendered_state() -> list[tuple[str, str]]:
         quantity=Decimal("24"),
         acquired_at=date(2025, 6, 2),
         cost_base_aud=Decimal("6978.23"),
-        close_native=Decimal("205.92"),
-        fx_audusd=Decimal("0.65"),
+        close=_obs("205.92"),
+        fx_audusd=_obs("0.65"),
         benchmark_start=None,
         benchmark_end=None,
     )
@@ -716,7 +779,7 @@ def _every_rendered_state() -> list[tuple[str, str]]:
         quantity=Decimal("5"),
         acquired_at=date(2025, 8, 15),
         cost_base_aud=Decimal("1000"),
-        close_native=Decimal("200"),
+        close=_obs("200"),
         fx_audusd=None,
         benchmark_start=None,
         benchmark_end=None,
@@ -819,7 +882,7 @@ def test_the_proxy_is_never_rendered_carrying_a_total_return_label() -> None:
         # Deliberately NOT a close that yields +5.00%: the benchmark levels below
         # move +5.00%, so a lot whose own return coincided would make the final
         # assertion pass for the wrong reason. 50 × 30 = 1500 → −25.00%.
-        close_native=Decimal("30"),
+        close=_obs("30"),
         fx_audusd=None,
         benchmark_start=BenchmarkAnchor(date(2025, 8, 15), Decimal("80000"), True),
         benchmark_end=BenchmarkAnchor(AS_OF, Decimal("84000"), True),
