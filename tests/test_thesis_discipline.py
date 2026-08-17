@@ -8,15 +8,17 @@ severity/trajectory dimensions.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
 from asxos.domain.theses.discipline import (
+    _DATA_SANITY_UNANSWERED_ESCALATION_DAYS,
     DisciplineLevel,
     HoldingWeight,
     PortfolioDisciplineInput,
     ThesisDisciplineInput,
+    data_sanity_escalation,
     evaluate_discipline,
     evaluate_portfolio,
     evaluate_thesis,
@@ -38,6 +40,7 @@ def _thesis(
     target: str | None = "15",
     stop: str | None = "9",
     conviction_level: int | None = 3,
+    last_revised_at: date | None = None,
 ) -> ThesisDisciplineInput:
     def _d(v: str | None) -> Decimal | None:
         return None if v is None else Decimal(v)
@@ -53,6 +56,7 @@ def _thesis(
         target_price_native=_d(target),
         stop_price_native=_d(stop),
         conviction_level=conviction_level,
+        last_revised_at=last_revised_at,
     )
 
 
@@ -271,6 +275,101 @@ def test_unrealised_return_none_without_prices() -> None:
     assert unrealised_return(_thesis(entry=None)) is None
     assert unrealised_return(_thesis(current=None)) is None
     assert unrealised_return(_thesis(entry="0")) is None
+
+
+# --- Data-sanity escalation (James's 2026-07-16 CBA ruling) ------------------
+
+
+def _cba_detached(
+    *, last_revised_at: date | None, opened_at: date = date(2026, 1, 1)
+) -> ThesisDisciplineInput:
+    """The live worked example's shape: recorded ladder ~60 vs live 168 (2.8×).
+
+    The thesis row is `watching` status in production — status lives at the
+    loader level (`_discipline_findings` feeds watching + active theses to this
+    check); the pure function sees only the row's dates and prices.
+    """
+    return _thesis(
+        symbol="CBA.AU",
+        opened_at=opened_at,
+        entry="42",
+        current="168",
+        target="60",
+        stop="38",
+        last_revised_at=last_revised_at,
+    )
+
+
+def test_cba_unanswered_data_sanity_red_escalates() -> None:
+    # Last revision 2026-05-01, as_of 2026-07-13 → 73 days of revision silence
+    # while the ladder is detached (> the 30-day cadence) → escalated red that
+    # names the exact CLI verb.
+    f = data_sanity_escalation(_cba_detached(last_revised_at=date(2026, 5, 1)), AS_OF)
+    assert f is not None
+    assert f.check == "data_sanity_escalation"
+    assert f.level is DisciplineLevel.red
+    assert f.symbol == "CBA.AU"
+    assert "unanswered for 73d" in f.message
+    assert "2.8×" in f.message
+    assert "asx thesis revise CBA.AU" in f.message
+
+
+def test_escalation_boundary_exactly_n_days_is_not_yet_escalated() -> None:
+    # Exactly N days of silence is NOT yet escalated (strictly-greater-than,
+    # matching _timeline's strictly-past-deadline red); N+1 days is.
+    n = _DATA_SANITY_UNANSWERED_ESCALATION_DAYS
+    at_boundary = _cba_detached(last_revised_at=AS_OF - timedelta(days=n))
+    assert data_sanity_escalation(at_boundary, AS_OF) is None
+
+    past_boundary = _cba_detached(last_revised_at=AS_OF - timedelta(days=n + 1))
+    f = data_sanity_escalation(past_boundary, AS_OF)
+    assert f is not None
+    assert f"unanswered for {n + 1}d" in f.message
+
+
+def test_answered_red_does_not_escalate() -> None:
+    # The real logic: a thesis_revisions row AFTER the red first appeared is an
+    # answer. The ladder here detached long ago (thesis opened 2026-01-01), but
+    # James revised the thesis 5 days before as_of — that revision row resets
+    # the unanswered clock, so the still-firing base red does NOT escalate.
+    answered = _cba_detached(last_revised_at=AS_OF - timedelta(days=5))
+    assert data_sanity_escalation(answered, AS_OF) is None
+    # The base data-sanity red itself still fires via evaluate_thesis — the
+    # answer suppresses only the escalation, never the evidence.
+    assert _by_check(evaluate_thesis(answered, AS_OF), "data_sanity")
+
+
+def test_no_escalation_without_a_live_data_sanity_red() -> None:
+    # A healthy ladder never escalates, no matter how long the revision
+    # silence — escalation only ever accompanies a currently-firing red.
+    dormant_but_healthy = _thesis(
+        opened_at=date(2025, 1, 1), last_revised_at=date(2025, 1, 1)
+    )
+    assert data_sanity_escalation(dormant_but_healthy, AS_OF) is None
+
+
+def test_escalation_falls_back_to_opened_at_when_no_revisions() -> None:
+    # No thesis_revisions rows → opened_at anchors the clock (it matches the
+    # 'opened' revision open_thesis() writes). Opened 2026-01-01 → 193 days.
+    f = data_sanity_escalation(_cba_detached(last_revised_at=None), AS_OF)
+    assert f is not None
+    assert "unanswered for 193d" in f.message
+    assert "2026-01-01" in f.message
+
+
+def test_escalation_wording_carries_no_trade_direction() -> None:
+    # s766B: "retire" applies to the thesis ROW (a stale record), never to a
+    # position. The banned substrings cover plural/variant forms too
+    # ("sells", "exited", "reduces", "allocation"), plus "close" per the
+    # _timeline precedent (discipline.py:220-229).
+    f = data_sanity_escalation(_cba_detached(last_revised_at=date(2026, 5, 1)), AS_OF)
+    assert f is not None
+    low = f.message.lower()
+    for banned in ("sell", "trim", "exit", "reduce", "alloc", "close", "buy"):
+        assert banned not in low, f"trade-direction wording leaked: {banned}"
+    # …and it names the record-maintenance verb, applied to the row.
+    assert "retire the record" in low
+    assert "asx thesis revise" in low
 
 
 # --- Ordering + composition -------------------------------------------------

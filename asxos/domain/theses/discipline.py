@@ -7,8 +7,9 @@ to (~80-90% of what "the portfolio team flags"): revisit cadence, trajectory
 pace, stop/target, conviction coherence, concentration, unrealised return. It takes
 already-loaded thesis + portfolio data and returns an ordered list of discipline
 findings. It composes the existing pure functions in
-`asxos.domain.brief.severity` and `asxos.domain.theses.trajectory`, adds two
-net-new checks (conviction-unset, data-sanity), and wraps every check so a check
+`asxos.domain.brief.severity` and `asxos.domain.theses.trajectory`, adds
+net-new checks (conviction-unset, data-sanity, and the data-sanity unanswered
+escalation), and wraps every check so a check
 that *cannot run* surfaces LOUDLY as an ``error`` finding rather than vanishing.
 
 **No DB, no infra, no email.** A later PR (PR2) wires a loader + a brief section
@@ -57,6 +58,13 @@ from asxos.domain.theses.trajectory import Trajectory, classify_trajectory
 # not a genuine "above target" hit. Surfaced as a data-sanity finding and used to
 # suppress the spurious ABOVE_TARGET the trajectory check would otherwise emit.
 _DATA_SANITY_TARGET_MULTIPLE = Decimal("2")
+
+# Escalation threshold for an unanswered data-sanity red: one full revisit
+# cadence. `theses.revisit_due_at` resets to NOW() + 30 days on every revisit
+# action (migration 0012), so a red that outlives 30 days of revision silence
+# has, by the system's own cadence definition, been ignored for a whole cycle.
+# Strictly-greater-than, matching `_timeline`'s strictly-past-deadline red.
+_DATA_SANITY_UNANSWERED_ESCALATION_DAYS = 30
 
 
 class DisciplineLevel(StrEnum):
@@ -107,6 +115,11 @@ class ThesisDisciplineInput:
     target_price_native: Decimal | None
     stop_price_native: Decimal | None
     conviction_level: int | None
+    # Latest `thesis_revisions.revised_at` for this thesis (as a date), or None
+    # when the thesis has no revision rows / the caller did not derive it. Read
+    # only by `data_sanity_escalation()`; defaulted so call sites that predate
+    # the escalation check are unaffected.
+    last_revised_at: date | None = None
 
 
 @dataclass(frozen=True)
@@ -176,6 +189,70 @@ def _data_sanity(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
             symbol=inp.symbol,
         )
     return None
+
+
+def data_sanity_escalation(
+    inp: ThesisDisciplineInput, as_of: date
+) -> DisciplineFinding | None:
+    """Escalated red when a data-sanity red has sat unanswered past one revisit cadence.
+
+    The escalation half of James's 2026-07-16 ruling (`docs/product/james-inbox.md`,
+    the CBA row): :func:`_data_sanity` already *detects* a detached ladder (live
+    price ≥ 2× the recorded target); this check escalates it once it has carried
+    for more than ``_DATA_SANITY_UNANSWERED_ESCALATION_DAYS`` days with no
+    thesis-revision activity, and names the exact CLI verb that answers it.
+
+    **"Unanswered", derived without a schema change.** Findings are computed
+    fresh each run and never persisted, so "when did this red first appear?"
+    has no stored answer. The derivable measure is ``thesis_revisions`` (the
+    append-only event log): every answer James can give — correcting the
+    target, a deliberate ``reviewed_no_change`` hold, a status change — lands
+    there as a row, so *days since the latest revision* (``last_revised_at``;
+    falling back to ``opened_at``, which matches the ``opened`` row
+    ``open_thesis()`` writes) measures how long the thesis has gone without a
+    response. A revision made after the red appeared either fixes the ladder
+    (the red stops firing, so no escalation is possible) or acknowledges it
+    (the clock resets). The proxy is conservative in one direction only: a
+    thesis already dormant for > N days escalates on the first day the price
+    crosses the 2× line — the message states precisely what is measured
+    (revision silence plus the multiple), never more.
+
+    **s766B.** "Correct or retire" applies to the thesis ROW — a stale
+    *record* — never to a holding. Evidence + arithmetic + the maintenance
+    verb only; no trade-direction vocabulary (and no "close", per
+    :func:`_timeline`'s precedent). Pure and read-only: this path emits a
+    finding; it never writes ``theses``, ``thesis_revisions`` or
+    ``governance_events``. A human acts.
+
+    Loader-appended (like :func:`unrealised_return`) rather than folded into
+    :func:`evaluate_thesis`: the brief loader runs this over ``watching`` AND
+    ``active`` theses (the live CBA example is a ``watching`` row), while
+    ``evaluate_thesis``'s full check battery stays active-only.
+    """
+    if _data_sanity(inp) is None:
+        return None
+    current = inp.current_price_native
+    target = inp.target_price_native
+    if current is None or target is None or target <= 0:
+        # Unreachable once _data_sanity fired; keeps the type-narrowing honest.
+        return None
+    answered_at = inp.last_revised_at or inp.opened_at
+    unanswered_days = (as_of - answered_at).days
+    if unanswered_days <= _DATA_SANITY_UNANSWERED_ESCALATION_DAYS:
+        return None
+    multiple = current / target
+    return DisciplineFinding(
+        check="data_sanity_escalation",
+        level=DisciplineLevel.red,
+        message=(
+            f"{inp.symbol}: data-sanity red unanswered for {unanswered_days}d — no "
+            f"thesis-revision activity since {answered_at}, while the live price "
+            f"{current} is {multiple:.1f}× the recorded target {target}. The thesis "
+            f"row looks stale; correct or retire the record: asx thesis revise "
+            f'{inp.symbol} --target <corrected> --reason "..."'
+        ),
+        symbol=inp.symbol,
+    )
 
 
 def _trajectory(inp: ThesisDisciplineInput, as_of: date) -> DisciplineFinding | None:
