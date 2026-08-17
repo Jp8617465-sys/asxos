@@ -2,11 +2,10 @@
 
 Three families:
 
-* **The −75.7% defect class, closed structurally.** `capital_aud` must appear in
-  no query this path issues. The removed wealth-state line differenced that
-  flow-affected balance as if it were a return index and printed a false −75.7%
-  loss with a bogus alpha (`asxos/domain/brief/collectors/wealth_state.py:101-108`).
-  Anchoring on `holding_lots` closes it; the assertion below keeps it closed.
+* **The snapshot-differencing defect class, closed structurally.** `capital_aud`
+  must appear in no query this path issues — why:
+  `asxos/domain/brief/collectors/wealth_state.py:101-108`. Anchoring on
+  `holding_lots` closes it; the assertions below keep it closed.
 * **Today's real shape must render honestly.** One open lot, HUBS.NYSE, 24 shares.
   Global sleeve populated, ASX sleeve stating it is empty — not a misleading zero.
 * **s766B.** The rendered section carries no rating, price target, position size,
@@ -188,7 +187,7 @@ def personal_use() -> Any:
 
 
 # ---------------------------------------------------------------------------
-# 1. The −75.7% defect class — `capital_aud` is not on this path
+# 1. Snapshot-differencing defect class — `capital_aud` is not on this path
 # ---------------------------------------------------------------------------
 
 

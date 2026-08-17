@@ -16,9 +16,12 @@ regression:
 3. **Sleeve separation (governor ruling F2).** HUBS.NYSE never appears in the
    ASX sleeve and never receives an ASX benchmark comparison.
 
+4. **Window symmetry.** Both legs are staleness-checked against the measurement
+   date, so a measured alpha never spans two different windows.
+
 Plus the standing rule for this whole surface: an unmeasurable leg is `None` with
-a printed reason, never a zero. A rendered 0.0% is indistinguishable from a
-measured flat return, which is the same class of lie as the −75.7%.
+a printed reason, never a zero — a rendered 0.0% is indistinguishable from a
+measured flat return (`asxos/domain/benchmark/outcome.py`'s docstring).
 """
 from __future__ import annotations
 

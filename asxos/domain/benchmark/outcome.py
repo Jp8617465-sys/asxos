@@ -48,10 +48,15 @@ AUD, and the market leg is `quantity × close ÷ AUDUSD` for a foreign symbol
 (AUDUSD = USD per 1 AUD, so USD → AUD divides). It never divides a cost base by a
 quantity, in any branch.
 
+**Window symmetry.** Both legs are checked for staleness against the measurement
+date with one shared tolerance (:data:`MAX_ANCHOR_LAG_DAYS`), so a measured alpha
+never spans two different windows. Enforcing freshness on the benchmark leg alone
+would leave the same defect standing on the other side of the subtraction.
+
 **Decimal-only** (`.claude/rules/portfolio-conventions.md` §"Decimal-only arithmetic").
 No numpy, no float, no DB handle. Every unavailable outcome is a named state with a
 printed reason — never a silent zero, because a rendered 0.0% is indistinguishable
-from a measured flat return and that is the same class of lie as the −75.7%.
+from a measured flat return, which is the same failure in a smaller font.
 """
 from __future__ import annotations
 
@@ -69,16 +74,29 @@ from asxos.domain.prices.fx import is_foreign_symbol
 #: fraction, 1e-6 is 0.0001% — far finer than anything the brief prints.
 _SCALE = Decimal("0.000001")
 
-#: How far a benchmark anchor may sit *before* the date it is anchoring, in calendar
-#: days, before the window stops being the same window.
+#: How far a dated observation — a benchmark anchor, a `prices.close`, an AUDUSD
+#: rate — may sit *before* the date it is anchoring, in **calendar days**, before
+#: the window stops being the same window.
 #:
-#: The benchmark level comes from `portfolio_daily_snapshots`, which is written only
-#: on days the price pipeline ran — so the snapshot nearest an acquisition date is
-#: routinely a day or two earlier (weekend, public holiday, a missed cron). Five days
-#: absorbs a long weekend plus a holiday. Beyond that the anchor is measuring a
-#: materially different window than the lot's, and quietly using it would reintroduce
-#: exactly the "compare two things that are not the same thing" failure this module
-#: exists to close — so it is reported unavailable instead.
+#: **This number is an implementation judgement call with no governing source.**
+#: No governor ruling, spec section or plan document sets it; it was chosen here
+#: and it is reviewable. What is not a judgement call is the *direction*: an
+#: observation outside the tolerance is **refused**, never used-and-labelled and
+#: never accommodated by widening. A stale start anchor biases alpha downward in
+#: a rising market, and a label decorates a biased number instead of fixing it.
+#:
+#: **Not related to governor ruling F3's "5", despite the coincidence.** F3 sets
+#: packet expiry at 5 *trading* days for initiate/add/trim/exit_review
+#: (`docs/product/roadmap-state.md:254`) — a decision-lifetime rule in a different
+#: subsystem. This is calendar days bounding how far an observation may sit from
+#: the date it claims to describe. Changing one implies nothing about the other.
+#:
+#: Why five: every input here comes from a daily pipeline that only writes on days
+#: it ran, so the nearest observation to any given date is routinely a day or two
+#: earlier (weekend, public holiday, a missed cron). Five absorbs a long weekend
+#: plus a holiday. It also matches the threshold `BriefData.prices_stale` already
+#: uses for the brief's own price-freshness banner — the same page should not call
+#: prices fresh in one section and stale in another.
 #:
 #: Public because the brief's loader bounds its snapshot query by the same number.
 #: One constant, so the query window and the acceptance rule cannot drift apart —

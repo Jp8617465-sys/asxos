@@ -68,10 +68,10 @@ numbered it 7. Left as found; renumbering here would not fix it.)
      and alpha. The only production code behind the north star's "benchmark-relative"
      output (`docs/product/north-star.md:40`). Anchored on
      `holding_lots.acquired_at`/`cost_base_normal` and `prices.close` with an explicit
-     FX step — **never** on differencing `portfolio_daily_snapshots.capital_aud`, which
-     is what printed a false −75.7% loss before that line was removed
-     (`asxos/domain/brief/collectors/wealth_state.py:101-108`). Sleeve-separated per
-     governor ruling F2 and proxy-vetoed per F1 (`docs/product/roadmap-state.md:252-254`).
+     FX step — **never** on differencing `portfolio_daily_snapshots.capital_aud`
+     (why: `asxos/domain/brief/collectors/wealth_state.py:101-108`).
+     Sleeve-separated per governor ruling F2 and proxy-vetoed per F1
+     (`docs/product/roadmap-state.md:252-254`).
      Model-independent by construction — no `signals`, no `resolve_production_model()`.
      Gated on ASXOS_PERSONAL_USE=1 only (§3 parity), which
      `.github/workflows/daily-brief.yml` already sets; no new flag, and explicitly
@@ -1018,13 +1018,11 @@ async def _lot_outcomes(
     `asxos.domain.benchmark.outcome`; this function only fetches facts.
 
     **It never reads `portfolio_daily_snapshots.capital_aud`, and it must never
-    start.** The removed wealth-state line differenced that balance as if it were
-    a return index; because the balance moves with deposits and withdrawals, a
-    vanished cash placeholder printed a false −75.7% loss with a bogus alpha
-    (`asxos/domain/brief/collectors/wealth_state.py:101-108`). The portfolio leg
-    here is anchored on `holding_lots.acquired_at` / `cost_base_normal` instead,
-    which no flow can move. `tests/test_brief_outcome.py` asserts the string
-    `capital_aud` appears in no query this path issues.
+    start** (why: `asxos/domain/brief/collectors/wealth_state.py:101-108`). The
+    portfolio leg is anchored on `holding_lots.acquired_at` / `cost_base_normal`,
+    which no deposit or withdrawal can move. `tests/test_brief_outcome.py`
+    asserts `capital_aud` appears in no query this path issues, and pins the
+    snapshot query's projection so a `SELECT *` cannot re-expose it.
 
     Currency (R10, `.claude/rules/portfolio-conventions.md` §"`cost_base_normal`
     currency"): `cost_base_normal` is already AUD; the market leg is converted

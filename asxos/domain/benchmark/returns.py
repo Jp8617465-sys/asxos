@@ -7,17 +7,12 @@ fraction (0.042 = +4.2%), so the caller controls percent formatting.
 Consumers: :mod:`asxos.domain.benchmark.outcome` (the V1 brief's per-lot outcome
 section) and the benchmark-performance-analyst agent prompt.
 
-This docstring previously claimed "used by the wealth-state collector" — it was
-not, and had not been since the collector's benchmark line was removed
-(`asxos/domain/brief/collectors/wealth_state.py:101-108`); the module had zero
-production consumers until `outcome.py`. Corrected rather than quietly deleted,
-because the false claim is what made the gap invisible.
-
 **Do not pass a `portfolio_daily_snapshots.capital_aud` pair as the portfolio
-leg.** That balance moves with deposits and withdrawals, so differencing it is not
-a return: it is the arithmetic that printed a false −75.7% loss and a bogus alpha
-in the brief. `outcome.py` anchors on per-lot cost base instead, and that
-constraint is a property of the *caller*, not of these two functions.
+leg** — that balance moves with deposits and withdrawals, so differencing it is
+not a return. Why it matters:
+`asxos/domain/brief/collectors/wealth_state.py:101-108`. The constraint is a
+property of the *caller*, not of these two functions, which is why it is a
+warning here and an invariant in `outcome.py`.
 """
 from __future__ import annotations
 
