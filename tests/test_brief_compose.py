@@ -56,6 +56,14 @@ def _brief(**overrides) -> BriefData:
         "job_failures": [],
     }
     defaults.update(overrides)
+    # A fixture that supplies news items is modelling a day that HAS news, so it
+    # gets NEWS_OK unless it states otherwise. The production default stays
+    # NEWS_DISABLED (see BriefData.news_status) — that default renders the
+    # section away, which would silently vacuum up any assertion about its
+    # contents and pass. Tests that exercise the empty states pass news_status
+    # explicitly.
+    if defaults.get("news_items") and "news_status" not in overrides:
+        defaults["news_status"] = NEWS_OK
     return BriefData(**defaults)
 
 
@@ -862,7 +870,7 @@ def test_brief_data_defaults_to_disabled_not_quiet() -> None:
     to NEWS_DISABLED. Defaulting to NEWS_QUIET would let any incomplete
     construction assert a finding it never established.
     """
-    assert BriefData(as_of=date(2026, 5, 22), regime="neutral",
+    assert BriefData(as_of=date(2026, 5, 22),
                      holdings_count=1).news_status == NEWS_DISABLED
 
 
