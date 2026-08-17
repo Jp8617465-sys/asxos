@@ -55,7 +55,9 @@ numbered it 7. Left as found; renumbering here would not fix it.)
        the LATEST ingest_news job_run in the window being status='success'
          with a NULL error_message (freshness gate — status alone was
          forgeable, a row count was the overcorrection; see _news_ingest_fresh)
-     Section absent entirely when any gate fails.
+     The two env gates omit the section entirely; the freshness gate does
+     NOT — it renders an explicit "unverified" state, because silence there
+     would read as "no news today". See `_news_section` for the four states.
   7. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
@@ -68,6 +70,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
@@ -196,6 +199,38 @@ class PortfolioSection:
     turnover_aud: Decimal
 
 
+class NewsStatus(StrEnum):
+    """Which of four states produced the news section's item list.
+
+    An empty `news_items` list is ambiguous on its own — see `_news_section`
+    for why the distinction is load-bearing rather than cosmetic.
+
+    `StrEnum` matches every other status vocabulary in this codebase
+    (`ReviewStatus`, `DisciplineLevel`, `SectionStatus`, …) and Jinja compares
+    and renders members exactly as the bare strings, so the template needs no
+    filter or context processor — `brief.html.j2` already does this with
+    `DisciplineLevel` and `ReviewStatus`.
+
+    When the news section migrates to the V2 brief, these map onto the existing
+    `asxos/domain/brief/types.py::SectionStatus` (ok→ok, quiet→no_data,
+    unverified→degraded, disabled→suppressed) rather than porting a fifth
+    vocabulary across.
+    """
+
+    DISABLED = "disabled"      # a gate is off; the feature is not running
+    UNVERIFIED = "unverified"  # ingestion did not pass its freshness gate
+    QUIET = "quiet"            # verified fresh, genuinely nothing qualifying
+    OK = "ok"                  # qualifying items present
+
+
+# Module-level aliases: the call sites and tests read better unqualified, and
+# these keep the diff against the original four constants reviewable.
+NEWS_DISABLED = NewsStatus.DISABLED
+NEWS_UNVERIFIED = NewsStatus.UNVERIFIED
+NEWS_QUIET = NewsStatus.QUIET
+NEWS_OK = NewsStatus.OK
+
+
 @dataclass(frozen=True)
 class BriefData:
     as_of: date
@@ -203,6 +238,9 @@ class BriefData:
     regulatory_hits: list[RegulatoryHit] = field(default_factory=list)
     job_failures: list[JobFailure] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
+    # Which of the four news states produced `news_items`. Defaults to
+    # NEWS_DISABLED so a BriefData built without news never claims a quiet day.
+    news_status: NewsStatus = NEWS_DISABLED
     portfolio_section: PortfolioSection | None = None
     # PR2a: collected, not yet rendered (PR2b adds the brief.html.j2 block).
     discipline_findings: list[DisciplineFinding] = field(default_factory=list)
@@ -327,7 +365,7 @@ async def collect(as_of: date) -> BriefData:
 
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
-        news_items = await _news_section(conn, as_of)
+        news_items, news_status = await _news_section(conn, as_of)
         portfolio_section = await _portfolio_section(conn, as_of)
 
         # Fail-loud isolation (CLAUDE.md #10): a broken discipline query must
@@ -365,6 +403,7 @@ async def collect(as_of: date) -> BriefData:
         regulatory_hits=regulatory_hits,
         job_failures=job_failures,
         news_items=news_items,
+        news_status=news_status,
         portfolio_section=portfolio_section,
         discipline_findings=discipline_findings,
         latest_price_date=latest_price_date,
@@ -494,8 +533,8 @@ async def _job_failures(
 
 async def _news_section(
     conn: asyncpg.Connection, as_of: date
-) -> list[NewsItem]:
-    """Return news items for section 6, or [] if gated out (M14a).
+) -> tuple[list[NewsItem], NewsStatus]:
+    """Return ``(items, status)`` for section 6 (M14a).
 
     Three-layer gating (mirrors M13.7 Amendment C):
       1. ASXOS_PERSONAL_USE=1  (regulatory firewall)
@@ -504,15 +543,40 @@ async def _news_section(
          note (freshness gate — see _news_ingest_fresh for why the latest run,
          and why not a row count)
 
-    Section absent entirely when any gate fails.
+    **Why this returns a status and not a bare list.** An empty list previously
+    collapsed four materially different situations into one indistinguishable
+    outcome — the section simply vanished from the brief. James could not tell
+    "no qualifying news today" from "ingestion has written zero rows for a
+    month", and the second is exactly the 2026-08 false-green incident
+    (``docs/market-trends-report-2026-08-05.md`` §1). A reader who sees nothing
+    reasonably infers nothing happened; here, nothing rendered was equally
+    consistent with the pipeline being broken.
+
+    The four states are now distinct and each is rendered honestly:
+
+    ``NEWS_DISABLED``    a gate is off — the feature is not running, section omitted
+    ``NEWS_UNVERIFIED``  ingestion did not pass its freshness gate — say so, do
+                         NOT imply the absence of news is a finding
+    ``NEWS_QUIET``       ingestion verified fresh and genuinely produced nothing
+                         qualifying — a real, reportable "no news" answer
+    ``NEWS_OK``          qualifying items exist
+
+    Only ``NEWS_QUIET`` licenses the statement "no qualifying news was found".
+    ``NEWS_UNVERIFIED`` must never be rendered as if it were quiet.
+
+    The template gates on a positive allowlist of these four values, so a status
+    it does not recognise (a typo, or a fifth state added here without a matching
+    template arm) omits the section rather than falling through to one of the
+    copy blocks above. Adding a state means adding it in both places.
     """
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
-        return []
+        return [], NEWS_DISABLED
     if os.environ.get("ASXOS_NEWS_BRIEF_ENABLED") != "1":
-        return []
+        return [], NEWS_DISABLED
     if not await _news_ingest_fresh(conn, as_of):
-        return []
-    return await _holding_news(conn, as_of)
+        return [], NEWS_UNVERIFIED
+    items = await _holding_news(conn, as_of)
+    return items, (NEWS_OK if items else NEWS_QUIET)
 
 
 async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
