@@ -1,0 +1,144 @@
+# Claude Execute — attended-triggered automation harness.
+#
+# Runs Claude Code inside GitHub Actions via anthropics/claude-code-action@v1
+# so repo work (build/fix/runbook tasks) can be dispatched with
+# `gh workflow run claude-execute.yml -f prompt="..."` instead of driving
+# everything from an interactive chat session.
+#
+# Required repo secret:  CLAUDE_CODE_OAUTH_TOKEN — minted via `claude setup-token`
+#   (bills usage to the Claude subscription, not a metered API key).
+# Optional repo secret:  CLAUDE_WORKFLOW_PAT — a fine-grained PAT used as
+#   GH_TOKEN so Claude can trigger/inspect OTHER workflows (the default
+#   GITHUB_TOKEN cannot start new workflow runs from within a run).
+#   Falls back to GITHUB_TOKEN when absent.
+#   ADDING THIS PAT IS ITSELF A BOUNDARY CHANGE, not a convenience toggle.
+#   Branch protection runs with `enforce_admins: false`, and a PAT acts as its
+#   owner — so a PAT minted from James's admin account would let this workflow
+#   bypass every protection on `main`, and would also restore its ability to
+#   dispatch other workflows. Today's fallback to GITHUB_TOKEN is what keeps
+#   both closed. Set `enforce_admins: true`, or enumerate bypass actors in a
+#   ruleset, BEFORE introducing the PAT.
+#
+# Safety model: workflow_dispatch only (no automatic event triggers — repo
+# events can carry untrusted text); scoped --allowedTools (no unrestricted
+# shell); draft-PR ceiling and never-commit-to-main enforced in the prompt and
+# push/PR guards. Branch protection on `main` (a PR required, full-check
+# required, force-push/deletion blocked) has been live since 2026-07-17 and is
+# the server-side backstop — but note approvals are 0, so CODEOWNERS is
+# advisory rather than mechanical, and enforce_admins is false, so an
+# admin-scoped token bypasses it. Repo rules in CLAUDE.md (incl. rule #11 Model
+# A quarantine and migration/deploy boundaries) load with the checkout and
+# apply to every run.
+
+name: Claude Execute
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Task for Claude to execute"
+        required: true
+        type: string
+      max_turns:
+        description: "Maximum agent turns"
+        required: false
+        default: "20"
+        type: string
+      run_tests:
+        description: "Run relevant tests before declaring done"
+        required: false
+        default: true
+        type: boolean
+      debug:
+        description: "Log Claude's full transcript (see show_full_output note below)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+  id-token: write  # required by claude-code-action's OIDC token exchange
+
+concurrency:
+  group: claude-execute
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project with test dependencies
+        if: ${{ inputs.run_tests }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.CLAUDE_WORKFLOW_PAT || secrets.GITHUB_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # OPT-IN ONLY (default false). The action's own docs warn that this
+          # logs every Claude message including tool results, "which may contain
+          # secrets, API keys, or other sensitive information." Accepting that
+          # warning permanently is not justified here: this repo's own docs carry
+          # real position data (e.g. the HUBS lot in
+          # .claude/rules/portfolio-conventions.md), the harness can Read/Grep
+          # all of it, and Actions logs are a separate 90-day-retained,
+          # downloadable surface that travels with any future visibility change.
+          # GitHub's masking only covers registered secrets, literally matched.
+          # What makes debug runs tolerable when needed: this workflow mounts NO
+          # DATABASE_URL / RESEND_API_KEY / EODHD_API_KEY, so it has no live prod
+          # reach. Enable per-run with -f debug=true when a run's findings are
+          # otherwise unreadable (the result envelope alone cannot distinguish
+          # "3 tests failed" from "nothing to report" — observed on run
+          # 31595260041).
+          show_full_output: ${{ inputs.debug }}
+          prompt: |
+            ${{ inputs.prompt }}
+
+            ---
+            Operating rules for this automated run (in addition to CLAUDE.md):
+            - Work autonomously on the task above; prefer building, testing,
+              and verifying over writing documentation.
+            - Keep changes scoped to what the task requires; no broad
+              refactors unless the task explicitly asks for one.
+            - run_tests=${{ inputs.run_tests }}: when true and you changed
+              code, run the relevant pytest selection (plus ruff/mypy on
+              touched files) and report results before declaring done.
+            - If you change files: work on a branch named claude/<short-slug>
+              (never main), commit, push the branch, and open or update a
+              DRAFT pull request describing what changed and why.
+            - Continue through recoverable failures inside the task scope
+              (test, lint, type, dependency-resolution, merge-base, or CI
+              validation failures) by fixing, rerunning, and reporting the
+              final status.
+            - If no changes are needed: make no commits and finish with a
+              concise summary of what you checked and found.
+            - STOP and report the exact blocker instead of proceeding if the
+              task would need missing credentials or secret creation, a
+              destructive action (force-push, deletion, DB migration apply,
+              data mutation), a direct push to main, a PR ready/merge action
+              or self-merge not explicitly authorized by repository policy and
+              James for that exact PR, or any production-risk operation
+              (deploys, schedule changes, irreversible production writes,
+              secrets). Never apply migration 0042. Never use Model A output
+              in any decision basis (CLAUDE.md rule #11).
+            - Never print secret or environment-variable values into logs,
+              commits, or PR text.
+          claude_args: |
+            --max-turns ${{ inputs.max_turns }}
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout:*),Bash(git switch:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(ruff check:*),Bash(mypy:*),Bash(make check:*),Bash(gh workflow run full-check.yml:*),Bash(gh workflow run targeted-ml-tests.yml:*),Bash(gh workflow run migration-integration.yml:*),Bash(gh run watch:*),Bash(gh run view:*),Bash(gh run list:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*)"

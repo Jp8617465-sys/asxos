@@ -9,7 +9,41 @@ auto_activate:
 priority_review_cadence: weekly during paper-trade window, monthly thereafter
 owner: james
 last_updated: 2026-05-28
+docs_truth_correction: 2026-08-13 (SB0-01) — see the STALE PREMISE banner below
+p1_05_classification: 2026-08-13 — LIVING / capital-adjacent; P0-2's generate_signals half is void (subject deleted by P1-02). See the inline annotation at P0-2.
 ---
+
+> ### ⚠️ STALE PREMISE — annotated 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> **This file auto-attaches to `system-architect`, so its framing reaches architecture work
+> unprompted — which is exactly why this banner is here rather than in a report.**
+>
+> Its risk narrative assumes a **live Model A signals → allocator → trade-proposal path in
+> production**. Most sharply at `:107`: *"if `sync_prices` failed in the cron and
+> `generate_signals` ran anyway, signals are generated on stale prices … Tomorrow's
+> `build_portfolio` reads them and proposes trades against yesterday's reality … production
+> trading proposals on stale inputs."*
+>
+> **That path is dormant and being retired.** (1) Model A was **shelved 2026-07-11** after the
+> decay analysis found no usable edge on 19,032 matured signals
+> (`docs/model-a-decay-analysis-2026-07-11.md`); CLAUDE.md rule **#11** bars its output from any
+> real capital decision. (2) The allocator is mechanically gated on
+> `model_versions.approved_for_allocation`, which was revoked — with 0 approved rows it
+> **refuses to run** (`.claude/rules/portfolio-conventions.md` §Contamination-isolation).
+> (3) Render was **deleted** 2026-08-12 (`docs/product/roadmap-state.md:116`), so the crons this
+> file reasons about are not executing on the platform it assumes. (4) A Model A **retirement**
+> programme (`P1-01`…`P1-05`) is in progress.
+>
+> **This banner does not retire the guards.** The *staleness-propagation* class of defect it
+> describes is real and generalises to every scheduled job (it is the same shape as the
+> 2026-08-05 news-brief incident: a guard that asserts on job status rather than on the
+> artifact). Read the guards as **model-independent pipeline-integrity requirements**; do not
+> read the Model-A-and-trade-proposal framing as a description of the live system.
+>
+> Noted for `P1-05`: this file carries live capital-adjacent Model A assertions with **zero
+> `model_a`/`Model A` tokens**, so the token-driven sweep behind
+> `docs/product/model-a-reference-manifest.md` cannot see it. See the truth map
+> (`docs/product/doc-truth-map-2026-08-13.md` §6) for the false-negative finding.
 <!--
 ================================================================================
 CLAUDE CODE — AUTO-ACTIVATION DIRECTIVE
@@ -97,14 +131,40 @@ monitor.rows_written = sum(r for r in results if isinstance(r, int))
 **Dependencies.** None.
 ---
 ### P0-2 — Promote upstream_ok warnings to hard-fails in cron context
+
+> **⛔ SUBJECT NO LONGER EXISTS — annotated 2026-08-13 by mission `P1-05`.** Classified **LIVING /
+> capital-adjacent** in `docs/product/model-a-reference-manifest.md` §Token-blind documentation.
+>
+> **Half of this item is void; the other half is real and should be re-homed.**
+>
+> **Void:** `jobs/generate_signals.py` **was deleted** by mission `P1-02` (PR #100, 2026-08-13).
+> `asxos/domain/signals/writer.py` — the *only* writer of the `signals` table — went with it, and
+> `tests/test_generate_signals.py` no longer exists either. **Nothing writes `signals` any more**,
+> so no guard on that job can be built and none is needed. The scenario in the Motivation
+> paragraph below — *"`generate_signals` ran anyway … `build_portfolio` reads them and proposes
+> trades against yesterday's reality"* — **cannot occur**, and could not have occurred since
+> 2026-07-11 in any case: `build_portfolio`'s allocator is gated on
+> `model_versions.approved_for_allocation`, which was revoked, so it refuses to run
+> (`asxos/domain/portfolio/build.py:209-214`). `P1-04` then removed the allocator's `signals` read
+> entirely. **Read that sentence as history. Do not cite it as a description of live risk.**
+>
+> **Still real:** `jobs/ingest_sentiment.py` exists and still has the warn-and-continue shape, and
+> the **staleness-propagation defect class generalises to every scheduled job** — it is the same
+> shape as the 2026-08-05 news-brief incident (a guard asserting on job *status* rather than on
+> the *artifact*). Keep the item for `ingest_sentiment` and as a general pattern; drop the
+> Model-A-and-trade-proposals framing.
+>
+> **This annotation does not lift or weaken rule #11**, which stands as standing policy.
+
 **Category:** Hard-fail (promoted from warn-and-continue)
 **Effort:** ~20 minutes per job × 2 jobs = ~40 minutes
 **Files affected:**
-- `jobs/generate_signals.py`
+- ~~`jobs/generate_signals.py`~~ — **DELETED by `P1-02`, 2026-08-13. Not actionable.**
 - `jobs/ingest_sentiment.py`
-- `tests/test_generate_signals.py`
+- ~~`tests/test_generate_signals.py`~~ — **DELETED with its subject.**
 - `tests/test_ingest_sentiment.py`
-**Motivation.** The current behaviour: if `sync_prices` failed but `generate_signals` runs anyway (manual or cron retry), it warns and proceeds. The defensible argument is "I'm operating, I know prices are stale, let me through." The undefended argument is the automated path — if `sync_prices` failed in the cron and `generate_signals` ran anyway, signals are generated on stale prices and written to the `signals` table with a current `as_of`. Tomorrow's `build_portfolio` reads them and proposes trades against yesterday's reality. This is the worst class of silent failure: production trading proposals on stale inputs.
+**Motivation.** *(Historical — the `generate_signals` half of this scenario is void; see the
+banner above.)* The current behaviour: if `sync_prices` failed but `generate_signals` runs anyway (manual or cron retry), it warns and proceeds. The defensible argument is "I'm operating, I know prices are stale, let me through." The undefended argument is the automated path — if `sync_prices` failed in the cron and `generate_signals` ran anyway, signals are generated on stale prices and written to the `signals` table with a current `as_of`. Tomorrow's `build_portfolio` reads them and proposes trades against yesterday's reality. This is the worst class of silent failure: production trading proposals on stale inputs.
 **Proposed implementation.**
 Distinguish manual-run (explicit opt-in) from cron-run (hard-fail):
 ```python

@@ -10,9 +10,8 @@ from asxos.config import BriefSettings, settings
 # Do NOT remove — this is intentional, not dead code.
 _brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
-from asxos.domain.models.cache import get_cache  # noqa: E402
 
-REQUIRED_MIGRATIONS = 95  # bump each time a new migration is applied; 0041 (macro_thesis_learning_loop, applied 2026-07-24) — observed count from supabase_migrations.schema_migrations
+REQUIRED_MIGRATIONS = 96  # bump each time a new migration is applied; 0043 (price_revisions, applied 2026-08-12 as 20260812092925; 0042 reserved by parked PR #80) — observed count from supabase_migrations.schema_migrations
 
 
 async def _check_migration_drift() -> None:
@@ -39,9 +38,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await conn.fetchval("SELECT 1")
 
     await _check_migration_drift()
-
-    # Warm the model cache — hard-fail if the active artefact is missing.
-    await get_cache().get("model_a")
 
     yield
 

@@ -1,8 +1,16 @@
 # asxos Roadmap & State — the reconciled picture
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
-**Scope:** whole repo — the single reconciliation of every roadmap + the live state
-**Last verified:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
+**Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
+**Last verified:** 2026-08-11 (`/arbi-close`, retrospective — the 08-11 build session shipped five
+merged PRs and stood down without a close; this refresh reconciles the defect list against `main`
+@ `7aa8507`. See "PROGRAMME REFRAME" immediately below; the 2026-07-14 notes are retained as history)
+**Docs-truth correction:** 2026-08-13 (`SB0-01` sweep — the *State header* block was found four
+weeks stale and is now boxed with a freshness correction; the news-brief gate source and the
+08-12 snapshot's "plan doc does not exist" line were corrected. **This was a documentation
+sweep, not a state refresh** — no live probes were taken, so `Last verified` above is unchanged.)
+**Prior verification:** 2026-08-10 (Stage 0 ratification — digest `d6d888a`, merged `9ede7ad`/PR #79)
+**Earlier verification:** 2026-07-14 (post-merge reconciliation — James merged the six-PR train
 #32→#33→#35→#31→#34→#36: sync_financial_statements batching, R12 firewall gate, R13 review-gate
 hardening, Guilfoyle mission-control, overnight governance record, orchestrator-mode sketch.
 Monitoring lane fixes all on main. **Confirmed (2026-07-14, later same day): #29 (discipline
@@ -15,10 +23,272 @@ recommend close, superseded by the ML shelf; #39 (permission-friction/guard pack
 
 ---
 
+## PROGRAMME REFRAME (2026-08-10) — read this before anything below
+
+James ratified a product reframe on 2026-08-10. asxos is a
+**research-to-capital-decision-to-learning engine**, not an agent that writes a morning brief. The
+brief is an experience layer over an immutable decision and must carry no financial logic of its own.
+
+**The canonical target is [`target-architecture.md`](target-architecture.md)** (with its Errata §0
+and Appendices A–I). This file remains the **single live queue**; that file defines what "done" means.
+
+**This file is now the only ranked queue.** Superseded to reference-only, none of which may be read
+as a next-action list: `arbi-operating-backlog.md`, `cleanup-backlog.md`,
+`docs/next-session-backlog.md`, and the untracked 2026-08-08 convergence sprint. `james-inbox.md`
+remains valid but is governor-scoped decisions, not build work.
+
+### The queue — Stages 0→6
+
+| Stage | Goal | State |
+|---|---|---|
+| **0** | Ratify objective + contracts; one canonical queue; scheduler + prototype dispositions | ✅ **COMPLETE 2026-08-10** — digest `d6d888a`, merged `9ede7ad` (PR #79). All seven gates met |
+| **1** | Evidence foundation. **Order matters: contain irreversible loss first**, then repair PIT | **STILL NOT AUTHORISED as a stage.** What ran on 2026-08-11 was the *remediation work order* against the live-defect list below (defects 1/2/3/6 fixed in code, five PRs merged) — **not** Stage 1's evidence-foundation build. F5 (Dagster deployment/cost/cutover) and F6 (S3 bucket/credentials) each still name a prior work order that has not been written |
+| **2** | Research registry + evaluation (method-agnostic; reproducibility and failed-variant retention) | not started |
+| **3** | Theme + candidate engine | not started |
+| **4** | One governed paper investment case, end-to-end (**new screened candidates** — governor ruling) | not started |
+| **5** | Outcome learning — **initially a process audit + descriptive outcome evidence**, not statistical validation | not started |
+| **6** | Portfolio scale + surface cutover | not started |
+
+### Queued after the current remediation work (James, 2026-08-12)
+
+James queued
+[`asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`](../proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md)
+after the live remediation/defect work below. The linked packet is the detailed candidate backlog;
+this file remains the only live queue.
+
+Entry gate: every earlier live remediation item is completed, explicitly deferred by James, or
+superseded with cited evidence; required post-merge production/scheduled-run observations are
+recorded; and `/arbi` refreshes current state before selecting work. Then activate exactly one
+packet item as THE ONE THING. Default order begins `P1-01` (Model A reference manifest), then
+`SB0-01` (Arbi truth reconciliation). Parallel execution requires an explicit James instruction
+naming both mission IDs. Queue placement is not blanket implementation, production, authority, or
+capital-action approval; the existing `/arbi-mission`, `/arbi-team`, and Claude Execute gates apply
+to every item.
+
+#### GOV-01 — ruling recorded 2026-08-12
+
+`GOV-01` ("Ratify or amend this programme and choose the first work order", owner James, packet §7)
+required two artifacts: the exact ruling **and** the canonical queue amendment. James issued the
+ruling on 2026-08-12; this section is the amendment.
+
+**Ruling.** Execute the Model A retirement lane first, then the results-review slice, then the
+programme executor, then the memory-consolidation pair. `P1-01` is the first work order.
+`SB0-01` remains the default next second-brain candidate. One PR-bounded mission per invocation;
+~~no mission proceeds until its predecessor is merged, observed where required, and closed through
+`/arbi-close`.~~ **— amended 2026-08-13, see Amendment A.**
+
+#### Amendment A — stacked successor branches (James, 2026-08-13)
+
+Drafted in `docs/proposals/arbi-automation-amendment-pack-2026-08-13.md` and **ruled by James on
+2026-08-13** ("take amendment A"). It replaces only the struck clause above; every other part of
+the `GOV-01` ruling stands.
+
+> A successor mission may proceed on a *stacked* `claude/**` branch whose PR base is its
+> predecessor's branch, **before** the predecessor is merged, provided each work order remains one
+> branch and one draft PR, `arbi-red-team` and `/arbi-close` still run per mission, and the merge
+> order remains strictly `P1-01` → `P1-02` → `P1-03` → `P1-04` → `P1-05` → `SB0-01`. **Merge, ready
+> and un-draft remain James-only.** If a predecessor PR is closed unmerged, every stacked
+> descendant is abandoned rather than re-based.
+
+**What this changes:** work continues while James sleeps. **What it does not change:** he reviews
+exactly what he reviewed before, in the same order, and no merge authority moves — the campaign
+loop still cannot merge, un-draft, or self-approve.
+
+**Mechanical obligations this creates for the executor.** James squash-merges (measured: every
+`origin/main` commit has one parent and a `(#N)` subject, and merged branch tips are not ancestors
+of `main`). On a squash-merge GitHub retargets the child PR's base to `main` automatically, but the
+child's *history* still carries the parent's commits. The executor must therefore:
+
+1. **Detect** — `git merge-base --is-ancestor <parent-tip> origin/main` exits 1 (squash, repair
+   needed) vs 0 (true merge, no repair); and `--is-ancestor <parent-tip> <child-branch>` exits 0
+   while the child still carries them.
+2. **Repair** — `git rebase --onto origin/main <fork-point> --empty=drop`, which drops the parent's
+   now-duplicated commits.
+3. **Guard before pushing** — `git rev-list --count origin/main..HEAD` **must be ≥ 1**. A
+   force-push that leaves head == base **auto-closes the PR** (the #29 incident,
+   `docs/product/memory/working/2026-07-14-pr-transaction-discipline.md`). If the count is 0, do
+   not push; stop and hand back.
+4. **Push** with `--force-with-lease` (never bare `--force`) to the child's own `claude/**` branch —
+   permitted by `push-guard.sh`, which only guards `main` — then immediately re-read the PR's state,
+   base and changed-file count.
+5. **Cascade in order** — if two levels merge at once, repair bottom-up, one branch at a time. A
+   parent force-push orphans every descendant not yet rebased onto the new tip.
+6. **Conflicts stop the loop.** `git rebase --abort`, do not push, report the conflicting paths.
+   Never resolve a conflict against James's edit unattended.
+
+**Known interaction, not yet resolved:** `unattended-guard.sh` denies *every* force-push under
+`ARBI_UNATTENDED=1`, including to `claude/**` — so stacking and unattended operation are currently
+mutually exclusive. Amendment C in the pack narrows that to permit `--force-with-lease` on
+`claude/**`; it is **not** part of this ruling and is only needed if James later wants the loop
+running with no session open.
+
+#### Amendment B — execute-to-completion chaining (James, 2026-08-16)
+
+Recorded per the GOV-01 two-artifact precedent (`decision-log.md` row `gov-01-2026-08-12`: a
+ruling requires the ruling AND the queue amendment) — and per the P2-03 red-team's binding
+constraint that this be recorded at mission start, not deferred to a close. On 2026-08-16 James
+instructed, verbatim: **"execute reMAINING TO DO LIST TO COMPLETIO"** (execute remaining to-do
+list to completion; session instruction, authority ladder level 0 — this row is its repository
+record). Effect on the queue:
+
+> Sequential mission chaining extends beyond Amendment A's enumerated order
+> (`P1-01 → … → SB0-01`) to the remaining packet work orders in dependency-and-GOV-01 order,
+> one mission per unit, each with an `arbi-red-team` vet, one branch, one draft PR, and a
+> per-unit close row. **Merge, ready and un-draft remain James-only** (observed mechanically
+> enforced this same day: `push-guard.sh` denies `gh pr ready` and `gh pr merge` from the agent
+> on any surface). **Parallel packet missions still require James naming both mission IDs**
+> (unchanged). Hard stops unchanged: credentials, migrations, destructive DB operations,
+> production writes, scheduler cutover, direct pushes to `main`, merge/self-approval, authority
+> or permission changes, personalised financial instructions, capital execution.
+
+Amendment A supplies stacking *mechanics* only; this instruction is the *authority* for chaining
+past SB0-01 — never cite Amendment A as authority for the P2/SB1+/P3 lanes.
+
+**Rider — parallel authorization (James, 2026-08-17).** Recorded verbatim per the SB1-01
+red-team's condition precedent (the parallel rule contemplates pairs; a three-way concurrency
+needs the governor naming all of it, and the record must be a dated queue amendment, not a
+session transcript). James wrote:
+
+> Approved parallel: SB1-01 and P3-01, alongside the in-flight P2-04. Then P2-05 when P2-04
+> lands. Then approved parallel: SB1-02, SB2-01, SB3-01, SB4-01.
+
+Effect: (1) SB1-01 ∥ P3-01 ∥ P2-04 is the authorized three-way; (2) P2-05 is pre-authorized
+sequential on P2-04's completion; (3) the four-way SB1-02 ∥ SB2-01 ∥ SB3-01 ∥ SB4-01 is
+pre-authorized contingent on SB1-01 landing and a per-mission `arbi-red-team` vet each — a
+pre-authorization is not a vet waiver. Unchanged: merge/ready/un-draft remain James-only; every
+hard stop stands; one work order per branch per draft PR per close row.
+
+Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
+single-builder with the independent-review function preserved in separate documented passes;
+the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
+fit per mission.
+
+Fixture ruling recorded (P2-02, PR #113): acquisition path = **hashed fixture**. G2 assigned
+the decision to P2-02 in writing (`finance-capability-matrix-2026-08-13.md:358-360`); a real
+feed is not executable inside any mission (no endpoint exists; credential creation is a
+mandatory stop), and James's later feed decision is preserved at zero swap cost by
+source-agnostic contracts.
+
+**Alias mapping — session task numbers are NOT a second queue.** Per the packet (§2.4), Claude
+Code's session-local task numbers are execution aliases only; the canonical identity is the packet
+plus the selected work-order ID. Recorded here solely so the two never diverge:
+
+| Session alias | Canonical identity |
+|---|---|
+| Task/Mission #11 | the packet's **P1 lane in full** — executable units `P1-01` … `P1-05`. **#11 is a lane label, never a single branch.** An undifferentiated retirement branch is specifically unsafe: `P1-02` removes runtime dependencies, and the allocator's `approved_for_allocation` gate is rule #11's *mechanical enforcement point* (`.claude/rules/portfolio-conventions.md` §Contamination-isolation), so the machinery that **enforces** the quarantine sits beside the machinery that **consumes** it. `P1-01`'s classified manifest is what tells `P1-02` which is which |
+| Task/Mission #12 | the ASX Results-to-Thesis Review slice — sequenced after the P1 lane; gated additionally on the 2026-08-12 option-(c) contract ruling (`target-architecture.md` B.4/B.5) |
+| Task #13 | the programme executor alias. Returns `WAITING` until §2.4 is evidenced closed |
+| Tasks #14 / #15 | `/arbi-dream` then `/arbi-promote`. No durable repository work-order ID exists for these yet; they are session aliases only |
+
+**§2.4 entry-gate status — ALL FOUR CLOSED as of 2026-08-12 21:13Z.** The programme is
+**ELIGIBLE**: `P1-01` (Model A reference manifest and historical allowlist, route `/arbi-team`)
+is the first work order. Item (2) closed last, on the scheduled ingestion observation below.
+
+| Gate item | Status |
+|---|---|
+| (1) remediation rows ahead completed / deferred / superseded with evidence | ✅ **closed** — defects #1, #2, #6 fixed and observed; #3 applied and drilled (one observation outstanding, tracked at (2)); #5 merged; #4 superseded + deferred; #7 deferred to Stage 6 |
+| (2) merged fixes have their required production or scheduled-run observations recorded | ✅ **CLOSED 2026-08-12 21:13Z** — scheduled `sync_prices` SUCCESS, 2,366 rows, inside `daily-brief` run `31641460675`, with the 0043 trigger live. See defect #3 |
+| (3) `roadmap-state.md` refreshed against then-current `main` and live probes | ✅ **closed by this amendment** — refreshed against `main` @ `566c902` and live `job_runs` probes taken 2026-08-12 13:38-13:40Z |
+| (4) `/arbi` selects exactly one unblocked item as THE ONE THING | ✅ mechanism exercised this invocation (it selected `GOV-01`); re-runs each invocation |
+
+**Carried forward, not acted on** (surfaced during this amendment so they stop being invisible):
+the `dark-launch-exit-plan.md` expiries at **2026-08-31** (`:120,:123`) are 19 days out; and the
+news/sentiment brief is still marked SHIPPED with ship-condition (a) **VOIDED 2026-08-05**
+(`:36-45,:121`), while that file's own rule (`:133-138`) says a falsified SHIP reverts to
+un-shipped and must earn a fresh verdict. No fresh verdict exists. Neither is a gate item; both
+need an owner.
+
+### Live defects carried into Stage 1 / the remediation work order
+
+**Originally recorded 2026-08-10. Status reconciled 2026-08-11 against `main` @ `7aa8507`.**
+Four of seven are now fixed *in code*; three remain open. **"Merged" is not "in production"** —
+each closed row names the production gate that is still James's.
+
+| # | Defect | Status |
+|---|---|---|
+| 1 | **`backup.yml` had never succeeded** — apt step failed (`packages.microsoft.com` 403, exit 100) before reaching `backup_irreplaceable.sh`; pg16 client could not dump a pg17 server | ✅ **FIXED + OBSERVED GREEN.** PR #83 (`8975e41`). Run `31465179375` @ `9d6bffd`: `backup: success` **and** `restore_drill: success` — a real restore against a clean schema built from repo migrations, with every table count verified. This is the first end-to-end proof the irreplaceable backup works |
+| 2 | **`derive_fundamentals_pit` failed 4 consecutive weekly runs** (`TimeoutError`; last success 2026-07-11) | ⚠️ **FIXED + GREEN ON A MANUAL RUN (2026-08-12) — STILL UNPROVEN ON THE SCHEDULED PATH.** Sharpened 2026-08-17: this row said "OBSERVED GREEN" unqualified, which conflated two different things. The green below is real, but it is a **manual, hand-invoked** run. On the *scheduled* weekly chain the step is **0-for-2**: run `31267448443` (08-08) reached `Derive fundamentals PIT` and it **failed at 35s**; run `31895667938` (08-15) **never reached the step at all** — `Sync corporate actions` consumed 88.1 of the 90-minute job budget and GitHub cancelled the chain. So the fix is proven against the *timeout* defect and unproven against the *scheduled* environment. The manual evidence, unchanged: PR #85's fix executed its first production run under James's authority: 68 batches, 3,359 source symbols, **53,624 rows / 3,357 symbols in 148s** (`job_runs` success; was 63 rows / 11 symbols), zero timeouts. Coverage reconciled: 1,853 of 2,391 active-universe symbols covered — the 538 uncovered actives have no `rs_financial_statements` source rows at all (upstream sync coverage, a separate item, not a PIT defect). `compute_factor_scores` then consumed the cross-section: **3,308 symbols scored** at `as_of` 2026-08-11 (`fs_v1`; was 11). `check_cron_health` observed green the same session (first success in 12+ days) after the week-long consecutive-failure red cleared |
+| 3 | **`prices` destructively upserted** (`asxos/ingestion/prices.py:53-59`) — every dividend/split silently rewrote `adj_close` history. The only defect where delay causes permanent loss | 🟡 **APPLIED IN PRODUCTION 2026-08-12; close-out pending.** PR #84 (`d0dbee0`) authored the migration, PR #88 (`97cdc5c`) production-readied it, and it is now **applied as `20260812092925` — observed count 96** (James authorised, attended session; pre-apply gate: drill run `31574011421` green on `97cdc5c`). All three triggers live; runbook probe captured exactly one same-transaction revision and rolled back, residue 0. `REQUIRED_MIGRATIONS` 95→96 **merged 2026-08-12 via PR #91** (`ec30d20`). The post-apply `restore_drill` is **DONE and green** — run `31593927269` logged `price_revisions exists — include append-only price history` and `all 14 table counts match`. ✅ **FULLY CLOSED IN PRODUCTION 2026-08-12 21:13Z.** The scheduled `sync_prices` (inside `daily-brief` run `31641460675`) completed **SUCCESS in 12s, 2,366 rows written**, with the 0043 capture trigger live. `prices.dt` advanced to 2026-08-12 (2,302 rows at that date). **`price_revisions` = 0 rows — the correct outcome, not a miss:** the run was overwhelmingly inserts for a new date plus byte-equivalent no-op upserts, and the migration deliberately ignores no-ops (`_capture_price_revision`'s `to_jsonb(OLD) IS NOT DISTINCT FROM to_jsonb(NEW)` early return). The runbook anticipated exactly this ("revision growth may be zero when the provider returns byte-equivalent rows"); what had to be observed was that ingestion **succeeds** against the live trigger, and it did. The earlier `failure` row at 12:45Z was a blocked *local* attempt (this machine's Python rejects an intercepting TLS certificate; `curl` succeeds — environment fault, not code) and is superseded by this scheduled success. The first real revision rows will appear on the next dividend/split that rewrites an existing `adj_close`. Prospective only — **no historical backfill**, the pre-0043 `adj_close` rewrites are already lost |
+| 4 | ~~**9 orphaned jobs** declared in `render.yaml`, in no workflow, not executing since 2026-08-01/05~~ → **re-scoped, see disposition** | 🔵 **DESCRIPTION SUPERSEDED 2026-08-12 (James); CLEANUP WORK RETAINED AND DEFERRED.** **Governor statement (authority ladder level 0, 2026-08-12): "Render was deleted."** Recorded as James's ruling, **not** verified against the Render API — he explicitly forbade requesting a key, inspecting, mutating, or recreating Render, so `target-architecture.md:1535-1537`'s "UNVERIFIED" note stands unresolved *by instruction*, not by omission. Consequence: there are no live orphaned services, so the original "9 jobs still declared and not executing" framing is void. **The defect's real residue survives deletion and is arguably worse:** `render.yaml` remains in-repo, still headed "source of truth", still declaring `us-positions` at `30 13` (`:646` comment, `:654` schedule) — a stale manifest describing a dead platform. Retained as **RENDER-RETIRE**, a bounded repository-cleanup item per James's 2026-08-12 ruling: record the deletion; mark `render.yaml` obsolete and non-authoritative; identify remaining code/test/Makefile/migration-comment/doc references; preserve each former job's RETIRE/ADOPT/DEFER/DECIDE disposition; remove `render.yaml` only through a dedicated tested PR; no deployment, no scheduler cutover. **RENDER-RETIRE is not a new canonical work-order ID** — it is the scope label for cleanup owned by the packet's existing orders: `P1-03` (reconcile executing vs declared schedules) and `P3-01` (Dagster deployment/cost/cutover). **DEFERRED** to the Stage 1 scheduler work order unless `/arbi` finds the stale manifest creates an immediate correctness or safety risk. Two residues named for that work order: `tests/test_render_backup_build.py:25,30-35` hard-parses `render.yaml` and asserts `asxos-backup-irreplaceable` exists — green assurance about a dead platform, tolerable only because the proven backup path is `.github/workflows/backup.yml` (run `31465179375`); and `render.yaml` is authority-guarded (`.claude/hooks/authority-guard.sh`), so its removal needs the draft-PR route. **No longer blocks the programme entry gate.** **→ RECONCILED 2026-08-13 by `P1-03`: `docs/product/scheduler-inventory-2026-08-13.md` is now the single authoritative scheduler record and supersedes `render.yaml` for every scheduling question.** It disposes all 29 declared services (20 ADOPTED into GitHub Actions · 6 RETIRE, of which 5 are Model A · 3 DECIDE: `asxos-api`, `build-portfolio`, `detect-theme-stages`), proves at `origin/main` that **zero Model A jobs are invoked by any of the ten workflows** (grep for `generate_signals\|retrain_model_a\|check_model_staleness\|track_signal_outcomes\|compute_opportunity_cost` over `.github/workflows/` returns no matches — which answers the Model A manifest's Finding 2 *without* the Render probe that `model-a-reference-manifest.md:344,461,471,978` demands; **that `make check-drift` instruction is superseded by this defect row's governor ruling**), carries the drafted `render.yaml` removal plan (§5, incl. the `tests/test_render_backup_build.py` disposition named above), and records 9 declared-vs-executing gaps — among them the first observed `us-positions` run at the corrected `30 21` cron (2026-08-12T22:10:01Z, success), which is the observation defect #5 was waiting on. |
+| 5 | **`us-positions` cron `30 13 * * 1-5` is US market *open*, not close** — header comment is wrong | 🟡 **FIXED IN THE EXECUTING SCHEDULER; branch diff, not yet merged or observed.** `.github/workflows/us-positions.yml:16` is now `30 21 * * 1-5` and the header states the DST reasoning (21:30 UTC = 17:30 ET under EST, 16:30 ET under EDT — after the 16:00 ET close on both sides of the boundary). **Merged 2026-08-12 via PR #93** (`8037137`); not green until one scheduled 21:30 UTC run is observed. **Residual drift, tracked under defect #4 not here:** the orphaned Render declaration still says 13:30 — `render.yaml:646` (comment) and `:654` (`schedule`), plus the `jobs/check_us_positions.py:5` docstring. The bounded 2026-08-06/07 coverage gap is historical and unrecoverable |
+| 6 | **`composer.py` swallowed all persistence exceptions** (`except Exception: pass`) — violated CLAUDE.md #10 | ✅ **FIXED.** PR #86 (`e130240`) — composer returns a redacted persistence error, the job sends the primary brief first then raises a typed failure inside `JobMonitor`; the run records failed, the failure healthcheck pings, cron exits non-zero, and a confirmed primary delivery suppresses duplicate fallback mail |
+| 7 | **V2 brief is dark** — `ASXOS_V2_BRIEF_ENABLED` set nowhere, so `composer.py:94` falls back to V1. The 10-section collector architecture is built, tested, and never runs | 🔵 **DEFERRED 2026-08-12 (James) to canonical Stage 6.** Brief render is a Stage 6 surface concern; **it must not be enabled to clear a gate** — the flag stays unset until Stage 6 lands. **Carries a deadline:** the V2 tree's KEEP-DARK expiry is **2026-09-30** (`dark-launch-exit-plan.md:86,122`), and that document's own rule (`:127-128`) auto-re-raises the item if Stage 6 has not landed by then. Whoever holds Stage 6 owns beating that date or re-deciding before it. **No longer blocks the programme entry gate.** |
+
+**Live consequence of #2 still being unrun (observed 2026-08-11):** `check_cron_health` has failed
+every run for at least 7 days — correctly. Its error is verbatim
+`CONSECUTIVE FAILURES: derive_fundamentals_pit last 3 runs all failed`. The monitor is a **true
+positive, not a broken monitor**; one successful PIT run clears both reds at once.
+
+### Parked / preserved work
+
+- `claude/rules-integrity-build` @ `3f6fd51` — **PRESERVED** in PR #80 (PARKED / DO NOT MERGE),
+  4,869 lines and 2,035 tests passing at park. Review loop incomplete (security-engineer /
+  refactoring-expert / technical-writer never completed). **`migrations/0042_rules_integrity.sql`
+  must not be applied.** Preservation is not adoption or merge authority.
+- Decision-engine prototype — **ADOPTED 2026-08-11 via PR #87 (`7aa8507`).** F7's "amend and adopt"
+  is executed: a new branch from `main` closed all ten Appendix I.2 blockers — including the three
+  capital-safety ones (challenge/action gating so a blocking or revise challenge can no longer
+  accompany `initiate`; unknown-constraint capital blocking; expired packets rendered
+  non-actionable with the original ask suppressed) — plus all five F8 amendments (canonical
+  `security_id`, `evidence_tier` split from `data_mode`, mandatory `model_independence` with
+  adversarial identifier rejection, typed content-addressed tax-assessment reference, exhaustive
+  state→verdict mapping). F3's 5/21-session horizons resolved through a required versioned
+  `TradingSessionCalendar`. 72 focused adversarial tests; two independent review rounds to PASS.
+  **Still read-only and synthetic** — no production DB or provider adapter, no credentials, no
+  mutation endpoint, no broker integration, no real-data decision path. `asxos/domain/decision_engine/`
+  + `asxos/prototype/app.py`, run via `make decision-demo`.
+  **PR #81 CLOSED as superseded 2026-08-11** (governor decision, taken at the `/arbi-close`), with a
+  comment pointing to #87. It received no adoption commits, per the ruling. The branch
+  `claude/decision-engine-prototype` @ `c6ff3c3` is **retained** — closing the PR removes a stale
+  open draft, not the preserved history; do not delete the branch.
+  Appendix B remains the canonical *logical* contract; whether #87 supersedes it is a governor call.
+
+### Governor rulings (2026-08-10) — all eight decided
+
+Full text in `target-architecture.md` Appendix F. Summary:
+
+| # | Ruling |
+|---|---|
+| F1 | Benchmark = **S&P/ASX 200 Accumulation (XJOAI)**. `AXJO.INDX` is price-context only and must never carry a total-return label. **If licensed history is unavailable, report benchmark measurement as `unavailable` — never substitute a proxy silently.** Data acquisition is a later work order |
+| F2 | Global exposure = **separately reported sleeve**. Do not blend HUBS into the ASX benchmark |
+| F3 | Outcomes observed at **21 / 63 / 126 trading days**. Packet expiry: 5td for initiate/add/trim/exit_review, 21td for watch/avoid/abstain; all expire earlier on material event, stale evidence, constraint change or snapshot change. **Contract defaults, not trading instructions** |
+| F4 | Risk mandate **DEFERRED** — blocker: *"James must complete the capital/risk calibration before Stage 4."* Hard universal gates meanwhile: no leverage · no Model A capital input · no action on unresolved tradeability/ownership · no action on stale/missing decision-critical evidence · no broker execution. Vol/beta/correlation/drawdown are **reporting-only**. **Stage 1 is not blocked by this** |
+| F5 | Scheduler = **Dagster** as target owner. Existing schedules are time-bounded safety coverage only. **No new GitHub production schedules.** Stage 1 must deliver the deployment/cost/cutover work order first |
+| F6 | Object store = **AWS S3 `ap-southeast-2`**, versioning + Object Lock (governance mode) + encryption + least-privilege creds + lifecycle + observed restore test. No bucket/credential creation authorised yet |
+| F7 | Prototype = **AMEND AND ADOPT**; preserve separately, close conformance gaps before real-data use |
+| F8 | Canonical contract = the **`types.py` design**, subject to five mandatory amendments (canonical `security_id`; `evidence_tier` split from `data_mode`; explicit `model_independence`; typed tax-assessment reference; state→verdict mapping). Appendix B stays the canonical *logical* contract until an adoption PR merges |
+
+**No implementation agent may invent or reinterpret these.** F1, F5 and F6 each name a later work
+order that must precede any action.
+
+---
+
 ## State header — arbi's durable memory (read this first)
 
 The at-a-glance fields `/arbi` reads and `/arbi-close` refreshes. Everything below is the
 detail behind these lines.
+
+> ### ⚠️ HEADER FRESHNESS CORRECTION — 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> **The bulleted header below is HISTORICAL, dated 2026-07-11 → 2026-07-21.** Its own
+> `Last verified` line (at the end of the block) reads **2026-07-11**, which contradicts this
+> file's frontmatter (`:5`, 2026-08-11) and is four weeks behind `main`. It was never
+> refreshed by the 08-11 or 08-12 closes, which wrote to the *Live defects* table and the
+> *Last wake snapshot* instead. Nothing below is deleted — but **do not read it as current
+> state.** The current state is:
+>
+> | Field | Current value (2026-08-13, `main` @ `6360dbb`) | Where it is maintained |
+> |---|---|---|
+> | Current workstream | The **outcome-engine + second-brain programme** (`proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`), one work order at a time. `GOV-01` ruled and closed (PR #96/#97); `P1-01` Model A reference manifest merged (PR #98, `6360dbb`); `SB0-01` is the active docs sweep | §Queued after the current remediation work (`:48-103`) |
+> | Top blocker | None at the product level. The programme entry gate is **closed on all four items** (`:87-96`); missions are individually work-order gated | §GOV-01 amendment |
+> | Open PRs | **Not tracked in this header** — the 2026-07-14 list below is void. Last observed set is in the *Last wake snapshot* (`:697`), itself pre-#96/#97/#98 | Last wake snapshot / live `gh pr list` |
+> | Next action | Per the packet's §7 order after `P1-01`: `P1-02`…`P1-05` (Model A retirement lane) and `SB0-01`/`SB0-02` (truth + wording reconciliation) | §Queued after the current remediation work |
+> | Decisions needed from James | The 2026-07-21 list below is stale (PR #65 merged 2026-07-21). Live governor items now live in `james-inbox.md` + the packet §10 | `james-inbox.md` |
+> | Deployment platform | **Render was DELETED** (governor ruling 2026-08-12, defect #4 at `:116`). The executing scheduler is GitHub Actions (`.github/workflows/`). Any header/queue text below citing live Render state is historical | Defect #4 / `RENDER-RETIRE` |
+>
+> Two known-stale claims inside the header block are struck in place below. The rest is left
+> intact as a dated record. **Whoever runs the next `/arbi-close` owns rewriting this block**
+> — that is the durable fix; this box is the stop-gap that prevents it misinforming meanwhile.
 
 - **Current status:** M1–M14a built (M13/M14a **dark-launched**); governance through
   Phase 2b. **P0 Model A dispute RESOLVED 2026-07-11 (no usable edge); James SHELVED the ML
@@ -47,12 +317,23 @@ detail behind these lines.
   (`memory/dream-candidates/2026-07-15-dream.md`, lessons L8–L17) + the dream-automation plan
   (`docs/proposals/arbi-dream-automation-2026-07-15.md`) + risk-register R5 amendment.
   Promoting #46 via `/arbi-promote` is the first-ever exercise of the promotion gate (Phase 0
-  of the automation plan) — James's action. **Also learned 2026-07-15: branch protection on
+  of the automation plan) — James's action. ~~**Also learned 2026-07-15: branch protection on
   `main` is PLAN-GATED** (free private repo — paid feature, no API workaround; upgrade
   declined), so CODEOWNERS is inert on this plan; substitute = detective `main-push-guard`
   Action (James to add; YAML in the plan's §Amendment) + fork/machine-identity model for any
   future unattended-write tier. Every "configure branch protection" reference in this file's
-  autonomy section should be read through that amendment.
+  autonomy section should be read through that amendment.~~
+  **SUPERSEDED 2026-08-12 — the PLAN-GATED premise was invalidated on 2026-07-17.** Branch
+  protection on `main` IS configured: rulesets `asxos-main` (19077432) and `main` (18221894)
+  live since 2026-07-17 (PR required, `full-check` required, deletion and non-fast-forward
+  blocked), re-asserted as classic protection 2026-08-12. Two limits that must not be
+  overstated: `required_approving_review_count` is **0** — a 1-approval setting was tried
+  and reverted the same day because on a solo repo GitHub forbids self-approval, making
+  every merge an admin bypass — so **CODEOWNERS is advisory, not mechanical**; and
+  `enforce_admins: false`, so an admin-scoped token bypasses it. Making CODEOWNERS
+  mechanical needs a review identity that is not the PR author (second account or GitHub
+  App) — a governor decision, not a settings tweak. Verify before relying on it:
+  `gh api repos/Jp8617465-sys/asxos/branches/main/protection`.
 - **Recently completed (on `main`, 2026-07-13/14 merge train):** monitoring lane restored +
   batched (`track_signal_outcomes` cast, `snapshot_portfolio` trading-day anchor,
   `sync_financial_statements` OOM fix + `executemany` batching — PRs #30/#32); **R12 resolved**
@@ -77,7 +358,10 @@ detail behind these lines.
   07-16, retirement write awaiting a one-word confirm; VGS/VAS not-held → demo lots 07-16).
   Live asks: merge PR #65; rule on held agent_runs #6/#7 (rec: reject-6/approve-7); sign off
   the two 2026-07-21 proposals. (Header un-rotted 2026-07-21 — it had trailed the inbox by
-  a week; the dream candidate flagged the drift.)
+  a week; the dream candidate flagged the drift.) **STALE 2026-08-13 (SB0-01):** the "Live
+  asks" are all closed or superseded — PR #65 merged 2026-07-21 (`decision-log.md:53`), runs
+  #6/#7 were dispositioned 2026-07-24 (`decision-log.md:55`), and both 2026-07-21 proposals
+  were built. Current governor items are in `james-inbox.md` and the programme packet §10.
 - **Portfolio-team visibility (NEW 2026-07-12):** James asked why the portfolio team didn't
   auto-flag HUBS/CBA. Root cause = a **surfacing gap**, not a compute gap — the daily discipline
   cards are computed then discarded at render (V1 email has no discipline section; the V2 tree is
@@ -95,6 +379,10 @@ detail behind these lines.
   (`dark-launch-exit-plan.md`); (4) R5 — the scheduled 7a brief's read-only guarantee is
   prompt-enforced only.
 - **Last verified:** 2026-07-11 (post-shelf; reflects the P0 resolution + ML-shelf decision).
+  **⚠️ This date is the header block's own, and it is four weeks behind the file's frontmatter
+  (`:5`, 2026-08-11) and five weeks behind `main`. See the HEADER FRESHNESS CORRECTION box at
+  the top of this section (2026-08-13, SB0-01) for current state. Two "last verified" dates in
+  one file is itself the defect; the next `/arbi-close` should collapse them to one.**
 
 ---
 
@@ -118,7 +406,7 @@ doc-derived, not live-probed.
 |---|---|---|---|
 | Rebuild M1–M12 | `docs/foundation/BUILD_GUIDE.md` | **All done.** Static manual, not a tracker. | `/sprint-plan` ("M1–M12 should all be done") |
 | Portfolio M13 | `asxos/domain/portfolio/*` | **Built, dark-launched** (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`). Weekly Sat 20:00 UTC. | V2 arch audit Part A |
-| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped but empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). `holding_news` has zero rows; `signal_sentiment` is empty downstream of it. Ingest guard + brief gate fixed 2026-08-05 (`deea76a`); the operative symbol-mapping cause is still open. See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
+| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped, writing, but near-empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). Corrected 2026-08-17: `holding_news` does **not** have zero rows — it has **7** (2026-08-10..13), all `HUBS.NYSE`, all sourced `finance.yahoo.com`. So the ingest path works. **The cause is not symbol mapping** (this row claimed that until 2026-08-17 and it is falsified): `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and there is exactly **one open lot**, so the job is correctly ingesting news for the whole of a one-name portfolio. Coverage is bounded by portfolio breadth, not by a mapping bug. `signal_sentiment` downstream remains empty. Ingest guard + brief gate fixed 2026-08-05 (`deea76a`). See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
 | Governance Phase 0 / 0.5 | model-filtering + `approved_for_allocation` gate | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 1 | governance schema + first Postgres trigger | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 2a+2b | `macro_theses`, per-table audit triggers, `macro-economist`, `/discover-macro` | **Done** (PR #11). First live `/discover-macro` cycle run 2026-07-04. | handoff §Session summary |
@@ -169,6 +457,22 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+- **2026-08-12 — production remediation session (mid-session checkpoint).** Migration 0043
+  **applied** (`20260812092925`, count 96) with probe + post-apply drill `31593927269` green;
+  `derive_fundamentals_pit` succeeded in production for the first time (53,624 rows / 3,357
+  symbols); `compute_factor_scores` 3,308 symbols; `check_cron_health` green after 12 days;
+  `us-positions` cron moved to post-close; `claude-execute` harness live and validated (run
+  `31595260041`). PRs #91/#92/#93 merged; **#94 open and CI-green** (governor ruling (c) on
+  #87 vs Appendix B encoded as B.4/B.5, plus branch-protection reconciliation). See
+  `docs/session-handoff-2026-08-12.md`.
+- **Awaiting one observation:** tonight's scheduled `sync_prices` (~20:30 UTC) is the first
+  ingestion against the live 0043 capture trigger — the last open item on defect #3. Local
+  runs cannot substitute (this machine's Python rejects the intercepting TLS certificate).
+- **Queued missions, not started:** #11 retire Model A from all active surfaces (needs
+  `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`); #12 ASX Results-to-Thesis Review slice (depends
+  on #11); #13 bounded outcome-engine executor — **BLOCKED**, its required input
+  `docs/proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`
+  does not exist in the repo, and §2.4 of that plan is the entry gate.
 - **MERGED 2026-07-11 as PR #25 (`eff3732`):** the post-shelf reconciliation + arbi operating
   docs + **ETF Slice 2a** kind-aware ingestion (`asxos/ingestion/universe.py`, with
   `refresh_universe` test coverage) — formerly branch `claude/asxos-product-manager-agent-tzszlv`,
@@ -219,7 +523,14 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
 
-**CURRENT queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
+> ⚠️ **SUPERSEDED 2026-08-10.** The queue below is the pre-reframe 2026-07-24 ranking and is
+> retained as history only. **The live queue is the Stages 0→6 table in "PROGRAMME REFRAME" at the
+> top of this file.** Its #1 (the macro-brief render layer) is a Stage 6 surface concern under the
+> ratified architecture and is not the current next action. Three items below remain genuinely open
+> and are carried forward: migration `0041` unapplied, the CBA discipline confirm, and the RLS /
+> agent-DB-role posture.
+
+**Historic queue (2026-07-24 `/arbi-close`) → `docs/session-handoff-2026-07-24.md`.** The 07-18
 audit backlog is fully retired (landed via #65); the two 2026-07-21 proposals are built and
 merged (#67); #64's net-new work is extracted and merged (#68). Zero open PRs. The discovery
 pipeline now has governed macro theses (#6/#7), the macro→theme→sector→instrument agents wired
@@ -401,7 +712,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 | Gate | Guards | State |
 |---|---|---|
 | `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
-| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — live since 2026-07-11 (`render.yaml:414`); ship condition void, see `dark-launch-exit-plan.md` surface #2 |
+| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — set in the **executing scheduler**, `.github/workflows/daily-brief.yml:61`. *(Corrected 2026-08-13, SB0-01: this cell previously cited `render.yaml:414`; Render was deleted 2026-08-12, so `render.yaml` sets nothing live.)* **Verdict reverted to UN-SHIPPED / RE-RAISED 2026-08-13** — the flag is still `1` but the surface has no valid SHIP verdict; see `dark-launch-exit-plan.md` surface #2 |
 | `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |
 
@@ -481,6 +792,94 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-12 **mid-session** `/arbi-close` (a checkpoint at James's request —
+the session continued past it). Supersedes the 08-11 snapshot below._
+
+```
+Checkpoint: 2026-08-12 (mid-session /arbi-close)
+- branch: main @ 8037137 (was 7a0b9e1 at session start). Landed today: 97cdc5c #88 ·
+  ec30d20 #91 · 7cae4b5 #92 · 8037137 #93. PR #94 open + CI-green (governance docs).
+- tests: 2060 passed / 0 failed / 1 skipped / 2 xfailed, full dependency set
+  (/Users/jpcino/Desktop/asxos-wt-pr71/.venv/bin/python). ruff + mypy clean.
+- migrations: 0043 APPLIED to production as 20260812092925. DB applied = 96,
+  REQUIRED_MIGRATIONS = 96 — consistent. 0042 still RESERVED (PR #80 parked, must not
+  be applied). price_revisions ledger live, 0 rows (no destructive change has occurred
+  since apply — the probe was rolled back).
+- freshness: rs_fundamentals_pit = 53,624 rows / 3,357 symbols (was 63 / 11); coverage
+  1,853 of 2,391 active — the 538 uncovered have no rs_financial_statements source rows.
+  rs_factor_scores = 3,308 symbols @ as_of 2026-08-11 (was 11).
+- job_runs: derive_fundamentals_pit SUCCESS (53,624 rows, 148s) · compute_factor_scores
+  SUCCESS · check_cron_health SUCCESS 09:40:44Z (first green in 12+ days) · one
+  sync_prices FAILURE row for 2026-08-12 from a blocked LOCAL attempt (TLS interception
+  on this machine, not a code fault) — tonight's scheduled 20:30 UTC run supersedes it.
+- harness: claude-execute live on main and validated — run 31595260041, is_error:false,
+  18 turns. Branch runs of a MODIFIED claude-execute.yml report a skip inside a run that
+  still concludes success (run 31591940172) — never trust a green branch run of it.
+- branch protection: LIVE (rulesets asxos-main 19077432 + main 18221894 since 2026-07-17;
+  classic protection re-asserted 2026-08-12). approvals=0 → CODEOWNERS advisory not
+  mechanical; enforce_admins=false → an admin token bypasses it.
+- open PRs: #94 (governance, CI-green) · #90 · #80 (PARKED) · #78 · #73 · #70.
+- queued missions: #11 Model A retirement · #12 ASX results review (depends on #11) ·
+  #13 outcome-engine executor — BLOCKED, its required plan doc does not exist in the repo.
+```
+
+_**Snapshot correction — 2026-08-13 (SB0-01).** Two lines in the block above have been
+overtaken and must not be read as current. (1) The **open-PRs** line predates #96/#97/#98,
+all since merged; re-probe rather than cite it. (2) The **queued-missions** line says the
+outcome-engine executor is "BLOCKED, its required plan doc does not exist in the repo" —
+that plan doc **does** exist on `main` now
+(`docs/proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`,
+referenced by `docs/README.md:73` and by `:51` of this file). Per packet §2.4, Task #13
+returns `WAITING` on the entry gate, and that gate closed on all four items 2026-08-12 21:13Z
+(`:87-96`). The snapshot itself is left unedited above — it is a dated observation and
+correct as of when it was taken._
+
+_Prior snapshot — recorded by the 2026-08-11 `/arbi-close` (**retrospective — there was no
+`/arbi` wake that session**; the 08-11 build session ran five parallel missions and stood down
+without a close, so that block was reconstructed from commits, PR bodies, CI runs and live DB
+probes, not from first-hand session observation)._
+
+```
+Close: 2026-08-11 (retrospective /arbi-close, no wake)
+- branch: main @ 7aa8507, clean tree, even with origin. Local main was 5 behind at session
+  start (fast-forwarded 3f515ac→7aa8507). agent/fix-backup-pg17-client is fully merged —
+  its tree is byte-identical to main's (blob 8dbbf14 for backup.yml on both).
+- landed 2026-08-11 (5 squash merges, all CI-green): 8975e41 #83 backup pg17+restore drill ·
+  d0dbee0 #84 price-revision containment · 36b07fb #85 PIT bounded/resumable ·
+  e130240 #86 brief persistence failures surfaced · 7aa8507 #87 decision engine adopted.
+- tests: 2033 passed / 0 failed / 2 xfailed in 39s, run against the FULL dependency set
+  (/Users/jpcino/Desktop/asxos-wt-pr71/.venv/bin/python). No sandbox collection gaps in
+  this venv — the CLAUDE.md joblib/lightgbm caveat does not apply to this runner.
+- migrations: 0043_price_revisions.sql on disk, UNAPPLIED. DB applied = 95, latest
+  20260724110030 (0041). REQUIRED_MIGRATIONS = 95 — consistent. 0042 remains RESERVED for
+  the parked rules-integrity branch (not on main).
+- freshness: prices.dt max = 2026-08-10. rs_fundamentals_pit = 63 rows / 11 symbols
+  (UNCHANGED — the #85 fix has not been run). active universe = 2,391.
+- job_runs (last 4d): all green EXCEPT check_cron_health 0/3 and derive_fundamentals_pit
+  0/1. check_cron_health's failure is a TRUE POSITIVE — it fires on PIT's consecutive
+  failures. Last PIT attempt 2026-08-08 18:05 UTC (TimeoutError). No job ran on 08-11.
+- open PRs: #81 (prototype preservation — superseded by #87, close candidate) · #80
+  (rules-integrity, PARKED, 0042 must not be applied) · #78 (finance red-team evidence) ·
+  #73 (M0 news empty-state) · #70 (investment-engine dossier). All draft.
+- untracked in the working tree: docs/proposals/arbi-outcome-programme-convergence-sprint-
+  2026-08-08.md and docs/proposals/asxos-research-to-decision-live-slice-brief-2026-08-10.md
+  — both superseded-to-reference by the reframe, neither committed.
+- ledger gap found: arbi-run-ledger.md and decision-log.md both end at 2026-07-24. The
+  entire August arc (08-05, 08-08, 08-09, 08-10, 08-11) went unrecorded until this close.
+```
+
+_The 08-11 session's effective ONE THING (never formally named — no wake ran): execute the
+remediation work order against the live-defect list. **Outcome: 4 of 7 defects fixed in code,
+5 PRs merged, 0 defects fully closed in production** — #84 and #85 each stop at a James-gated
+production step, so the live database is materially unchanged. **Next wake's ONE THING:
+rehearse migration 0043 against a disposable Postgres and hand James the observed evidence**
+— it is the only defect where every further day of delay destroys data permanently
+(`prices.adj_close` is still being overwritten on every dividend/split as of this close)._
+
+---
+
+_Prior snapshot (2026-07-22) retained below for diffing._
 
 _Recorded by the 2026-07-22 interactive `/arbi` wake + build session ("wake up @arbi —
 then start building the two approved workflow proposals"). Supersedes the 07-21 snapshot._

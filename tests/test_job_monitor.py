@@ -14,7 +14,7 @@ Covers:
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -418,3 +418,30 @@ async def test_error_message_redacts_leaked_api_key() -> None:
     assert "SECRETKEY123" not in persisted
     assert "api_token=***" in persisted
     assert "402" in persisted  # status kept for diagnosis
+
+
+@pytest.mark.asyncio
+async def test_timestamps_are_timezone_aware() -> None:
+    """Regression guard for the naive-utcnow() bug: asyncpg's binary codec
+    encodes a naive datetime via astimezone(utc), treating it as client-local
+    time — which shifted local AEST runs 10 hours into the past and made
+    check_cron_health flag the job's own freshly-inserted row as STUCK
+    (observed live 2026-08-12). Every datetime bound into job_runs must be
+    timezone-aware."""
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    with _patch_pool(conn):
+        async with JobMonitor(job_name="t", as_of=date(2026, 8, 12)) as monitor:
+            pass
+
+    assert monitor._started_at.tzinfo is not None
+
+    bound_datetimes = [
+        arg
+        for call in conn.execute.await_args_list
+        for arg in call.args
+        if isinstance(arg, datetime)
+    ]
+    assert bound_datetimes, "expected datetimes bound into job_runs writes"
+    assert all(dt.tzinfo is not None for dt in bound_datetimes)

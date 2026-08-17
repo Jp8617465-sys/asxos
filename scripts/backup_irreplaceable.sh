@@ -22,11 +22,30 @@
 #   - governance_events  (governance audit: every governance_status transition —
 #                         the record that makes agent-originated approvals
 #                         defensible after the fact; losing it loses the audit)
+#   - price_revisions    (0043: post-containment record of every destructive price
+#                         replacement/deletion; included once the table exists)
 #
-# Tables NOT backed up (re-derivable from EODHD + the model pickles + inputs):
-#   - prices, fundamentals, signals, universe, regulatory_events, job_runs
+# Tables NOT backed up (re-derivable from EODHD + inputs):
+#   - prices, fundamentals, universe, regulatory_events, job_runs
 #   - portfolio_daily_snapshots (re-derivable from prices + holding_lots)
 #   - rebalance_runs, target_allocations, proposed_trades (re-derivable from profile + inputs)
+#
+# Tables NOT backed up and NOT re-derivable — frozen historical evidence
+# (2026-08-16). `signals` used to sit in the re-derivable list above; that
+# premise died when P1-02 deleted its writer (`generate_signals`) and the
+# outcome-maturation job. Deliberately NOT added to this daily pg_dump set:
+# frozen data would re-dump identically forever. Instead both tables were
+# captured once, by the one-time archive `signal-evidence-2026-08-16/` in the
+# $BACKUP_REPO backup repo (local copy: ~/Projects/asxos-archive/
+# signal-evidence-2026-08-16/, with MANIFEST.txt):
+#   - signals          64,189 rows,
+#     sha256 e61ee6a4d1774194b86ff2072c362315142ed31bb1d66db7a2a21b5f30d57828
+#   - signal_outcomes  60,072 rows (nowhere else mentioned in this script),
+#     sha256 7aef52345d4d93d50e10428a3233b725d677f26873077b2b00e2623a0b7f3b8f
+# Why they matter: signal_outcomes is the matured-signals evidence base that
+# resolved the Model A dispute (docs/model-a-decay-analysis-2026-07-11.md) —
+# CLAUDE.md rule #11's standing quarantine rests on it. Losing these tables
+# would leave the quarantine's evidentiary basis unrecoverable.
 #
 # Required env vars:
 #   - DATABASE_URL                       postgres://...
@@ -48,6 +67,20 @@ trap 'rm -rf "$WORK"' EXIT
 DUMP="$WORK/asxos-${DATE}.sql"
 
 echo "[backup] pg_dump of irreplaceable tables (date=${DATE})"
+
+# This script must be deployable before migration 0043 is applied. Add the new
+# ledger as soon as it exists, while keeping the pre-migration backup green.
+OPTIONAL_TABLE_ARGS=()
+if [ "$(
+  psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 \
+    -c "SELECT to_regclass('public.price_revisions') IS NOT NULL"
+)" = "t" ]; then
+  OPTIONAL_TABLE_ARGS+=(--table=price_revisions)
+  echo "[backup] price_revisions exists — include append-only price history"
+else
+  echo "[backup] price_revisions absent — pre-0043 backup compatibility mode"
+fi
+
 pg_dump \
   --no-owner --no-privileges --no-acl \
   --data-only \
@@ -65,6 +98,7 @@ pg_dump \
   --table=agent_runs \
   --table=agent_evidence \
   --table=governance_events \
+  "${OPTIONAL_TABLE_ARGS[@]}" \
   "$DATABASE_URL" > "$DUMP"
 
 gzip -9 "$DUMP"

@@ -1,4 +1,4 @@
-.PHONY: help install dev test lint type format check migrate shell logs deploy check-drift clean
+.PHONY: help install dev decision-demo test lint type format check migrate shell logs deploy check-drift clean
 
 PY ?= /usr/local/bin/python3.12
 VENV ?= .venv
@@ -19,6 +19,9 @@ install-ml:  ## Add ML deps (lightgbm, shap, sklearn) — requires LLVM
 
 dev:  ## Run the API at 127.0.0.1:8788 with reload
 	$(VENV)/bin/python -m uvicorn asxos.api.main:app --host 127.0.0.1 --port 8788 --reload
+
+decision-demo:  ## Run the read-only target-architecture cockpit at 127.0.0.1:8790
+	$(VENV)/bin/python -m uvicorn asxos.prototype.app:app --host 127.0.0.1 --port 8790 --reload
 
 migrate:  ## Reminder: migrations are applied via Supabase MCP, not this target
 	@echo "Migrations are applied via Claude Code using mcp__supabase__apply_migration."

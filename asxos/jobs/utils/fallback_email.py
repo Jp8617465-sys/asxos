@@ -21,7 +21,7 @@ import asyncio
 import html
 import logging
 import sys
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 log = logging.getLogger(__name__)
 
@@ -88,7 +88,9 @@ async def _record_fallback_failure(*, subject: str, error: str) -> None:
     await init_pool()
     try:
         async with acquire() as conn:
-            now = datetime.utcnow()
+            # Aware, not utcnow(): asyncpg encodes naive datetimes as
+            # client-local time (see job_monitor.py started_at comment).
+            now = datetime.now(UTC)
             err_message = (
                 f"fallback_email dispatch failed: subject={subject!r} "
                 f"error={error}"

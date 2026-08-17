@@ -14,11 +14,10 @@
     th, td { border-bottom: 1px solid #eee; padding: 0.35em 0.5em; text-align: left; }
     th { background: #f7f7f7; }
     .empty { color: #888; font-style: italic; }
-    .label-STRONG_BUY    { color: #0a6; font-weight: 600; }
-    .label-BUY           { color: #0a6; }
-    .label-HOLD          { color: #888; }
-    .label-SELL          { color: #c50; }
-    .label-STRONG_SELL   { color: #c00; font-weight: 600; }
+    .status-CLEAR         { color: #0a6; }
+    .status-ATTENTION     { color: #c50; font-weight: 600; }
+    .status-BLOCKED       { color: #c00; font-weight: 600; }
+    .status-EVIDENCE_THIN { color: #666; font-weight: 600; }
     .sentiment-positive  { color: #0a6; }
     .sentiment-negative  { color: #c00; }
     .disc-red            { color: #c00; font-weight: 600; }
@@ -28,33 +27,34 @@
 </head>
 <body>
   <h1>asxos brief — {{ d.as_of }}</h1>
-  {% if d.model_shelved %}
-  <p class="meta">Model A: <strong>shelved</strong> — signal engine paused (rule #11) · Holdings: {{ d.holdings_count }}</p>
-  {% elif d.signals_stale %}
-  <p class="meta">Regime: <strong style="color:#c00">unavailable</strong> — latest signal: {{ d.latest_signal_date or "none" }} · Holdings: {{ d.holdings_count }}</p>
-  {% else %}
-  <p class="meta">Regime: <strong>{{ d.regime }}</strong> · Holdings: {{ d.holdings_count }}</p>
-  {% endif %}
-
-  {% if d.model_shelved %}
-  <p class="caveat">
-    <strong>Model A shelved.</strong> The signal engine is dormant (rule #11); this
-    brief is model-independent — discipline, tax, regulatory, and job-health only.
+  {# One headline state, from the four-value review vocabulary
+     (asxos/domain/review/status.py). Never a trade direction. #}
+  <p class="meta">
+    Review: <strong class="status-{{ d.review.status }}">{{ d.review.status }}</strong>
+    · Holdings: {{ d.holdings_count }}
+    {# Names exactly what this date covers. It is the latest complete day in
+       `prices`; every other section is computed on the calendar as_of, so
+       "evidence as of" would claim a provenance no query backs. #}
+    · Prices complete to: {{ d.data_as_of or "unavailable" }}
   </p>
-  {% else %}
-  <p class="caveat">
-    <strong>Signal caveat:</strong> labels are experimental model-derived rankings.
-    Expected-return calibration and adjusted-price basis are under review.
-    Treat signals as decision-support context only, not trade instructions.
-  </p>
-  {% endif %}
 
-  {% if d.prices_stale or (d.signals_stale and not d.model_shelved) %}
+  <p class="caveat">
+    <strong>Evidence only.</strong> This brief is model-independent. It reports one of
+    CLEAR / ATTENTION / BLOCKED / EVIDENCE_THIN over your own theses, your holdings'
+    discipline checks, price freshness and this system's job health. Tax and CGT facts
+    are printed as evidence but never move the status. It carries no ranking, no
+    scoring, and no instruction to act on any holding.
+  </p>
+
+  {# Every unknown is printed, never defaulted away. A brief that cannot see
+     something says so; it does not quietly render a neutral value. #}
+  {% if d.review.unknowns %}
   <div class="banner">
-    <strong>Data freshness warning.</strong>
+    <strong>Data freshness warning.</strong> Unknown or unavailable — stated, not assumed:
     <ul>
-      {% if d.prices_stale %}<li>Prices stale — latest price date: {{ d.latest_price_date or "no data" }}</li>{% endif %}
-      {% if d.signals_stale and not d.model_shelved %}<li>Signals stale — latest signal run: {{ d.latest_signal_date or "no data" }}</li>{% endif %}
+      {% for u in d.review.unknowns %}
+      <li>{{ u }}</li>
+      {% endfor %}
     </ul>
   </div>
   {% endif %}
@@ -93,24 +93,10 @@
   {% endif %}
   {% endif %}
 
-  {% if not d.model_shelved %}
-  <h2>Signal changes on holdings</h2>
-  {% if d.signal_changes %}
-  <table>
-    <tr><th>symbol</th><th>was</th><th>now</th><th>top driver</th></tr>
-    {% for c in d.signal_changes %}
-    <tr>
-      <td>{{ c.symbol }}</td>
-      <td class="label-{{ c.old_label }}">{{ c.old_label }}</td>
-      <td class="label-{{ c.new_label }}">{{ c.new_label }}</td>
-      <td><code>{{ c.top_factor }}</code></td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}
-  <p class="empty">No label changes overnight.</p>
-  {% endif %}
-  {% endif %}
+  {# The "Signal changes on holdings" section that sat here rendered the Model A
+     label ladder (STRONG_BUY … STRONG_SELL) and its top SHAP driver. It was
+     retired whole by mission P1-04 (manifest A6) rather than emptied, because an
+     empty section header still advertises an engine that no longer exists. #}
 
   <h2>Regulatory hits on holdings (last 24h)</h2>
   {% if d.regulatory_hits %}

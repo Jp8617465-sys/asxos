@@ -1,5 +1,29 @@
 # Phase 3 — Redefining the product for its actual purpose
 
+**Status:** **historical** — a dated rebuild-era design document (2026-06). Classified
+**HISTORICAL** in `docs/product/model-a-reference-manifest.md`.
+**Superseded on Model A only:** see the note below. Everything else in this document stands.
+
+> **⛔ ONE PRESENT-TENSE MODEL A CLAIM IS FALSE — annotated 2026-08-13, mission `P1-05`.**
+> (Handed forward by `SB0-01`, `docs/product/doc-truth-map-2026-08-13.md` §6.2.)
+>
+> **§Asset class scope** states: *"The Model A pipeline, SHAP explanations, regime classifier, and
+> screening engine **all already work** on this asset class."* Written in the rebuild era, that
+> was true as a statement about *machinery running*. It is now false twice over:
+>
+> 1. **Model A does not work in the sense that matters.** The 2026-07-11 decay analysis found
+>    **no usable edge** across 19,032 matured signals (`corr(ml_prob, 21d) = −0.03`; STRONG_BUY
+>    −0.09% at 21d vs HOLD +5.07%). "The pipeline runs" and "the pipeline works" came apart, and
+>    this sentence conflates them.
+> 2. **The pipeline no longer exists to run.** Mission `P1-02` (2026-08-13) deleted
+>    `jobs/generate_signals.py`, `asxos/domain/models/cache.py`, `model_a.py`,
+>    `asxos/domain/signals/writer.py` and `asxos/cli/predict.py`.
+>
+> **The screening engine claim is still true** (`asxos/domain/screening/`, wired 2026-07-12 and
+> model-independent by construction). CLAUDE.md rule **#11** stands; this annotation does not
+> touch it. **Retained verbatim as a dated record — do not delete the sentence, do not cite it as
+> current capability.**
+
 The old system tried to be a B2B SaaS for SMSF trustees at A$29/month. The real intent was always a personal investment intelligence OS for one user: James. This phase describes what the new system should actually be, given that fact. It is opinionated. One recommendation per question, not five.
 
 ## The fundamental reframe

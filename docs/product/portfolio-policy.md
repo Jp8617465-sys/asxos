@@ -4,7 +4,7 @@
 **Scope:** the governor-set objectives, risk appetite and hard constraints that every
 portfolio memo (`portfolio-manager-charter.md`) must sit inside. The investment-policy
 statement arbi's portfolio capacity operates within.
-**Last verified:** 2026-07-10
+**Last verified:** 2026-08-10
 **Owner:** **James (governor) — this file is his mandate.** arbi may *draft* a change (P5,
 draft-only); only James approves it. Changing a constraint here is a boundary change.
 **Superseded by:** N/A
@@ -23,10 +23,43 @@ James, and must **never invent one.**
 - **North star:** financial freedom via **disciplined, thesis-driven ASX investing** — a
   small number of opinionated, explainable positions held over a **weeks-to-months** horizon
   (`north-star.md`). Not trading; not index-hugging; not signal-chasing.
-- **Benchmark:** beat the **XJO total-return** benchmark after tax and costs
-  (`benchmark-performance-analyst`). Alpha is the point; matching the index is failure of the
-  thesis, not success of the tool.
-- **Return / drawdown targets:** **[governor to set]** — arbi does not assume a number.
+- **Benchmark (amended 2026-08-10, governor ruling F1):** the canonical AUD benchmark is the
+  **official S&P/ASX 200 Accumulation Index (XJOAI)**, measured after tax and costs. Alpha is the
+  point; matching the index is failure of the thesis, not success of the tool.
+  - `AXJO.INDX` (`asxos/domain/portfolio/monitor_loader.py:34`) is EODHD's **price** index. It may
+    remain **price-context only** and **must never carry a total-return label**.
+  - **If licensed XJOAI history is not available, report benchmark measurement as `unavailable`.**
+    Do **not** silently substitute a proxy. Data acquisition is a later approved work order.
+- **Global exposure (F2):** report a **separate global sleeve**. Do not blend HUBS or any future
+  global holding into the ASX benchmark until global exposure is a deliberate, material allocation.
+- **Return / drawdown targets:** **DEFERRED (governor ruling F4, 2026-08-10)** with a named blocker:
+  **"James must complete the capital/risk calibration before Stage 4."** arbi does not assume a
+  number. Until the calibrated mandate exists, volatility, beta, correlation and drawdown are
+  **reporting-only**, and these hard universal gates apply and are not deferrable: no leverage by
+  default · no Model A capital input (rule #11) · no action on unresolved tradeability or ownership ·
+  no action on stale or missing decision-critical evidence · no broker execution.
+  Stage 1 evidence work is **not** blocked by this deferral.
+
+## Measurement contract (amended 2026-08-10 — `target-architecture.md` Appendix C)
+
+Governor ruling: performance is measured **after tax, cash-flow-adjusted, benchmark-relative**.
+Five quantities, computed and reported **separately** — never collapsed into a single score:
+
+1. **after-cost portfolio TWR** — selection/process skill, neutral to contribution timing
+2. **after-tax portfolio TWR** — skill net of the tax consequences of the decisions taken
+3. **money-weighted return / IRR** — the actual wealth outcome
+4. **benchmark-relative result**
+5. **tax / franking / FX bridge** — the reconciliation explaining the gap between the above
+
+A figure is not comparable to anything until these conventions are fixed: external-flow timing
+(start/end-of-day + the sub-period breaking rule), valuation cutoff and timezone, realised vs
+unrealised tax treatment, franking gross-up basis and refundability, FX convention for non-AUD
+lots, and **whether the benchmark is compared pre-tax or under a stated tax assumption**.
+
+**Tax framing (governor correction, 2026-08-10).** Tax is **not guaranteed alpha**. It is a
+quantifiable implementation advantage and a decision constraint **whose benefit must be measured,
+not asserted**. Plain return vs index is invalid under irregular contributions — that is why TWR
+and MWR are reported separately rather than as one number.
 
 ## Risk appetite (governor-set, per active profile)
 

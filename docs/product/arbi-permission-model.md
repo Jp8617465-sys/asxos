@@ -3,9 +3,12 @@
 **Status:** current
 **Scope:** the authoritative permission model for arbi (the `arbi-harness.md` tier table
 points here)
-**Last verified:** 2026-07-14 (PR-2 Permission Friction Pack — settings `deny` array +
-authority-guard/push-guard/pr-draft-guard hooks; see §Runtime enforcement honesty) · (autonomy unlock pack — skills / builder / `/arbi-team` placed
-on the existing ladder; no grant changed)
+**Last verified:** 2026-08-12 (PR-2 Permission Friction Pack — settings `deny` array +
+authority-guard/push-guard/pr-draft-guard hooks; see §Runtime enforcement honesty) ·
+(autonomy unlock pack — skills / builder / `/arbi-team` placed on the existing ladder; no
+grant changed) · (Claude Execute installed by PR #91 and placed on the attended I3/I4 path) ·
+(guard carve-outs, PRs #92/#93 — branch protection confirmed **configured**; the workflow-
+dispatch grant re-cut by *attendance*, not by workflow class; `gh run rerun` denied outright)
 **Owner:** James (governor); changing a grant is a boundary change (constitution §reserved)
 **Superseded by:** N/A
 
@@ -89,6 +92,67 @@ tiers that already exist** — it changes **no grant** on either ladder:
 All three are **attended** (governor/arbi-invoked per mission). None is standing/unattended
 autonomy — that promotion still requires the preconditions below and an explicit James
 decision, unchanged. `bypassPermissions` remains forbidden for every launch.
+
+### Claude Execute harness (2026-08-12) — attended I3/I4 GitHub execution
+
+`.github/workflows/claude-execute.yml` is another structured attended form of I3/I4. A
+manual `workflow_dispatch` by James supplies the mission prompt; Claude executes inside
+GitHub Actions with a scoped `--allowedTools` set and the repo rules loaded from this
+checkout. This **authorises** the run, within that prompt's scope, to create a
+`claude/<short-slug>` branch, edit code/docs/configuration, run local tests and validation,
+commit, push the branch, open or update a draft PR by pushing commits/commenting, inspect
+workflow results, and continue through recoverable failures by fixing and rerunning checks.
+
+This changes no standing unattended grant. I5/I6 remain gated: credentials and secret
+creation, destructive DB operations, production data mutation, Render/prod deployment or
+irreversible production writes, direct pushes to `main`, PR ready/merge actions,
+self-merging unless repository policy and James's explicit instruction authorise that exact
+PR, migration `0042`, and safety/compliance boundary weakening all stop for James. Workflow
+dispatch **from the in-CI harness** is limited to validation-only workflows (`full-check.yml`,
+`targeted-ml-tests.yml`, `migration-integration.yml`) — it may not dispatch `backup.yml`, nor
+re-enter itself, and `tests/test_claude_execute_harness.py` pins that list.
+
+### Dispatch splits by *attendance*, not by workflow class (2026-08-12 guard carve-outs)
+
+The sentence above used to end "production or secret-bearing workflows stay approval-gated,"
+full stop. **As of 2026-08-12 that is true of the unattended in-CI harness only.** James's
+guard-carveouts decision (`docs/proposals/arbi-guard-carveouts-2026-08-12.md`, merged as PRs
+#92/#93) extended the **local attended session's** `push-guard.sh` allowlist — and the
+matching `.claude/settings.json` allow rules — from three workflows to five. The governing
+distinction is therefore **attended-local vs unattended-in-CI**, *not* **validation vs
+production**:
+
+| Surface | May dispatch |
+|---|---|
+| **Local attended session** (`push-guard.sh` per-segment allowlist + settings allow rules) | `full-check.yml`, `targeted-ml-tests.yml`, `migration-integration.yml`, **`backup.yml`**, **`claude-execute.yml`** |
+| **Unattended in-CI harness** (`claude-execute.yml`'s own `--allowedTools`) | the three validation lanes only — never `backup.yml`, never itself |
+
+**`backup.yml` is secret-bearing — state it, don't let a reader infer otherwise.** It mounts
+`DATABASE_URL`, `BACKUP_GITHUB_TOKEN` and `BACKUP_REPO`, and its default path
+(`restore_drill=false`) commits a dump of the irreplaceable tables into the external
+`$BACKUP_REPO`; only the opt-in `restore_drill=true` path is the disposable-container replay.
+The carve-out is defensible — the external write is append-only backup data into the repo
+whose whole purpose is receiving it, behind a project-ref identity assertion that refuses an
+unverified source — but it is a **narrowing exception to a standing rule, not an instance of
+it**. Production dispatches (`daily-brief`, `us-positions`, `weekly-research`,
+`pipeline-health`) stay reserved to James on every surface.
+
+Two hard denies landed in the same change. They *remove* grants; they are not relaxations:
+
+- **`gh run rerun`, in any form, is denied outright.** It re-executes a prior run with all
+  its secrets re-injected, for up to 30 days, on **any** workflow — a strictly wider grant
+  than the dispatch allowlist it was briefly bundled with, and not "read-triggering" in any
+  sense (security-engineer, 2026-08-12, H1). Re-dispatch an allowlisted lane explicitly
+  instead (`gh workflow run <lane>.yml --ref <branch>`).
+- **Any `gh workflow run` combined with command substitution is denied.** Command
+  substitution is not a segment separator, so an inner *denied* dispatch can be smuggled into
+  an allowlisted outer segment — `gh workflow run backup.yml $(gh workflow run
+  daily-brief.yml)` fires the denied workflow first — and the settings allow-rule
+  prefix-matches the whole string, so no prompt appears either (H2, verified live against the
+  hook). The combination is refused rather than parsed.
+
+Merge, `gh pr ready`, secrets, migrations, authority-file writes, and Render/deploy surfaces
+are untouched by the carve-outs: exactly as reserved as before.
 
 ## Portfolio decision-support ladder (P0–P6) — operating the portfolio
 
@@ -241,7 +305,9 @@ mechanical layer that holds attended too:
   `realpath` so a symlink alias can't present a non-authority name for an authority target.
 - **`push-guard.sh`** (always-on) hard-denies dangerous `git push`/`gh` shapes (force/delete/
   mirror to `main`, `claude/x:main`-style refspec tricks, `gh pr merge`/`ready`/non-draft
-  `create`) regardless of how a human might answer the interactive prompt.
+  `create`) regardless of how a human might answer the interactive prompt. Since 2026-08-12 it
+  also hard-denies `gh run rerun` and any `gh workflow run` carrying command substitution, and
+  its per-segment dispatch allowlist is the five-workflow attended-local list above.
 - **`pr-draft-guard.sh`** (always-on) hard-denies `create_pull_request` without `draft:true`
   and `update_pull_request` with `draft:false` or a `state` transition — the draft-PR ceiling
   as a mechanical rule, not just an instruction.
@@ -266,10 +332,38 @@ for anything push/merge-adjacent. So **push and PR-creation still prompt, exactl
 before** — PR-2 makes the dangerous shapes mechanically un-approvable (a human clicking "yes"
 to a push that secretly targets `main` can no longer succeed), it does not eliminate the
 prompts themselves. Push/PR-creation friction reduction remains open, gated on GitHub branch
-protection on `main` being configured (still NOT done, confirmed 2026-07-11) — a narrow,
-`allow`-emitting hook for verified-safe shapes becomes a *reasonable* follow-up once that
-backstop exists, given `allow` is now confirmed to work; it does not become safe merely
-because it's technically possible.
+protection on `main` being configured (recorded here in 2026-07-14 as "still NOT done,
+confirmed 2026-07-11" — **that reading is superseded; see the status note directly below**) —
+a narrow, `allow`-emitting hook for verified-safe shapes becomes a *reasonable* follow-up
+once that backstop exists, given `allow` is now confirmed to work; it does not become safe
+merely because it's technically possible.
+
+**Branch-protection status: CONFIGURED (recorded 2026-08-12; supersedes the 2026-07-11 "not
+configured" reading above, which stands as the record of what was true then).** Two rulesets
+have been live since 2026-07-17 — `asxos-main` (id 19077432) and `main` (id 18221894) —
+enforcing PR-required, `full-check` required, deletion blocked and non-fast-forward blocked;
+classic protection was re-asserted 2026-08-12 with the same shape and
+`required_approving_review_count: 0`. The 2026-08-12 guard carve-outs
+(`docs/proposals/arbi-guard-carveouts-2026-08-12.md`) are the first draw-down on that
+precondition — and deliberately a **deny-only allowlist widening**, not the allow-emitting
+hook, which remains open. Two caveats must travel with every citation of this backstop or it
+gets overclaimed:
+
+- **`enforce_admins: false`** — a token acting as a repo admin bypasses all of it. The
+  protection binds agents and non-admin credentials; it does not bind James, and it does not
+  bind anything holding an admin-scoped token (which is why introducing
+  `CLAUDE_WORKFLOW_PAT` is itself a boundary change, per `claude-execute.yml`'s header).
+- **With approvals at 0, `.github/CODEOWNERS` is ADVISORY, not mechanical** — it requests
+  James's review; it does not block a merge without it. A `required_approving_review_count: 1`
+  setting was tried on 2026-08-12 and deliberately reverted: GitHub forbids a PR author from
+  approving their own PR and James is the only human, so requiring an approval turned **every**
+  merge into an `enforce_admins:false` admin bypass — weaker audit evidence than the
+  0-approval state, for zero added enforcement. Making CODEOWNERS mechanical requires a review
+  identity that is not the PR author (a second account or a GitHub App): a governor decision,
+  not a settings tweak. Docs that still describe CODEOWNERS as the *mechanical*
+  memory-poisoning firewall (`arbi-promotion-gate.md`, `arbi-dream-policy.md`) therefore
+  overstate it. Re-verify before citing either way:
+  `gh api repos/Jp8617465-sys/asxos/branches/main/protection`.
 
 Residual limits, same class as `unattended-guard.sh`'s — named explicitly per
 security-engineer's 2026-07-14 review rather than folded into a generic caveat: variable
@@ -285,7 +379,11 @@ redirecting `push-guard.sh`'s branch check at a repo it never inspects. **Still 
 executor-arbitrary-code path (a pre-allowed test runner like `pytest`/`make check` executing
 code that calls the GitHub/git API directly, never producing a `git push` or `gh` command
 string) is invisible to `push-guard.sh` entirely — the real backstop for that path is GitHub
-branch protection, not any client-side hook. `docs/README.md` was missing from the authority
+branch protection, not any client-side hook. **That backstop now exists** (see the status note
+above, recorded 2026-08-12), so the residual is narrower than when this line was first
+written: the path stays invisible to the hook, but a direct push or merge it attempts against
+`main` is refused server-side — unless the credential it uses is admin-scoped, which
+`enforce_admins: false` still permits. `docs/README.md` was missing from the authority
 list (same source-of-truth ladder level as `CLAUDE.md` per `arbi-authority.md`) — added. On
 the Managed Agents platform these map to real **permission policies**
 (`always_allow`/`always_ask`) and disabled toolsets; **P6 (execution) is trivially enforced

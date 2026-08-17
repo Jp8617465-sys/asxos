@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
+from dataclasses import replace
 from datetime import date
 
 from asxos.db import acquire
@@ -35,6 +37,9 @@ from asxos.domain.brief.collectors.watchlist import collect_watchlist
 from asxos.domain.brief.collectors.wealth_state import collect_wealth_state
 from asxos.domain.brief.snapshot import build_snapshot
 from asxos.domain.brief.types import Brief, SectionResult
+from asxos.redaction import redact_secrets
+
+log = logging.getLogger(__name__)
 
 
 def _regime_from_section(market_ctx: SectionResult) -> str | None:
@@ -104,12 +109,18 @@ async def compose(as_of: date) -> Brief:
         rendered_html=rendered_html,
     )
 
-    await _persist_brief_run(brief)
-    return brief
+    persistence_error = await _persist_brief_run(brief)
+    return replace(brief, persistence_error=persistence_error)
 
 
-async def _persist_brief_run(brief: Brief) -> None:
-    """Insert a row into brief_runs. Non-raising — failure never blocks email."""
+async def _persist_brief_run(brief: Brief) -> str | None:
+    """Insert ``brief_runs`` and return a redacted error for the delivery job.
+
+    Persistence failure does not prevent the already-rendered primary brief from
+    being sent. It is not treated as success either: ``jobs.compose_brief`` sends
+    first, then raises the returned error inside ``JobMonitor`` so the run is
+    durably failed and the failure healthcheck is pinged.
+    """
     try:
         snapshot_json = {
             "red_count": brief.snapshot.red_count,
@@ -139,5 +150,18 @@ async def _persist_brief_run(brief: Brief) -> None:
                 json.dumps(snapshot_json),
                 json.dumps(section_runs),
             )
-    except Exception:
-        pass  # brief_runs is operational metadata — never block email delivery
+        return None
+    # Some driver-originated persistence failures surface as CancelledError
+    # without cancelling the current task. Preserve a real task.cancel():
+    # shutdown and orchestration cancellation must retain asyncio semantics.
+    except asyncio.CancelledError as exc:
+        task = asyncio.current_task()
+        if task is not None and task.cancelling():
+            raise
+        error = redact_secrets(f"{type(exc).__name__}: {exc}")
+        log.error("brief_runs persistence failed; primary brief remains deliverable: %s", error)
+        return error
+    except Exception as exc:
+        error = redact_secrets(f"{type(exc).__name__}: {exc}")
+        log.error("brief_runs persistence failed; primary brief remains deliverable: %s", error)
+        return error

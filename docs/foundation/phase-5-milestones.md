@@ -1,5 +1,30 @@
 # Phase 5 — Milestones to a working personal system
 
+**Status:** **historical** — the dated rebuild-era milestone plan (M1–M12, 2026-06). Classified
+**HISTORICAL** in `docs/product/model-a-reference-manifest.md`.
+**Superseded on Model A only:** see the note below.
+
+> **⛔ ONE DEFERRAL CONDITION HAS BEEN MET, AND THE DOCUMENT SAYS IT HASN'T — annotated
+> 2026-08-13, mission `P1-05`.** (Handed forward by `SB0-01`,
+> `docs/product/doc-truth-map-2026-08-13.md` §6.2.)
+>
+> §Explicit non-goals reads: *"**No model B/C/D feature work.** … Defer until Model A's signal
+> quality is the bottleneck **(it isn't — usage is the bottleneck)**."*
+>
+> **The parenthetical is the exact proposition the 2026-07-11 decay analysis refuted.** On 19,032
+> matured signals, `corr(ml_prob, 21d return) = −0.03` and STRONG_BUY returned **−0.09%** at 21d
+> against HOLD's **+5.07%** — conviction inverted at the top. Model A's signal quality **was** the
+> bottleneck; the assumption that it wasn't is why the question went unasked for months.
+>
+> **The non-goal's conclusion nevertheless survives, for the opposite reason.** James did not
+> respond by building models B/C/D — he **shelved the ML engine** entirely
+> (`docs/product/ml-engine-shelf-2026-07-11.md`) and made the product the model-independent moat
+> (discipline, tax, themes, ETFs). So "no model B/C/D feature work" is still the right call; the
+> stated *reason* is wrong. **The trigger condition fired and the answer was to stop, not to
+> escalate.**
+>
+> CLAUDE.md rule **#11** stands. **Retained verbatim as a dated record.**
+
 This is the migration plan from "nothing" to "working personal investment OS for James." It is a sequence of milestones, each small enough to complete in one to three days of focused work, each with a definition of done that is testable rather than aspirational.
 
 The milestones are stack-agnostic across the two Phase 4 proposals on the table — the capability progression is the same whether holdings live as a table or a view, whether the email vendor is Resend or SES, whether tests cap at 100 or 400. Where the architectural choice matters operationally, it's called out inline.

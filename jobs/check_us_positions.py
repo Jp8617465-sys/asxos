@@ -2,8 +2,10 @@
 """
 US position post-close alert cron — M-Position-Monitor.
 
-Runs Mon-Fri 13:30 UTC (after NYSE close the previous evening; sync_prices
-loaded the prior session's close at 20:30 UTC last night).
+Runs Mon-Fri 21:30 UTC — 16:30 ET under EST (UTC-5), 17:30 ET under EDT (UTC-4),
+so always after the 16:00 ET close on both sides of the DST boundary. It ran at
+13:30 UTC until 2026-08-12, which is 08:30/09:30 ET — market *open*, not close —
+so every alert reflected the prior session's stale prices.
 
 Reads from the prices table (not EODHD API — no double-calling).
 

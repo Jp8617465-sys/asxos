@@ -80,8 +80,8 @@ def _make_conn_with_run(
 def _minimal_brief_data(portfolio_section: PortfolioSection | None = None) -> BriefData:
     return BriefData(
         as_of=_TODAY,
-        regime="neutral",
         holdings_count=5,
+        latest_price_date=_TODAY,
         portfolio_section=portfolio_section,
     )
 

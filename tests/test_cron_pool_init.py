@@ -31,14 +31,17 @@ import pytest
 
 JOBS_DIR = pathlib.Path(__file__).resolve().parent.parent / "jobs"
 
-# The ten jobs fixed in Phase 2B, plus track_signal_outcomes (quarantine lifted
-# 2026-07-11 — its init-pool ordering was fixed in the same class). These must
-# follow the full canonical structure: init_pool() before JobMonitor AND
-# close_pool() in a finally block.
+# The jobs fixed in Phase 2B that still exist. These must follow the full
+# canonical structure: init_pool() before JobMonitor AND close_pool() in a
+# finally block.
+#
+# check_model_staleness.py (R17) and track_signal_outcomes.py (R18) were dropped
+# from this list when the Model A jobs were deleted — see
+# docs/product/model-a-reference-manifest.md. The remaining nine keep their guard;
+# the universal scan below still covers every surviving JobMonitor + acquire job.
 AFFECTED_JOBS = [
     "validate_price_data.py",
     "check_au_positions.py",
-    "check_model_staleness.py",
     "check_thesis_invalidations.py",
     "check_us_positions.py",
     "check_cron_health.py",
@@ -46,7 +49,6 @@ AFFECTED_JOBS = [
     "detect_theme_stages.py",
     "ingest_market_context.py",
     "ingest_underlyings.py",
-    "track_signal_outcomes.py",
 ]
 
 # Jobs intentionally excluded from the universal init-before-JobMonitor scan,
@@ -59,9 +61,6 @@ ALLOWLIST = {
     # (tests/test_ingest_news_job.py, tests/test_ingest_sentiment_job.py).
     "ingest_news.py",
     "ingest_sentiment.py",
-    # (track_signal_outcomes.py quarantine LIFTED 2026-07-11 — its pre-fix
-    # init_pool-inside-JobMonitor ordering was corrected, so it now follows the
-    # canonical structure and is covered by the scan + AFFECTED_JOBS above.)
 }
 
 
@@ -192,7 +191,7 @@ def test_every_cron_job_initialises_pool_before_job_monitor():
 
 
 # --------------------------------------------------------------------------- #
-# Scoped invariant: the ten fixed jobs close the pool in a finally block       #
+# Scoped invariant: the fixed jobs close the pool in a finally block           #
 # --------------------------------------------------------------------------- #
 
 

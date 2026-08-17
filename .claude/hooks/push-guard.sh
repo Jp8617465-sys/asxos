@@ -23,14 +23,23 @@
 # Scope: `git push` destined at a protected ref (main/master) with force or delete, any
 # repo-wide push (--mirror/--all/--tags), and the `gh` CLI shapes that would let a Bash
 # command bypass the MCP-level PR/merge denies (gh pr merge/ready, gh pr create without
-# --draft, gh api POST/PUT/PATCH/DELETE to pulls/merge, gh workflow/release mutation).
+# --draft, gh api POST/PUT/PATCH/DELETE to pulls/merge, non-allowlisted gh workflow
+# mutation, release mutation). Dispatchable workflows are allowlisted per segment below:
+# the validation lanes (full-check.yml, targeted-ml-tests.yml, migration-integration.yml)
+# plus — James's 2026-08-12 guard-carveouts decision — backup.yml (reads prod, restores
+# into a disposable container) and claude-execute.yml (the governed harness, which
+# carries its own tool ceiling). Everything else stays reserved to James.
 #
 # HONEST LIMITS (same class as unattended-guard.sh's, see its header): Bash is not fully
 # parseable. A non-`git`/`gh` code path — a Python/Node script invoked via a pre-allowed
 # test runner (pytest/make check/mypy) calling `subprocess.run(["git","push",...])` or the
 # GitHub REST API directly — is invisible to this hook entirely; it never produces a `git
 # push` or `gh` command string. The mechanical backstop for THAT path is GitHub branch
-# protection on `main` (confirmed NOT configured as of 2026-07-11) — not this hook. Variable
+# protection on `main` — live since 2026-07-17 as two rulesets (PR required, `full-check`
+# required, deletion and non-fast-forward blocked) and re-asserted 2026-08-12 as classic
+# protection with the same shape. Caveat that matters: `enforce_admins:false`, so a token
+# acting as a repo admin bypasses all of it — see the PAT note in claude-execute.yml.
+# Not this hook. Variable
 # indirection (`r=main; git push origin HEAD:$r`), git aliases, and exotic quoting can also
 # defeat the regexes below; matched shapes are denied, unmatched ones fall through to a
 # prompt (safe direction — never a silent allow of something this hook failed to parse).
@@ -137,8 +146,48 @@ fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+api[^|;&]*(--method|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)[^|;&]*/(pulls|merge)\b'; then
   deny "push-guard: 'gh api' mutating a pulls/merge endpoint directly is blocked — the same PR/merge policy applies regardless of surface."
 fi
-if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+workflow[[:space:]]+(run|enable|disable)|gh[[:space:]]+release[[:space:]]+(create|edit|delete)'; then
-  deny "push-guard: CI/release mutation via gh is blocked (I6), reserved to James."
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+workflow[[:space:]]+(enable|disable)'; then
+  deny "push-guard: enabling/disabling workflows via gh is blocked (I6), reserved to James."
+fi
+# Per-segment dispatch allowlist. Extended 2026-08-12 (James, guard-carveouts
+# decision): backup.yml and claude-execute.yml join the validation lanes —
+# backup.yml only reads prod (pg_dump) and restores into a disposable CI
+# container; claude-execute.yml is the governed harness whose own workflow
+# definition carries the tool ceiling, and the action's anti-tamper check
+# refuses to run any non-main modification of it. All other dispatches
+# (daily-brief, us-positions, production/secret-bearing jobs) stay denied.
+# Command substitution is NOT a segment separator, so the loop below would swallow an
+# inner dispatch into an allowlisted outer segment — `gh workflow run backup.yml
+# $(gh workflow run daily-brief.yml)` fires the DENIED workflow first, and the settings
+# allow-rule prefix-matches the whole string so no prompt appears either (security-engineer,
+# 2026-08-12, H2 — verified live against this hook). Refuse the combination outright rather
+# than attempt to parse it.
+if printf '%s' "$cmd" | grep -Eq '\$\(|`|<\(' \
+   && printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+workflow[[:space:]]+run'; then
+  deny "push-guard: a gh workflow dispatch combined with command substitution cannot be verified per-segment — blocked. Use literal arguments."
+fi
+# `gh run rerun` re-executes a PRIOR run with all its secrets re-injected — for up to 30
+# days, on ANY workflow, including daily-brief (prod DB writes + email), us-positions
+# (position alert email) and weekly-research (prod writes + API quota). It is a wider grant
+# than the `gh workflow run` allowlist it was briefly bundled with, and it is not
+# "read-triggering" in any sense (security-engineer, 2026-08-12, H1). Validation lanes can
+# be re-run through the allowlisted `gh workflow run <lane>.yml --ref <branch>` instead.
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+run[[:space:]]+rerun'; then
+  deny "push-guard: 'gh run rerun' re-executes a prior run with its secrets re-injected — blocked (I6). Re-dispatch an allowlisted workflow explicitly instead."
+fi
+workflow_run_segments="$(printf '%s' "$cmd" | grep -Eio 'gh[[:space:]]+workflow[[:space:]]+run[^|;&]*' || true)"
+if [ -n "$workflow_run_segments" ]; then
+  while IFS= read -r workflow_run_segment; do
+    [ -n "$workflow_run_segment" ] || continue
+    if ! printf '%s' "$workflow_run_segment" | grep -Eiq '^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(full-check\.yml|targeted-ml-tests\.yml|migration-integration\.yml|backup\.yml|claude-execute\.yml)([[:space:]]|$)'; then
+      deny "push-guard: workflow_dispatch is allowed only for the allowlisted workflows (full-check.yml, targeted-ml-tests.yml, migration-integration.yml, backup.yml, claude-execute.yml). Other workflow runs are reserved to James."
+    fi
+  done <<EOF
+$workflow_run_segments
+EOF
+fi
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+release[[:space:]]+(create|edit|delete)'; then
+  deny "push-guard: release mutation via gh is blocked (I6), reserved to James."
 fi
 
 exit 0

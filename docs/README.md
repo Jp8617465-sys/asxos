@@ -2,7 +2,7 @@
 
 **Status:** current
 **Scope:** whole repo — navigation index / source-of-truth map
-**Last verified:** 2026-08-08 (wake-up and branch-only entries; older claims retain their dates)
+**Last verified:** 2026-08-12 (newest-handoff entry refreshed per the 08-11 handoff's own drafted amendment; 2026-08-12 guard-carveouts proposal mapped) · 2026-08-10 (Stage 0 authority alignment; older claims retain their dates)
 **Read priority:** read first
 **Superseded by:** N/A
 
@@ -17,12 +17,18 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 
 ## Read first, in order
 1. `../CLAUDE.md` — agent guide + non-negotiables (note **standing** rule **#11**: Model A quarantine — resolved 2026-07-11 *against* Model A; the quarantine stands as policy)
-2. `session-handoff-2026-08-08.md` — the newest dated handoff and current priority state; it separates shipped evidence, branch-only work, and unratified future-state recommendations
-3. `product/roadmap-state.md` — the living reconciled state (**current authority**); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. Where priority conflicts, the newest handoff wins and the roadmap must be reconciled
-4. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
-5. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
-6. `next-session-backlog.md` — itemized backlog (top half current; the 2026-06-28 half is partially stale — see its banners)
-7. `executable-roadmap-2026-07-04.md` — a historical sequencer; reconcile any still-relevant item through the current handoff/roadmap instead of reviving it wholesale
+2. `session-handoff-2026-08-11.md` — the newest dated handoff and current priority state; it records the five-PR remediation session, and separates code-complete work from what is actually live in production (four defects fixed in code, zero closed in production)
+3. `product/target-architecture.md` — **the ratified target (2026-08-10).** asxos is a
+   research-to-capital-decision-to-learning engine; the brief is an experience layer over an
+   immutable decision. Read its Errata §0 and Appendix F (the governor rulings) before proposing
+   work. **Ratified and canonical since 2026-08-10** (PR #79, merged `9ede7ad`); Stage 0 is
+   complete, but that is **not** implementation authority — each stage needs its own approved
+   work order
+4. `product/roadmap-state.md` — **the single live queue** (Stages 0→6); the P0 Model A dispute is **RESOLVED 2026-07-11** and the ML engine **shelved** — see `model-a-decay-analysis-2026-07-11.md` + `product/ml-engine-shelf-2026-07-11.md`. Where priority conflicts, the newest handoff wins and the roadmap must be reconciled
+5. `foundation/BUILD_GUIDE.md` — the executable manual for M1–M12
+6. `foundation/phase-b-failure-postmortem.md` — the lessons the previous repo died of; this repo encodes the fixes
+7. `next-session-backlog.md` — **reference-only**, not a queue; its itemised evidence is retained but priority comes only from `product/roadmap-state.md`
+8. `executable-roadmap-2026-07-04.md` — a historical sequencer; reconcile any still-relevant item through the current handoff/roadmap instead of reviving it wholesale
 
 ## Authoritative source by area
 | Area | Authoritative source |
@@ -36,10 +42,10 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 | Research store | `../migrations/0027_research_store.sql` for schema; the **live DB** for state (`research/research-store-schema.md`'s "applied-empty" header is a 2026-06-22 snapshot) |
 | Model A / alpha evidence | **`model-a-decay-analysis-2026-07-11.md`** (the resolution — no usable edge on 19,032 matured signals) + **`product/ml-engine-shelf-2026-07-11.md`** (James's shelve decision + how it plays out) are authoritative on status; live `signals`/`signal_outcomes` + `../asxos/domain/research/alpha_eval.py` for the data; audit design in `model-a-audit-and-extension-plan-2026-07-04.md` Part A; `research/alpha-research-audit.md` is the pre-training-period diagnosis (not live-signal truth) |
 | Portfolio invariants | `../.claude/rules/portfolio-conventions.md` |
-| Risk | none built (v1 is risk-blind by design — `../.claude/rules/portfolio-conventions.md`); design notes in `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
-| Backlog / session state | `next-session-backlog.md` + the newest `session-handoff-*.md` (handoff outranks backlog on priority; backlog outranks handoff on itemized detail) |
-| Product vision / program state | `product/north-star.md` (the charter — "The Output") + `product/roadmap-state.md` (living reconciled roadmap + 10-PR autonomy sequence). `/arbi` ("wake up") is the session entry ritual; `/arbi-close` writes the handoff. |
-| arbi governance (the Autonomy Kernel) | `product/arbi-constitution.md` (authority + limits) + `product/arbi-authority.md` (source-of-truth ladder) + `product/arbi-permission-model.md` (blast-radius: **Infrastructure ladder I0–I6** + **Portfolio ladder P0–P6**) + `product/arbi-harness.md` (operating contract) + `product/arbi-scorecard.md` (hard gates + reward) + `product/arbi-promotion-gate.md` + `product/arbi-memory-policy.md` + `product/arbi-dream-policy.md` + `product/arbi-evals.md` + `product/rubrics/` + ledgers (`arbi-run-ledger.md`, `decision-log.md`, `risk-register.md`) + `product/james-inbox.md` (decisions reserved to James) + `product/dark-launch-exit-plan.md` (ship/delete/keep-dark verdicts for gated surfaces) + `product/memory/` (the git-native second brain) + `product/arbi-autonomy-loop.md` (the self-driving loop) + `product/arbi-managed-agent-spec.md` (optional hosted backend) + `.claude/agents/arbi-red-team.md` (adversarial gate on arbi's "one thing") + `.claude/agents/guilfoyle.md` + `.claude/commands/arbi-mission.md` (mission-control execution lead under arbi: `/arbi-mission` turns an approved mission into a task graph → specialists → draft PR, attended + reversible) + **the autonomy unlock pack (2026-07-14)**: `product/guilfoyle-mission-control.md` (the stack narrative + mission routing) + `product/arbi-goal-recipes.md` (long-window `/goal` prompts incl. the 12-hour recipe + PR transaction discipline) + `product/runbooks/` (`reversible-work-window.md`, `agent-team-mission.md`) + `.claude/agents/reversible-work-builder.md` (the mutation hands) + `.claude/commands/arbi-team.md` (agent-teams form, large parallel missions, plan-approval gate) + `.claude/skills/` (`reversible-work-window`, `arbi-mission`, `agent-team-mission`, `pr-readiness` — skill-scoped allowed-tools, the R-A4 prototype) + `.github/CODEOWNERS` + `.claude/hooks/unattended-guard.sh` (unattended tier guard). James is governor; arbi is the bounded operating controller; guilfoyle is its execution lead. |
+| Risk | **Policy** exists (`product/portfolio-policy.md` — sector cap, position count, CGT rules, and the accepted v1 co-movement blindness); **no enforcement engine is built** beyond the allocator's constraint waterfall (`../.claude/rules/portfolio-conventions.md`). The numeric risk *mandate* is **DEFERRED** — blocker: "James must complete the capital/risk calibration before Stage 4" (`product/target-architecture.md` F4). Until then vol/beta/correlation/drawdown are **reporting-only**, under five non-deferrable universal gates. Design notes: `model-a-audit-and-extension-plan-2026-07-04.md` Part C |
+| Backlog / session state | `product/roadmap-state.md` is **the single live queue**; `next-session-backlog.md` is reference-only. The newest `session-handoff-*.md` carries session continuity but does not create a competing queue. |
+| Product vision / program state | `product/north-star.md` is the charter; `product/target-architecture.md` is the ratified target; `product/roadmap-state.md` is the single live queue. `/arbi` ("wake up") is the session entry ritual; `/arbi-close` writes the handoff. |
+| arbi governance (the Autonomy Kernel) | `product/arbi-constitution.md` (authority + limits) + `product/arbi-authority.md` (source-of-truth ladder) + `product/arbi-permission-model.md` (blast-radius: **Infrastructure ladder I0–I6** + **Portfolio ladder P0–P6**) + `product/arbi-harness.md` (operating contract) + `product/arbi-scorecard.md` (hard gates + reward) + `product/arbi-promotion-gate.md` + `product/arbi-memory-policy.md` + `product/arbi-dream-policy.md` + `product/arbi-evals.md` + `product/rubrics/` + ledgers (`arbi-run-ledger.md`, `decision-log.md`, `risk-register.md`) + `product/james-inbox.md` (decisions reserved to James) + `product/dark-launch-exit-plan.md` (ship/delete/keep-dark verdicts for gated surfaces) + `product/memory/` (the git-native second brain) + `product/arbi-autonomy-loop.md` (the self-driving loop) + `product/arbi-managed-agent-spec.md` (optional hosted backend) + `product/runbooks/claude-execute.md` + `.github/workflows/claude-execute.yml` (attended GitHub Actions execution harness) + `proposals/arbi-guard-carveouts-2026-08-12.md` (the 2026-08-12 guard carve-outs: branch-protection status on `main`, the attended-local workflow-dispatch allowlist, the settings allow rules — the dispatch grant splits by *attendance*, not by workflow class) + `.claude/agents/arbi-red-team.md` (adversarial gate on arbi's "one thing") + `.claude/agents/guilfoyle.md` + `.claude/commands/arbi-mission.md` (mission-control execution lead under arbi: `/arbi-mission` turns an approved mission into a task graph → specialists → draft PR, attended + reversible) + **the autonomy unlock pack (2026-07-14)**: `product/guilfoyle-mission-control.md` (the stack narrative + mission routing) + `product/arbi-goal-recipes.md` (long-window `/goal` prompts incl. the 12-hour recipe + PR transaction discipline) + `product/runbooks/` (`reversible-work-window.md`, `agent-team-mission.md`) + `.claude/agents/reversible-work-builder.md` (the mutation hands) + `.claude/commands/arbi-team.md` (agent-teams form, large parallel missions, plan-approval gate) + `.claude/skills/` (`reversible-work-window`, `arbi-mission`, `agent-team-mission`, `pr-readiness` — skill-scoped allowed-tools, the R-A4 prototype) + `.github/CODEOWNERS` + `.claude/hooks/unattended-guard.sh` (unattended tier guard). James is governor; arbi is the bounded operating controller; guilfoyle is its execution lead. |
 | Portfolio decision-support governance | `product/portfolio-manager-charter.md` (the role: allocation memos James acts on, never executes) + `product/portfolio-policy.md` (James's capital mandate — objectives, risk, hard constraints) + `product/recommendation-schema.md` (the shape of an action memo) + `product/portfolio-outcome-ledger.md` (memos → decisions → outcomes) + the Portfolio ladder P0–P6 in `product/arbi-permission-model.md`. The firewall is **execution** (James's broker), not analysis; rule #11 keeps every memo model-independent. Surfaced via `/pm-review`. |
 | Agent routing | `../CLAUDE.md` "Subagents — delegation policy" tables are the source; a lint-enforced transcription is planned in a later process PR |
 | Agent DB role scoping | enforcement design (not yet implemented): `model-a-audit-and-extension-plan-2026-07-04.md` Part B + `live-readiness-audit-plan-2026-07-04.md` §7. **Provisioning-route decision: `pr2a-supabase-ro-provisioning-plan-2026-07-05.md`** — route gated on a feasibility check; no frontmatter flips until the chosen route passes the full live-fire battery |
@@ -61,6 +67,19 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 - `model-a-audit-and-extension-plan-2026-07-04.md` — Model A audit design + agent DB scoping (Part B) + Rust/Go RFC (Part C); holds the verbatim detail the roadmap only sequences
 - `executable-roadmap-2026-07-04.md` — the sequencer (5 workstreams + PR plan)
 - `pr2a-supabase-ro-provisioning-plan-2026-07-05.md` — PR 2A: the `supabase-ro` provisioning-route decision (local-stdio recommended; the hosted/custom connector is transport-unstable; stop/go gate before the six frontmatter flips)
+
+## Current proposed execution programmes (reference-only; not the live queue)
+
+- `proposals/asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md` — two-lane
+  programme for the outcome engine and Arbi second brain, queued by James after the existing
+  remediation work on 2026-08-12. It sequences bounded work orders and a Claude Code handoff; it
+  grants no blanket implementation or authority change. `product/roadmap-state.md` retains the
+  canonical queue and activates one packet item at a time.
+- `proposals/asxos-research-to-decision-live-slice-brief-2026-08-10.md` — prototype evidence and
+  the bounded read-only real-data adapter recommendation; the prototype was later adopted by PR #87.
+- `proposals/arbi-outcome-programme-convergence-sprint-2026-08-08.md` — pre-Stage-0 convergence
+  source material. Its dated repository/PR state is historical; retain its contract-reuse and
+  exact-evidence principles, but do not revive it as a queue.
 
 ## Historical / background (do not treat as current)
 - `foundation/phase-*.md` — rebuild history. `foundation/phase-4-architecture-system-architect.md` describes an abandoned VPS/systemd/local-Postgres design, superseded by the live Render/Supabase stack (see its banner).

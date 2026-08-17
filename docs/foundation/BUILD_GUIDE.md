@@ -1,10 +1,61 @@
 # asxos build guide
 
-**Status:** current
+**Status:** current **as a build record**; **NOT current as an executable instruction set** —
+see the banner below
 **Scope:** executable manual (M1–M12)
 **Last verified:** 2026-07-04
-**Read priority:** read first
-**Superseded by:** N/A
+**Docs-truth correction:** 2026-08-13 (`SB0-01` sweep), amended 2026-08-13 by mission **`P1-05`**
+(all banner line citations re-derived — SB0-01's were off by +37; §M6 and the reactivation seed
+now carry inline DO-NOT-EXECUTE markers)
+**Read priority:** read first — **with the banner below**
+**Superseded by:** N/A as a whole; its **Model A sections and its architecture pointer are
+superseded** (below). Classified **LIVING / Tier 1** in
+`docs/product/model-a-reference-manifest.md` — the largest single Model A surface in `docs/**`.
+
+> ### ⛔ DO NOT EXECUTE THE MODEL A SECTIONS — annotated 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> This guide is ~2,900 lines and contains **zero** mentions of "rule #11", "quarantine", or
+> "shelved". It was written before the decisions that govern the system today, and `docs/README.md`
+> routes new sessions here as "the executable manual". Followed literally, it would **re-arm the
+> exact machinery the project deliberately switched off.** Two corrections:
+>
+> **1. Model A is shelved and being retired. Its sections here are history, not instructions.**
+> On 2026-07-11 the decay analysis found **no usable edge** on 19,032 matured signals
+> (`corr(ml_prob, 21d) = −0.03`; STRONG_BUY 21d −0.09% vs HOLD +5.07% — conviction inverted at
+> the top), James **shelved the ML engine**, and CLAUDE.md rule **#11** became standing policy.
+> A retirement programme (`P1-01`…`P1-05`) is in progress; the classified reference manifest is
+> `docs/product/model-a-reference-manifest.md`. Specifically **do not execute**:
+>
+> | Here | What it would do | Why not |
+> |---|---|---|
+> | §M6 (`:1448`) | Load Model A, serve predictions + SHAP at API startup | Re-introduces a runtime dependency `P1-02` exists to remove — **and has now removed**: `asxos/domain/models/cache.py`, `model_a.py` and `asxos/cli/predict.py` no longer exist. **§M6 carries its own DO-NOT-EXECUTE marker at `:1450`** |
+> | **`:1530-1531`** | Seed `model_versions` with `('model_a','v1_5', …, TRUE)` | **The reactivation seed. The single most dangerous instruction in this file.** It sets `is_active = TRUE` on the Model A row. `approved_for_allocation` was **revoked** 2026-07-11 (R8), and that revocation is rule #11's mechanical enforcement point (`asxos/domain/portfolio/build.py:209-214`). **An inline `DO NOT RUN` block sits on the statement itself at `:1508-1529`** |
+> | `:507`, `:2071` | `make retrain`; "`asx model activate v1_6` flips active" | Omits the two gates a *new* model must clear before it may influence capital: a **pre-registered decay bar** (positive, monotonic conviction→21d return) **and** a separate explicit `approved_for_allocation` grant. Activation alone is not approval |
+> | `:228`, `:2293`, `:2301`, `:2354`, `:2430`, `:2960` | Weekly `asxos-retrain-model-a` schedule | Job is RETIRE-dispositioned (`docs/product/scheduler-inventory-2026-08-13.md`); and see (2) — the platform is gone |
+>
+> > **CORRECTION (`P1-05`, 2026-08-13) — every line number in the table above was wrong, and the
+> > banner broke its own citations.** They were computed against the pre-banner file and the
+> > banner was then inserted at the top, shifting the whole document down **37 lines**. The
+> > original `:1435` — cited as the reactivation seed — post-insert reads *"**Cancellation.**
+> > Cancel Render `asx-weekly-features`"*, which is harmless text, **while the actual seed sat
+> > unmarked 36 lines further down.** A reader who checked the citation would have found nothing
+> > alarming and had good reason to distrust the whole banner. All ten citations are corrected
+> > above (uniform `+37`) and verified against this file at commit `6327a61`. **A supersession
+> > banner that cites line numbers in the file it is inserted into invalidates itself on
+> > insertion** — cite anchors or quote the text, or re-derive after inserting.
+>
+> **2. The deployment architecture described here is superseded, twice over.** `:65` names
+> "six systemd-timer-driven jobs, ten Postgres tables" and calls
+> `phase-4-architecture-system-architect.md` "authoritative on every technical choice." That
+> document describes an **abandoned VPS/systemd/local-Postgres design** and carries its own
+> supersede banner (`docs/README.md:85`). The system then ran on **Render cron + Supabase
+> Postgres** — and as of **2026-08-12 Render itself was deleted** (governor ruling,
+> `docs/product/roadmap-state.md:116`), leaving **GitHub Actions** (`.github/workflows/`) as the
+> executing scheduler. Table count is ~40, not ten. For deployment truth read `docs/README.md`
+> §"Authoritative source by area" and the newest `session-handoff-*.md`, never this section.
+>
+> **What this guide is still good for:** the M1–M12 build narrative, the schema/tax/CLI/brief
+> sections, and the rationale for why the rebuild is shaped as it is. Those are unaffected.
 
 A working manual for the rebuild from "nothing" to a working personal investment OS. Read in order. Each section is meant to be executable end-to-end with Claude Code, with the design rationale already settled in `phase-4-architecture-system-architect.md` and `phase-5-milestones.md`. Cross-references to those documents are deliberate — this guide does not re-litigate decisions.
 
@@ -1399,6 +1450,31 @@ pytest tests/test_feature_engine.py
 
 ### M6 — Model A loaded, predictions and SHAP for one date
 
+> ### ⛔ DO NOT EXECUTE THIS MILESTONE — `P1-05`, 2026-08-13
+>
+> **This section is the reactivation path. It is retained as a build record and must not be run.**
+> The top-of-file banner says this too, but a reader who jumps straight to M6 never sees it — so
+> it is repeated here, at the section that carries the risk.
+>
+> Three specific hazards in the ~150 lines below:
+>
+> 1. **The migration seeds `model_versions` with `is_active = TRUE`** (the `INSERT … VALUES
+>    ('model_a', 'v1_5', …, TRUE)` in the SQL block). This **re-activates the Model A row.** See
+>    the inline marker on that statement.
+> 2. **It instructs you to update the API lifespan to `await get_cache().get('model_a')` and raise
+>    on failure.** Under CLAUDE.md rule #1 (hard-fail startup) that makes the API refuse to boot
+>    without the `.pkl` artefacts — re-creating exactly the coupling mission `P1-02` removed.
+> 3. **`asxos/domain/models/cache.py`, `model_a.py` and `asxos/cli/predict.py` no longer exist.**
+>    P1-02 (PR #100) deleted all three. The code shapes below describe files that are gone; they
+>    cannot be "restored" without also restoring a runtime `joblib` import into the CLI entry
+>    point, which is manifest Finding 4's trap.
+>
+> **Rule #11 (Model A quarantine) is standing policy and this annotation does not touch it.**
+> Retirement *strengthens* the quarantine. The classified contract is
+> `docs/product/model-a-reference-manifest.md`; the evidence is
+> `docs/model-a-decay-analysis-2026-07-11.md`; the decision is
+> `docs/product/ml-engine-shelf-2026-07-11.md`.
+
 **Recap.** Copy `model_a_v1_5_classifier.pkl`, `model_a_v1_5_regressor.pkl`, `model_a_v1_5_features.json` from the old repo's `models/` into the new repo's `models/`. Add migration `0005_model_versions.sql`. `asx predict <date>` runs end-to-end.
 
 **Files.**
@@ -1431,6 +1507,29 @@ CREATE UNIQUE INDEX uq_model_versions_one_active
     ON model_versions(model_name) WHERE is_active = TRUE;
 
 -- Seed Model A v1.5 record (artefacts will be copied in by hand at M6)
+--
+-- ############################################################################
+-- ## DO NOT RUN THIS STATEMENT. ANNOTATED 2026-08-13 BY MISSION P1-05.       ##
+-- ##                                                                        ##
+-- ## THIS IS THE MODEL A REACTIVATION SEED. The trailing TRUE sets          ##
+-- ## is_active on the model_a/v1_5 row. Model A was SHELVED 2026-07-11      ##
+-- ## (no usable edge on 19,032 matured signals; conviction inverted at the  ##
+-- ## top) and CLAUDE.md rule #11 bars its output from any real capital      ##
+-- ## decision. approved_for_allocation was REVOKED the same day; that       ##
+-- ## revocation is what makes the allocator refuse to run                   ##
+-- ## (asxos/domain/portfolio/build.py:209-214, manifest row E1).            ##
+-- ##                                                                        ##
+-- ## is_active and approved_for_allocation are ORTHOGONAL (migration 0032). ##
+-- ## Running this does NOT by itself un-quarantine Model A -- the allocator ##
+-- ## gate reads approved_for_allocation, not is_active. What it DOES do is  ##
+-- ## re-arm every is_active consumer, and make the gate's 0-row state       ##
+-- ## ambiguous to a future reader. The live schema already carries this     ##
+-- ## row; migration 0003 is APPLIED and is manifest row M2 (MIGRATION_KEEP: ##
+-- ## the row must STAY, with approved_for_allocation = FALSE -- deleting it ##
+-- ## is NOT the retirement mechanism).                                      ##
+-- ##                                                                        ##
+-- ## Retained verbatim as a dated build record. Never executed again.       ##
+-- ############################################################################
 INSERT INTO model_versions (model_name, version, artifact_path, classifier_path, regressor_path, features_json_path, is_active)
 VALUES ('model_a', 'v1_5', 'models', 'models/model_a_v1_5_classifier.pkl', 'models/model_a_v1_5_regressor.pkl', 'models/model_a_v1_5_features.json', TRUE)
 ON CONFLICT (model_name, version) DO NOTHING;

@@ -1,0 +1,70 @@
+name: migration-integration
+
+# Execute production-relevant migration behaviour on the same PostgreSQL major
+# version as Supabase. This lane is intentionally separate from full-check so
+# ordinary application PRs do not pay for a database service they do not use.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "migrations/**"
+      - "scripts/backup_irreplaceable.sh"
+      - "tests/test_backup_script.py"
+      - "tests/test_price_revision_migration*.py"
+      - ".github/workflows/backup.yml"
+      - ".github/workflows/migration-integration.yml"
+  push:
+    branches: [main]
+    paths:
+      - "migrations/**"
+      - "scripts/backup_irreplaceable.sh"
+      - "tests/test_backup_script.py"
+      - "tests/test_price_revision_migration*.py"
+      - ".github/workflows/backup.yml"
+      - ".github/workflows/migration-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: asxos_migration_test
+          POSTGRES_PASSWORD: migration-test-only
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d asxos_migration_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      MIGRATION_TEST_DATABASE_URL: postgresql://postgres:migration-test-only@localhost:5432/asxos_migration_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Execute migration 0043 behavioural contract on PostgreSQL 17
+        run: |
+          python -m pytest -q \
+            tests/test_price_revision_migration.py \
+            tests/test_price_revision_migration_integration.py \
+            tests/test_backup_script.py

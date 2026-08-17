@@ -58,6 +58,10 @@ class Brief:
     sections: tuple[SectionResult, ...]
     snapshot: Snapshot
     rendered_html: str | None = None
+    # A rendered brief can remain deliverable when only its operational audit
+    # row fails. The job layer sends the primary brief, then raises this failure
+    # so JobMonitor records a red run and pings the failure healthcheck.
+    persistence_error: str | None = None
 
 
 @dataclass

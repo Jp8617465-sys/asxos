@@ -4,7 +4,35 @@
 **Scope:** Model A / alpha evidence
 **Last verified:** 2026-07-04
 **Read priority:** read alongside the Model A reliability dispute (CLAUDE.md #11)
-**Superseded by:** N/A — do not treat its pre-training numbers as decision-grade for the live signal
+**Superseded by:** **its central conclusion is SUPERSEDED** — see the box below.
+
+> ### ⛔ SUPERSEDED CONCLUSION — annotated 2026-08-13 (SB0-01 doc-truth sweep)
+>
+> **This document's verdict — "a real, statistically detectable signal in `prob_up`",
+> "`prob_up` is the trustworthy conviction signal" (`:93`), registered as a *verified asset* to
+> preserve (`:129`), "continue incubation, paper-trade only" (`:152`) — was tested directly on
+> 2026-07-11 and did not survive.**
+>
+> On **19,032 matured `signal_outcomes`**: `corr(ml_prob, 21d return) = −0.03`, and STRONG_BUY
+> signals returned **−0.09% at 21d vs HOLD's +5.07%** — conviction is *inverted at the top*.
+> There is no usable edge over the weeks-to-months horizon this system's theses hold for.
+> See **`docs/model-a-decay-analysis-2026-07-11.md`** (the resolution) and
+> **`docs/product/ml-engine-shelf-2026-07-11.md`** (James's decision to SHELVE the ML engine).
+> CLAUDE.md rule **#11** is standing policy: no Model A output may inform a real capital
+> decision. A Model A **retirement** programme (`P1-01`…`P1-05`) is in progress; `P1-01`'s
+> classified manifest is `docs/product/model-a-reference-manifest.md`.
+>
+> **Why this doc reached the opposite answer, and why that is not a contradiction:** this is a
+> *pre-training-period* diagnosis (2026-06-22) measured on rank-IC over a ~3.5-month, un-costed,
+> survivorship-and-adjustment-biased window. The 2026-07-11 analysis measured *realised live
+> signals* over the horizon capital is actually held for. The header already said "not
+> live-signal truth"; that caveat was too weak to stop the body's present-tense
+> trustworthiness claims from being read as current, so it is restated here in full.
+>
+> **What to still use this doc for:** the *methodology* (how the biases were found), the
+> `expected_return` non-functionality finding, and the bias inventory. **What not to use it
+> for:** any claim that `prob_up` carries edge, any "continue incubation" recommendation, or
+> any capital-adjacent read whatsoever.
 
 **Date:** 2026-06-22 · **Scope:** signal generation + portfolio construction · **Author:** quant audit (Prompt 2, Phase 1)
 **Status:** DIAGNOSIS ONLY. No model, threshold, or pipeline code was changed. Two decisions are left open for you at the end.
