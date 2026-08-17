@@ -6,7 +6,10 @@ review", the final unit of the `P2` results-review lane
 `P2` required work 5-7 and the `:310-311` stop condition — *"present the artifact, reuse/gap report,
 and eval result to James"*
 **Base:** branched from `claude/p2-04-reviewer-challenger @ 49950d25a711fa8713c492dc14781126216ad85b`
-(depth 4: `P2-02` ← `P2-03` ← `P2-04` ← `P2-05`; `P2-02` has since merged to `main` as #113)
+(a depth-4 stack: `P2-02` ← `P2-03` ← `P2-04` ← `P2-05`). **Live cascade exposure is `P2-04` only.**
+Both earlier ancestors have merged to `main` — `P2-02` as #113 and `P2-03` as #115 (`origin/main` @
+`dc191d9`, verified) — so the only unmerged ancestor content beneath this branch is `P2-04`'s
+`gates.py` / `reviewer.py` / `challenger.py`.
 **Code:** `asxos/domain/results_review/presentation.py` + `tests/test_results_review_presentation.py`
 **Owner:** arbi maintains the record; James governs any amendment
 **Frozen boundary:** `contracts.py`, `fixtures.py`, `adapter.py`, `gates.py`, `reviewer.py`,
