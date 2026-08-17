@@ -381,9 +381,8 @@ def test_production_upsert_with_unchanged_values_writes_no_revision(
         cur.execute("SELECT count(*) FROM public.price_revisions")
         before = cur.fetchone()[0]
         cur.execute(
-            _PRODUCTION_UPSERT,
             # RETURNING is appended here rather than baked into the constant so
-            # the constant stays byte-comparable with production above.
+            # the constant stays comparable with production above.
             _PRODUCTION_UPSERT + " RETURNING (xmax <> 0)",
             _price_row("REUPSERT.AU", close="5.100000", adj_close="5.100000"),
         )
