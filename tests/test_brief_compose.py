@@ -62,7 +62,7 @@ def _brief(**overrides) -> BriefData:
     # section away, which would silently vacuum up any assertion about its
     # contents and pass. Tests that exercise the empty states pass news_status
     # explicitly.
-    if defaults.get("news_items") and "news_status" not in overrides:
+    if overrides.get("news_items") and "news_status" not in overrides:
         defaults["news_status"] = NEWS_OK
     return BriefData(**defaults)
 
@@ -861,6 +861,20 @@ def test_render_html_disabled_omits_the_section_entirely() -> None:
     """
     html = render_html(_brief(news_status=NEWS_DISABLED, news_items=[]))
     assert "Market news on holdings" not in html
+
+
+def test_render_html_unrecognised_status_fails_closed() -> None:
+    """An unknown status omits the section rather than defaulting to a claim.
+
+    `news_status` is a bare str, so a typo or a future state added to the
+    collector without a template arm reaches here. The outer guard is a positive
+    allowlist for that reason: the failure mode of an unrecognised value is a
+    missing section, not the 'News unavailable' copy asserted about a state
+    nobody established.
+    """
+    html = render_html(_brief(news_status="some-future-state", news_items=[]))
+    assert "Market news on holdings" not in html
+    assert "News unavailable" not in html
 
 
 def test_brief_data_defaults_to_disabled_not_quiet() -> None:

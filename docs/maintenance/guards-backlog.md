@@ -275,7 +275,9 @@ async def send_fallback_email(exc: Exception) -> None:
 - `asxos/brief/compose.py`
 - `asxos/brief/templates/brief.html.j2`
 - `tests/test_brief_footer.py` (new)
-**Motivation.** When a section is suppressed for staleness (news >24h, portfolio >2d), the brief omits the section silently. "The news section disappeared three days ago and I didn't notice" is a real failure mode in an unattended system. The brief is your in-band operational channel; it should tell you about its own degraded states.
+**Motivation.** When a section is suppressed for staleness (portfolio >2d), the brief omits the section silently. "The section disappeared three days ago and I didn't notice" is a real failure mode in an unattended system. The brief is your in-band operational channel; it should tell you about its own degraded states.
+
+**Partially landed (news only).** The news half of this motivation is closed: the news section now reports one of four explicit states rather than vanishing on an empty list, and an unverified ingest is rendered as distinct from a genuinely quiet day (`asxos/brief/compose.py::_news_section`). The remaining sections still fail silently, so the "Section health" block below is still worth building — but scope it to those, not to news.
 **Proposed implementation.** Add a small "Section health" block at the bottom of the brief:
 ```
 Section health (last ingest):

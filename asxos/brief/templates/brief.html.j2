@@ -112,7 +112,10 @@
   {# News renders its STATE, never silence. An omitted section reads as "nothing
      happened", which is indistinguishable from a broken pipeline — the 2026-08
      false-green shape. Only `quiet` may assert that no news was found. #}
-  {% if d.news_status != "disabled" %}
+  {# A positive allowlist, not `!= "disabled"`: news_status is a bare str, so an
+     unrecognised value must fall through to the omitted section rather than
+     render the "unverified" copy by default. Fail closed on the gated branch. #}
+  {% if d.news_status in ("ok", "quiet", "unverified") %}
   <h2>Market news on holdings (last 24h)</h2>
   {% if d.news_status == "ok" %}
   <ul>
