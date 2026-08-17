@@ -1037,7 +1037,13 @@ def _disc_conn(
     price_rows=None,
     fx_rows=None,
 ):
-    thesis_rows = thesis_rows or []
+    # The loader's theses query also selects `status` and the derived
+    # `last_revised_at` (MAX(thesis_revisions.revised_at)); default them here so
+    # fixtures predating the escalation check stay minimal. Explicit keys in a
+    # fixture row win.
+    thesis_rows = [
+        {"status": "active", "last_revised_at": None, **r} for r in (thesis_rows or [])
+    ]
     holding_rows = holding_rows or []
     price_rows = price_rows or []
     fx_rows = fx_rows or []
@@ -1247,6 +1253,98 @@ def test_discipline_findings_appends_broker_matching_unrealised_return() -> None
     joined = " ".join(f.message for f in findings)
     assert "lagging" not in joined
     assert "benchmark" not in joined.lower()
+
+
+def test_discipline_findings_escalates_unanswered_watching_thesis() -> None:
+    """The 2026-07-16 CBA ruling's escalation half, end-to-end at the loader:
+    a `watching` thesis (which the full active-only check battery never sees)
+    carrying a detached ladder with no thesis_revisions activity for more than
+    one revisit cadence emits the escalated red naming the CLI verb."""
+    thesis_rows = [
+        {
+            "symbol": "CBA.AU",
+            "status": "watching",
+            "revisit_due_at": datetime(2026, 6, 27),
+            "opened_at": datetime(2026, 1, 10),
+            "timeline_days": None,
+            "actual_entry_price": None,
+            "target_price": Decimal("60"),
+            "stop_price": Decimal("42"),
+            "conviction_level": 3,
+            "last_revised_at": datetime(2026, 5, 1),  # 73d before as_of
+        }
+    ]
+    price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    esc = next(f for f in findings if f.check == "data_sanity_escalation")
+    assert esc.level == DisciplineLevel.red
+    assert esc.symbol == "CBA.AU"
+    assert "unanswered for 73d" in esc.message
+    assert "asx thesis revise CBA.AU" in esc.message
+    # The watching row runs ONLY the escalation pass — no revisit/timeline/
+    # data-sanity noise from the active-only battery leaks in for it.
+    assert not any(
+        f.check in ("revisit_overdue", "data_sanity", "timeline") for f in findings
+    )
+
+
+def test_discipline_findings_active_thesis_gets_base_red_and_escalation() -> None:
+    """An active thesis past the unanswered window carries BOTH lines: the base
+    data-sanity red (evidence) and the escalation (the named verb)."""
+    thesis_rows = [
+        {
+            "symbol": "CBA.AU",
+            "status": "active",
+            "revisit_due_at": datetime(2026, 8, 1),
+            "opened_at": datetime(2026, 1, 10),
+            "timeline_days": None,
+            "actual_entry_price": Decimal("50"),
+            "target_price": Decimal("60"),
+            "stop_price": Decimal("42"),
+            "conviction_level": 3,
+            "last_revised_at": datetime(2026, 5, 1),
+        }
+    ]
+    price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    checks = {f.check for f in findings}
+    assert "data_sanity" in checks
+    assert "data_sanity_escalation" in checks
+
+
+def test_discipline_findings_recent_revision_suppresses_escalation() -> None:
+    """An answered red: a thesis_revisions row inside the window resets the
+    unanswered clock — the base red may still show (active battery), but no
+    escalation fires."""
+    thesis_rows = [
+        {
+            "symbol": "CBA.AU",
+            "status": "watching",
+            "revisit_due_at": datetime(2026, 8, 1),
+            "opened_at": datetime(2026, 1, 10),
+            "timeline_days": None,
+            "actual_entry_price": None,
+            "target_price": Decimal("60"),
+            "stop_price": Decimal("42"),
+            "conviction_level": 3,
+            "last_revised_at": datetime(2026, 7, 8),  # answered 5d before as_of
+        }
+    ]
+    price_rows = [{"symbol": "CBA.AU", "close": Decimal("168")}]
+    conn = _disc_conn(thesis_rows=thesis_rows, price_rows=price_rows)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert not any(f.check == "data_sanity_escalation" for f in findings)
 
 
 # ---------------------------------------------------------------------------

@@ -111,6 +111,7 @@ from asxos.domain.theses.discipline import (
     HoldingWeight,
     PortfolioDisciplineInput,
     ThesisDisciplineInput,
+    data_sanity_escalation,
     evaluate_discipline,
     unrealised_return,
 )
@@ -837,6 +838,10 @@ def _thesis_discipline_inputs(
     target/stop come straight from `theses` (authored in the holding's own
     native currency) and current comes from `prices.close` (also native) —
     all four legs are native-against-native, no FX step needed here.
+
+    ``last_revised_at`` is the per-thesis ``MAX(thesis_revisions.revised_at)``
+    the loader's query derives (NULL when a thesis has no revision rows) — it
+    feeds only the data-sanity escalation check.
     """
     return tuple(
         ThesisDisciplineInput(
@@ -850,6 +855,11 @@ def _thesis_discipline_inputs(
             target_price_native=r["target_price"],
             stop_price_native=r["stop_price"],
             conviction_level=r["conviction_level"],
+            last_revised_at=(
+                r["last_revised_at"].date()
+                if r["last_revised_at"] is not None
+                else None
+            ),
         )
         for r in thesis_rows
     )
@@ -903,12 +913,21 @@ async def _discipline_findings(
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         return []
 
+    # `watching` rows are fetched ONLY for the data-sanity escalation pass
+    # (James's 2026-07-16 CBA ruling — the live worked example is a `watching`
+    # thesis a stale ladder would otherwise never surface for); every other
+    # check still runs on active theses only, preserving the PR2a behaviour.
+    # `last_revised_at` = latest append-only `thesis_revisions` row — the
+    # "was this red ever answered?" anchor, derived without any schema change.
     thesis_rows = await conn.fetch(
         """
-        SELECT symbol, revisit_due_at, opened_at, timeline_days,
-               actual_entry_price, target_price, stop_price, conviction_level
+        SELECT symbol, status, revisit_due_at, opened_at, timeline_days,
+               actual_entry_price, target_price, stop_price, conviction_level,
+               (SELECT MAX(r.revised_at)
+                  FROM thesis_revisions r
+                 WHERE r.thesis_id = theses.thesis_id) AS last_revised_at
         FROM theses
-        WHERE status = 'active'
+        WHERE status IN ('watching', 'active')
           AND governance_status = 'approved'
         ORDER BY opened_at
         """
@@ -945,11 +964,37 @@ async def _discipline_findings(
     )
     fx_rate = Decimal(str(fx_rows[0]["fx_rate_audusd"])) if fx_rows else None
 
-    thesis_inputs = _thesis_discipline_inputs(thesis_rows, prices)
+    # Active theses get the full check battery; the escalation pass below runs
+    # over the whole watching + active set.
+    thesis_inputs = _thesis_discipline_inputs(
+        [r for r in thesis_rows if r["status"] == "active"], prices
+    )
+    escalation_inputs = _thesis_discipline_inputs(thesis_rows, prices)
     holdings = _holding_weights(holding_rows, prices, fx_rate)
 
     port_input = PortfolioDisciplineInput(holdings=holdings)
     findings = evaluate_discipline(thesis_inputs, port_input, as_of)
+    # Data-sanity escalation (the 2026-07-16 ruling's unbuilt half): an
+    # unanswered detached-ladder red past one revisit cadence escalates, naming
+    # the exact CLI verb. Watching + active rows, same loud-error isolation
+    # idiom as the unrealised_return loop below.
+    for ti in escalation_inputs:
+        try:
+            esc = data_sanity_escalation(ti, as_of)
+        except Exception as exc:  # isolate a malformed thesis, fail loud (#10)
+            findings.append(
+                DisciplineFinding(
+                    check="data_sanity_escalation",
+                    level=DisciplineLevel.error,
+                    message=(
+                        f"⚠ data_sanity_escalation could not run for {ti.symbol}: {exc}"
+                    ),
+                    symbol=ti.symbol,
+                )
+            )
+            continue
+        if esc is not None:
+            findings.append(esc)
     # Per-holding unrealised return (native, broker-matching) — appended here as a
     # display fact (like the CGT-boundary line) so evaluate_discipline() stays
     # quiet-by-default. Native entry vs current price only; no cost base, no
