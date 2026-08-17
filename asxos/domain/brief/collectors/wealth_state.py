@@ -105,7 +105,20 @@ async def collect_wealth_state(conn: Any, as_of: date) -> SectionResult:
     # withdrawals ledger this system does not have; the honest, broker-matching
     # unrealised-return line lives in the V1 discipline section
     # (asxos/domain/theses/discipline.py::unrealised_return, native price only).
-    # Re-add a portfolio return here only against a rebuilt, flow-adjusted series.
+    #
+    # UPDATE (2026-08-17): the gap this comment describes is FILLED — do not
+    # rebuild it here. V1 brief section 8 (`asxos/domain/benchmark/outcome.py` +
+    # `asxos/brief/compose.py::_lot_outcomes`) reports per-open-lot return since
+    # acquisition, the benchmark's return over the same window, and alpha. It
+    # solves the flow problem differently from the "rebuilt, flow-adjusted series"
+    # this line anticipated: it anchors on `holding_lots.acquired_at` /
+    # `cost_base_normal`, which no deposit or withdrawal can move, so it is
+    # flow-IMMUNE by construction rather than flow-adjusted after the fact — and
+    # it needs no contributions/withdrawals ledger, which is why it could ship.
+    # Two consequences for anyone reading this block: do not re-add a
+    # snapshot-differencing line here, and do not duplicate section 8 in this
+    # collector. Any portfolio-level (not lot-level) return still needs the
+    # time-/money-weighted series described above.
 
     # Drawdown from high-water mark
     if peak_row and peak_row["peak"] is not None:

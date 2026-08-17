@@ -23,6 +23,17 @@
     .disc-red            { color: #c00; font-weight: 600; }
     .disc-yellow         { color: #c50; }
     .disc-info           { color: #666; }
+    h3 { font-size: 0.92em; margin: 0.9em 0 0.2em; color: #333; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .gain { color: #0a6; }
+    .loss { color: #c00; }
+    .unavailable { color: #888; font-style: italic; }
+    {# A class, not an inline `style="font-size:..."`, because section 8's text is
+       grep-asserted against the advice vocabulary and `\bsize\b` is on that list —
+       an inline style attribute would trip the firewall test on a CSS property
+       name. Keeping the declaration up here keeps the section's rendered text
+       free of incidental vocabulary. #}
+    .footnote { font-size: 0.8em; color: #888; }
   </style>
 </head>
 <body>
@@ -92,6 +103,115 @@
   </ul>
   {% endif %}
   {% endif %}
+
+  {# Section 8 — outcome vs benchmark.
+
+     The HTML comment delimiters below are load-bearing for the s766B firewall
+     test, not decoration. The advice-vocabulary grep has to run over THIS
+     section's text alone: the rest of the page legitimately prints "Portfolio
+     discipline", "holdings" and the CLEAR/ATTENTION/BLOCKED review tokens, all
+     of which appear in the frozen vocabulary list. A whole-page assertion would
+     therefore have to be weakened to nothing. Markers are emitted
+     unconditionally so the extraction never depends on the section's own state.
+
+     Nothing here derives from `signals`, `shap_factors`, `prob_up` or any model
+     (rule #11), and nothing here is an instruction — it is arithmetic on James's
+     own acquisition record. #}
+  <!-- outcome:start -->
+  {% if d.outcome_error %}
+  <h2>Outcome vs benchmark</h2>
+  <div class="banner">
+    <strong>This measurement could not run.</strong> {{ d.outcome_error }}
+  </div>
+  {% elif d.outcome_section %}
+  {% set oc = d.outcome_section %}
+  <h2>Outcome vs benchmark</h2>
+  <p class="meta">
+    Return since acquisition, per open lot, stated in AUD as at {{ oc.as_of }}.
+    Each lot is measured from its own acquisition record against the latest close —
+    never from a snapshot balance, which moves with money paid in or taken out and
+    is therefore not a return.
+  </p>
+  {% for s in oc.sleeves %}
+  <h3>{{ s.label }}</h3>
+  <p class="meta">Benchmark: {{ s.benchmark_label }}</p>
+  {% if s.lots %}
+  <table>
+    <tr>
+      <th>Lot</th>
+      <th>Acquired</th>
+      <th class="num">Units</th>
+      <th class="num">Cost base A$</th>
+      <th class="num">Value A$</th>
+      <th class="num">Return</th>
+      <th class="num">Benchmark</th>
+      <th class="num">Alpha</th>
+    </tr>
+    {% for lot in s.lots %}
+    <tr>
+      <td>{{ lot.symbol }} #{{ lot.lot_id }}</td>
+      <td>{{ lot.acquired_at }}</td>
+      <td class="num">{{ "%g"|format(lot.quantity) }}</td>
+      <td class="num">{{ "%.2f"|format(lot.cost_base_aud) }}</td>
+      {# Every unavailable cell prints its reason. A dash or a zero here would be
+         indistinguishable from a measured flat result — see
+         `asxos/domain/benchmark/outcome.py`'s docstring. #}
+      <td class="num">
+        {%- if lot.market_value_aud is not none -%}
+          {{ "%.2f"|format(lot.market_value_aud) }}
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+      <td class="num">
+        {%- if lot.lot_return is not none -%}
+          <span class="{{ 'gain' if lot.lot_return >= 0 else 'loss' }}">{{ "%+.2f"|format(lot.lot_return * 100) }}%</span>
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+      <td class="num">
+        {%- if lot.benchmark_return is not none -%}
+          {{ "%+.2f"|format(lot.benchmark_return * 100) }}%
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+      <td class="num">
+        {%- if lot.alpha is not none -%}
+          <span class="{{ 'gain' if lot.alpha >= 0 else 'loss' }}">{{ "%+.2f"|format(lot.alpha * 100) }}%</span>
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+    </tr>
+    {% if lot.return_note or lot.benchmark_note or lot.benchmark_window or lot.priced_at %}
+    <tr>
+      <td colspan="8" class="unavailable">
+        {# The valuation date is printed whenever there is one. "Value A$ 7,603.20"
+           with no date invites the reader to assume today; naming the close date
+           makes the measurement window visible on the page rather than only
+           enforced in code. #}
+        {%- if lot.priced_at %}Valued to {{ lot.priced_at }}.{% endif -%}
+        {%- if lot.benchmark_window %} Window {{ lot.benchmark_window[0] }} → {{ lot.benchmark_window[1] }}.{% endif -%}
+        {%- if lot.return_note %} {{ lot.return_note }}{% endif -%}
+        {%- if lot.benchmark_note %} Benchmark: {{ lot.benchmark_note }}{% endif -%}
+      </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">{{ s.empty_note }}</p>
+  {% endif %}
+  {% endfor %}
+  <p class="footnote">
+    Measurement only — arithmetic on your own acquisition record and the latest close.
+    It carries no ranking, no instruction, and no view on what to do next.
+    For personal use only (s766B Corporations Act 2001).
+  </p>
+  {% endif %}
+  <!-- outcome:end -->
 
   {# The "Signal changes on holdings" section that sat here rendered the Model A
      label ladder (STRONG_BUY … STRONG_SELL) and its top SHAP driver. It was

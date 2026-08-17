@@ -63,6 +63,19 @@ numbered it 7. Left as found; renumbering here would not fix it.)
        ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
      Omitted entirely when either flag is unset, or when no successful
      build_portfolio run exists with as_of >= today - 2 (plan I.7 freshness gate).
+  8. Outcome vs benchmark — per-open-lot return since acquisition, the benchmark's
+     return over the same window from `portfolio_daily_snapshots.benchmark_tr_level`,
+     and alpha. The only production code behind the north star's "benchmark-relative"
+     output (`docs/product/north-star.md:40`). Anchored on
+     `holding_lots.acquired_at`/`cost_base_normal` and `prices.close` with an explicit
+     FX step — **never** on differencing `portfolio_daily_snapshots.capital_aud`
+     (why: `asxos/domain/brief/collectors/wealth_state.py:101-108`).
+     Sleeve-separated per governor ruling F2 and proxy-vetoed per F1
+     (`docs/product/roadmap-state.md:252-254`).
+     Model-independent by construction — no `signals`, no `resolve_production_model()`.
+     Gated on ASXOS_PERSONAL_USE=1 only (§3 parity), which
+     `.github/workflows/daily-brief.yml` already sets; no new flag, and explicitly
+     not `ASXOS_V2_BRIEF_ENABLED` (the V2 tree stays dark, deferred to Stage 6).
 """
 from __future__ import annotations
 
@@ -78,6 +91,16 @@ from urllib.parse import urlparse
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.domain.benchmark.outcome import (
+    MAX_ANCHOR_LAG_DAYS,
+    BenchmarkAnchor,
+    LotInput,
+    Observation,
+    OutcomeSection,
+    Sleeve,
+    build_outcome_section,
+    sleeve_for,
+)
 from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.prices.fx import is_foreign_symbol
 from asxos.domain.review.status import ReviewOutcome, classify
@@ -244,6 +267,14 @@ class BriefData:
     portfolio_section: PortfolioSection | None = None
     # PR2a: collected, not yet rendered (PR2b adds the brief.html.j2 block).
     discipline_findings: list[DisciplineFinding] = field(default_factory=list)
+    # Section 8 — per-open-lot return since acquisition, the benchmark's return
+    # over the same window, and alpha. ``None`` when ASXOS_PERSONAL_USE is unset
+    # (the section is then absent, not empty). ``outcome_error`` is set instead
+    # when the loader raised: the brief says the measurement could not run rather
+    # than omitting it, because an absent section and a failed one look identical
+    # to a reader and only one of them is honest (CLAUDE.md #10).
+    outcome_section: OutcomeSection | None = None
+    outcome_error: str | None = None
     latest_price_date: date | None = None
     # Latest *complete* trading day in `prices` (not the calendar as_of). It is a
     # statement about PRICE completeness and nothing else: since the signal and
@@ -285,9 +316,22 @@ class BriefData:
           would let a single CGT-boundary fact make a wholly unchecked portfolio
           read ``CLEAR``. The unknown below is therefore keyed on *non-info*
           findings.
-        * Stale prices, and holdings with no discipline evidence at all, are
-          **unknowns** — the two ways this brief can look calm while knowing
-          nothing (packet P1 required-work item 5).
+        * Stale prices, holdings with no discipline evidence at all, and a
+          section 8 that could not run are **unknowns** — the three ways this
+          brief can look calm while knowing nothing (packet P1 required-work
+          item 5).
+
+        ``outcome_error`` is an **unknown, not blocking**, and the distinction is
+        deliberate. Section 8 is a measurement, not a check: its failure means
+        "we cannot tell you how the lots did", not "a discipline check could not
+        run". ``EVIDENCE_THIN`` is the honest reading of that. What it must not
+        do is nothing at all — before this mapping, a brief with
+        ``holdings_count == 0``, fresh prices and a crashed outcome loader
+        rendered ``CLEAR`` in the header directly above a red "could not run"
+        banner. That is precisely the shape
+        :mod:`asxos.domain.review.status` exists to close ("an absence of
+        evidence presented as evidence of absence"), reappearing through a
+        section added after the module was written.
 
         A brief with no holdings, no findings and fresh prices is ``CLEAR``:
         there is genuinely nothing to review, which is a different statement from
@@ -318,6 +362,8 @@ class BriefData:
                 "Prices stale — latest price date: "
                 f"{self.latest_price_date or 'no data'}"
             )
+        if self.outcome_error:
+            unknowns.append(f"Outcome vs benchmark not measured — {self.outcome_error}")
         checked = any(
             f.level != DisciplineLevel.info for f in self.discipline_findings
         )
@@ -397,6 +443,21 @@ async def collect(as_of: date) -> BriefData:
                 )
             )
 
+        # Same fail-loud isolation as the two blocks above — with one deliberate
+        # difference. Those map their failure to a `DisciplineLevel.error`
+        # finding, which `BriefData.review` treats as **blocking** (BLOCKED). A
+        # section-8 failure is carried on its own `outcome_error` field and
+        # treated as an **unknown** (EVIDENCE_THIN) instead, because section 8 is
+        # a measurement rather than a discipline check. Both render loudly; only
+        # the headline differs. See `BriefData.review` for the full reasoning —
+        # what neither may do is leave the headline untouched.
+        outcome_section: OutcomeSection | None = None
+        outcome_error: str | None = None
+        try:
+            outcome_section = await _lot_outcomes(conn, as_of)
+        except Exception as exc:
+            outcome_error = f"outcome section could not run: {exc}"
+
     return BriefData(
         as_of=as_of,
         holdings_count=int(holdings_count),
@@ -406,6 +467,8 @@ async def collect(as_of: date) -> BriefData:
         news_status=news_status,
         portfolio_section=portfolio_section,
         discipline_findings=discipline_findings,
+        outcome_section=outcome_section,
+        outcome_error=outcome_error,
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
     )
@@ -910,6 +973,186 @@ async def _discipline_findings(
         if pnl is not None:
             findings.append(pnl)
     return findings
+
+
+def _resolve_anchor(
+    rows: list[asyncpg.Record], target: date
+) -> BenchmarkAnchor | None:
+    """The benchmark level in effect at ``target`` — latest row on or before it.
+
+    ``rows`` must be ascending by ``as_of`` and carry only non-NULL
+    ``benchmark_tr_level``. Returns ``None`` when the series does not reach back
+    that far, which the outcome layer reports as `unavailable_no_series` rather
+    than reaching forward to a later level (that would measure a window the lot
+    never had).
+
+    ``is_proxy`` is derived from ``trailing_div_yield_pct`` being non-NULL:
+    `jobs/snapshot_portfolio.py:274-290` writes the assumed yield on the
+    approximation path and leaves it NULL when `benchmark_tr_level` is the real
+    accumulation index. That column is the only record of which path ran, and
+    governor ruling F1 turns on exactly that distinction.
+    """
+    chosen: asyncpg.Record | None = None
+    for row in rows:
+        if row["as_of"] <= target:
+            chosen = row
+        else:
+            break
+    if chosen is None:
+        return None
+    return BenchmarkAnchor(
+        as_of=chosen["as_of"],
+        level=Decimal(str(chosen["benchmark_tr_level"])),
+        is_proxy=chosen["trailing_div_yield_pct"] is not None,
+    )
+
+
+async def _lot_outcomes(
+    conn: asyncpg.Connection, as_of: date
+) -> OutcomeSection | None:
+    """Section 8 loader — per-open-lot return, benchmark return, alpha.
+
+    This is the first production consumer of `asxos.domain.benchmark.returns`
+    and the only code behind the north star's "benchmark-relative" claim
+    (`docs/product/north-star.md:40`). All arithmetic lives in
+    `asxos.domain.benchmark.outcome`; this function only fetches facts.
+
+    **It never reads `portfolio_daily_snapshots.capital_aud`, and it must never
+    start** (why: `asxos/domain/brief/collectors/wealth_state.py:101-108`). The
+    portfolio leg is anchored on `holding_lots.acquired_at` / `cost_base_normal`,
+    which no deposit or withdrawal can move. `tests/test_brief_outcome.py`
+    asserts `capital_aud` appears in no query this path issues, and pins the
+    snapshot query's projection so a `SELECT *` cannot re-expose it.
+
+    Currency (R10, `.claude/rules/portfolio-conventions.md` §"`cost_base_normal`
+    currency"): `cost_base_normal` is already AUD; the market leg is converted
+    forward with an explicit `fx_rates` AUDUSD step. Nothing here divides a cost
+    base by a quantity.
+
+    Sleeves (governor ruling F2): benchmark levels are fetched and attached for
+    ASX lots only, so a global lot cannot reach the ASX comparison even before
+    the outcome layer's own sleeve check refuses it.
+
+    Gated on ``ASXOS_PERSONAL_USE=1`` only — parity with `_discipline_findings`,
+    which `.github/workflows/daily-brief.yml` already sets. Deliberately NOT
+    gated on ``ASXOS_PORTFOLIO_BRIEF_ENABLED`` (that gates the allocator's trade
+    suggestions) and not on ``ASXOS_V2_BRIEF_ENABLED`` (the V2 tree is dark and
+    deferred to Stage 6; this section ships on V1 precisely so it does not wait
+    on that flag).
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return None
+
+    # `holding_lots`, not the `current_holdings` view — for an EXPLICIT
+    # `disposed_at IS NULL`, matching `jobs/snapshot_portfolio.py`.
+    #
+    # CORRECTION (2026-08-17): an earlier version of this comment claimed the
+    # view "does not expose cost_base_normal". That is FALSE — the view selects
+    # it (`migrations/0001_initial.sql`, the `current_holdings` definition), and
+    # no later migration redefines it. The claim was copied from a pre-existing
+    # wrong comment in `snapshot_portfolio.py` and was pinned into a test name
+    # before review caught it. Either source is correct to read; the reason is
+    # that the open-lot filter should be visible at the query, not implied by a
+    # view definition three migrations away.
+    lot_rows = await conn.fetch(
+        """
+        SELECT id, symbol, quantity, acquired_at, cost_base_normal
+        FROM holding_lots
+        WHERE disposed_at IS NULL
+        ORDER BY acquired_at, symbol, id
+        """
+    )
+    if not lot_rows:
+        return build_outcome_section([], as_of)
+
+    # `dt` is selected, not just `close`. Without it the outcome layer cannot tell
+    # a close from yesterday from one from three months ago — a halt, a delisting
+    # or a per-symbol sync gap would silently produce a lot return measured to an
+    # old close against a benchmark measured to `as_of`, i.e. an alpha spanning
+    # two different windows. The date is what makes that checkable.
+    symbols = sorted({r["symbol"] for r in lot_rows})
+    price_rows = await conn.fetch(
+        """
+        SELECT DISTINCT ON (symbol) symbol, dt, close
+        FROM prices
+        WHERE symbol = ANY($1) AND dt <= $2
+        ORDER BY symbol, dt DESC
+        """,
+        symbols,
+        as_of,
+    )
+    closes = {
+        r["symbol"]: Observation(as_of=r["dt"], value=Decimal(str(r["close"])))
+        for r in price_rows
+    }
+
+    # AUDUSD from `fx_rates` — the primary source `jobs/snapshot_portfolio.py`
+    # itself reads, rather than the snapshot's derived copy. Fetched only when a
+    # foreign lot is open, so an all-ASX portfolio issues no FX query at all.
+    # `dt` again: the rate is daily (sync_prices Phase 3 pulls AUDUSD.FOREX
+    # daily), so a rate more than a few days old means the FX feed has stalled,
+    # and valuing a USD lot at a stalled rate misstates it in AUD.
+    fx_audusd: Observation | None = None
+    if any(is_foreign_symbol(s) for s in symbols):
+        fx_row = await conn.fetchrow(
+            """
+            SELECT dt, rate FROM fx_rates
+            WHERE pair = 'AUDUSD' AND dt <= $1
+            ORDER BY dt DESC
+            LIMIT 1
+            """,
+            as_of,
+        )
+        if fx_row is not None:
+            fx_audusd = Observation(
+                as_of=fx_row["dt"], value=Decimal(str(fx_row["rate"]))
+            )
+
+    # Benchmark levels, ASX lots only (F2). The window starts MAX_ANCHOR_LAG_DAYS
+    # before the earliest ASX acquisition — the same tolerance the outcome layer
+    # applies when deciding whether an anchor still describes the lot's window.
+    # NOTE: this SELECT deliberately does not list `capital_aud`. See the
+    # docstring; the omission is the fix, not an oversight.
+    asx_acquisitions = [
+        r["acquired_at"] for r in lot_rows if sleeve_for(r["symbol"]) is Sleeve.asx
+    ]
+    benchmark_rows: list[asyncpg.Record] = []
+    if asx_acquisitions:
+        benchmark_rows = list(
+            await conn.fetch(
+                """
+                SELECT as_of, benchmark_tr_level, trailing_div_yield_pct
+                FROM portfolio_daily_snapshots
+                WHERE as_of <= $1
+                  AND as_of >= $2
+                  AND benchmark_tr_level IS NOT NULL
+                ORDER BY as_of
+                """,
+                as_of,
+                min(asx_acquisitions) - timedelta(days=MAX_ANCHOR_LAG_DAYS),
+            )
+        )
+    benchmark_end = _resolve_anchor(benchmark_rows, as_of)
+
+    lots: list[LotInput] = []
+    for r in lot_rows:
+        is_asx = sleeve_for(r["symbol"]) is Sleeve.asx
+        lots.append(
+            LotInput(
+                lot_id=r["id"],
+                symbol=r["symbol"],
+                quantity=Decimal(str(r["quantity"])),
+                acquired_at=r["acquired_at"],
+                cost_base_aud=Decimal(str(r["cost_base_normal"])),
+                close=closes.get(r["symbol"]),
+                fx_audusd=fx_audusd,
+                benchmark_start=(
+                    _resolve_anchor(benchmark_rows, r["acquired_at"]) if is_asx else None
+                ),
+                benchmark_end=benchmark_end if is_asx else None,
+            )
+        )
+    return build_outcome_section(lots, as_of)
 
 
 def render_html(data: BriefData) -> str:
