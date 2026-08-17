@@ -1,0 +1,51 @@
+{
+  "snapshot_id": "snap-synthetic-stale-0001",
+  "schema_version": 1,
+  "observed_at": "2025-06-01T00:00:00+00:00",
+  "repository": {
+    "base_sha": {"status": "observed", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "branch": {"status": "observed", "value": "main"},
+    "dirty_state": {"status": "observed", "value": false}
+  },
+  "github": {
+    "open_prs": {
+      "status": "observed",
+      "value": [{"number": 9001, "title": "synthetic: example open PR", "state": "open"}]
+    },
+    "recent_merges": {
+      "status": "observed",
+      "value": [{"number": 8999, "merged_at": "2025-05-20T00:00:00+00:00"}]
+    },
+    "workflow_runs": {
+      "status": "observed",
+      "value": [{"workflow": "fake-check-workflow", "conclusion": "success", "run_at": "2025-05-20T01:00:00+00:00"}]
+    }
+  },
+  "production": {
+    "release_identity": {"status": "observed", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "scheduler_owners": {"status": "observed", "value": [{"job": "fake_nightly_job", "owner": "fake-cron-host"}]}
+  },
+  "data": {
+    "migrations": {"status": "observed", "value": {"applied_count": 12, "latest": "0012_fake_example"}},
+    "freshness": {"status": "observed", "value": {"prices_as_of": "2025-05-19", "age_days": 13}},
+    "coverage": {"status": "observed", "value": {"symbols_with_prices": 5, "universe_size": 7}}
+  },
+  "probes": [
+    {
+      "name": "repository.base_sha",
+      "status": "observed",
+      "source": "git rev-parse (synthetic example)",
+      "observed_at": "2025-06-01T00:00:00+00:00",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "freshness": {"observed_minus_commit_days": 12}
+    },
+    {
+      "name": "data.freshness",
+      "status": "observed",
+      "source": "synthetic-fixture-generator",
+      "observed_at": "2025-06-01T00:00:00+00:00",
+      "value": {"prices_as_of": "2025-05-19"},
+      "freshness": {"age_days": 13}
+    }
+  ]
+}
