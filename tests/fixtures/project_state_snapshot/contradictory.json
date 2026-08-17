@@ -1,0 +1,56 @@
+{
+  "snapshot_id": "snap-synthetic-contradictory-0001",
+  "schema_version": 1,
+  "observed_at": "2026-01-18T11:45:00+00:00",
+  "repository": {
+    "base_sha": {"status": "observed", "value": "ffffffffffffffffffffffffffffffffffffffff"},
+    "branch": {"status": "observed", "value": "main"},
+    "dirty_state": {"status": "observed", "value": false}
+  },
+  "github": {
+    "open_prs": {"status": "observed", "value": []},
+    "recent_merges": {
+      "status": "observed",
+      "value": [{"number": 9003, "merge_sha": "ffffffffffffffffffffffffffffffffffffffff"}]
+    },
+    "workflow_runs": {
+      "status": "observed",
+      "value": [{"workflow": "fake-check-workflow", "conclusion": "success"}]
+    }
+  },
+  "production": {
+    "release_identity": {"status": "observed", "value": "9999999999999999999999999999999999999999"},
+    "scheduler_owners": {
+      "status": "observed",
+      "value": [{"job": "fake_nightly_job", "owner": "fake-cron-host-A"}]
+    }
+  },
+  "data": {
+    "migrations": {"status": "observed", "value": {"applied_count": 12, "latest": "0012_fake_example"}},
+    "freshness": {"status": "observed", "value": {"prices_as_of": "2026-01-18", "age_days": 0}},
+    "coverage": {"status": "observed", "value": {"symbols_with_prices": 7, "universe_size": 7}}
+  },
+  "probes": [
+    {
+      "name": "data.migrations",
+      "status": "observed",
+      "source": "fake-db-catalog (synthetic example)",
+      "observed_at": "2026-01-18T11:45:00+00:00",
+      "value": {"applied_count": 12}
+    },
+    {
+      "name": "data.migrations",
+      "status": "observed",
+      "source": "migrations-directory-listing (synthetic example)",
+      "observed_at": "2026-01-18T11:45:00+00:00",
+      "value": {"file_count": 14}
+    },
+    {
+      "name": "production.scheduler_owners",
+      "status": "observed",
+      "source": "fake-scheduler-inventory-doc (synthetic example)",
+      "observed_at": "2026-01-18T11:45:00+00:00",
+      "value": [{"job": "fake_nightly_job", "owner": "fake-cron-host-B"}]
+    }
+  ]
+}
