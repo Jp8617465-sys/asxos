@@ -122,6 +122,53 @@ mutually exclusive. Amendment C in the pack narrows that to permit `--force-with
 `claude/**`; it is **not** part of this ruling and is only needed if James later wants the loop
 running with no session open.
 
+#### Amendment B — execute-to-completion chaining (James, 2026-08-16)
+
+Recorded per the GOV-01 two-artifact precedent (`decision-log.md` row `gov-01-2026-08-12`: a
+ruling requires the ruling AND the queue amendment) — and per the P2-03 red-team's binding
+constraint that this be recorded at mission start, not deferred to a close. On 2026-08-16 James
+instructed, verbatim: **"execute reMAINING TO DO LIST TO COMPLETIO"** (execute remaining to-do
+list to completion; session instruction, authority ladder level 0 — this row is its repository
+record). Effect on the queue:
+
+> Sequential mission chaining extends beyond Amendment A's enumerated order
+> (`P1-01 → … → SB0-01`) to the remaining packet work orders in dependency-and-GOV-01 order,
+> one mission per unit, each with an `arbi-red-team` vet, one branch, one draft PR, and a
+> per-unit close row. **Merge, ready and un-draft remain James-only** (observed mechanically
+> enforced this same day: `push-guard.sh` denies `gh pr ready` and `gh pr merge` from the agent
+> on any surface). **Parallel packet missions still require James naming both mission IDs**
+> (unchanged). Hard stops unchanged: credentials, migrations, destructive DB operations,
+> production writes, scheduler cutover, direct pushes to `main`, merge/self-approval, authority
+> or permission changes, personalised financial instructions, capital execution.
+
+Amendment A supplies stacking *mechanics* only; this instruction is the *authority* for chaining
+past SB0-01 — never cite Amendment A as authority for the P2/SB1+/P3 lanes.
+
+**Rider — parallel authorization (James, 2026-08-17).** Recorded verbatim per the SB1-01
+red-team's condition precedent (the parallel rule contemplates pairs; a three-way concurrency
+needs the governor naming all of it, and the record must be a dated queue amendment, not a
+session transcript). James wrote:
+
+> Approved parallel: SB1-01 and P3-01, alongside the in-flight P2-04. Then P2-05 when P2-04
+> lands. Then approved parallel: SB1-02, SB2-01, SB3-01, SB4-01.
+
+Effect: (1) SB1-01 ∥ P3-01 ∥ P2-04 is the authorized three-way; (2) P2-05 is pre-authorized
+sequential on P2-04's completion; (3) the four-way SB1-02 ∥ SB2-01 ∥ SB3-01 ∥ SB4-01 is
+pre-authorized contingent on SB1-01 landing and a per-mission `arbi-red-team` vet each — a
+pre-authorization is not a vet waiver. Unchanged: merge/ready/un-draft remain James-only; every
+hard stop stands; one work order per branch per draft PR per close row.
+
+Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
+single-builder with the independent-review function preserved in separate documented passes;
+the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
+fit per mission.
+
+Fixture ruling recorded (P2-02, PR #113): acquisition path = **hashed fixture**. G2 assigned
+the decision to P2-02 in writing (`finance-capability-matrix-2026-08-13.md:358-360`); a real
+feed is not executable inside any mission (no endpoint exists; credential creation is a
+mandatory stop), and James's later feed decision is preserved at zero swap cost by
+source-agnostic contracts.
+
 **Alias mapping — session task numbers are NOT a second queue.** Per the packet (§2.4), Claude
 Code's session-local task numbers are execution aliases only; the canonical identity is the packet
 plus the selected work-order ID. Recorded here solely so the two never diverge:
