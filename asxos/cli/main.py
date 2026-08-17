@@ -9,11 +9,13 @@ command module at load time, so a single ML import here makes EVERY `asx` comman
 (tax-view, thesis, portfolio, brief) fail with `No module named 'joblib'`.
 Pinned by tests/test_cli_model_independence.py.
 """
+
 from __future__ import annotations
 
 import typer
 
 from asxos.cli.agent_run import agent_run_app
+from asxos.cli.arbi import arbi_app
 from asxos.cli.brief import brief
 from asxos.cli.holdings import import_holdings
 from asxos.cli.journal import journal_app
@@ -55,6 +57,7 @@ app.add_typer(thesis_app, name="thesis")
 app.add_typer(theme_app, name="theme")
 app.add_typer(macro_thesis_app, name="macro-thesis")
 app.add_typer(agent_run_app, name="agent-run")
+app.add_typer(arbi_app, name="arbi")
 app.add_typer(screen_app, name="screen")
 
 
