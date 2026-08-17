@@ -63,6 +63,7 @@ from asxos.domain.results_review.fixtures import (
 from asxos.domain.results_review.gates import evaluate_case
 from asxos.domain.results_review.reviewer import (
     VERDICT_SCOPE_STATEMENT,
+    VERDICT_SCOPE_STATEMENT_CHALLENGE_BINDING,
     ReviewerVerdict,
     challenged_review,
     review_adapted,
@@ -321,8 +322,8 @@ _ADVICE_PATTERNS: Final[tuple[re.Pattern[str], ...]] = tuple(
         r"\brating\b",
         r"\bprice target\b",
         r"\btarget price\b",
-        r"\bposition\b",
-        r"\bholding\b",
+        r"\bpositions?\b",
+        r"\bholdings?\b",
         r"\bportfolio\b",
         r"\btrade\b",
         r"\btrades\b",
@@ -332,6 +333,22 @@ _ADVICE_PATTERNS: Final[tuple[re.Pattern[str], ...]] = tuple(
         r"\bsize\b",
         r"\bsizing\b",
         r"\bstop[ -]loss\b",
+        # Widened by the P2-04 independent review (fix 1). This grep is the ONLY
+        # tripwire for advice creep inside the fixed templates themselves: the
+        # template-identity test catches interpolation, but an advice word edited
+        # into a template appears identically in both outputs and slips past it.
+        # Stems, not exact words, so inflections cannot evade (allocate/allocation/
+        # allocating). Plurals were the concrete gap found: `\bposition\b` did not
+        # match "positions".
+        r"\ballocat",
+        r"\breduc",
+        r"\bincreas",
+        r"\btarget\b",
+        r"\bshort\b",
+        r"\blong\b",
+        r"\bdivest",
+        r"take[ -]?profit",
+        r"\bweighting\b",
     )
 ) + tuple(
     re.compile(pattern)
@@ -396,6 +413,21 @@ def test_revise_addressee_wording_is_pinned_to_the_artifact() -> None:
     )
     for _, adapted in _adapted_fixtures():
         assert review_adapted(adapted).scope_statement == VERDICT_SCOPE_STATEMENT
+
+
+def test_challenge_binding_scope_statement_is_pinned_and_advice_free() -> None:
+    # P2-04 independent review, fix 2. On the R5 path where the ONLY failed
+    # check is the challenge binding, the artifact was never found defective,
+    # so claiming "correction of the artifact" would be literally inaccurate.
+    assert VERDICT_SCOPE_STATEMENT_CHALLENGE_BINDING == (
+        "This verdict addresses the results-review artifact and its analysis "
+        "only; here the revise verdict calls for correction of the challenge "
+        "binding — the supplied challenge does not bind to this artifact — and "
+        "of nothing else."
+    )
+    _assert_advice_free(
+        VERDICT_SCOPE_STATEMENT_CHALLENGE_BINDING, context="binding scope statement"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -471,6 +503,11 @@ def test_misbound_challenge_is_a_defect() -> None:
     # R5: a challenge examining some other artifact can neither cap nor force
     # this one's verdict — its ceiling is disregarded, not applied.
     assert verdict.challenge_ceiling is None
+    # R6 (independent-review fix 2): the binding failure is the ONLY defect, so
+    # the verdict must say the challenge needs correcting, not the artifact.
+    assert _failed_gates(verdict) == {"challenge_binding"}
+    assert verdict.scope_statement == VERDICT_SCOPE_STATEMENT_CHALLENGE_BINDING
+    _assert_advice_free(_verdict_text(verdict), context="misbound revise verdict")
 
 
 def test_challenger_output_is_deterministic_and_canonical() -> None:

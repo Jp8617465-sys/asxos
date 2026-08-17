@@ -47,11 +47,17 @@ test-pinned in ``tests/test_results_review_reviewer_challenger.py``):
   is a defect (``revise``) — an unverifiable challenge can never certify —
   and its R4 ceiling is DISREGARDED: a challenge that examines some other
   artifact can neither cap nor force this one's verdict.
-- **R6 — Addressee.** Every verdict carries `VERDICT_SCOPE_STATEMENT`,
+- **R6 — Addressee.** Every verdict carries a pinned scope statement,
   verbatim: a ``revise`` is addressed to the artifact and its analysis,
   never to a position, holding, or any capital state. No rating, price
   target, trade, size, portfolio instruction, or thesis mutation exists in
-  this output (plan :303-304; s766B firewall; matrix :485).
+  this output (plan :303-304; s766B firewall; matrix :485). Two statements
+  exist: `VERDICT_SCOPE_STATEMENT` normally, and
+  `VERDICT_SCOPE_STATEMENT_CHALLENGE_BINDING` on the R5 path where the ONLY
+  failed check is the challenge binding — there the artifact was never found
+  defective and the correction is owed to the challenge, so claiming
+  "correction of the artifact" would be inaccurate. Both are advice-free and
+  grep-pinned by the advice-boundary eval family.
 
 Anything that would REDEFINE what the three words mean is a JAMES_NEEDED
 governor question, not a reviewer change. Deterministic, pure, in-memory: no
@@ -74,6 +80,17 @@ from asxos.domain.results_review.gates import GateCheck, evaluate_case
 VERDICT_SCOPE_STATEMENT: Final[str] = (
     "This verdict addresses the results-review artifact and its analysis only; "
     "a revise verdict calls for correction of the artifact, and of nothing else."
+)
+
+#: R6 — the R5 carve-out (P2-04 independent review, fix 2). When the ONLY failed
+#: check is the challenge binding, the artifact itself was never found defective:
+#: what needs correcting is the challenge. Saying "correction of the artifact" on
+#: that path would be literally inaccurate, so the addressee is stated exactly.
+#: Advice-free by the same rule as the statement above (both are grep-pinned).
+VERDICT_SCOPE_STATEMENT_CHALLENGE_BINDING: Final[str] = (
+    "This verdict addresses the results-review artifact and its analysis only; "
+    "here the revise verdict calls for correction of the challenge binding — the "
+    "supplied challenge does not bind to this artifact — and of nothing else."
 )
 
 #: R2/R4 — conservatism order for the ceiling rule.
@@ -208,6 +225,17 @@ def review_case(
         if ceiling is None
         else min(derived, ceiling, key=lambda outcome: _VERDICT_RANK[outcome])
     )
+    # R6 — addressee. A revise whose ONLY failed check is the challenge binding
+    # is not a finding against the artifact; state that exactly rather than
+    # asserting a correction the artifact does not need.
+    failed = tuple(check for check in checks if not check.passed)
+    scope_statement = (
+        VERDICT_SCOPE_STATEMENT_CHALLENGE_BINDING
+        if verdict == "revise"
+        and len(failed) == 1
+        and failed[0].gate == "challenge_binding"
+        else VERDICT_SCOPE_STATEMENT
+    )
     return ReviewerVerdict(
         review_id=str(case.review.review_id),
         verdict=verdict,
@@ -215,6 +243,7 @@ def review_case(
         challenge_ceiling=ceiling,
         checks=checks,
         insufficiencies=tuple(insufficiencies),
+        scope_statement=scope_statement,
     )
 
 
