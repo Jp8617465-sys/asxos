@@ -158,6 +158,45 @@ pre-authorized contingent on SB1-01 landing and a per-mission `arbi-red-team` ve
 pre-authorization is not a vet waiver. Unchanged: merge/ready/un-draft remain James-only; every
 hard stop stands; one work order per branch per draft PR per close row.
 
+**Amendment D — product-lane authorization (James, 2026-08-18).** Ratified verbatim by James
+("can we do amendment D") after reviewing the shape of the 2026-08-17 campaign, whose merged
+output he judged too narrow and, of the code, "half baked at best" — a judgement the evidence
+supports: the merged outcome-vs-benchmark section renders `unavailable` for both the benchmark
+and alpha on the live portfolio, because no benchmark series exists for the sleeve the sole
+holding sits in. Recorded per the GOV-01 two-artifact precedent: a ruling requires the ruling
+AND the queue amendment; this row is the repository record of the ruling.
+
+> A **product lane** is opened alongside the packet lane and ranks **above** it. `/arbi-run`
+> may dispatch its rows in order **without returning to James for per-item authorization**.
+> Each row remains one work order, one `claude/**` branch, one draft PR, one `arbi-red-team`
+> vet, one close row. When the product lane is exhausted or blocked, `/arbi-run` falls through
+> to the packet lane's already-authorized rows (the four-way above).
+
+**What this authorizes.** Dispatch to a draft PR of the product-lane rows. Specifically it
+**lifts the 2026-08-12 deferral of live-defect #7** (`:215`) for the purpose of *descoping the
+V2 collector tree in code*: the objection recorded 2026-07-12 ("ships stale signal framing") is
+measured false on current `main` — ten of eleven collectors read no `signals` table, and the
+eleventh (`opportunity_cost`, fed by `jobs/compute_opportunity_cost.py`) is dropped by the
+descope rather than shipped.
+
+**What this does NOT authorize — every hard stop survives it.** Setting
+`ASXOS_V2_BRIEF_ENABLED`, or editing any file under `.github/` — the flag remains James's, and
+defect #7's rule that the V2 tree "must not be enabled to clear a gate" is unchanged; the
+descope prepares the flip, it does not perform it. Merge, ready, un-draft. Credentials or
+secrets. Migrations or any DB write. Production deploys or scheduler cutover. Direct pushes to
+`main`. Self-approval. Authority or permission changes. Personalised financial instructions or
+capital execution. **Rule #11 stands unchanged** — no row may read `signals`, `model_versions`
+or any Model A artefact, and none may emit a valuation, rating, ranking, price target or
+position size.
+
+**Standing condition attached at ratification (2026-08-18).** A product-lane row is not
+complete while its output on **live data** is `unavailable`, empty, or driven only by demo
+rows. The work order must state what the feature renders against the current database, and
+that statement is checked before the close row is written. This condition exists because two
+units merged on 2026-08-17 (#129, #130) are correct, tested, and inert: #129 renders no
+benchmark because none exists for the global sleeve, and #130's only live trigger is a demo
+thesis. Correct-and-empty is not done.
+
 Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
 single-builder with the independent-review function preserved in separate documented passes;
 the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
