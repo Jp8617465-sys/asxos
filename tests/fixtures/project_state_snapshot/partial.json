@@ -1,0 +1,52 @@
+{
+  "snapshot_id": "snap-synthetic-partial-0001",
+  "schema_version": 1,
+  "observed_at": "2026-01-17T21:15:00+00:00",
+  "repository": {
+    "base_sha": {"status": "observed", "value": "dddddddddddddddddddddddddddddddddddddddd"},
+    "branch": {"status": "observed", "value": "main"},
+    "dirty_state": {"status": "observed", "value": true}
+  },
+  "github": {
+    "open_prs": {"status": "observed", "value": []},
+    "recent_merges": {"status": "error"},
+    "workflow_runs": {"status": "unavailable"}
+  },
+  "production": {
+    "release_identity": {"status": "observed", "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},
+    "scheduler_owners": {"status": "unavailable"}
+  },
+  "data": {
+    "migrations": {"status": "observed", "value": {"applied_count": 12, "latest": "0012_fake_example"}},
+    "freshness": {"status": "unavailable"},
+    "coverage": {"status": "unavailable"}
+  },
+  "probes": [
+    {
+      "name": "github.open_prs",
+      "status": "observed",
+      "source": "gh pr list (synthetic example)",
+      "observed_at": "2026-01-17T21:15:00+00:00",
+      "value": []
+    },
+    {
+      "name": "github.recent_merges",
+      "status": "error",
+      "source": "gh api (synthetic example)",
+      "observed_at": "2026-01-17T21:15:00+00:00",
+      "error_class": "http_5xx"
+    },
+    {
+      "name": "github.workflow_runs",
+      "status": "unavailable",
+      "source": "gh run list (synthetic example)",
+      "observed_at": "2026-01-17T21:15:00+00:00"
+    },
+    {
+      "name": "data.coverage",
+      "status": "unavailable",
+      "source": "fake-warehouse-view (synthetic example)",
+      "observed_at": "2026-01-17T21:15:00+00:00"
+    }
+  ]
+}
