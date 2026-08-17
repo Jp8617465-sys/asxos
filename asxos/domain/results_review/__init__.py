@@ -1,12 +1,28 @@
-"""Frozen results-review evidence and artifact contracts (mission P2-02).
+"""Frozen results-review contracts (P2-02) and the deterministic adapter (P2-03).
 
-One package per major entity (house convention). This package freezes the
-contracts the ASX Results-to-Thesis Review slice (`P2`) builds on. It contains
-no adapter, no reviewer, no DB access, and no recommendation surface — those
-are `P2-03`/`P2-04`. The freeze decisions and their citations are recorded in
-`docs/product/results-review-contracts-2026-08-16.md`.
+One package per major entity (house convention). `contracts.py` and
+`fixtures.py` freeze the contracts the ASX Results-to-Thesis Review slice
+(`P2`) builds on; the freeze decisions and their citations are recorded in
+`docs/product/results-review-contracts-2026-08-16.md`. `adapter.py` (P2-03)
+mechanically surfaces those frozen artifacts from a hashed fixture — pure
+in-memory, read-only, no DB access, and no persistence of its output. There
+is still no reviewer, no independent challenger, and no recommendation
+surface — those are `P2-04`.
 """
 
+from asxos.domain.results_review.adapter import (
+    SCALE_EXPONENT,
+    AdaptedResultsReview,
+    ResultsReviewAdapterError,
+    adapt_hashed_fixture,
+    artifact_output_sha256,
+    map_statement_period_type,
+    normalize_scale,
+    partition_admissible_evidence,
+    render_artifact_json,
+    render_artifact_markdown,
+    verify_hashed_fixture_payload,
+)
 from asxos.domain.results_review.contracts import (
     ADMISSIBLE_SOURCE_CLASSES,
     DEFAULT_TAX_READINESS,
@@ -50,6 +66,7 @@ __all__ = [
     "DOCUMENT_HASH_ALGORITHM",
     "LOAD_BEARING_SOURCE_CLASSES",
     "RESULTS_REVIEW_SCHEMA_VERSION",
+    "SCALE_EXPONENT",
     "SECURITY_ID_BINDING",
     "SOURCE_RANK",
     "STATEMENT_KNOWN_AT_UTC_TIME",
@@ -58,6 +75,7 @@ __all__ = [
     "TRADING_CALENDAR_SOURCE",
     "TRADING_SESSION_CLOSE_LOCAL",
     "AcquisitionPath",
+    "AdaptedResultsReview",
     "CitedStatement",
     "DocumentKind",
     "EvidenceConflict",
@@ -66,6 +84,7 @@ __all__ = [
     "MetricAdjustment",
     "MetricDelta",
     "PeriodType",
+    "ResultsReviewAdapterError",
     "ResultsReviewArtifact",
     "ResultsReviewCase",
     "ResultsReviewOutcome",
@@ -73,8 +92,16 @@ __all__ = [
     "SourceDocumentRecord",
     "StatutoryUnderlyingBridge",
     "UnitScale",
+    "adapt_hashed_fixture",
+    "artifact_output_sha256",
     "derive_statement_known_at",
     "frozen_delta_pct",
     "hash_document_payload",
+    "map_statement_period_type",
+    "normalize_scale",
+    "partition_admissible_evidence",
+    "render_artifact_json",
+    "render_artifact_markdown",
     "unresolved_tax_assessment_reference",
+    "verify_hashed_fixture_payload",
 ]
