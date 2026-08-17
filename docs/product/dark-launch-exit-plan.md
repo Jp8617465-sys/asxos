@@ -47,8 +47,10 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   capital gate, which on current evidence it does not.
 - **Live-state divergence the reader must not miss:** reverting the *verdict* does **not**
   turn the surface off. `ASXOS_NEWS_BRIEF_ENABLED: "1"` is still set in the executing
-  scheduler at `.github/workflows/daily-brief.yml:61`, so the (empty) section still renders
-  daily. Flipping the flag is a config change and was deliberately **not** made by this
+  scheduler at `.github/workflows/daily-brief.yml:61`, so the section still renders
+  daily. (Precision, post-#73: before that PR an empty result made the section *vanish*
+  entirely; it now renders an explicit state line — quiet vs unverified — so "still renders"
+  is true today for a different reason than when this line was written.) Flipping the flag is a config change and was deliberately **not** made by this
   docs-only sweep. The fresh verdict decides whether the flag goes to `0` (keep-dark until the
   symbol-mapping bug is fixed) or stays at `1` (ship, once (a) is genuinely met).
 - ~~**Verdict: SHIPPED, but condition (a) is void — the surface has been rendering
@@ -76,9 +78,12 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   wrote zero rows. The predicate and the brief's freshness gate were fixed 2026-08-05
   (`deea76a`); the reason the table is empty is a separate, still-open symbol-mapping bug.
   (b) **reads as context, never implied buy/sell** — verified by direct read + a `security-engineer`
-  s766B pass (PASS): `brief.html.j2`'s `news_items` block (lines 106-118) renders only symbol,
-  linked article title, publish date, and an optional sentiment tag — zero generated advisory
-  text; `compose.py`'s `NewsItem`/`_holding_news` is a pure passthrough of the `holding_news`
+  s766B pass (PASS): `brief.html.j2`'s news block (the `news_status` branch) renders only
+  symbol, linked article title, publish date, and an optional sentiment tag — zero generated
+  advisory text. Re-verified post-#73, which added two static status sentences (a quiet-day
+  line and an unverified-ingest disclaimer) to the non-`ok` branches; both are operational
+  state about the pipeline, carry no security-specific view, and do not change the PASS.
+  `compose.py`'s `NewsItem`/`_holding_news` is a pure passthrough of the `holding_news`
   table (no LLM call, no synthesis); `sentiment` is EODHD's third-party article-tone classifier,
   structurally decoupled from `signal_sentiment` (the Model A feature-engineering table) — no
   path from quarantined Model A output into this section. `ASXOS_PERSONAL_USE=1` gates first,

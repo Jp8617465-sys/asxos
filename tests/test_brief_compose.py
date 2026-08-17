@@ -26,6 +26,10 @@ import pytest
 
 from asxos.brief import compose
 from asxos.brief.compose import (
+    NEWS_DISABLED,
+    NEWS_OK,
+    NEWS_QUIET,
+    NEWS_UNVERIFIED,
     BriefData,
     DisciplineFinding,
     DisciplineLevel,
@@ -52,6 +56,14 @@ def _brief(**overrides) -> BriefData:
         "job_failures": [],
     }
     defaults.update(overrides)
+    # A fixture that supplies news items is modelling a day that HAS news, so it
+    # gets NEWS_OK unless it states otherwise. The production default stays
+    # NEWS_DISABLED (see BriefData.news_status) — that default renders the
+    # section away, which would silently vacuum up any assertion about its
+    # contents and pass. Tests that exercise the empty states pass news_status
+    # explicitly.
+    if overrides.get("news_items") and "news_status" not in overrides:
+        defaults["news_status"] = NEWS_OK
     return BriefData(**defaults)
 
 
@@ -774,6 +786,7 @@ def test_render_html_shows_news_section() -> None:
     """When news_items are populated the section appears in the HTML."""
     html = render_html(
         _brief(
+            news_status=NEWS_OK,
             news_items=[
                 NewsItem(
                     symbols=["BHP.AU"],
@@ -782,7 +795,7 @@ def test_render_html_shows_news_section() -> None:
                     published_at=date(2026, 5, 23),
                     sentiment="positive",
                 )
-            ]
+            ],
         )
     )
     assert "BHP.AU" in html
@@ -792,16 +805,94 @@ def test_render_html_shows_news_section() -> None:
     assert "Market news on holdings" in html
 
 
-def test_render_html_news_section_absent_when_no_items() -> None:
-    """When news_items=[] the news section header is not rendered (no empty-state placeholder)."""
-    html = render_html(_brief(news_items=[]))
+# ---------------------------------------------------------------------------
+# News empty-state honesty (M0)
+#
+# INVERTED from test_render_html_news_section_absent_when_no_items, which
+# asserted `"Market news on holdings" not in html` for an empty list and
+# described the silence approvingly as "no empty-state placeholder". That
+# assertion pinned the defect, so it had to be inverted rather than
+# supplemented: an omitted section and a reported quiet day are mutually
+# exclusive renderings of the same input.
+#
+# Silence is the problem. An absent section reads to James as "nothing
+# happened", which is indistinguishable from "ingestion has written zero rows
+# for a month" — the 2026-08 false-green shape one layer up, in the surface he
+# actually reads. Only NEWS_QUIET may assert that no news was found.
+# ---------------------------------------------------------------------------
+
+
+def test_render_html_quiet_reports_no_news_rather_than_vanishing() -> None:
+    """A verified-fresh, genuinely empty ingest states that finding explicitly."""
+    html = render_html(_brief(news_status=NEWS_QUIET, news_items=[]))
+
+    assert "Market news on holdings" in html, (
+        "a quiet day is a reportable finding, not an omitted section"
+    )
+    assert "No qualifying news found" in html
+    assert "not</strong> evidence" not in html, (
+        "quiet must not carry the unverified disclaimer"
+    )
+
+
+def test_render_html_unverified_does_not_claim_no_news() -> None:
+    """An unverified ingest must NOT be rendered as a quiet day.
+
+    This is the distinction the whole change exists for. Both states carry zero
+    items; only one of them licenses the sentence "no qualifying news was
+    found". Rendering `unverified` as quiet would manufacture a finding out of a
+    pipeline failure.
+    """
+    html = render_html(_brief(news_status=NEWS_UNVERIFIED, news_items=[]))
+
+    assert "Market news on holdings" in html
+    assert "News unavailable" in html
+    assert "not</strong> evidence" in html, "must disclaim absence-as-evidence"
+    assert "No qualifying news found" not in html, (
+        "an unverified pipeline must never assert that no news existed"
+    )
+
+
+def test_render_html_disabled_omits_the_section_entirely() -> None:
+    """A gated-off feature is the one case where silence is correct.
+
+    NEWS_DISABLED means the surface is not running at all — rendering a state
+    line would imply a live pipeline that reported something.
+    """
+    html = render_html(_brief(news_status=NEWS_DISABLED, news_items=[]))
     assert "Market news on holdings" not in html
+
+
+def test_render_html_unrecognised_status_fails_closed() -> None:
+    """An unknown status omits the section rather than defaulting to a claim.
+
+    `news_status` is a bare str, so a typo or a future state added to the
+    collector without a template arm reaches here. The outer guard is a positive
+    allowlist for that reason: the failure mode of an unrecognised value is a
+    missing section, not the 'News unavailable' copy asserted about a state
+    nobody established.
+    """
+    html = render_html(_brief(news_status="some-future-state", news_items=[]))
+    assert "Market news on holdings" not in html
+    assert "News unavailable" not in html
+
+
+def test_brief_data_defaults_to_disabled_not_quiet() -> None:
+    """The default must never silently claim a verified quiet day.
+
+    A BriefData constructed without news (older call sites, fixtures) defaults
+    to NEWS_DISABLED. Defaulting to NEWS_QUIET would let any incomplete
+    construction assert a finding it never established.
+    """
+    assert BriefData(as_of=date(2026, 5, 22),
+                     holdings_count=1).news_status == NEWS_DISABLED
 
 
 def test_render_html_news_section_escapes_title() -> None:
     """Malicious title in news item is HTML-escaped (autoescape active)."""
     html = render_html(
         _brief(
+            news_status=NEWS_OK,
             news_items=[
                 NewsItem(
                     symbols=["BHP.AU"],
