@@ -1,10 +1,24 @@
 # Finance red-team 2026-08-08 — evidence input to D0-04
 
-**Status: PROPOSAL — bounded, read-only evidence input to work order D0-04** (the "Product
-and financial-semantics correction sheet" in the outcome-programme convergence-sprint
-proposal). This document carries **no implementation authority and creates no roadmap**: it
-delivers a defect register, a verdict, and candidate work orders. Every build, migration,
-governed-doc change, parameter, and grandfathering decision below is **James-gated**.
+**Status: HISTORICAL RECORD — dispositioned 2026-08-09, merged to `main` 2026-08-17.** This
+document is retained as the evidence base and the durable record of the D1–D9 governor
+rulings (§6.1). It is **not** a live work queue: read §6.1 for what James actually ruled,
+and check the current roadmap for what has since been built. The register, verdict and
+R1–R9 candidate work orders below are as-of-2026-08-08 and were not re-verified at merge.
+
+**Why it merged after the fact.** The §6.1 rulings existed only as a GitHub PR comment on
+draft PR #78 for eight days. `docs/README.md` requires that a doc a future session must read
+be committed to `main` — branch-only artifacts are candidate evidence, not authority — so
+the rulings were unreachable to every later session. Merging fixes that. D1/D2 are the
+approvals that authorise the parked rules-integrity work (PR #80, migration `0042`); before
+this merge, that build's authorisation record lived nowhere durable.
+
+**Original status when written: PROPOSAL — bounded, read-only evidence input to work order
+D0-04** (the "Product and financial-semantics correction sheet" in the outcome-programme
+convergence-sprint proposal). This document carried **no implementation authority and created
+no roadmap**: it delivers a defect register, a verdict, and candidate work orders. Every
+build, migration, governed-doc change, parameter, and grandfathering decision below was
+**James-gated** — see §6.1 for how each was gated.
 Firewall: nothing in this document or its appendices is a direction regarding any live
 position; all HUBS ESS/CGT dates and computations are **UNKNOWN / NOT RELIABLE** pending
 verified Division 83A facts and accountant review.
@@ -288,6 +302,39 @@ leaves current behaviour unchanged.
 | D7 | **R8 sweep + R5 fleet audit + R6 scorecard shadow test** | Approve R8 with R1/R2; defer R5/R6 until the fixture set exists |
 | D8 | **Tax-wiring work order** (register #11 cross-currency break-even, #12 Div 775 orphan + spec §8.3 contradiction, #13 ESS `acquisition_type`, #24 dead CGT arm): the synthesizer flagged these as mapping to no R item — D0-04 should widen an item or add one | Approve as a new D0-04 sub-item ("tax-consequence wiring & currency consistency") |
 | D9 | **Acquisition-FX resolution** (register #25): obtain the brokerage statement rate; correct whichever of the DB flag / conventions-doc "confirmed" claim is wrong | Your action (document outside agent contexts); until resolved every AUD P&L figure stays caveated |
+
+### 6.1 Governor rulings (James, 2026-08-09, recorded by arbi)
+
+**This subsection is the authoritative disposition of §6.** Transcribed verbatim from the
+governor's ruling comment on PR #78 (2026-08-09T06:19:14Z), which was the only copy until
+this document merged on 2026-08-17.
+
+| # | Decision | Ruling |
+|---|---|---|
+| D1 | Invalidation-machinery rebuild (R2) | **APPROVED** |
+| D2 | Authoring-integrity gate (R1) | **APPROVED** |
+| D3 | Canonical conviction/cap framework | **APPROVED IN PRINCIPLE — values via finance agents**: James directs that the framework values be proposed by the finance agents, grounded in best investment practices + the prior north-star work — not ratified from today's defaults. Constraint carried from the register: the agents' own unsourced magic numbers (register #9, #23) may not be the source; proposals must cite external practice or governed prior work. The `wealth_state` exact-date join fix (register #8) proceeds with the D1/D2 build batch as a value-free bug fix unless James objects. |
+| D4 | Placeholder/underwritten attestation | **APPROVED + grandfather all 13 existing theses as `placeholder`** pending re-attestation |
+| D5 | Output-attached firewall policy (four-step ordering) | **APPROVED** as governed-doc amendment |
+| D6 | Regime gate | **BOTH HALVES APPROVED** — conformance (fail-closed + counted suppression line) AND design (hysteresis + dislocation mode). Governor overrides the synthesizer's defer-recommendation on the design half. Panel-6's proposed parameters (enter 22/450/0.40, exit 20/420/0.45; disorderly 30/600 in, 26/550 out; majority-2-of-3 entry, 3-consecutive exit; dislocation_discount_pct 0.10, max 3 items) are the build's starting defaults, confirmed at PR review; the degenerate-band data caveat stands until R1 lands. |
+| D7 | R8 sweep / R5 fleet / R6 scorecard | **R8 APPROVED** (builds with D1/D2); **R5/R6 DEFERRED** until the fixture set exists |
+| D8 | Tax-wiring work order (cost_usd currency fix, Div 775 wiring/spec amendment, ESS acquisition_type, dead CGT arm) | **APPROVED** as a named D0-04 sub-item; ESS/Div 775 outputs stay caveated pending Div 83A facts/accountant review |
+| D9 | Acquisition-FX resolution | **James's action** — brokerage statement resolves 0.6450 vs 0.7171 vs 0.7162; whichever of the DB "estimated" flag / conventions-doc "confirmed" claim is wrong gets corrected |
+
+**Build authority as ruled:** approved items proceed as reversible draft PRs through the
+normal review flow; schema migrations remain James-gated at apply time (Supabase MCP). D3's
+value-setting task dispatches the finance agents in advisory mode; James sets the final
+numbers.
+
+**Implementation status as at merge (2026-08-17) — informational, not part of the ruling.**
+D1/D2/D4 plus R8 were built on `claude/rules-integrity-build` and are **parked in draft PR
+#80**, review loop incomplete; its migration `0042` is unapplied and absent from `main`
+(`asxos/api/main.py:14` reserves the number by name). `docs/product/target-architecture.md`
+§14 sets out the reconciliation each parked item needs before merge, and requires the
+migration be redesigned as expand → backfill → dual-read/verify → contract. D3's
+conviction/cap framework doc is not on `main`. D9 was subsequently resolved at 0.6450 and is
+recorded in `.claude/rules/portfolio-conventions.md`. Treat every other line as open until
+the roadmap says otherwise.
 
 ## 7. Mechanical verification of this deliverable
 
