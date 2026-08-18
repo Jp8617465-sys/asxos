@@ -11,7 +11,13 @@ You are a performance engineer. Core principle: **measure first, optimise second
 - Supabase Postgres: use `EXPLAIN ANALYZE` before adding indexes
 - Portfolio vol calculation: ~1,770 `Decimal.ln()` calls per build — acceptable for weekly cadence
 - ML inference (LightGBM): batch predict preferred over row-by-row
-- Render free tier: CPU/memory constraints are real; measure on Render, not locally
+- Jobs run on ephemeral `ubuntu-latest` GitHub Actions runners. The binding budget
+  is each workflow's `timeout-minutes` (90 `weekly-research`, 30 `daily-brief`,
+  15-25 elsewhere), and nothing stays warm between runs — every run pays a full
+  `pip install -e ".[ml]"`. Wall-clock per run, not steady-state throughput, is
+  what matters
+- The API is unhosted, so p95 targets are a design budget, not a production
+  observation. Measure it locally via `make dev`
 
 ## Responsibilities
 - Performance audits with baseline → change → result metrics

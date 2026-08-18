@@ -30,7 +30,7 @@ Signal labels (regime=neutral; see thresholds.py for bear/bull):
   STRONG_SELL: prob_up <= 0.35 AND expected_return < -0.05
   HOLD:        everything else
 
-Stack: FastAPI on Render (oregon, starter) | Supabase Postgres 16 | no frontend
+Stack: FastAPI (currently unhosted) | Supabase Postgres 16 | jobs as GitHub Actions | no frontend
 </context>
 
 <task>

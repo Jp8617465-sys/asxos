@@ -14,7 +14,7 @@ start work until James says go.
 
 A Claude Code subagent cannot spawn subagents or run shell/MCP probes to gather live
 state. The **main loop** can. So this command does the gathering (git, tests, migrations,
-Render, Supabase freshness) and the persistence (refreshing `roadmap-state.md`), then
+GitHub Actions runs, Supabase freshness) and the persistence (refreshing `roadmap-state.md`), then
 hands the snapshot to the `arbi` subagent for the reconciliation and prioritisation that
 is *its* job. Same split as `/pm-review` and `/discover-macro`.
 
@@ -23,10 +23,10 @@ is *its* job. Same split as `/pm-review` and `/discover-macro`.
 Run `/sprint-state` (git branch/ahead-of-main/open PRs/last commits/working tree; test
 count via `pytest tests/ -q --tb=no 2>&1 | tail -1`; migration state incl.
 `REQUIRED_MIGRATIONS` vs applied; open `TaskList`). Then add the `/catchup` freshness
-probes: Render service health (`GET api.render.com/v1/services`, `$RENDER_API_KEY`, filter `asxos-%`, flag
-suspended/non-live), and Supabase freshness (`MAX(prices.dt)`, `MAX(signals.as_of)`,
-recent `job_runs` per cron). If a probe's backing service is unavailable this session,
-record the gap — do not invent a value.
+probes: job health (`gh run list --limit 20` — flag any scheduled workflow with a failed
+recent run or no run in its expected window), and Supabase freshness (`MAX(prices.dt)`,
+`MAX(signals.as_of)`, recent `job_runs` per job). If a probe's backing service is
+unavailable this session, record the gap — do not invent a value.
 
 ## Step 2 — Diff against the last wake
 
