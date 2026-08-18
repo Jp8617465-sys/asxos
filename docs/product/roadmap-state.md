@@ -197,6 +197,58 @@ units merged on 2026-08-17 (#129, #130) are correct, tested, and inert: #129 ren
 benchmark because none exists for the global sleeve, and #130's only live trigger is a demo
 thesis. Correct-and-empty is not done.
 
+**🟡 Amendment E — DRAFT, AWAITING JAMES'S RATIFICATION (drafted 2026-08-18).** **This is not
+in force.** It is recorded here per the same GOV-01 two-artifact convention Amendment D
+followed — a ruling requires the ruling AND the queue amendment, and *this row is only the
+first artifact*. Amendment D's row states "Ratified verbatim by James"; this row deliberately
+cannot, because he has not seen it. Nothing may cite Amendment E as authority, and no close row
+may be blocked or admitted under it, until James ratifies it and the queue amendment is
+written. Drafted text follows verbatim:
+
+> **Amendment E — completion test, all lanes (rider to Amendment D).** Amendment D's standing
+> condition applies to **every** lane, not only the product lane: no work order closes while its
+> output on live data is `unavailable`, empty, or driven only by demo or fixture rows. The close
+> row must carry exactly one of three fields, and the field must be true when checked:
+> **`renders:`** — what the change puts on screen against the current database, with a real
+> value; **`captures:`** — the table it writes and the row count in that table after merge, for a
+> record that cannot be reconstructed in arrears (disposals, dividends, cost base, price
+> revisions), which needs no consumer; or **`defect:`** — a `job_runs` row, a failing run URL, or
+> a CVE, for security, backup, CI, test, observability, performance and dependency work, which
+> needs no rendered output and no contract membership. A row that can cite none of the three is
+> parked with a named trigger, not merged.
+
+**Rationale — why D alone does not reach the rows that most needed it.** D as ratified reads "A
+**product-lane** row is not complete…", so by its own words it does not reach packet-lane rows.
+The `results_review` PRs — **#113** (`claude/p2-02-results-contracts`), **#115**
+(`claude/p2-03-results-adapter`), **#119** (`claude/p2-04-reviewer-challenger`) and **#122**
+(`claude/p2-05-historical-review`) — are packet-lane, and they are the units the condition most
+needed to catch: `asxos/domain/results_review/` contains no `asyncpg` import, no connection
+acquire, and no `SELECT` (verified 2026-08-18), so the lane has **zero DB access** and can never
+fill `renders:` or `captures:`. Under Amendment E those four rows fail the test, which is the
+intended result.
+
+The three-field form is what makes that strictness survivable, because a single-field test would
+wrongly bar two legitimate kinds of work:
+
+- **Observability work has no rendered output.** **PR #132** (`a0c17a2`, "make the job-failure
+  banner capable of firing") cites `defect:` — `job_runs` ids **886**, **899** and **913**, all
+  `check_cron_health`, all `status = 'failure'`, on 2026-08-15, 08-16 and 08-17, each carrying
+  `STUCK: sync_financial_statements as_of=2026-08-15 has been running for >4h`. Three
+  consecutive days of a true-positive alarm that reached nobody (verified against `job_runs`
+  2026-08-18). That is a real defect and a real fix; it renders nothing and belongs to no
+  contract.
+- **First-of-pipeline record-keeping has no consumer yet.** The disposal writer cites
+  `captures:`, because **nothing in the repo writes `disposed_at`** — a grep for `INSERT`/`UPDATE`
+  statements touching that column across `asxos/`, `jobs/`, `scripts/` and `tests/` returns zero
+  matches (verified 2026-08-18), while `asxos/domain/tax/` reads it in eight places. A disposal
+  is not reconstructible in arrears, so the write must land before any reader exists. Demanding
+  `renders:` of it would forbid capturing the record until it is already too late to capture.
+
+**Open question for James, not resolved by this draft.** Amendment E is written to apply
+prospectively. It does not say what happens to the four `results_review` rows already merged —
+whether they are re-opened, annotated as closed-under-D, or left alone. That is a governor call
+and is deliberately left blank here rather than assumed.
+
 Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
 single-builder with the independent-review function preserved in separate documented passes;
 the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
