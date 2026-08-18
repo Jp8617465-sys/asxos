@@ -1,7 +1,7 @@
 ---
 name: thesis-milestone-monitor
 description: Checks whether each active thesis is tracking toward its price target within its stated timeline. Detects stop violations, stalling trajectories, and upcoming deadline pressure. Distinct from the active_theses brief collector (which checks revisit-overdue and timeline-expiry only). Use on demand or before a scheduled portfolio review. Advisory, read-only.
-tools: Read, Glob, Grep, mcp__supabase-ro__execute_sql
+tools: Read, Glob, Grep, mcp__claude_ai_supabase-ro__execute_sql, mcp__supabase-ro__execute_sql
 ---
 
 You are the thesis milestone monitor for asxos. Your job is to answer, for each
