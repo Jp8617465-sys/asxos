@@ -30,17 +30,47 @@
 #   hole. SB0-01 refused to invent an `episode_score` for an unobserved run;
 #   that refusal is the standard. This script reports; a human closes.
 #
+# CHECK 2 — the Amendment E completion test (added 2026-08-18)
+#   Coverage answers "is there a row?". It does not answer "does the row say
+#   anything checkable?". Amendment E (docs/product/roadmap-state.md, drafted
+#   2026-08-18) supplies the second test: a close row must carry EXACTLY ONE of
+#     renders:   what it puts on screen against the current database
+#     captures:  the table it writes + the row count after merge
+#     defect:    a job_runs row, a failing run URL, or a CVE
+#   Zero fields = the row asserts completion with nothing checkable behind it,
+#   which is the failure mode Amendment D was ratified over (#129 and #130 both
+#   merged correct, tested and inert). More than one field = the row is hedging;
+#   the point of "exactly one" is that the author must decide what KIND of work
+#   this was, because that decision is what makes the claim falsifiable.
+#
+#   ⚠️ AMENDMENT E IS A DRAFT AND IS NOT RATIFIED. This check is therefore
+#   gated behind AMENDMENT_E_EFFECTIVE below and applies only to close rows
+#   dated on or after it. Two reasons, and the second matters more:
+#     1. A standing condition cannot bind rows written before it existed.
+#        Every one of the six existing close rows predates the draft and none
+#        carries any of the three fields, so an ungated check would fail 6/6
+#        forever — a check that is always red is a check nobody reads.
+#     2. Retroactively failing merged rows would be this script deciding a
+#        governance question that is explicitly left open for James in the
+#        Amendment E block ("what happens to the four results_review rows").
+#   If James ratifies E with a different effective date, change the constant.
+#   If he rejects E, delete this check — do not quietly leave it disabled.
+#
 # USAGE
 #   scripts/check_ledger_coverage.sh [SINCE_ISO8601]
 #     SINCE defaults to the last 30 days.
-#   Exit 0 = every merged claude/** PR in the window is cited in the ledger.
-#   Exit 1 = one or more are not (the list is printed).
+#   Exit 0 = every merged claude/** PR in the window is cited in the ledger,
+#            AND every in-scope close row carries exactly one Amendment E field.
+#   Exit 1 = either check failed (the offending list is printed).
 #
 # REQUIRES: gh (authenticated), git. Read-only: no writes, no network mutation.
 
 set -euo pipefail
 
 LEDGER="docs/product/arbi-run-ledger.md"
+
+# Amendment E applies to close rows dated on or after this. See CHECK 2 above.
+AMENDMENT_E_EFFECTIVE="2026-08-18"
 SINCE="${1:-$(date -u -v-30d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)}"
 
 command -v gh >/dev/null 2>&1 || { echo "[coverage] gh not found — cannot enumerate merged PRs" >&2; exit 2; }
@@ -78,11 +108,10 @@ done < "$TMP"
 
 if [ "$total" -eq 0 ]; then
   echo "[coverage] no merged claude/** PRs in window — nothing to check"
-  exit 0
+else
+  covered=$((total - missing))
+  echo "[coverage] $covered/$total merged claude/** PRs cited in the ledger"
 fi
-
-covered=$((total - missing))
-echo "[coverage] $covered/$total merged claude/** PRs cited in the ledger"
 
 if [ "$missing" -gt 0 ]; then
   cat >&2 <<'REMEDY'
@@ -97,6 +126,83 @@ if [ "$missing" -gt 0 ]; then
       An honest hole is auditable; an invented score corrupts the trend the
       promotion gate reads.
 REMEDY
+fi
+
+# ---------------------------------------------------------------------------
+# CHECK 2 — Amendment E completion test on close rows. See the header.
+# ---------------------------------------------------------------------------
+
+echo "[amendment-e] close rows dated >= $AMENDMENT_E_EFFECTIVE must carry exactly one of: renders: | captures: | defect:"
+
+e_checked=0
+e_bad=0
+
+# A close row is a ledger table row whose run_id begins with `close-`. The
+# run_id carries the date (close-YYYY-MM-DD), so the effective-date comparison
+# is a plain string compare on ISO dates — no date parsing, no BSD/GNU split.
+while IFS= read -r row; do
+  [ -n "$row" ] || continue
+
+  run_id="$(printf '%s' "$row" | awk -F'|' '{print $2}' | tr -d '[:space:]')"
+  row_date="$(printf '%s' "$run_id" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1 || true)"
+
+  # No parseable date in the run_id: cannot place it relative to the
+  # effective date, so it is out of scope rather than silently failed.
+  [ -n "$row_date" ] || continue
+
+  # String compare is valid for zero-padded ISO dates.
+  if [ "$row_date" \< "$AMENDMENT_E_EFFECTIVE" ]; then
+    continue
+  fi
+
+  e_checked=$((e_checked + 1))
+
+  fields=0
+  present=""
+  for f in "renders:" "captures:" "defect:"; do
+    if printf '%s' "$row" | grep -qF "$f"; then
+      fields=$((fields + 1))
+      present="${present}${present:+ }${f}"
+    fi
+  done
+
+  if [ "$fields" -eq 0 ]; then
+    printf '[amendment-e] NO FIELD   %s — carries none of renders:/captures:/defect:\n' "$run_id"
+    e_bad=$((e_bad + 1))
+  elif [ "$fields" -gt 1 ]; then
+    printf '[amendment-e] MULTI FIELD %s — carries %s (exactly one is required)\n' "$run_id" "$present"
+    e_bad=$((e_bad + 1))
+  fi
+done < <(grep -E '^\| *close-' "$LEDGER" || true)
+
+if [ "$e_checked" -eq 0 ]; then
+  echo "[amendment-e] no close rows in scope (none dated >= $AMENDMENT_E_EFFECTIVE) — nothing to check"
+else
+  echo "[amendment-e] $((e_checked - e_bad))/$e_checked in-scope close rows carry exactly one field"
+fi
+
+if [ "$e_bad" -gt 0 ]; then
+  cat >&2 <<'REMEDY_E'
+
+[amendment-e] FAIL — close row(s) assert completion with nothing checkable behind them.
+
+  Do not add a field to make this pass. Decide what the work actually was,
+  then state the fact that proves it — and the fact must be TRUE when checked:
+    renders:   the on-screen output against the CURRENT database, with a real
+               value. "unavailable", empty, or demo/fixture-only does not count.
+    captures:  the table written and its row count after merge. For records
+               that cannot be reconstructed in arrears (disposals, dividends,
+               cost base, price revisions). Needs no consumer.
+    defect:    a job_runs row id, a failing run URL, or a CVE. For security,
+               backup, CI, test, observability, performance and dependency
+               work. Needs no rendered output and no contract membership.
+
+  A unit that can cite none of the three is PARKED WITH A NAMED TRIGGER,
+  not merged and not closed.
+REMEDY_E
+fi
+
+if [ "$missing" -gt 0 ] || [ "$e_bad" -gt 0 ]; then
   exit 1
 fi
 
