@@ -27,7 +27,11 @@ external reference. (Pre-existing, unrelated to P1-04: portfolio-conventions.md
 calls the portfolio-adjustments gate "section 6" while this list has always
 numbered it 7. Left as found; renumbering here would not fix it.)
 
-  1. Job failures banner (if any in the last 24h)
+  1. Job problems banner (rendered only when there are any) — failed runs *and*
+     runs stuck in `running`, over the window since the previous successful
+     `compose_brief`. It read "the last 24h" until 2026-08-18, describing an
+     `as_of = $1` filter that could not match a row on any day; the heading in
+     `brief.html.j2` now says what the query covers. See `_job_failures`.
   2. RETIRED (mission P1-04, manifest A4) — market regime, read from
      `signals.regime`. Replaced by the review status in the header, which is
      derived from the user's own data rather than a model's regime call.
@@ -189,11 +193,25 @@ class NewsItem:
         return host[4:] if host.startswith("www.") else host
 
 
+class JobProblemKind(StrEnum):
+    """Which operational state produced a `JobFailure`.
+
+    `StrEnum` for the same reasons as `NewsStatus`: it matches every other status
+    vocabulary in this codebase, and Jinja compares and renders members exactly as
+    the bare strings, so `brief.html.j2` needs no filter. A closed vocabulary also
+    puts the two states under mypy instead of leaving `kind` an open `str`.
+    """
+
+    FAILURE = "failure"  # the job ran and raised
+    STUCK = "stuck"      # started, never reported — no failure, so nothing alerts
+
+
 @dataclass(frozen=True)
 class JobFailure:
     job_name: str
     as_of: date
     error_message: str
+    kind: JobProblemKind = JobProblemKind.FAILURE
 
 
 @dataclass(frozen=True)
@@ -288,6 +306,13 @@ class BriefData:
 
     @property
     def has_failures(self) -> bool:
+        """Whether the job-problems banner has anything to render.
+
+        "Failures" is the older, narrower word: since `JobProblemKind` this list
+        also carries `stuck` rows, which are by definition *not* failures. Both
+        names are kept rather than churned through the template and every test —
+        `_job_failures` is where the two kinds are defined.
+        """
         return bool(self.job_failures)
 
     @property
@@ -588,15 +613,150 @@ async def _regulatory_hits(
     return out
 
 
+def _problem_message(row: asyncpg.Record) -> str:
+    """The human line for one job problem.
+
+    Both kinds are phrased here rather than half in SQL: the query supplies facts
+    (``age_hours``) and this layer supplies prose, so reworded copy never means
+    editing a query. A failed run's text is the exception the job itself raised,
+    bounded because it is free text from an upstream library.
+
+    It is not redacted here, and must not start being. Only two modules write
+    ``job_runs.error_message`` — ``JobMonitor`` and ``fallback_email`` — and every
+    value they store is either a fixed literal or has already been through
+    ``asxos/redaction.py`` (``fallback_email`` since this window began carrying its
+    rows out to the email). A credential reaching this string therefore means a
+    *writer* was missed, and scrubbing a second time here would hide precisely
+    that signal.
+    """
+    if row["kind"] == JobProblemKind.STUCK:
+        # started_at, not as_of. as_of is the job's DATA date — snapshot_portfolio
+        # anchors it to the latest complete trading day — so quoting it here
+        # produced a start date that contradicted the age beside it.
+        started: date = row["started_at"].date()
+        return (
+            f"started {started.isoformat()} and has never reported "
+            f"— running {row['age_hours']}h"
+        )
+    # Declared, not inferred: asyncpg hands back Any, and the query's COALESCE is
+    # the only thing keeping this off None.
+    raised: str = row["error_message"]
+    return raised[:200]
+
+
 async def _job_failures(
     conn: asyncpg.Connection, as_of: date
 ) -> list[JobFailure]:
+    """Operational problems this brief must surface.
+
+    Why the filter is a wall-clock window and not ``as_of = $1``. In
+    ``.github/workflows/daily-brief.yml`` the "Score macro theses", "Check AU
+    positions" and "Check thesis invalidations" steps all run *after* "Compose and
+    send brief" — deliberately, so a failure there cannot cost the brief — and
+    ``check_cron_health`` runs in the separate 22:00 ``pipeline-health.yml``. Every
+    one of those writes a row stamped with that day's ``as_of``, *after* that day's
+    brief has already composed. An ``as_of = $1`` filter therefore could not see
+    them on any day: today's rows do not exist yet, and tomorrow's brief asks for a
+    different ``as_of``. The banner was structurally empty rather than merely quiet.
+
+    Measured 2026-08-18 against production: ``check_cron_health`` failed on 08-16
+    and 08-17, both naming a stuck ``sync_financial_statements``, and neither
+    reached the email. The watchdog worked; the messenger did not.
+
+    The window is anchored on ``as_of`` rather than ``now()`` so that composing a
+    past date replays exactly what that morning should have said.
+
+    Why the lower bound is *derived* and not ``as_of - 1 day``. The brief composes
+    Sun–Thu only (``daily-brief.yml``, ``cron: "30 20 * * 0-4"``). A fixed one-day
+    lookback therefore covers nothing between Thursday's compose and Saturday
+    midnight — a 27-hour hole every week, which silently dropped Friday's
+    ``backup_irreplaceable`` failure. That is the pg_dump protecting ``theses``,
+    ``holding_lots`` and the tax positions, and a backup that stops quietly is the
+    highest-consequence silent failure in this system. So the bound is the previous
+    successful ``compose_brief``, floored at seven days: it adapts to the real
+    cadence, it makes the banner's heading ("since the previous brief") true rather
+    than aspirational, and it stops double-reporting the same failure on two
+    consecutive weekdays.
+
+    Two clamps bracket that derivation. Seven days is the far edge, so a long
+    compose outage cannot make one morning's banner replay a month of history. And
+    when no successful ``compose_brief`` exists at all — a fresh database, or a
+    replay of a date before the first send — the ``COALESCE`` falls back to
+    ``as_of - 1 day``, the old fixed window, so the degenerate case opens with one
+    day of history rather than the seven-day maximum.
+
+    A ``running`` row that never reported is included as a distinct kind: on a
+    ``status = 'failure'`` filter it is indistinguishable from a healthy job, and
+    it is the more dangerous state — nothing failed, so nothing alerts.
+
+    Every boundary is explicitly ``timestamptz`` at UTC. ``$1::date ± INTERVAL``
+    alone yields ``timestamp without time zone``, which Postgres compares to
+    ``finished_at`` by converting through the session ``TimeZone`` GUC —
+    unpinned here, since ``asxos/db.py::init_pool`` passes no ``server_settings``.
+    Setting the database or role timezone to ``Australia/Sydney`` would then slide
+    this window seven hours off the 20:30–22:30 UTC pipeline it exists to cover,
+    with no error and no failing test.
+    """
     rows = await conn.fetch(
         """
-        SELECT job_name, as_of, error_message
-        FROM job_runs
-        WHERE as_of = $1 AND status = 'failure'
-        ORDER BY job_name
+        WITH bounds AS (
+            SELECT
+                (($1::date + INTERVAL '1 day') AT TIME ZONE 'UTC') AS upper_bound,
+                GREATEST(
+                    COALESCE(
+                        (SELECT max(prior.finished_at)
+                           FROM job_runs AS prior
+                          WHERE prior.job_name = 'compose_brief'
+                            AND prior.status   = 'success'
+                            AND prior.finished_at
+                                < (($1::date + INTERVAL '1 day') AT TIME ZONE 'UTC')),
+                        (($1::date - INTERVAL '1 day') AT TIME ZONE 'UTC')
+                    ),
+                    (($1::date - INTERVAL '7 days') AT TIME ZONE 'UTC')
+                ) AS lower_bound
+        )
+        SELECT * FROM (
+            SELECT j.job_name,
+                   j.as_of,
+                   j.started_at,
+                   COALESCE(j.error_message, '') AS error_message,
+                   'failure'                     AS kind,
+                   NULL::bigint                  AS age_hours
+            FROM job_runs AS j, bounds AS b
+            WHERE j.status = 'failure'
+              AND j.finished_at >= b.lower_bound
+              AND j.finished_at <  b.upper_bound
+
+            UNION ALL
+
+            SELECT j.job_name,
+                   j.as_of,
+                   j.started_at,
+                   ''      AS error_message,
+                   'stuck' AS kind,
+                   -- LEAST(now(), upper_bound): for today's brief the age is
+                   -- measured to now, which is ~3h before midnight — the upper
+                   -- bound alone overstated every age. For a replayed past date
+                   -- now() is later than the bound, so the bound wins and the
+                   -- replay stays deterministic.
+                   FLOOR(
+                       EXTRACT(
+                           EPOCH FROM (LEAST(now(), b.upper_bound) - j.started_at)
+                       ) / 3600
+                   )::bigint AS age_hours
+            FROM job_runs AS j, bounds AS b
+            WHERE j.status = 'running'
+              AND j.finished_at IS NULL
+              -- The 2 hours must not be tightened independently: JobMonitor's
+              -- stale-row heal (asxos/jobs/utils/job_monitor.py) and
+              -- check_cron_health's watchdog use the same window, and a shorter
+              -- one here would report rows those two still consider live.
+              AND j.started_at < b.upper_bound - INTERVAL '2 hours'
+        ) AS problems
+        -- DESC so 'stuck' sorts above 'failure'. A job that never reported is
+        -- the more dangerous state — nothing failed, so nothing else alerts —
+        -- and it should not sit below a list of ordinary failures.
+        ORDER BY kind DESC, job_name
         """,
         as_of,
     )
@@ -604,7 +764,8 @@ async def _job_failures(
         JobFailure(
             job_name=r["job_name"],
             as_of=r["as_of"],
-            error_message=(r["error_message"] or "")[:200],
+            error_message=_problem_message(r),
+            kind=JobProblemKind(r["kind"]),
         )
         for r in rows
     ]

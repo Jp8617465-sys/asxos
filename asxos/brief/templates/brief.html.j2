@@ -72,10 +72,13 @@
 
   {% if d.has_failures %}
   <div class="banner">
-    <strong>Job failures in the last 24h.</strong>
+    <strong>Job problems since the previous brief.</strong>
     <ul>
       {% for f in d.job_failures %}
-      <li><code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}</li>
+      <li>
+        {%- if f.kind == "stuck" %}<strong>STUCK</strong> — {% endif -%}
+        <code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}
+      </li>
       {% endfor %}
     </ul>
   </div>
