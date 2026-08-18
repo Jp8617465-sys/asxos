@@ -15,6 +15,50 @@ not re-litigate that choice; it prices and sequences it.
 
 ---
 
+> ## ⚠️ FLAG — 2026-08-18: the "90-min+ weekly chain" this document is sized on no longer exists
+>
+> **Nothing below has been rewritten.** This is a flag, not a correction, because D1–D9 are open
+> decisions for James and the sizing input must not be changed under him silently.
+>
+> **What changed.** This work order's §1.1 anomaly, and the runtime premise carried at `:88-89`,
+> `:118-119`, `:149`, `:172`, `:214-215` and `:300`, all rest on `sync_corporate_actions`
+> consuming ~88 of the 90 budget minutes on run `31895667938` (2026-08-15, cancelled at the
+> `timeout-minutes: 90` cap). That was diagnosed after this document was written: the cause was
+> row-at-a-time writes, and **PR #128** (`3a6a1bd`, merged 2026-08-17T09:39:12Z) batched them.
+>
+> **What is now measured** — run **`32099973966`** (`weekly-research`, 2026-08-18,
+> `workflow_dispatch` on `main` @ `6784fc0`, **success**), verified 2026-08-18:
+>
+> | | Sized on (08-15) | Measured (08-18) |
+> |---|---|---|
+> | `sync_corporate_actions` | 88m06s | **4m35s** (31,435 rows) |
+> | six-step data chain | never completed | **23m22s** |
+> | whole run, wall clock | cancelled at 90m | **24m06s** |
+>
+> **What this invalidates, specifically.**
+>
+> 1. **The Serverless compute estimate at `:214-215`** uses `weekly-research ~90×1` minutes as an
+>    "observed ceiling". The observed figure is now ~24. At the `$0.010/minute` Serverless rate
+>    recorded at `:199`, that line item is overstated by roughly 66 min/week. **The cost case
+>    must be re-derived before D1–D9 are decided** — the *direction* of the error favours the
+>    cheaper options, so it is not a rounding matter.
+> 2. **The "runtime headroom" argument for a Hybrid/own-VM deployment (`:149`, `:172`)** loses
+>    most of its force. A chain that finishes in 24m06s of a 90m budget is no longer near any
+>    serverless runtime limit, so "can it accommodate a 90-min+ chain" is the wrong question.
+>    The `pip install -e ".[ml]"` half of `:149` is untouched and still stands on its own.
+> 3. **The §1.1 framing of `weekly-research` as "the substrate-shaped failure" (`:300`)** is now
+>    a *fixed application* defect, not a substrate defect. Per-op timeouts and
+>    re-execution-from-failed-step remain genuinely valuable, but they can no longer be
+>    justified by this particular blowout, and the wave-ordering rationale that placed
+>    `weekly-research` early should be re-argued on its merits.
+>
+> **What this does NOT invalidate.** The F5 ruling; the pricing observations at `:199` and the
+> Actions-minutes accounting at `:234`; the cutover mechanics; the RENDER-RETIRE scope. And it
+> does **not** close G6 — one `workflow_dispatch` run is not the "2 consecutive green Saturdays"
+> exit criterion `:300` sets, and that criterion is unchanged.
+
+---
+
 ## 0. Method and observation discipline
 
 Per the execution plan's §2.3 recency rule

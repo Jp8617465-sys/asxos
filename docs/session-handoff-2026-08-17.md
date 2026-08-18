@@ -42,8 +42,8 @@ first time the model-independent product moat has had running code rather than a
 | `P2-01` | 70-row finance capability matrix (KEEP/ADAPT/PARK/REJECT) | merged #104 |
 | `P2-02` | Frozen evidence + artifact contracts; the G2 hashed-fixture ruling; `rs_security_master.symbol` as the identity binding | merged #113 |
 | `P2-03` | Deterministic read-only adapter; hash verification, cutoff admissibility, exact-Decimal scale normalisation | merged #115 |
-| `P2-04` | Deterministic reviewer + the repo's first canonical `ChallengeResult` producer (closes G9) | **open #119** |
-| `P2-05` | One historical review end-to-end + reuse/gap report | **in flight** |
+| `P2-04` | Deterministic reviewer + the repo's first canonical `ChallengeResult` producer (closes G9) | merged #119 (`6b0e1c6`, 2026-08-17T04:01:49Z) |
+| `P2-05` | One historical review end-to-end + reuse/gap report | merged #122 (`e3f620c`, 2026-08-17T04:10:26Z) |
 
 Alongside: the whole **P1 Model A retirement lane** (#98–#106), **`SB0-01`/`SB0-02`** doc-truth
 and wording reconciliation (#102, #109), **`SB1-01`** `ProjectStateSnapshot` freeze (#118),
@@ -82,15 +82,43 @@ three stalled dream candidates (#110), and the **permission pack** (#111).
 
 ---
 
-## Live production finding — needs a look independent of any roadmap
+## Live production finding — DIAGNOSED AND FIXED (corrected 2026-08-18)
 
-**The 2026-08-15 scheduled `weekly-research` run was CANCELLED at its 90-minute timeout**
-(run `31895667938`). `Sync corporate actions` consumed **1h28m** — an unexplained runtime
-blowout, cause `unavailable` from run metadata — `Sync financial statements` was killed
-mid-step, and **`Derive fundamentals PIT` was never reached.** So the PR #85 fix remains
-unproven on schedule and G6 is now **0-for-2**. `pipeline-health` went red the same day, which
-is probably the watchdog working correctly. This is a precondition to any scheduler cutover and
-deserves a diagnosis on its own merits.
+**Superseded.** This section previously read: *"`Sync corporate actions` consumed 1h28m — an
+unexplained runtime blowout, cause `unavailable` from run metadata."* The cause was found, the
+fix merged, and the fix is now observed on a real run. Corrected here rather than deleted,
+because the original wording is quoted downstream (`roadmap-state.md:249`).
+
+**What was true.** The 2026-08-15 scheduled `weekly-research` run **was** cancelled at its
+90-minute cap (`timeout-minutes: 90`, `weekly-research.yml:37`). Run `31895667938`:
+`Sync corporate actions` ran 16:30:47Z → 17:58:53Z = **88m06s**, `Sync financial statements`
+was cancelled mid-step, and `Derive fundamentals PIT` / `Sync fundamentals` were **skipped**.
+
+**What the cause was.** Row-at-a-time writes, not an external stall. **PR #128** (`3a6a1bd`,
+merged 2026-08-17T09:39:12Z) batched the corporate-actions writes per symbol and bounded the
+failure modes.
+
+**What is now measured.** Run **`32099973966`** (`weekly-research`, 2026-08-18, **success**;
+trigger `workflow_dispatch`, `main` @ `6784fc0`):
+
+| Step | Duration | Result |
+|---|---|---|
+| `Sync corporate actions` | 04:40:56Z → 04:45:31Z = **4m35s** | success — 2,393 symbols, 1,768 with actions, **28,641 dividends + 2,794 splits = 31,435 rows**, 0 failed |
+| `Sync financial statements` | 04:45:31Z → 04:57:32Z = 12m01s | success — 435,442 statements |
+| `Derive fundamentals PIT` | 04:57:32Z → 05:00:18Z = 2m46s | success — **reached, 53,687 rows / 3,360 symbols** |
+| `Sync fundamentals` | 05:00:18Z → 05:04:04Z = 3m46s | success — 1,872 ok, 0 failed |
+| six-step data chain | 04:40:42Z → 05:04:04Z = **23m22s** | — |
+| whole run, wall clock | 04:40:02Z → 05:04:08Z = **24m06s** | against a **90-minute** cap |
+
+`Sync corporate actions` went from **88m06s to 4m35s** — a ~19× reduction, and the chain now
+finishes in about a quarter of its budget.
+
+**What is NOT closed by this.** G6 asked whether the PR #85 PIT fix survives the *scheduled*
+path. Run `32099973966` reached `Derive fundamentals PIT` and it succeeded, which is the first
+green for that step on the full chain — but it is **one** run, and it was `workflow_dispatch`,
+not the Saturday cron. Two consecutive green *scheduled*
+Saturdays is still the standard the Dagster work order sets (`:300`). Treat G6 as **1-for-1 on
+the step, not yet closed on cadence**.
 
 ---
 
