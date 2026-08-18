@@ -1,0 +1,19 @@
+{
+  "name": "asxos",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "cockpit",
+      "command": "make decision-demo",
+      "description": "Read-only target-architecture decision cockpit (FastAPI) on http://127.0.0.1:8790. Needs no secrets. The main API (make dev, port 8788) is NOT auto-started because it hard-fails without DATABASE_URL + Supabase/Resend secrets by design (CLAUDE.md #1); set those secrets and run `make dev` to boot it."
+    }
+  ],
+  "ports": [
+    { "name": "cockpit", "port": 8790 },
+    { "name": "api", "port": 8788 }
+  ]
+}
