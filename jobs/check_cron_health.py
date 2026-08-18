@@ -1,6 +1,10 @@
 """
 Daily pipeline health check — runs at 22:00 UTC after the full pipeline completes.
 
+Scheduled by `.github/workflows/pipeline-health.yml`, deliberately its own
+workflow rather than a trailing step of `daily-brief.yml`: a watchdog that only
+runs when the thing it watches got far enough to reach it is not a watchdog.
+
 Detects four failure modes:
   1. Jobs stuck in 'running' for >2 hours (process crash, __aexit__ never ran)
   2. Expected-daily jobs with no 'success' row in the last 36 hours
@@ -56,12 +60,20 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
         SELECT job_name, as_of, started_at
         FROM job_runs
         WHERE status = 'running'
+          -- Same 2 hours as JobMonitor's stale-row heal
+          -- (asxos/jobs/utils/job_monitor.py) and the brief's stuck branch
+          -- (asxos/brief/compose.py::_job_failures). Tightening one alone
+          -- reports rows the others still consider live.
           AND started_at < NOW() - INTERVAL '2 hours'
         ORDER BY started_at
         """
     )
     for row in stuck:
-        age_h = (datetime.now(UTC) - row["started_at"]).seconds // 3600
+        # total_seconds(), not .seconds — the latter is the sub-day REMAINDER, so a
+        # multi-day hang reports its hours-past-midnight instead of its true age and
+        # can never escalate. Measured 2026-08-18: sync_financial_statements had been
+        # running 56.5h and this line reported ">8h", identically, for three days.
+        age_h = int((datetime.now(UTC) - row["started_at"]).total_seconds() // 3600)
         issues.append(
             f"STUCK: {row['job_name']} as_of={row['as_of']} "
             f"has been running for >{age_h}h (started {row['started_at'].isoformat()})"

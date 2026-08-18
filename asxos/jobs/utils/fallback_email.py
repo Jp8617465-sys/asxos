@@ -23,6 +23,8 @@ import logging
 import sys
 from datetime import UTC, date, datetime
 
+from asxos.redaction import redact_secrets
+
 log = logging.getLogger(__name__)
 
 
@@ -80,8 +82,16 @@ async def _record_fallback_failure(*, subject: str, error: str) -> None:
     """Write a synthetic job_runs row so the failure surfaces in-band.
 
     Uses ``job_name='fallback_email_dispatch'`` and today's date so the
-    next morning's brief / health query picks it up. Truncates the error
-    message to 1000 chars to avoid degenerate inputs swamping job_runs.
+    next morning's brief / health query picks it up — true of the health
+    check all along, and true of the brief only since its banner started
+    filtering on a wall-clock window rather than ``as_of``
+    (``asxos/brief/compose.py::_job_failures``).
+
+    Truncates the error message to 1000 chars to avoid degenerate inputs
+    swamping job_runs. Truncation happens **after** redaction, and the order
+    is load-bearing: cutting first can split a credential across the 1000th
+    character, leaving a prefix the pattern no longer recognises and a row
+    that is then mailed out verbatim.
     """
     from asxos.db import acquire, close_pool, init_pool
 
@@ -91,7 +101,16 @@ async def _record_fallback_failure(*, subject: str, error: str) -> None:
             # Aware, not utcnow(): asyncpg encodes naive datetimes as
             # client-local time (see job_monitor.py started_at comment).
             now = datetime.now(UTC)
-            err_message = (
+            # redact_secrets, like every other job_runs.error_message writer.
+            # This was the only path that skipped it, and the omission was
+            # survivable only while the brief's failure query could never match
+            # this row: it is written with as_of=today, and the old
+            # `WHERE as_of = $1` filter ran before today's rows existed. Widening
+            # that window to a real wall-clock span makes this text reachable by
+            # the outbound email, and `error` is repr(exc) from the Resend client
+            # — whose recorded live failure shape (asxos/redaction.py) carries a
+            # literal `Bearer re_<KEY>`.
+            err_message = redact_secrets(
                 f"fallback_email dispatch failed: subject={subject!r} "
                 f"error={error}"
             )[:1000]

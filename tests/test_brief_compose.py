@@ -17,7 +17,7 @@ import dataclasses
 import os
 import re
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -35,6 +35,7 @@ from asxos.brief.compose import (
     DisciplineFinding,
     DisciplineLevel,
     JobFailure,
+    JobProblemKind,
     NewsItem,
     RegulatoryHit,
     _cgt_boundary_findings,
@@ -369,8 +370,60 @@ def test_render_html_renders_failures_banner() -> None:
             ]
         )
     )
-    assert "Job failures in the last 24h" in html
+    # The heading states the window the query actually covers. It previously read
+    # "in the last 24h", which the `as_of = $1` filter could never deliver.
+    assert "Job problems since the previous brief" in html
     assert "sync_prices" in html
+
+
+def test_stuck_message_quotes_the_start_time_not_the_data_date() -> None:
+    """``as_of`` is the job's DATA date and must not be reported as its start.
+
+    ``snapshot_portfolio`` anchors ``as_of`` to the latest complete trading day,
+    so a job started on the 17th can carry ``as_of`` of the 14th. Quoting the
+    latter beside an age produced a line whose two halves contradicted each
+    other — "started 2026-08-14 … running 12h".
+    """
+    from asxos.brief.compose import _problem_message
+
+    row = {
+        "kind": JobProblemKind.STUCK,
+        "as_of": date(2026, 8, 14),
+        "started_at": datetime(2026, 8, 17, 17, 58, tzinfo=UTC),
+        "error_message": "",
+        "age_hours": 12,
+    }
+
+    message = _problem_message(row)  # type: ignore[arg-type]
+
+    assert "2026-08-17" in message
+    assert "2026-08-14" not in message, "reported the data date as the start time"
+    assert "12h" in message
+
+
+def test_render_html_labels_a_stuck_job_distinctly() -> None:
+    """A job that started and never reported must not read as a plain failure.
+
+    On a ``status = 'failure'`` filter a stuck row is indistinguishable from a
+    healthy one — nothing failed, so nothing alerts. Live on 2026-08-18,
+    ``sync_financial_statements`` had been ``running`` with ``finished_at IS
+    NULL`` for 78h while every brief rendered a clean page.
+    """
+    html = render_html(
+        _brief(
+            job_failures=[
+                JobFailure(
+                    job_name="sync_financial_statements",
+                    as_of=date(2026, 8, 15),
+                    error_message="started 2026-08-15 and has never reported — running 78h",
+                    kind=JobProblemKind.STUCK,
+                ),
+            ]
+        )
+    )
+    assert "STUCK" in html
+    assert "sync_financial_statements" in html
+    assert "78h" in html
 
 
 # ---------------------------------------------------------------------------
@@ -642,7 +695,13 @@ def test_collect_assembles_brief_data() -> None:
     ]
     hold_syms = [{"symbol": "BHP.AU"}, {"symbol": "CBA.AU"}]
     fail_rows = [
-        {"job_name": "sync_fundamentals", "as_of": today, "error_message": "timeout"},
+        {
+            "job_name": "sync_fundamentals",
+            "as_of": today,
+            "error_message": "timeout",
+            "kind": "failure",
+            "age_hours": None,
+        },
     ]
     conn = _make_conn(
         holdings_count=2,
