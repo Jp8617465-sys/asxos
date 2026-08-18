@@ -72,11 +72,59 @@ is the measurement contract in **Appendix C**, not a claim either way.
 `ALTER TABLE theses DROP COLUMN invalidation_conditions` whose safety rests on a comment rather than
 on the migration's own precondition assertions.
 
-**E6 — §6.2's point-in-time requirement is already violated in production, and the body does not say so.**
-`asxos/ingestion/prices.py:53-59` upserts `ON CONFLICT DO UPDATE … adj_close = EXCLUDED.adj_close`
-with no revision row, so every dividend or split silently rewrites history. The system cannot
-reconstruct what it saw on any past date. **This is the only finding where delay causes permanent,
-unrecoverable loss**, and it therefore reorders Stage 1 (see E7).
+**E6 — §6.2's point-in-time requirement was violated in production. The capture gap is CLOSED
+FORWARD as of 2026-08-12; the loss it already caused is permanent.**
+*(Original wording, 2026-08-10: "already violated in production … the system cannot reconstruct
+what it saw on any past date … the only finding where delay causes permanent, unrecoverable
+loss." Re-verified against live production 2026-08-18; the finding is now **historical**, not
+ongoing. Keep reading — it is not simply "done".)*
+
+**Closed forward.** Migration `0043_price_revisions.sql`, applied to production 2026-08-12 as
+version `20260812092925`, installs an append-only revision ledger. Verified live in the
+production database on **2026-08-18** by direct catalogue query:
+
+- triggers `prices_revision_capture` and `prices_reject_untracked_truncate` on `prices`;
+- trigger `price_revisions_append_only` on `price_revisions`;
+- function `_capture_price_revision()` present.
+
+`asxos/ingestion/prices.py:51-59` still emits the same destructive
+`ON CONFLICT (symbol, dt) DO UPDATE … adj_close = EXCLUDED.adj_close`. That is now **by
+design**: the statement is unchanged, and the trigger — not the application — is what captures
+the prior row. Do not "fix" the upsert; the capture point moved to the database.
+
+**Three qualifications, all live-verified 2026-08-18. None of them are closed.**
+
+1. **`price_revisions` holds 0 rows.** The ledger has never captured a single revision, so it is
+   **unproven end-to-end in production**. A trigger that exists is not a trigger that has fired.
+2. **There was no backfill, and none is possible.** Every `adj_close` rewrite before 2026-08-12
+   is gone. History prior to that date remains **unreconstructible**, which is exactly the loss
+   the original erratum warned about — it happened, and 0043 does not undo it. Stage 1's replay
+   guarantee therefore cannot be claimed over pre-2026-08-12 price evidence (see E7).
+3. **A second, distinct defect is live and unaddressed: `adj_close` is frozen at first ingest,
+   so corporate actions never propagate backwards.** `jobs/sync_prices.py:278` calls
+   `fetch_and_upsert_bulk(current, …)` only for weekdays from *the day after the latest observed
+   price date* through today, so a past date is **never re-fetched**. When a consolidation or
+   split re-bases the provider's series, only rows from that day forward carry the new basis and
+   the stored series takes a raw step change instead of a back-adjusted one. Measured in
+   production on 2026-08-18:
+
+   | Symbol | `rs_corporate_actions` split | One-day `adj_close` step in `prices` | Observed ratio |
+   |---|---|---|---|
+   | `ID8.AU` | ex-date 2026-08-14, ratio `0.005` (1-for-200) | 2026-08-12 `0.003` → 2026-08-13 `0.800` | **266.7×** |
+   | `SCP.AU` | ex-date 2026-08-06, ratio `0.016667` (1-for-60) | 2026-08-04 `0.056` → 2026-08-07 `2.600` | **46.4×** |
+   | `CEL.AU` | ex-date 2026-07-29, ratio `0.05` (1-for-20) | 2026-07-27 `0.120` → 2026-07-28 `2.400` | **20.0×** |
+
+   **35 distinct symbols** carry a one-day `adj_close` step greater than 5×. Corroborating the
+   mechanism: `adj_close = close` on **2,318 of 2,319** rows at the latest price date
+   (2026-08-17) and on 588,717 of 754,230 rows overall — the column is not carrying a
+   back-adjustment at all, it is carrying the raw close as first seen. Any return, volatility or
+   momentum computed across one of those step dates is wrong by the consolidation ratio.
+   0043 does not detect this, because no historical row is ever rewritten — so there is nothing
+   for the capture trigger to capture.
+
+**Net.** E6's *capture* mechanism exists and is live; E6's *loss* is historical and permanent;
+and the adjustment-propagation defect at (3) is new, open, and unowned. E7's Stage-1 reordering
+still stands on (2) and (3).
 
 **E7 — §15 Stage 1 ordering is reversed, and §11.3's object-store deferral is withdrawn as a default.**
 Stage 1 contains future raw-evidence loss **first** (E6 plus raw provider payload retention), and
@@ -1242,8 +1290,8 @@ genuinely missing. Row counts are live as at 2026-08-10.
 
 | Target contract (§12) | State today | Verdict |
 |---|---|---|
-| `SourceObject` | No raw landing. Provider payloads are parsed and discarded; `prices` is destructively upserted (`asxos/ingestion/prices.py:53-59`) | **BUILD — Stage 1 first** (E6/E7) |
-| `MarketFact` (point-in-time) | `rs_fundamentals_pit.knowledge_date` is the **only** true bitemporal column in the database. **63 rows / 11 symbols** of a 2,438-symbol universe. Its job has failed 4 consecutive weekly runs | **FIX + EXTEND** |
+| `SourceObject` | No raw landing. Provider payloads are parsed and discarded. `prices` is still destructively upserted (`asxos/ingestion/prices.py:53-59`), but since migration 0043 (applied 2026-08-12) the `prices_revision_capture` trigger captures the prior row into `price_revisions` — **triggers verified live 2026-08-18, `price_revisions` = 0 rows, no backfill.** Raw provider payload retention is still absent | **BUILD — Stage 1 first** (E6/E7) |
+| `MarketFact` (point-in-time) | `rs_fundamentals_pit.knowledge_date` is the **only** true bitemporal column in the database. Breadth is fixed: **63 rows / 11 symbols** at 2026-08-10 → **53,689 rows at 2026-08-18** (verified live), and `derive_fundamentals_pit` succeeded on the full chain in run `32099973966`. **But the column's meaning is not yet trustworthy — see the note below.** | **FIX + EXTEND** |
 | `FeatureSnapshot` | `rs_factor_scores` 54 rows / 11 symbols; 9 of 11 carry `composite_score = 0.000`. Retired in `weekly-research.yml:16-18` as "degenerate output, no production reader" | **REBUILD** after PIT breadth |
 | `ResearchHypothesis` / `ResearchRun` | Absent. `jobs/eval_alpha_factors.py` is a read-only evaluator, not a registry | **BUILD** (Stage 2) |
 | `StrategyVersion` | `model_versions` (1 row) + the `approved_for_allocation` gate (`asxos/domain/models/production_gate.py`) | **ADAPT** — generalise beyond ML |
@@ -1259,6 +1307,30 @@ genuinely missing. Row counts are live as at 2026-08-10.
 | `OutcomeObservation` | `signal_outcomes` 60,072 rows (ML lineage, **no** thesis FK). `macro_thesis_outcomes` 3 rows **with** a real FK to `macro_theses` — the one correct existing shape | **GENERALISE** the `macro_thesis_outcomes` pattern |
 | `LearningReview` | Markdown ledger only | **BUILD** as process audit |
 
+**A.0 note — `knowledge_date` can be in the future, which undermines Stage 1's replay gate**
+(found and verified live 2026-08-18; new, not previously recorded anywhere).
+
+**60 rows of `rs_fundamentals_pit`, across 60 distinct symbols, carry a `knowledge_date` of
+2026-09-13 — a date that has not happened.** (Query: `knowledge_date > CURRENT_DATE`; min and
+max are both 2026-09-13; all 60 sit at `as_of` 2026-06-30. Total table size 53,689 rows.)
+
+**Mechanism.** `rs_financial_statements` has **no `knowledge_date` column** — its columns are
+`symbol, period_end, period_type, statement_type, filing_date, report_date, currency, …`
+(verified against `information_schema`). The derive step therefore falls back to the vendor's
+`report_date`, and `report_date` is a *scheduled* announcement date: 10 rows in
+`rs_financial_statements` already carry a `report_date` in the future, out to 2026-08-27. A
+scheduled date is a forecast, not a knowledge event.
+
+**Why it matters, and why it is not urgent.** It is **harmless to today's readers**: every PIT
+consumer filters `knowledge_date <= as_of`, so a future date simply hides the row. It is
+**not** harmless to Stage 1, whose replay/lineage exit gate depends on `known_at <= cutoff`
+meaning "we actually knew this by then". If `knowledge_date` can be a vendor's diary entry,
+that predicate is decorative, and a replay can be declared clean while resting on facts nobody
+held at cutoff — the same class of defect as E7's "replay guarantee over evidence that was
+never retained", arriving through the timestamp rather than through retention. Stage 1 must
+either source a real `knowledge_date` (filing/receipt time) or record `report_date`-derived
+rows as an explicitly lower-confidence tier; it must not silently keep both under one column.
+
 ### A.1 — What is already strong, and should not be rebuilt
 
 The raw evidence base is real, ASX-scale and survivorship-free. This materially reduces Stage 1:
@@ -1266,7 +1338,7 @@ The raw evidence base is real, ASX-scale and survivorship-free. This materially 
 | Asset | Rows | Note |
 |---|---|---|
 | `rs_financial_statements` | 694,015 | 3,359 distinct symbols |
-| `prices` | 740,350 | but destructively upserted — see E6 |
+| `prices` | 740,350 (2026-08-10); **754,230 at 2026-08-18**, latest `dt` 2026-08-17 | still destructively upserted, now behind the 0043 capture trigger — see E6. **Two live caveats:** `price_revisions` = 0 rows and no pre-2026-08-12 backfill exists, and `adj_close` is frozen at first ingest so splits never propagate backwards (35 symbols carry a >5× one-day step; `adj_close = close` on 2,318 of 2,319 rows at the latest date). Verified 2026-08-18 |
 | `rs_corporate_actions` | 42,501 | dividends incl. AU franking, splits |
 | `rs_security_master` | 4,415 | survivorship-free (active + delisted) |
 
