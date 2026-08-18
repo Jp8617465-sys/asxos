@@ -95,9 +95,21 @@ The daily/weekly chains were bundled into `daily-brief.yml` (12 steps) and
 - **Deliberately retired with Model A (confirm):** `generate_signals`, `retrain_model_a`,
   `compute_factor_scores`, `compute_opportunity_cost`, `build_portfolio`, and the ML monitors
   (`track_signal_outcomes`, `check_model_staleness`).
-- **Need an explicit keep/drop ruling:** `detect_theme_stages` (was a daily Render cron) and
-  `monitor_paper_portfolio` (paper-trade evaluator — ties to the dark-surface expiry decision
-  due 2026-08-28).
+- **RULED by James 2026-08-18:**
+  - `detect_theme_stages` — **KEEP.** It is model-independent (price breadth + momentum →
+    `stage_suggested`, never `themes.stage`) and it is the adoption/crowding axis of the
+    architecture in `segment-valuation-portfolio-architecture-2026-08-18.md` §6 L3. It needs an
+    Actions home; it currently has none, so theme stages have gone un-refreshed since Render was
+    deleted. Two caveats travel with the migration: the classifier's `news_sentiment` and
+    `retail_mention_ratio` legs are passed as `None` by the job, and its price inputs are
+    affected by defect D4 (price history begins 2025-01-02).
+  - `monitor_paper_portfolio` — **DROP. Paper portfolio does not ship.** Retire the cron and
+    treat the dark-surface expiry decision due 2026-08-28 as pre-answered for this surface.
+  - `build_portfolio` — **DELETED**, now an explicit ruling rather than an inference from the
+    Model A retirement. The construction *ambition* is not deleted with it: it is respecified as
+    measurement in `docs/proposals/segment-valuation-portfolio-architecture-2026-08-18.md`,
+    which replaces a system-generated target weight with a feasible range derived from James's
+    own declared caps.
 
 ---
 

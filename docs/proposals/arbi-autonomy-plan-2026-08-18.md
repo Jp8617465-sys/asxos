@@ -46,7 +46,7 @@ From `arbi-autonomy-loop.md §Activation`, with today's status:
 | 1 | Model A dispute resolved | ✅ (2026-07-11; now *deleted*, quarantine standing) |
 | 2 | Branch protection on `main` | ✅ configured — but `enforce_admins:false` and CODEOWNERS advisory at 0 approvals |
 | 3 | R2 read-only Postgres role (`0039_agent_readonly_role.sql`, drafted, not applied) | **OPEN** |
-| 4 | Review identity ≠ PR author (makes CODEOWNERS mechanical) | **OPEN** — demonstrated prerequisite: PR #137 merged touching `CLAUDE.md` with no review |
+| 4 | Review identity ≠ PR author (makes CODEOWNERS mechanical) | **OPEN, and structurally unfireable today** — PRs #136–#141 are all authored by `Jp8617465-sys`, who is also the sole CODEOWNER, so requiring owner review would deadlock every PR. Runbook in the appendix |
 | 5 | Track record — clean scorecards over a sustained attended window | **OPEN** |
 | 6 | James's explicit enable | **OPEN** |
 
@@ -100,3 +100,72 @@ scorecard is the loop's feedback signal.
 
 I5–I6 (irreversible infra), P5 (capital-policy change, draft-only forever), P6 (execution —
 not a tool arbi holds). No track record unlocks these.
+
+---
+
+## Appendix — Gate 4 runbook: the second identity (asked 2026-08-18)
+
+James asked whether the agent could stand up the GitHub App itself, via MCP or API. **It cannot.**
+Three independent blocks, all verified this session:
+
+1. **No GitHub MCP server is attached.** The only servers available to this agent are `Supabase`
+   and `cursor-cloud`. There is no `mcp__github__*` surface in this runtime.
+2. **The `gh` token is a read-only integration token.** `gh api user` returns
+   `403 Resource not accessible by integration`, as does
+   `gh api repos/:owner/:repo/branches/main/protection`. It cannot read branch protection, let
+   alone write it.
+3. **GitHub App creation has no token-authenticated API path.** Apps are created either through
+   Settings → Developer settings in a browser, or through the App-manifest flow, which requires
+   an interactive browser consent redirect. A PAT cannot create an App. This is a GitHub-side
+   constraint, not a permissions gap that could be widened.
+
+### The finding that makes this urgent
+
+Gate 4 is not merely unfinished — the current configuration makes CODEOWNERS **structurally
+unable** to ever fire. Verified: PRs #136, #137, #138, #139, #140 and #141 are all authored by
+`Jp8617465-sys`, and `.github/CODEOWNERS` names `@Jp8617465-sys` as the owner of every governed
+path.
+
+GitHub does not permit a pull request author to approve their own pull request. So with a single
+identity there are only two reachable states, and neither is the intended one:
+
+- Branch protection requires CODEOWNER review → every agent PR deadlocks permanently, because
+  the only code owner is the author.
+- Branch protection does not require it (**today's state**, 0 approvals, CODEOWNERS advisory) →
+  nothing is enforced, which is why PR #137 merged touching `CLAUDE.md` with no review.
+
+The fix is therefore not "add a reviewer". It is **give the agent a different identity from the
+code owner**, so that James-as-owner can approve work James-as-agent did not author.
+
+### Least-technical path (recommended)
+
+A second free GitHub account is materially less work than an App and achieves the same mechanical
+separation. No development involved — it is account setup and two settings screens.
+
+1. Create a second free GitHub account (e.g. `asxos-agent`) at github.com/signup. Needs its own
+   email address; an alias works.
+2. On `Jp8617465-sys/asxos` → Settings → Collaborators → add that account with **Write** access.
+   Accept the invitation from the second account.
+3. From the second account, create a Personal Access Token (fine-grained) scoped to this
+   repository only, with Contents: Read/Write and Pull requests: Read/Write.
+4. Store it as the agent's push credential. **Do not** add it to `.github/CODEOWNERS` — the whole
+   point is that the agent identity is *not* an owner.
+5. Settings → Branches → `main`: set **Require a pull request before merging** with
+   **1 approval**, tick **Require review from Code Owners**, and tick **Do not allow bypassing
+   the above settings** (this is the `enforce_admins:false` gap in gate 2).
+
+After step 5, an agent PR touching `CLAUDE.md` or any `docs/product/` governance file cannot merge
+until James approves it, and James *can* approve it because he is not the author. That is gate 4
+closed mechanically rather than by convention.
+
+### Honest limits of this mechanism
+
+- It enforces **separation of author and approver**, not a second pair of eyes. James remains the
+  only human. The value is that no governed file can change without a deliberate human approval
+  step — it removes the silent-merge path, nothing more.
+- The agent identity holding Write access can still push branches freely. The gate is at merge,
+  which is correct: branch work is reversible, merging is not.
+- A GitHub App is the better long-run answer (short-lived installation tokens, no password, finer
+  scoping, and it shows as a bot rather than a human). It is strictly more clicking, and every
+  route to it still starts in a browser. The second account can be swapped for an App later
+  without changing CODEOWNERS or branch protection.
