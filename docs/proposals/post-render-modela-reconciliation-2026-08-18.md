@@ -1,6 +1,6 @@
 # Work order — reconcile the repo to the post-Render / post-Model-A reality
 
-**Status:** draft work order (advisory) · **Date:** 2026-08-18 · **Owner to ratify/apply:** James
+**Status:** RATIFIED by James 2026-08-18 (advisory content; execution reversible-only) · **Date:** 2026-08-18 · **Owner to ratify/apply:** James
 **Basis:** `docs/session-handoff-2026-08-18.md` (merged, PR #139) + live verification this session
 **Why draft:** every item below touches a James-gated surface — an authority file
 (`.claude/settings.json` deny set), a production workflow, or a DB write. An agent may

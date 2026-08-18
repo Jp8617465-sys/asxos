@@ -1,6 +1,6 @@
 # Plan — arbi toward maximal north-star-anchored autonomy
 
-**Status:** draft plan (advisory) · **Date:** 2026-08-18 · **Owner to ratify:** James (governor)
+**Status:** RATIFIED by James 2026-08-18 (advisory content; execution reversible-only) · **Date:** 2026-08-18 · **Owner to ratify:** James (governor)
 **Basis:** `arbi-permission-model.md`, `arbi-autonomy-loop.md`, `arbi.md`,
 `docs/session-handoff-2026-08-18.md`. This plan changes no grant; grants move only by James.
 
