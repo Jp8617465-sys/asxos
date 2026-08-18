@@ -8,9 +8,11 @@ paths:
 
 ## Hard-fail lifespan (CLAUDE.md non-negotiable #1)
 
-- `asxos/api/main.py` lifespan opens the DB pool, asserts migration drift,
-  and warms `get_cache().get("model_a")`. Any of these failing raises and
-  the API does not start. Never wrap in `try/except` + `logger.warning(...)`.
+- `asxos/api/main.py` lifespan opens the DB pool, runs `SELECT 1`, and asserts
+  migration drift — that is all (see `main.py:32-44`). Any of these failing raises
+  and the API does not start. Never wrap in `try/except` + `logger.warning(...)`.
+  There is NO model warm: the `get_cache().get("model_a")` call was removed by
+  P1-02 under rule #11. Do not restore it.
 - `REQUIRED_MIGRATIONS` constant tracks the expected count in
   `supabase_migrations.schema_migrations`. Bump it on every new migration.
 
@@ -32,8 +34,8 @@ paths:
 ## Auth
 
 - Single user. The API requires the `ASXOS_API_TOKEN` bearer on every request
-  from outside Render's network. No rateLimiter, no JWT, no auth chain.
-- The crons read Supabase directly — they never call the API.
+  from outside the local network. No rateLimiter, no JWT, no auth chain.
+- The scheduled GitHub Actions workflows read Supabase directly — they never call the API.
 
 ## Response shape
 
@@ -43,14 +45,14 @@ paths:
 ## Migrations
 
 - Numbered SQL files in `migrations/`, applied via
-  `mcp__supabase__apply_migration` against project `gxjqezqndltaelmyctnl`.
+  `mcp__claude_ai_supabase-ro__apply_migration` against project `gxjqezqndltaelmyctnl`.
 - No `make migrate` runner — `make migrate` only prints the reminder.
 - After applying: bump `REQUIRED_MIGRATIONS` in `asxos/api/main.py` to the observed
   `SELECT count(*) FROM supabase_migrations.schema_migrations` (not a guessed +1).
 - **PRE-APPLY dependent-object check (required before any `ALTER`/`DROP COLUMN`/
   `DROP TABLE`).** `migrations/` is not a complete picture of the live DB — out-of-band
   objects can exist (e.g. the `stock_universe` view that tripped 0029). Before altering
-  a column or dropping an object, run via `mcp__supabase__execute_sql` and handle any
+  a column or dropping an object, run via `mcp__claude_ai_supabase-ro__execute_sql` and handle any
   hit (e.g. drop+recreate the dependent view in the same migration):
   ```sql
   SELECT dependent_ns.nspname AS schema, dependent_view.relname AS view_name
