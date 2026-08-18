@@ -22,7 +22,7 @@ not delete the portfolio-construction ambition — it removes a **prediction** l
 edge (rule #11) and leaves the **measurement** layer, which is where the moat always was.
 
 This document specifies the measurement architecture, in dependency order, and is explicit
-about four data defects that must be fixed first because every number downstream is wrong
+about five data defects that must be fixed first because every number downstream is wrong
 without them.
 
 ## 2. The constraint that shapes the whole design
@@ -66,9 +66,10 @@ already model this), plus the measured consequences of each point in it.
 The headline asymmetry: **14 years of fundamentals, 1.6 years of prices.** A valuation multiple
 needs both. This single fact governs the sequencing in §7.
 
-## 4. Four defects that must be fixed before any segment number is trustworthy
+## 4. Five defects that must be fixed before any segment number is trustworthy
 
-These were found by actually computing the aggregate, not by reading code. All four are silent —
+These were found by computing the aggregate and checking the columns, not by reading code alone.
+All five are silent —
 they produce plausible-looking numbers rather than errors.
 
 ### D1 — The derived PIT table has no currency dimension
@@ -128,6 +129,32 @@ re-fetched, so newly-declared dividends and splits do not propagate backward. Th
 are already in the database — 38,039 dividends and 4,592 splits in `rs_corporate_actions`. This
 also matters because `detect_theme_stages` (a KEEP) computes breadth and momentum from `prices`,
 so its stage suggestions currently rest on a partially-adjusted series.
+
+### D5 — Screening can filter on five fields that are 100% empty
+
+`asxos/domain/screening/evaluator.py` whitelists nine numeric fields on the production
+`fundamentals` table. Verified against the live table (138,087 rows):
+
+| Field | Rows populated |
+|---|---|
+| `pb_ratio` | 138,087 (100%) |
+| `pe_ratio` | 46,113 (33%) |
+| `dividend_yield` | 37,002 (27%) |
+| `roe` | **0** |
+| `revenue` | **0** |
+| `net_income` | **0** |
+| `franking_pct` | **0** |
+| `debt_to_equity` | **0** |
+
+`asxos/ingestion/fundamentals.py` never writes those five columns — they exist in the schema
+from migration `0001` and have no writer. So a screening rule expressing any quality or income
+criterion returns an empty match set and reports it as a legitimate zero, with no error. This is
+the most likely reason `screening_rules` and `screening_runs` both sit at 0 rows: the tool is
+unusable for the rules a person would naturally write first.
+
+The research store already holds all five (`roe`, `revenue_ttm`, `net_income_ttm`,
+`franking_avg_pct`, and `net_debt`/`total_equity`), PIT-correct and with 14 years of history —
+which is why L2 below repoints screening rather than backfilling `fundamentals`.
 
 ## 5. What is *already* right, and worth saying
 
@@ -193,11 +220,11 @@ Rebuild what `rs_factor_scores` was meant to be, with two corrections:
 1. **Abstention, not a neutral zero.** The current degenerate 0.000 composite is a missing input
    masquerading as an average name. Gate on `n_factors_present` and emit the existing
    `EVIDENCE_THIN` state instead.
-2. **Repoint screening at the research store.** `asxos/domain/screening/evaluator.py` whitelists
-   `roe`, `revenue`, `net_income`, `franking_pct` and `debt_to_equity` on the production
-   `fundamentals` table, but `sync_fundamentals` never writes those columns. Reading
-   `rs_fundamentals_pit` instead makes screens both correct *and* historically replayable — the
-   walk-forward methodology the screening conventions already describe.
+2. **Repoint screening at the research store.** Per D5, five of the nine whitelisted fields are
+   100% NULL and have no writer, so quality and income rules silently match nothing. Reading
+   `rs_fundamentals_pit` instead makes screens correct *and* historically replayable — the
+   walk-forward methodology the screening conventions already describe — and it is strictly less
+   work than adding a writer for five columns that the research store already derives.
 
 Firewall line: publishing a percentile per name is a measurement; emitting a ranked shortlist
 with a cut is a rating. The layer publishes values and match sets, and James sorts.
@@ -298,3 +325,10 @@ All queries read-only against project `gxjqezqndltaelmyctnl` on 2026-08-18.
    (Materials A$304bn) that motivates FX conversion over exclusion.
 6. **Coverage quantification** — 1,833/1,872 universe coverage, 612 non-AUD reporters, 102
    unknown-currency, median 14 annual snapshots per symbol.
+7. **Production `fundamentals` column fill rates** — 138,087 rows; `roe`, `revenue`,
+   `net_income`, `franking_pct` and `debt_to_equity` all at exactly 0 populated. Produced D5.
+
+Code claims were verified by reading the source, not inferred: `jobs/detect_theme_stages.py`
+passes `news_sentiment=None` and `retail_mention_ratio=None`; `SizeRange` and `ConstraintResult`
+exist in `asxos/domain/decision_engine/types.py`; `asxos/ingestion/fundamentals.py` contains no
+reference to the five empty columns; `asxos/domain/screening/evaluator.py` whitelists them.
