@@ -1,8 +1,16 @@
 # Segment valuation → selection → exposure: the model-independent portfolio architecture
 
-**Status:** draft design (advisory). Evidence verified live against `asx-portfolio-os`
-(`gxjqezqndltaelmyctnl`) on 2026-08-18 via read-only SQL. No code or schema changed.
-**Author:** agent, at James's direction.
+**Status:** ratified 2026-08-19 by James (session ruling) as this repo's forward direction.
+The 4 open questions in §8 are closed. This ratification is recorded as Amendment F in a
+separate, not-yet-merged branch/PR (the reconciliation work landed in parallel to this one)
+— `docs/product/roadmap-state.md` on *this* branch predates that PR and does not yet show
+it; do not treat its absence here as the ratification being unrecorded, only unmerged. L0
+substrate repair (S1-S4) is now in progress on this branch — see the commit history for
+what has actually landed vs. what remains a documented next step (S1's full multi-currency
+FX conversion; S4's price backfill execution, which stays James's per the production-write
+boundary).
+**Author:** agent, at James's direction. Evidence verified live against `asx-portfolio-os`
+(`gxjqezqndltaelmyctnl`) on 2026-08-18 via read-only SQL.
 **Supersedes as design intent:** `jobs/build_portfolio.py` + `asxos/domain/portfolio/build.py`
 (the Model A allocator), ruled DELETED 2026-08-18.
 
@@ -177,12 +185,14 @@ One engine, six layers. Each layer is measurement only; the objective function s
 
 ### L0 — Substrate repair (prerequisite, not optional)
 
-| Fix | Work | Unblocks |
-|---|---|---|
-| **S1** Add `currency` to `rs_fundamentals_pit`; carry from statements; FX-convert at `knowledge_date`. Until FX pairs exist, mark non-AUD reporters `EVIDENCE_THIN` and **disclose the excluded capitalisation** rather than silently mixing units or silently dropping the majors | migration + `asxos/ingestion/fundamentals_pit.py` + `fx_rates` pair expansion | every multiple |
-| **S2** Complete `security_kind` for hybrids/notes; stop deriving PIT rows for non-ordinary lines; add a sanity assertion (no segment may exceed a bound; segment caps must reconcile to an independent total) | `ingestion` + job guard | every cap-weighted aggregate |
-| **S3** One versioned segment key: `segment_map(symbol, segment_key, taxonomy_version, effective_from)`. Prefer GICS, map Morningstar aliases, resolve the 17% gap explicitly, validate against known misclassifications | migration + mapping job | comparability through time |
-| **S4** Backfill `prices` deeper than 2025-01-02; re-derive `adj_close` from `rs_corporate_actions` | `asxos/ingestion/prices.py` + vendor quota | percentiles, momentum, vol, theme stages |
+| Fix | Work | Unblocks | Status (2026-08-19) |
+|---|---|---|---|
+| **S1** Add `currency` to `rs_fundamentals_pit`; carry from statements. Full FX conversion deferred (§8.1) — until then, `currency` alone lets a consumer group/filter rather than silently mix units | migration `0044` (drafted, not applied) + `asxos/ingestion/fundamentals_pit.py` (built, tested) | every multiple, once L1 reads `currency` | **Currency column + carry-through built.** FX conversion itself is not — L1 (not yet built) is where a consumer would apply it |
+| **S2** Exclude hybrid/capital-note `security_type` values (`Preferred Stock`/`Notes`/`BOND`, verified against live data — bank hybrids are typed `'Notes'` in `rs_security_master`, not a `universe.security_kind` gap as first suspected) from statement ingestion and factor derivation | `jobs/sync_financial_statements.py` + `asxos/domain/research/factor_scores.py` (built, tested) | every cap-weighted aggregate | **Built and tested.** Prevents *future* pollution; existing hybrid rows already in `rs_financial_statements`/`rs_fundamentals_pit` are not backfilled/deleted (a DB write outside this pass's authority) |
+| **S3** One versioned segment key: `segment_map(symbol, segment_key, taxonomy_version, effective_from)`. GICS-preferred, Morningstar variants alias-mapped — including within `gics_sector` itself, which was found to carry the same Morningstar leakage as `universe.sector` (verified live 2026-08-19), not just missing values | migration `0045` (drafted) + `asxos/domain/research/segment_map.py` + `jobs/build_segment_map.py` (built, tested) | comparability through time | **Built and tested**, never run against production (no migration applied yet) |
+| **S4** Backfill `prices` deeper than 2025-01-02; re-derive `adj_close` from `rs_corporate_actions` | `jobs/sync_prices.py --from` (already supports arbitrary depth) + vendor quota confirmation | percentiles, momentum, vol, theme stages | **Not started.** The backfill run is a production data write outside this session's authority (§8.2); `adj_close` re-derivation is separate, non-trivial financial logic (walking corporate actions to reconstruct historical adjusted closes) deserving its own dedicated pass, not a rushed addition here |
+
+Per this repo's completion discipline (a unit isn't done while its output on live data is unavailable/empty — see `roadmap-state.md` Amendment D): **nothing in this table has rendered against production yet.** Every migration above is drafted, not applied; every job is unit-tested against a fake connection, not run live. The next session's first job is applying `0044`+`0045` and running `build_segment_map`/re-running `sync_financial_statements`+`compute_factor_scores`, then re-checking this doc's own evidence-appendix queries to confirm the previously-impossible numbers now look sane.
 
 S3 is the ASX-specific one worth doing properly. "Materials" on the ASX is iron ore, gold,
 lithium and copper in one bucket, and those do not co-move; a segment key that cannot separate
@@ -297,16 +307,31 @@ benchmark series simultaneously.
 L1 is buildable at "current cross-section only" quality as soon as S1–S3 land. That is already
 useful, and it is honest so long as the absence of history is stated rather than papered over.
 
-## 8. Open questions for James
+## 8. Open questions for James — ratified 2026-08-19
 
-1. **FX**: expand `fx_rates` to the ~12 reporting currencies and convert, or exclude non-AUD
-   reporters with disclosed excluded capitalisation? Excluding is cheaper but loses BHP, RIO and
-   NEM, which is most of the Materials segment.
-2. **Price depth**: how far back to backfill `prices`? This is the vendor-quota question and it
-   gates every percentile in the design.
-3. **Resource taxonomy**: are commodity buckets (iron ore / gold / lithium / copper) worth the
-   second taxonomy version, or is GICS "Materials" good enough for now?
-4. **Cadence**: does the stage × valuation map belong in the daily brief, or weekly?
+1. **FX: convert, not exclude.** §4/D1 already proves exclusion is not a lesser-but-acceptable
+   option — it provably drops ~A$778bn of Materials (BHP+RIO+NEM) and is not a real choice, just
+   a different wrong number. Full conversion to all ~12 reporting currencies is deferred as its
+   own follow-up (it needs a sourced multi-currency rate feed, not just code); L0's S1 ships the
+   **interim form S1 itself specifies** — a `currency` column, carried through from source, with
+   non-AUD reporters marked `EVIDENCE_THIN` and their excluded capitalisation disclosed rather
+   than silently mixed or silently dropped. That interim is itself correct and firewall-clean; it
+   is not a workaround pending the real fix, it *is* D1's specified fallback.
+2. **Price depth: ratified as an operational step, not a design question — not executed in this
+   pass.** Backfilling `prices` deeper than 2025-01-02 is a production data write (real API
+   quota, real historical rows landing in the live `prices` table), which stays outside this
+   session's authority per the standing Claude-driven-execution boundary on production data
+   mutation. `jobs/sync_prices.py --from` already supports an arbitrary-depth backfill (§7); what
+   this ratification adds is the target: back-fill to cover the same span `rs_fundamentals_pit`
+   already has (median 14 annual snapshots — multi-year, not just "some more days"), confirming
+   EODHD's bulk endpoint serves that range before committing to it. James runs it; this document
+   no longer blocks on *deciding* the depth, only on *executing* the fetch.
+3. **Resource taxonomy: deferred, v2 candidate.** GICS "Materials" is accepted as sufficient for
+   L0/L1; a commodity-bucket second taxonomy version (§6, "the ASX-specific one worth doing
+   properly") is real future work but does not block S3 landing GICS-preferred, alias-normalised
+   segment keys now.
+4. **Cadence: deferred to whoever builds L5.** Not a substrate question; revisit once L1-L4 exist
+   and there is a real map to decide a cadence for.
 
 ## 9. Evidence appendix
 
