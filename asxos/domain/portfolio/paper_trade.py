@@ -359,20 +359,18 @@ async def record_signoff(
     Uses ``action='NOTE'`` and ``rationale='[m13_paper_signoff] ...'``.
     Returns the new decisions.id.
 
-    After calling this: flip ASXOS_PORTFOLIO_BRIEF_ENABLED to "1" on both
-    asxos-compose-brief and asxos-build-portfolio via the Render REST API
-    (there is no Render MCP):
-        curl -X PUT -H "Authorization: Bearer $RENDER_API_KEY" \
-             -H "Content-Type: application/json" -d '{"value":"1"}' \
-             https://api.render.com/v1/services/crn-d883biq8qa3s73eud08g/env-vars/ASXOS_PORTFOLIO_BRIEF_ENABLED
+    After calling this: flip ASXOS_PORTFOLIO_BRIEF_ENABLED to "1" in the env:
+    block of .github/workflows/daily-brief.yml and git push to main — there is
+    no Render REST API any more (Render was deleted 2026-08-12); the flag
+    takes effect on the next scheduled run.
     """
     if as_of is None:
         as_of = date.today()
 
     parts = [
         "[m13_paper_signoff] Operator signed off ≥4 weeks of paper trading.",
-        "Next step: flip ASXOS_PORTFOLIO_BRIEF_ENABLED=1 via the Render REST API on",
-        "asxos-compose-brief (crn-d883biq8qa3s73eud08g).",
+        "Next step: add ASXOS_PORTFOLIO_BRIEF_ENABLED=1 to the env: block of",
+        ".github/workflows/daily-brief.yml and git push to main.",
     ]
     if note:
         parts.append(note)

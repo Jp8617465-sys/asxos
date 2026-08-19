@@ -77,6 +77,29 @@ def test_price_revision_backup_is_pre_migration_compatible() -> None:
     assert '"${OPTIONAL_TABLE_ARGS[@]}"' in _TEXT
 
 
+def test_backup_workflow_schedule_unchanged() -> None:
+    """Pins the daily backup cron so a silent schedule drift fails the same PR
+
+    instead of only surfacing on the next missed day. Replaces the coverage
+    lost when tests/test_render_backup_build.py was deleted (Render's cron
+    declaration is gone; the workflow's own schedule is now the single
+    source of truth).
+    """
+    assert 'cron: "30 13 * * *"' in _WORKFLOW_TEXT
+
+
+def test_backup_workflow_entrypoint_unchanged() -> None:
+    """The backup job must still invoke the pinned script, not an inline dump."""
+    assert "run: bash scripts/backup_irreplaceable.sh" in _WORKFLOW_TEXT
+
+
+def test_backup_workflow_declares_expected_env_vars() -> None:
+    """The three secrets the script needs must stay wired to the job env."""
+    assert "DATABASE_URL: ${{ secrets.DATABASE_URL }}" in _WORKFLOW_TEXT
+    assert "BACKUP_GITHUB_TOKEN: ${{ secrets.BACKUP_GITHUB_TOKEN }}" in _WORKFLOW_TEXT
+    assert "BACKUP_REPO: ${{ secrets.BACKUP_REPO }}" in _WORKFLOW_TEXT
+
+
 def test_restore_drill_covers_revision_rows_and_sequence() -> None:
     """Restore proof includes ledger contents and keeps BIGSERIAL usable."""
     assert "governance_events, price_revisions RESTART IDENTITY" in _WORKFLOW_TEXT

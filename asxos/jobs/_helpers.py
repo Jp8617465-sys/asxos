@@ -25,10 +25,10 @@ def require_personal_use_job() -> None:
     (Corporations Act 2001) and must run only in single-user mode.
 
     Raising ``RuntimeError`` (not a silent ``log.warning``) means a missing
-    flag fails loud rather than relying on ``render.yaml`` setting the env var
-    externally — the env-only-protection gap the R14 audit surfaced across the
-    position/snapshot/thesis-check jobs. Call this as the first statement of the
-    job's entry point, before ``init_pool()`` / ``JobMonitor`` opens.
+    flag fails loud rather than relying on the workflow's ``env:`` block setting
+    the var externally — the env-only-protection gap the R14 audit surfaced across
+    the position/snapshot/thesis-check jobs. Call this as the first statement of
+    the job's entry point, before ``init_pool()`` / ``JobMonitor`` opens.
     """
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         raise RuntimeError(
