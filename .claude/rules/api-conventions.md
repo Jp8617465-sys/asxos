@@ -71,5 +71,6 @@ paths:
 
 - Unit tests in `tests/test_*.py`. Avoid touching the live DB — mock
   `asxos.db.acquire` and pass synthetic asyncpg `Record`-shaped dicts.
-- For ML tests, prefer the real Model A v1_5 artefacts in `models/` over
-  a synthetic LightGBM (catches sklearn/LightGBM version drift).
+- Model A's training chain and artefacts were retired 2026-08-19 (rule #11's
+  quarantine mechanism — `asxos/domain/models/production_gate.py` — stays;
+  there is no longer a model to train or test against).

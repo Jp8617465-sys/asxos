@@ -50,9 +50,11 @@ def _grade_age(latest: date | None, warn_days: int, fail_days: int) -> tuple[str
 
 
 # (table, date_col-or-None, warn_days, fail_days, min_rows) — mirrors data-contracts.md.
+# `signals` is deliberately excluded: it's frozen (no writer since Model A's
+# retirement) and an age-based freshness check on a permanently-stale table
+# would FAIL forever, which is not a real health signal. See data-contracts.md.
 FRESHNESS = [
     ("prices", "dt", 4, 8, 100_000),
-    ("signals", "as_of", 4, 8, 1_000),
     ("market_context", "as_of", 4, 8, 1),
     ("portfolio_daily_snapshots", "as_of", 4, 9, 1),
     ("fundamentals", "as_of", 8, 20, 1_000),
@@ -69,12 +71,15 @@ async def _freshness(conn) -> list[Check]:  # type: ignore[no-untyped-def]
         if n < min_rows:
             grade = "FAIL"
         out.append(Check("Data freshness", table, f"{latest_d} ({n:,} rows)", grade, agenote))
-    # signal_outcomes: no date col; presence is the signal (empty blocks decay automation).
+    # signal_outcomes: frozen historical evidence for Model A's resolved (2026-07-11)
+    # decay verdict — no date col, presence is the signal. Not expected to change;
+    # a future FAIL here would mean the archived evidence itself was lost, not that
+    # a live pipeline is blocked.
     n = await conn.fetchval("SELECT count(*) FROM signal_outcomes")
     out.append(Check(
         "Data freshness", "signal_outcomes", f"{n:,} rows",
         "PASS" if n > 0 else "FAIL",
-        "populated — decay automation is runnable" if n > 0 else "EMPTY — blocks Model A decay automation",
+        "frozen evidence intact" if n > 0 else "EMPTY — the frozen decay-evidence table lost its rows",
     ))
     return out
 
