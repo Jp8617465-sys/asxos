@@ -249,6 +249,45 @@ prospectively. It does not say what happens to the four `results_review` rows al
 whether they are re-opened, annotated as closed-under-D, or left alone. That is a governor call
 and is deliberately left blank here rather than assumed.
 
+#### Amendment F — Cursor-session product-direction ratification (James, 2026-08-19)
+
+Ratified verbatim by James ("ratifying cursor sessions") after the `/arbi` wake surfaced the
+2026-08-18 parallel Cursor Cloud Agent session's rulings as an open `james-inbox.md` row
+(recorded 2026-08-19, this same wake). Recorded per the GOV-01 two-artifact precedent: a
+ruling requires the ruling AND the queue amendment; this row is the amendment.
+
+**What this ratifies — the three cron rulings and the `build_portfolio` redirect, as this
+repo's actual decision, not merely a chat-transcript claim:**
+
+> `detect_theme_stages` **KEEP** (currently has no GitHub Actions home — theme stages have
+> gone un-refreshed since Render's deletion; migrating it is now queued work, not optional).
+> `monitor_paper_portfolio` **DROP** (pre-answers dark-surface #4's 2026-08-28 expiry —
+> the paper-trade evaluator does not ship).
+> `build_portfolio` **DELETED.** Its replacement is the segment-valuation → selection →
+> exposure architecture specified in draft PR #142 (data pipelines → market-segment
+> valuations → investment selection/exposure ratios, with thesis/theme analysis and theme
+> trend stages feeding the brief) — ratified as this repo's forward direction for that
+> capability.
+
+**What this does NOT ratify.** Merge, ready or un-draft of PRs #140/#141/#142 — those stay
+James-only per every existing rule, and PR #141 (Render retirement) was independently found
+by a same-session Claude review to be ~60% complete (misses 10 slash commands still probing
+`$RENDER_API_KEY`, the auto-attaching `job-conventions.md` render.yaml references, a rule #2
+rewrite more permissive than `push-guard.sh`'s actual dispatch allowlist, a deleted test
+with no replacement, and 8 stale code-comment citations) — that gap is not closed by this
+ratification and should be addressed before any merge decision. Nor does this ratify PR
+#142's five cited data-substrate defects (D1–D5: currency, hybrid-security misclassification,
+duplicate sector taxonomies, short price history, five always-empty `fundamentals` columns)
+as fixed — they are findings to act on, not yet actioned. **Rule #11 is untouched**, and the
+correction stands: Model A has **not** been deleted from this repo (see the 2026-08-19 Last
+wake snapshot and In-flight note) — only Render was deleted; do not read this amendment as
+touching that.
+
+`james-inbox.md`'s corresponding open row is marked resolved with this date and this
+amendment as the record. `risk-register.md` R17 (Cursor Cloud Agents operating outside this
+repo's tool-scoping and hook-enforcement fence) is **unaffected by this ratification** — it
+is a governance/security gap, not a content decision, and stays open.
+
 Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
 single-builder with the independent-review function preserved in separate documented passes;
 the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
@@ -548,6 +587,29 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+- **2026-08-19 — parallel Cursor work stream, not yet reconciled.** A separate Cursor Cloud
+  Agent session (2026-08-18, outside this repo's `/arbi`-governed loop — no red-team vet
+  that stuck, no `/arbi-close`, no decision-log row until this entry) opened four draft PRs,
+  none merged: **#142** segment-valuation → selection → exposure architecture (docs only;
+  replaces the deleted `build_portfolio`'s intent; cites 5 live-SQL-verified data-substrate
+  defects — no currency column on `rs_fundamentals_pit`, bank-hybrid securities inheriting
+  parent financials, duplicate sector taxonomies, 1.6y price history vs 14y fundamentals,
+  five always-empty `fundamentals` columns); **#141** retire Render (`render.yaml` deletion,
+  CI green, 2389 passed — a same-session Claude red-team found it real but ~60% complete:
+  misses 10 slash commands still probing `$RENDER_API_KEY`, the auto-attaching
+  `job-conventions.md` render.yaml references, a new rule #2 more permissive than
+  `push-guard.sh`'s actual dispatch allowlist, a deleted test with no replacement, and 8
+  stale code-comment citations); **#140** reconciliation work order + arbi autonomy plan
+  (docs only; records James's verbal rulings — `detect_theme_stages` KEEP,
+  `monitor_paper_portfolio` DROP, `build_portfolio` DELETED — and reconfirms the
+  CODEOWNERS self-approval deadlock already known from PR #137); **#134** Cursor Cloud
+  Agent dev environment. **Correction carried from that session's own investigation: Model A
+  has NOT been deleted from the repo** — rule #11's quarantine stands unchanged; do not act
+  on any "Model A deleted" framing. The three cron rulings and the `build_portfolio`
+  redirect are logged as an open `james-inbox.md` row pending formal ratification; the
+  Cursor-runtime governance gap (settings.json/tools:/hook enforcement all inert or buggy
+  for that runtime) is logged as `risk-register.md` R17. No merge, review-approval, or edit
+  to any Cursor-authored branch has been made from this session — that stays James's call.
 - **2026-08-12 — production remediation session (mid-session checkpoint).** Migration 0043
   **applied** (`20260812092925`, count 96) with probe + post-apply drill `31593927269` green;
   `derive_fundamentals_pit` succeeded in production for the first time (53,624 rows / 3,357
@@ -884,8 +946,60 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-08-12 **mid-session** `/arbi-close` (a checkpoint at James's request —
-the session continued past it). Supersedes the 08-11 snapshot below._
+_Recorded by the 2026-08-19 interactive `/arbi` wake, extended via `/arbi-run "ingest and
+explore this work from cursor"` after James pasted a full transcript from a parallel Cursor
+Cloud Agent session (2026-08-18, outside this repo's governed loop). Supersedes the
+2026-08-12 mid-session checkpoint below, which had gone unrefreshed for a week despite six
+more merged PRs on 08-17 and eight more on 08-18._
+
+```
+Wake: 2026-08-19 (interactive /arbi, extended by a Cursor-transcript ingest)
+- branch: claude/handoff-2026-08-18 @ 388d2b9, content-identical to origin/main (56596fc,
+  PR #139 squash-merge of the same commit — no real divergence, confirmed via
+  `git diff origin/main HEAD` = empty). Working tree carries 2 untracked files, both dated
+  2026-08-18, neither ever committed: docs/proposals/arbi-automation-amendment-pack-
+  2026-08-13.md (cited by path in this file's Amendment A as if it exists in-repo — it
+  doesn't) and scripts/table_census.sql (a new design-time zero-row-check tool).
+- open PRs (7): #142 segment-valuation architecture (docs only, CI green, replaces
+  build_portfolio) · #141 retire Render (CI green, 2389 passed, deletes render.yaml) ·
+  #140 reconciliation work order + arbi autonomy plan (docs only, CI green) · #134 Cursor
+  Cloud Agent dev environment (draft) — all four Cursor-authored, opened 2026-08-18
+  07:22-11:10, none merged · #124 Second Brain execution loop wave 1 (08-17) · #105
+  Supabase evidence-store plan (08-13) · #80 PARKED rules-integrity, do not merge.
+- tests (this sandbox venv): 2390 passed / 1 failed / 1 skipped / 2 xfailed / 1 error —
+  the failure (test_train_walk_forward.py, lightgbm) and error (test_retrain_dry_run_guard.py
+  collection) both match the documented interpreter-dependent baseline exactly; no new
+  failures.
+- migrations: 41 files on disk (0001-0043, 0042 reserved/unapplied). REQUIRED_MIGRATIONS=96,
+  no delta since 08-12.
+- freshness: prices.dt=2026-08-18 (fresh) · signals.as_of=2026-08-05 (dead table, expected,
+  no writer since Model A's producer was deleted) · portfolio_daily_snapshots=2026-08-18 ·
+  current_holdings=1 (still only HUBS.NYSE) · disposed lots=0 (unchanged).
+- job_runs: full daily-brief chain green 08-18 20:49-20:51 UTC; full weekly-research chain
+  green 08-18 04:40-05:04 UTC; check_cron_health FAILURE on 08-16/08-17 (stale job_runs row
+  from the cancelled 08-15 weekly-research run, diagnosed in draft PR #140 — "not a new
+  defect"), now SUCCESS again as of 08-18 22:27:32Z — self-cleared, no open red job.
+- Cursor-transcript findings (unverified-by-this-session claims marked as such):
+  (1) **Correction — Model A has NOT been deleted from the repo**, contrary to what James
+  told that session. jobs/retrain_model_a.py, 4 model_a_v1_5_* artifacts, and ~28
+  non-doc/non-test files still reference it; PR #141 itself defers Model A removal as
+  future work. Current CLAUDE.md (read this session) still frames it as shelved/dormant.
+  Do not act on "Model A deleted" as fact.
+  (2) Three verbal cron rulings recorded in that session, not yet in this file: detect_theme_
+  stages KEEP, monitor_paper_portfolio DROP, build_portfolio DELETED (replaced by #142's
+  segment-valuation direction) — now also logged as an open row in james-inbox.md pending
+  formal ratification.
+  (3) A new governance/security risk: Cursor Cloud Agents run outside every mechanical
+  control this repo assumes (settings.json permission arrays inert, agent tools: allowlist
+  unenforced, authority-guard.sh fails-closed on all Cursor Writes due to a payload bug,
+  and a live arbi-red-team dispatch from that session fabricated a citation) — logged as
+  risk-register.md R17.
+  (4) None of that session's own proposed remediation plan was executed — it hit the
+  Write-tool bug and stopped; it exists only as chat prose, not committed anywhere.
+```
+
+_Prior snapshot — recorded by the 2026-08-12 **mid-session** `/arbi-close` (a checkpoint at
+James's request — the session continued past it). Supersedes the 08-11 snapshot below._
 
 ```
 Checkpoint: 2026-08-12 (mid-session /arbi-close)
