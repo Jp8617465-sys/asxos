@@ -197,13 +197,20 @@ units merged on 2026-08-17 (#129, #130) are correct, tested, and inert: #129 ren
 benchmark because none exists for the global sleeve, and #130's only live trigger is a demo
 thesis. Correct-and-empty is not done.
 
-**🟡 Amendment E — DRAFT, AWAITING JAMES'S RATIFICATION (drafted 2026-08-18).** **This is not
-in force.** It is recorded here per the same GOV-01 two-artifact convention Amendment D
-followed — a ruling requires the ruling AND the queue amendment, and *this row is only the
-first artifact*. Amendment D's row states "Ratified verbatim by James"; this row deliberately
-cannot, because he has not seen it. Nothing may cite Amendment E as authority, and no close row
-may be blocked or admitted under it, until James ratifies it and the queue amendment is
-written. Drafted text follows verbatim:
+**✅ Amendment E — RATIFIED by James, 2026-08-20** (drafted 2026-08-18). Ratified verbatim by
+James ("okay lets do all of these 6" — item 4 of the six-point production-loop ruling, session
+on `claude/asx-stock-evaluation-p0hxx2`; execution record:
+`docs/proposals/production-loop-optimisation-2026-08-20.md`). Per the GOV-01 two-artifact
+convention this paragraph is the queue amendment; the quoted instruction is the ruling.
+**Effective PROSPECTIVELY from 2026-08-20** (the ratification date — an unratified draft
+cannot bind rows written before it existed, the same reason `check_ledger_coverage.sh`'s own
+header gives; its `AMENDMENT_E_EFFECTIVE` constant is updated to match in the same commit.
+Disclosed: this also places the `close-2026-08-18-sandbox` ledger row, written by the
+ratifying session itself before ratification, out of scope — a consequence of the principled
+date, not its motivation). **The retroactivity question remains OPEN and James's** — the
+drafted text below deliberately left "what happens to the four already-merged
+`results_review` rows" blank, and this ratification does not resolve it. Ratified text
+follows verbatim as drafted:
 
 > **Amendment E — completion test, all lanes (rider to Amendment D).** Amendment D's standing
 > condition applies to **every** lane, not only the product lane: no work order closes while its

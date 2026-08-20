@@ -43,18 +43,19 @@
 #   the point of "exactly one" is that the author must decide what KIND of work
 #   this was, because that decision is what makes the claim falsifiable.
 #
-#   ⚠️ AMENDMENT E IS A DRAFT AND IS NOT RATIFIED. This check is therefore
-#   gated behind AMENDMENT_E_EFFECTIVE below and applies only to close rows
-#   dated on or after it. Two reasons, and the second matters more:
-#     1. A standing condition cannot bind rows written before it existed.
-#        Every one of the six existing close rows predates the draft and none
-#        carries any of the three fields, so an ungated check would fail 6/6
-#        forever — a check that is always red is a check nobody reads.
+#   ✅ AMENDMENT E WAS RATIFIED BY JAMES ON 2026-08-20 (roadmap-state.md's
+#   Amendment E block carries the ruling and the queue amendment; execution
+#   record: docs/proposals/production-loop-optimisation-2026-08-20.md).
+#   Effective PROSPECTIVELY from the ratification date — the constant below
+#   is set to 2026-08-20 accordingly. The two original gating reasons still
+#   explain the prospective cut:
+#     1. A standing condition cannot bind rows written before it existed —
+#        this now also covers rows written between the draft (08-18) and the
+#        ratification (08-20), including close-2026-08-18-sandbox.
 #     2. Retroactively failing merged rows would be this script deciding a
-#        governance question that is explicitly left open for James in the
-#        Amendment E block ("what happens to the four results_review rows").
-#   If James ratifies E with a different effective date, change the constant.
-#   If he rejects E, delete this check — do not quietly leave it disabled.
+#        governance question that is STILL open for James even after
+#        ratification ("what happens to the four results_review rows" —
+#        deliberately left blank in the ratified text).
 #
 # USAGE
 #   scripts/check_ledger_coverage.sh [SINCE_ISO8601]
@@ -70,7 +71,8 @@ set -euo pipefail
 LEDGER="docs/product/arbi-run-ledger.md"
 
 # Amendment E applies to close rows dated on or after this. See CHECK 2 above.
-AMENDMENT_E_EFFECTIVE="2026-08-18"
+# Set to the RATIFICATION date (2026-08-20), not the draft date — prospective only.
+AMENDMENT_E_EFFECTIVE="2026-08-20"
 SINCE="${1:-$(date -u -v-30d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)}"
 
 command -v gh >/dev/null 2>&1 || { echo "[coverage] gh not found — cannot enumerate merged PRs" >&2; exit 2; }
