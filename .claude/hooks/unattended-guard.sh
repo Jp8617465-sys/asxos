@@ -66,11 +66,55 @@ is_authority_path() {
   return 1
 }
 
-rel_path() {
-  local p="$1" root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  p="$(realpath -m -- "$p" 2>/dev/null || printf '%s' "$p")"
-  root="$(realpath -m -- "$root" 2>/dev/null || printf '%s' "$root")"
-  printf '%s' "${p#"$root"/}"
+# Resolve the tool call's OWN checkout, then test the target path under every
+# guarded root. The previous single-root strip was anchored to $CLAUDE_PROJECT_DIR:
+# a path inside a git worktree never stripped, so what reached is_authority_path()
+# was still absolute, matched none of its repo-relative patterns, and the guarded
+# categories silently failed OPEN — the exact inverse of this hook's fail-closed
+# contract. Mirrors authority-guard.sh: protect the active target checkout AND the
+# checkout that supplied the loaded controls; an identically named file in an
+# unrelated repository is not a guarded surface.
+payload_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty')"
+
+guard_roots() {
+  local target_root control_root
+  control_root="${CLAUDE_PROJECT_DIR:-}"
+  if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
+    target_root="$(git -C "$payload_cwd" rev-parse --show-toplevel 2>/dev/null \
+      || printf '%s' "$payload_cwd")"
+  else
+    target_root="${control_root:-$(pwd)}"
+  fi
+  printf '%s\n' "$target_root"
+  [ -n "$control_root" ] && [ "$control_root" != "$target_root" ] \
+    && printf '%s\n' "$control_root"
+  return 0
+}
+
+# path_matches <file_path> <predicate_fn> — true if the path resolves, under ANY
+# guarded root, to a repo-relative path the predicate accepts.
+path_matches() {
+  local fp="$1" pred="$2" abs root rel
+  [ -n "$fp" ] || return 1
+  case "$fp" in
+    /*) abs="$fp" ;;
+    *) abs="${payload_cwd:-$(pwd)}/$fp" ;;
+  esac
+  abs="$(realpath -m -- "$abs" 2>/dev/null || printf '%s' "$abs")"
+  while IFS= read -r root; do
+    [ -n "$root" ] || continue
+    root="$(realpath -m -- "$root" 2>/dev/null || printf '%s' "$root")"
+    case "$abs" in
+      "$root"/*) rel="${abs#"$root"/}" ;;
+      *) continue ;;
+    esac
+    if "$pred" "$rel"; then
+      return 0
+    fi
+  done <<EOF
+$(guard_roots)
+EOF
+  return 1
 }
 
 # --- Capital-adjacent carve-out (security-perf-mission-loop.md §1, red-team #1 / LOW-8) ----
@@ -116,7 +160,10 @@ case "$tool" in
     printf '%s' "$cmd" | grep -Eiq '\bgit\b[^|;&]*\bpush\b[^|;&]*(\b(main|master)\b|HEAD:(main|master))|:[[:space:]]*(main|master)\b' \
       && deny "unattended-guard: push to main/master = prod deploy (I6), reserved to James. Work on a claude/** branch and open a PR."
     if printf '%s' "$cmd" | grep -Eiq '\bgit\b[^|;&]*\bpush\b'; then
-      cur="$(git -C "${CLAUDE_PROJECT_DIR:-.}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+      # Branch of the checkout the push runs from — a worktree has its own HEAD.
+      ug_push_cwd="${payload_cwd:-}"
+      [ -n "$ug_push_cwd" ] && [ -d "$ug_push_cwd" ] || ug_push_cwd="${CLAUDE_PROJECT_DIR:-.}"
+      cur="$(git -C "$ug_push_cwd" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
       case "$cur" in main|master) deny "unattended-guard: bare 'git push' while on $cur = prod deploy (I6). Use a claude/** branch + PR." ;; esac
     fi
     printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge|\bgit\b[^|;&]*\bmerge\b|gh[[:space:]]+pr[^|;&]*(--merge|--auto|--admin)|gh[[:space:]]+workflow[[:space:]]+(run|enable|disable)|gh[[:space:]]+release[[:space:]]+(create|edit|delete)|gh[[:space:]]+api[^|;&]*(--method|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)|(curl|wget)[^|;&]*api\.github\.com[^|;&]*/merge' \
@@ -181,17 +228,17 @@ case "$tool" in
     ;;
   Edit|Write|MultiEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')"
-    [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_authority_path \
       && deny "unattended-guard: editing an authority/boundary file is blocked for unattended runs. arbi may only DRAFT it via a PR (route through backend-architect + security-engineer for James to merge)."
-    [ -n "$fp" ] && is_capital_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_capital_path \
       && deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
     exit 0
     ;;
   NotebookEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.notebook_path // empty')"
-    [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_authority_path \
       && deny "unattended-guard: editing an authority/boundary file is blocked for unattended runs."
-    [ -n "$fp" ] && is_capital_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_capital_path \
       && deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
     exit 0
     ;;
