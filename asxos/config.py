@@ -69,6 +69,7 @@ class CoreSettings(BaseSettings):
     healthcheck_url_sync_financial_statements: str = ""    # research store rs_financial_statements
     healthcheck_url_derive_fundamentals_pit: str = ""      # research store rs_fundamentals_pit
     healthcheck_url_compute_factor_scores: str = ""        # research store rs_factor_scores
+    healthcheck_url_build_segment_map: str = ""            # D3/S3 normalized segment_map
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False
