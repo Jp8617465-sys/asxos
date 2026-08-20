@@ -54,7 +54,22 @@ case "$cmd" in
   *) exit 0 ;;
 esac
 
-cd "${CLAUDE_PROJECT_DIR:-.}"
+# Resolve the checkout this commit will actually run in. Claude normally invokes
+# the hook at the project root, but a Bash call made inside a git worktree (or any
+# other cwd) has its OWN index — and this gate inspects the STAGED diff, which is
+# per-checkout. Anchoring to $CLAUDE_PROJECT_DIR would inspect an unrelated (and
+# usually empty) index, so staged Python in a worktree sailed through ungated.
+# Mirrors authority-guard.sh's payload-.cwd resolution. Fail-open per this hook's
+# contract: an unusable cwd falls back to the project dir, and a failed cd exits
+# without a deny.
+payload_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty')"
+if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
+  gate_root="$(git -C "$payload_cwd" rev-parse --show-toplevel 2>/dev/null \
+    || printf '%s' "$payload_cwd")"
+else
+  gate_root="${CLAUDE_PROJECT_DIR:-.}"
+fi
+cd "$gate_root" 2>/dev/null || exit 0
 
 # R13 — detect commands that stage Python in the same breath as the commit, so
 # the staged-diff check below can't see it. Two shapes:

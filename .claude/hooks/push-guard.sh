@@ -122,7 +122,14 @@ fi
 # not reliably parseable in bash, so this over-denies a rare same-branch-explicit-push case
 # rather than risk under-denying — safe direction, matches existing house convention).
 if printf '%s' "$cmd" | grep -Eiq "${PUSHSEG}"; then
-  cur="$(git -C "${CLAUDE_PROJECT_DIR:-.}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  # Read the branch of the checkout the push will actually run from. A worktree has
+  # its own HEAD, so a $CLAUDE_PROJECT_DIR-anchored read inspects the wrong tree —
+  # a worktree sitting on main while the primary checkout is on claude/** slipped
+  # this check entirely. (The -C/--git-dir/--work-tree deny above covers the flag
+  # form of the same redirect; this covers the cwd form.)
+  push_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty')"
+  [ -n "$push_cwd" ] && [ -d "$push_cwd" ] || push_cwd="${CLAUDE_PROJECT_DIR:-.}"
+  cur="$(git -C "$push_cwd" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
   case "$cur" in
     main|master) deny "push-guard: pushing while checked out on $cur risks pushing to main/master. Work on a claude/** branch." ;;
   esac
