@@ -1,10 +1,39 @@
 """Tier 2a mechanical screening evaluator.
 
 Turns a `screening_rules.rule_json` (curated_composite only — migration 0038
-CHECK constraint) into a parameterized SQL query against `universe` +
-latest `fundamentals` + latest `prices.close`, and logs the result to
-`screening_runs` for audit. See docs/proposals/thesis-coverage-framework-
-2026-07-11.md Tier 2a for the full design.
+CHECK constraint) into a parameterized SQL query against `universe` + latest
+`fundamentals` + latest usable `rs_fundamentals_pit` + latest `prices.close`,
+and logs the result to `screening_runs` for audit. See docs/proposals/
+thesis-coverage-framework-2026-07-11.md Tier 2a for the full design.
+
+Field sources and vintages (repointed 2026-08-20 — the five fields below were
+previously read from `fundamentals` columns that have had NO writer since
+migration 0001 and were 100% NULL across all 138,087 rows, PR #142 finding D5;
+`asxos/ingestion/fundamentals.py`'s INSERT/UPSERT never names them):
+
+* `roe`, `revenue`, `net_income`, `franking_pct`, `debt_to_equity` come from
+  the latest USABLE `rs_fundamentals_pit` row per symbol — statement-vintage
+  (yearly), produced weekly by `jobs/derive_fundamentals_pit.py` after
+  `sync_financial_statements` + `sync_corporate_actions`. "Usable" means
+  `knowledge_date <= CURRENT_DATE`: 60 live rows carry FUTURE knowledge_date
+  values (known ingestion defect, session-handoff-2026-08-18), and filtering
+  BEFORE the DISTINCT ON pick is load-bearing — a symbol whose newest row is
+  future-dated falls back to its newest usable row instead of dropping out.
+  Ordering `symbol, as_of DESC, knowledge_date DESC` is deterministic under
+  the table's `(symbol, knowledge_date)` PK: current best knowledge of the
+  most recent period.
+* `pe_ratio`, `pb_ratio`, `eps`, `dividend_yield` stay on latest
+  `fundamentals` (daily vendor); `latest_close` on latest `prices` (daily);
+  `market_cap`/`sector` on `universe` (propagated canonical values). One
+  ScreenMatch therefore mixes vintages — standard for fundamental screens,
+  stated here so nobody assumes a single as-of.
+
+Fail-loud coverage guard (CLAUDE.md #10): a rule referencing any field with
+ZERO non-null coverage over the (sector-scoped) candidate universe raises
+RuntimeError naming the column(s) — on a fully-NULL column every predicate is
+degenerate (`is_null` degenerate-true, everything else degenerate-empty):
+that is the data being missing, never the screen answering. A genuine
+zero-match on POPULATED data remains a valid, distinguishable result.
 
 SQL-injection safety boundary: `parse_rule()` validates every field/op
 against the closed whitelists below and raises ValueError on anything not
@@ -20,7 +49,8 @@ rule_json_snapshot`) come back from asyncpg as a raw JSON string — this
 repo registers no asyncpg JSONB codec. Callers MUST decode with
 `json.loads(raw, parse_float=Decimal)`, never a bare `json.loads()` — the
 same hazard documented in asxos/domain/theses/schemas.py's module docstring
-and asxos/domain/macro_theses/service.py:157. A bare json.loads() would
+and asxos/domain/macro_theses/service.py (its decode helper's
+parse_float=Decimal call — cite by function, line numbers rot). A bare json.loads() would
 silently turn `{"value": 15}` into a Python float before Decimal ever sees
 it, violating CLAUDE.md #5 one call earlier than it looks.
 
@@ -62,10 +92,22 @@ _NUMERIC_OPS = _ALLOWED_OPS  # numeric fields allow the full set
 @dataclass(frozen=True)
 class _FieldSpec:
     # SQL expression the field resolves to, using the base query's aliases
-    # (u = universe, f = latest fundamentals per symbol, p = latest price).
+    # (u = universe, f = latest fundamentals per symbol, pit = latest usable
+    # rs_fundamentals_pit row per symbol, p = latest price).
     sql_expr: str
     is_text: bool
 
+
+# debt_to_equity is a COMPUTED expression, gated on positive equity: a
+# negative- or zero-equity company gets NULL, never a negative ratio — a
+# negative-equity name matching a low-leverage `lt` screen would be a silent
+# wrong answer (it is "most levered" in substance), and a high-leverage `gte`
+# screen would symmetrically miss it. net_debt CAN legitimately be negative
+# (net cash) with positive equity — that negative D/E is real and kept.
+# Consequence, stated deliberately: `is_null` on debt_to_equity means
+# "equity missing/non-positive OR net_debt missing" — three NULL sources,
+# one answer. (backend-architect ruling, 2026-08-20.)
+_DEBT_TO_EQUITY_SQL = "(CASE WHEN pit.total_equity > 0 THEN pit.net_debt / pit.total_equity END)"
 
 # Closed whitelist — the ONLY fields a rule_json condition may reference.
 # market_cap/sector read from universe (the propagated, canonical current
@@ -74,20 +116,59 @@ class _FieldSpec:
 # whitelisted here — they are hardcoded into the base query, never
 # author-controlled (v1 scope is au_equity only; ETF/LIC screening is a
 # separate follow-on per the multi-instrument-expansion proposal).
+# Every sql_expr remains a hardcoded Python constant — the computed D/E
+# expression included — so the injection boundary is unchanged: rule_json
+# contributes nothing to SQL text, ever.
 _FIELD_MAP: dict[str, _FieldSpec] = {
     "pe_ratio": _FieldSpec("f.pe_ratio", is_text=False),
     "pb_ratio": _FieldSpec("f.pb_ratio", is_text=False),
     "eps": _FieldSpec("f.eps", is_text=False),
     "dividend_yield": _FieldSpec("f.dividend_yield", is_text=False),
-    "franking_pct": _FieldSpec("f.franking_pct", is_text=False),
-    "roe": _FieldSpec("f.roe", is_text=False),
-    "debt_to_equity": _FieldSpec("f.debt_to_equity", is_text=False),
-    "revenue": _FieldSpec("f.revenue", is_text=False),
-    "net_income": _FieldSpec("f.net_income", is_text=False),
+    "franking_pct": _FieldSpec("pit.franking_avg_pct", is_text=False),
+    "roe": _FieldSpec("pit.roe", is_text=False),
+    "debt_to_equity": _FieldSpec(_DEBT_TO_EQUITY_SQL, is_text=False),
+    "revenue": _FieldSpec("pit.revenue_ttm", is_text=False),
+    "net_income": _FieldSpec("pit.net_income_ttm", is_text=False),
     "market_cap": _FieldSpec("u.market_cap", is_text=False),
     "sector": _FieldSpec("u.sector", is_text=True),
     "latest_close": _FieldSpec("p.close", is_text=False),
 }
+
+# Shared CTE + FROM/JOIN blocks — used by BOTH the coverage-guard query and
+# the match query so their populations can never drift apart (the guard must
+# count coverage over exactly the candidate set the match query screens).
+# latest_fundamentals is deliberately narrowed to the columns still read from
+# it — the five dead columns stop riding along via `*`, and any future
+# duplicate-name ambiguity against the pit aliases is structurally impossible.
+_BASE_CTES_SQL = """
+        WITH latest_fundamentals AS (
+            SELECT DISTINCT ON (symbol)
+                symbol, pe_ratio, pb_ratio, eps, dividend_yield
+            FROM fundamentals
+            ORDER BY symbol, as_of DESC
+        ),
+        latest_pit AS (
+            SELECT DISTINCT ON (symbol)
+                symbol, roe, revenue_ttm, net_income_ttm, franking_avg_pct,
+                net_debt, total_equity
+            FROM rs_fundamentals_pit
+            WHERE knowledge_date <= CURRENT_DATE
+            ORDER BY symbol, as_of DESC, knowledge_date DESC
+        ),
+        latest_price AS (
+            SELECT DISTINCT ON (symbol) symbol, close
+            FROM prices
+            ORDER BY symbol, dt DESC
+        )
+"""
+
+_BASE_FROM_SQL = """
+        FROM universe u
+        LEFT JOIN latest_fundamentals f ON f.symbol = u.symbol
+        LEFT JOIN latest_pit pit ON pit.symbol = u.symbol
+        LEFT JOIN latest_price p ON p.symbol = u.symbol
+        WHERE u.is_active AND u.security_kind = 'au_equity'
+"""
 
 
 def decode_rule_json(raw: str) -> dict[str, Any]:
@@ -247,6 +328,38 @@ def _compile_node(node: ScreenNode, params: list[Any], param_start: int) -> str:
     raise AssertionError(f"unreachable: unhandled op {node.op!r}")  # parse_rule already validated
 
 
+def _referenced_fields(group: ScreenGroup) -> frozenset[str]:
+    """All whitelist field names referenced anywhere in a parsed rule tree.
+
+    Pure function, no I/O — callers pass a tree that already passed
+    parse_rule(), so every name is a validated _FIELD_MAP key. Feeds the
+    zero-coverage guard in evaluate_rule(); parse_rule guarantees at least
+    one leaf condition exists, so the result is never empty.
+    """
+    fields: set[str] = set()
+
+    def _walk(node: ScreenNode) -> None:
+        if isinstance(node, ScreenGroup):
+            for item in node.items:
+                _walk(item)
+        else:
+            fields.add(node.field)
+
+    _walk(group)
+    return frozenset(fields)
+
+
+def _remediation_hint(sql_expr: str) -> str:
+    """Which job populates the source a dead sql_expr reads from."""
+    if "pit." in sql_expr:
+        return "jobs/derive_fundamentals_pit.py (weekly, after sync_financial_statements)"
+    if sql_expr.startswith("f."):
+        return "jobs/sync_fundamentals.py"
+    if sql_expr.startswith("u."):
+        return "jobs/sync_fundamentals.py (propagate_* into universe)"
+    return "jobs/sync_prices.py"
+
+
 async def evaluate_rule(
     conn: asyncpg.Connection,
     rule: ScreeningRule,
@@ -261,9 +374,14 @@ async def evaluate_rule(
     conditions further narrow it. Hard-fails (RuntimeError) rather than
     silently returning an empty/wrong result on: a non-curated_composite
     rule, an inactive rule, a sector conflict between the rule's own
-    sector_scope and the runtime `sector` param, or an empty candidate
-    universe before rule filtering — mirrors the allocator's hard-fail-
-    over-silent-wrong-answer discipline (portfolio-conventions.md).
+    sector_scope and the runtime `sector` param, an empty candidate
+    universe before rule filtering, or — the zero-coverage guard — a rule
+    referencing any field with ZERO non-null values over the sector-scoped
+    candidate universe (see the module docstring's rationale: every
+    predicate over a fully-NULL column is degenerate). Mirrors the
+    allocator's hard-fail-over-silent-wrong-answer discipline
+    (portfolio-conventions.md). A zero-match over POPULATED data is NOT an
+    error — it returns a normal result with match_count=0.
     """
     if rule.source_method != "curated_composite":
         raise RuntimeError(
@@ -303,26 +421,67 @@ async def evaluate_rule(
             f"(sector={effective_sector!r}) — config bug, not a valid zero-match answer"
         )
 
-    query = f"""
-        WITH latest_fundamentals AS (
-            SELECT DISTINCT ON (symbol) *
-            FROM fundamentals
-            ORDER BY symbol, as_of DESC
-        ),
-        latest_price AS (
-            SELECT DISTINCT ON (symbol) symbol, close
-            FROM prices
-            ORDER BY symbol, dt DESC
+    # Zero-coverage guard (CLAUDE.md #10). Counts non-null coverage for every
+    # field the rule references, over EXACTLY the population the match query
+    # screens (same CTEs, same base WHERE incl. sector clause, same params —
+    # shared constants make drift structurally impossible). Column
+    # identifiers come only from _FIELD_MAP constants and aliases only from
+    # parse_rule-validated whitelist keys, so rule_json still contributes
+    # nothing to SQL text. Guards ALL ops including is_null: over a
+    # fully-NULL column, is_null is degenerate-true and everything else is
+    # degenerate-empty — either way the data is missing, the screen did not
+    # answer. Partial coverage (e.g. franking_pct on only actual dividend
+    # payers) passes; the trip condition is strictly count == 0.
+    # `referenced` deliberately draws the CANONICAL _FIELD_MAP key objects
+    # (filtered by membership) rather than the rule-supplied equal strings —
+    # so the alias interpolated into SQL below is by construction a hardcoded
+    # constant, not merely string-equal to one (security-engineer hardening
+    # note, 2026-08-20). sorted(_FIELD_MAP) keeps the order deterministic.
+    referenced_set = _referenced_fields(tree)
+    referenced = [key for key in sorted(_FIELD_MAP) if key in referenced_set]
+    coverage_selects = ", ".join(
+        f'count({_FIELD_MAP[name].sql_expr}) AS "{name}"' for name in referenced
+    )
+    coverage_sql = f"""
+        {_BASE_CTES_SQL}
+        SELECT {coverage_selects}
+        {_BASE_FROM_SQL}
+        {sector_clause}
+    """
+    coverage_row = await conn.fetchrow(coverage_sql, *base_params)
+    dead_fields = [name for name in referenced if not coverage_row[name]]
+    if dead_fields:
+        detail = "; ".join(
+            f"{name} (source: {_FIELD_MAP[name].sql_expr}; "
+            f"populate via {_remediation_hint(_FIELD_MAP[name].sql_expr)})"
+            for name in dead_fields
         )
+        raise RuntimeError(
+            "screen rule references column(s) with ZERO non-null coverage "
+            f"over the {universe_size}-symbol candidate universe "
+            f"(sector={effective_sector!r}): {detail} — every predicate over "
+            "a fully-NULL column is degenerate, so the data is absent over "
+            "this scope (an ingestion gap, or a scope where no symbol carries "
+            "the metric), not a zero-match answer. A genuine zero-match on "
+            "populated data returns normally."
+        )
+
+    # The SELECT list is GENERATED from _FIELD_MAP (never hand-duplicated),
+    # so alias<->whitelist-key alignment is structural: a field cannot exist
+    # in the whitelist yet be misspelled or missing in the output row
+    # (refactoring-expert review, 2026-08-20). sector rides along as
+    # u.sector for ScreenMatch.sector; symbol likewise.
+    select_fields = ", ".join(
+        f'{spec.sql_expr} AS "{name}"'
+        for name, spec in _FIELD_MAP.items()
+        if name != "sector"
+    )
+    query = f"""
+        {_BASE_CTES_SQL}
         SELECT
             u.symbol, u.sector,
-            f.pe_ratio, f.pb_ratio, f.eps, f.dividend_yield, f.franking_pct,
-            f.roe, f.debt_to_equity, f.revenue, f.net_income,
-            u.market_cap, p.close AS latest_close
-        FROM universe u
-        LEFT JOIN latest_fundamentals f ON f.symbol = u.symbol
-        LEFT JOIN latest_price p ON p.symbol = u.symbol
-        WHERE u.is_active AND u.security_kind = 'au_equity'
+            {select_fields}
+        {_BASE_FROM_SQL}
         {sector_clause}
         AND {where_sql}
         ORDER BY u.symbol
@@ -334,7 +493,10 @@ async def evaluate_rule(
         ScreenMatch(
             symbol=r["symbol"],
             sector=r["sector"],
-            values={f: r[f] for f in _FIELD_MAP if f in r and f != "sector"},
+            # No `if f in r` guard: the SELECT list above is generated from
+            # _FIELD_MAP, so every non-sector key is present by construction —
+            # a missing key would now be a loud KeyError, not a silent drop.
+            values={f: r[f] for f in _FIELD_MAP if f != "sector"},
         )
         for r in rows[:limit]
     )
