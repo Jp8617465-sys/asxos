@@ -5,6 +5,13 @@
 **Last verified:** 2026-08-11 (`/arbi-close`, retrospective — the 08-11 build session shipped five
 merged PRs and stood down without a close; this refresh reconciles the defect list against `main`
 @ `7aa8507`. See "PROGRAMME REFRAME" immediately below; the 2026-07-14 notes are retained as history)
+**Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
+**reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
+records were annotated, not rewritten: a SUPERSEDED banner on the In-flight entry, an inline
+reversal marker at the claim itself, a postscript to Amendment F, and a note above the 08-19 wake
+snapshot. Rule #11 and its generic gate are untouched and restated as standing. **Documentation
+annotation, not a state refresh** — no live probes beyond the read-only substrate dry-run recorded
+in `segval-live-validation-2026-08-20.md`, so `Last verified` above is unchanged.)
 **Docs-truth correction:** 2026-08-13 (`SB0-01` sweep — the *State header* block was found four
 weeks stale and is now boxed with a freshness correction; the news-brief gate source and the
 08-12 snapshot's "plan doc does not exist" line were corrected. **This was a documentation
@@ -287,6 +294,42 @@ touching that.
 amendment as the record. `risk-register.md` R17 (Cursor Cloud Agents operating outside this
 repo's tool-scoping and hook-enforcement fence) is **unaffected by this ratification** — it
 is a governance/security gap, not a content decision, and stays open.
+
+**Postscript 2026-08-20 — what has since happened.** The ratification above is unchanged and
+stands as written; this records how its caveats resolved, rather than editing them:
+
+- **The merge caveat is PARTLY discharged** — #144 (`da64c1b`), #142 (`32ed2f5`) and #141
+  (`59fb835`) are merged; **#140 is still open**, so the caveat as written (which names
+  #140/#141/#142) is not fully closed. #134 also remains open. Every merge was James's own
+  action: the agent's one `gh pr merge` attempt was hard-denied by `push-guard.sh:133-135`,
+  which reserves merge to James via any surface.
+- **#141's ~60%-complete finding is closed.** All named gaps were fixed before merge (the
+  `$RENDER_API_KEY` slash-command probes and `job-conventions.md` citations were already fixed
+  on-branch; the rule #2 allowlist, the replacement backup test, the 8 stale comment citations
+  and 3 live curl-to-Render code paths were fixed in the finishing pass).
+- **D1/D2/D3 are actioned, not merely found** — shipped as real code + two draft migrations in
+  #142. **D5 deliberately deferred** (its correct fix is repointing screening at the research
+  store, an L2 concern, not backfilling the legacy empty columns); **D4 deferred** (an
+  operational backfill + a vendor-quota question, not code).
+- **Two of the three L0 fixes were then partly falsified by live data.** Dry-running the merged
+  code against production found a real defect (D1: blank currency stored as `''` rather than
+  NULL) and showed that D3's **cross-column fallback branch never fires** — 0 symbols, against
+  3,661 resolved by `gics_sector` out of 4,418, because both source columns derive from one
+  upstream EODHD field and go blank together. The resolver logic is correct; the design premise
+  that they were two independent vocabularies was not. D2 verified clean. Recorded in
+  `docs/proposals/segval-live-validation-2026-08-20.md` (lands with
+  `claude/live-validation-followup-2026-08-20`, which may merge after this PR). Mocked tests
+  passed throughout — the same lesson `portfolio-conventions.md` already records from Phase 2a.
+- **The Model A correction above is now reversed by events.** Model A **has** been deleted
+  (#144). The sentence stays as the audit record of what was true on 2026-08-19. Rule #11 and
+  its generic gate are untouched and remain standing policy.
+- **`detect_theme_stages` KEEP is still not executed.** It has no Actions home; the patch is
+  written but `.github/workflows/` is Edit-denied to the agent, so it lands as a `james-inbox.md`
+  row on the follow-up branch. Placement is load-bearing — the brief's `theme_dashboard`
+  collector reads `themes.stage_suggested`, so it must run *before* `compose_brief`. Theme
+  stages have been un-refreshed since at latest 2026-08-12 (the job was missed in the
+  2026-08-08 Actions migration; the Render deletion date is a governor statement never
+  re-verified against the Render API — see the caveat at the 2026-08-12 entry below).
 
 Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
 single-builder with the independent-review function preserved in separate documented passes;
@@ -587,10 +630,39 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+> ⚠️ **SUPERSEDED 2026-08-20 — read this before the entry below.** Two of the four PRs described
+> here have since merged, a fifth (**#144**, opened after this entry was written) deleted Model
+> A, and one claim below is now the reverse of the truth. Current state:
+>
+> **#144 merged** (`da64c1b`) — **Model A IS now deleted from the repo**: training chain,
+> artefacts, feature engine, signal machinery, `cli/signal.py`, `brief/shap.py`,
+> `compute_opportunity_cost.py` and the matching tests. Rule #11's quarantine **stands unchanged
+> and is not weakened by this** — `CLAUDE.md:25` names exactly one removal condition (a *new*
+> model clearing a pre-registered decay bar AND earning `approved_for_allocation`) and
+> pre-emptively forbids removing it "on the basis of v1_5"; deleting v1_5's code is a fact about
+> v1_5. Its enforcement mechanism (`production_gate.py`, the `model_versions`/`signal_outcomes`
+> tables, `cli/model.py`) was deliberately kept because it is generic and gates *any* future
+> model. Compliance is now **partly** by absence and partly by that surviving gate — the
+> `signals` rows persist and are still readable (see `thesis-coherence-guard`, which still
+> queries them). Not grounds to remove the rule.
+>
+> **#142 merged** (`32ed2f5`) — note it **grew from docs-only to docs + L0 substrate** (D1/D2/D3
+> as real code) before merging, so "docs only" below is stale. Its migrations `0044`/`0045` are
+> **drafted and NOT applied**. ⏰ **`0044` is time-boxed: apply before Sat 2026-08-22 16:00 UTC.**
+> `weekly-research.yml` runs `derive_fundamentals_pit.py` as an ordered blocking step, and the
+> merged code writes a `currency` column that does not exist in production — the step fails and
+> blocks `sync_fundamentals` below it. (Stated inline deliberately: the tracking `james-inbox.md`
+> row lives on `claude/live-validation-followup-2026-08-20` and may merge after this PR.)
+>
+> **#141 merged** (`59fb835`) — Render fully out of the repo. **#140 and #134 remain open.**
+> The "Model A has NOT been deleted" sentence below was true when written on 2026-08-19; the
+> text is unchanged apart from an inline reversal marker, and it is retained as the audit
+> record. Do not act on it.
+
 - **2026-08-19 — parallel Cursor work stream, not yet reconciled.** A separate Cursor Cloud
   Agent session (2026-08-18, outside this repo's `/arbi`-governed loop — no red-team vet
   that stuck, no `/arbi-close`, no decision-log row until this entry) opened four draft PRs,
-  none merged: **#142** segment-valuation → selection → exposure architecture (docs only;
+  none merged *as at 2026-08-19*: **#142** segment-valuation → selection → exposure architecture (docs only;
   replaces the deleted `build_portfolio`'s intent; cites 5 live-SQL-verified data-substrate
   defects — no currency column on `rs_fundamentals_pit`, bank-hybrid securities inheriting
   parent financials, duplicate sector taxonomies, 1.6y price history vs 14y fundamentals,
@@ -604,7 +676,10 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   `monitor_paper_portfolio` DROP, `build_portfolio` DELETED — and reconfirms the
   CODEOWNERS self-approval deadlock already known from PR #137); **#134** Cursor Cloud
   Agent dev environment. **Correction carried from that session's own investigation: Model A
-  has NOT been deleted from the repo** — rule #11's quarantine stands unchanged; do not act
+  has NOT been deleted from the repo** — **[⚠️ REVERSED 2026-08-20 by PR #144 — Model A IS now
+  deleted; see the SUPERSEDED banner at the top of this section. Sentence kept as the audit
+  record of what was believed on 08-19. Rule #11 still stands.]** — rule #11's quarantine
+  stands unchanged; do not act
   on any "Model A deleted" framing. The three cron rulings and the `build_portfolio`
   redirect are logged as an open `james-inbox.md` row pending formal ratification; the
   Cursor-runtime governance gap (settings.json/tools:/hook enforcement all inert or buggy
@@ -951,6 +1026,12 @@ explore this work from cursor"` after James pasted a full transcript from a para
 Cloud Agent session (2026-08-18, outside this repo's governed loop). Supersedes the
 2026-08-12 mid-session checkpoint below, which had gone unrefreshed for a week despite six
 more merged PRs on 08-17 and eight more on 08-18._
+
+> **Point-in-time record — two entries below were overtaken on 2026-08-20.** Kept verbatim as
+> the audit trail of what was known at the 08-19 wake. (1) The "Model A has NOT been deleted"
+> correction is now **reversed**: PR #144 deleted it; rule #11 and its generic gate stand.
+> (2) The 7-PR list is stale: #144, #142 and #141 have merged. See the In-flight SUPERSEDED
+> banner and Amendment F's 2026-08-20 postscript above for current state.
 
 ```
 Wake: 2026-08-19 (interactive /arbi, extended by a Cursor-transcript ingest)
