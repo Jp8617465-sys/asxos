@@ -20,7 +20,7 @@ def journal_add(
     rationale: str = typer.Option(..., "--rationale", help="Why you took this action"),
     tax_note: str = typer.Option("", "--tax-note", help="CGT/franking notes"),
 ) -> None:
-    """Record a portfolio decision against today's signal context."""
+    """Record a portfolio decision."""
     _require_personal_use()
     action = action.upper()
     if action not in _VALID_ACTIONS:
@@ -35,21 +35,9 @@ async def _run_journal_add(symbol: str | None, action: str, rationale: str, tax_
     await init_pool()
     try:
         async with acquire() as conn:
-            signal_ref = None
-            if symbol:
-                row = await conn.fetchrow(
-                    """
-                    SELECT model, model_version, as_of
-                    FROM signals
-                    WHERE symbol = $1
-                    ORDER BY as_of DESC
-                    LIMIT 1
-                    """,
-                    symbol,
-                )
-                if row:
-                    signal_ref = f"{row['model']}@{row['model_version']}@{row['as_of'].isoformat()}"
-
+            # signal_ref was a `signals`-table enrichment (Model A). The table
+            # has had no writer since P1-02 retired the signal-generation
+            # pipeline (rule #11) and the column is now always NULL on insert.
             inserted = await conn.fetchrow(
                 """
                 INSERT INTO decisions
@@ -61,7 +49,7 @@ async def _run_journal_add(symbol: str | None, action: str, rationale: str, tax_
                 _date.today(),
                 action,
                 rationale,
-                signal_ref,
+                None,
                 tax_note,
             )
     finally:
@@ -70,7 +58,6 @@ async def _run_journal_add(symbol: str | None, action: str, rationale: str, tax_
     console.print(
         f"[green]Recorded decision[/green] #{inserted['id']}: "
         f"{symbol or 'portfolio'} {action} on {inserted['decision_date']}"
-        + (f" (signal {signal_ref})" if signal_ref else "")
     )
 
 

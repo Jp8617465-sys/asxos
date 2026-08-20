@@ -53,15 +53,20 @@ Mon-Fri AEST anchors; UTC offset 10h. DST shift is acceptable noise.
 ## Idempotency
 
 - All writes are UPSERTs (`ON CONFLICT (...) DO UPDATE`). Safe to re-run.
-- The retraining job writes a versioned row to `model_versions` — does not
-  overwrite the active row.
 
 ## NumPy + asyncpg
 
 - asyncpg handles numpy types natively. No adapter registration needed
-  for the new jobs (`jobs/generate_signals.py`, `jobs/sync_prices.py`, etc.).
-- Legacy training scripts that use psycopg2 must register adapters before
-  any executemany — see `.claude/rules/ml-conventions.md`.
+  for most jobs (`jobs/sync_prices.py`, etc.).
+- Any job using psycopg2 must register adapters BEFORE any `executemany` /
+  `execute` call with numpy values (CLAUDE.md non-negotiable #9):
+  ```python
+  for np_type, py_type in [(np.int64, int), (np.int32, int), (np.float64, float)]:
+      psycopg2.extensions.register_adapter(np_type, lambda x, cast=py_type: AsIs(cast(x)))
+  ```
+  No job currently uses psycopg2 as of the 2026-08-19 Model A retirement
+  (its last user, the training chain, was removed) — kept here as the
+  reference snippet for the next one that does.
 
 ## Environment Variables (per job)
 

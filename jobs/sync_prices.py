@@ -138,10 +138,10 @@ async def get_index_symbols() -> list[str]:
 
     Indices are seeded is_active=FALSE (migration 0031): they are benchmark
     references, not tradeable-equity universe members, so every equity job's
-    `WHERE is_active` (generate_signals, sync_fundamentals, retrain_model_a,
-    refresh_universe's delisting sweep) naturally excludes them — no ML-path
-    edits needed. They still need price ingestion, so this dedicated suffix
-    query feeds Phase 1.5. The prices→universe FK is satisfied by the seed row.
+    `WHERE is_active` (sync_fundamentals, refresh_universe's delisting sweep)
+    naturally excludes them — no edits needed there. They still need price
+    ingestion, so this dedicated suffix query feeds Phase 1.5. The
+    prices→universe FK is satisfied by the seed row.
     """
     async with acquire() as conn:
         rows = await conn.fetch(

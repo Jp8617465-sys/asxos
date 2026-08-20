@@ -12,23 +12,23 @@ _MODEL_CONFIG = SettingsConfigDict(
 
 
 class CoreSettings(BaseSettings):
-    """Settings required by every Render service (API, cron jobs, workers).
+    """Settings required by every GitHub Actions job (API, cron jobs, workers).
 
     Only ``database_url`` is unconditionally required. ``eodhd_api_key`` has a
-    safe default of ``""`` so that DB-only jobs (generate_signals, compose_brief,
-    ingest_regulatory, build_portfolio, retrain_model_a) can start without it.
-    EODHD ingest jobs validate the key at call time via ``get_client()``.
+    safe default of ``""`` so that DB-only jobs (compose_brief, ingest_regulatory,
+    build_portfolio) can start without it. EODHD ingest jobs validate the key
+    at call time via ``get_client()``.
     """
 
     model_config = _MODEL_CONFIG
 
-    # Required — present on every Render service
+    # Required — present on every job
     database_url: PostgresDsn
 
     # Optional at CoreSettings level — only EODHD ingest jobs need this.
-    # generate_signals, compose_brief, ingest_regulatory etc. never call EODHD;
-    # they should not crash on startup if the key is absent on their service.
-    # get_client() in eodhd.py guards against an empty key before any API call.
+    # compose_brief, ingest_regulatory etc. never call EODHD; they should not
+    # crash on startup if the key is absent on their service. get_client() in
+    # eodhd.py guards against an empty key before any API call.
     eodhd_api_key: str = ""
 
     # Optional operational fields
@@ -48,10 +48,8 @@ class CoreSettings(BaseSettings):
     healthchecks_write_key: str = ""
     healthcheck_url_sync_prices: str = ""
     healthcheck_url_sync_fundamentals: str = ""
-    healthcheck_url_generate_signals: str = ""
     healthcheck_url_ingest_regulatory: str = ""
     healthcheck_url_compose_brief: str = ""
-    healthcheck_url_retrain_model_a: str = ""
     healthcheck_url_sync_universe: str = ""
     healthcheck_url_backup_irreplaceable: str = ""
     healthcheck_url_build_portfolio: str = ""  # M13.7
@@ -65,8 +63,6 @@ class CoreSettings(BaseSettings):
     healthcheck_url_check_au_positions: str = ""        # M-Position-Monitor AU
     healthcheck_url_check_thesis_invalidations: str = ""  # thesis invalidation checker
     healthcheck_url_validate_price_data: str = ""          # price data quality check
-    healthcheck_url_check_model_staleness: str = ""        # ML model staleness monitor
-    healthcheck_url_track_signal_outcomes: str = ""        # weekly signal outcome tracking
     healthcheck_url_monitor_paper_portfolio: str = ""      # M13.8 paper-portfolio scoreboard
     healthcheck_url_sync_security_master: str = ""         # research store rs_security_master
     healthcheck_url_sync_corporate_actions: str = ""       # research store rs_corporate_actions
