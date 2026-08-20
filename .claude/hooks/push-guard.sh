@@ -84,10 +84,14 @@ fi
 if printf '%s' "$cmd" | grep -Eiq '\bgit\b[^|;&]*(config[^|;&]*remote\.[^|;&]*\.push\b|-c[[:space:]]+remote\.[^|;&]*\.push=)'; then
   deny "push-guard: setting git's remote.*.push config is blocked — it can silently retarget a plain 'git push' to main or every branch. Push with an explicit claude/** refspec instead."
 fi
-# `-C <dir>` / `--git-dir=` / `--work-tree=` redirects git at a different checkout than the
-# one this hook can inspect (its branch/refspec checks only ever look at $CLAUDE_PROJECT_DIR)
-# — deny any push combined with a repo-redirect flag rather than risk validating the wrong
-# tree (security-engineer, 2026-07-14: confirmed a same-branch-is-main check bypass via -C).
+# `-C <dir>` / `--git-dir=` / `--work-tree=` redirects git at a checkout this hook cannot
+# inspect. Since 2026-08-20 the branch check below reads every checkout the payload's own
+# `.cwd` and $CLAUDE_PROJECT_DIR identify, so an ordinary worktree IS inspected correctly —
+# but a redirect FLAG names a THIRD tree that neither root identifies, and the flag's
+# argument is not reliably parseable out of a Bash string. Keep denying any push combined
+# with a repo-redirect flag rather than risk validating the wrong tree (security-engineer,
+# 2026-07-14: confirmed a same-branch-is-main check bypass via -C). The cwd resolution does
+# NOT make this deny redundant — do not remove it.
 if printf '%s' "$cmd" | grep -Eiq '\bgit\b[^|;&]*(-C[[:space:]]|--git-dir=|--work-tree=)[^|;&]*\bpush\b|\bgit\b[^|;&]*\bpush\b[^|;&]*(-C[[:space:]]|--git-dir=|--work-tree=)'; then
   deny "push-guard: a push combined with -C/--git-dir/--work-tree targets a repo this hook cannot verify — blocked. Push from the project directory directly."
 fi
@@ -122,17 +126,28 @@ fi
 # not reliably parseable in bash, so this over-denies a rare same-branch-explicit-push case
 # rather than risk under-denying — safe direction, matches existing house convention).
 if printf '%s' "$cmd" | grep -Eiq "${PUSHSEG}"; then
-  # Read the branch of the checkout the push will actually run from. A worktree has
-  # its own HEAD, so a $CLAUDE_PROJECT_DIR-anchored read inspects the wrong tree —
-  # a worktree sitting on main while the primary checkout is on claude/** slipped
-  # this check entirely. (The -C/--git-dir/--work-tree deny above covers the flag
-  # form of the same redirect; this covers the cwd form.)
+  # Read the branch of EVERY checkout this push could plausibly run in, and deny if
+  # ANY of them is main/master. Two roots, because either can be the real one:
+  #   - the payload's own cwd — a worktree has its own HEAD, and anchoring only to
+  #     $CLAUDE_PROJECT_DIR let a worktree sitting on main slip this check;
+  #   - $CLAUDE_PROJECT_DIR — because the command may relocate (`cd <primary> &&
+  #     git push`), in which case the payload cwd is NOT where git ends up.
+  # Checking only the payload cwd would trade the first hole for the second; testing
+  # both strictly widens the guarded set relative to either alone.
+  # NOTE the residual: a `cd` into a THIRD checkout that is on main, while neither
+  # root is, is still not caught — `cd` is not reliably parseable out of a Bash
+  # string, and the explicit-refspec checks above plus branch protection on the
+  # server are what bound it. The -C/--git-dir/--work-tree deny above covers only
+  # the FLAG form of a redirect; do not read it as covering `cd`.
   push_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty')"
-  [ -n "$push_cwd" ] && [ -d "$push_cwd" ] || push_cwd="${CLAUDE_PROJECT_DIR:-.}"
-  cur="$(git -C "$push_cwd" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-  case "$cur" in
-    main|master) deny "push-guard: pushing while checked out on $cur risks pushing to main/master. Work on a claude/** branch." ;;
-  esac
+  [ -n "$push_cwd" ] && [ -d "$push_cwd" ] || push_cwd=""
+  for _root in "$push_cwd" "${CLAUDE_PROJECT_DIR:-}"; do
+    [ -n "$_root" ] || continue
+    cur="$(git -C "$_root" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    case "$cur" in
+      main|master) deny "push-guard: pushing while a relevant checkout ($_root) is on $cur risks pushing to main/master. Work on a claude/** branch." ;;
+    esac
+  done
 fi
 
 # --- gh CLI shapes that bypass the MCP-level PR/merge denies -------------------------
