@@ -50,17 +50,15 @@ install-hooks:  ## Activate the tracked git pre-push gate (ruff + mypy)
 shell:  ## Start a Python REPL with asxos importable
 	$(VENV)/bin/python
 
-logs:  ## Tail the Render service logs via MCP (asks Claude Code)
-	@echo "Ask Claude Code: 'tail the last 100 lines of logs from asxos-api via the Render REST API (api.render.com/v1/logs, RENDER_API_KEY)'."
+logs:  ## Show recent GitHub Actions job logs
+	@echo "Jobs run as GitHub Actions (Render deleted 2026-08-12). Use: gh run list  and  gh run view <run-id> --log."
 
-deploy:  ## Push to main; Render auto-deploys
-	@echo "Pushing to main. Render will auto-deploy on push."
-	git push origin main
-	@echo ""
-	@echo "Then ask Claude Code: 'run check-drift against the asxos-api Render service'."
+deploy:  ## No Render deploy; jobs are GitHub Actions
+	@echo "There is no Render deploy step (Render deleted 2026-08-12). Job config lives in .github/workflows/ and updates on merge to main."
+	@echo "Dispatch a run with: gh workflow run <name>.yml"
 
-check-drift:  ## Compare render.yaml to deployed Render state via MCP
-	@echo "Ask Claude Code: 'use the Render REST API (api.render.com/v1/services, RENDER_API_KEY) to compare actual deployed services and crons against render.yaml. Report any drift.'"
+check-drift:  ## (deprecated) Render is gone; config lives in .github/workflows
+	@echo "Deprecated: Render was deleted 2026-08-12. No drift target — .github/workflows/ is the source of truth."
 
 clean:  ## Remove caches
 	rm -rf .pytest_cache .ruff_cache .mypy_cache __pycache__

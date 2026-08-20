@@ -13,7 +13,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 ## Non-negotiable rules
 
 1. **Hard-fail startup.** `asxos/api/main.py` lifespan raises on dependency-init failure. No `logger.warning(...); continue`. If the DB is unreachable, the API does not start.
-2. **API/MCP service management.** Manage **Render via its REST API** (`https://api.render.com/v1`, bearer `$RENDER_API_KEY` — **there is NO Render MCP; do not call `mcp__render__*`**); use `mcp__supabase__*` for Supabase. Never edit the Render dashboard for changes — every change goes through `render.yaml` + `git push` + `make check-drift`.
+2. **Service management.** Jobs run as **GitHub Actions workflows** (`.github/workflows/`), not Render — Render was **deleted 2026-08-12**. Config lives in git and is reviewed; secrets live in the repo's Actions secrets. Use `mcp__supabase__*` for Supabase. Never manage jobs by hand outside the workflows — every change goes through a workflow file + `git push`; dispatch a run with `gh workflow run <name>.yml`.
 3. **No feature flags.** If a feature is half-built, it stays on a branch.
 4. **No `user_id` columns, no auth, no RLS.** Single user.
 5. **NUMERIC(18,6)** for every monetary or statistical column from day one.
@@ -30,7 +30,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 |---|---|---|
 | API | FastAPI 0.115 | `make dev` → 127.0.0.1:8788 |
 | DB | Supabase Postgres 16 (existing project, free tier) | `mcp__supabase__execute_sql` |
-| Jobs (M12+) | Render cron services | Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`) |
+| Jobs (M12+) | GitHub Actions workflows (`.github/workflows/`) | `gh workflow run <name>.yml` |
 | Migrations | Plain `.sql` in `migrations/`, applied via `mcp__supabase__apply_migration` | No runner script |
 | Email | Resend (test sender for v1) | curl-based, no SDK |
 | Monitoring | Healthchecks.io deadman | per-job ping URL |
@@ -71,7 +71,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `make dev` — start API locally
 - `make check` — ruff + mypy + pytest (enforced in CI by the `full-check` workflow on PRs to `main` and `claude/**` pushes; `targeted-ml-tests` is the fast ML lane)
 - `make migrate` — reminder only; actual apply via Supabase MCP
-- `make check-drift` — reconcile `render.yaml` against the live Render services via the Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`)
+- `gh run list` / `gh run view <id> --log` — inspect the GitHub Actions jobs (the cron substrate; Render was deleted 2026-08-12)
 
 ## Claude-driven GitHub execution
 
@@ -110,8 +110,8 @@ command is the only authority:**
 pytest tests/ -q 2>&1 | grep '^ERROR'
 ```
 
-These all pass in the production Render environment where `pip install -e ".[ml]"`
-is run, and in CI (`full-check`), which is the real gate. Do not add workarounds or
+These all pass in CI (`full-check`) and the GitHub Actions runners where
+`pip install -e ".[ml]"` is run — CI is the real gate. Do not add workarounds or
 skip markers — the tests themselves are correct. Practical note (verified
 2026-07-21): a sandbox `python3` with `pip install pytest-asyncio asyncpg httpx
 tenacity pydantic pydantic-settings python-dotenv python-dateutil jinja2 numpy
@@ -120,7 +120,7 @@ remain, e.g.:
 
 - `tests/test_train_walk_forward.py::test_train_model_a_returns_valid_result` — requires
   `lightgbm` in the venv. The system Python has it; the sandbox venv does not. Passes
-  on Render.
+  in CI / the GitHub Actions runner.
 
 ## Known coverage gaps (verify, don't assume)
 
