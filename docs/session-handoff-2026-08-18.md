@@ -218,3 +218,86 @@ explains what else must be true for it to work, that "what else" is the delivera
 - **12 git worktrees**, one holding `main`, one with 25 uncommitted files on a branch 78
   commits behind. Clean by explicit path enumeration only — never a pattern, never
   `--force --force`; that combination destroyed a live builder's worktree on 2026-08-17.
+
+---
+
+## Addendum — a second, separate session today (branch `claude/asx-stock-evaluation-p0hxx2`)
+
+**Not a continuation of the campaign session above.** A distinct, user-directed task on a
+branch that never touched `main` — appended here (not overwritten) so today's handoff stays
+the one place to look, per this doc's own convention of one file per date.
+
+### What this session did
+
+1. Picked **CBA.AU** and ran a read-only walkthrough of the full pipeline — ingestion state,
+   fundamentals/valuation/factor/technical read, market context, and the existing governance
+   state of `theses` row #1 (CBA) — as a sandbox exercise, zero DB writes beyond `SELECT`.
+   Full write-up: `docs/research/sandbox-cba-au-pipeline-walkthrough-2026-08-18.md`.
+2. Built a worked, illustrative example of a filled-in `valuation`/`risks_bear` broker-report
+   section (Gordon-growth P/B-vs-ROE framework applied to CBA's real numbers) — not written to
+   the DB, chat-only, to answer "what does a properly-authored section actually look like."
+3. Ran `/arbi-run` to design the automation for exactly **this file's own item #4** above
+   ("Agent-drafted theses — one branch away"). See `arbi-run-thesis-authorship-2026-08-18` in
+   `arbi-run-ledger.md` and the matching row in `decision-log.md` for the full design (not yet
+   written into a `docs/proposals/*.md` — currently only in those two ledger entries and the
+   originating session transcript).
+
+### Directly extends item #4 above
+
+The design covers what item #4 didn't fully spec: the **agent-authorship boundary** (which of
+`conviction_level`/entry/stop/target/timeline/`position_plan`/`verdict_conviction` an agent
+proposal may set — designed to reject all of them as the conservative default, but the shipped
+schema's actual intent is looser: provenanced proposals are permitted, only *unprovenanced*
+prices are barred, so tightening that is a **named, open decision for James**, not assumed by
+the design); drafted-but-unapplied trigger SQL for a DB-level backstop; the `thesis_evidence`
+write path `approve_object()` needs to ever approve an agent-drafted thesis; and — beyond the
+stub itself — three more call-sites that block reachability
+(`agent_run_service.py`'s `_PROPOSAL_MODELS` and its `object_type=='thesis'` hard-refuse;
+`cli/agent_run.py`'s stale `--object-type` help text). Also reconciled a proposed
+`/thesis-draft SYMBOL` command against Stage 3/4 of `target-architecture.md`: it would be a
+Stage-3-mechanism/Stage-4-artifact-precursor, not a complete Stage 4 case (no `CandidateSnapshot`
+predecessor, no independent `ChallengeResult` — gap G9), and it would render real content for
+only two-thirds of a thesis — `moat`/`strategy_catalysts`/`risks_bear` would likely hit the
+design's own abstention path on any symbol, because gap **G2** means there is no ASX
+announcement/filing ingestion anywhere in this schema to cite for those sections. **`TLS.AU`**
+was nominated as the eventual positive-control demo symbol (CBA/HUBS correctly excluded — Stage
+4 reserves both as negative-control fixtures), pending a live DB check this session's
+`system-architect` dispatch didn't have tool access to run itself (the exact SQL is in the
+design).
+
+### Process lesson, logged because it was avoidable
+
+This session's `/arbi-run` dispatch initially told `arbi` that `ThesisProposal` "doesn't exist
+yet" — which this same file, item #4, already corrects, three sections above. The file wasn't
+read first. `arbi`'s own planning pass caught the error before any specialist ran, so nothing
+downstream was built on the wrong premise, but the redundant dispatch (and an earlier,
+same-pattern error in-session — Model A described as "dormant" when its runtime was deleted by
+PR #100 on 2026-08-13) cost real turns. **Standing rule this addendum exists to state plainly:
+read the newest same-date session-handoff before any exploratory or design work, not only
+before executing a queued mission.**
+
+### Branch state — needs a human action to reach `main`
+
+`claude/asx-stock-evaluation-p0hxx2`, 5 commits, doc-only (the sandbox walkthrough + one
+correction + this close's ledger/decision-log/roadmap-state entries), pushed to `origin`, **not
+merged to `main`, no PR opened**. Per `/arbi-close`'s own boundary this session does not
+merge, push to `main`, or open a PR uninvited — that is James's call. Files to land, if this is
+taken further: `docs/research/sandbox-cba-au-pipeline-walkthrough-2026-08-18.md`,
+`docs/product/arbi-run-ledger.md`, `docs/product/decision-log.md`,
+`docs/product/roadmap-state.md` (the corrected `m14_candidate_agentic_thesis_drafter` row), and
+this file.
+
+### Pending, requiring James
+
+- **The agent-authorship boundary policy call** named above — reject the seven/eight fields
+  outright, or keep the schema's actual shipped provenance-only design.
+- **How (or whether) to land this branch's doc commits on `main`.**
+- CBA thesis #1's retire-or-correct action (`james-inbox.md`, ruled 2026-07-16, still
+  unexecuted) now has a wrinkle: Stage 4 of `target-architecture.md` names CBA as a deliberate
+  *negative-control fixture* (detached ladders, stale evidence), which may argue for **keeping**
+  the row rather than retiring it — worth resolving alongside, not separately from, the
+  agent-authorship design above, since Stage 4 is what that design was reconciled against.
+- Related, not new: this file's own "Known unowned defects" already names `HUBS.NYSE` carrying
+  a demo `theses` row against a **real** capital position — same defect class as CBA's detached
+  ladder, worse severity (real money), on the same table this session's design touches. Worth
+  triaging together whenever `theses` governance is next picked up.
