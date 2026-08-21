@@ -139,7 +139,7 @@ def test_nyse_holding_is_fx_converted(monkeypatch):
     fixed booked it 1:1 into holdings_mv_aud. Regression guard for task #7."""
     holdings = [
         {"symbol": "BHP.AU", "quantity": "100.000000", "close": "45.200000"},
-        {"symbol": "HUBS.NYSE", "quantity": "5.000000", "close": "150.000000"},
+        {"symbol": "HUBS.NYSE", "quantity": "8.000000", "close": "150.000000"},
     ]
     fetchrow_map = {
         "job_runs": {"status": "success"},
@@ -148,8 +148,24 @@ def test_nyse_holding_is_fx_converted(monkeypatch):
     }
     fetch_map = {
         "current_holdings": holdings,
-        # the us_cost query now matches all foreign suffixes
-        "SUM(hl.cost_base_normal)": [{"total_cost_aud": Decimal("7000.000000")}],
+        # the per-lot cost/FX query (matches all foreign suffixes). TWO lots of
+        # the same symbol with DIFFERENT acquisition rates (the real ESPP shape):
+        # this pins the per-lot decomposition — a blended/aggregate-rate
+        # implementation collapses to the same answer at n=1 and fails here.
+        "hl.acquisition_fx_rate": [
+            {
+                "quantity": Decimal("5.000000"),
+                "cost_base_normal": Decimal("7000.000000"),
+                "acquisition_fx_rate": Decimal("0.645000"),
+                "close": Decimal("150.000000"),
+            },
+            {
+                "quantity": Decimal("3.000000"),
+                "cost_base_normal": Decimal("700.000000"),
+                "acquisition_fx_rate": Decimal("0.700000"),
+                "close": Decimal("150.000000"),
+            },
+        ],
     }
     conn = _make_conn(fetchrow_map, fetch_map)
 
@@ -170,16 +186,80 @@ def test_nyse_holding_is_fx_converted(monkeypatch):
     holdings_mv_aud = args[2]
     us_mv_aud = args[8]
     us_cost_aud = args[9]
+    us_fx_pnl_aud = args[11]
 
-    # BHP 100*45.2 = 4520 AUD; HUBS.NYSE 5*150/0.6251 = 1199.808... AUD (NOT 750)
-    hubs_aud = Decimal("5") * Decimal("150") / Decimal("0.6251")
+    # BHP 100*45.2 = 4520 AUD; HUBS.NYSE 8*150/0.6251 = 1919.69... AUD (NOT 1200)
+    hubs_aud = Decimal("8") * Decimal("150") / Decimal("0.6251")
     expected_total = (Decimal("4520") + hubs_aud).quantize(Decimal("0.000001"))
     assert abs(holdings_mv_aud - expected_total) < Decimal("0.01")
     # us_mv_aud is the .NYSE leg only (FX-converted) — proves it wasn't booked 1:1
     assert abs(us_mv_aud - hubs_aud.quantize(Decimal("0.000001"))) < Decimal("0.01")
-    assert holdings_mv_aud > Decimal("5000")  # the buggy 1:1 path would give 5270
+    assert holdings_mv_aud > Decimal("5000")  # the buggy 1:1 path would give 5720
     # cost query now matches .NYSE → us_cost_aud populated (was NULL under '%.US')
-    assert us_cost_aud == Decimal("7000.000000")
+    assert us_cost_aud == Decimal("7700.000000")
+
+    # unrealised_fx_pnl_aud is the FX COMPONENT, not total P&L, summed PER LOT
+    # at each lot's own acquisition rate:
+    #   lot1: 5 × 150 × (1/0.6251 − 1/0.6450) ≈ +37.02
+    #   lot2: 3 × 150 × (1/0.6251 − 1/0.7000) ≈ +77.03
+    # (AUD weakened vs both entries → currency gain), while TOTAL unrealised
+    # P&L here is deeply negative (1919.69 − 7700). The old mv−cost expression
+    # would have written that total into this column.
+    per_lot = [
+        (Decimal("5"), Decimal("0.645000")),
+        (Decimal("3"), Decimal("0.700000")),
+    ]
+    expected_fx = sum(
+        qty
+        * Decimal("150")
+        * (Decimal("1") / Decimal("0.6251") - Decimal("1") / acq)
+        for qty, acq in per_lot
+    ).quantize(Decimal("0.000001"))
+    assert abs(us_fx_pnl_aud - expected_fx) < Decimal("0.01")
+    assert us_fx_pnl_aud > 0 > (us_mv_aud - us_cost_aud)
+
+
+def test_fx_pnl_null_when_acquisition_rate_missing(monkeypatch):
+    """A foreign lot without acquisition_fx_rate makes the FX component
+    incomputable — the column must be NULL, never a silent fallback to
+    total P&L (the mislabelling this fix removes)."""
+    holdings = [
+        {"symbol": "HUBS.NYSE", "quantity": "5.000000", "close": "150.000000"},
+    ]
+    fetchrow_map = {
+        "job_runs": {"status": "success"},
+        "profiles WHERE is_active": _PROFILE_ROW,
+        "fx_rates": _FX_ROW,
+    }
+    fetch_map = {
+        "current_holdings": holdings,
+        "hl.acquisition_fx_rate": [
+            {
+                "quantity": Decimal("5.000000"),
+                "cost_base_normal": Decimal("7000.000000"),
+                "acquisition_fx_rate": None,
+                "close": Decimal("150.000000"),
+            }
+        ],
+    }
+    conn = _make_conn(fetchrow_map, fetch_map)
+
+    inserted: list = []
+
+    async def _execute(query, *args):
+        if "INSERT INTO portfolio_daily_snapshots" in query:
+            inserted.append(args)
+
+    conn.execute = _execute
+    monitor = MagicMock()
+    monitor.rows_written = 0
+
+    with patch.object(job_mod, "acquire", side_effect=lambda: _pool_ctx(conn)):
+        asyncio.run(job_mod._snapshot_one_day(AS_OF, monitor))
+
+    args = inserted[0]
+    assert args[9] == Decimal("7000.000000")  # cost still populated
+    assert args[11] is None  # FX component honestly NULL, not total P&L
 
 
 # ---------------------------------------------------------------------------
