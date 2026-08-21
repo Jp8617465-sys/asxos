@@ -166,7 +166,26 @@ def to_statement_rows(fund: Any, symbol: str, *, as_of: date) -> list[tuple[Any,
                     symbol, pe, period_type, stmt_type,
                     _d(st.get("filing_date")),
                     rdmap.get(pe),
-                    st.get("currency_symbol") or block.get("currency_symbol"),
+                    # `or None` for the same reason _sector_industry does it below: a bare
+                    # `a or b` chain returns the LAST falsy operand, so two blank sources
+                    # yield '' rather than NULL. This line is the ORIGIN of the blank
+                    # currencies that then propagate into rs_fundamentals_pit. Blank is
+                    # missing data, not a currency. (Counts and query scope live in
+                    # docs/proposals/segval-live-validation-2026-08-20.md F1, not here --
+                    # a census baked into a comment rots, and this function writes both
+                    # yearly AND quarterly rows, so F1's yearly-scoped figures would
+                    # understate this line's reach anyway.)
+                    #
+                    # Two honest limits, so the next reader does not over-trust it:
+                    #   1. Fixes rows written FROM NOW ON. Legacy blank rows are NOT
+                    #      backfilled, so on THIS table the correct predicate stays
+                    #      `WHERE (currency IS NULL OR currency = '')`. rs_fundamentals_pit
+                    #      has no such problem -- refresh_fundamentals_pit() re-derives the
+                    #      whole symbol space through _currency() every run, so it heals.
+                    #   2. `or None` catches '' but NOT whitespace-only ('   '), which would
+                    #      still land here as-is. _currency() strips at the PIT layer, so
+                    #      the derived table is safe either way; this one is not.
+                    (st.get("currency_symbol") or block.get("currency_symbol") or None),
                     prom["total_revenue"], prom["net_income"], prom["total_assets"],
                     prom["total_equity"], prom["total_debt"], prom["shares_diluted"],
                     json.dumps(st, default=str),
