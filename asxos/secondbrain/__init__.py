@@ -7,6 +7,18 @@ product domain; this package observes and coordinates the project itself.
 See ``docs/product/project-state-snapshot-freeze-2026-08-17.md``.
 """
 
+from asxos.secondbrain.execution import (
+    CheckResult,
+    CompiledRoadmap,
+    MissionEnvelope,
+    MissionEvent,
+    MissionReceipt,
+    MissionState,
+    MissionTimeline,
+    RoadmapItem,
+    RoadmapSelection,
+    select_next_item,
+)
 from asxos.secondbrain.project_state import (
     SCHEMA_VERSION,
     DataState,
@@ -18,15 +30,33 @@ from asxos.secondbrain.project_state import (
     ProjectStateSnapshot,
     RepositoryState,
 )
+from asxos.secondbrain.roadmap import (
+    RoadmapCompileError,
+    compile_execution_plan,
+    compile_execution_plan_file,
+)
 
 __all__ = [
     "SCHEMA_VERSION",
+    "CheckResult",
+    "CompiledRoadmap",
     "DataState",
     "FieldObservation",
     "GithubState",
+    "MissionEvent",
+    "MissionEnvelope",
+    "MissionReceipt",
+    "MissionState",
+    "MissionTimeline",
     "ObservationStatus",
     "ProbeRecord",
     "ProductionState",
     "ProjectStateSnapshot",
     "RepositoryState",
+    "RoadmapCompileError",
+    "RoadmapItem",
+    "RoadmapSelection",
+    "compile_execution_plan",
+    "compile_execution_plan_file",
+    "select_next_item",
 ]
