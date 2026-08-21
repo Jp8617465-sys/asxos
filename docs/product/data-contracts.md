@@ -5,7 +5,7 @@
 owning job, downstream consumers, failure symptom, health query, recovery. This is what
 `scripts/product_health.py` grades against, and what lets arbi say *"X is empty → this
 blocks Y"* instead of assuming a table is populated.
-**Last verified:** 2026-07-11 (live)
+**Last verified:** 2026-08-19 (live; `signals`/`signal_outcomes` rows updated for the Model A retirement)
 
 A table silently going empty/stale is the #1 way this product breaks without any test
 failing. These contracts turn that class of hidden failure into a graded scorecard row.
@@ -15,8 +15,8 @@ failing. These contracts turn that class of hidden failure into a graded scoreca
 | Table | Purpose | Fresh ≤ | Min rows | Owner job | Consumers | Failure symptom | Recovery |
 |---|---|---|---|---|---|---|---|
 | `prices` | OHLCV, the valuation + feature base | 4d (weekend-tolerant) | 100k | `sync_prices` | signals, snapshots, vol, discipline crons, brief | stale marks; no signals | re-run `sync_prices --as-of` |
-| `signals` | Model A output (model, prob_up, expected_return, …) | 4d | 1k | `generate_signals` (gate: sync_prices ok) | allocator, brief driver, pm-review | brief §Model-A line skipped (R9); allocator hard-fails | re-run `generate_signals` |
-| `signal_outcomes` | realised fwd returns per signal — **the decay-check + calibration base** | rolling | **>0** | `track_signal_outcomes` (scheduled Sun 03:00 UTC; init-pool crash fix committed on PR #26, pending merge + deploy) | Model A decay/calibration | decay must be recomputed from prices (slow, what happened 2026-07-10) | run the outcomes job |
+| `signals` | Model A output (model, prob_up, expected_return, …) — **frozen 2026-08-19**: no writer since Model A's retirement; kept as historical record only, no active owner job or consumer | — | 0 | none (retired) | none — every reader was removed alongside the writer | n/a — not a health metric; excluded from `scripts/product_health.py`'s FRESHNESS list | n/a; a future model's producer would need to be rebuilt from scratch, not "re-run" |
+| `signal_outcomes` | realised fwd returns per signal — the archived decay-check + calibration base for Model A's 2026-07-11 resolved verdict | — | **>0** | none (retired; frozen at ~60,072 rows, backed up with checksums 2026-08-16) | evidence for any future model's pre-registered decay-bar evaluation | presence-only check in the scorecard (row count, not age) | n/a — never re-run; this table is the permanent record, not a live feed |
 | `market_context` | regime + breadth + macro (avix, aud, rba, …) | 4d | 1 | `ingest_market_context` | market-context-narrator, regime, brief | narrator/regime data-thin; NULL rba/iron/vix | fix feed IDs (RC3), re-run |
 | `portfolio_daily_snapshots` | daily MV/cash/benchmark, re-derivable | 4d (Sun–Thu) | 1 | `snapshot_portfolio` (gate: sync_prices ok) | benchmark analyst, performance view, brief | performance view blank; benchmark cols NULL | re-run; needs AXJO.INDX prices |
 | `fundamentals` | per-symbol fundamentals, ML features | 8d | 1k | `sync_fundamentals` | loader/features, screening | features stale; signals degrade | re-run `sync_fundamentals` |
@@ -30,7 +30,8 @@ failing. These contracts turn that class of hidden failure into a graded scoreca
 
 - `scripts/product_health.py` reads each contract's health query → a PASS/WARN/FAIL row.
 - When a contract fails, arbi states the **downstream blast radius** from the "Consumers"
-  column: e.g. *"`signal_outcomes` populated (24,454) → the decay automation the 2026-07-10
-  check had to fake from prices is now runnable"* or *"`market_context.rba_cash_rate` NULL →
-  the bank rate-cycle thesis has no macro trigger."*
+  column: e.g. *"`signal_outcomes` frozen at 60,072 rows (checksummed 2026-08-16) → the
+  permanent evidence base for Model A's resolved 2026-07-11 decay verdict; only relevant
+  again if a future model needs the same pre-registered bar"* or *"`market_context.rba_cash_rate`
+  NULL → the bank rate-cycle thesis has no macro trigger."*
 - New load-bearing table → add a row here + a check in `product_health.py` in the same change.

@@ -34,11 +34,21 @@ import asyncio
 import json
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 
-from asxos.ingestion.eodhd import EODHDClient
+if TYPE_CHECKING:
+    # Deliberately NOT a module-top runtime import (P2-04 Step 0): importing
+    # `asxos.ingestion.eodhd` executes `asxos.config` (`config.py:108`
+    # instantiates `CoreSettings()`, which reads the secrets env file), and
+    # this module's pure `derive_knowledge_date()` is imported by
+    # `asxos/domain/results_review/contracts.py:49` — a path that must be
+    # importable in secrets-free environments (tests, contract consumers).
+    # `EODHDClient` is used only as a type annotation here (PEP 563 keeps it
+    # unevaluated at runtime); the job entry point
+    # (`jobs/sync_financial_statements.py`) imports the real client itself.
+    from asxos.ingestion.eodhd import EODHDClient
 
 # EODHD Financials block name -> our statement_type token.
 _STMT_MAP = {
@@ -222,6 +232,20 @@ ON CONFLICT (symbol, period_end, period_type, statement_type) DO UPDATE SET
 # 2026-07-13 smoke, which measured 77 min for just 200 symbols on the per-row path — so
 # 3600 would have killed even a healthy full run. Real validation = first post-merge
 # weekly run (Sat); watch its duration_ms and tighten if it lands well under 30 min.
+#
+# !! DEAD AS SIZED (annotated 2026-08-17, comment only — deliberately NOT re-tuned) !!
+# This guard can never fire on the scheduled path. 5400s is exactly 90 minutes, and
+# `.github/workflows/weekly-research.yml` sets `timeout-minutes: 90` for the ENTIRE
+# six-step job — of which this is step 4. GitHub's timeout therefore always wins.
+# Observed: run 31895667938 (2026-08-15) cancelled this step 82s in, having spent 88.1
+# min on step 3. The "real validation = first post-merge Saturday" note above has been
+# silently blocked by that shared budget ever since the Render -> Actions migration:
+# it is waiting on a duration_ms that the scheduled path has never produced.
+# A per-step guard has to be a SHARE of the job budget, not equal to it — see
+# `corporate_actions._RUN_DEADLINE_S` for a correctly-sized one and its arithmetic.
+# Re-sizing this value is out of scope for the change that added this note;
+# `tests/test_corporate_actions.py::test_financial_statements_deadline_is_dead_as_sized`
+# pins the current state so the fix is not silently forgotten.
 _RUN_DEADLINE_S = 5400
 
 
@@ -290,7 +314,15 @@ async def refresh_financial_statements(
                     if rows:
                         counts["symbols_with_statements"] += 1
                         # Batch the per-symbol UPSERTs into ONE executemany round-trip
-                        # (house style — asxos/domain/signals/writer.py:69). The prior
+                        # (house style — `prices.py::upsert_prices` and
+                        # `regulatory.py::upsert_events`, the two that existed on
+                        # 2026-07-13; `security_master.py::refresh_security_master` was
+                        # batched later, on 2026-07-18, so it is not a precedent for
+                        # this one). Cited by module::function deliberately: the
+                        # original citation here was a file:line pointing at
+                        # `asxos/domain/signals/writer.py:69`, a path that does not
+                        # exist in this repo — which is exactly how file:line rots.
+                        # The prior
                         # per-row loop issued one network round-trip per statement row:
                         # the 2026-07-13 --limit 200 smoke wrote 32,095 rows in 77 min
                         # (round-trip-bound), extrapolating to ~15h for the full ~2,382-

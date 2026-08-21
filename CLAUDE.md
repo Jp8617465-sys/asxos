@@ -13,7 +13,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 ## Non-negotiable rules
 
 1. **Hard-fail startup.** `asxos/api/main.py` lifespan raises on dependency-init failure. No `logger.warning(...); continue`. If the DB is unreachable, the API does not start.
-2. **API/MCP service management.** Manage **Render via its REST API** (`https://api.render.com/v1`, bearer `$RENDER_API_KEY` — **there is NO Render MCP; do not call `mcp__render__*`**); use `mcp__supabase__*` for Supabase. Never edit the Render dashboard for changes — every change goes through `render.yaml` + `git push` + `make check-drift`.
+2. **Service management.** Jobs run as **GitHub Actions workflows** (`.github/workflows/`), not Render — Render was **deleted 2026-08-12**. Config lives in git and is reviewed; secrets live in the repo's Actions secrets. Use `mcp__supabase__*` for Supabase. Never manage jobs by hand outside the workflows — every change goes through a workflow file + `git push`; dispatch a run with `gh workflow run <name>.yml`.
 3. **No feature flags.** If a feature is half-built, it stays on a branch.
 4. **No `user_id` columns, no auth, no RLS.** Single user.
 5. **NUMERIC(18,6)** for every monetary or statistical column from day one.
@@ -30,7 +30,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 |---|---|---|
 | API | FastAPI 0.115 | `make dev` → 127.0.0.1:8788 |
 | DB | Supabase Postgres 16 (existing project, free tier) | `mcp__supabase__execute_sql` |
-| Jobs (M12+) | Render cron services | Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`) |
+| Jobs (M12+) | GitHub Actions workflows (`.github/workflows/`) | `gh workflow run <name>.yml` |
 | Migrations | Plain `.sql` in `migrations/`, applied via `mcp__supabase__apply_migration` | No runner script |
 | Email | Resend (test sender for v1) | curl-based, no SDK |
 | Monitoring | Healthchecks.io deadman | per-job ping URL |
@@ -71,7 +71,7 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 - `make dev` — start API locally
 - `make check` — ruff + mypy + pytest (enforced in CI by the `full-check` workflow on PRs to `main` and `claude/**` pushes; `targeted-ml-tests` is the fast ML lane)
 - `make migrate` — reminder only; actual apply via Supabase MCP
-- `make check-drift` — reconcile `render.yaml` against the live Render services via the Render REST API (`api.render.com/v1`, `$RENDER_API_KEY`)
+- `gh run list` / `gh run view <id> --log` — inspect the GitHub Actions jobs (the cron substrate; Render was deleted 2026-08-12)
 
 ## Claude-driven GitHub execution
 
@@ -110,8 +110,8 @@ command is the only authority:**
 pytest tests/ -q 2>&1 | grep '^ERROR'
 ```
 
-These all pass in the production Render environment where `pip install -e ".[ml]"`
-is run, and in CI (`full-check`), which is the real gate. Do not add workarounds or
+These all pass in CI (`full-check`) and the GitHub Actions runners where
+`pip install -e ".[ml]"` is run — CI is the real gate. Do not add workarounds or
 skip markers — the tests themselves are correct. Practical note (verified
 2026-07-21): a sandbox `python3` with `pip install pytest-asyncio asyncpg httpx
 tenacity pydantic pydantic-settings python-dotenv python-dateutil jinja2 numpy
@@ -120,7 +120,7 @@ remain, e.g.:
 
 - `tests/test_train_walk_forward.py::test_train_model_a_returns_valid_result` — requires
   `lightgbm` in the venv. The system Python has it; the sandbox venv does not. Passes
-  on Render.
+  in CI / the GitHub Actions runner.
 
 ## Known coverage gaps (verify, don't assume)
 
@@ -157,10 +157,10 @@ any "X is covered" claim — including this file. Current known gaps:
 
 ## Subagents — delegation policy
 
-`.claude/agents/` holds 22 subagents — 11 dev-side (architecture/quality/docs), 2
+`.claude/agents/` holds 25 subagents — 11 dev-side (architecture/quality/docs), 2
 finance-domain conformance agents (`tax-spec-conformance`, `portfolio-invariant-guard`),
 5 investment-analysis agents (the evidence layer behind `/pm-review`), 1 discovery
-agent (`macro-economist`; 2 more planned in Phase 2c), and 3 program-management agents
+agent (`macro-economist`; 2 more planned in Phase 2c), and 4 program-management agents
 (`arbi`, the PM / "wake up" agent — see below; `arbi-red-team`, the adversarial
 critic that stress-tests arbi's "one thing" before it's acted on; and `guilfoyle`,
 the mission-control / execution lead **under** arbi that turns an arbi-approved mission
@@ -242,7 +242,7 @@ fans these five out from the main loop and synthesizes the GOOD HOLD / TRIM / RE
 EXIT-CANDIDATE verdict. These agents surface evidence only — never orders or advice.
 
 One **discovery** agent (`macro-economist`, Phase 2b; `theme-researcher` and
-`instrument-selector` planned for Phase 2c) proposes new investment content for
+`sector-screener`, both built) proposes new investment content for
 governance review, rather than analyzing existing holdings the way the five
 investment-analysis agents above do. Still read-only against the DB (never
 INSERT/UPDATE/DDL, same as the analysis agents) — its structured output becomes a
@@ -285,4 +285,4 @@ by design — R13 closes a same-command race, not the intentional bypass surface
 
 ## Custom slash commands
 
-`.claude/commands/` has 28 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `arbi-run` (added 2026-07-10) is the attended multi-agent dispatch bridge: arbi plans + names specialists, the main loop fans them out in parallel (governor-invoked, reversible only — standing/unattended dispatch stays gated per `arbi-permission-model.md`). `arbi-mission` (added 2026-07-13) is its graph-driven, readiness-gated successor: **`guilfoyle`** (mission-control, read-only planner under arbi) turns an arbi-approved mission envelope into a task graph + specialist assignments + one readiness verdict, and the main loop executes the reversible fan-out to a draft PR — attended only, draft-PR ceiling, Guilfoyle plans/judges but never prioritises, spawns, or merges. `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` + branch protection = the mechanical poisoning firewall); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.
+`.claude/commands/` has 31 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out the five investment-analysis agents and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `arbi-run` (added 2026-07-10) is the attended multi-agent dispatch bridge: arbi plans + names specialists, the main loop fans them out in parallel (governor-invoked, reversible only — standing/unattended dispatch stays gated per `arbi-permission-model.md`). `arbi-mission` (added 2026-07-13) is its graph-driven, readiness-gated successor: **`guilfoyle`** (mission-control, read-only planner under arbi) turns an arbi-approved mission envelope into a task graph + specialist assignments + one readiness verdict, and the main loop executes the reversible fan-out to a draft PR — attended only, draft-PR ceiling, Guilfoyle plans/judges but never prioritises, spawns, or merges. `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` lists the paths that carry arbi's authority — `docs/product/memory/`, the `arbi-*` governance set, `north-star.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/arbi.md`. **It is currently advisory, not enforced.** Branch protection requires `full-check` and zero approving reviews; `require_code_owner_reviews` is on but inert, because the sole code owner authors every PR and GitHub cannot request a review from a PR's own author — verified 2026-08-18, when PR #137 touching `CLAUDE.md` reached `CLEAN` and merged with no review. With one identity the only reachable states are gate-everything (`required_approving_review_count: 1`, forcing `--admin` on every merge) or gate-nothing; path-scoped gating needs a separate GitHub identity for agent-authored PRs, tracked as R2/R5. Treat the CODEOWNERS list as a statement of which files deserve a second look, not as a control that will stop you.); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.

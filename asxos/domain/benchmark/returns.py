@@ -1,10 +1,18 @@
 """Benchmark return primitives — pure Decimal, no DB, no numpy.
 
 `period_return` is the simple holding-period return between two levels; `alpha`
-is the portfolio-minus-benchmark excess. Both operate on *levels* (capital_aud,
-benchmark_tr_level, an index close) and return a fraction (0.042 = +4.2%), so the
-caller controls percent formatting. Used by the wealth-state collector (Stage 1d)
-and the benchmark-performance-analyst agent.
+is the portfolio-minus-benchmark excess. Both operate on *levels* and return a
+fraction (0.042 = +4.2%), so the caller controls percent formatting.
+
+Consumers: :mod:`asxos.domain.benchmark.outcome` (the V1 brief's per-lot outcome
+section) and the benchmark-performance-analyst agent prompt.
+
+**Do not pass a `portfolio_daily_snapshots.capital_aud` pair as the portfolio
+leg** — that balance moves with deposits and withdrawals, so differencing it is
+not a return. Why it matters:
+`asxos/domain/brief/collectors/wealth_state.py:101-108`. The constraint is a
+property of the *caller*, not of these two functions, which is why it is a
+warning here and an invariant in `outcome.py`.
 """
 from __future__ import annotations
 

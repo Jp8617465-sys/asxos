@@ -31,7 +31,8 @@ async def _run_model_activate(model: str, version: str) -> None:
             )
             if target is None:
                 console.print(
-                    f"[red]no row found for {model} {version} — has retrain_model_a run?[/red]"
+                    f"[red]no row found for {model} {version} — "
+                    "has its training/registration job run?[/red]"
                 )
                 raise typer.Exit(code=1)
 

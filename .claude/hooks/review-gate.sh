@@ -6,9 +6,9 @@
 # → Review gate". The gate forces a deliberate step (writing a diff-keyed marker);
 # it cannot itself spawn an agent or prove one ran.
 #
-# Advisory + fail-open by contract: if jq is missing, CLAUDE_PROJECT_DIR points
-# outside the repo, or any step errors, the hook exits without a deny and the
-# commit proceeds. The marker is intentionally forgeable (`touch`). This is a
+# Advisory + fail-open by contract: if jq is missing, no candidate checkout can be
+# entered, or any step errors, the hook exits without a deny and the commit
+# proceeds. The marker is intentionally forgeable (`touch`). This is a
 # developer-discipline speed-bump, not a security boundary.
 #
 # R13 (2026-07-13): the plain-commit path below inspects the staged diff, which
@@ -54,7 +54,31 @@ case "$cmd" in
   *) exit 0 ;;
 esac
 
-cd "${CLAUDE_PROJECT_DIR:-.}"
+# Resolve the checkout this commit will actually run in. Claude normally invokes
+# the hook at the project root, but a Bash call made inside a git worktree (or any
+# other cwd) has its OWN index — and this gate inspects the STAGED diff, which is
+# per-checkout. Anchoring to $CLAUDE_PROJECT_DIR would inspect an unrelated (and
+# usually empty) index, so staged Python in a worktree sailed through ungated.
+# Mirrors authority-guard.sh's payload-.cwd resolution. Fail-open per this hook's
+# contract: an unusable cwd falls back to the project dir, and a failed cd skips
+# that checkout without a deny.
+payload_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty')"
+if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
+  gate_root="$(git -C "$payload_cwd" rev-parse --show-toplevel 2>/dev/null \
+    || printf '%s' "$payload_cwd")"
+else
+  gate_root="${CLAUDE_PROJECT_DIR:-.}"
+fi
+# Check EVERY candidate checkout, not just the resolved one. Repointing the gate at
+# the payload's cwd alone fixed worktree-staged Python but stopped seeing Python
+# staged in the control checkout (`cd <primary> && git commit`, or a session whose
+# cwd is worktree A while the commit lands in checkout B). Both are gated now, so
+# the guarded set strictly grows rather than moving.
+gate_roots="$gate_root"
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ "${CLAUDE_PROJECT_DIR}" != "$gate_root" ]; then
+  gate_roots="$gate_roots
+${CLAUDE_PROJECT_DIR}"
+fi
 
 # R13 — detect commands that stage Python in the same breath as the commit, so
 # the staged-diff check below can't see it. Two shapes:
@@ -75,6 +99,10 @@ if [[ "$cmd" =~ [[:space:]]-[[:alpha:]]*a ]] \
   stages_inline=1
 fi
 
+while IFS= read -r gate_root; do
+[ -n "$gate_root" ] || continue
+cd "$gate_root" 2>/dev/null || continue
+
 if [ "$stages_inline" -eq 1 ]; then
   # Any uncommitted Python — unstaged tracked, already-staged, or untracked —
   # means this command would carry .py into a commit without the staged-diff
@@ -91,11 +119,25 @@ fi
 
 # Only gate when Python is staged — the review loop targets code, not docs/config.
 staged_py="$(git diff --cached --name-only -- '*.py' 2>/dev/null || true)"
-[ -z "$staged_py" ] && exit 0
+[ -z "$staged_py" ] && continue
 
 # Stable hash of the staged diff; the marker is keyed to it so any change re-arms.
 sha="$(git diff --cached | git hash-object --stdin | cut -c1-12)"
 marker=".claude/.review-passed-${sha}"
-[ -f "$marker" ] && exit 0
+[ -f "$marker" ] && continue
 
-deny "Staged Python changes require the subagent review loop before commit (CLAUDE.md policy). Run on the staged diff: security-engineer (if it touches secrets, external input, dependencies, or financial/PII data), refactoring-expert, technical-writer. When done, run: touch ${marker}  — then retry the commit. Writing the marker without running the loop is an explicit, visible bypass."
+# Print the marker ABSOLUTE. It is resolved under the commit's own checkout (we
+# cd'd to gate_root above), which is not necessarily the directory the user is
+# standing in: touching a relative `.claude/.review-passed-*` at the project root
+# does NOT satisfy a commit issued from a worktree, and the resulting deny loop
+# carries no diagnostic. $PWD is post-cd, so it is always absolute.
+# Note: the marker's parent must exist — `.claude/` is tracked, so a worktree
+# checked out at a revision containing it already has the directory.
+marker_abs="$PWD/${marker}"
+
+deny "Staged Python changes require the subagent review loop before commit (CLAUDE.md policy). Run on the staged diff: security-engineer (if it touches secrets, external input, dependencies, or financial/PII data), refactoring-expert, technical-writer. When done, run: touch ${marker_abs}  — then retry the commit. Writing the marker without running the loop is an explicit, visible bypass."
+done <<EOF
+$gate_roots
+EOF
+
+exit 0

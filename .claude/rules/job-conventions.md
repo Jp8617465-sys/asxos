@@ -31,47 +31,82 @@ paths:
   weekday-only in cron syntax (`0-4` day-of-week for the trading-day crons).
   Public-holiday handling is acceptable noise for a single-user system.
 
-## Daily Pipeline (UTC, per render.yaml)
+## Scheduled Pipelines (UTC, per `.github/workflows/`)
+
+Jobs run as GitHub Actions workflows. **`.github/workflows/` is the source of
+truth for every scheduling question** — read the workflow file, never a
+schedule written down somewhere else (including here).
 
 ```
-13:30 daily          asxos-backup-irreplaceable   (pg_dump → asxos-backups repo)
-18:00 daily          asxos-sync-fundamentals      (per-symbol; ~3 min on free EODHD)
-20:30 Sun-Thu UTC    asxos-sync-prices            (bulk-by-date; one API call)
-20:40 Sun-Thu UTC    asxos-snapshot-portfolio     (GATE: sync_prices ok; UPSERT portfolio_daily_snapshots)
-20:50 Sun-Thu UTC    asxos-generate-signals       (GATE: sync_prices ok)
-20:55 daily          asxos-ingest-regulatory      (RSS pull)
-20:57 Sun-Thu UTC    asxos-ingest-news            (news articles for holdings)
-21:00 Sun-Thu UTC    asxos-compose-brief          (Resend email at 07:00 AEST)
-21:02 Sun-Thu UTC    asxos-ingest-sentiment       (aggregates news → signal_sentiment)
-20:00 Sat            asxos-build-portfolio        (weekly; section 6 of brief)
-16:00 Sat            asxos-sync-universe          (weekly)
-16:00 Sat            asxos-retrain-model-a        (weekly walk-forward)
+13:30 daily        backup.yml           (pg_dump → asxos-backups repo; restore drill on dispatch)
+16:00 Sat          weekly-research.yml  (6 steps: universe → security master → corporate
+                                         actions → financial statements → fundamentals PIT
+                                         → fundamentals)
+20:30 Sun-Thu      daily-brief.yml      (12 steps: prices → validate prices → snapshot
+                                         portfolio → market context → underlyings →
+                                         regulatory → news → sentiment → compose brief,
+                                         then macro scoring → AU positions → thesis
+                                         invalidations)
+21:30 Mon-Fri      us-positions.yml     (alert-only; lands after the NYSE close on both
+                                         sides of the US DST boundary)
+22:00 daily        pipeline-health.yml  (watchdog; jobs/check_cron_health.py)
 ```
 
-Mon-Fri AEST anchors; UTC offset 10h. DST shift is acceptable noise.
+Within a workflow, **step order IS the dependency graph** — a failed step blocks
+every step below it. Add a new job at the position that reflects what it depends
+on; never express a dependency as a clock offset.
+
+The post-send steps in `daily-brief.yml` sit deliberately *after* `compose_brief.py`
+so a failure there cannot cost the brief itself. They still fail the run.
+
+GitHub cron is best-effort: runs can start minutes late at busy hours. Fine for a
+daily brief, not for market-microstructure timing. Mon-Fri AEST anchors; UTC
+offset 10h. DST shift is acceptable noise.
+
+`schedule:` only fires from `main`, so a schedule change goes live on merge.
+`workflow_dispatch` works immediately on any ref, but dispatch is constrained:
+only `full-check.yml`, `targeted-ml-tests.yml`, `migration-integration.yml`,
+`backup.yml` and `claude-execute.yml` may be dispatched from a session.
+Dispatching a production, secret-bearing job (`daily-brief`, `us-positions`,
+`weekly-research`, `pipeline-health`) is denied and reserved to James.
 
 ## Idempotency
 
 - All writes are UPSERTs (`ON CONFLICT (...) DO UPDATE`). Safe to re-run.
-- The retraining job writes a versioned row to `model_versions` — does not
-  overwrite the active row.
 
 ## NumPy + asyncpg
 
 - asyncpg handles numpy types natively. No adapter registration needed
-  for the new jobs (`jobs/generate_signals.py`, `jobs/sync_prices.py`, etc.).
-- Legacy training scripts that use psycopg2 must register adapters before
-  any executemany — see `.claude/rules/ml-conventions.md`.
+  for most jobs (`jobs/sync_prices.py`, etc.).
+- Any job using psycopg2 must register adapters BEFORE any `executemany` /
+  `execute` call with numpy values (CLAUDE.md non-negotiable #9):
+  ```python
+  for np_type, py_type in [(np.int64, int), (np.int32, int), (np.float64, float)]:
+      psycopg2.extensions.register_adapter(np_type, lambda x, cast=py_type: AsIs(cast(x)))
+  ```
+  No job currently uses psycopg2 as of the 2026-08-19 Model A retirement
+  (its last user, the training chain, was removed) — kept here as the
+  reference snippet for the next one that does.
 
-## Environment Variables (per job)
+## Environment Variables (per workflow)
 
-`DATABASE_URL` and `PYTHON_VERSION=3.12.13` everywhere; the rest are
-service-specific (see `render.yaml`):
+Secrets live in ONE store — the repo's Actions secrets — and reach a job through
+the `env:` block of its workflow. That block is the authority for what a job
+actually gets; read it rather than assuming.
 
-- `EODHD_API_KEY` — sync_universe, sync_prices, sync_fundamentals
-- `RESEND_API_KEY`, `BRIEF_FROM_EMAIL`, `BRIEF_TO_EMAIL` — compose_brief
-- `BACKUP_GITHUB_TOKEN`, `BACKUP_REPO` — backup_irreplaceable
-- `HEALTHCHECK_URL_<JOB>` — every job, one Healthchecks UUID per job
+`DATABASE_URL` is set in every workflow. Python is pinned to 3.12 by
+`actions/setup-python`, not by an env var. The rest are workflow-specific:
 
-The web service `asxos-api` owns the canonical copies. Crons created via
-MCP store local copies (drift documented; not blocking).
+- `EODHD_API_KEY` — `daily-brief`, `weekly-research`
+- `FRED_API_KEY` — `daily-brief`
+- `RESEND_API_KEY`, `BRIEF_FROM_EMAIL`, `BRIEF_TO_EMAIL` — `daily-brief`,
+  `us-positions`, `pipeline-health`
+- `BACKUP_GITHUB_TOKEN`, `BACKUP_REPO` — `backup`
+- `ASXOS_PERSONAL_USE` — `daily-brief`, `us-positions`
+- `ASXOS_TZ` — `daily-brief`, `weekly-research`
+
+`HEALTHCHECK_URL_<JOB>` is currently set in **no** workflow, so the deadman ping
+is silently skipped (JobMonitor's documented behaviour, above). Until those URLs
+are added, the failure signal is the red run plus GitHub's own run-failure
+notification, with `pipeline-health.yml` as the standing watchdog. Adding a job's
+Healthchecks URL to its workflow `env:` block restores its deadman.

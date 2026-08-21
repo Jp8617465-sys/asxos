@@ -7,19 +7,20 @@ Read `CLAUDE.md` and `docs/foundation/BUILD_GUIDE.md`. Close the current sprint:
 3. List delivered work: `git log --oneline $(git merge-base main HEAD)..HEAD`
 4. Migration delta: any new files in `migrations/`? Did `REQUIRED_MIGRATIONS`
    bump? Are they applied in Supabase (`mcp__supabase__list_migrations`)?
-5. Render cron delta: any new entries in `render.yaml`? Did they get
-   created on Render (`GET api.render.com/v1/services`, `$RENDER_API_KEY`)?
+5. Workflow delta: anything changed in `.github/workflows/` — new step,
+   changed schedule, changed step order? Config is live on merge to `main`;
+   there is no deploy step and nothing to reconcile against
 6. Outstanding tasks: `TaskList` — anything still in_progress
 
 ## Remaining ops actions
 
 Compile a list of what the human (or a separate session) still needs to do:
 - Migrations to apply (file present but not in supabase_migrations)
-- Env vars to upload (`sync: false` in render.yaml but absent from the
-  live service)
-- Healthchecks.io URLs to create for any new cron
-- Render dashboard tweaks (e.g. `healthCheckPath` if a new web service
-  was added — MCP create can't set it)
+- Actions secrets to add (a workflow `env:` block names a secret that isn't in
+  the repo's Actions secrets yet — otherwise its first scheduled run fails)
+- Healthchecks.io URLs to create for any new job, plus the matching
+  `HEALTHCHECK_URL_<JOB>` entry in that workflow's `env:` block
+- PRs awaiting James's merge (workflow config only goes live on merge to `main`)
 
 ## Constraints
 

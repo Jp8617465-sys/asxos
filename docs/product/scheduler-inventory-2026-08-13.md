@@ -48,8 +48,45 @@ running (it would then simply mean a second, unmonitored scheduler existed — s
 
 ## 1. The executing inventory — GitHub Actions
 
-Ten workflows. Five are scheduled (the actual cron substrate), four are event-driven CI,
-one is manual-only.
+**CORRECTED 2026-08-18: eleven workflows are registered on GitHub, not ten.** This section
+originally read *"Ten workflows."* — a count taken from the repo tree, not from GitHub. The two
+are not the same number, and the difference is the point.
+
+Re-derived 2026-08-18 with `gh workflow list --all --json id,name,path,state`, which returns
+**11 active workflows**, against `git ls-tree -r --name-only origin/main -- .github/workflows/`,
+which returns **10 tracked files**:
+
+| # | Workflow | GitHub id | Tracked `.yml` at `origin/main`? | Class |
+|---|---|---|---|---|
+| 1 | `daily-brief` | 329794191 | yes | scheduled |
+| 2 | `us-positions` | 329817135 | yes | scheduled |
+| 3 | `pipeline-health` | 329794192 | yes | scheduled |
+| 4 | `backup` | 329817134 | yes | scheduled |
+| 5 | `weekly-research` | 329817136 | yes | scheduled |
+| 6 | `full-check` | 303159957 | yes | event-driven CI |
+| 7 | `targeted-ml-tests` | 297483501 | yes | event-driven CI |
+| 8 | `migration-integration` | 331790638 | yes | event-driven CI |
+| 9 | `PR Review Agent` | 301960356 | yes | event-driven CI |
+| 10 | `Claude Execute` | 332670923 | yes | manual-only |
+| 11 | **`migration-drill`** | **331798642** | **NO** | **unresolved — see below** |
+
+So: **11 registered · 10 tracked · 5 scheduled · 4 event-driven CI · 1 manual-only · 1
+unaccounted.** The scheduled/CI/manual split in the subsections below is unchanged and still
+correct — it describes the ten tracked files.
+
+**OPEN QUESTION — `migration-drill` (id 331798642).** GitHub reports it `active` at path
+`.github/workflows/migration-drill.yml`, and **no file exists at that path at `origin/main`**.
+What is verified, and only this:
+
+- its only two runs are `31481113459` and `31481355321`, both **success**, both 2026-08-11,
+  both on head branch `claude/migration-drill-0043`;
+- that branch still exists on `origin` at `614b3a1`.
+
+**No explanation is offered here.** Whether the workflow was deliberately branch-only, was
+meant to merge and did not, or should be deleted from GitHub, is unknown to this inventory and
+must not be guessed — the inventory's whole value is that it does not invent dispositions. It
+is recorded as an open item because a registered, active workflow with no definition on the
+default branch is invisible to every repo-tree-based audit, including this document's own §3.
 
 ### 1a. Scheduled — the live cron fleet
 
@@ -195,6 +232,16 @@ grep exit status: 1
 **Zero matches across all ten workflow files.** (`grep` exit status 1 = "no lines selected",
 which is the intended result; status 2 would mean an error, and status 0 would mean a hit.)
 Files searched: `ls -1 .github/workflows/ | wc -l` → **10**.
+
+> **Scope correction, 2026-08-18.** That count of 10 is still accurate *for tracked files* — it
+> was re-derived today at `origin/main` = `a0c17a2` and is unchanged. But §1 now records that
+> GitHub has **11** registered workflows, so this proof covers 10 of 11. The uncovered one is
+> `migration-drill` (id 331798642), which has no definition at `origin/main` and therefore
+> could not be searched. The proof is **not** invalidated: `migration-drill`'s only two runs
+> (2026-08-11, both success) predate this inventory and ran from `claude/migration-drill-0043`,
+> and nothing schedules it. But the proof's own phrase "all ten workflow files" must now be read
+> as "all ten workflow files **that exist on the default branch**", which is a weaker claim than
+> "the executing scheduler", and closing the gap requires disposing of `migration-drill`.
 
 A second, broader check over the five *scheduled* workflows — the only ones that fire without
 a human — returns zero for the token `signals` as well:

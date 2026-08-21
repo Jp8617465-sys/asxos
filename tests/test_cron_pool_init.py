@@ -35,17 +35,17 @@ JOBS_DIR = pathlib.Path(__file__).resolve().parent.parent / "jobs"
 # canonical structure: init_pool() before JobMonitor AND close_pool() in a
 # finally block.
 #
-# check_model_staleness.py (R17) and track_signal_outcomes.py (R18) were dropped
-# from this list when the Model A jobs were deleted — see
-# docs/product/model-a-reference-manifest.md. The remaining nine keep their guard;
-# the universal scan below still covers every surviving JobMonitor + acquire job.
+# check_model_staleness.py (R17), track_signal_outcomes.py (R18), and
+# compute_opportunity_cost.py were dropped from this list when the Model A
+# jobs were deleted — see docs/product/model-a-reference-manifest.md. The
+# remaining eight keep their guard; the universal scan below still covers
+# every surviving JobMonitor + acquire job.
 AFFECTED_JOBS = [
     "validate_price_data.py",
     "check_au_positions.py",
     "check_thesis_invalidations.py",
     "check_us_positions.py",
     "check_cron_health.py",
-    "compute_opportunity_cost.py",
     "detect_theme_stages.py",
     "ingest_market_context.py",
     "ingest_underlyings.py",

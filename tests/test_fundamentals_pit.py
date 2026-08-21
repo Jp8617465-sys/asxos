@@ -57,6 +57,40 @@ def test_ratios():
     assert f["eps_ttm"] == Decimal("2.000000")        # 100/50
 
 
+def test_currency_defaults_to_none_when_absent_from_fixtures():
+    """D1 (segment-valuation architecture doc): every monetary column here is
+    denominated in the source statement's currency, not necessarily AUD.
+    compute_pit_factors must carry it through so a caller can group/convert
+    by it rather than assume AUD. The positive carry-through path is covered
+    by test_currency_prefers_income_over_balance_sheet below; this only
+    pins the absent-key default.
+    """
+    f = _factors()
+    assert f["currency"] is None  # _INCOME/_BALANCE fixtures above carry no currency key
+
+
+def test_currency_falls_back_to_balance_sheet_when_income_lacks_it():
+    f = compute_pit_factors(
+        {**_INCOME, "currency": None},
+        {**_BALANCE, "currency": "USD"},
+        _DIVS,
+        period_end=D("2025-06-30"), report_date=D("2025-08-12"),
+        filing_date=D("2025-06-30"), as_of=D("2026-06-24"),
+    )
+    assert f["currency"] == "USD"
+
+
+def test_currency_prefers_income_over_balance_sheet():
+    f = compute_pit_factors(
+        {**_INCOME, "currency": "USD"},
+        {**_BALANCE, "currency": "AUD"},
+        _DIVS,
+        period_end=D("2025-06-30"), report_date=D("2025-08-12"),
+        filing_date=D("2025-06-30"), as_of=D("2026-06-24"),
+    )
+    assert f["currency"] == "USD"
+
+
 def test_absolute_passthrough_and_netdebt():
     f = _factors()
     assert f["revenue_ttm"] == Decimal("1000")
@@ -162,6 +196,7 @@ def _finrow(stmt_type, sym="HUBS.US", **over):
         "total_debt": None,
         "shares_diluted": None,
         "line_items": "{}",
+        "currency": "USD",
     }
     base.update(over)
     return base
@@ -210,6 +245,7 @@ async def test_orchestrator_derives_and_upserts():
     assert "ON CONFLICT (symbol, knowledge_date) DO UPDATE" in sql
     assert args[0] == "HUBS.US"
     assert args[7] == Decimal("0.200000")  # roe in the param list
+    assert args[16] == "USD"  # currency, from _finrow's default
 
 
 @pytest.mark.asyncio
@@ -254,6 +290,7 @@ async def test_dividend_window_excludes_out_of_range():
     _sql, rows = conn.executed_many[0]
     args = rows[0]
     assert args[14] == Decimal("2")  # dividend_ttm — only the in-window dividend
+    assert args[16] == "USD"  # currency, from _finrow's default
 
 
 @pytest.mark.asyncio

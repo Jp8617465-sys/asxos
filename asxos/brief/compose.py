@@ -27,7 +27,11 @@ external reference. (Pre-existing, unrelated to P1-04: portfolio-conventions.md
 calls the portfolio-adjustments gate "section 6" while this list has always
 numbered it 7. Left as found; renumbering here would not fix it.)
 
-  1. Job failures banner (if any in the last 24h)
+  1. Job problems banner (rendered only when there are any) — failed runs *and*
+     runs stuck in `running`, over the window since the previous successful
+     `compose_brief`. It read "the last 24h" until 2026-08-18, describing an
+     `as_of = $1` filter that could not match a row on any day; the heading in
+     `brief.html.j2` now says what the query covers. See `_job_failures`.
   2. RETIRED (mission P1-04, manifest A4) — market regime, read from
      `signals.regime`. Replaced by the review status in the header, which is
      derived from the user's own data rather than a model's regime call.
@@ -55,19 +59,35 @@ numbered it 7. Left as found; renumbering here would not fix it.)
        the LATEST ingest_news job_run in the window being status='success'
          with a NULL error_message (freshness gate — status alone was
          forgeable, a row count was the overcorrection; see _news_ingest_fresh)
-     Section absent entirely when any gate fails.
+     The two env gates omit the section entirely; the freshness gate does
+     NOT — it renders an explicit "unverified" state, because silence there
+     would read as "no news today". See `_news_section` for the four states.
   7. Portfolio adjustments (M13.7) — gated by BOTH:
        ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
        ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
      Omitted entirely when either flag is unset, or when no successful
      build_portfolio run exists with as_of >= today - 2 (plan I.7 freshness gate).
+  8. Outcome vs benchmark — per-open-lot return since acquisition, the benchmark's
+     return over the same window from `portfolio_daily_snapshots.benchmark_tr_level`,
+     and alpha. The only production code behind the north star's "benchmark-relative"
+     output (`docs/product/north-star.md:40`). Anchored on
+     `holding_lots.acquired_at`/`cost_base_normal` and `prices.close` with an explicit
+     FX step — **never** on differencing `portfolio_daily_snapshots.capital_aud`
+     (why: `asxos/domain/brief/collectors/wealth_state.py:101-108`).
+     Sleeve-separated per governor ruling F2 and proxy-vetoed per F1
+     (`docs/product/roadmap-state.md:252-254`).
+     Model-independent by construction — no `signals`, no `resolve_production_model()`.
+     Gated on ASXOS_PERSONAL_USE=1 only (§3 parity), which
+     `.github/workflows/daily-brief.yml` already sets; no new flag, and explicitly
+     not `ASXOS_V2_BRIEF_ENABLED` (the V2 tree stays dark, deferred to Stage 6).
 """
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from decimal import Decimal
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
@@ -75,6 +95,16 @@ from urllib.parse import urlparse
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.domain.benchmark.outcome import (
+    MAX_ANCHOR_LAG_DAYS,
+    BenchmarkAnchor,
+    LotInput,
+    Observation,
+    OutcomeSection,
+    Sleeve,
+    build_outcome_section,
+    sleeve_for,
+)
 from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.prices.fx import is_foreign_symbol
 from asxos.domain.review.status import ReviewOutcome, classify
@@ -85,6 +115,7 @@ from asxos.domain.theses.discipline import (
     HoldingWeight,
     PortfolioDisciplineInput,
     ThesisDisciplineInput,
+    data_sanity_escalation,
     evaluate_discipline,
     unrealised_return,
 )
@@ -162,11 +193,25 @@ class NewsItem:
         return host[4:] if host.startswith("www.") else host
 
 
+class JobProblemKind(StrEnum):
+    """Which operational state produced a `JobFailure`.
+
+    `StrEnum` for the same reasons as `NewsStatus`: it matches every other status
+    vocabulary in this codebase, and Jinja compares and renders members exactly as
+    the bare strings, so `brief.html.j2` needs no filter. A closed vocabulary also
+    puts the two states under mypy instead of leaving `kind` an open `str`.
+    """
+
+    FAILURE = "failure"  # the job ran and raised
+    STUCK = "stuck"      # started, never reported — no failure, so nothing alerts
+
+
 @dataclass(frozen=True)
 class JobFailure:
     job_name: str
     as_of: date
     error_message: str
+    kind: JobProblemKind = JobProblemKind.FAILURE
 
 
 @dataclass(frozen=True)
@@ -196,6 +241,38 @@ class PortfolioSection:
     turnover_aud: Decimal
 
 
+class NewsStatus(StrEnum):
+    """Which of four states produced the news section's item list.
+
+    An empty `news_items` list is ambiguous on its own — see `_news_section`
+    for why the distinction is load-bearing rather than cosmetic.
+
+    `StrEnum` matches every other status vocabulary in this codebase
+    (`ReviewStatus`, `DisciplineLevel`, `SectionStatus`, …) and Jinja compares
+    and renders members exactly as the bare strings, so the template needs no
+    filter or context processor — `brief.html.j2` already does this with
+    `DisciplineLevel` and `ReviewStatus`.
+
+    When the news section migrates to the V2 brief, these map onto the existing
+    `asxos/domain/brief/types.py::SectionStatus` (ok→ok, quiet→no_data,
+    unverified→degraded, disabled→suppressed) rather than porting a fifth
+    vocabulary across.
+    """
+
+    DISABLED = "disabled"      # a gate is off; the feature is not running
+    UNVERIFIED = "unverified"  # ingestion did not pass its freshness gate
+    QUIET = "quiet"            # verified fresh, genuinely nothing qualifying
+    OK = "ok"                  # qualifying items present
+
+
+# Module-level aliases: the call sites and tests read better unqualified, and
+# these keep the diff against the original four constants reviewable.
+NEWS_DISABLED = NewsStatus.DISABLED
+NEWS_UNVERIFIED = NewsStatus.UNVERIFIED
+NEWS_QUIET = NewsStatus.QUIET
+NEWS_OK = NewsStatus.OK
+
+
 @dataclass(frozen=True)
 class BriefData:
     as_of: date
@@ -203,9 +280,20 @@ class BriefData:
     regulatory_hits: list[RegulatoryHit] = field(default_factory=list)
     job_failures: list[JobFailure] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
+    # Which of the four news states produced `news_items`. Defaults to
+    # NEWS_DISABLED so a BriefData built without news never claims a quiet day.
+    news_status: NewsStatus = NEWS_DISABLED
     portfolio_section: PortfolioSection | None = None
     # PR2a: collected, not yet rendered (PR2b adds the brief.html.j2 block).
     discipline_findings: list[DisciplineFinding] = field(default_factory=list)
+    # Section 8 — per-open-lot return since acquisition, the benchmark's return
+    # over the same window, and alpha. ``None`` when ASXOS_PERSONAL_USE is unset
+    # (the section is then absent, not empty). ``outcome_error`` is set instead
+    # when the loader raised: the brief says the measurement could not run rather
+    # than omitting it, because an absent section and a failed one look identical
+    # to a reader and only one of them is honest (CLAUDE.md #10).
+    outcome_section: OutcomeSection | None = None
+    outcome_error: str | None = None
     latest_price_date: date | None = None
     # Latest *complete* trading day in `prices` (not the calendar as_of). It is a
     # statement about PRICE completeness and nothing else: since the signal and
@@ -218,6 +306,13 @@ class BriefData:
 
     @property
     def has_failures(self) -> bool:
+        """Whether the job-problems banner has anything to render.
+
+        "Failures" is the older, narrower word: since `JobProblemKind` this list
+        also carries `stuck` rows, which are by definition *not* failures. Both
+        names are kept rather than churned through the template and every test —
+        `_job_failures` is where the two kinds are defined.
+        """
         return bool(self.job_failures)
 
     @property
@@ -247,9 +342,36 @@ class BriefData:
           would let a single CGT-boundary fact make a wholly unchecked portfolio
           read ``CLEAR``. The unknown below is therefore keyed on *non-info*
           findings.
-        * Stale prices, and holdings with no discipline evidence at all, are
-          **unknowns** — the two ways this brief can look calm while knowing
-          nothing (packet P1 required-work item 5).
+        * ``watchlist_only`` findings do not count as discipline evidence
+          either, for the same reason and through the same side door. A
+          ``data_sanity_escalation`` red can arise from a ``watching`` thesis —
+          a row with no capital behind it — and a finding about an
+          uninvested watchlist record says nothing about whether any *holding*
+          was examined. Counting it would let one stale watchlist row silence
+          the "N holding(s) with no discipline evidence" unknown for a portfolio
+          where zero holdings were checked.
+        * Stale prices, holdings with no discipline evidence at all, and a
+          section 8 that could not run are **unknowns** — the three ways this
+          brief can look calm while knowing nothing (packet P1 required-work
+          item 5).
+
+        ``outcome_error`` is an **unknown, not blocking**, and the distinction is
+        deliberate. Section 8 is a measurement, not a check: its failure means
+        "we cannot tell you how the lots did", not "a discipline check could not
+        run". ``EVIDENCE_THIN`` is the honest reading of that. What it must not
+        do is nothing at all — before this mapping, a brief with
+        ``holdings_count == 0``, fresh prices and a crashed outcome loader
+        rendered ``CLEAR`` in the header directly above a red "could not run"
+        banner. That is precisely the shape
+        :mod:`asxos.domain.review.status` exists to close ("an absence of
+        evidence presented as evidence of absence"), reappearing through a
+        section added after the module was written.
+
+        The two exclusions above and this mapping are the same defect caught
+        three times from three directions — an ``info`` row, a watchlist row,
+        and a crashed section each dressing "we checked nothing" as "nothing to
+        report". Any fourth path into ``discipline_findings`` gets the same
+        question asked of it.
 
         A brief with no holdings, no findings and fresh prices is ``CLEAR``:
         there is genuinely nothing to review, which is a different statement from
@@ -280,8 +402,11 @@ class BriefData:
                 "Prices stale — latest price date: "
                 f"{self.latest_price_date or 'no data'}"
             )
+        if self.outcome_error:
+            unknowns.append(f"Outcome vs benchmark not measured — {self.outcome_error}")
         checked = any(
-            f.level != DisciplineLevel.info for f in self.discipline_findings
+            f.level != DisciplineLevel.info and not f.watchlist_only
+            for f in self.discipline_findings
         )
         if self.holdings_count and not checked:
             unknowns.append(
@@ -327,7 +452,7 @@ async def collect(as_of: date) -> BriefData:
 
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
-        news_items = await _news_section(conn, as_of)
+        news_items, news_status = await _news_section(conn, as_of)
         portfolio_section = await _portfolio_section(conn, as_of)
 
         # Fail-loud isolation (CLAUDE.md #10): a broken discipline query must
@@ -359,14 +484,32 @@ async def collect(as_of: date) -> BriefData:
                 )
             )
 
+        # Same fail-loud isolation as the two blocks above — with one deliberate
+        # difference. Those map their failure to a `DisciplineLevel.error`
+        # finding, which `BriefData.review` treats as **blocking** (BLOCKED). A
+        # section-8 failure is carried on its own `outcome_error` field and
+        # treated as an **unknown** (EVIDENCE_THIN) instead, because section 8 is
+        # a measurement rather than a discipline check. Both render loudly; only
+        # the headline differs. See `BriefData.review` for the full reasoning —
+        # what neither may do is leave the headline untouched.
+        outcome_section: OutcomeSection | None = None
+        outcome_error: str | None = None
+        try:
+            outcome_section = await _lot_outcomes(conn, as_of)
+        except Exception as exc:
+            outcome_error = f"outcome section could not run: {exc}"
+
     return BriefData(
         as_of=as_of,
         holdings_count=int(holdings_count),
         regulatory_hits=regulatory_hits,
         job_failures=job_failures,
         news_items=news_items,
+        news_status=news_status,
         portfolio_section=portfolio_section,
         discipline_findings=discipline_findings,
+        outcome_section=outcome_section,
+        outcome_error=outcome_error,
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
     )
@@ -470,15 +613,150 @@ async def _regulatory_hits(
     return out
 
 
+def _problem_message(row: asyncpg.Record) -> str:
+    """The human line for one job problem.
+
+    Both kinds are phrased here rather than half in SQL: the query supplies facts
+    (``age_hours``) and this layer supplies prose, so reworded copy never means
+    editing a query. A failed run's text is the exception the job itself raised,
+    bounded because it is free text from an upstream library.
+
+    It is not redacted here, and must not start being. Only two modules write
+    ``job_runs.error_message`` — ``JobMonitor`` and ``fallback_email`` — and every
+    value they store is either a fixed literal or has already been through
+    ``asxos/redaction.py`` (``fallback_email`` since this window began carrying its
+    rows out to the email). A credential reaching this string therefore means a
+    *writer* was missed, and scrubbing a second time here would hide precisely
+    that signal.
+    """
+    if row["kind"] == JobProblemKind.STUCK:
+        # started_at, not as_of. as_of is the job's DATA date — snapshot_portfolio
+        # anchors it to the latest complete trading day — so quoting it here
+        # produced a start date that contradicted the age beside it.
+        started: date = row["started_at"].date()
+        return (
+            f"started {started.isoformat()} and has never reported "
+            f"— running {row['age_hours']}h"
+        )
+    # Declared, not inferred: asyncpg hands back Any, and the query's COALESCE is
+    # the only thing keeping this off None.
+    raised: str = row["error_message"]
+    return raised[:200]
+
+
 async def _job_failures(
     conn: asyncpg.Connection, as_of: date
 ) -> list[JobFailure]:
+    """Operational problems this brief must surface.
+
+    Why the filter is a wall-clock window and not ``as_of = $1``. In
+    ``.github/workflows/daily-brief.yml`` the "Score macro theses", "Check AU
+    positions" and "Check thesis invalidations" steps all run *after* "Compose and
+    send brief" — deliberately, so a failure there cannot cost the brief — and
+    ``check_cron_health`` runs in the separate 22:00 ``pipeline-health.yml``. Every
+    one of those writes a row stamped with that day's ``as_of``, *after* that day's
+    brief has already composed. An ``as_of = $1`` filter therefore could not see
+    them on any day: today's rows do not exist yet, and tomorrow's brief asks for a
+    different ``as_of``. The banner was structurally empty rather than merely quiet.
+
+    Measured 2026-08-18 against production: ``check_cron_health`` failed on 08-16
+    and 08-17, both naming a stuck ``sync_financial_statements``, and neither
+    reached the email. The watchdog worked; the messenger did not.
+
+    The window is anchored on ``as_of`` rather than ``now()`` so that composing a
+    past date replays exactly what that morning should have said.
+
+    Why the lower bound is *derived* and not ``as_of - 1 day``. The brief composes
+    Sun–Thu only (``daily-brief.yml``, ``cron: "30 20 * * 0-4"``). A fixed one-day
+    lookback therefore covers nothing between Thursday's compose and Saturday
+    midnight — a 27-hour hole every week, which silently dropped Friday's
+    ``backup_irreplaceable`` failure. That is the pg_dump protecting ``theses``,
+    ``holding_lots`` and the tax positions, and a backup that stops quietly is the
+    highest-consequence silent failure in this system. So the bound is the previous
+    successful ``compose_brief``, floored at seven days: it adapts to the real
+    cadence, it makes the banner's heading ("since the previous brief") true rather
+    than aspirational, and it stops double-reporting the same failure on two
+    consecutive weekdays.
+
+    Two clamps bracket that derivation. Seven days is the far edge, so a long
+    compose outage cannot make one morning's banner replay a month of history. And
+    when no successful ``compose_brief`` exists at all — a fresh database, or a
+    replay of a date before the first send — the ``COALESCE`` falls back to
+    ``as_of - 1 day``, the old fixed window, so the degenerate case opens with one
+    day of history rather than the seven-day maximum.
+
+    A ``running`` row that never reported is included as a distinct kind: on a
+    ``status = 'failure'`` filter it is indistinguishable from a healthy job, and
+    it is the more dangerous state — nothing failed, so nothing alerts.
+
+    Every boundary is explicitly ``timestamptz`` at UTC. ``$1::date ± INTERVAL``
+    alone yields ``timestamp without time zone``, which Postgres compares to
+    ``finished_at`` by converting through the session ``TimeZone`` GUC —
+    unpinned here, since ``asxos/db.py::init_pool`` passes no ``server_settings``.
+    Setting the database or role timezone to ``Australia/Sydney`` would then slide
+    this window seven hours off the 20:30–22:30 UTC pipeline it exists to cover,
+    with no error and no failing test.
+    """
     rows = await conn.fetch(
         """
-        SELECT job_name, as_of, error_message
-        FROM job_runs
-        WHERE as_of = $1 AND status = 'failure'
-        ORDER BY job_name
+        WITH bounds AS (
+            SELECT
+                (($1::date + INTERVAL '1 day') AT TIME ZONE 'UTC') AS upper_bound,
+                GREATEST(
+                    COALESCE(
+                        (SELECT max(prior.finished_at)
+                           FROM job_runs AS prior
+                          WHERE prior.job_name = 'compose_brief'
+                            AND prior.status   = 'success'
+                            AND prior.finished_at
+                                < (($1::date + INTERVAL '1 day') AT TIME ZONE 'UTC')),
+                        (($1::date - INTERVAL '1 day') AT TIME ZONE 'UTC')
+                    ),
+                    (($1::date - INTERVAL '7 days') AT TIME ZONE 'UTC')
+                ) AS lower_bound
+        )
+        SELECT * FROM (
+            SELECT j.job_name,
+                   j.as_of,
+                   j.started_at,
+                   COALESCE(j.error_message, '') AS error_message,
+                   'failure'                     AS kind,
+                   NULL::bigint                  AS age_hours
+            FROM job_runs AS j, bounds AS b
+            WHERE j.status = 'failure'
+              AND j.finished_at >= b.lower_bound
+              AND j.finished_at <  b.upper_bound
+
+            UNION ALL
+
+            SELECT j.job_name,
+                   j.as_of,
+                   j.started_at,
+                   ''      AS error_message,
+                   'stuck' AS kind,
+                   -- LEAST(now(), upper_bound): for today's brief the age is
+                   -- measured to now, which is ~3h before midnight — the upper
+                   -- bound alone overstated every age. For a replayed past date
+                   -- now() is later than the bound, so the bound wins and the
+                   -- replay stays deterministic.
+                   FLOOR(
+                       EXTRACT(
+                           EPOCH FROM (LEAST(now(), b.upper_bound) - j.started_at)
+                       ) / 3600
+                   )::bigint AS age_hours
+            FROM job_runs AS j, bounds AS b
+            WHERE j.status = 'running'
+              AND j.finished_at IS NULL
+              -- The 2 hours must not be tightened independently: JobMonitor's
+              -- stale-row heal (asxos/jobs/utils/job_monitor.py) and
+              -- check_cron_health's watchdog use the same window, and a shorter
+              -- one here would report rows those two still consider live.
+              AND j.started_at < b.upper_bound - INTERVAL '2 hours'
+        ) AS problems
+        -- DESC so 'stuck' sorts above 'failure'. A job that never reported is
+        -- the more dangerous state — nothing failed, so nothing else alerts —
+        -- and it should not sit below a list of ordinary failures.
+        ORDER BY kind DESC, job_name
         """,
         as_of,
     )
@@ -486,7 +764,8 @@ async def _job_failures(
         JobFailure(
             job_name=r["job_name"],
             as_of=r["as_of"],
-            error_message=(r["error_message"] or "")[:200],
+            error_message=_problem_message(r),
+            kind=JobProblemKind(r["kind"]),
         )
         for r in rows
     ]
@@ -494,8 +773,8 @@ async def _job_failures(
 
 async def _news_section(
     conn: asyncpg.Connection, as_of: date
-) -> list[NewsItem]:
-    """Return news items for section 6, or [] if gated out (M14a).
+) -> tuple[list[NewsItem], NewsStatus]:
+    """Return ``(items, status)`` for section 6 (M14a).
 
     Three-layer gating (mirrors M13.7 Amendment C):
       1. ASXOS_PERSONAL_USE=1  (regulatory firewall)
@@ -504,15 +783,40 @@ async def _news_section(
          note (freshness gate — see _news_ingest_fresh for why the latest run,
          and why not a row count)
 
-    Section absent entirely when any gate fails.
+    **Why this returns a status and not a bare list.** An empty list previously
+    collapsed four materially different situations into one indistinguishable
+    outcome — the section simply vanished from the brief. James could not tell
+    "no qualifying news today" from "ingestion has written zero rows for a
+    month", and the second is exactly the 2026-08 false-green incident
+    (``docs/market-trends-report-2026-08-05.md`` §1). A reader who sees nothing
+    reasonably infers nothing happened; here, nothing rendered was equally
+    consistent with the pipeline being broken.
+
+    The four states are now distinct and each is rendered honestly:
+
+    ``NEWS_DISABLED``    a gate is off — the feature is not running, section omitted
+    ``NEWS_UNVERIFIED``  ingestion did not pass its freshness gate — say so, do
+                         NOT imply the absence of news is a finding
+    ``NEWS_QUIET``       ingestion verified fresh and genuinely produced nothing
+                         qualifying — a real, reportable "no news" answer
+    ``NEWS_OK``          qualifying items exist
+
+    Only ``NEWS_QUIET`` licenses the statement "no qualifying news was found".
+    ``NEWS_UNVERIFIED`` must never be rendered as if it were quiet.
+
+    The template gates on a positive allowlist of these four values, so a status
+    it does not recognise (a typo, or a fifth state added here without a matching
+    template arm) omits the section rather than falling through to one of the
+    copy blocks above. Adding a state means adding it in both places.
     """
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
-        return []
+        return [], NEWS_DISABLED
     if os.environ.get("ASXOS_NEWS_BRIEF_ENABLED") != "1":
-        return []
+        return [], NEWS_DISABLED
     if not await _news_ingest_fresh(conn, as_of):
-        return []
-    return await _holding_news(conn, as_of)
+        return [], NEWS_UNVERIFIED
+    items = await _holding_news(conn, as_of)
+    return items, (NEWS_OK if items else NEWS_QUIET)
 
 
 async def _news_ingest_fresh(conn: asyncpg.Connection, as_of: date) -> bool:
@@ -710,6 +1014,11 @@ def _thesis_discipline_inputs(
     target/stop come straight from `theses` (authored in the holding's own
     native currency) and current comes from `prices.close` (also native) —
     all four legs are native-against-native, no FX step needed here.
+
+    ``last_answering_revision_at`` is the scoped per-thesis
+    ``MAX(thesis_revisions.revised_at)`` the loader's query derives (NULL when
+    the thesis carries no answering revision) — it feeds only the data-sanity
+    escalation check.
     """
     return tuple(
         ThesisDisciplineInput(
@@ -723,6 +1032,11 @@ def _thesis_discipline_inputs(
             target_price_native=r["target_price"],
             stop_price_native=r["stop_price"],
             conviction_level=r["conviction_level"],
+            last_answering_revision_at=(
+                r["last_answering_revision_at"].date()
+                if r["last_answering_revision_at"] is not None
+                else None
+            ),
         )
         for r in thesis_rows
     )
@@ -776,12 +1090,50 @@ async def _discipline_findings(
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         return []
 
+    # `watching` rows are fetched ONLY for the data-sanity escalation pass
+    # (James's 2026-07-16 CBA ruling — the live worked example is a `watching`
+    # thesis a stale ladder would otherwise never surface for); every other
+    # check still runs on active theses only, preserving the PR2a behaviour.
+    #
+    # `last_answering_revision_at` is the "was this red ever answered?" anchor,
+    # derived from the existing append-only log with no schema change. The
+    # `revision_type` filter is load-bearing, not tidiness: taking MAX over ALL
+    # revisions would let an unrelated edit (`--tax-notes`, `--conviction`, an
+    # appended report section) reset the clock without touching the ladder, and
+    # for a `watching` row that means total silence — the base data_sanity red
+    # never runs there. Restricting to types that plausibly ANSWER a ladder red
+    # makes `data_sanity_escalation`'s docstring claim true by construction.
+    # `entered` is included because `enter_thesis()` hard-fails without a target
+    # (`theses/service.py`), so entering IS an act of looking at the ladder — and
+    # it resets `revisit_due_at` to the same 30-day cadence this check is
+    # calibrated against. Omitting it made a thesis entered yesterday report
+    # "no answering revision for 193d", which is the over-escalation direction.
+    #
+    # `expired` is DEAD: no code path writes that `revision_type` — `asx thesis
+    # revise --status expired` (the verb this message emits) writes
+    # `status_change`. Listed only so a future writer of it is already covered.
+    # `exited`/`exited_by_stop`/`exited_by_target` cannot appear under the status
+    # filter below; all three are listed together so a widened filter stays
+    # correct, rather than the earlier set which listed one and omitted two.
+    #
+    # `governance_status = 'approved'` is a security boundary, not a
+    # convenience: without it, agent-authored `pending_review` theses would
+    # reach the brief unreviewed. Both filters are pinned by a test on the
+    # query text.
     thesis_rows = await conn.fetch(
         """
-        SELECT symbol, revisit_due_at, opened_at, timeline_days,
-               actual_entry_price, target_price, stop_price, conviction_level
+        SELECT symbol, status, revisit_due_at, opened_at, timeline_days,
+               actual_entry_price, target_price, stop_price, conviction_level,
+               (SELECT MAX(r.revised_at)
+                  FROM thesis_revisions r
+                 WHERE r.thesis_id = theses.thesis_id
+                   AND r.revision_type IN ('target_adjusted', 'reviewed_no_change',
+                                           'status_change', 'entered', 'expired',
+                                           'exited', 'exited_by_stop',
+                                           'exited_by_target')
+               ) AS last_answering_revision_at
         FROM theses
-        WHERE status = 'active'
+        WHERE status IN ('watching', 'active')
           AND governance_status = 'approved'
         ORDER BY opened_at
         """
@@ -818,11 +1170,50 @@ async def _discipline_findings(
     )
     fx_rate = Decimal(str(fx_rows[0]["fx_rate_audusd"])) if fx_rows else None
 
-    thesis_inputs = _thesis_discipline_inputs(thesis_rows, prices)
+    # Two input sets, deliberately different in scope — the names carry that,
+    # because a comment would not survive the next refactor. `active_inputs`
+    # feeds the full check battery (active theses only, exactly as PR2a);
+    # `all_inputs` is watching + active and feeds ONLY the escalation pass.
+    # Running the battery over `all_inputs` would emit revisit/timeline/stop
+    # findings for uninvested watchlist rows.
+    all_inputs = _thesis_discipline_inputs(thesis_rows, prices)
+    active_inputs = tuple(
+        ti
+        for row, ti in zip(thesis_rows, all_inputs, strict=True)
+        if row["status"] == "active"
+    )
     holdings = _holding_weights(holding_rows, prices, fx_rate)
 
     port_input = PortfolioDisciplineInput(holdings=holdings)
-    findings = evaluate_discipline(thesis_inputs, port_input, as_of)
+    findings = evaluate_discipline(active_inputs, port_input, as_of)
+    # Data-sanity escalation (the 2026-07-16 ruling's unbuilt half): a detached
+    # ladder carrying no answering revision past one revisit cadence escalates,
+    # naming the exact CLI verbs. Watching + active rows, same loud-error
+    # isolation idiom as the unrealised_return loop below.
+    #
+    # `watchlist_only` is stamped HERE because this is the only place that holds
+    # both the finding and the row's status. It keeps an uninvested watchlist
+    # row from counting as evidence that a HOLDING was checked
+    # (`BriefData.review`) — the finding is still displayed in full.
+    for row, ti in zip(thesis_rows, all_inputs, strict=True):
+        watchlist_only = row["status"] != "active"
+        try:
+            esc = data_sanity_escalation(ti, as_of)
+        except Exception as exc:  # isolate a malformed thesis, fail loud (#10)
+            findings.append(
+                DisciplineFinding(
+                    check="data_sanity_escalation",
+                    level=DisciplineLevel.error,
+                    message=(
+                        f"⚠ data_sanity_escalation could not run for {ti.symbol}: {exc}"
+                    ),
+                    symbol=ti.symbol,
+                    watchlist_only=watchlist_only,
+                )
+            )
+            continue
+        if esc is not None:
+            findings.append(replace(esc, watchlist_only=watchlist_only))
     # Per-holding unrealised return (native, broker-matching) — appended here as a
     # display fact (like the CGT-boundary line) so evaluate_discipline() stays
     # quiet-by-default. Native entry vs current price only; no cost base, no
@@ -830,7 +1221,7 @@ async def _discipline_findings(
     # loud-error idiom the per-thesis checks use, so a single malformed thesis
     # surfaces one error line rather than collapsing the whole section
     # (security-engineer review, 2026-07-19).
-    for ti in thesis_inputs:
+    for ti in active_inputs:
         try:
             pnl = unrealised_return(ti)
         except Exception as exc:  # isolate a malformed thesis, fail loud (#10)
@@ -846,6 +1237,186 @@ async def _discipline_findings(
         if pnl is not None:
             findings.append(pnl)
     return findings
+
+
+def _resolve_anchor(
+    rows: list[asyncpg.Record], target: date
+) -> BenchmarkAnchor | None:
+    """The benchmark level in effect at ``target`` — latest row on or before it.
+
+    ``rows`` must be ascending by ``as_of`` and carry only non-NULL
+    ``benchmark_tr_level``. Returns ``None`` when the series does not reach back
+    that far, which the outcome layer reports as `unavailable_no_series` rather
+    than reaching forward to a later level (that would measure a window the lot
+    never had).
+
+    ``is_proxy`` is derived from ``trailing_div_yield_pct`` being non-NULL:
+    `jobs/snapshot_portfolio.py:274-290` writes the assumed yield on the
+    approximation path and leaves it NULL when `benchmark_tr_level` is the real
+    accumulation index. That column is the only record of which path ran, and
+    governor ruling F1 turns on exactly that distinction.
+    """
+    chosen: asyncpg.Record | None = None
+    for row in rows:
+        if row["as_of"] <= target:
+            chosen = row
+        else:
+            break
+    if chosen is None:
+        return None
+    return BenchmarkAnchor(
+        as_of=chosen["as_of"],
+        level=Decimal(str(chosen["benchmark_tr_level"])),
+        is_proxy=chosen["trailing_div_yield_pct"] is not None,
+    )
+
+
+async def _lot_outcomes(
+    conn: asyncpg.Connection, as_of: date
+) -> OutcomeSection | None:
+    """Section 8 loader — per-open-lot return, benchmark return, alpha.
+
+    This is the first production consumer of `asxos.domain.benchmark.returns`
+    and the only code behind the north star's "benchmark-relative" claim
+    (`docs/product/north-star.md:40`). All arithmetic lives in
+    `asxos.domain.benchmark.outcome`; this function only fetches facts.
+
+    **It never reads `portfolio_daily_snapshots.capital_aud`, and it must never
+    start** (why: `asxos/domain/brief/collectors/wealth_state.py:101-108`). The
+    portfolio leg is anchored on `holding_lots.acquired_at` / `cost_base_normal`,
+    which no deposit or withdrawal can move. `tests/test_brief_outcome.py`
+    asserts `capital_aud` appears in no query this path issues, and pins the
+    snapshot query's projection so a `SELECT *` cannot re-expose it.
+
+    Currency (R10, `.claude/rules/portfolio-conventions.md` §"`cost_base_normal`
+    currency"): `cost_base_normal` is already AUD; the market leg is converted
+    forward with an explicit `fx_rates` AUDUSD step. Nothing here divides a cost
+    base by a quantity.
+
+    Sleeves (governor ruling F2): benchmark levels are fetched and attached for
+    ASX lots only, so a global lot cannot reach the ASX comparison even before
+    the outcome layer's own sleeve check refuses it.
+
+    Gated on ``ASXOS_PERSONAL_USE=1`` only — parity with `_discipline_findings`,
+    which `.github/workflows/daily-brief.yml` already sets. Deliberately NOT
+    gated on ``ASXOS_PORTFOLIO_BRIEF_ENABLED`` (that gates the allocator's trade
+    suggestions) and not on ``ASXOS_V2_BRIEF_ENABLED`` (the V2 tree is dark and
+    deferred to Stage 6; this section ships on V1 precisely so it does not wait
+    on that flag).
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return None
+
+    # `holding_lots`, not the `current_holdings` view — for an EXPLICIT
+    # `disposed_at IS NULL`, matching `jobs/snapshot_portfolio.py`.
+    #
+    # CORRECTION (2026-08-17): an earlier version of this comment claimed the
+    # view "does not expose cost_base_normal". That is FALSE — the view selects
+    # it (`migrations/0001_initial.sql`, the `current_holdings` definition), and
+    # no later migration redefines it. The claim was copied from a pre-existing
+    # wrong comment in `snapshot_portfolio.py` and was pinned into a test name
+    # before review caught it. Either source is correct to read; the reason is
+    # that the open-lot filter should be visible at the query, not implied by a
+    # view definition three migrations away.
+    lot_rows = await conn.fetch(
+        """
+        SELECT id, symbol, quantity, acquired_at, cost_base_normal
+        FROM holding_lots
+        WHERE disposed_at IS NULL
+        ORDER BY acquired_at, symbol, id
+        """
+    )
+    if not lot_rows:
+        return build_outcome_section([], as_of)
+
+    # `dt` is selected, not just `close`. Without it the outcome layer cannot tell
+    # a close from yesterday from one from three months ago — a halt, a delisting
+    # or a per-symbol sync gap would silently produce a lot return measured to an
+    # old close against a benchmark measured to `as_of`, i.e. an alpha spanning
+    # two different windows. The date is what makes that checkable.
+    symbols = sorted({r["symbol"] for r in lot_rows})
+    price_rows = await conn.fetch(
+        """
+        SELECT DISTINCT ON (symbol) symbol, dt, close
+        FROM prices
+        WHERE symbol = ANY($1) AND dt <= $2
+        ORDER BY symbol, dt DESC
+        """,
+        symbols,
+        as_of,
+    )
+    closes = {
+        r["symbol"]: Observation(as_of=r["dt"], value=Decimal(str(r["close"])))
+        for r in price_rows
+    }
+
+    # AUDUSD from `fx_rates` — the primary source `jobs/snapshot_portfolio.py`
+    # itself reads, rather than the snapshot's derived copy. Fetched only when a
+    # foreign lot is open, so an all-ASX portfolio issues no FX query at all.
+    # `dt` again: the rate is daily (sync_prices Phase 3 pulls AUDUSD.FOREX
+    # daily), so a rate more than a few days old means the FX feed has stalled,
+    # and valuing a USD lot at a stalled rate misstates it in AUD.
+    fx_audusd: Observation | None = None
+    if any(is_foreign_symbol(s) for s in symbols):
+        fx_row = await conn.fetchrow(
+            """
+            SELECT dt, rate FROM fx_rates
+            WHERE pair = 'AUDUSD' AND dt <= $1
+            ORDER BY dt DESC
+            LIMIT 1
+            """,
+            as_of,
+        )
+        if fx_row is not None:
+            fx_audusd = Observation(
+                as_of=fx_row["dt"], value=Decimal(str(fx_row["rate"]))
+            )
+
+    # Benchmark levels, ASX lots only (F2). The window starts MAX_ANCHOR_LAG_DAYS
+    # before the earliest ASX acquisition — the same tolerance the outcome layer
+    # applies when deciding whether an anchor still describes the lot's window.
+    # NOTE: this SELECT deliberately does not list `capital_aud`. See the
+    # docstring; the omission is the fix, not an oversight.
+    asx_acquisitions = [
+        r["acquired_at"] for r in lot_rows if sleeve_for(r["symbol"]) is Sleeve.asx
+    ]
+    benchmark_rows: list[asyncpg.Record] = []
+    if asx_acquisitions:
+        benchmark_rows = list(
+            await conn.fetch(
+                """
+                SELECT as_of, benchmark_tr_level, trailing_div_yield_pct
+                FROM portfolio_daily_snapshots
+                WHERE as_of <= $1
+                  AND as_of >= $2
+                  AND benchmark_tr_level IS NOT NULL
+                ORDER BY as_of
+                """,
+                as_of,
+                min(asx_acquisitions) - timedelta(days=MAX_ANCHOR_LAG_DAYS),
+            )
+        )
+    benchmark_end = _resolve_anchor(benchmark_rows, as_of)
+
+    lots: list[LotInput] = []
+    for r in lot_rows:
+        is_asx = sleeve_for(r["symbol"]) is Sleeve.asx
+        lots.append(
+            LotInput(
+                lot_id=r["id"],
+                symbol=r["symbol"],
+                quantity=Decimal(str(r["quantity"])),
+                acquired_at=r["acquired_at"],
+                cost_base_aud=Decimal(str(r["cost_base_normal"])),
+                close=closes.get(r["symbol"]),
+                fx_audusd=fx_audusd,
+                benchmark_start=(
+                    _resolve_anchor(benchmark_rows, r["acquired_at"]) if is_asx else None
+                ),
+                benchmark_end=benchmark_end if is_asx else None,
+            )
+        )
+    return build_outcome_section(lots, as_of)
 
 
 def render_html(data: BriefData) -> str:

@@ -15,8 +15,9 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import os
+import re
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -26,10 +27,15 @@ import pytest
 
 from asxos.brief import compose
 from asxos.brief.compose import (
+    NEWS_DISABLED,
+    NEWS_OK,
+    NEWS_QUIET,
+    NEWS_UNVERIFIED,
     BriefData,
     DisciplineFinding,
     DisciplineLevel,
     JobFailure,
+    JobProblemKind,
     NewsItem,
     RegulatoryHit,
     _cgt_boundary_findings,
@@ -52,6 +58,14 @@ def _brief(**overrides) -> BriefData:
         "job_failures": [],
     }
     defaults.update(overrides)
+    # A fixture that supplies news items is modelling a day that HAS news, so it
+    # gets NEWS_OK unless it states otherwise. The production default stays
+    # NEWS_DISABLED (see BriefData.news_status) — that default renders the
+    # section away, which would silently vacuum up any assertion about its
+    # contents and pass. Tests that exercise the empty states pass news_status
+    # explicitly.
+    if overrides.get("news_items") and "news_status" not in overrides:
+        defaults["news_status"] = NEWS_OK
     return BriefData(**defaults)
 
 
@@ -356,8 +370,60 @@ def test_render_html_renders_failures_banner() -> None:
             ]
         )
     )
-    assert "Job failures in the last 24h" in html
+    # The heading states the window the query actually covers. It previously read
+    # "in the last 24h", which the `as_of = $1` filter could never deliver.
+    assert "Job problems since the previous brief" in html
     assert "sync_prices" in html
+
+
+def test_stuck_message_quotes_the_start_time_not_the_data_date() -> None:
+    """``as_of`` is the job's DATA date and must not be reported as its start.
+
+    ``snapshot_portfolio`` anchors ``as_of`` to the latest complete trading day,
+    so a job started on the 17th can carry ``as_of`` of the 14th. Quoting the
+    latter beside an age produced a line whose two halves contradicted each
+    other — "started 2026-08-14 … running 12h".
+    """
+    from asxos.brief.compose import _problem_message
+
+    row = {
+        "kind": JobProblemKind.STUCK,
+        "as_of": date(2026, 8, 14),
+        "started_at": datetime(2026, 8, 17, 17, 58, tzinfo=UTC),
+        "error_message": "",
+        "age_hours": 12,
+    }
+
+    message = _problem_message(row)  # type: ignore[arg-type]
+
+    assert "2026-08-17" in message
+    assert "2026-08-14" not in message, "reported the data date as the start time"
+    assert "12h" in message
+
+
+def test_render_html_labels_a_stuck_job_distinctly() -> None:
+    """A job that started and never reported must not read as a plain failure.
+
+    On a ``status = 'failure'`` filter a stuck row is indistinguishable from a
+    healthy one — nothing failed, so nothing alerts. Live on 2026-08-18,
+    ``sync_financial_statements`` had been ``running`` with ``finished_at IS
+    NULL`` for 78h while every brief rendered a clean page.
+    """
+    html = render_html(
+        _brief(
+            job_failures=[
+                JobFailure(
+                    job_name="sync_financial_statements",
+                    as_of=date(2026, 8, 15),
+                    error_message="started 2026-08-15 and has never reported — running 78h",
+                    kind=JobProblemKind.STUCK,
+                ),
+            ]
+        )
+    )
+    assert "STUCK" in html
+    assert "sync_financial_statements" in html
+    assert "78h" in html
 
 
 # ---------------------------------------------------------------------------
@@ -629,7 +695,13 @@ def test_collect_assembles_brief_data() -> None:
     ]
     hold_syms = [{"symbol": "BHP.AU"}, {"symbol": "CBA.AU"}]
     fail_rows = [
-        {"job_name": "sync_fundamentals", "as_of": today, "error_message": "timeout"},
+        {
+            "job_name": "sync_fundamentals",
+            "as_of": today,
+            "error_message": "timeout",
+            "kind": "failure",
+            "age_hours": None,
+        },
     ]
     conn = _make_conn(
         holdings_count=2,
@@ -774,6 +846,7 @@ def test_render_html_shows_news_section() -> None:
     """When news_items are populated the section appears in the HTML."""
     html = render_html(
         _brief(
+            news_status=NEWS_OK,
             news_items=[
                 NewsItem(
                     symbols=["BHP.AU"],
@@ -782,7 +855,7 @@ def test_render_html_shows_news_section() -> None:
                     published_at=date(2026, 5, 23),
                     sentiment="positive",
                 )
-            ]
+            ],
         )
     )
     assert "BHP.AU" in html
@@ -792,16 +865,94 @@ def test_render_html_shows_news_section() -> None:
     assert "Market news on holdings" in html
 
 
-def test_render_html_news_section_absent_when_no_items() -> None:
-    """When news_items=[] the news section header is not rendered (no empty-state placeholder)."""
-    html = render_html(_brief(news_items=[]))
+# ---------------------------------------------------------------------------
+# News empty-state honesty (M0)
+#
+# INVERTED from test_render_html_news_section_absent_when_no_items, which
+# asserted `"Market news on holdings" not in html` for an empty list and
+# described the silence approvingly as "no empty-state placeholder". That
+# assertion pinned the defect, so it had to be inverted rather than
+# supplemented: an omitted section and a reported quiet day are mutually
+# exclusive renderings of the same input.
+#
+# Silence is the problem. An absent section reads to James as "nothing
+# happened", which is indistinguishable from "ingestion has written zero rows
+# for a month" — the 2026-08 false-green shape one layer up, in the surface he
+# actually reads. Only NEWS_QUIET may assert that no news was found.
+# ---------------------------------------------------------------------------
+
+
+def test_render_html_quiet_reports_no_news_rather_than_vanishing() -> None:
+    """A verified-fresh, genuinely empty ingest states that finding explicitly."""
+    html = render_html(_brief(news_status=NEWS_QUIET, news_items=[]))
+
+    assert "Market news on holdings" in html, (
+        "a quiet day is a reportable finding, not an omitted section"
+    )
+    assert "No qualifying news found" in html
+    assert "not</strong> evidence" not in html, (
+        "quiet must not carry the unverified disclaimer"
+    )
+
+
+def test_render_html_unverified_does_not_claim_no_news() -> None:
+    """An unverified ingest must NOT be rendered as a quiet day.
+
+    This is the distinction the whole change exists for. Both states carry zero
+    items; only one of them licenses the sentence "no qualifying news was
+    found". Rendering `unverified` as quiet would manufacture a finding out of a
+    pipeline failure.
+    """
+    html = render_html(_brief(news_status=NEWS_UNVERIFIED, news_items=[]))
+
+    assert "Market news on holdings" in html
+    assert "News unavailable" in html
+    assert "not</strong> evidence" in html, "must disclaim absence-as-evidence"
+    assert "No qualifying news found" not in html, (
+        "an unverified pipeline must never assert that no news existed"
+    )
+
+
+def test_render_html_disabled_omits_the_section_entirely() -> None:
+    """A gated-off feature is the one case where silence is correct.
+
+    NEWS_DISABLED means the surface is not running at all — rendering a state
+    line would imply a live pipeline that reported something.
+    """
+    html = render_html(_brief(news_status=NEWS_DISABLED, news_items=[]))
     assert "Market news on holdings" not in html
+
+
+def test_render_html_unrecognised_status_fails_closed() -> None:
+    """An unknown status omits the section rather than defaulting to a claim.
+
+    `news_status` is a bare str, so a typo or a future state added to the
+    collector without a template arm reaches here. The outer guard is a positive
+    allowlist for that reason: the failure mode of an unrecognised value is a
+    missing section, not the 'News unavailable' copy asserted about a state
+    nobody established.
+    """
+    html = render_html(_brief(news_status="some-future-state", news_items=[]))
+    assert "Market news on holdings" not in html
+    assert "News unavailable" not in html
+
+
+def test_brief_data_defaults_to_disabled_not_quiet() -> None:
+    """The default must never silently claim a verified quiet day.
+
+    A BriefData constructed without news (older call sites, fixtures) defaults
+    to NEWS_DISABLED. Defaulting to NEWS_QUIET would let any incomplete
+    construction assert a finding it never established.
+    """
+    assert BriefData(as_of=date(2026, 5, 22),
+                     holdings_count=1).news_status == NEWS_DISABLED
 
 
 def test_render_html_news_section_escapes_title() -> None:
     """Malicious title in news item is HTML-escaped (autoescape active)."""
     html = render_html(
         _brief(
+            news_status=NEWS_OK,
             news_items=[
                 NewsItem(
                     symbols=["BHP.AU"],
@@ -946,13 +1097,26 @@ def _disc_conn(
     price_rows=None,
     fx_rows=None,
 ):
-    thesis_rows = thesis_rows or []
+    # The loader's theses query also selects `status` and the derived
+    # `last_answering_revision_at`; default them here so fixtures predating the
+    # escalation check stay minimal. Explicit keys in a fixture row win.
+    #
+    # The default mirrors production rather than the maximally-escalating case:
+    # `open_thesis()` always writes an 'opened' revision, so no live thesis has
+    # a NULL anchor. Behaviour-identical (the check falls back to `opened_at`),
+    # but a fixture that says "never answered" should say so deliberately.
+    thesis_rows = [
+        {"status": "active", "last_answering_revision_at": r["opened_at"], **r}
+        for r in (thesis_rows or [])
+    ]
     holding_rows = holding_rows or []
     price_rows = price_rows or []
     fx_rows = fx_rows or []
+    captured: list[str] = []
 
     async def _fetch(query, *args, **kwargs):
         q = " ".join(query.split())
+        captured.append(q)
         if "FROM theses" in q:
             return thesis_rows
         if "SELECT symbol, quantity FROM current_holdings" in q:
@@ -965,7 +1129,44 @@ def _disc_conn(
 
     conn = MagicMock()
     conn.fetch = AsyncMock(side_effect=_fetch)
+    # Exposed so a test can assert on the SQL itself: this fixture dispatches on
+    # a substring and ignores the rest of the query, so without this the WHERE
+    # clause is entirely unpinned.
+    conn.captured_queries = captured
     return conn
+
+
+def _theses_query(conn) -> str:
+    """The theses query as actually issued (whitespace-normalised)."""
+    return next(q for q in conn.captured_queries if "FROM theses" in q)
+
+
+def _cba_row(**overrides):
+    """The live worked example's row shape: recorded ladder 60 vs live 168.
+
+    Mirrors `_cba_detached` in test_thesis_discipline.py — three loader tests
+    need this same 10-field row and only ever differ in status / anchor date.
+    """
+    row = {
+        "symbol": "CBA.AU",
+        "status": "watching",
+        # 2026-06-27 is 16 days BEFORE the tests' as_of (2026-07-13), so the
+        # `revisit_overdue` arm of the watching-row negative control is LIVE.
+        # A future-dated default silently made that assertion vacuous.
+        "revisit_due_at": datetime(2026, 6, 27),
+        "opened_at": datetime(2026, 1, 10),
+        "timeline_days": None,
+        "actual_entry_price": None,
+        "target_price": Decimal("60"),
+        "stop_price": Decimal("42"),
+        "conviction_level": 3,
+        "last_answering_revision_at": datetime(2026, 5, 1),  # 73d before as_of
+    }
+    row.update(overrides)
+    return row
+
+
+_CBA_PRICE_ROWS = [{"symbol": "CBA.AU", "close": Decimal("168")}]
 
 
 _PERSONAL_USE_ON = {"ASXOS_PERSONAL_USE": "1"}
@@ -1030,6 +1231,13 @@ def test_discipline_findings_cba_revisit_and_data_sanity() -> None:
     sanity = next(f for f in findings if f.check == "data_sanity")
     assert sanity.level == DisciplineLevel.red
     assert "CBA.AU" in sanity.message
+    # This fixture (opened 2026-01-10, never answered, as_of 2026-07-13) is also
+    # past the escalation window, so it now emits a THIRD line. Pinned
+    # explicitly: the assertions above are membership checks and would have
+    # absorbed the new finding silently.
+    esc = next(f for f in findings if f.check == "data_sanity_escalation")
+    assert esc.level == DisciplineLevel.red
+    assert "no answering revision for 184d" in esc.message
 
 
 def test_discipline_findings_conviction_unset_summary() -> None:
@@ -1156,6 +1364,157 @@ def test_discipline_findings_appends_broker_matching_unrealised_return() -> None
     joined = " ".join(f.message for f in findings)
     assert "lagging" not in joined
     assert "benchmark" not in joined.lower()
+
+
+def test_discipline_findings_escalates_unanswered_watching_thesis() -> None:
+    """The 2026-07-16 CBA ruling's escalation half, end-to-end at the loader:
+    a `watching` thesis (which the full active-only check battery never sees)
+    carrying a detached ladder with no answering revision for more than one
+    revisit cadence emits the escalated red naming both CLI verbs."""
+    conn = _disc_conn(thesis_rows=[_cba_row()], price_rows=_CBA_PRICE_ROWS)
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    esc = next(f for f in findings if f.check == "data_sanity_escalation")
+    assert esc.level == DisciplineLevel.red
+    assert esc.symbol == "CBA.AU"
+    assert "no answering revision for 73d" in esc.message
+    assert "asx thesis revise CBA.AU --target <corrected>" in esc.message
+    assert "asx thesis revise CBA.AU --status expired" in esc.message
+    # Provenance: an uninvested watchlist row is not evidence about a holding.
+    assert esc.watchlist_only is True
+    # The watching row runs ONLY the escalation pass — no revisit/timeline/
+    # data-sanity noise from the active-only battery leaks in for it.
+    assert not any(
+        f.check in ("revisit_overdue", "data_sanity", "timeline") for f in findings
+    )
+
+
+def test_watchlist_escalation_does_not_count_as_holding_evidence() -> None:
+    """A `watching` escalation must NOT silence the "no discipline evidence"
+    unknown: the row carries no capital, so it says nothing about whether any
+    HOLDING was checked. Before `watchlist_only` this was the one side door the
+    `info`-level exclusion did not cover — a portfolio where zero holdings were
+    evaluated would have read as checked (packet P1 required-work item 5)."""
+    conn = _disc_conn(thesis_rows=[_cba_row()], price_rows=_CBA_PRICE_ROWS)
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    b = _brief(holdings_count=3, discipline_findings=findings)
+    assert any("no discipline evidence" in u for u in b.review.unknowns)
+    # The red itself still raises ATTENTION (it is a real finding and must be
+    # acted on); what matters here is that the unknown survives beside it —
+    # "something is wrong with a watchlist record" and "no holding was checked"
+    # are both true, and the brief says both.
+    assert b.review.status is ReviewStatus.attention
+
+    # …while the same finding from an ACTIVE thesis is holding evidence and
+    # does clear the unknown.
+    active_conn = _disc_conn(
+        thesis_rows=[_cba_row(status="active", actual_entry_price=Decimal("50"))],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        active_findings = asyncio.run(
+            _discipline_findings(active_conn, date(2026, 7, 13))
+        )
+    checked = _brief(holdings_count=3, discipline_findings=active_findings)
+    assert not any("no discipline evidence" in u for u in checked.review.unknowns)
+
+
+def test_discipline_findings_active_thesis_gets_base_red_and_escalation() -> None:
+    """An active thesis past the window carries BOTH lines: the base
+    data-sanity red (evidence) and the escalation (the named verbs)."""
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(status="active", actual_entry_price=Decimal("50"))],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    checks = {f.check for f in findings}
+    assert "data_sanity" in checks
+    assert "data_sanity_escalation" in checks
+    esc = next(f for f in findings if f.check == "data_sanity_escalation")
+    assert esc.watchlist_only is False  # capital behind it → holding evidence
+
+
+def test_discipline_findings_answering_revision_suppresses_escalation() -> None:
+    """An answered red on an ACTIVE thesis: the base data-sanity red still
+    fires (the evidence is never suppressed) but the escalation does not.
+
+    Deliberately active, not watching — on a watching row the whole result is
+    `[]`, which would pass a "no escalation" assertion for the wrong reason.
+    """
+    conn = _disc_conn(
+        thesis_rows=[
+            _cba_row(
+                status="active",
+                actual_entry_price=Decimal("50"),
+                last_answering_revision_at=datetime(2026, 7, 8),  # 5d before as_of
+            )
+        ],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    checks = {f.check for f in findings}
+    assert "data_sanity" in checks  # evidence survives the answer
+    assert "data_sanity_escalation" not in checks
+
+
+def test_discipline_findings_watching_answered_red_is_wholly_silent() -> None:
+    """The honest limitation, pinned rather than papered over: on a `watching`
+    row an answering revision means TOTAL silence — the base red never runs
+    there, so nothing at all surfaces. The `revision_type` scoping in the query
+    is what keeps an unrelated edit (--tax-notes, --conviction) from reaching
+    this state; this test exists so a future widening of that filter is felt."""
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(last_answering_revision_at=datetime(2026, 7, 8))],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert findings == []
+
+
+def test_discipline_query_keeps_its_governance_and_status_filters() -> None:
+    """`_disc_conn` dispatches on a substring and ignores the rest of the SQL,
+    so without this the WHERE clause is unpinned: dropping
+    `governance_status = 'approved'` would admit agent-authored
+    `pending_review` theses into the brief with every other test still green
+    (adjacent to the documented `m14_candidate_agent_db_role_scoping` risk)."""
+    conn = _disc_conn(thesis_rows=[_cba_row()], price_rows=_CBA_PRICE_ROWS)
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    q = _theses_query(conn)
+    assert "governance_status = 'approved'" in q
+    assert "status IN ('watching', 'active')" in q
+    # The answering-revision scoping is equally load-bearing: MAX over ALL
+    # revisions would let an unrelated edit mute the escalation for 30 days.
+    # Set-equality, NOT prefix-plus-denylist: a denylist passes when a NEW type
+    # is added. Verified — adding 'analyst_action' (the type most likely to
+    # become a job-driven feed) to the SQL list passed the entire suite while
+    # silently re-opening the suppression hole this scoping exists to close.
+    scoped = re.search(r"revision_type IN \(([^)]*)\)", q)
+    assert scoped is not None, "the answering-revision scoping is gone"
+    assert {t.strip().strip("'") for t in scoped.group(1).split(",")} == {
+        "target_adjusted",
+        "reviewed_no_change",
+        "status_change",
+        "entered",
+        "expired",
+        "exited",
+        "exited_by_stop",
+        "exited_by_target",
+    }
 
 
 # ---------------------------------------------------------------------------
