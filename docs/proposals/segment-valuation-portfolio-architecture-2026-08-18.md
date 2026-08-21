@@ -125,6 +125,21 @@ Defensive" — plus one empty-string segment. BHP is `sector='Basic Materials'`,
 The gap is not only missing labels (17% of the master has no `gics_sector`) but wrong ones:
 `CBAPI.AU` and `WBCPJ.AU` — both bank hybrids — carry `gics_sector = 'Energy'`.
 
+> **Amended 2026-08-20 after dry-running the shipped resolver against production**
+> (`segval-live-validation-2026-08-20.md`, F2/F3). Two corrections to the framing above:
+>
+> 1. **The two columns are not independent vocabularies to reconcile.** Both propagate from the
+>    same EODHD `General.Sector` field, so they are blank *together*: of the 757 symbols whose
+>    `gics_sector` is unresolvable, 242 have no `universe` row and the remaining 515 have
+>    `universe.sector = ''`. The cross-column fallback resolves **0 of 4,418** symbols. Keep it
+>    (it is correct, and a genuinely independent source could appear), but it is not the
+>    mechanism.
+> 2. **The mechanism is alias-normalisation *within* `gics_sector`**, which carries the
+>    Morningstar leakage listed above. Measured effect: 3,428 already-canonical pass-through,
+>    **233 symbols actually repaired** (5.3%), 757 unresolved (17.1%). The 233 is what kills the
+>    duplicate-segment defect; the 757 are unreachable by any resolver change and need an
+>    upstream ingestion fix or a named `unclassified` bucket.
+
 ### D4 — Price history is 1.6 years, so "cheap versus its own history" is not computable
 
 `prices` starts 2025-01-02. Valuation percentile-versus-own-history — the core relative-value
@@ -311,8 +326,10 @@ useful, and it is honest so long as the absence of history is stated rather than
 
 1. **FX: convert, not exclude.** §4/D1 already proves exclusion is not a lesser-but-acceptable
    option — it provably drops ~A$778bn of Materials (BHP+RIO+NEM) and is not a real choice, just
-   a different wrong number. Full conversion to all ~12 reporting currencies is deferred as its
-   own follow-up (it needs a sourced multi-currency rate feed, not just code); L0's S1 ships the
+   a different wrong number. Full conversion to all reporting currencies is deferred as its
+   own follow-up (it needs a sourced multi-currency rate feed, not just code) — **measured
+   2026-08-20 as 20 distinct currencies, not the ~12 estimated here**, so scope that slice off
+   the measured figure (`segval-live-validation-2026-08-20.md`, F4); L0's S1 ships the
    **interim form S1 itself specifies** — a `currency` column, carried through from source, with
    non-AUD reporters marked `EVIDENCE_THIN` and their excluded capitalisation disclosed rather
    than silently mixed or silently dropped. That interim is itself correct and firewall-clean; it
