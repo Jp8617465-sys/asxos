@@ -2,6 +2,16 @@
 # pr-draft-guard.sh — PreToolUse guard, always-on. Enforces the draft-PR ceiling on the
 # GitHub MCP PR-write tools.
 #
+# ⚠️ WIRING IS THE CONTROL (2026-08-21). This hook's cases match MCP tool names
+# (mcp__github__*), so it only fires if `.claude/settings.json` registers it under a
+# matcher that MATCHES those names. From R13 until 2026-08-21 it was wired under
+# `matcher: "Bash"` only — every case below was dead code, and a PR was un-drafted
+# through the MCP server with no deny (found live; independently recorded the same hour
+# by session 01YBEYvVFasrq89XhkncMKRD as a fourth R5/R16/R17 instance: the control
+# exists and is not applying in this execution context). The fix is the
+# `matcher: "mcp__.*"` block in settings.json; `tests/test_pr_draft_guard_mcp.py` pins
+# both this hook's verdicts AND that wiring, so neither can silently regress alone.
+#
 # DENY-ONLY (see push-guard.sh's header for the full correction/rationale — updated
 # 2026-07-14): the docs DO confirm permissionDecision:"allow" suppresses the prompt for
 # Bash/MCP tools; this hook is deny-only anyway for the asymmetric-risk reason (a
@@ -75,6 +85,36 @@ case "$tool" in
     # so the normal tool-permission prompt / user-instruction flow still applies.
     [ "${ARBI_UNATTENDED:-0}" = "1" ] \
       && deny "pr-draft-guard: merge_pull_request is blocked in unattended mode (ARBI_UNATTENDED=1). Merges happen only in live attended sessions on James's explicit per-PR instruction."
+    exit 0
+    ;;
+  *create_or_update_file|*push_files|*delete_file)
+    # Direct file mutation on a protected ref through the GitHub API — the MCP twin of
+    # `git push` to main. push-guard.sh catches the Bash/gh shapes; until 2026-08-21
+    # NOTHING caught this surface (not a hook-logic gap — the wiring gap above — but
+    # while fixing the wiring, this shape was found to have no owner in any hook).
+    # Branch-scoped writes stay silent deliberately: API commits to a claude/** branch
+    # are the sanctioned route for DRAFTING authority-path changes into a reviewed PR
+    # (authority-guard.sh's contract), and denying them here would close that route.
+    # NOTE this hook may be the ONLY effective layer for this shape: main's branch
+    # protection has enforce_admins:false, so an admin-scoped token committing via the
+    # contents API is not necessarily stopped server-side (CLAUDE.md records this).
+    #
+    # ABSENT/EMPTY branch is DENIED, not ignored (security-engineer REQUIRED fix,
+    # 2026-08-21): the GitHub contents API defaults an omitted branch to the repo's
+    # DEFAULT branch — i.e. main. Today the MCP server's schema marks `branch`
+    # required, so an omitted branch is rejected upstream — but silence here would
+    # make this guard load-bearing on a third-party schema staying strict. There is
+    # no legitimate absent-branch call: if the schema requires it the call fails
+    # anyway; if it ever stops requiring it, the default is exactly what must be
+    # denied. Fail closed (matches unattended-guard's unknown-tool doctrine).
+    b="$(printf '%s' "$payload" | jq -r '.tool_input.branch // empty' | tr '[:upper:]' '[:lower:]')"
+    [ -z "$b" ] \
+      && deny "pr-draft-guard: file mutation with no branch named would land on the repository DEFAULT branch (main) via the GitHub API — blocked. Name a claude/** branch explicitly."
+    case "$b" in
+      main|master|refs/heads/main|refs/heads/master)
+        deny "pr-draft-guard: direct file mutation on '$b' via the GitHub API is blocked — the MCP twin of pushing to main. Commit to a claude/** branch and open a draft PR; merging to main is James's step."
+        ;;
+    esac
     exit 0
     ;;
   *)
