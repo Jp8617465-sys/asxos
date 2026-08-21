@@ -1,12 +1,24 @@
 name: targeted-ml-tests
 
-# Targeted ML model-safety gate. Deliberately NOT the full suite — it runs only
-# the tests that validate v1_5/v1_6 train/serve parity, the price-coverage data-
-# trust helpers, and the model artefact / feature-engine / loader contracts.
+# Formerly the targeted ML model-safety gate (v1_5/v1_6 train/serve parity,
+# model artefact / feature-engine / loader contracts). Model A's training
+# chain, artefacts, and those tests were retired 2026-08-19 — rule #11's
+# quarantine mechanism (asxos/domain/models/production_gate.py) stays, but
+# there is no longer a model-training surface for this lane to target.
 #
-# No live database, no secrets, no Render, no deploy. The targeted tests mock
-# asxos.db.acquire or use synthetic panels, so DATABASE_URL / RENDER_API_KEY /
-# Supabase credentials are intentionally NOT required.
+# Kept as a workflow (not deleted) because branch protection may still name
+# it as a required check; retiring the check name itself needs a separate,
+# deliberate branch-protection change, not a side effect of this deletion.
+# What's left is the price-coverage data-trust helpers and the brief-compose
+# contract (Ruff also still runs over asxos/domain/models/ and the now-empty
+# asxos/domain/signals/ stub for hygiene), all already covered by
+# full-check.yml's whole-suite run — this lane is now redundant with
+# full-check and a candidate for retirement once the branch-protection
+# required-check list is updated to drop it.
+#
+# No live database, no secrets, no deploy. The targeted tests mock
+# asxos.db.acquire or use synthetic panels, so DATABASE_URL / Supabase
+# credentials are intentionally NOT required.
 
 on:
   pull_request:
@@ -38,34 +50,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[ml,dev]"
 
-      - name: Ruff (model + signal modules + targeted tests)
+      - name: Ruff (model + signal modules + remaining targeted tests)
         run: |
           ruff check \
             asxos/domain/models/ \
             asxos/domain/signals/ \
-            tests/test_model_artifact_contract.py \
-            tests/test_signal_correctness_contract.py \
-            tests/test_build_target_price_basis.py \
             tests/test_price_coverage.py \
-            tests/test_feature_engine.py \
-            tests/test_signals_loader.py \
-            tests/test_train_walk_forward.py \
-            tests/test_training_config.py \
-            tests/test_retrain_wiring.py \
-            tests/test_retrain_dry_run_guard.py \
             tests/test_brief_compose.py
 
-      - name: Targeted ML tests (v1_5/v1_6 parity + data-trust + contracts)
+      - name: Remaining targeted tests (data-trust + brief-compose contracts)
         run: |
           python -m pytest -q \
-            tests/test_model_artifact_contract.py \
-            tests/test_signal_correctness_contract.py \
-            tests/test_build_target_price_basis.py \
             tests/test_price_coverage.py \
-            tests/test_feature_engine.py \
-            tests/test_signals_loader.py \
-            tests/test_train_walk_forward.py \
-            tests/test_training_config.py \
-            tests/test_retrain_wiring.py \
-            tests/test_retrain_dry_run_guard.py \
             tests/test_brief_compose.py

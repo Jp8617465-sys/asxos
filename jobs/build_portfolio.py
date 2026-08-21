@@ -17,7 +17,10 @@ Usage:
     ASXOS_PERSONAL_USE=1 python jobs/build_portfolio.py --as-of 2026-05-22
     ASXOS_PERSONAL_USE=1 python jobs/build_portfolio.py --dry-run
 
-Schedule: Saturday 20:00 UTC = Sunday 06:00 AEST (render.yaml 0 20 * * 6).
+Schedule: not currently scheduled. build_portfolio was deleted from the live
+scheduler per a 2026-08-19 governor ruling, as part of the Model A retirement
+lane — see docs/product/roadmap-state.md for the current queue and its
+proposed replacement direction.
 """
 import argparse
 import asyncio

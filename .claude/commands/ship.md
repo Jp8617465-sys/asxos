@@ -1,7 +1,10 @@
 # Ship — Feature to Production
 
-There is no staging. asxos has one environment — main. Pushing to `main`
-triggers Render auto-deploy across all 9 services. Be deliberate.
+There is no staging and **there is no deploy step**. asxos has one environment —
+`main`. Merging to `main` is the whole action: job configuration in
+`.github/workflows/` takes effect from that moment (`schedule:` only fires from
+`main`). Nothing builds, nothing rolls out, nothing to watch go `live`. Be
+deliberate — the merge is the irreversible part.
 
 $ARGUMENTS = feature name (used for changelog if you keep one).
 
@@ -13,37 +16,30 @@ Run `/quality-check`. If any fails: stop.
 **Step 2 — Security scan**
 Run `/security-scan`. If any CRITICAL finding: stop.
 
-**Step 3 — Deploy check**
+**Step 3 — Pre-merge check**
 Run `/deploy-check`. If any item fails: stop.
 
-**Step 4 — Push**
+**Step 4 — Merge**
+Open the PR, confirm CI `full-check` is green on it, and merge to `main`.
+Merging is James's action, not the session's — surface a ready PR and stop.
+
+**Step 5 — Confirm**
+Config changes are live but not yet *exercised*: a schedule change proves itself
+only on its next run. After the next scheduled run of anything you touched:
+
 ```bash
-git push origin main
+gh run list
+gh run view <run-id> --log   # on any red run
 ```
 
-**Step 5 — Watch the deploy**
-For each service that auto-deploys, watch the build via
-`GET api.render.com/v1/services/<id>/deploys`. Wait until each is `live` (or fail).
-The web service (`asxos-api`) is the fastest signal — if its lifespan
-hard-fails (DB unreachable, migration drift, model artefact missing) the
-deploy will not go live.
-
-**Step 6 — Smoke test**
-```
-/smoke-test https://asxos-api.onrender.com
-```
-
-**Step 7 — Drift check**
-```
-/check-drift
-```
+Then `/health-check` for job-run health and Supabase data freshness.
 
 ## On success
 
 ```
-✓ $ARGUMENTS shipped.
-asxos-api: live at https://asxos-api.onrender.com
-All 9 services auto-deployed. /health green. No drift.
+✓ $ARGUMENTS merged to main.
+Workflow config live from this commit. No deploy step.
+Next scheduled run of [workflow]: [UTC time] — confirm with `gh run list`.
 ```
 
 ## On failure
@@ -53,16 +49,19 @@ All 9 services auto-deployed. /health green. No drift.
 Error: [details]
 ```
 
-If the failure is post-push (Step 5+), the previous build is still running
-on Render — the new bad build never replaced it. No rollback action needed.
-If the failure is pre-push, no production impact.
+Pre-merge failures have no production impact. A post-merge failure shows up as a
+red run: read it with `gh run view <run-id> --log` and fix forward, or revert the
+commit on `main`. There is no previous build still serving traffic to fall back
+on — that was a property of the old hosting.
 
 ## Constraints
 
-- Never push if `/deploy-check` fails
-- Never push a commit that hasn't been rebased onto `origin/main`
-- If you're on a feature branch, fast-forward `main` first then push;
-  Render only auto-deploys from `main`
-- The token in `~/Projects/asxos-secrets/.env.production` must match
-  `ASXOS_API_TOKEN` set on `asxos-api` — if you rotated locally, upload
-  via the Render API (`PUT api.render.com/v1/services/<id>/env-vars`) BEFORE pushing
+- Never merge if `/deploy-check` fails
+- Never merge a commit that hasn't been rebased onto `origin/main`
+- Do NOT push directly to `main` — changes land through a reviewed PR
+- Do NOT dispatch a production, secret-bearing workflow to "test" the change.
+  Dispatch is allowed only for `full-check.yml`, `targeted-ml-tests.yml`,
+  `migration-integration.yml`, `backup.yml` and `claude-execute.yml`;
+  `daily-brief` and `us-positions` are denied and reserved to James
+- A new secret must exist in the repo's Actions secrets BEFORE the workflow that
+  reads it merges, or the first scheduled run fails

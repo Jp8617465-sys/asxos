@@ -139,7 +139,7 @@ def _send_alert(subject: str, body: str) -> None:
 
 async def _run(as_of: date) -> None:
     # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
-    # missing flag fails loud rather than relying on render.yaml alone.
+    # missing flag fails loud rather than relying on the workflow's env: block alone.
     require_personal_use_job()
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_CHECK_US_POSITIONS", "")
     await init_pool()

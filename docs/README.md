@@ -35,7 +35,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
 |---|---|
 | Repo overview | `../README.md` (pointers only — no live counts) |
 | Claude session entry | `../CLAUDE.md` → newest `session-handoff-*.md` → this map |
-| Live deployment | `../render.yaml` + live Render via MCP (`make check-drift`). No Blueprint is connected — `render.yaml` is the reconciliation target, not auto-applied. |
+| Live deployment | GitHub Actions workflows in `../.github/workflows/` (Render was deleted 2026-08-12). Config lives in git; secrets in the repo's Actions secrets. |
 | Schema / migrations | `../migrations/` + live `supabase_migrations.schema_migrations` (must equal `REQUIRED_MIGRATIONS` in `../asxos/api/main.py`). `public.schema_migrations` is a dead legacy table — never read it. |
 | Tax math | `foundation/spec/tax-alpha.md` (v1.5 — TC-20 is implemented; spec-first per non-negotiable #8) |
 | Governance | `proposals/governance-first-architecture-2026-06-30.md` + `../.claude/rules/portfolio-conventions.md` |
@@ -82,7 +82,7 @@ Where truth lives. Status labels used across the repo: `current` | `historical` 
   exact-evidence principles, but do not revive it as a queue.
 
 ## Historical / background (do not treat as current)
-- `foundation/phase-*.md` — rebuild history. `foundation/phase-4-architecture-system-architect.md` describes an abandoned VPS/systemd/local-Postgres design, superseded by the live Render/Supabase stack (see its banner).
+- `foundation/phase-*.md` — rebuild history. `foundation/phase-4-architecture-system-architect.md` describes an abandoned VPS/systemd/local-Postgres design, superseded by the live GitHub Actions/Supabase stack (see its banner).
 - `audit-2026-06-27.md`, `strategy/*` — dated snapshots.
 - `research/repo-navigation-audit-and-plan-prompt-2026-07-04.md` — HISTORICAL/executed: the origin of this docs map (shipped in PR #16). Kept as the map's rationale record.
 - `research/claude-fundamentals-audit-handoff-2026-07-04.md` — HISTORICAL: the original fundamentals hypothesis. State claims superseded by `session-handoff-2026-07-04.md`; code claims verified into `live-readiness-audit-plan-2026-07-04.md`; language strategy (§6) defers to `executable-roadmap-2026-07-04.md` §H.

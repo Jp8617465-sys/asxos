@@ -9,10 +9,12 @@ $ARGUMENTS = error message, stack trace, or description of the problem.
 - `grep -rn "[error phrase]" asxos/ jobs/ tests/ --include="*.py"`
 - Identify file:line
 
-**Step 2 — Render logs (if production-side)**
-- the Render API logs (`GET api.render.com/v1/logs?resource=<svc-id>`, `$RENDER_API_KEY`) for the relevant `asxos-*` service
-- Report: frequency in last 24h, first/last occurrence, correlation with
-  a recent deploy (`GET api.render.com/v1/services/<id>/deploys`)
+**Step 2 — GitHub Actions logs (if it failed in a scheduled job)**
+- `gh run list --workflow <name>.yml --limit 10` — find the failing runs
+- `gh run view <run-id> --log` — the failing step names the `jobs/*.py` script
+- Report: frequency across recent runs, first/last occurrence, and the commit each
+  run was pinned to (`gh run view <run-id> --json headSha`). A failure that starts
+  at one commit is a regression; one that comes and goes is data or upstream API
 
 **Step 3 — Supabase logs (if DB-side)**
 - `mcp__3ec0fde8-58dc-483a-b873-6aebe5cbb341__get_logs` for the affected
@@ -52,7 +54,7 @@ Blast radius: [scope]
 
 - Do NOT apply the fix without explicit user confirmation
 - If the error is in a migration or a `models/` pickle, stop and ask
-- If Render or Supabase logs are unavailable, note this and proceed with
+- If Actions or Supabase logs are unavailable, note this and proceed with
   codebase analysis only
 - For job-runs errors, also surface the matching Healthchecks.io alert
   if any (the canonical out-of-band failure signal)
