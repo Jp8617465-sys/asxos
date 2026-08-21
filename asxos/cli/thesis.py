@@ -638,6 +638,11 @@ async def _show_redeploy_candidates(symbol: str) -> None:
 
     (exit_price param removed 2026-07-21 — dead since the scenarios moved to
     the pre-computed weekly job; the query keys on symbol alone. 07-18 audit.)
+
+    The weekly job that populated this table (jobs/compute_opportunity_cost.py)
+    was retired 2026-08-19 as part of the Model A retirement — see
+    docs/product/roadmap-state.md. Historical rows may still exist; nothing
+    new is computed going forward.
     """
     try:
         async with acquire() as conn:
@@ -658,7 +663,10 @@ async def _show_redeploy_candidates(symbol: str) -> None:
 
         if not rows:
             console.print("[yellow]No pre-computed redeployment scenarios found.[/yellow]")
-            console.print("[dim]Run compute_opportunity_cost.py (weekly Sat job) to populate.[/dim]")
+            console.print(
+                "[dim]The weekly job that populated this table was retired "
+                "2026-08-19 (Model A retirement) — no new scenarios are computed.[/dim]"
+            )
             return
 
         console.print(f"\n[bold]Redeployment candidates (CGT-adjusted) for {symbol}:[/bold]")

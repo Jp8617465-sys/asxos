@@ -70,15 +70,14 @@ def _invoke(args: list[str], conn: MagicMock) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_journal_add_symbol_records_with_signal_ref() -> None:
+def test_journal_add_symbol_records_decision() -> None:
+    """signal_ref enrichment was retired with Model A and always inserts NULL now.
+
+    The `signals`-table lookup is gone (that table has had no writer since
+    P1-02), so only one fetchrow call (the INSERT) fires.
+    """
     conn = _make_conn()
-    # First fetchrow: latest signal lookup; second: the INSERT ... RETURNING.
-    conn.fetchrow = AsyncMock(
-        side_effect=[
-            {"model": "model_a", "model_version": "v1_5", "as_of": date(2026, 6, 1)},
-            {"id": 42, "decision_date": date(2026, 6, 28)},
-        ]
-    )
+    conn.fetchrow = AsyncMock(return_value={"id": 42, "decision_date": date(2026, 6, 28)})
 
     result = _invoke(
         ["add", "BHP.AU", "buy", "--rationale", "cheap"],
@@ -89,15 +88,13 @@ def test_journal_add_symbol_records_with_signal_ref() -> None:
     assert "Recorded decision" in result.output
     assert "#42" in result.output
     assert "BHP.AU" in result.output
-    assert "signal model_a@v1_5@2026-06-01" in result.output
 
-    # The INSERT (second fetchrow call) carries the real symbol + upper-cased action.
-    insert_call = conn.fetchrow.await_args_list[1]
-    insert_args = insert_call.args
+    assert conn.fetchrow.await_count == 1
+    insert_args = conn.fetchrow.await_args.args
     assert insert_args[1] == "BHP.AU"  # symbol param
     assert insert_args[3] == "BUY"  # action upper-cased
     assert insert_args[4] == "cheap"  # rationale
-    assert insert_args[5] == "model_a@v1_5@2026-06-01"  # signal_ref
+    assert insert_args[5] is None  # signal_ref always None post-Model-A
 
 
 def test_journal_add_dash_sentinel_inserts_null_symbol() -> None:
@@ -113,7 +110,6 @@ def test_journal_add_dash_sentinel_inserts_null_symbol() -> None:
 
     assert result.exit_code == 0, result.output
     assert "portfolio" in result.output
-    # With symbol=None there is NO signal lookup — only the INSERT runs once.
     assert conn.fetchrow.await_count == 1
     insert_args = conn.fetchrow.await_args.args
     assert insert_args[1] is None  # symbol -> NULL

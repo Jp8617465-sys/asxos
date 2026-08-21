@@ -270,6 +270,15 @@ def sector_neutral_scores(rows: list[SymbolScore]) -> list[SymbolScore]:
 # DB orchestration (leak-safe loads → compute → idempotent UPSERT)
 # ---------------------------------------------------------------------------
 
+# Hybrid/capital-note security_type values excluded below (matches
+# asxos/ingestion/universe.py's _TYPE_TO_KIND "hybrid" mapping and
+# jobs/sync_financial_statements.py's _HYBRID_SECURITY_TYPES). A bank hybrid
+# note carries its parent's whole income statement under its own symbol
+# (e.g. CBAPI.AU reports CBA group net income) -- unfiltered, this materially
+# inflated a naive Financials-segment aggregate (2026-08-18 segment-valuation
+# architecture doc, D2). Hardcoded literals rather than a bind parameter:
+# fixed, small, non-user-supplied set, and it avoids renumbering the
+# existing conditional $2/$3 symbol-filter parameters below.
 _PIT_SQL = """
 SELECT DISTINCT ON (p.symbol)
        p.symbol, p.eps_ttm, p.book_value_ps, p.roe, p.roa, p.gross_margin,
@@ -277,7 +286,8 @@ SELECT DISTINCT ON (p.symbol)
        p.knowledge_date, s.gics_sector AS sector
 FROM rs_fundamentals_pit p
 JOIN rs_security_master s ON s.symbol = p.symbol
-WHERE p.knowledge_date <= $1{filt}
+WHERE p.knowledge_date <= $1
+  AND (s.security_type IS NULL OR s.security_type NOT IN ('Preferred Stock', 'Notes', 'BOND')){filt}
 ORDER BY p.symbol, p.knowledge_date DESC
 """
 

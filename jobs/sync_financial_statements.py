@@ -34,14 +34,26 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 
 
+# Hybrid/capital-note security_type values (matches asxos/ingestion/universe.py's
+# _TYPE_TO_KIND "hybrid" mapping). These carry a parent company's income statement
+# under the note's own symbol (e.g. CBAPI.AU reports CBA's group net income) --
+# ingesting statements for them is what let bank hybrids materially inflate the
+# Financials segment aggregate (2026-08-18 segment-valuation architecture doc, D2).
+_HYBRID_SECURITY_TYPES = ("Preferred Stock", "Notes", "BOND")
+
+
 async def _load_symbols(conn, *, active_only: bool, limit: int | None) -> list[str]:
-    sql = "SELECT symbol FROM rs_security_master"
+    sql = (
+        "SELECT symbol FROM rs_security_master "
+        "WHERE (security_type IS NULL OR NOT (security_type = ANY($1::text[])))"
+    )
+    params: list[object] = [list(_HYBRID_SECURITY_TYPES)]
     if active_only:
-        sql += " WHERE is_active"
+        sql += " AND is_active"
     sql += " ORDER BY symbol"
     if limit:
         sql += f" LIMIT {int(limit)}"
-    rows = await conn.fetch(sql)
+    rows = await conn.fetch(sql, *params)
     return [r["symbol"] for r in rows]
 
 

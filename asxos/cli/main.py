@@ -2,7 +2,7 @@
 asx — Typer CLI entrypoint.
 
 Commands added per BUILD_GUIDE milestone:
-  M7+ — `asx signal`, `asx tax-view`, `asx journal`, ...
+  M7+ — `asx tax-view`, `asx journal`, ...
 
 This module must stay free of the Model A / joblib import chain: it imports every
 command module at load time, so a single ML import here makes EVERY `asx` command
@@ -24,7 +24,6 @@ from asxos.cli.portfolio import build_portfolio, portfolio_app, propose_trades
 from asxos.cli.position import position_app
 from asxos.cli.profile import profile_app
 from asxos.cli.screen import screen_app
-from asxos.cli.signal import signal
 from asxos.cli.tax import tax_action, tax_view
 from asxos.cli.theme import theme_app
 from asxos.cli.thesis import thesis_app
@@ -37,7 +36,6 @@ def _main() -> None:
     """asx — asxos CLI."""
 
 
-app.command()(signal)
 app.command("import-holdings")(import_holdings)
 app.command("tax-view")(tax_view)
 app.command("tax-action")(tax_action)

@@ -348,7 +348,7 @@ async def _snapshot_one_day(
 
 async def main(as_of_arg: date | None, from_date: date | None) -> None:
     # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
-    # missing flag fails loud rather than relying on render.yaml alone.
+    # missing flag fails loud rather than relying on the workflow's env: block alone.
     require_personal_use_job()
     await init_pool()
     try:

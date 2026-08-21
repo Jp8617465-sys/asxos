@@ -99,7 +99,13 @@ def compute_pit_factors(
 ) -> dict[str, Any] | None:
     """Derive one rs_fundamentals_pit row. `income`/`balance` carry the promoted scalar
     columns plus a `line_items` dict (for grossProfit/operatingIncome/netDebt). Returns
-    None if both statements are absent. `knowledge_date` is the guarded PIT key."""
+    None if both statements are absent. `knowledge_date` is the guarded PIT key.
+
+    `currency` (D1, segment-valuation architecture doc) is carried through from
+    whichever of income/balance is present, preferring income when both disagree
+    (rare — the two statements are the same filing). Every monetary column in the
+    returned dict is denominated in this currency, not necessarily AUD; a caller
+    that sums across symbols must group by it."""
     if not income and not balance:
         return None
     inc_li = (income or {}).get("line_items") or {}
@@ -113,6 +119,7 @@ def compute_pit_factors(
     gross = _num(inc_li.get("grossProfit"))
     op = _num(inc_li.get("operatingIncome"))
     net_debt = _num(bal_li.get("netDebt"))
+    currency = (income or {}).get("currency") or (balance or {}).get("currency")
 
     div_sum, frank_avg = _dividend_summary(dividends)
 
@@ -134,6 +141,7 @@ def compute_pit_factors(
         "shares_outstanding": shares,
         "dividend_ttm": div_sum,
         "franking_avg_pct": frank_avg,
+        "currency": currency,
     }
 
 
@@ -141,8 +149,8 @@ _UPSERT = """
 INSERT INTO rs_fundamentals_pit
     (symbol, as_of, knowledge_date, book_value_ps, eps_ttm, revenue_ttm, net_income_ttm,
      roe, roa, gross_margin, operating_margin, net_debt, total_equity, shares_outstanding,
-     dividend_ttm, franking_avg_pct, source, computed_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+     dividend_ttm, franking_avg_pct, currency, source, computed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         'eodhd_derived', now())
 ON CONFLICT (symbol, knowledge_date) DO UPDATE SET
     as_of=EXCLUDED.as_of, book_value_ps=EXCLUDED.book_value_ps, eps_ttm=EXCLUDED.eps_ttm,
@@ -150,7 +158,8 @@ ON CONFLICT (symbol, knowledge_date) DO UPDATE SET
     roa=EXCLUDED.roa, gross_margin=EXCLUDED.gross_margin, operating_margin=EXCLUDED.operating_margin,
     net_debt=EXCLUDED.net_debt, total_equity=EXCLUDED.total_equity,
     shares_outstanding=EXCLUDED.shares_outstanding, dividend_ttm=EXCLUDED.dividend_ttm,
-    franking_avg_pct=EXCLUDED.franking_avg_pct, source='eodhd_derived', computed_at=now()
+    franking_avg_pct=EXCLUDED.franking_avg_pct, currency=EXCLUDED.currency,
+    source='eodhd_derived', computed_at=now()
 """
 
 _FIRST_SOURCE_SYMBOL_BATCH = """
@@ -172,7 +181,7 @@ LIMIT $2
 _STATEMENTS_BY_SYMBOL_BATCH = """
 SELECT symbol, period_end, statement_type, filing_date, report_date,
        total_revenue, net_income, total_assets, total_equity, total_debt,
-       shares_diluted, line_items
+       shares_diluted, line_items, currency
 FROM rs_financial_statements
 WHERE period_type = 'yearly' AND symbol = ANY($1::text[])
 ORDER BY symbol, period_end, statement_type
@@ -203,6 +212,7 @@ def _stmt_dict(row: asyncpg.Record | None) -> dict[str, Any] | None:
         "total_debt": row["total_debt"],
         "shares_diluted": row["shares_diluted"],
         "line_items": li or {},
+        "currency": row["currency"],
     }
 
 
@@ -260,6 +270,7 @@ def _pit_upsert_args(symbol: str, factors: dict[str, Any]) -> tuple[Any, ...]:
         factors["shares_outstanding"],
         factors["dividend_ttm"],
         factors["franking_avg_pct"],
+        factors["currency"],
     )
 
 

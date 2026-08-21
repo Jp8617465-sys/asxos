@@ -218,6 +218,24 @@ async def test_orchestrator_is_leak_safe():
 
 
 @pytest.mark.asyncio
+async def test_orchestrator_excludes_hybrid_security_types():
+    """D2 (2026-08-18 segment-valuation architecture doc): bank hybrid notes
+    (security_type 'Preferred Stock'/'Notes'/'BOND') inherit their parent's whole
+    income statement.
+
+    The PIT query must exclude them unconditionally, not just when an explicit
+    symbol filter is passed.
+    """
+    conn = FakeConn([_pit_row()], [_price_row("CBA.AU", "2026-06-24", 100, 100)])
+    await refresh_factor_scores(conn, as_of=D("2026-06-24"))
+    pit_sql = next(s for s in conn.fetched if "rs_fundamentals_pit" in s)
+    assert "security_type" in pit_sql
+    assert "'Preferred Stock'" in pit_sql
+    assert "'Notes'" in pit_sql
+    assert "'BOND'" in pit_sql
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_skips_symbol_with_no_usable_data():
     # No price → no market_cap; all raw factors None → _zscores yields {} per sub-factor
     # so NO categories are present (every category score is None, not 0). A row with

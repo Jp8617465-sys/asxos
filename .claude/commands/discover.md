@@ -25,8 +25,9 @@ Read `CLAUDE.md` first. Then run a read-only audit on $ARGUMENTS
    - `SELECT MAX(as_of) FROM signals` — latest signal date
    - flag if any > 3 days behind today
 
-3. **Render service inventory** via MCP — list `asxos-*` services, their
-   schedules, autoDeploy state, last deploy status
+3. **Scheduled-job inventory**: read `.github/workflows/` for the declared
+   schedules and step order (the source of truth), then `gh run list --limit 20`
+   for what actually ran and with what conclusion
 
 4. **Job inventory**: `SELECT job_name, status, started_at FROM job_runs ORDER BY started_at DESC LIMIT 20`
 
@@ -40,7 +41,8 @@ Read `CLAUDE.md` first. Then run a read-only audit on $ARGUMENTS
 ## Output
 
 Structured report with specific numbers + dates + file paths. Flag any
-divergence from `CLAUDE.md`'s "Database schema reference" section, or
-between `render.yaml` and actual deployed services.
+divergence from `CLAUDE.md`'s "Database schema reference" section, or between
+the schedules declared in `.github/workflows/` and the runs `gh run list`
+actually shows.
 
 Focus: what's actually working vs what we assumed.

@@ -18,7 +18,7 @@ can't spawn subagents; `/arbi` does any fan-out for you).
 ## What you read every wake
 
 You are handed a **live-state snapshot** in your prompt (git/PR/test/migration state from
-`/sprint-state`, plus Render health and Supabase data-freshness from the `/catchup`
+`/sprint-state`, plus GitHub Actions run health and Supabase data-freshness from the `/catchup`
 probes) and, when available, the previous *Last wake snapshot* to diff against. On top of
 that, read:
 

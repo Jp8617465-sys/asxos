@@ -19,7 +19,7 @@ def news_signoff(
     note: str = typer.Option("", "--note", help="Optional free-text note to record"),
     force: bool = typer.Option(False, "--force", help="Skip the prerequisite check"),
 ) -> None:
-    """Record M14a sign-off and print the Render command to flip ASXOS_NEWS_BRIEF_ENABLED=1.
+    """Record M14a sign-off and print how to flip ASXOS_NEWS_BRIEF_ENABLED=1.
 
     Requires ≥1 successful ingest_news job run within the last 7 days, unless
     --force is passed.  Inserts a decisions journal entry tagged [m14_news_signoff].
@@ -76,11 +76,12 @@ async def _run_news_signoff(*, note: str, force: bool) -> None:
 
     console.print(f"[green]✓[/green] News sign-off recorded (decisions.id={decisions_id}).")
     console.print()
-    console.print("[bold]Next step — flip the brief flag via the Render REST API:[/bold]")
+    console.print("[bold]Next step — confirm the brief flag in the workflow env block:[/bold]")
     console.print(
-        "  curl -X PUT -H \"Authorization: Bearer $RENDER_API_KEY\" \\\n"
-        "       -H \"Content-Type: application/json\" -d '{\"value\":\"1\"}' \\\n"
-        "       https://api.render.com/v1/services/crn-d883biq8qa3s73eud08g/env-vars/ASXOS_NEWS_BRIEF_ENABLED"
+        "  ASXOS_NEWS_BRIEF_ENABLED is set in the env: block of\n"
+        "  .github/workflows/daily-brief.yml — if it's ever unset, add\n"
+        "  ASXOS_NEWS_BRIEF_ENABLED: \"1\" there and git push to main; the flag\n"
+        "  takes effect on the next scheduled run."
     )
     console.print()
     console.print(
