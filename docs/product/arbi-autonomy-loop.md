@@ -4,7 +4,8 @@
 **Scope:** how arbi runs the observe→decide→act→learn loop on a schedule, in Claude Code
 **Last verified:** 2026-08-12 (`claude-execute.yml` installed by PR #91; guard carve-outs
 PRs #92/#93 — layer 2 branch protection confirmed CONFIGURED, activation precondition 2 now
-MET; standing scheduled activation still gated on preconditions 3–5 — see §Activation)
+MET; standing scheduled activation still gated on preconditions 3–5 — see §Activation).
+**Layer 1 re-verified 2026-08-20** after the worktree-scoping defect below.
 **Owner:** James enables standing autonomy; arbi runs within the guardrails
 **Superseded by:** N/A
 
@@ -41,7 +42,27 @@ Not prompt-hope — mechanical, defense-in-depth:
 1. **`unattended-guard.sh`** (`.claude/hooks/`, armed by `ARBI_UNATTENDED=1`): a PreToolUse
    hook that DENIES push/merge to `main`, force-push, RW-DB SQL, migrations, Render
    mutations, PR merges, secret reads, and edits to authority/boundary files. Attended
-   sessions: total no-op. (Verified 13/13 cases 2026-07-10.)
+   sessions: total no-op. (Verified 13/13 cases 2026-07-10 — **scoped to the primary
+   checkout**; see the correction below.)
+
+   **⚠️ The 13/13 verification was narrower than it read (corrected 2026-08-20).** Every path
+   and branch lookup in this hook was anchored to `$CLAUDE_PROJECT_DIR`, so a tool call made
+   inside a **git worktree** resolved against an unrelated tree: the repo-relative strip never
+   matched, and the authority- and capital-path categories silently failed **OPEN** — the
+   inverse of this hook's fail-closed contract. That is the topology `arbi-run-ledger.md`
+   itself recommends for parallel missions, so it was a live gap, not a theoretical one.
+   `review-gate.sh` (staged Python committed ungated) and `push-guard.sh` (a push from a
+   worktree on `main`) carried the same defect. **Closed 2026-08-20:** all three now resolve
+   the payload's own `.cwd` to its git toplevel and test both that checkout and the control
+   checkout, mirroring `authority-guard.sh` — the only one that was already correct.
+   Re-verified live against a real worktree (ALLOW before, DENY after) with eight primary-root
+   regression cases unchanged: `tests/test_hook_worktree_scope.py`.
+
+   **Standing lesson — a hook verification matrix is only valid for the execution context it
+   ran in.** Re-verify every guard whenever a new context is introduced: a worktree, a
+   container, an alternate runtime. Compare **R16** (a harness where `.*`-matcher hooks never
+   fire) and **R17** (a runtime where the controls are inert) — all three are the same family,
+   *the control exists and is not applying in this execution context*.
 2. **GitHub branch protection on `main`** (the real merge/deploy backstop — server-side,
    unbypassable from a session): require PR + `full-check` green + CODEOWNERS approval; no
    direct pushes; arbi's identity cannot self-approve. **✅ CONFIGURED — recorded 2026-08-12,

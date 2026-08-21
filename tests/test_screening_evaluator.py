@@ -3,12 +3,17 @@
 Layer 1: pure-function tests (parse_rule, compile_where_clause) — no DB, no
 mocks. Layer 2: async tests with a mocked asyncpg.Connection.
 
-The SQL these functions generate was additionally verified against a real
-throwaway local Postgres 16 instance with adversarial seed data (dirty
-sector values, duplicate/missing fundamentals rows, NULL fields, sector-
-scope conflicts) — mocked tests prove the Python call shape is right, not
-that the emitted SQL is semantically correct against a real planner (see
-.claude/rules/portfolio-conventions.md's "Verification lesson").
+The SQL these functions generate was additionally verified against real
+Postgres — mocked tests prove the Python call shape is right, not that the
+emitted SQL is semantically correct against a real planner (see
+.claude/rules/portfolio-conventions.md's "Verification lesson"). Two
+generations of that verification: the original evaluator against a
+throwaway local Postgres 16 with adversarial seed data; the 2026-08-20 PIT
+repoint by capturing the byte-exact emitted coverage + match queries from
+the Python (mocked-connection call args) and running them READ-ONLY against
+the production database — coverage counts roe=1,819 / debt_to_equity=1,589
+/ franking=462 over the 1,872-symbol active universe, 152 matches for the
+demo rule, and the 60 future-knowledge_date rows confirmed excluded.
 
 asyncio_mode = "auto" in pyproject.toml — no @pytest.mark.asyncio needed.
 """
@@ -249,7 +254,7 @@ def test_compile_nested_and_or_sequential_numbering() -> None:
         )),
     ))
     sql, params = ev.compile_where_clause(tree)
-    assert sql == "(f.pe_ratio <= $1 AND (f.dividend_yield >= $2 OR f.roe >= $3))"
+    assert sql == "(f.pe_ratio <= $1 AND (f.dividend_yield >= $2 OR pit.roe >= $3))"
     assert params == [15, Decimal("0.04"), Decimal("0.10")]
 
 
@@ -326,7 +331,7 @@ def test_compile_deeply_nested_three_levels() -> None:
     sql, params = ev.compile_where_clause(tree)
     assert sql == (
         "(f.pe_ratio <= $1 AND "
-        "(f.roe >= $2 OR (f.dividend_yield >= $3 AND f.franking_pct >= $4)))"
+        "(pit.roe >= $2 OR (f.dividend_yield >= $3 AND pit.franking_avg_pct >= $4)))"
     )
     assert params == [20, Decimal("0.10"), Decimal("0.03"), Decimal("0.5")]
 
@@ -368,11 +373,24 @@ def _make_rule(
     )
 
 
-def _make_conn(universe_size: int, match_rows: list[dict]) -> MagicMock:
+def _full_coverage() -> dict[str, int]:
+    """A coverage-guard row where every whitelisted field is populated."""
+    return dict.fromkeys(ev._FIELD_MAP, 1)
+
+
+def _make_conn(
+    universe_size: int,
+    match_rows: list[dict],
+    coverage: dict[str, int] | None = None,
+) -> MagicMock:
+    """Mocked asyncpg.Connection for evaluate_rule's three round-trips:
+    fetchval = universe count, fetchrow = the zero-coverage guard row,
+    fetch = match rows. Default coverage is fully populated so existing
+    tests exercise their own concern, not the guard."""
     conn = MagicMock()
     conn.fetchval = AsyncMock(return_value=universe_size)
     conn.fetch = AsyncMock(return_value=match_rows)
-    conn.fetchrow = AsyncMock(return_value={"id": 99})
+    conn.fetchrow = AsyncMock(return_value=coverage if coverage is not None else _full_coverage())
     return conn
 
 
@@ -469,3 +487,171 @@ async def test_log_run_inserts_snapshot_not_live_rule() -> None:
     assert call_args[1] == 1
     assert call_args[4] == 1  # match_count
     assert call_args[5] == ["CBA.AU"]  # matched_symbols from result.matches, not a live re-fetch
+
+
+# ---------------------------------------------------------------------------
+# _referenced_fields — pure helper feeding the zero-coverage guard
+# ---------------------------------------------------------------------------
+
+
+def test_referenced_fields_flat_and_nested() -> None:
+    tree = ScreenGroup(
+        logic="AND",
+        items=(
+            ScreenCondition(field="pe_ratio", op="lte", value=Decimal("15")),
+            ScreenGroup(
+                logic="OR",
+                items=(
+                    ScreenCondition(field="roe", op="gte", value=Decimal("0.1")),
+                    ScreenCondition(field="pe_ratio", op="is_null", value=None),
+                ),
+            ),
+        ),
+    )
+    assert ev._referenced_fields(tree) == frozenset({"pe_ratio", "roe"})
+
+
+# ---------------------------------------------------------------------------
+# Zero-coverage guard (CLAUDE.md #10 — no silent zero on a dead column)
+# ---------------------------------------------------------------------------
+
+
+def _rule_on(field: str, op: str = "gte", value: object = 1) -> ScreeningRule:
+    item: dict[str, object] = {"field": field, "op": op}
+    if op not in ("is_null", "is_not_null"):
+        item["value"] = value
+    return _make_rule(rule_json={
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [item]},
+    })
+
+
+async def test_dead_column_raises_named_not_silent_zero() -> None:
+    """The mission's core defect: a rule on a 100%-NULL column previously
+    returned a silent, plausible zero-match. It must now RAISE, naming the
+    column and the universe size."""
+    coverage = _full_coverage() | {"roe": 0}
+    conn = _make_conn(1872, [], coverage=coverage)
+    with pytest.raises(RuntimeError) as exc:
+        await ev.evaluate_rule(conn, _rule_on("roe"))
+    msg = str(exc.value)
+    assert "roe" in msg and "1872" in msg and "ZERO non-null coverage" in msg
+    conn.fetch.assert_not_awaited()  # the match query never ran
+
+
+async def test_dead_column_raises_even_for_is_null_op() -> None:
+    """Over a fully-NULL column, is_null is degenerate-true (matches the
+    whole universe) — that is missing data, not a screen answer. Guarded."""
+    coverage = _full_coverage() | {"franking_pct": 0}
+    conn = _make_conn(10, [], coverage=coverage)
+    with pytest.raises(RuntimeError, match="franking_pct"):
+        await ev.evaluate_rule(conn, _rule_on("franking_pct", op="is_null"))
+
+
+async def test_all_dead_columns_named_in_one_error() -> None:
+    coverage = _full_coverage() | {"roe": 0, "revenue": 0}
+    rule = _make_rule(rule_json={
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [
+            {"field": "roe", "op": "gte", "value": 1},
+            {"field": "revenue", "op": "gte", "value": 1},
+            {"field": "pe_ratio", "op": "lte", "value": 15},
+        ]},
+    })
+    conn = _make_conn(10, [], coverage=coverage)
+    with pytest.raises(RuntimeError) as exc:
+        await ev.evaluate_rule(conn, rule)
+    msg = str(exc.value)
+    assert "roe" in msg and "revenue" in msg and "pe_ratio" not in msg
+
+
+async def test_partial_coverage_never_trips_the_guard() -> None:
+    """franking_pct at 462/1872 is legitimate (only actual dividend payers
+    carry franking) — the trip condition is strictly count == 0."""
+    coverage = _full_coverage() | {"franking_pct": 462}
+    conn = _make_conn(1872, [], coverage=coverage)
+    result = await ev.evaluate_rule(conn, _rule_on("franking_pct", op="gte", value=Decimal("0.5")))
+    assert result.match_count == 0  # valid zero-match on populated data
+
+
+async def test_zero_match_on_populated_data_stays_valid() -> None:
+    conn = _make_conn(100, [], coverage=_full_coverage())
+    result = await ev.evaluate_rule(conn, _make_rule())
+    assert result.match_count == 0
+    assert result.matches == ()
+    assert result.universe_size == 100
+
+
+async def test_guard_only_queries_referenced_fields() -> None:
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("roe"))
+    coverage_sql = conn.fetchrow.await_args.args[0]
+    assert 'AS "roe"' in coverage_sql
+    assert 'AS "pe_ratio"' not in coverage_sql  # unreferenced — not counted
+    # No-sector rule -> the coverage query binds ZERO params. A regression
+    # passing where_params here would satisfy any mock but fail on real
+    # asyncpg (refactoring-expert review, 2026-08-20).
+    assert conn.fetchrow.await_args.args == (coverage_sql,)
+
+
+# ---------------------------------------------------------------------------
+# Emitted-SQL shape — the PIT repoint (backend-architect rulings, 2026-08-20)
+# ---------------------------------------------------------------------------
+
+
+async def test_match_query_reads_pit_with_deterministic_usable_ordering() -> None:
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("roe"))
+    query = conn.fetch.await_args.args[0]
+    assert "FROM rs_fundamentals_pit" in query
+    # Load-bearing: the usability filter sits BEFORE the DISTINCT ON pick,
+    # so a future-dated newest row falls back instead of dropping the symbol.
+    assert "knowledge_date <= CURRENT_DATE" in query
+    # Deterministic under the (symbol, knowledge_date) PK.
+    assert "ORDER BY symbol, as_of DESC, knowledge_date DESC" in query
+    # Equity-sign-gated D/E — never a negative-equity false match.
+    assert "CASE WHEN pit.total_equity > 0" in query
+    # The dead columns are gone from the fundamentals CTE entirely.
+    assert "DISTINCT ON (symbol) *" not in query
+
+
+async def test_match_values_carry_all_whitelist_keys_for_repointed_fields() -> None:
+    """Alias<->whitelist alignment, tested at BOTH layers: the emitted SQL
+    must alias every non-sector whitelist field by its exact key (the SELECT
+    list is generated from _FIELD_MAP, so this pins the generation), and the
+    resulting ScreenMatch.values must carry the exact key set."""
+    row = {
+        "symbol": "SYM0.AU", "sector": "Industrials",
+        "pe_ratio": Decimal("10"), "pb_ratio": Decimal("1.2"), "eps": Decimal("0.5"),
+        "dividend_yield": Decimal("0.04"), "franking_pct": Decimal("100"),
+        "roe": Decimal("0.15"), "debt_to_equity": Decimal("0.8"),
+        "revenue": Decimal("1000000"), "net_income": Decimal("100000"),
+        "market_cap": Decimal("5000000"), "latest_close": Decimal("2.50"),
+    }
+    conn = _make_conn(10, [row], coverage=_full_coverage())
+    result = await ev.evaluate_rule(conn, _rule_on("roe"))
+    expected_keys = set(ev._FIELD_MAP) - {"sector"}
+    assert set(result.matches[0].values) == expected_keys
+    # The emitted SQL itself must alias every one of those keys — a
+    # misspelled alias here is what would have silently dropped a field
+    # under the old hand-written SELECT list.
+    match_sql = conn.fetch.await_args.args[0]
+    for key in expected_keys:
+        assert f'AS "{key}"' in match_sql
+
+
+async def test_coverage_and_match_queries_share_population() -> None:
+    """The guard must count over EXACTLY the candidate set the match query
+    screens — same base WHERE, same sector param."""
+    rule = _make_rule(rule_json={
+        "version": 1, "sector_scope": ["Industrials"],
+        "conditions": {"logic": "AND", "items": [{"field": "roe", "op": "gte", "value": 1}]},
+    })
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, rule)
+    coverage_sql = conn.fetchrow.await_args.args[0]
+    match_sql = conn.fetch.await_args.args[0]
+    for sql in (coverage_sql, match_sql):
+        assert "u.is_active AND u.security_kind = 'au_equity'" in sql
+        assert "AND u.sector = $1" in sql
+    assert conn.fetchrow.await_args.args[1] == "Industrials"

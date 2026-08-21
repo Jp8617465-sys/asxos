@@ -1,0 +1,127 @@
+{
+  "snapshot_id": "snap-2026-08-20-wake",
+  "schema_version": 1,
+  "observed_at": "2026-08-20T04:40:00Z",
+  "repository": {
+    "base_sha": {
+      "status": "observed",
+      "value": "56596fc5d0b4139dec523bb2e3cf49b685198a82"
+    },
+    "branch": {
+      "status": "observed",
+      "value": "claude/asx-stock-evaluation-p0hxx2"
+    },
+    "dirty_state": {
+      "status": "observed",
+      "value": "clean"
+    }
+  },
+  "github": {
+    "open_prs": {
+      "status": "observed",
+      "value": [
+        {"number": 144, "title": "fix(model-a): retire the training chain, artifacts, and dead-table readers", "draft": true, "head": "claude/delete-model-a-2026-08-19"},
+        {"number": 143, "title": "docs: reconcile Cursor session + ratify product rulings", "draft": true, "head": "claude/reconciliation-2026-08-19"},
+        {"number": 142, "title": "docs: segment valuation -> selection -> exposure architecture", "draft": true, "head": "cursor/segment-valuation-architecture-da6b"},
+        {"number": 141, "title": "chore(stage-a): retire Render from the repo", "draft": true, "head": "cursor/retire-render-stage-a-da6b"},
+        {"number": 140, "title": "docs(arbi): post-Render/Model-A reconciliation work order + arbi autonomy plan", "draft": true, "head": "cursor/arbi-autonomy-and-reconciliation-plan-da6b"},
+        {"number": 134, "title": "chore(env): add Cursor Cloud Agent development environment", "draft": true, "head": "cursor/setup-cloud-dev-environment-da6b"},
+        {"number": 124, "title": "Second Brain execution loop wave 1", "draft": true, "head": "claude/sb-execution-loop-wave1"},
+        {"number": 105, "title": "docs: plan Supabase evidence-store alignment", "draft": true, "head": "claude/supabase-evidence-store-plan"},
+        {"number": 80, "title": "PARKED / DO NOT MERGE - rules-integrity core slice", "draft": true, "head": "claude/rules-integrity-build"}
+      ]
+    },
+    "recent_merges": {
+      "status": "observed",
+      "value": [
+        {"number": 139, "title": "docs: session handoff 2026-08-18", "merged_sha": "56596fc5d0b4139dec523bb2e3cf49b685198a82"}
+      ]
+    },
+    "workflow_runs": {
+      "status": "observed",
+      "value": [
+        {"name": "full-check", "branch": "cursor/segment-valuation-architecture-da6b", "conclusion": "success", "started": "2026-08-20T04:23:33Z"},
+        {"name": "targeted-ml-tests", "branch": "cursor/segment-valuation-architecture-da6b", "conclusion": "success", "started": "2026-08-20T04:23:33Z"},
+        {"name": "migration-integration", "branch": "cursor/segment-valuation-architecture-da6b", "conclusion": "success", "started": "2026-08-20T04:23:33Z"},
+        {"name": "full-check", "branch": "cursor/retire-render-stage-a-da6b", "conclusion": "success", "started": "2026-08-20T04:22:09Z"},
+        {"name": "targeted-ml-tests", "branch": "cursor/retire-render-stage-a-da6b", "conclusion": "success", "started": "2026-08-20T04:22:09Z"},
+        {"name": "migration-integration", "branch": "cursor/retire-render-stage-a-da6b", "conclusion": "success", "started": "2026-08-20T04:22:09Z"}
+      ]
+    }
+  },
+  "production": {
+    "release_identity": {
+      "status": "observed",
+      "value": {"main_head": "56596fc5d0b4139dec523bb2e3cf49b685198a82", "note": "scheduled jobs execute from main via GitHub Actions"}
+    },
+    "scheduler_owners": {
+      "status": "observed",
+      "value": {"owner": "github-actions", "authority": "docs/product/scheduler-inventory-2026-08-13.md", "note": "Render deleted 2026-08-12 (governor ruling)"}
+    }
+  },
+  "data": {
+    "migrations": {
+      "status": "observed",
+      "value": {"applied_count": 96, "latest_version": "20260812092925", "required_migrations": 96}
+    },
+    "freshness": {
+      "status": "observed",
+      "value": {
+        "prices_max_dt": "2026-08-18",
+        "signals_max_as_of": "2026-08-05",
+        "signals_note": "frozen by design - writer deleted 2026-08-13 (PR #100)",
+        "evening_pipeline_last_green": "2026-08-18"
+      }
+    },
+    "coverage": {
+      "status": "observed",
+      "value": {"universe_total": 2441, "universe_active": 2384, "au_equity": 1921}
+    }
+  },
+  "probes": [
+    {
+      "name": "repository.base_sha",
+      "status": "observed",
+      "source": "git fetch origin main && git log origin/main -1",
+      "observed_at": "2026-08-20T03:35:00Z",
+      "value": "56596fc5d0b4139dec523bb2e3cf49b685198a82"
+    },
+    {
+      "name": "github.open_prs",
+      "status": "observed",
+      "source": "github-mcp list_pull_requests state=open",
+      "observed_at": "2026-08-20T03:40:00Z",
+      "value": {"count": 9, "all_mergeable_state": "clean", "all_draft": true}
+    },
+    {
+      "name": "github.workflow_runs",
+      "status": "observed",
+      "source": "github-mcp actions_list list_workflow_runs",
+      "observed_at": "2026-08-20T04:35:00Z",
+      "value": {"latest_full_check": "success", "latest_targeted_ml": "success"}
+    },
+    {
+      "name": "data.migrations",
+      "status": "observed",
+      "source": "supabase-mcp execute_sql (SELECT-only): supabase_migrations.schema_migrations",
+      "observed_at": "2026-08-20T03:45:00Z",
+      "value": {"applied_count": 96, "latest_version": "20260812092925"}
+    },
+    {
+      "name": "data.freshness",
+      "status": "observed",
+      "source": "supabase-mcp execute_sql (SELECT-only): MAX(prices.dt), MAX(signals.as_of), job_runs last 3d",
+      "observed_at": "2026-08-20T03:45:00Z",
+      "value": {"prices_max_dt": "2026-08-18", "signals_max_as_of": "2026-08-05", "job_runs_last_3d": "all green except check_cron_health 08-17 failure, recovered 08-18"},
+      "freshness": "job_runs window 2026-08-17..2026-08-18"
+    },
+    {
+      "name": "data.coverage",
+      "status": "observed",
+      "source": "supabase-mcp execute_sql (SELECT-only): universe counts",
+      "observed_at": "2026-08-18T22:00:00Z",
+      "value": {"universe_total": 2441, "universe_active": 2384, "au_equity": 1921},
+      "freshness": "probed 2026-08-18 during the sandbox walkthrough, not re-probed at the 2026-08-20 wake"
+    }
+  ]
+}
