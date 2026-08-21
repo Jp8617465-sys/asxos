@@ -70,6 +70,37 @@ def _num(x: Any) -> Decimal | None:
         return None
 
 
+def _currency(x: Any) -> str | None:
+    """Normalise a reporting-currency code, treating blank as absent.
+
+    Extends _num's `x == ""` handling to whitespace. rs_financial_statements carries blank
+    currencies as well as NULL, so without this a symbol whose income AND
+    balance rows are both blank would store '' rather than NULL -- Python's
+    `or` returns the LAST falsy operand -- and a downstream
+    `WHERE currency IS NULL` would silently skip it. Blank is missing data,
+    not a currency. Counts and query scope deliberately live in
+    `docs/proposals/segval-live-validation-2026-08-20.md` (F1) rather than
+    here, so a census that moves does not rot this docstring.
+
+    Call as `_currency(a) or _currency(b)`, never `_currency(a or b)` -- see
+    test_currency_whitespace_only_income_does_not_shadow_real_balance_code.
+    """
+    if x is None:
+        return None
+    # Upper-case as well as strip: 0044's COMMENT mandates that any aggregate
+    # GROUP BY this column, so 'AUD'/'aud' would silently split one bucket into
+    # two -- the same duplicate-bucket defect segment_map.py exists to prevent in
+    # the sector dimension. Verified 2026-08-20 that all 20 live values are
+    # already upper-case ISO-4217, so this is prevention, not repair.
+    #
+    # Deliberately NOT dropping values that fail an ^[A-Z]{3}$ shape check, which
+    # was suggested in review: that would silently discard a currency the vendor
+    # starts sending in a new shape, and silent discard is what rule #10 forbids.
+    # An unexpected value surfacing as its own visible bucket is the loud failure.
+    s = str(x).strip().upper()
+    return s or None
+
+
 def _div(a: Decimal | None, b: Decimal | None) -> Decimal | None:
     if a is None or b is None or b == 0:
         return None
@@ -103,9 +134,11 @@ def compute_pit_factors(
 
     `currency` (D1, segment-valuation architecture doc) is carried through from
     whichever of income/balance is present, preferring income when both disagree
-    (rare — the two statements are the same filing). Every monetary column in the
-    returned dict is denominated in this currency, not necessarily AUD; a caller
-    that sums across symbols must group by it."""
+    (rare — the two statements are the same filing). A **blank** currency counts as
+    absent, not as a value: it is trimmed to NULL and falls through to the other
+    statement, so `WHERE currency IS NULL` reliably finds unconverted reporters.
+    Every monetary column in the returned dict is denominated in this currency,
+    not necessarily AUD; a caller that sums across symbols must group by it."""
     if not income and not balance:
         return None
     inc_li = (income or {}).get("line_items") or {}
@@ -119,7 +152,9 @@ def compute_pit_factors(
     gross = _num(inc_li.get("grossProfit"))
     op = _num(inc_li.get("operatingIncome"))
     net_debt = _num(bal_li.get("netDebt"))
-    currency = (income or {}).get("currency") or (balance or {}).get("currency")
+    currency = _currency((income or {}).get("currency")) or _currency(
+        (balance or {}).get("currency")
+    )
 
     div_sum, frank_avg = _dividend_summary(dividends)
 

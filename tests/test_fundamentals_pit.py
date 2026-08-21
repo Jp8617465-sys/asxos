@@ -91,6 +91,87 @@ def test_currency_prefers_income_over_balance_sheet():
     assert f["currency"] == "USD"
 
 
+def test_currency_blank_on_both_statements_stores_null_not_empty_string():
+    """Regression, found by dry-running D1 against production 2026-08-20.
+
+    rs_financial_statements carries empty-string currencies (86 symbols) as well
+    as NULL (861). The original `income or balance` fallback returned '' when
+    both were blank, so a downstream `WHERE currency IS NULL` would skip those
+    rows. Blank is missing data, not a currency. Every fixture in this file
+    previously used only 'USD'/None, which is exactly why mocks missed it.
+    """
+    f = compute_pit_factors(
+        {**_INCOME, "currency": ""},
+        {**_BALANCE, "currency": ""},
+        _DIVS,
+        period_end=D("2025-06-30"), report_date=D("2025-08-12"),
+        filing_date=D("2025-06-30"), as_of=D("2026-06-24"),
+    )
+    assert f["currency"] is None
+
+
+def test_currency_blank_income_falls_through_to_populated_balance():
+    """The mixed case: '' on income must not shadow a real code on the balance sheet."""
+    f = compute_pit_factors(
+        {**_INCOME, "currency": ""},
+        {**_BALANCE, "currency": "NZD"},
+        _DIVS,
+        period_end=D("2025-06-30"), report_date=D("2025-08-12"),
+        filing_date=D("2025-06-30"), as_of=D("2026-06-24"),
+    )
+    assert f["currency"] == "NZD"
+
+
+def test_currency_is_whitespace_trimmed():
+    f = compute_pit_factors(
+        {**_INCOME, "currency": "  AUD  "},
+        {**_BALANCE, "currency": None},
+        _DIVS,
+        period_end=D("2025-06-30"), report_date=D("2025-08-12"),
+        filing_date=D("2025-06-30"), as_of=D("2026-06-24"),
+    )
+    assert f["currency"] == "AUD"
+
+
+def test_currency_is_upper_cased_so_aggregates_cannot_split_a_bucket():
+    """Migration 0044's COMMENT mandates that aggregates GROUP BY currency, so
+
+    'AUD' and 'aud' would silently become two segments -- the same duplicate-bucket
+    defect segment_map prevents for sectors. All 20 live values were verified
+    upper-case on 2026-08-20, so this guards a vendor change rather than fixing
+    present data. Note it normalises rather than rejects: an unrecognised shape
+    stays visible as its own bucket instead of being silently dropped (rule #10).
+    """
+    f = compute_pit_factors(
+        {**_INCOME, "currency": "aud"},
+        {**_BALANCE, "currency": None},
+        _DIVS,
+        period_end=D("2025-06-30"), report_date=D("2025-08-12"),
+        filing_date=D("2025-06-30"), as_of=D("2026-06-24"),
+    )
+    assert f["currency"] == "AUD"
+
+
+def test_currency_whitespace_only_income_does_not_shadow_real_balance_code():
+    """Pins the CALL STRUCTURE, not just the value -- the one case that separates
+
+    `_currency(a) or _currency(b)` from the tempting one-call collapse
+    `_currency(a or b)`. Under the collapsed form the inner `or` sees a truthy
+    '   ', short-circuits, and normalisation then yields None -- silently losing
+    a currency that was present on the balance sheet. Both forms agree on every
+    other input, so without this test a reviewer could "simplify" the helper,
+    stay green across the whole suite, and reintroduce the loss.
+    """
+    f = compute_pit_factors(
+        {**_INCOME, "currency": "   "},
+        {**_BALANCE, "currency": "USD"},
+        _DIVS,
+        period_end=D("2025-06-30"), report_date=D("2025-08-12"),
+        filing_date=D("2025-06-30"), as_of=D("2026-06-24"),
+    )
+    assert f["currency"] == "USD"
+
+
 def test_absolute_passthrough_and_netdebt():
     f = _factors()
     assert f["revenue_ttm"] == Decimal("1000")
