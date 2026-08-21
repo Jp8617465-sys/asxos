@@ -204,13 +204,20 @@ units merged on 2026-08-17 (#129, #130) are correct, tested, and inert: #129 ren
 benchmark because none exists for the global sleeve, and #130's only live trigger is a demo
 thesis. Correct-and-empty is not done.
 
-**🟡 Amendment E — DRAFT, AWAITING JAMES'S RATIFICATION (drafted 2026-08-18).** **This is not
-in force.** It is recorded here per the same GOV-01 two-artifact convention Amendment D
-followed — a ruling requires the ruling AND the queue amendment, and *this row is only the
-first artifact*. Amendment D's row states "Ratified verbatim by James"; this row deliberately
-cannot, because he has not seen it. Nothing may cite Amendment E as authority, and no close row
-may be blocked or admitted under it, until James ratifies it and the queue amendment is
-written. Drafted text follows verbatim:
+**✅ Amendment E — RATIFIED by James, 2026-08-20** (drafted 2026-08-18). Ratified verbatim by
+James ("okay lets do all of these 6" — item 4 of the six-point production-loop ruling, session
+on `claude/asx-stock-evaluation-p0hxx2`; execution record:
+`docs/proposals/production-loop-optimisation-2026-08-20.md`). Per the GOV-01 two-artifact
+convention this paragraph is the queue amendment; the quoted instruction is the ruling.
+**Effective PROSPECTIVELY from 2026-08-20** (the ratification date — an unratified draft
+cannot bind rows written before it existed, the same reason `check_ledger_coverage.sh`'s own
+header gives; its `AMENDMENT_E_EFFECTIVE` constant is updated to match in the same commit.
+Disclosed: this also places the `close-2026-08-18-sandbox` ledger row, written by the
+ratifying session itself before ratification, out of scope — a consequence of the principled
+date, not its motivation). **The retroactivity question remains OPEN and James's** — the
+drafted text below deliberately left "what happens to the four already-merged
+`results_review` rows" blank, and this ratification does not resolve it. Ratified text
+follows verbatim as drafted:
 
 > **Amendment E — completion test, all lanes (rider to Amendment D).** Amendment D's standing
 > condition applies to **every** lane, not only the product lane: no work order closes while its
@@ -925,7 +932,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 | Slug | What it defers | Cited in |
 |---|---|---|
 | `m14_candidate_agent_db_role_scoping` | Read-only Postgres role for agent MCP sessions (the only *security* deferral) | `portfolio-conventions.md`, `next-session-backlog.md:256` |
-| `m14_candidate_agentic_thesis_drafter` | No `ThesisProposal` schema yet — agent-drafted theses can't be created end-to-end | `theses/schemas.py:21`, `theses/service.py` |
+| `m14_candidate_agentic_thesis_drafter` | **CORRECTED 2026-08-18 (two independent sessions found this the same day) — the schema is not the gap.** `ThesisProposal` is fully specified at `theses/schemas.py:344`; `create_thesis_from_agent_run()` (`service.py:792-800`) is wired end-to-end and ends in a `raise` whose message ("no `ThesisProposal` schema exists yet") is now false. What's actually missing, per an `/arbi-run` design pass (backend-architect + system-architect, `arbi-run-thesis-authorship-2026-08-18` in the run ledger, `decision-log.md` same date): (1) the agent-authorship boundary itself — undesigned until this session; the shipped schema *permits* an agent to propose `conviction_level`/entry/stop/target/timeline (only an *unprovenanced* price is barred), so whether to tighten that is a named, still-open James decision, not something to assume either way; (2) `agent_run_service.py`'s `_PROPOSAL_MODELS` and `log_agent_run()` both still hard-refuse `object_type='thesis'`; (3) no `thesis_evidence` write path exists, so `approve_object()`'s evidence hard-fail would block every agent-drafted thesis forever without it; (4) the shipped validator checks `entry_lower <= entry_upper` but not `stop < entry < target` (session-handoff-2026-08-18.md item #4). A full design for (1)+(3)+the stub closure exists (not yet in a `docs/proposals/*.md` — currently only in the ledger/decision-log summary and the originating session's transcript) | `theses/schemas.py:344`, `theses/service.py:792-800`, `agent_run_service.py`, `session-handoff-2026-08-18.md` item 4, `arbi-run-ledger.md:arbi-run-thesis-authorship-2026-08-18` |
 | `m14_candidate_macro_thesis_evidence_staleness_check` | `macro_theses.approve_object()` skips the evidence-staleness check theses have | `macro_theses/service.py:8,209` |
 | `m14_candidate_governance_aware_revisit_cadence` | `approve_object()` doesn't reset revisit cadence on approval | `portfolio-conventions.md:84` |
 | `m14_candidate_conviction_weighted_cadence` | Conviction-weighted revisit cadence not built | `governance-first-architecture-2026-06-30.md:310` |

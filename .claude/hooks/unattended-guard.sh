@@ -66,11 +66,117 @@ is_authority_path() {
   return 1
 }
 
-rel_path() {
-  local p="$1" root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  p="$(realpath -m -- "$p" 2>/dev/null || printf '%s' "$p")"
-  root="$(realpath -m -- "$root" 2>/dev/null || printf '%s' "$root")"
-  printf '%s' "${p#"$root"/}"
+# Resolve the tool call's OWN checkout, then test the target path under every
+# guarded root. The previous single-root strip was anchored to $CLAUDE_PROJECT_DIR:
+# a path inside a git worktree never stripped, so what reached is_authority_path()
+# was still absolute, matched none of its repo-relative patterns, and the guarded
+# categories silently failed OPEN — the exact inverse of this hook's fail-closed
+# contract. Mirrors authority-guard.sh: protect the active target checkout AND the
+# checkout that supplied the loaded controls; an identically named file in an
+# unrelated repository is not a guarded surface.
+payload_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty')"
+
+# canonicalise WITHOUT the GNU-only missing-leaf flags. `realpath -m` is not
+# portable: BSD/macOS realpath rejects it, the command fails, and the caller then
+# compares unresolved literals — a textual prefix match that lets `..` segments and
+# alternate root spellings (/tmp vs /private/tmp) slip straight through. That exact
+# mistake is what made authority-guard.sh fail open before PR #77; see its
+# canonical_path() header. Order here mirrors that fix: flag-free realpath resolves
+# any existing path (including a symlinked leaf); a missing leaf falls back to
+# resolving the parent and re-attaching the leaf; only a missing parent degrades to
+# the literal.
+_canon_path() {
+  local p="$1" resolved parent leaf
+  if resolved="$(realpath "$p" 2>/dev/null)"; then
+    printf '%s' "$resolved"
+    return 0
+  fi
+  parent="$(dirname -- "$p")"
+  leaf="$(basename -- "$p")"
+  if resolved="$(realpath "$parent" 2>/dev/null)"; then
+    printf '%s/%s' "$resolved" "$leaf"
+    return 0
+  fi
+  printf '%s' "$p"
+}
+
+# The guarded roots, computed once. Kept lazy (the Bash branch never needs them)
+# and memoised, because path_matches() is called twice per Edit and each call
+# would otherwise re-fork `git rev-parse` plus several `realpath`s.
+_guard_roots_cache=""
+
+_ensure_guard_roots() {
+  [ -n "$_guard_roots_cache" ] && return 0
+  local target_root control_root
+  # `:-$(pwd)` not `:-}` — with CLAUDE_PROJECT_DIR unset the control root would
+  # otherwise be dropped entirely, losing the guard the old rel_path() still had
+  # via the hook's own cwd.
+  control_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
+    target_root="$(git -C "$payload_cwd" rev-parse --show-toplevel 2>/dev/null \
+      || printf '%s' "$payload_cwd")"
+  else
+    target_root="${control_root:-$(pwd)}"
+  fi
+  target_root="$(_canon_path "$target_root")"
+  _guard_roots_cache="$target_root"
+  if [ -n "$control_root" ]; then
+    control_root="$(_canon_path "$control_root")"
+    if [ "$control_root" != "$target_root" ]; then
+      _guard_roots_cache="$_guard_roots_cache
+$control_root"
+    fi
+  fi
+  return 0
+}
+
+# path_matches <file_path> <predicate_fn> — true if the path resolves, under ANY
+# guarded root, to a repo-relative path the predicate accepts.
+path_matches() {
+  local fp="$1" pred="$2" abs root rel
+  [ -n "$fp" ] || return 1
+  # Allowlist the predicate. Every call site passes a hardcoded literal today, but
+  # `"$pred"` resolves through PATH when it is not a shell function — so a later
+  # call site passing a variable would silently become a command-execution sink.
+  case "$pred" in
+    is_authority_path|is_capital_path) ;;
+    *) deny "unattended-guard: unknown path predicate '$pred'; refusing to classify (fail-closed)." ;;
+  esac
+  _ensure_guard_roots
+  case "$fp" in
+    /*) abs="$fp" ;;
+    *)
+      # A relative file_path is relative to the TOOL CALL's cwd — not to the repo
+      # root. Resolving it against the root instead would mis-locate every call
+      # made from a subdirectory (cwd=<root>/asxos, fp=domain/tax/positions.py
+      # would resolve to <root>/domain/... and match nothing).
+      if [ -n "$payload_cwd" ] && [ -d "$payload_cwd" ]; then
+        abs="$payload_cwd/$fp"
+      else
+        # No usable base: nothing can say which directory this spelling is
+        # relative to. Fail CLOSED — test it as if it were already repo-relative,
+        # which over-denies but can never under-deny.
+        "$pred" "$fp" && return 0
+        return 1
+      fi
+      ;;
+  esac
+  abs="$(_canon_path "$abs")"
+  # NOTE: a here-doc, deliberately not a pipe — a pipe runs the loop body in a
+  # subshell, where `return 0` cannot propagate out of this function.
+  while IFS= read -r root; do
+    [ -n "$root" ] || continue
+    case "$abs" in
+      "$root"/*) rel="${abs#"$root"/}" ;;
+      *) continue ;;
+    esac
+    if "$pred" "$rel"; then
+      return 0
+    fi
+  done <<EOF
+$_guard_roots_cache
+EOF
+  return 1
 }
 
 # --- Capital-adjacent carve-out (security-perf-mission-loop.md §1, red-team #1 / LOW-8) ----
@@ -116,8 +222,17 @@ case "$tool" in
     printf '%s' "$cmd" | grep -Eiq '\bgit\b[^|;&]*\bpush\b[^|;&]*(\b(main|master)\b|HEAD:(main|master))|:[[:space:]]*(main|master)\b' \
       && deny "unattended-guard: push to main/master = prod deploy (I6), reserved to James. Work on a claude/** branch and open a PR."
     if printf '%s' "$cmd" | grep -Eiq '\bgit\b[^|;&]*\bpush\b'; then
-      cur="$(git -C "${CLAUDE_PROJECT_DIR:-.}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-      case "$cur" in main|master) deny "unattended-guard: bare 'git push' while on $cur = prod deploy (I6). Use a claude/** branch + PR." ;; esac
+      # Branch of every checkout this push could run in — the payload's own cwd (a
+      # worktree has its own HEAD) AND the control checkout (the command may `cd`
+      # elsewhere first). Deny if either is main/master; see push-guard.sh's
+      # matching block for why testing only one root trades one hole for another.
+      ug_push_cwd="${payload_cwd:-}"
+      [ -n "$ug_push_cwd" ] && [ -d "$ug_push_cwd" ] || ug_push_cwd=""
+      for _ug_root in "$ug_push_cwd" "${CLAUDE_PROJECT_DIR:-}"; do
+        [ -n "$_ug_root" ] || continue
+        cur="$(git -C "$_ug_root" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+        case "$cur" in main|master) deny "unattended-guard: 'git push' while a relevant checkout ($_ug_root) is on $cur = prod deploy (I6). Use a claude/** branch + PR." ;; esac
+      done
     fi
     printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge|\bgit\b[^|;&]*\bmerge\b|gh[[:space:]]+pr[^|;&]*(--merge|--auto|--admin)|gh[[:space:]]+workflow[[:space:]]+(run|enable|disable)|gh[[:space:]]+release[[:space:]]+(create|edit|delete)|gh[[:space:]]+api[^|;&]*(--method|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)|(curl|wget)[^|;&]*api\.github\.com[^|;&]*/merge' \
       && deny "unattended-guard: merge / CI / release mutation is blocked (I6), reserved to James."
@@ -181,17 +296,17 @@ case "$tool" in
     ;;
   Edit|Write|MultiEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')"
-    [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_authority_path \
       && deny "unattended-guard: editing an authority/boundary file is blocked for unattended runs. arbi may only DRAFT it via a PR (route through backend-architect + security-engineer for James to merge)."
-    [ -n "$fp" ] && is_capital_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_capital_path \
       && deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
     exit 0
     ;;
   NotebookEdit)
     fp="$(printf '%s' "$payload" | jq -r '.tool_input.notebook_path // empty')"
-    [ -n "$fp" ] && is_authority_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_authority_path \
       && deny "unattended-guard: editing an authority/boundary file is blocked for unattended runs."
-    [ -n "$fp" ] && is_capital_path "$(rel_path "$fp")" \
+    [ -n "$fp" ] && path_matches "$fp" is_capital_path \
       && deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
     exit 0
     ;;
