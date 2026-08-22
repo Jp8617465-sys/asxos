@@ -92,7 +92,7 @@ second SB PR. Do not start W1-2.
 Dark-launch #1/#4 by **2026-08-28**; F4; 0039 + MCP **repoint** then REVOKE;
 `0043`/`0044` false DRAFT headers; thesis authorship; Amendment E retroactivity
 on #113–#122; HUBS A$701 FX; `.claude/settings.json` allow-rule / defaultMode;
-**this close PR onto `main`** (handoffs that live only on a branch are a process
+**this close PR (#156) onto `main`** (handoffs that live only on a branch are a process
 defect — `docs/README.md`).
 
 ## Next
