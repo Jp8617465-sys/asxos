@@ -169,6 +169,22 @@ _DEBT_TO_EQUITY_SQL = "(CASE WHEN pit.total_equity > 0 THEN pit.net_debt / pit.t
 # Both choices deliberately UNDERSTATE liquidity for thin names. For a gate
 # whose job is to keep untradeable names out, understating fails safe.
 #
+# But "fails safe" is scoped to thin names, and the scoping is load-bearing:
+# the window is bounded in CALENDAR days (130) while the denominator is a
+# FIXED 90, so the count of trading days inside it varies. When it exceeds 90,
+# a FULLY-traded name is OVERSTATED by (N - 90) / 90 -- measured 2026-08-22,
+# N = 92, so +2.2%, moving a true A$48,900 ADV to A$50,000 at a A$50k gate.
+# That direction admits rather than excludes, which is the direction this gate
+# exists to guard. It is accepted, not overlooked: the error surfaces a
+# marginally-thin name into a queue for HUMAN research -- not a position, not
+# an order -- and it errs toward showing a borderline name rather than hiding
+# a good one.
+#
+# Counting actual trading days instead would be a BEHAVIOUR change: it moves
+# every ADV and would invalidate the pre-registered expected count that
+# `screening_rules` already stores for the live rule. Do it as a deliberate,
+# re-pre-registered change to the gate, never as a drive-by correctness fix.
+#
 # Honest limit: this is still a mean, so a single large crossing inflates it.
 # The robustness check is the median daily value, which needs a percentile
 # aggregate this expression deliberately does not carry — if a matched name
