@@ -1226,7 +1226,47 @@ Close: 2026-08-21 (session ran without a formal /arbi wake — James drove it di
   not produce it — agent definitions load at session start, so it still held the
   pre-amputation versions and running it there would have reproduced the leak. A fresh session
   owes this run. Ledger row reads did_it_work: PENDING per L18.
+
+_Recorded by the 2026-08-22 `/arbi` wake on the second-brain branch. Audit trail only — open-PR counts in this block are stale after the merge train._
+
+_Recorded by the 2026-08-22 interactive `/arbi` wake. Supersedes the 2026-08-19 entry below,
+which is kept verbatim as the audit trail._
+
 ```
+Wake: 2026-08-22 ~15:10Z (interactive /arbi)
+- branch: claude/product-roadmap-backlog-8k3jz5 @ d608130, 16 ahead of origin/main
+  (d15266f). Working tree clean. No PR opened for this branch.
+- open PRs: 1 — #151 "Tier 2a screening: liquidity gate + audit-log completeness",
+  DRAFT, branch claude/screening-liquidity-audit, opened 2026-08-22T07:23Z, last
+  updated 11:27Z. NOT authored by this session; unreviewed. Down from 7 at the
+  08-19 wake (#144/#142/#141/#124 merged; #80 parked-and-delisted).
+- tests: 2586 passed / 1 skipped / 0 failed / 0 collection errors. ruff clean.
+  mypy clean across 168 source files. The interpreter-dependent sandbox gap that
+  the 08-19 snapshot recorded (1 failed + 1 error) is GONE — its import chains died
+  with Model A in #144, and CLAUDE.md's "Known test environment gaps" was retired
+  as RESOLVED today.
+- CI: full-check + targeted-ml-tests both success on this branch at 15:02Z.
+- crons: backup scheduled success 13:50Z. daily-brief has a CLEAN record — 10 of 10
+  scheduled days ran green (08-09..08-13, 08-16..08-20). Its cron is
+  "30 20 * * 0-4" (daily-brief.yml:39) = Sun-Thu only, so 08-14/15/21/22 are
+  non-scheduled days, NOT misses. Two separate readings called them misses today;
+  both were wrong. UNPROBED this wake, treat as unknown not healthy:
+  pipeline-health, us-positions, weekly-research, migration-drill.
+- Supabase freshness: UNAVAILABLE. No MAX(prices.dt), no MAX(signals.as_of), no
+  job_runs, no live migration count. Two independent causes, both James's, both
+  diagnosed today in db-access-remediation-2026-08-22.md: (1) the environment
+  blocks outbound 5432 (measured — pooler times out, api.github.com:443 opens in
+  0.2s); (2) settings.json:4 allows mcp__supabase-ro__execute_sql while servers
+  register under per-session UUIDs, so the rule can never match
+  (.claude/permission-requests.log shows every DB call today as ASK).
+- migrations: NOT re-verified this wake (DB unreachable). Last known 2026-08-21:
+  0044 applied as 20260821080458, observed count 97, REQUIRED_MIGRATIONS=97,
+  0045_segment_map.sql on disk and unapplied.
+- governance: G1 CLEARED today — P3-01/P3-02 approved, P3-03 and the 8-row chain
+  unblocked. SB4-01 PARKED with a named revival trigger. Permission-allowlist
+  archive drafted, NOT applied. arbi-run-ledger row for this session still owed.
+```
+
 
 _Recorded by the 2026-08-19 interactive `/arbi` wake, extended via `/arbi-run "ingest and
 explore this work from cursor"` after James pasted a full transcript from a parallel Cursor
