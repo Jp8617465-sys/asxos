@@ -209,6 +209,16 @@ One engine, six layers. Each layer is measurement only; the objective function s
 
 Per this repo's completion discipline (a unit isn't done while its output on live data is unavailable/empty — see `roadmap-state.md` Amendment D): **nothing in this table has rendered against production yet.** Every migration above is drafted, not applied; every job is unit-tested against a fake connection, not run live. The next session's first job is applying `0044`+`0045` and running `build_segment_map`/re-running `sync_financial_statements`+`compute_factor_scores`, then re-checking this doc's own evidence-appendix queries to confirm the previously-impossible numbers now look sane.
 
+> **Update 2026-08-22 — half of that first job is done.** **S1's migration `0044` is APPLIED**
+> (2026-08-21, version `20260821080458`, ledger count **97**; `REQUIRED_MIGRATIONS` bumped to
+> 97 on 2026-08-22), so `rs_fundamentals_pit.currency` exists in production and the S1 row's
+> "drafted, not applied" is superseded. **S3's migration `0045` is still drafted and not
+> applied**, and `build_segment_map` has still never run live — S3's status text stands
+> unchanged. The paragraph's blanket "every migration above is drafted, not applied" is
+> therefore now true of `0045` only. Note the repo file `migrations/0044_*.sql` still carries a
+> `DRAFT — NOT APPLIED` header and pre-apply comment figures; that is a known
+> file-vs-database divergence handed to James, not evidence the migration is unapplied.
+
 S3 is the ASX-specific one worth doing properly. "Materials" on the ASX is iron ore, gold,
 lithium and copper in one bucket, and those do not co-move; a segment key that cannot separate
 them will produce valuation aggregates no resources analyst would use. The hook already exists —

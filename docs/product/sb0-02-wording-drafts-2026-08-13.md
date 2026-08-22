@@ -783,6 +783,17 @@ at 0 approvals), and §5.3(b) corrects `memory/project-facts.md:13-14`'s stale R
 its "through 0036+" schema pointer (now 0043 / `REQUIRED_MIGRATIONS = 96`, with `0042` reserved).
 Both are consistent with §1 and §5 above; applying all four together yields one coherent story.
 
+> **Correction 2026-08-22 — the schema figures in the paragraph above have moved; do not apply
+> `SB0-01` §5.3(b) verbatim.** Current: on-disk ceiling **`0045`**, live ledger **97** (latest
+> `20260821080458`, `0044` applied 2026-08-21), `REQUIRED_MIGRATIONS = 97`. `0042` stays
+> RESERVED and `0045` is drafted-not-applied, so those three numbers legitimately differ.
+> `doc-truth-map-2026-08-13.md` §5.3 now carries a corrected replacement block immediately
+> below the original draft — apply *that* text, and note it drops the "matching the live
+> ledger" clause, which was never a safe invariant to write into a memory file (the API guard
+> is `count < REQUIRED_MIGRATIONS`, so ledger-above-constant is the normal apply-then-bump
+> state). This annotation changes numbers only; the §6 instruction to apply from `SB0-01`
+> rather than re-drafting here is unchanged.
+
 > ### ⚠️ One extra edit `SB0-01` §5.3(a) does NOT reach — apply it in the same pass
 >
 > **Classification: FACTUAL DRIFT.** §5.3(a) replaces `memory/README.md:65-70` only. The three

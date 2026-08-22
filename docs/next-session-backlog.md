@@ -354,6 +354,15 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
   migration-drift / REQUIRED_MIGRATIONS has zero tests on success or RuntimeError
   branches (CLAUDE.md non-negotiable #1). See that doc for the full per-file list and
   the mock pattern.
+  **CLOSED 2026-08-22 — the named P0 item is done; the rest of the sprint stands.**
+  `tests/test_api_main.py` covers `_check_migration_drift` (below-required raises,
+  at-required passes, above-required passes, skip-by-config short-circuits), the lifespan
+  (success plus both hard-fail branches) and `/health` (200 / 503). The above-required
+  test is the load-bearing one: it pins the guard as `count < REQUIRED_MIGRATIONS`
+  rather than `!=`, which is what keeps the API booting during an apply-then-bump window
+  (2026-08-21: ledger 97, constant 96). Note the referenced path moved —
+  `docs/backlog-test-coverage.md` is now `docs/archive/backlog-test-coverage.md`, and its
+  `:16` entry carries the same superseded claim.
 
 ## P3 — DB tidy-ups (optional, low risk) and CI / scope
 

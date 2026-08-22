@@ -172,6 +172,97 @@ def test_stop_violated_is_red() -> None:
     assert "STOP VIOLATED" in traj[0].message
 
 
+def test_stop_violated_names_the_stop_not_the_target() -> None:
+    """A stop-out must print the stop that fired — it previously printed the target.
+
+    The message interpolated `target` for every trajectory state, so the one
+    number shown in a STOP_VIOLATED finding was the one number the
+    classification had NOT used (`trajectory.py` decides the stop-out on
+    `current_price <= stop_price` and never looks at the target). On the live
+    HUBS.NYSE thesis that printed "STOP VIOLATED (current 215.17, target
+    318.00)" while the 230.00 stop that fired stayed invisible — an ~88-point
+    gap between the figure rendered and the figure the verdict rested on.
+
+    Both halves are asserted: the stop appears AND the target does not. Without
+    the negative half a message naming both would pass while still burying the
+    stop among numbers the reader has to disambiguate.
+
+    The s766B floor is asserted here too, and this is the place for it: a
+    stop-out is the most action-adjacent string the module emits, and until now
+    it was the only red-level message with no vocabulary guard at all — the two
+    existing guards cover `data_sanity_escalation` and `_timeline` only. `stop`
+    is correctly absent from DIRECTIVE_TERMS (it names a field the user himself
+    recorded, and the token already shipped inside "STOP VIOLATED" before this
+    change), but "correct today" and "pinned" are different things.
+    """
+
+    t = _thesis(entry="10", current="8.5", target="15", stop="9")
+    traj = _by_check(evaluate_thesis(t, AS_OF), "trajectory")
+    assert traj, "expected a trajectory finding"
+    assert "STOP VIOLATED" in traj[0].message
+    assert "stop 9" in traj[0].message
+    assert "target" not in traj[0].message
+
+    assert directive_terms(traj[0].message) == (), (
+        f"canonical directive term leaked into a stop-out: "
+        f"{directive_terms(traj[0].message)!r}"
+    )
+    assert _EXTRA_BANNED_FOR_THIS_SURFACE.search(traj[0].message.lower()) is None
+
+
+def test_above_target_still_names_the_target() -> None:
+    """The sibling state keeps `target` — there it IS the deciding leg.
+
+    Guards against over-correcting Unit 5 into "always show the stop". ABOVE
+    TARGET is decided by `current >= target`, so naming the stop there would
+    reintroduce the same defect in mirror image.
+    """
+
+    # Sub-cent, NUMERIC(18,6) target, so this doubles as the only pin on the
+    # `target` leg's formatting — every other fixture uses a target that renders
+    # identically however it is formatted, leaving that leg unmeasured. At
+    # 0.015000 the three candidates diverge: `_fmt_price` gives "0.015", a bare
+    # interpolation "0.015000", and a blanket `:.2f` "0.01" — a *different
+    # number*. Only the first satisfies both assertions below.
+    t = _thesis(entry="0.010", current="0.020", target="0.015000", stop="0.008")
+    traj = _by_check(evaluate_thesis(t, AS_OF), "trajectory")
+    assert traj and "ABOVE TARGET" in traj[0].message
+    assert "target 0.015" in traj[0].message and "0.015000" not in traj[0].message
+    assert "stop" not in traj[0].message
+
+
+def test_trajectory_prices_are_trimmed_not_raw_numeric() -> None:
+    """NUMERIC(18,6) must not reach the reader as "8.500000".
+
+    `_fmt_price` already existed for exactly this and was used by
+    `_data_sanity`, but the trajectory message interpolated the bare `Decimal`.
+    The sub-cent case is the half that matters: a blanket `:.2f` would render a
+    legitimately small stop as "0.00" — a *wrong* number in a message whose
+    entire purpose is to show the user his own recorded data. Above a cent the
+    two formatters agree, so only sub-cent inputs discriminate between them.
+    """
+
+    t = _thesis(entry="10", current="8.500000", target="15", stop="9.000000")
+    msg = _by_check(evaluate_thesis(t, AS_OF), "trajectory")[0].message
+    assert "8.5" in msg and "8.500000" not in msg
+    assert "stop 9" in msg and "9.000000" not in msg
+
+    # Sub-cent, because that is the ONLY band where `_fmt_price` and a blanket
+    # `:.2f` disagree — and the small-price half of this test is the reason it
+    # exists. MEASURED: at 0.01/0.02 (this test's first draft) `:.2f` renders
+    # "0.01"/"0.02", byte-identical to `_fmt_price`, so the whole half was
+    # vacuous — mutating `_fmt_price(current)` to `{current:.2f}` passed all 32
+    # tests. At 0.004/0.005 `:.2f` collapses both to "0.00", printing a stop-out
+    # as though the stop sat at zero.
+    #
+    # Asserted positively (the exact rendered tail), not as `"0.00" not in msg`:
+    # "0.004" itself CONTAINS the substring "0.00", so the negative form cannot
+    # express this property at any price where it actually bites.
+    tiny = _thesis(entry="0.38", current="0.004", target="0.60", stop="0.005")
+    tiny_msg = _by_check(evaluate_thesis(tiny, AS_OF), "trajectory")[0].message
+    assert tiny_msg.endswith("(current 0.004, stop 0.005)"), tiny_msg
+
+
 def test_behind_pace_is_yellow() -> None:
     # Well into the timeline but only ~20% of the journey covered → below half the
     # expected linear pace (but clear of the STALLED floor) → BEHIND (yellow).

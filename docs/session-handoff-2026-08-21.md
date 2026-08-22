@@ -34,6 +34,21 @@ check only hard-fails when the DB has *fewer* than required); the bump sits on u
 `claude/asx-stock-evaluation-p0hxx2`, and the repo copy of `0044` still reads "DRAFT - NOT
 APPLIED". `0045_segment_map.sql` remains unapplied.
 
+> **CORRECTION 2026-08-22 — the first residual is discharged; the second is not.**
+> `REQUIRED_MIGRATIONS` is bumped **96 → 97** by the change that carries this annotation
+> (`asxos/api/main.py:14`), re-measured against the live ledger the same day: count **97**,
+> latest version `20260821080458`. The lag described above is closed on merge.
+> **Still open (both `migrations/**`, Edit-denied to that change — handed to James):**
+> the repo copy of `0044` still reads `DRAFT — NOT APPLIED` and its `COMMENT ON COLUMN`
+> body still carries the superseded `102 symbols` figure that was corrected *at apply
+> time*, so the file no longer matches the database; `0043`'s header still reads
+> "PRODUCTION-READY — still unapplied" though it was applied 2026-08-12.
+> `0045_segment_map.sql` is genuinely still unapplied — its "DRAFT — NOT APPLIED" header
+> is **correct** and must not be "fixed" alongside the other two.
+> The benign-lag reasoning above is now pinned by a test:
+> `tests/test_api_main.py::test_migration_drift_passes_above_required` fails under a
+> `count != REQUIRED_MIGRATIONS` mutation while the tests either side of it pass.
+
 ---
 
 ## What shipped
@@ -130,6 +145,9 @@ project keeps finding.
 
 - `main` @ `ff377ef`; branch `claude/hubspot-position-forecast-fkgw63` @ `1840e78` (PR #150, draft).
 - Migrations: **97** applied (`20260821080458` latest); `REQUIRED_MIGRATIONS = 96` on `main` lags.
+  *(Corrected 2026-08-22: bumped to **97** by the follow-on change — see the CORRECTION block
+  in §3. `0045` remains unapplied; the on-disk ceiling is `0045`, the ledger is 97, and the
+  constant is 97 — three legitimately different numbers.)*
 - Tests: **2200 collected**; 20 collection errors, all the documented sandbox `joblib`/`lightgbm`
   gap — re-derived with `pytest tests/ -q --co | grep '^ERROR'` per `CLAUDE.md`, not trusted from
   a list. CI (`full-check`) is the real gate and was green on every merge.

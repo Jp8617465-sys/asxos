@@ -54,7 +54,9 @@ Rule #11 (no capital-facing use of `signals`/`model_versions`/`shap_factors`/`pr
   and the now-dead references in `asxos/cli/model.py`, `asxos/domain/models/*`,
   `asxos/config.py` (the `healthcheck_url_retrain_model_a` field), `.env.example`.
 - **[gated]** `migrations/0003_*` and `0032_model_versions_allocation_gate.sql` cannot be
-  deleted (migrations are immutable, `REQUIRED_MIGRATIONS = 96`): add a superseding note, not
+  deleted (migrations are immutable, `REQUIRED_MIGRATIONS = 96` — **97 as of 2026-08-22**,
+  after `0044` was applied 2026-08-21; the immutability point is unchanged): add a
+  superseding note, not
   a deletion. The enforcement site in `asxos/domain/portfolio/build.py` (the
   `is_active AND approved_for_allocation` fetch, marked DO-NOT-DELETE) needs an explicit
   ruling now that the quarantine subject is gone — keep as a standing guard, or replace with

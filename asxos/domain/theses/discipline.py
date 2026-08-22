@@ -383,10 +383,44 @@ def _trajectory(inp: ThesisDisciplineInput, as_of: date) -> DisciplineFinding | 
         if traj in (Trajectory.STOP_VIOLATED, Trajectory.STALLED)
         else DisciplineLevel.yellow
     )
+    # Name the leg that actually decided the verdict. The message previously
+    # interpolated `target` for EVERY state, so a stop-out read
+    # "STOP VIOLATED (current 215.170000, target 318.000000)" — the 230.00 stop
+    # that fired was invisible, and the one number shown was the one number the
+    # classification had not used. A reader cannot check a stop-out against a
+    # target; on the live HUBS.NYSE thesis that is a ~88-point difference
+    # between the figure printed and the figure the verdict rested on.
+    #
+    # ABOVE_TARGET keeps `target` because there the target IS the deciding leg
+    # (`current >= target`, trajectory.py:79). The pace bands keep it too — it
+    # is the denominator of progress_to_target(). Only the stop-out branch was
+    # ever wrong, and it was wrong in the one state that calls for action.
+    #
+    # stop_price_native is non-None here by construction: STOP_VIOLATED is
+    # returned only under `stop_price is not None` (trajectory.py:77). The
+    # explicit guard is for the type checker and for the next reader, not a
+    # runtime doubt — falling back to `target` would silently reinstate the
+    # exact defect this block removes.
+    if traj is Trajectory.STOP_VIOLATED and inp.stop_price_native is not None:
+        reference = f"stop {_fmt_price(inp.stop_price_native)}"
+    else:
+        reference = f"target {_fmt_price(target)}"
     return DisciplineFinding(
         check="trajectory",
         level=level,
-        message=f"{inp.symbol}: {traj} (current {current}, target {target})",
+        # _fmt_price, not raw interpolation: these arrive as NUMERIC(18,6), so
+        # the bare Decimal rendered "215.170000". Same helper
+        # `data_sanity_escalation` uses, for the reason _fmt_price's docstring
+        # gives — trim the zeros, keep the significant digits, never
+        # blanket-:.2f a legitimately small price (0.004 would become "0.00").
+        #
+        # NOT `_data_sanity`, which still interpolates raw Decimals (:249-251)
+        # and ships "live price 168.000000 is 2.8× the recorded target
+        # 60.000000" into the same email. That is a sibling red finding with
+        # the same defect this fixes; routing it through _fmt_price is
+        # behaviour-visible, so it needs its own assertion rather than a
+        # drive-by here.
+        message=f"{inp.symbol}: {traj} (current {_fmt_price(current)}, {reference})",
         symbol=inp.symbol,
     )
 
