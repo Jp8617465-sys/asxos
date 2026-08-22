@@ -13,32 +13,34 @@ by neither the deny array nor the guard's repo-relative fragment list, so settin
 James's call to make, not mine to take — it is named in `authority-guard.sh`'s own header as
 an accepted residual risk.
 
-Apply order below is by value: **C first** — it is the only one that touches a live
-capital-adjacent hazard.
+Two patches remain: **A** then **B**.
 
 ---
 
-## C — `.claude/agents/thesis-coherence-guard.md` (do this one first)
+## ~~C — `.claude/agents/thesis-coherence-guard.md`~~ — **WITHDRAWN 2026-08-22, superseded**
 
-```bash
-cp docs/proposals/claude-config-patches-2026-08-22/thesis-coherence-guard.md \
-   .claude/agents/thesis-coherence-guard.md
-```
+**Do not apply it. The file has been deleted from this directory.** Kept as a record rather than
+removed silently, because a future session that finds it in git history should find the reason
+next to it.
 
-**Why.** The agent's step 1 is `SELECT signal_label, prob_up, shap_factors FROM signals WHERE
-model = 'model_a'`. PR #144 deleted every writer to `signals`, so the query still returns rows
-and the agent keeps emitting confident COHERENT/CONTRADICTED verdicts from frozen evidence —
-into the `/pm-review` synthesis that informs real holding decisions. Worse than an error,
-because it looks like a working answer. Its frontmatter said use **PROACTIVELY**, so not
-running `/pm-review` did not contain it.
+**It was already fixed on `main`, before this session started.** PR **#149** (`ff377ef`, merged
+2026-08-21 23:16 UTC) closed the `/pm-review` frozen-Model-A leak. Verified on the merged tree,
+not inferred: `grep -c "FROM signals" .claude/agents/thesis-coherence-guard.md` → **0**.
 
-**Amputation, not retirement.** The revision-fatigue check is live, model-independent, and the
-only automated check on that failure mode; deleting the agent would throw it away. The
-replacement keeps it, drops the three Model A steps, removes the PROACTIVELY trigger, and
-carries an inline note so nobody restores the SHAP path by "fixing" the file later.
+**#149 fixed strictly more than patch C would have.** Its title says it: *"two agents, not one."*
+It touched five files — `thesis-coherence-guard.md`, `portfolio-coherence-reviewer.md`,
+`pm-review.md`, `.claude/agents/README.md` and `CLAUDE.md`. Patch C found only the first agent.
+**Applying C on top of `main` would have REGRESSED the better fix**, because C was written against
+the pre-#149 version of the file.
 
-**Verify:** `grep -c "FROM signals" .claude/agents/thesis-coherence-guard.md` → `0`.
-Closes `james-inbox.md:53`.
+**How it was missed, so the mechanism is on record.** This session ran
+`git rev-list --count origin/main..HEAD` — the *ahead* count — at least four times, and never once
+`HEAD..origin/main`. A one-directional staleness check reports a branch as healthy no matter how
+far the base has moved. #149 and #150 sat on `main` for the entire session. The corollary:
+**an ahead-count is not a staleness check.**
+
+This is the "branch-only state treated as `main` truth" circuit breaker arriving from the opposite
+side — not branch state mistaken for main, but *stale branch state* mistaken for current.
 
 ---
 

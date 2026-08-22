@@ -23,12 +23,16 @@
 scans, allocator runs, thesis proposals) as a basis for a real capital decision. Do **not**
 propose re-running the decay check; that P0 is closed and re-issuing it is recency overfit.
 
-**2. `/pm-review` is UNSAFE until patch C lands.** `thesis-coherence-guard` step 1 queries
-`FROM signals WHERE model='model_a'`. PR #144 deleted every writer, so the query still returns
-rows and the agent emits confident COHERENT/CONTRADICTED verdicts from **frozen evidence,
-presented as current**, into the synthesis behind real holding decisions. Worse than an error —
-it looks like a working answer. Its frontmatter says use **PROACTIVELY**, so *declining to run
-`/pm-review` does not contain it.*
+**2. `/pm-review` is FIXED — and an earlier version of this handoff said the opposite.** PR
+**#149** (`ff377ef`, merged **2026-08-21 23:16 UTC**) closed the frozen-Model-A leak across five
+files and **two** agents, not the one this session identified. Verified on the merged tree:
+`grep -c "FROM signals" .claude/agents/thesis-coherence-guard.md` → **0**.
+
+This handoff, PR #152, the dream candidate and the ledger row all originally asserted the hazard
+was open, and the withdrawn patch C would have **regressed** #149's better fix. The cause is in
+Traps #6: this session ran the git *ahead* count four times and never the *behind* count, so #149
+and #150 sat on `main` unnoticed for its whole length. Corrected in place rather than deleted,
+because the mechanism is the lesson.
 
 **3. The personal-advice firewall (s766B) is structural and unchanged.**
 
@@ -40,18 +44,13 @@ session.**
 
 ## THE FIRST THING TO DO
 
-**Apply the three `.claude/**` patches.** They are written, reviewed, and paste-ready at
-`docs/proposals/claude-config-patches-2026-08-22/README.md`. James authorised applying them;
-the tooling refused four times (see *Why they aren't applied* below).
+**Apply the two remaining `.claude/**` patches, A then B.** Paste-ready at
+`docs/proposals/claude-config-patches-2026-08-22/README.md`. James authorised applying them; the
+tooling refused four times (see *Why they aren't applied* below).
 
-**Order matters — C first.** It is the only one touching a live capital-adjacent hazard.
-
-```bash
-# C — stop /pm-review serving dead Model A evidence as current
-cp docs/proposals/claude-config-patches-2026-08-22/thesis-coherence-guard.md \
-   .claude/agents/thesis-coherence-guard.md
-grep -c "FROM signals" .claude/agents/thesis-coherence-guard.md   # must print 0
-```
+> **Patch C was WITHDRAWN and its file deleted.** It duplicated PR #149, which had already fixed
+> the same hazard on `main` — better, across two agents. Applying C would have regressed it. The
+> README keeps the record and the reason.
 
 **A** — `.claude/settings.json`: set `"defaultMode": "bypassPermissions"` **and** empty
 `"allow": []`. The 57 archived entries are preserved verbatim in
@@ -169,7 +168,8 @@ files). Buildable but **unclosable**.
 
 ### James
 
-1. **Apply patches C → A → B.** ← the unblock for everything else
+1. **Apply patches A then B.** ← the unblock for everything else. (**C withdrawn** — #149 already
+   did it, better.)
 2. **Permit outbound 5432** in the environment's network policy.
 3. **Merge or reject #152 and #153** (both draft). Merging #152 puts this handoff on `main`.
 4. **Dark surfaces #1 and #4** — expire **2026-08-31**, decide-by **2026-08-28**. Rule them
@@ -219,6 +219,13 @@ files). Buildable but **unclosable**.
    *plausible*: a fabricated "nine days", ten off-by-one packet citations, a 9-vs-10 gate
    discrepancy that wasn't one, and a `daily-brief` "miss" that wasn't (the cron is
    `30 20 * * 0-4`, Sun–Thu; **all ten scheduled days ran green**).
+6. **AN AHEAD-COUNT IS NOT A STALENESS CHECK.** This session ran
+   `git rev-list --count origin/main..HEAD` four times and never `HEAD..origin/main`. Two commits
+   sat on `main` the whole session — and one of them (**#149**) had already fixed the hazard this
+   session kept escalating, better and across two agents. The withdrawn patch C would have
+   **regressed** it. **Run `git fetch origin main && git rev-list --count HEAD..origin/main`
+   before trusting any claim about what is still broken.** Zero is the only safe answer.
+
 5. **`make check` baseline is 2586 passed / 1 skipped.** The old "known sandbox gaps" section in
    `CLAUDE.md` is retired — those import chains died with Model A in #144.
 

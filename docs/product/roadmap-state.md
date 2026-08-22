@@ -1066,7 +1066,7 @@ just repeats mistakes faster. Each PR is a deliberate, separate change.
 | 4 | Docs-write `/arbi-close` | **done** |
 | 5 | Memory policy + run ledger (`arbi-memory-policy.md`, `arbi-run-ledger.md`, `decision-log.md`) | **done (docs)** |
 | 6 | Dream policy + promotion gate (`arbi-dream-policy.md`, `arbi-promotion-gate.md`) | **done (docs)** |
-| **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | **RE-WIRED 2026-07-15** — daily 20:30 UTC (06:30 AEST), fresh session, push+email to James; Routine `trig_01BA3VmfzoRMtjKnt6XNpgPH`. The 2026-07-10 Routine (`trig_01PiLVYg…`) was found **absent from the live trigger list** on 2026-07-15 while these docs still claimed it live — the brief had silently stopped. Standing lesson: verify with `list_triggers` on wake; never trust this cell alone |
+| **7a** | Scheduled **read-only dry-run** brief (Routine fires `/arbi`; **output only**) | **RE-WIRED 2026-07-15** — daily 20:30 UTC (06:30 AEST), fresh session, push+email to James; Routine `trig_01BA3VmfzoRMtjKnt6XNpgPH`. The 2026-07-10 Routine (`trig_01PiLVYg…`) was found **absent from the live trigger list** on 2026-07-15 while these docs still claimed it live — the brief had silently stopped. Standing lesson: verify with `list_triggers` on wake; never trust this cell alone. **SUPERSEDED 2026-08-21 — this cell was false for 34 days, the SECOND occurrence of the exact failure the sentence before it describes.** `list_triggers` on 2026-08-21 showed 7a **user-paused since 2026-07-18T23:18 UTC** (`next_run_at` frozen at 2026-07-19), alongside the secperf WRITE loop, paused 8 seconds earlier. Neither carries `ended_reason`/`suspension_reason`, while a `send_later` row in the same listing carries `"ended_reason":"run_once_fired"` — so the field is emitted when set, and both-empty means user-paused. Not an outage: a Routine created 2026-07-24 fired normally on 2026-07-26. James's reason, asked directly: **"the briefs weren't worth reading."** A revival mission was planned, red-teamed (CHALLENGE) and then **stopped by James at gate G1** in favour of the live `/pm-review` defect. **Do not re-arm without reading the findings first** (`decision-log.md` 2026-08-21 row): the stale Render probe was never the cause; 7a has never produced a repo-observable artifact (28 ledger rows, all `trigger: manual`, zero scheduled), so its quality and liveness problems are the same problem; `rubrics/arbi-daily-brief.md:6-15` has no clause permitting silence; and its cron collides minute-for-minute with `daily-brief.yml`. The likely right answer is the Actions substrate reusing `asxos/domain/brief/severity.py`, not a re-armed Routine |
 | **7b** | **Standing** scheduled autonomy (arbi writes/acts unattended on a schedule) | **blocked** on the 3 preconditions below |
 | 8 | Multi-agent delegation (arbi coordinates specialists) | **`/arbi-run` shipped 2026-07-10** (thin attended bridge); **`/arbi-mission` + `guilfoyle` mission-control drafted 2026-07-13** — its graph-driven, readiness-gated evolution (task graph → specialists → draft PR), still attended + reversible (Guilfoyle plans/judges, never prioritises/spawns/merges); *standing/unattended* dispatch still gated on the 3 preconditions + runtime |
 | 9 | GitHub operator mode (docs-only draft PRs) | not started |
@@ -1119,8 +1119,8 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-08-22 interactive `/arbi` wake. Supersedes the 2026-08-19 entry below,
-which is kept verbatim as the audit trail._
+_Recorded by the 2026-08-22 interactive `/arbi` wake. Supersedes the 2026-08-21 close snapshot
+immediately below, which is kept verbatim as the audit trail (as is the 2026-08-19 entry under it)._
 
 ```
 Wake: 2026-08-22 ~15:10Z (interactive /arbi)
@@ -1166,11 +1166,47 @@ CLOSE ADDENDUM (2026-08-22, /arbi-close — supersedes the three lines above):
   was REFUSED on all four application attempts, including a cp that merely backed
   up settings.json. Delivered as a paste-ready patch set instead.
 - Three .claude/** patches drafted and unapplied (A settings, B authority-guard,
-  C thesis-coherence-guard). C is the live capital-adjacent one.
+  C thesis-coherence-guard). CORRECTED after merging main: C is WITHDRAWN and its
+  file deleted — #149 (ff377ef, merged 2026-08-21 23:16 UTC) already closed that
+  hazard across five files and TWO agents, and applying C would have regressed it.
+  Only A and B remain. The session ran the git ahead-count four times and never
+  the behind-count, so #149 and #150 sat on main unnoticed throughout.
 - NOT routed around: ~/.claude/settings.json is outside both the deny array and
   the guard's fragment list and would have worked. Governor's call, not arbi's.
 - New for James: AWS_ACCESS_KEY_ID/SECRET are SET in this environment while F6
   says no credentials are authorised.
+_Recorded by the 2026-08-21 `/arbi-close`. Supersedes the 2026-08-19 snapshot below, which is
+kept verbatim as the audit trail._
+
+```
+Close: 2026-08-21 (session ran without a formal /arbi wake — James drove it directly)
+- main @ ff377ef. Branch claude/hubspot-position-forecast-fkgw63 @ 1840e78 = PR #150 (DRAFT,
+  session records). Working tree clean.
+- merged this session (3): #147 a9785d4 (/thesis Phase A + unrealised_fx_pnl_aud FX-component
+  fix + HUBS position review) · #148 31c78f4 (MCP guard-wiring hole) · #149 ff377ef (Patch 2 —
+  both frozen-Model-A readers amputated out of /pm-review). All three merged by James on his
+  explicit per-PR instruction; CI green on every head; no --admin bypass at any point.
+- open PRs: #150 (this session's records, draft, needs ready-click) · #140 · #124 · #105 ·
+  #80 PARKED. #143 merged earlier.
+- migrations: 97 applied, latest 20260821080458. rs_fundamentals_pit.currency PRESENT —
+  0044 IS APPLIED and its Saturday deadline is discharged (verified at the primary source, not
+  from the inbox row, which was still 🔴 and misled two advisors into escalating it). Residual:
+  main's REQUIRED_MIGRATIONS = 96 lags the observed 97; the bump sits on unmerged branch
+  claude/asx-stock-evaluation-p0hxx2. 0045 remains unapplied.
+- tests (this sandbox venv): 2200 collected, 20 collection errors — all the documented
+  joblib/lightgbm sandbox gap, RE-DERIVED with `pytest tests/ -q --co | grep '^ERROR'` per
+  CLAUDE.md rather than trusted from a list. CI (full-check) is the real gate.
+- Routines: BOTH still paused since 2026-07-18T23:18 UTC (7a trig_01BA3VmfzoRMtjKnt6XNpgPH and
+  the secperf WRITE loop trig_011o24xerepfL9Cq3abtrJ3M). Verified live via list_triggers this
+  session — next_run_at on both is >30 days in the past. Cause: user-paused (both ended_reason
+  and suspension_reason absent, while a send_later row in the same listing carries
+  "ended_reason":"run_once_fired", proving the field is emitted when set). James's stated
+  reason: "the briefs weren't worth reading." 7a revival was STOPPED at gate G1 by his ruling.
+- OWED, and the reason it is owed matters: #149's completion artifact (/pm-review HUBS.NYSE
+  showing four agents and zero Model A figures) is NOT observed. The authoring session could
+  not produce it — agent definitions load at session start, so it still held the
+  pre-amputation versions and running it there would have reproduced the leak. A fresh session
+  owes this run. Ledger row reads did_it_work: PENDING per L18.
 ```
 
 _Recorded by the 2026-08-19 interactive `/arbi` wake, extended via `/arbi-run "ingest and

@@ -93,12 +93,20 @@ unaccountable — the value is the spec/rules-anchored narrowness).
 ## Investment-analysis agents (5)
 
 Added after the system-architect strategic review (2026-06-29). These are a distinct
-category from the conformance agents: they query **live Supabase data** (signals,
-prices, theses, holding_lots, portfolio_daily_snapshots) and produce evidence-grounded
-analysis of the portfolio's current state. Every output cites a specific data point —
-no unanchored opinion. They are the building blocks toward a future portfolio-manager
-synthesizer agent. Tools include `mcp__supabase-ro__execute_sql` (read-only DB role;
-repointed 2026-07-21 per `m14_candidate_agent_db_role_scoping`).
+category from the conformance agents: they query **live Supabase data**
+(prices, theses, thesis_revisions, holding_lots, portfolio_daily_snapshots) and produce
+evidence-grounded analysis of the portfolio's current state. Every output cites a
+specific data point — no unanchored opinion. They are the building blocks toward a
+future portfolio-manager synthesizer agent. Tools include
+`mcp__supabase-ro__execute_sql` (read-only DB role; repointed 2026-07-21 per
+`m14_candidate_agent_db_role_scoping`).
+
+**None of them reads `signals` (2026-08-21).** PR #144 deleted every writer to that
+table and the SHAP producer, leaving it frozen; two of these agents were still reading
+it and returning stale Model A output presented as current into `/pm-review`, which
+informs real holding decisions. Both were amputated — see the entries below. The
+read-only role permits any SELECT, so *not reading it* is the control, not a
+permission. Never reintroduce a `signals` read here (rule #11).
 
 Their SQL is **verified against the live schema** (Stage 2, 2026-06-29): every column
 each agent SELECTs was dry-run against the database. Key column truths to preserve when
@@ -107,11 +115,16 @@ editing them: `theses` uses `entry_band_lower/upper`, `timeline_days`, `opened_a
 closed = `'exited'|'expired'`) — NOT `entry_price_*`, `timeline_months`, `thesis_date`,
 or any `event_type='closed'` predicate. `thesis_revisions` uses `revision_type` (not
 `event_type`). `profiles` exposes `sector_cap_pct`/`per_name_cap_pct`/`excluded_*`
-columns — there is **no** `constraints_json`. `signals.model='model_a'`.
+columns — there is **no** `constraints_json`. There is **no** unique constraint
+guaranteeing one active thesis per symbol — resolve one with `ORDER BY opened_at DESC
+LIMIT 1` rather than assuming.
 
-- **thesis-coherence-guard** — compares current ML signal SHAP factors against the
-  written thesis rationale. Verdicts: COHERENT / NEEDS REVIEW / CONTRADICTED. Invoke
-  when a signal label changes on a held position or before committing a thesis revision.
+- **thesis-coherence-guard** — reads an active thesis's revision cadence and reports
+  whether it is being held on evidence or on inertia. Verdicts: EXAMINED / NEEDS
+  REVIEW / UNEXAMINED. Lifecycle rows (`opened`, `entered`, `status_change`) do not
+  count as re-examination. **Amputated 2026-08-21** — its signal-vs-thesis SHAP steps
+  read the frozen `signals` table; it is also no longer in the `/pm-review` fan-out.
+  Invoke directly, on demand.
 - **benchmark-performance-analyst** — computes portfolio return vs XJO total-return
   benchmark (MTD, YTD, since-inception) and attributes alpha to selection vs
   allocation. AXJO.INDX ingestion is wired (Stage 1); benchmark columns populate once
@@ -121,19 +134,25 @@ columns — there is **no** `constraints_json`. `signals.model='model_a'`.
   to hit its target within its timeline. Classifies ON TRACK / BEHIND / STALLED /
   STOP VIOLATED / ABOVE TARGET. Distinct from the brief's timeline-expiry check.
 - **portfolio-coherence-reviewer** — checks the live portfolio against the user's own
-  stated framework: conviction vs position size, signal vs holding, sector vs profile
-  cap, stop proximity. Surfaces undocumented deviations only.
+  stated framework: conviction vs position size, sector vs profile cap, cash drag,
+  theme coherence, stop proximity. Surfaces undocumented deviations only.
+  **Amputated 2026-08-21** — its "signal vs holding" section read the frozen `signals`
+  table and emitted an ever-growing staleness counter on a dead SELL label.
 - **market-context-narrator** — a 3-sentence backdrop (regime + one macro driver +
   one sentiment/regulatory data point) from `market_context_current`,
   `regulatory_events`, and `signal_sentiment`. The "here's what's going on in the
   market" input to a portfolio review. Every sentence carries a number or named source.
+  (`signal_sentiment` is news-sentiment aggregation, **not** Model A output, despite
+  the name; `market_context_current` is its own table from migration `0013`.)
 
 The path to a full portfolio-manager synthesizer, now complete: **Stage 1 (done)** wired
-the data pipeline (AXJO.INDX ingestion, steady-state SHAP in the brief, benchmark
-rendering); **Stage 2 (done)** corrected and live-validated the analysis agents' SQL and
+the data pipeline (AXJO.INDX ingestion, benchmark rendering; the steady-state SHAP half
+was removed by PR #144 with the rest of Model A's producers); **Stage 2 (done)**
+corrected and live-validated the analysis agents' SQL and
 added the pure-Decimal `theses/trajectory.py` + `benchmark/returns.py` helpers;
 **Stage 3 (done)** added the market-context narrator (5th agent); **Stage 4 (done)** is
-the `/pm-review [SYMBOL]` slash command that fans out all five agents from the main loop
+the `/pm-review [SYMBOL]` slash command that fans out four of the five agents from the
+main loop
 (a subagent cannot spawn subagents) and synthesizes the "good buy / bad buy / here's why"
 read into a verdict — **GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE** — with the strongest
 evidence for and against, each traced to a cited agent output.
