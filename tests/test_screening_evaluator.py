@@ -748,7 +748,13 @@ async def test_liquidity_uses_fixed_denominator_not_rows_present() -> None:
     trading 10 days in 90 would be scored on those 10. A stock that trades one
     day in nine is illiquid however busy those days were — the fixed nominal
     90-trading-day denominator says so, and understating liquidity is the safe
-    direction of error for a gate that exists to keep names OUT."""
+    direction of error for a gate that exists to keep names OUT.
+
+    Safe for THIN names ONLY. The divisor is fixed at 90 while the window is
+    bounded in calendar days, so it scales every ADV by N/90 for N priced days;
+    above 90 that OVERSTATES and admits. See _AVG_DAILY_VALUE_SQL. This
+    docstring previously asserted the safety unqualified — and it is the exact
+    place a reader checks to learn whether the denominator is deliberate."""
     conn = _make_conn(10, [], coverage=_full_coverage())
     await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
     query = conn.fetch.await_args.args[0]

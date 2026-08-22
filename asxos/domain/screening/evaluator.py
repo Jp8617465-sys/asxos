@@ -167,23 +167,21 @@ _DEBT_TO_EQUITY_SQL = "(CASE WHEN pit.total_equity > 0 THEN pit.net_debt / pit.t
 #      of 90 would be scored on those 10 days alone. A name that trades one day
 #      in nine is illiquid however busy those days were.
 # Both choices deliberately UNDERSTATE liquidity for thin names. For a gate
-# whose job is to keep untradeable names out, understating fails safe.
+# whose job is to keep untradeable names out, understating fails safe — but
+# only for thin names: the same fixed divisor scales EVERY ADV by N/90, for N
+# priced days in the window, and N sits either side of 90 as the exchange
+# calendar moves (130 days is always 92–94 weekdays, less in-window holidays,
+# so a Christmas–Easter window can fall to ~87). Above 90 it ADMITS, which is
+# accepted — a match is a research-queue entry, not an order. N/90 is the
+# durable claim; one dated anchor for magnitude: N=92 on 2026-08-22 → +2.2%,
+# lifting a true A$48,913 ADV to exactly A$50k at a A$50k gate.
 #
-# But "fails safe" is scoped to thin names, and the scoping is load-bearing:
-# the window is bounded in CALENDAR days (130) while the denominator is a
-# FIXED 90, so the count of trading days inside it varies. When it exceeds 90,
-# a FULLY-traded name is OVERSTATED by (N - 90) / 90 -- measured 2026-08-22,
-# N = 92, so +2.2%, moving a true A$48,900 ADV to A$50,000 at a A$50k gate.
-# That direction admits rather than excludes, which is the direction this gate
-# exists to guard. It is accepted, not overlooked: the error surfaces a
-# marginally-thin name into a queue for HUMAN research -- not a position, not
-# an order -- and it errs toward showing a borderline name rather than hiding
-# a good one.
-#
-# Counting actual trading days instead would be a BEHAVIOUR change: it moves
-# every ADV and would invalidate the pre-registered expected count that
-# `screening_rules` already stores for the live rule. Do it as a deliberate,
-# re-pre-registered change to the gate, never as a drive-by correctness fix.
+# Correcting the divisor to count real trading days is a BEHAVIOUR change, not
+# a correctness fix: it moves EVERY ADV, so past screening_runs counts stop
+# being comparable to future ones under a byte-identical rule_json_snapshot —
+# the reinterpretation that snapshot exists to prevent, and cannot catch,
+# because the change lives in code rather than in rule_json. Deliberate and
+# re-pre-registered, never a drive-by.
 #
 # Honest limit: this is still a mean, so a single large crossing inflates it.
 # The robustness check is the median daily value, which needs a percentile
@@ -270,7 +268,7 @@ _BASE_CTES_SQL = """
             -- same guard precisely because live rows arrive future-dated, and
             -- nothing stops prices doing likewise. Measured, one future row
             -- overstated a symbol's ADV by ~524x -- and unlike the two
-            -- understatement hazards below, overstatement ADMITS an
+            -- understatement hazards above, overstatement ADMITS an
             -- untradeable name, the inverse of this gate's purpose.
             WHERE dt > CURRENT_DATE - 130 AND dt <= CURRENT_DATE
             GROUP BY symbol
