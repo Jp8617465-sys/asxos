@@ -2,9 +2,7 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-08-11 (`/arbi-close`, retrospective — the 08-11 build session shipped five
-merged PRs and stood down without a close; this refresh reconciles the defect list against `main`
-@ `7aa8507`. See "PROGRAMME REFRAME" immediately below; the 2026-07-14 notes are retained as history)
+**Last verified:** 2026-08-22 (`/arbi-close`, merge-train close — `main` @ `62ccceb` after #155/#151/#154/#152. Stages 4/5/6 remain not-started; W1-1 is P5 integration evidence, not Stage 4. See Last wake snapshot. The 08-11 retrospective line is retained as history below the docs-truth corrections.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
 **reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
 records were annotated, not rewritten: a SUPERSEDED banner on the In-flight entry, an inline
@@ -55,6 +53,11 @@ remains valid but is governor-scoped decisions, not build work.
 | **4** | One governed paper investment case, end-to-end (**new screened candidates** — governor ruling) | not started |
 | **5** | Outcome learning — **initially a process audit + descriptive outcome evidence**, not statistical validation | not started |
 | **6** | Portfolio scale + surface cutover | not started |
+
+_2026-08-22 close note (does not change any Stage cell):_ W1-1 (`asxos_pit_db`,
+#155) is **P5 integration evidence**, not Stage 4 or Stage 5 complete. SB1-02 →
+SB3-01 (#152) is packet-lane work, not Stage 2/3 complete. Do not flip a Stage
+cell because a work order landed.
 
 ### Queued after the current remediation work (James, 2026-08-12)
 
@@ -728,6 +731,16 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+> ⚠️ **2026-08-22 merge-train close — read this first.** Four production PRs
+> squash-merged to `main` under James's I6 instruction, sequence
+> #155 → #151 → #154 → #152 (`d7e8242` · `67b3bae` · `f0b8f9c` · `62ccceb`).
+> W1-2 (V1 brief section) was CHALLENGEd and did not run. **#153 remains
+> open** (draft, `CONFLICTING`) — it is a dream overlay that still carries
+> the #152 production lane; do **not** merge it as a second SB PR. Dream-only
+> rebase onto `62ccceb` is required before any `/arbi-promote`. Stages 0→6
+> table is unchanged: Stage 4/5/6 still **not started**. The 2026-08-20
+> SUPERSEDED banner below is historical and is not current in-flight.
+
 > ⚠️ **SUPERSEDED 2026-08-20 — read this before the entry below.** Two of the four PRs described
 > here have since merged, a fifth (**#144**, opened after this entry was written) deleted Model
 > A, and one claim below is now the reverse of the truth. Current state:
@@ -849,6 +862,14 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   commits + 10 conflicts through main for two clean units. **Zero open PRs** as of this close.
 
 ## Ranked next-action queue
+
+> **Live as of 2026-08-22 merge-train close.** The Stages 0→6 table at the
+> top of this file remains the only ranked queue. After the train, **James
+> names the next unit.** Do not treat W1-2 (V1 brief section) as #1 — it was
+> CHALLENGEd (recency overfit / experience-layer polish / ladder inversion).
+> Packet-first renderer stays P6-01 / Stage 6. #153 is a dream candidate, not
+> a production next-action. Written later-candidates that are *not* auto-#1:
+> screening seed INSERT (I5), apply 0045 (I5), MCP principal repoint (James).
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
@@ -1122,6 +1143,20 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-22 merge-train `/arbi-close`. Supersedes the same-day W1-1 snapshot below._
+
+```
+Close: 2026-08-22 (James: /arbi-mission plan → CHALLENGE on W1-2 → I6 merge train)
+- main @ 62ccceb
+- Merged: #155 d7e8242 · #151 67b3bae · #154 f0b8f9c · #152 62ccceb
+- Held: #153 (dream overlay; CONFLICTING; unique commits a976173 + 450709e)
+- W1-2 CHALLENGE honored — no brief section
+- REQUIRED_MIGRATIONS=97 on main; latest applied 20260821080458; 0045 unapplied
+- /pm-review HUBS.NYSE OBSERVED (REVIEW; zero Model A)
+- renders: TLS.AU FY2024 PIT abstain (from #155)
+- Next: James names the unit. Do not merge #153 as a second SB PR.
+```
 
 _Recorded by the 2026-08-22 W1-1 `/arbi-close`. Supersedes the same-day #154 snapshot below._
 
