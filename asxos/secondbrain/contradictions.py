@@ -24,6 +24,7 @@ from asxos.secondbrain.project_state import (
     FieldObservation,
     ProbeRecord,
     ProjectStateSnapshot,
+    leaves,
 )
 
 __all__ = [
@@ -182,14 +183,6 @@ Two limits, stated rather than silently held:
 """
 
 
-def _leaves(snapshot: ProjectStateSnapshot) -> dict[str, FieldObservation]:
-    return {
-        f"{section}.{field}": getattr(getattr(snapshot, section), field)
-        for section in ("repository", "github", "production", "data")
-        for field in type(getattr(snapshot, section)).model_fields
-    }
-
-
 def _probes_by_name(snapshot: ProjectStateSnapshot) -> dict[str, ProbeRecord]:
     """First probe of each name wins — see :func:`_check_duplicate_probes` for why.
 
@@ -298,7 +291,7 @@ def _check_leaf_probe_agreement(
     found: list[Contradiction] = []
     probes = _probes_by_name(snapshot)
 
-    for path, leaf in _leaves(snapshot).items():
+    for path, leaf in leaves(snapshot).items():
         probe = probes.get(path)
 
         if leaf.status == "observed" and probe is None:
@@ -377,11 +370,11 @@ def _check_cross_source(
     rules: Iterable[CrossSourceEquality],
 ) -> list[Contradiction]:
     found: list[Contradiction] = []
-    leaves = _leaves(snapshot)
+    by_path = leaves(snapshot)
     probes = _probes_by_name(snapshot)
 
     for rule in rules:
-        leaf = leaves.get(rule.left_path)
+        leaf = by_path.get(rule.left_path)
         probe = probes.get(rule.right_probe)
         if leaf is None or probe is None or probe.status != "observed":
             continue
@@ -408,10 +401,10 @@ def _check_leaf_internal(
     snapshot: ProjectStateSnapshot, rules: Iterable[LeafInternalEquality]
 ) -> list[Contradiction]:
     found: list[Contradiction] = []
-    leaves = _leaves(snapshot)
+    by_path = leaves(snapshot)
 
     for rule in rules:
-        leaf = leaves.get(rule.path)
+        leaf = by_path.get(rule.path)
         if leaf is None:
             continue
         left = _mapping_value(leaf, rule.left_key)
@@ -503,7 +496,7 @@ def check_transition(
             )
         )
 
-    prev_leaves, cur_leaves = _leaves(previous), _leaves(current)
+    prev_leaves, cur_leaves = leaves(previous), leaves(current)
 
     for path, key in _MONOTONIC_COUNTERS:
         before = _mapping_value(prev_leaves[path], key)

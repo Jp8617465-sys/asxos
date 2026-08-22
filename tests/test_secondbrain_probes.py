@@ -26,22 +26,13 @@ from asxos.secondbrain.probes import (
     run_probes,
     sql_data_probes,
 )
-from asxos.secondbrain.project_state import FieldObservation, ProjectStateSnapshot
+from asxos.secondbrain.project_state import ProjectStateSnapshot, leaves
 
 OBSERVED_AT = datetime(2026, 8, 21, 6, 0, tzinfo=UTC)
 
 
 def _const(value: JsonValue) -> ProbeSpec:
     return ProbeSpec("data.coverage", "test:const", lambda: value)
-
-
-def _leaves(snapshot: ProjectStateSnapshot) -> dict[str, FieldObservation]:
-    """Every schema leaf keyed by its dotted path, read off the models themselves."""
-    return {
-        f"{section}.{field}": getattr(getattr(snapshot, section), field)
-        for section in ("repository", "github", "production", "data")
-        for field in type(getattr(snapshot, section)).model_fields
-    }
 
 
 # --------------------------------------------------------------------------
@@ -154,20 +145,20 @@ def test_every_field_path_resolves_from_its_matching_probe() -> None:
     assert snapshot.github.open_prs.value == "github.open_prs"
     assert snapshot.production.scheduler_owners.value == "production.scheduler_owners"
     assert snapshot.data.coverage.value == "data.coverage"
-    assert all(leaf.status == "observed" for leaf in _leaves(snapshot).values())
+    assert all(leaf.status == "observed" for leaf in leaves(snapshot).values())
 
 
 def test_field_paths_covers_exactly_the_schema_leaves() -> None:
     """A schema change is a version bump — it must break here, not silently remap."""
     snapshot = build_snapshot([], snapshot_id="snap-empty", observed_at=OBSERVED_AT)
-    assert set(_leaves(snapshot)) == set(FIELD_PATHS)
+    assert set(leaves(snapshot)) == set(FIELD_PATHS)
 
 
 def test_unprobed_leaf_is_unavailable_rather_than_omitted() -> None:
     snapshot = build_snapshot([], snapshot_id="snap-empty", observed_at=OBSERVED_AT)
 
-    assert all(leaf.status == "unavailable" for leaf in _leaves(snapshot).values())
-    assert all(leaf.value is None for leaf in _leaves(snapshot).values())
+    assert all(leaf.status == "unavailable" for leaf in leaves(snapshot).values())
+    assert all(leaf.value is None for leaf in leaves(snapshot).values())
 
 
 def test_failed_probe_propagates_its_status_to_the_leaf() -> None:
@@ -328,7 +319,7 @@ def test_one_unserialisable_probe_does_not_abort_the_whole_snapshot() -> None:
     snapshot = build_snapshot(records, snapshot_id="snap-partial", observed_at=OBSERVED_AT)
 
     assert snapshot.repository.base_sha.status == "error"
-    observed = [name for name, leaf in _leaves(snapshot).items() if leaf.status == "observed"]
+    observed = [name for name, leaf in leaves(snapshot).items() if leaf.status == "observed"]
     assert len(observed) == len(FIELD_PATHS) - 1
 
 

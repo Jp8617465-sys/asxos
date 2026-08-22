@@ -29,6 +29,7 @@ from asxos.secondbrain.project_state import (
     ProductionState,
     ProjectStateSnapshot,
     RepositoryState,
+    leaves,
 )
 from asxos.secondbrain.roadmap import (
     RoadmapCompileError,
@@ -58,5 +59,6 @@ __all__ = [
     "RoadmapSelection",
     "compile_execution_plan",
     "compile_execution_plan_file",
+    "leaves",
     "select_next_item",
 ]
