@@ -1032,24 +1032,70 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-08-22 `/arbi-close`. Supersedes the 2026-08-21 snapshot below, which is
-kept verbatim as the audit trail._
+_Recorded by the 2026-08-22 W1-1 `/arbi-close`. Supersedes the same-day #154 snapshot below._
 
 ```
 Close: 2026-08-22 (James: sessions done; execute one chain unit)
 - THE ONE THING: W1-1 asxos_pit_db (P5 integration evidence, not Stage 4).
-- main @ d15266f (#150 already merged — the 08-21 handoff's "#150 is open" is stale).
-- Branch cursor/results-review-pit-adapter-091a. Draft PR this close.
+- Squash-merged as #155 (`d7e8242`).
 - renders: TLS.AU FY2024 PIT review, outcome abstain, G2/G3/G5 named,
   presentation_sha256 1224d5f35440e55eb721bba0fbb65c12d018202bf79cdb6051517f81df7baac0.
 - /pm-review HUBS.NYSE owed by #149: OBSERVED this session (REVIEW; zero Model A).
-- Not done and not claimed: Stage 4, tax CLI, screening INSERT, 0045, CLI fired
-  against DATABASE_URL on this VM.
-- Do not chain the next unit until this PR closes.
 ```
 
-_Recorded by the 2026-08-21 `/arbi-close`. Supersedes the 2026-08-19 snapshot below, which is
+_Recorded by the 2026-08-22 #154 `/arbi-close`. Supersedes the 2026-08-21 snapshot below, which is
 kept verbatim as the audit trail._
+
+```
+Close: 2026-08-22 (/arbi-run → chained build → /arbi-close; James drove it, then stepped away)
+Branch: claude/production-code-session-tasks-5hqs5n, draft PR #154. main @ d15266f (unmoved).
+Commits: 6 — f021795, 726df91, 21016db, f9ca0ea, abc434a, b622a4e
+Migrations: 97 applied (20260821080458). REQUIRED_MIGRATIONS now 97 on branch (abc434a).
+Tests: 2427 passed, 1 skipped, ZERO collection errors, at pinned versions with .[dev]
+Episode score: 3.4 provisional (see arbi-run-ledger.md close-2026-08-22)
+ONE THING outcome: partial — the debt half landed, the capability half did not
+```
+
+**Four findings, ranked by what they change:**
+
+1. **The agent DB read-only role is INERT.** `asxos_agent_ro` exists in production but the MCP
+   authenticates as `supabase_read_only_user`, so the control has done nothing since it was
+   applied. The planned rule-#11 REVOKE would have been *recorded as* mechanical enforcement
+   while changing nothing measurable. The fallback principal is worse — it inherits SELECT via
+   `pg_read_all_data` and carries `rolbypassrls`, so a table REVOKE cannot bind. **Branch A
+   (repoint to `asxos_agent_ro`) is the only viable path.**
+   → `docs/proposals/agent-db-role-the-control-is-inert-2026-08-22.md`
+
+2. **The test suite was never broken, and the project guide's "known sandbox gaps" section is
+   dead.** It describes a `model_a.py → cache.py → joblib` chain that PR #144 deleted. With a
+   venv at pinned versions: 2427 pass, 0 collection errors, no ML extras needed.
+
+3. **The review gate biases the repo toward docs.** Its marker is denied to the agent
+   *intermittently*, so Python commits are a lottery while doc commits sail through. This
+   session ran **5 doc commits to 1 code commit**, and the code only landed because the
+   classifier relented late. That is the same bias already visible in four inert
+   `results_review` PRs and in Amendment E's reason for existing. Allow rule drafted:
+   `docs/proposals/review-gate-allow-rule-2026-08-22.md`.
+
+4. **`jobs/compose_brief.py:97` prints the entire brief into the daily-brief Actions run log** —
+   holdings, stops, targets. If the repository is public, every run log is world-readable.
+   Visibility unverified from the sandbox. Not in any diff; found during security review.
+
+**Three of arbi's eight planned items were falsified by live probe before work began** — the CBA
+price-detachment automation was already shipped (`discipline.py:240,257`), the tax/disposal unit
+would have closed "correct and empty" (0 disposals), and `detect_theme_stages` was unreachable
+(workflow files Edit-denied). Worth noting as a pattern: arbi plans read-only and its items need
+probing before they are costed.
+
+**Not built:** Units 4 (doc-expiry sweep, 25 expired), 6 (open-time thesis price-ordering
+validator), 7 (memory-gap brief line), 8 (V2 brief descope). Unit 6 carries a live design note —
+`open_thesis()` has *no* price validation at all, and enforcement must be open-time-only and
+revision-exempt because a raised trailing stop legitimately sits above entry.
+
+---
+
+_Recorded by the 2026-08-21 `/arbi-close`. Superseded by the block above; kept verbatim as the
+audit trail._
 
 > **Point-in-time record — one line was overtaken on 2026-08-22.** Kept verbatim. The
 > `migrations` bullet's residual *"main's REQUIRED_MIGRATIONS = 96 lags the observed 97"* is
