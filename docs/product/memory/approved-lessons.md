@@ -513,3 +513,379 @@ ellipsis and two of the three candidates in this batch paraphrased it; both are 
 > and its boundary note explicitly forbids citing it to delete an `ENFORCEMENT_KEEP` site. L23 is
 > a review procedure and grants no tier. The P1 Model A retirement **strengthens** the quarantine
 > and does not lift it.
+
+---
+
+## Promotion 2026-08-22 — from dream candidates 2026-08-17, 2026-08-18, 2026-08-22
+
+_Provenance: three completed candidates (`completed: true`) graded in a context that did
+not produce them. Input SHAs are pinned in each candidate frontmatter. Gate:
+`rubrics/arbi-dream-promotion.md` — improve-one ✓ (state accuracy, repeated-mistake
+reduction, blocker prioritisation, scope control, handoff quality); regress-none ✓
+after the security-engineer amendments below. Boundary-adjacent second review
+(`security-engineer`, fresh context): PROMOTE-WITH-AMENDMENT on 17.2, 17.6, 17.10,
+17.12, 22.1, 22.2 (four would BLOCK unamended — amendments folded in). 18.3 PROMOTE.
+Holdout evals and `episode_score` trend **not run** (same honesty as the 2026-08-14
+batch; L26). 18.4 lands here, not in `project-facts.md` (that file is a pointer index
+with no original content). 17.3 → L19 amendment; 17.4 + 18.6 → L17 amendment;
+17.8 → L22 amendment; 17.10 → L23 amendment; 17.11 → L26 amendment; 18.5 → L11
+amendment. James's merge is the promotion; arbi never self-approves._
+
+## L27 — A destructive cleanup derives its targets from an enumeration, never from a class pattern; a flag whose only job is to defeat a safety interlock does not belong in the command (2026-08-17 dream)
+A cleanup written to remove **one** stopped agent's worktree matched every `agent-*`
+worktree and force-removed a **live, locked** builder worktree with `--force --force`.
+The second `--force` exists only to override the lock; the lock exists only to stop
+removal of an in-use worktree. Recovery happened because the builder had been told to
+commit incrementally — luck, not a control in the cleanup path.
+**Three defects, separable:** (a) the denominator was a name pattern, not an identity
+(L25's seed-vs-boundary rule, in a *destructive* context); (b) the interlock was
+pre-overridden, not reached after a refusal; (c) there was no pre-flight print of
+what would be removed.
+**Lesson:** a destructive command derives its target list from an explicit enumeration
+of identifiers, prints that list before acting, and carries no flag whose sole
+function is to defeat a safety interlock. If the interlock fires, that is the answer.
+**With L21:** worktree isolation creates a new destructive lifecycle. Promote them
+aware of each other.
+**Provenance:** session evidence, not in the 2026-08-17 handoff or ledger. A dream
+cannot amend a level-5 row.
+Evidence: `dream-candidates/archive/2026-08-17-dream.md` L-cand-17.1.
+
+## L28 — "Independent review" is a property of the reviewer's relationship to the work, not of how many passes were run (2026-08-17 dream)
+P2-04's `arbi-red-team` vet ruled that a builder's own extra review passes cannot
+satisfy `independent_of_author: Literal[True]`. A fresh zero-ownership reviewer
+returned PASS-WITH-FIXES and found a real gap: the advice-vocabulary grep omitted
+`allocate` and missed plurals.
+**Lesson:** a contract field that asserts a *relationship* (grader ≠ producer,
+arms-length, `independent_of_author`) is satisfied only by **changing who does the
+work**. Extra author-passes increase confidence and leave the asserted property false.
+The 2026-08-17 note that P2-02 "preserved independent review in separate documented
+passes" is a record of a deviation, not precedent.
+**Boundary note:** the s766B firewall is `_require_personal_use()` /
+`ASXOS_PERSONAL_USE=1` and `ASXOS_PORTFOLIO_BRIEF_ENABLED` (portfolio-conventions
+Part 0 Q1). The advice-vocabulary grep is a **template tripwire**, not "the one
+control guarding the s766B boundary." This lesson is only about who satisfies
+independence. It does not promote the grep to firewall status and does not license
+weakening, deleting, or relying solely on either control. P5–P6 stay never-standing.
+Evidence: `decision-log.md` 2026-08-17; `session-handoff-2026-08-17.md`.
+
+## L29 — Merge-train mechanics: `ready` re-triggers CI, a stacked PR is not auto-retargeted, and a strict up-to-date rule costs N rebuilds (2026-08-17 dream)
+Three platform facts, none guessable from the verb: (a) `gh pr ready` re-triggers CI,
+so `ready && merge` races its own checks — `--admin` bypasses staleness, not a check
+that has never run; (b) GitHub does not auto-retarget a stacked PR when its parent
+squash-merges unless the parent branch is deleted — flip `--base main` first or the
+merge lands in the parent; (c) a strict up-to-date ruleset makes every merge re-stale
+every other open PR.
+**Procedure:** flip every stacked PR to `main` first; then oldest-first
+`ready → wait-for-green → merge`; budget N rebuild rounds.
+Evidence: `session-handoff-2026-08-17.md`; ledger `campaign-2026-08-17` cost_efficiency 3.
+
+## L30 — A positive hook result is evidence about the one guard observed; authority-guard matches command text, and #158 is the authorized false-positive cut (2026-08-17 + 2026-08-22 dreams)
+`(a)` `authority-guard.sh` holds inside an isolated worktree because it canonicalises
+payload `.cwd`. That is **not** "the hook layer holds in a worktree." The other
+path/branch-anchored hooks were later found failing open in exactly that fan-out and
+were fixed separately (`tests/test_hook_worktree_scope.py`).
+`(b)` The same mechanism is text-based, so it false-positives on read-only commands
+whose *text* names a guarded file. Task #18 ended 2 of 11 drafts applied, 9 DENIED —
+those write denials are the product. The `grep`/`cat` denials are friction.
+**Live deny after #158:** deny iff (redirect target is authority) OR (`util_verb` ∧
+`authority_ref` on the command after scrubbing `/dev/null` and `/dev/stderr`). Bare
+`>>?` is not a `util_verb`. This lesson licenses **that split and no further
+write-path narrowing.** `unattended-guard.sh` is unchanged and remains the I5–I6
+unattended floor. The attended un-deny of `settings.json` / `hooks/` / `CLAUDE.md` is
+not standing and does not apply under `ARBI_UNATTENDED=1`.
+**Do not cite "grep/cat denials are friction" to strip `util_verb`∧`authority_ref`.**
+`cp`/`mv`/`tee` of an authority path is not a false positive. Text matching is not
+replaced by intent analysis.
+Evidence: `#112`; `#158`; `.claude/hooks/authority-guard.sh`; `tests/test_cursor_i56_hooks.py`.
+
+## L31 — Three verdict vocabularies coexist; each names a different object, and a new one ships with a negative test (2026-08-17 dream)
+B.3 decision-state answers *what James might do about a position*. P1-04 review
+states answer *whether the evidence is sayable*. Results-review
+(`complete|revise|abstain`) answers *whether the artifact is finished*. B.6 forbids
+a conversion function between the first two; the third is a third altitude, not a
+rival. `complete` is the most authorising-sounding English word in its set and still
+authorises nothing.
+**Lesson:** any new verdict vocabulary ships, in the same change, with the negative
+test that pins it away from every existing one. Prose cannot enforce
+non-promotability into an action vocabulary.
+Evidence: `contracts.ResultsReviewOutcome`; `test_authored_presentation_uses_neither_ruled_vocabulary`.
+
+## L32 — A repeatedly-surfaced trivial action that never lands is a routing defect, not a diligence defect (2026-08-17 dream)
+Two dark-launch expiries were carried by five consecutive `arbi-red-team` vets and
+still needed their own PR (`#120`) to become a `james-inbox.md` row. A vet's
+carried-forward observation has no owner, no queue entry, and no definition of done.
+Re-surfacing is detection; the row landing is remediation.
+**Lesson:** an observation a vet carries forward must terminate in a durable row
+before the mission it was raised in can close — the mission writes the row, or the
+finding is not discharged. Being trivial is exactly what keeps it off a code-mission
+task graph.
+Evidence: `james-inbox.md` via `#120`; five vets 2026-08-13 → 2026-08-17.
+
+## L33 — Deleting a writer changes the backup classification of everything it wrote, in the same change (2026-08-17 dream)
+`P1-02` (`#100`) deleted the `signal_outcomes` writer and the maturation job. From
+that commit, 60,072 `signal_outcomes` rows and 64,189 `signals` rows were no longer
+re-derivable, while `backup_irreplaceable.sh` still called `signals` "re-derivable"
+and never named `signal_outcomes`. The exposure ran until the 2026-08-17 archive.
+**Lesson:** "re-derivable" is a claim about a **live pipeline** and expires when that
+pipeline is deleted. Same-change question: *what did the deleted code write, and does
+anything still claim it can be regenerated?*
+**Boundary note:** this is backup classification of rule #11's *evidence*, not a
+change to rule #11. The quarantine stays standing. It does not license restoring a
+`signals` / `signal_outcomes` writer, re-running v1_5 decay, or using the archive as
+a live signal source for any capital decision (reading that archive is reading Model A
+output).
+Evidence: `#100` (`6fa2b21`); `#112`; `session-handoff-2026-08-17.md`.
+
+## L34 — An un-enacted lesson is not a control: the promotion backlog is itself a risk surface (2026-08-17 dream)
+L17–L26 sat drafted, graded, and security-reviewed in `#110` / `#125` while
+`approved-lessons.md` still ended at L16. In that window the same session minted
+"Amendment B" while an un-enacted Amendment B already existed — the exact defect L24
+names, with L24 written and waiting. A payload is a document awaiting a merge;
+`approved-lessons.md` is what a session actually reads.
+**Lesson:** the cost of a stalled promotion is not lateness — the lesson provides
+**zero protection** while it waits, and only James's merge ends the wait. The correct
+response to a stalled promotion is to close it, not to consolidate more on top of it.
+If the batch is too large to review in one sitting, the fix is a smaller unit, not a
+weaker gate.
+**Live status at this promotion:** L17–L26 *are* enacted (`#125`, 2026-08-18). This
+batch is the remaining 17.x / 18.x / 22.x backlog that 17.13 predicted. The gate
+stays; latency was the defect.
+Evidence: `#110`; `#125`; L-cand-17.13.
+
+## L35 — Run the path against production before you build on it; a review loop cannot see absent data (2026-08-18 dream)
+One live SQL query killed work order F5a after it had survived planning as the
+largest buildable item: `holding_lots` has **zero disposed rows**, and **nothing in
+the repository writes `disposed_at`** (many readers, zero writers — 26 non-test
+mentions, 0 assignments outside test fixtures). Six earlier units had passed full
+review loops and shipped inert. Review-after-build audits correctness; only running
+the path audits whether there is anything to be correct about.
+**Lesson:** before a work order is sized, run its actual read path against production
+and record the row count in the work order. This is the input-side twin of the
+output-side standing condition that a finished feature must render something.
+Evidence: `migrations/0001_initial.sql`; `asxos/domain/tax/positions.py`; F5a kill.
+
+## L36 — A fix is not safe because the defect it targets is real (2026-08-18 dream)
+Repairing a broken control **changes the threat model of everything downstream**,
+because the broken control was load-bearing as a *suppressor*. The R1 job-failure
+banner fix was aimed at a real defect and still carried: (a) a 27-hour Friday hole
+in a Sun–Thu brief that would have dropped `backup_irreplaceable` failures; (b) an
+egress path (`fallback_email.py`) that was survivable only because the broken filter
+never matched — widening the window made a bearer-token-shaped `error_message`
+email-reachable. Both fixed pre-merge in `#132` (redaction before truncation).
+**Lesson:** the review question is not "is this fix correct?" but **"what was
+protected by this thing being broken?"**
+Evidence: `#132`; `asxos/brief/compose.py` `_job_failures`; `fallback_email.py`.
+
+## L37 — An agent that cannot verify must name the failure and stop; a plausible zero is worse than a refusal (2026-08-18 dream)
+`sector-screener` twice declined to emit an honest-looking zero when it could not
+reach the database. Those refusals surfaced a harness defect (stale
+`mcp__supabase-ro__execute_sql` vs live `mcp__claude_ai_supabase-ro__execute_sql`)
+that a zero would have laundered into a claim about the ASX.
+**Lesson:** an agent that cannot verify its own inputs must name the failure and
+stop, and must not emit a value whose shape is indistinguishable from a real result.
+**"0" and "could not measure" must never render the same way.** This does not license
+opening a write-capable SQL path or substituting recollection / Model A for the
+missing probe.
+Evidence: eight discovery/analysis agents' frontmatter vs live connector name.
+
+## L38 — "No writer anywhere" is a different failure class from "no data yet" (2026-08-18 dream)
+`disposed_at` has readers and no writer. "No data yet" means the recording path
+exists and a person has not used it. "No writer anywhere" means a decision may
+already have been taken and nothing could have written it — that routes to **code**,
+not to another ask. The probe that separates them is one grep for a write site.
+**Lands here, not in `project-facts.md`:** that file is a pointer index with no
+original content; this is a durable distinction without a better home.
+Evidence: L-cand-18.1 box (0 write sites for `disposed_at`).
+
+## L39 — An authorisation changes intent; only a config change alters capability (2026-08-22 dream)
+James granted permission three times in one session (blanket override, then a named
+file, then "this one time"). All four subsequent attempts were refused — twice by
+`permissions.deny` before the hook, twice by `authority-guard.sh`, including a `cp`
+that only *backed up* `.claude/settings.json`. A sentence in a conversation does not
+edit configuration.
+**Lesson:** a spoken grant is Level 0 *intent*, not a config write and not a window
+grant. It never edits `permissions.deny`, hooks, or settings; never promotes I5–I6
+or P5–P6 to standing; never lifts s766B, rule #11, or migration 0042. After a grant,
+probe the **already-configured** capability on the narrowest *reversible* action,
+then stop and report. It does not license attempting a reserved surface, a merge, or
+treating a refusal as a defect to bypass. `#158`'s attended un-deny is a **merged
+config change**, not a verbal grant taking effect.
+Evidence: `docs/proposals/claude-config-patches-2026-08-22/README.md`; `#158`.
+
+## L40 — A text-matching guard generates false positives; #158 is the authorized cut, not a licence to keep cutting (2026-08-22 dream)
+Pre-#158, `authority-guard.sh` treated any redirect as a write verb and blocked
+commands that wrote nothing to an authority path. `#158` Fix A+B is the authorized
+false-positive reduction.
+**Live rule (do not promote the pre-#158 mechanism):** deny = (redirect-target is
+authority) OR (`util_verb` ∧ `authority_ref`) after scrubbing `/dev/null` /
+`/dev/stderr`; no bare `>>?` in `util_verb`. Remaining false positives are friction;
+the write denial is the product (same split as L30). This does not license dropping
+`util_verb`∧`authority_ref`, treating `cp`/`mv`/`tee` of an authority path as a
+false positive, replacing text matching with intent/effect analysis, or changing
+`unattended-guard.sh`. FN-avoidance is not replaced by intent analysis.
+Evidence: `#158`; `tests/test_authority_guard_hook.py` Fix A+B cases.
+
+## L41 — Attack your own validator before trusting it; reading it is not the same test (2026-08-22 dream)
+`scripts/roquery.py`'s SQL screen looked right when read. Attacking it found four
+bypasses, including `SELECT * INTO` (leading verb still `select`) and `nextval()` /
+`setval()` (Postgres read-only transactions **permit** sequence advancement — the
+docstring's "convenience over a server guarantee" layering is inverted for that
+case), plus `pg_read_file` / `lo_export`. Same pass: psycopg2's default cursor
+materialises the whole result before `fetchmany`, so `--max-rows` was decorative.
+**Lesson:** a screen whose claim is "rejects writes" must be mutation-tested with
+adversarial statements, not reviewed by eye. Same family as L11/L19, different
+mechanism: here the human reads their own regex and sees what they intended.
+Evidence: `tests/test_roquery.py::test_bypasses_found_by_adversarial_testing_are_refused`.
+
+## L42 — A run-history gap is not a failure until you have read the schedule (2026-08-22 dream)
+Two independent readers invented opposite defects from the same `daily-brief` run
+list. The cron is `30 20 * * 0-4` (Sun–Thu). Reconciled against the schedule: all
+ten scheduled days ran green; zero misses. Absence of an artifact is evidence only
+against a known expectation. The second error happened *during a correction*.
+**Lesson:** before calling a gap a miss, open the schedule. A correction is exactly
+when your own date arithmetic goes unchecked.
+Evidence: `.github/workflows/daily-brief.yml`; `roadmap-state.md` 2026-08-22 wake.
+
+## L43 — Buildable and closeable are different properties (2026-08-22 dream)
+`SB4-01` was technically unblocked and was parked: the packet places it in wave 4
+while the programme is at wave 3, and Amendment E bars closing a fixture-only row
+when zero emitted arbi briefs exist in history. The suite would have been built and
+then parked.
+**Lesson:** before starting a unit, check not only whether it can be built but
+whether its completion condition is reachable with the evidence that exists. A unit
+that cannot produce a closeable row is work that will need doing twice.
+Evidence: `session-handoff-2026-08-22.md`; Amendment E; `scripts/check_ledger_coverage.sh`.
+
+## L44 — The Nth duplicate is where consolidation happens; a written justification for keeping it is usually wrong on the mechanics (2026-08-22 dream)
+`leaves()` had been implemented three times and was consolidated. Hours later,
+`context.py` became the fourth byte-identical `ConfigDict(extra="forbid", frozen=True)`
+with a docstring justifying the copy — and the justification was wrong (pydantic
+resolves `model_config` through the MRO; a subclass may override it).
+**Lesson:** when a duplicate carries a written justification, check the justification
+against the framework's actual behaviour before accepting it. The cost of N copies is
+that a later strengthening must be applied N times, and the missed copy is a silently
+weaker freeze.
+Evidence: `asxos/secondbrain/_schema.py`; `docs/product/mission-context-schema-freeze-2026-08-22.md` §1.
+
+## L45 — An ahead-count is not a staleness check (2026-08-22 dream)
+A session ran `git rev-list --count origin/main..HEAD` (ahead) at least four times
+and never `HEAD..origin/main` (behind). Two commits already on `main` before the
+session's first commit (`#149` closed the `/pm-review` Model A leak in *two* agents;
+`#150` closed two inbox rows) were escalated all day as open, and a drafted patch C
+would have **regressed** the better fix.
+**Lesson:** a one-directional ahead-count reports a branch as healthy no matter how
+far the base has moved. Staleness is `HEAD..origin/main`. Re-read `main` before
+escalating a hazard or drafting a fix for it.
+Evidence: `#149` (`ff377ef`); `#150` (`d15266f`); L-cand-22.7.
+
+---
+
+## Amendment to L17 (2026-08-22 promotion) — dispatch-time probes, and re-count every "N things do X"
+
+**Dispatch (from 17.4).** L17 is about claims. The cheap application is *dispatch*: a
+stacked mission pre-flight-enumerates every assumed artifact (branch, merge state,
+document, table, credential), probes each, and writes the probe result into the
+report. A failed assumption caught at dispatch costs a re-plan; the same assumption
+caught at claim costs the mission.
+
+**Counts (from 18.6).** Any claim of the form "N things do X" is re-counted from the
+artifact immediately before it is written — including a count you produced earlier
+in the same session. When the count comes from a runtime, name the runtime in the
+same sentence. Direction survives; numbers do not. A correct measurement of a
+different interpreter is not a property of the code.
+
+---
+
+## Amendment to L19 (2026-08-22 promotion) — mutate the hazard, not a field
+
+L19 requires an observed failure. **17.3:** what you make fail must be the *hazard*
+— a mechanism by which two correct-looking runs disagree — not a field value. A hash
+test that only proves "change a field, the hash changes" is worthless. P2-05's
+mutations (hidden wall-clock read; one Decimal written two ways; mapping insertion
+order) found that pydantic's JSON render preserves a Decimal's written exponent:
+the presentation digest held while frozen `artifact_sha256` / `case_sha256` moved.
+Prove absence of a wall-clock read with an AST walk, not a grep — package docstrings
+name `datetime.now(UTC)` in order to say they never call it (L25(b) as test design).
+
+---
+
+## Amendment to L22 (2026-08-22 promotion) — a run on the wrong class of input leaves a prediction untested, not passed
+
+L22 covers the null-result case. **17.8** covers the wrong-population case. When a
+pre-registered prediction is about a *class* of input, a run on a different class
+neither confirms nor falsifies it — record **"untested"**, never "passed", and state
+the mechanical reason the classes cannot be silently conflated. P2-05's synthetic
+`hashed_fixture` cannot be `real` (`AcquisitionPath` +
+`validate_fixture_never_real`); the matrix prediction about the first *real* results
+review therefore stands untested even though the artifact returned `complete`.
+Do not launder a fixture result into a capability claim.
+
+---
+
+## Amendment to L23 (2026-08-22 promotion) — the useful answer to a broad loosening is the narrow alternative; lift-and-reinstate is fail-open
+
+When the governor asks for a blanket bypass or "unblock and reinstate at end of
+session," the useful draft is surgical grants with an L23 by-name enumeration — not
+the blanket. Lift-and-reinstate is fail-open: re-arming does not undo what crossed;
+the exit depends on the agent the window constrains; the catching layer is off
+precisely during peak activity.
+**This changes no tier and grants nothing.** I5–I6 and P5–P6 stay never-standing
+(`always_ask` / not-held), including inside any window. The un-liftable floor is
+that **full never-standing set** plus s766B, rule #11, and migration 0042 — not a
+four-item subset. A fail-closed window grant (James-placed, named-stops-only, never
+`"all"`, self-expiring, ignored for un-liftable stops) is a *drafted alternative*,
+not applied, not standing, and not a reason to honour a spoken bypass.
+
+---
+
+## Amendment to L26 (2026-08-22 promotion) — when an audit control is found broken, measure the downstream consumer first
+
+L26 predicted the third rediscovery. **17.11:** the first question is not "how do we
+fix it" but **"what has been consuming its output, and what did that consumer
+conclude while it was degraded?"** The ledger gap reached 19 of 22 uncited
+`claude/**` PRs and had already forced the 2026-08-14 promotion to record holdout
+evals and `episode_score` trend as NOT RUN. `scripts/check_ledger_coverage.sh`
+reports and cannot write a row (L18 clause 2). A missing row looks cosmetic; a
+promotion gate that silently graded "evals: not run" is not.
+
+---
+
+## Amendment to L11 (2026-08-22 promotion) — instances 8–9
+
+| # | Instance | The proxy accepted as evidence |
+|---|---|---|
+| 8 | 2026-08-18 hand-transcribed SQL (18.5) | a paraphrase of a query, run against production, treated as verification of the code path. Extract the literal statement from the source (or the composed string logged at runtime). A lesson scoped only to the subsystem where it was found (Phase 2a governance-trigger SQL) gets re-learned in the next subsystem. |
+| 9 | 2026-08-22 `/pm-review` hazard restated as open (22.7 / RM-1) | a stale *state* claim that was once true (`#149` had already closed it). A wrong number stays wrong; a stale state claim decays on its own. Re-read `main` (`HEAD..origin/main`) before escalating. |
+
+---
+
+## Safety carried verbatim (2026-08-22 promotion — never summarised, `arbi-dream-policy.md`)
+
+> **Rule #11 (`CLAUDE.md`, Non-negotiable rules), quoted in full:**
+> **STANDING (resolved 2026-07-11): do not use Model A output — signals, candidate scans,
+> allocator runs, or new thesis proposals derived from it — as a basis for real capital
+> decisions.** No longer "temporary/disputed": the decay analysis
+> (`docs/model-a-decay-analysis-2026-07-11.md`) shows on 19,032 matured signals that v1_5 has
+> **no usable edge** over the 5d/21d horizons this system holds for (`corr(ml_prob, 21d) =
+> −0.03`; STRONG_BUY 21d −0.09% vs HOLD +5.07% — conviction inverted at the top). Keep this rule
+> until a **new** model version passes a pre-registered decay bar (positive, monotonic
+> conviction→21d return) AND earns `approved_for_allocation` — do not remove it on the basis of
+> v1_5.
+
+> **s766B personal-advice firewall (`.claude/rules/portfolio-conventions.md`, quoted in full):**
+> Every CLI entry point and every job that touches portfolio data MUST call
+> `_require_personal_use()` (CLI) or check `os.environ.get("ASXOS_PERSONAL_USE") == "1"` (jobs).
+> This is the architectural firewall preventing personal-advice outputs (under s766B Corporations
+> Act 2001 / the Westpac v ASIC boundary) from being surfaced in a multi-user context.
+
+> **Permission tiers (`arbi-permission-model.md`):** "I5–I6 are irreversible → always
+> human-approved, never standing, regardless of track record." "**I5–I6 and P5–P6 are never
+> promoted to standing** — they are permanently `always_ask`/disabled/not-held by design."
+> "**Never promotable:** I5–I6 (irreversible infra), P5 (capital-policy change — draft-only
+> forever), P6 (execution — not a tool arbi holds). No track record unlocks these."
+
+> **Nothing in this promotion lifts, weakens, or reopens any of the above.** L28 does not
+> promote a grep to firewall status. L30/L40 license only the #158 deny split. L33
+> classifies evidence, it does not restore a writer or feed the archive into a capital
+> decision. L39 treats a spoken grant as intent, not config. L23's amendment grants
+> no window and no standing I5/I6.
