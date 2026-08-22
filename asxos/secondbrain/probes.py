@@ -194,7 +194,7 @@ class ProbeSpec:
     any other name is carried in ``probes[]`` only. ``source`` is a stable,
     secret-free identity for how the value was obtained.
 
-    A stdlib dataclass, not the package's pydantic ``_FrozenModel`` — this is
+    A stdlib dataclass, not the package's pydantic ``FrozenModel`` — this is
     deliberate, do not "fix" it. It carries a ``Callable``, which pydantic
     would only accept under ``arbitrary_types_allowed``, and it is an
     execution *input* rather than a persisted artifact. Everything that gets
