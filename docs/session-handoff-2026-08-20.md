@@ -1,8 +1,10 @@
 # Session handoff — 2026-08-20
 
-**Status:** current
-**Read priority:** read first
+**Status:** ~~current~~ **superseded** (corrected 2026-08-22 — this field was never updated when
+the next handoff landed, leaving two files both claiming "current / read first")
+**Read priority:** historical — read `docs/session-handoff-2026-08-21.md` instead
 **Supersedes:** `docs/session-handoff-2026-08-18.md`
+**Superseded by:** `docs/session-handoff-2026-08-21.md` (2026-08-21)
 
 ---
 
@@ -23,6 +25,15 @@ merged code (#142) UPSERTs it. `weekly-research.yml` runs `derive_fundamentals_p
 *ordered blocking step*, so the run fails there **and blocks `sync_fundamentals` beneath it**.
 Apply **Patch 0** (comment corrections) first — see below. This is arbi's defect: code and
 migration were drafted together, but only code could merge.
+
+> **DISCHARGED 2026-08-21 (annotated 2026-08-22).** `0044` was applied inside the deadline as
+> `20260821080458`; `rs_fundamentals_pit.currency` is present and the ledger reads **97**.
+> Patch 0's `COMMENT ON COLUMN` correction was made at apply time, so it is in the database —
+> do not re-apply it. `REQUIRED_MIGRATIONS` is bumped 96 → **97** by the 2026-08-22 change.
+> **Not discharged:** the repo copies of `0044` (still "DRAFT - NOT APPLIED", still carrying
+> the superseded comment text) and `0043` (still "PRODUCTION-READY — still unapplied") now
+> contradict production; both are `migrations/**` and Edit-denied to agents. `0045` is still
+> genuinely unapplied and its DRAFT header is correct.
 
 **3. `/pm-review` is unsafe until Patch 2 lands.** `thesis-coherence-guard` queries
 `FROM signals WHERE model='model_a'`. #144 deleted every writer, so it returns **frozen Model A
@@ -84,6 +95,9 @@ shape.** Dry-run read-only before it ships.
    one lands in `COMMENT ON COLUMN` as permanent metadata: 612→**530**, 14→**20**, 102→**947**).
    Then `0045` (not time-boxed — nothing runs `build_segment_map` yet). Then bump
    `REQUIRED_MIGRATIONS` from 96 to the **observed** count, not a guessed +1.
+   *(**Done 2026-08-21/22** for `0044`: applied as `20260821080458`, observed count **97**,
+   constant bumped 96 → 97. `0045` and the two stale `migrations/` headers remain open — see
+   the banner in "STOP — read first" §2.)*
 2. **Merge #146 and #143.**
 3. **Patch 1 — schedule `detect_theme_stages`** (un-refreshed since at latest 2026-08-12).
    ⚠️ Confirm the KEEP ruling is in force first: it is recorded as Amendment F, which lives only

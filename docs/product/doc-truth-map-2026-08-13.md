@@ -198,6 +198,19 @@ understating it, because promotion-gate integrity is claimed against it.
 text sits inside the 2026-08-11 *Last wake snapshot* (`roadmap-state.md:718-720`), which is a
 correctly-dated historical observation. **No correction required.**
 
+> **UPDATE 2026-08-22 — this KC has re-opened, one migration later, and the sweep's own
+> `migrations/**` blind spot is why.** `0044_fundamentals_pit_currency.sql` was applied to
+> production 2026-08-21 as `20260821080458` (ledger count **97**), and the repo copy of it
+> *still* reads `DRAFT — NOT APPLIED`; `0043`'s header still reads "PRODUCTION-READY — still
+> unapplied" despite the 2026-08-12 apply this section records. Both files are Edit-denied
+> (authority path `migrations/`), which is exactly why the sweep scored this KC clean: it
+> checked the *prose* corpus, where the annotate-in-place discipline held, and could not
+> correct the two SQL headers that actually assert the false state. **The KC-4 check must
+> read the migration headers, not only the docs.** `0045_segment_map.sql`'s "DRAFT — NOT
+> APPLIED" header is **correct** (still unapplied) — the fix is two files, not three.
+> Numbers as of 2026-08-22: `REQUIRED_MIGRATIONS = 97` (`asxos/api/main.py:14`), live ledger
+> **97**, on-disk ceiling `0045`, `0042` RESERVED.
+
 ### 2.5 [KC-5] Docs asserting Render is live
 
 Render was **deleted** (James, governor ruling 2026-08-12, `roadmap-state.md:116`). Recorded as
@@ -566,6 +579,23 @@ with:
   **RESERVED** for the parked rules-integrity branch and **must not be applied**.)
 ```
 
+> **⚠️ 2026-08-22 — do NOT apply the draft above verbatim; its numbers have moved and one
+> clause was never a safe thing to write.** Use this instead:
+>
+> ```
+> - **Schema is the migrations:** `../../../migrations/` (canonical, through **0045** on
+>   disk; `REQUIRED_MIGRATIONS = 97` in `asxos/api/main.py`; live
+>   `supabase_migrations.schema_migrations` = 97, latest `20260821080458`. `0042` is
+>   **RESERVED** for the parked rules-integrity branch and **must not be applied**; `0045`
+>   is drafted and not applied. Read the constant and the ledger — never a doc.)
+> ```
+>
+> The dropped clause is *"matching the live ledger"*. Equality is not the invariant and
+> baking it into a memory file teaches the wrong check: the API guard is
+> `count < REQUIRED_MIGRATIONS`, so a live count **above** the constant is the normal,
+> intended state of every apply-then-bump window (it happened on 2026-08-21: ledger 97,
+> constant 96, API booting fine). See §6.5 below for the corrected `SB2` check.
+
 ### 5.4 `docs/product/arbi-memory-policy.md` — resolve the internal contradiction
 
 Replace `:54-59` (the final paragraph):
@@ -772,13 +802,40 @@ of which would have caught real contradictions found here:
 | Check | Would have caught |
 |---|---|
 | Newest `session-handoff-*.md` on `main` == the one `docs/README.md` names | §2.1 |
-| `REQUIRED_MIGRATIONS` == max on-disk migration == live ledger count | §2.4 (already clean) |
+| ~~`REQUIRED_MIGRATIONS` == max on-disk migration == live ledger count~~ **See the 2026-08-22 correction below — this check is wrong as written** | §2.4 (re-opened 2026-08-22) |
 | Every `migrations/NNNN` described as "NOT applied" is absent from the live ledger | §2.7 |
 | Branch-protection JSON == every doc's description of it | §2.3 (3 disagreeing states) |
 | One `Last verified` date per file | §2.10 |
 | Every merged `claude/**` PR has a matching `arbi-run-ledger.md` row | §2.9 |
 | No doc cites a hard-coded sandbox-failure count | §3.4 |
 | No `dark-launch-exit-plan.md` surface is SHIPPED with a falsified condition | §3.1 |
+
+> **Correction 2026-08-22 — row 2 would have fired three false positives, and would have
+> demanded a change that breaks production.** The three-way equality is not an invariant of
+> this repo:
+>
+> 1. **max on-disk ≠ ledger count.** `0042` is RESERVED and will never be applied; `0045` is
+>    drafted and unapplied. On 2026-08-22 the on-disk ceiling is `0045` while the ledger reads
+>    97 — permanently divergent, by design.
+> 2. **ledger count ≥ `REQUIRED_MIGRATIONS`, not `==`.** The API guard is deliberately
+>    asymmetric (`asxos/api/main.py:24`, `count < REQUIRED_MIGRATIONS`). A migration is applied
+>    to production *before* the PR that records it can merge, so `count > REQUIRED_MIGRATIONS`
+>    is the normal state of every apply-then-bump window — 2026-08-21 ran a full day that way
+>    (ledger 97, constant 96) with the API booting. The runbook
+>    `product/runbooks/price-revisions-0043.md:138-141` states the ordering rule this protects.
+> 3. **The ledger counts rows, not files.** They are different denominators and were never
+>    guaranteed to coincide.
+>
+> The check that *is* sound, and that the corpus does violate:
+>
+> | Check | Would have caught |
+> |---|---|
+> | `REQUIRED_MIGRATIONS` ≤ live ledger count, and every applied ledger version has a `migrations/NNNN` file | a bump merged ahead of its apply (a real startup outage) |
+> | No `migrations/NNNN` header asserts "unapplied"/"DRAFT" while its version is present in the live ledger | `0043` and `0044`, both wrong on 2026-08-22 (§2.4 update) |
+>
+> This is also §6.5's own thesis turned on itself: *"a `compiled_view` was written with a
+> `current` label and no expiry"* — row 2 was written on a day the numbers happened to
+> coincide, and the coincidence was mistaken for the rule.
 
 ---
 

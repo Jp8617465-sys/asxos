@@ -3,6 +3,10 @@
 **Status:** findings recorded 2026-08-20; **two** code fixes landed on this branch (the
 derivation and the producer that originates the bad values), **three** patches pending James —
 each blocked by a session Edit denial, not a judgement call.
+**Correction 2026-08-22:** Patch 0 is **overtaken** — `0044` was applied 2026-08-21 and its
+`COMMENT ON COLUMN` was corrected at apply time. See the banner on Patch 0 for what remains
+(a repo-side file/database reconciliation, not a database change). Patches 1 and 2 are
+unaffected by this annotation.
 **Scope:** dry-runs the D1/D2/D3 substrate merged in PR #142 against **production, read-only**,
 because every test shipped with it was `FakeConn`-mocked. Records what live data falsified.
 **Owner:** arbi (findings + the two reversible code fixes); James (the three patches below).
@@ -160,6 +164,22 @@ The hybrid filter that ships in `sync_financial_statements.py` was replayed as l
 ---
 
 ## Patch 0 (JAMES) — fix `0044`'s comments BEFORE applying it
+
+> **OVERTAKEN 2026-08-22 — the apply already happened, and Patch 0 half-landed.** `0044` was
+> applied to production **2026-08-21** as `20260821080458` (ledger count **97**);
+> `rs_fundamentals_pit.currency` is present. Per `product/james-inbox.md`'s 2026-08-21 row, the
+> applying session corrected the `COMMENT ON COLUMN` text *at apply time*, so **Edit 2 is in the
+> database**. What did **not** happen is the repo-side edit: `migrations/0044_*.sql` still
+> carries the old `612 / 14 / 102` figures at `:9-10` and `:29` and still reads `DRAFT — NOT
+> APPLIED`, so the file and the database now disagree about both status and comment text.
+>
+> **What is still actionable, and what is not.** Edit 2 must **not** be re-applied to the
+> database — `COMMENT ON COLUMN` is already correct there, and a second migration to restate it
+> would be churn. The remaining work is bringing the repo file into line with production as a
+> documentation correction (`migrations/**` is Edit-denied to agents — James's action, listed in
+> the 2026-08-22 docs-pass handoff). Edit 1 (`:9-10`, header prose only, never entered the DB)
+> is still worth landing in the same pass. `0045_segment_map.sql` remains genuinely unapplied
+> and still needs no change.
 
 **Do this in the same sitting as the apply.** `migrations/0044_fundamentals_pit_currency.sql`
 carries two figures from an unscoped 2026-08-18 count that this validation supersedes, and one

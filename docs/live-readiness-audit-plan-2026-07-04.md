@@ -153,7 +153,8 @@ If a doc contradicts this map, trust the map's "authoritative source" column and
 
 ## Authoritative sources by area
 - Runtime/deployment: `../render.yaml` + live Render via MCP (`make check-drift`). No Blueprint connected — render.yaml is the reconciliation target, not auto-applied.
-- Schema: `../migrations/` + live `supabase_migrations.schema_migrations` (must equal `REQUIRED_MIGRATIONS` in `asxos/api/main.py`). `public.schema_migrations` is a dead legacy table.
+- Schema: `../migrations/` + live `supabase_migrations.schema_migrations` (~~must equal~~ **must be ≥ — see correction**, `REQUIRED_MIGRATIONS` in `asxos/api/main.py`). `public.schema_migrations` is a dead legacy table.
+  - **Correction 2026-08-22:** "must equal" was true as an *observation* on 2026-07-04 but is wrong as an *invariant*, and it has since been copied into `docs/README.md:39`. The API guard is asymmetric on purpose — `asxos/api/main.py:24` raises only on `count < REQUIRED_MIGRATIONS`. A live count *above* the constant is the normal state of every apply-then-bump window, because a migration reaches production before the PR recording it can merge (2026-08-21: ledger 97, constant 96, API booting all day). Tightening it to `!=` would turn each of those windows into a startup outage; the asymmetry is pinned by `tests/test_api_main.py::test_migration_drift_passes_above_required`. Nor does the file count match: `0042` is RESERVED forever and `0045` is drafted-not-applied, so on-disk ceiling (`0045`), ledger (**97**) and constant (**97**) are three different numbers by design.
 - Tax: `foundation/spec/tax-alpha.md` (v1.5 — TC-20 is implemented; spec-first per non-negotiable #8)
 - Governance: `proposals/governance-first-architecture-2026-06-30.md` + `../.claude/rules/portfolio-conventions.md`
 - Research store: `migrations/0027` for schema; the live DB for state (the schema doc's "applied-empty" header is a 2026-06-22 snapshot)

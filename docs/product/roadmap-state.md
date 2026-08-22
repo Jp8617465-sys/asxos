@@ -656,6 +656,10 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > **#142 merged** (`32ed2f5`) — note it **grew from docs-only to docs + L0 substrate** (D1/D2/D3
 > as real code) before merging, so "docs only" below is stale. Its migrations `0044`/`0045` are
 > **drafted and NOT applied**. ⏰ **`0044` is time-boxed: apply before Sat 2026-08-22 16:00 UTC.**
+> **→ `0044` APPLIED 2026-08-21** as `20260821080458` (ledger count **97**), inside the deadline;
+> `REQUIRED_MIGRATIONS` bumped 96 → **97** on 2026-08-22. **`0045` is still drafted and NOT
+> applied** — the sentence above remains true for it. The blocking-step failure described below
+> is therefore resolved for `derive_fundamentals_pit`.
 > `weekly-research.yml` runs `derive_fundamentals_pit.py` as an ordered blocking step, and the
 > merged code writes a `currency` column that does not exist in production — the step fails and
 > blocks `sync_fundamentals` below it. (Stated inline deliberately: the tracking `james-inbox.md`
@@ -1046,6 +1050,15 @@ Close: 2026-08-22 (James: sessions done; execute one chain unit)
 
 _Recorded by the 2026-08-21 `/arbi-close`. Supersedes the 2026-08-19 snapshot below, which is
 kept verbatim as the audit trail._
+
+> **Point-in-time record — one line was overtaken on 2026-08-22.** Kept verbatim. The
+> `migrations` bullet's residual *"main's REQUIRED_MIGRATIONS = 96 lags the observed 97"* is
+> **discharged**: the constant is bumped **96 → 97** (`asxos/api/main.py:14`), re-measured
+> against the live ledger the same day (97, latest `20260821080458`). The rest of the bullet
+> holds: `0045` is still unapplied, and the repo copies of `0043`/`0044` still assert
+> "unapplied"/"DRAFT" against a production that has both — a `migrations/**` (Edit-denied)
+> item now standing on James's inbox row. The "benign" judgement is now test-pinned:
+> `tests/test_api_main.py::test_migration_drift_passes_above_required`.
 
 ```
 Close: 2026-08-21 (session ran without a formal /arbi wake — James drove it directly)
