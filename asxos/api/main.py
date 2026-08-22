@@ -11,7 +11,7 @@ from asxos.config import BriefSettings, settings
 _brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
 
-REQUIRED_MIGRATIONS = 96  # bump each time a new migration is applied; 0043 (price_revisions, applied 2026-08-12 as 20260812092925; 0042 reserved by parked PR #80) — observed count from supabase_migrations.schema_migrations
+REQUIRED_MIGRATIONS = 97  # bump each time a new migration is applied; 0044 (fundamentals_pit_currency, applied 2026-08-21 as 20260821080458; 0042 reserved by parked PR #80; 0045 segment_map NOT applied) — observed count from supabase_migrations.schema_migrations
 
 
 async def _check_migration_drift() -> None:
