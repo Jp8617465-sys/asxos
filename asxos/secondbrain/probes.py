@@ -12,12 +12,19 @@ WHY THIS EXISTS
     while holding rows). This module is the producing seam.
 
 WHAT IT DOES NOT DO — and must never do
-    Every probe is READ-ONLY (freeze doc, "No write probes"). Nothing here
-    mutates a row, calls a mutating API, or writes any file this repo tracks.
-    It also never writes the snapshot to disk: producing the artifact stays a
-    wake-time act, for the same reason ``check_project_state.py`` never
-    repairs one — a fabricated snapshot is worse than a stale one, because
-    the next wake trusts it.
+    Every probe this module DEFINES is read-only (freeze doc, "No write
+    probes"): nothing here mutates a row, calls a mutating API, or writes any
+    file this repo tracks. It also never writes the snapshot to disk —
+    producing the artifact stays a wake-time act, for the same reason
+    ``check_project_state.py`` never repairs one: a fabricated snapshot is
+    worse than a stale one, because the next wake trusts it.
+
+    That guarantee does NOT extend to probes it is handed. ``ProbeSpec.run``
+    is a caller-supplied callable and :func:`execute_probe` invokes whatever
+    it is given, so a write is reachable through a caller's own probe. This is
+    the same caller responsibility that ``QueryRunner`` and ``ProbeSpec``
+    state for the connection and the returned value — named here too, because
+    a blanket guarantee at the top of a file is what a reader remembers.
 
     One honest exception, stated because the guarantee is otherwise absolute:
     plain ``git status`` refreshes ``.git/index`` as a side effect. The git
@@ -57,9 +64,9 @@ PROBE LINKAGE (``sb1_02_deferred_probe_linkage``)
     candidate convention needing no new field: a probe's ``name`` IS the
     dotted field path it backs (``"github.open_prs"``). This module adopts
     that convention: :func:`build_snapshot` resolves each leaf by exact name
-    match against :data:`FIELD_PATHS`'s eleven paths. What *enforces* the
-    convention is the drift test, not the constant — see the note on
-    :data:`FIELD_PATHS`. A probe whose name is not a field path is still
+    match against the same eleven dotted paths that :data:`FIELD_PATHS`
+    enumerates. What *enforces* the convention is the drift test, not the
+    constant — see the note on :data:`FIELD_PATHS`. A probe whose name is not a field path is still
     carried in ``probes[]`` via the generic extension point, exactly as the
     freeze doc requires.
 

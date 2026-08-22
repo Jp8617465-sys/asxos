@@ -43,7 +43,8 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 - **✅ VERDICT: SHIP — issued 2026-08-21 by arbi (`/arbi-run`), on live re-verification of the
   restated conditions.** This is the fresh verdict the 2026-08-13 re-raise demanded; it
   supersedes the UN-SHIPPED entry below, which is retained as the record of the interim state.
-  Owner check per this file's own rule at `:159-161`: the re-decision crosses no firewall or
+  Owner check per this file's own rule at `:220-221` ("A SHIP verdict that only arbi can flip,
+  arbi flips"): the re-decision crosses no firewall or
   capital gate (the surface is model-independent, reads as context, and has no rule-#11
   exposure), and the summary table names the flip owner as **arbi/main loop** — so it is
   arbi's to issue, not a `james-inbox.md` row.
@@ -61,11 +62,17 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   | `ingest_news` lifetime successes | 54 |
 
   Status alone is explicitly not evidence of work, per the restatement — hence `rows_written`
-  is cited per-run rather than in aggregate. The one `0` row-count in the window is a genuine
-  quiet day, not the failure mode that voided the original condition: that failure was a guard
-  which *could not* fail (`is_ok=lambda r: isinstance(r, int) and r >= 0` against a worker
-  returning `0` on caught exceptions) producing a three-week streak of zero-row "successes".
-  Four of the last six runs wrote rows, so the guard is now discriminating.
+  is cited per-run rather than in aggregate. The one `0` row-count in the window is *consistent
+  with* a quiet day, and is no longer producible by the failure mode that voided the original
+  condition: that failure was a guard which *could not* fail (`is_ok=lambda r: isinstance(r,
+  int) and r >= 0` against a worker returning `0` on caught exceptions) producing a three-week
+  streak of zero-row "successes". That guard is gone — the predicate is now
+  `is_ok=lambda r: isinstance(r, tuple)` (`jobs/ingest_news.py:242`) against a worker whose
+  failure sentinel is `None`, never `0` (`:66`, `:81-85`) — and four of the last six runs wrote
+  rows, so the guard is now discriminating. **Condition (a) rests on those four runs, not on a
+  reading of the one `0`:** the job's own docstring is deliberately stricter than this verdict
+  needs — "a returned `0` is still not proof of a quiet day" (`:87-88`) — and calling that `0` a
+  *confirmed* quiet day would claim more than the probe shows.
 
   **Condition (b) — unchanged and still holds** (reads as context, never implied buy/sell).
 
@@ -74,15 +81,20 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   - The "symbol-mapping bug" named below as the operative cause is **not** the cause, and is
     not open. `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and
     there is exactly **one open lot** — so coverage is bounded by portfolio breadth, not by a
-    mapping defect. (This was already corrected at `roadmap-state.md:589` on 2026-08-17; this
-    file did not carry the correction across.)
-  - `signal_sentiment` is **not** empty — it holds 9 rows. `roadmap-state.md:589`'s
-    "`signal_sentiment` downstream remains empty" is falsified as of this probe.
+    mapping defect. (This was already corrected on 2026-08-17 in `roadmap-state.md`'s
+    **News/sentiment M14a/M14b** cross-walk row, `:644`; this file did not carry the correction
+    across.)
+  - `signal_sentiment` is **not** empty — it holds 9 rows, which falsifies that same cross-walk
+    row's "`signal_sentiment` downstream remains empty" — struck at source 2026-08-22.
+    (Both bullets cited `roadmap-state.md:589` until review caught it; the target had shifted to
+    `:644`. Cite the row by name first, the offset second.)
 
   **No flag flip is required by this verdict.** `ASXOS_NEWS_BRIEF_ENABLED: "1"` is already live
-  in `.github/workflows/daily-brief.yml:61`; the surface has been rendering throughout. What
-  was missing was a *valid verdict*, not a config change — the surface sat in the
-  "SHIPPED-but-void" state `:133-138` says cannot exist. That is now closed. Nothing in
+  in `.github/workflows/daily-brief.yml:61` (with `ASXOS_PERSONAL_USE: "1"` at `:60`, the gate
+  that fires first), so the section has been *enabled* throughout — which is not the same as
+  populated: before PR #73 an empty result made it vanish entirely, per the precision note
+  below. What was missing was a *valid verdict*, not a config change — the surface sat in the
+  "SHIPPED-but-void" state `:222-227` says cannot exist. That is now closed. Nothing in
   `.github/` was touched.
 
 - ~~**Verdict: UN-SHIPPED · RE-RAISED 2026-08-13 · awaiting a fresh SHIP / DELETE /
@@ -100,8 +112,10 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   daily. (Precision, post-#73: before that PR an empty result made the section *vanish*
   entirely; it now renders an explicit state line — quiet vs unverified — so "still renders"
   is true today for a different reason than when this line was written.) Flipping the flag is a config change and was deliberately **not** made by this
-  docs-only sweep. The fresh verdict decides whether the flag goes to `0` (keep-dark until the
-  symbol-mapping bug is fixed) or stays at `1` (ship, once (a) is genuinely met).
+  docs-only sweep. ~~The fresh verdict decides whether the flag goes to `0` (keep-dark until the
+  symbol-mapping bug is fixed) or stays at `1` (ship, once (a) is genuinely met).~~ *(Answered
+  2026-08-21 by the SHIP block above: the flag stays at `1`, and the "symbol-mapping bug"
+  premise is itself falsified.)*
 - ~~**Verdict: SHIPPED, but condition (a) is void — the surface has been rendering
   empty every day since the redeploy.**~~ *(superseded 2026-08-13 — "SHIPPED, but void" is
   precisely the un-decided state `:133-138` forbids; retained for history.)* Condition (b)
@@ -116,8 +130,10 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   model-independent — it feeds the market-context and discipline narrative, not a signal. It
   directly serves the "know the backdrop before it costs money" moat layer and has no rule-#11
   exposure. This is exactly the kind of surface the post-shelf product should turn on.
-- **Ship conditions — (a) VOID as of 2026-08-05, (b) still holds:**
-  (a) **RESTATED, and currently NOT MET** — `job_runs` must show `ingest_news` runs with
+- **Ship conditions — (a) VOID as of 2026-08-05, ~~currently NOT MET~~ → MET 2026-08-21;
+  (b) still holds:**
+  (a) **RESTATED** — this wording is the operative one and it is now satisfied, per the SHIP
+  block above — `job_runs` must show `ingest_news` runs with
   `status='success'` **AND `rows_written > 0`**, *and* `holding_news` must be non-empty.
   Status alone is not evidence of work.
   ~~*(original, void)*: `job_runs` shows `ingest_news` status='success' every scheduled
@@ -125,7 +141,9 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
   was produced by a guard that could not fail (`is_ok=lambda r: isinstance(r, int) and
   r >= 0` against a worker returning `0` on caught exceptions), and every one of those runs
   wrote zero rows. The predicate and the brief's freshness gate were fixed 2026-08-05
-  (`deea76a`); the reason the table is empty is a separate, still-open symbol-mapping bug.
+  (`deea76a`); ~~the reason the table is empty is a separate, still-open symbol-mapping bug.~~
+  *(Falsified 2026-08-21: the table is not empty — 9 rows — and no symbol-mapping defect is
+  open; coverage is bounded by a one-lot portfolio, `jobs/ingest_news.py:186`.)*
   (b) **reads as context, never implied buy/sell** — verified by direct read + a `security-engineer`
   s766B pass (PASS): `brief.html.j2`'s news block (the `news_status` branch) renders only
   symbol, linked article title, publish date, and an optional sentiment tag — zero generated
@@ -193,7 +211,7 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 **Expiry countdown as of 2026-08-21 (`/arbi-run`):** surfaces #1 and #4 expire **2026-08-31 —
 10 days out**; surface #3 expires **2026-09-30 — 40 days out**. None has expired yet; all three
-re-raise automatically on those dates per `:127-128`. **Surface #2 is no longer awaiting a
+re-raise automatically on those dates per `:216-217`. **Surface #2 is no longer awaiting a
 verdict** — SHIP issued 2026-08-21.
 
 ⚠️ **#1 and #4 are James's and are inside their decision window.** Both are flagged in
@@ -206,10 +224,10 @@ _Prior countdown (2026-08-13, SB0-01 sweep): #1/#4 18 days out, #3 48 days out._
 
 | Surface | Verdict | Gate | Expiry / condition | Flip owner |
 |---|---|---|---|---|
-| Portfolio brief | KEEP-DARK | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | 2026-08-31 (18d) · re-scope to model-independent cards + 4wk sign-off | James |
+| Portfolio brief | KEEP-DARK | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | 2026-08-31 (**10d** as of 2026-08-21) · re-scope to model-independent cards + 4wk sign-off | James |
 | News/sentiment brief | ✅ **SHIP — fresh verdict 2026-08-21** (was UN-SHIPPED · RE-RAISED 2026-08-13) | `ASXOS_NEWS_BRIEF_ENABLED=1` already live via `.github/workflows/daily-brief.yml:61` — no flip needed | (a) re-verified 2026-08-21: `rows_written` 3·2·2·1·0·4 all `success`, `holding_news` 9 rows; (b) unchanged | arbi/main loop — **issued** |
-| V2 brief tree | KEEP-DARK | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 (48d) · descope to model-independent collectors | arbi / James |
-| Paper-trade evaluator | KEEP-DARK | start the 4wk run (internal) | 2026-08-31 (18d) · re-raise with surface #1 | James |
+| V2 brief tree | KEEP-DARK | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 (**40d** as of 2026-08-21) · descope to model-independent collectors | arbi / James |
+| Paper-trade evaluator | KEEP-DARK | start the 4wk run (internal) | 2026-08-31 (**10d** as of 2026-08-21) · re-raise with surface #1 | James |
 
 ## How arbi uses it
 
