@@ -2,7 +2,7 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-08-22 (`/arbi-close`, merge-train close — `main` @ `62ccceb` after #155/#151/#154/#152. Stages 4/5/6 remain not-started; W1-1 is P5 integration evidence, not Stage 4. See Last wake snapshot. The 08-11 retrospective line is retained as history below the docs-truth corrections.)
+**Last verified:** 2026-08-22 (`/arbi-close`, harness-promote close — `main` @ `1ee184d` after #158/#153/#159. Memory is L1–L45. Review-gate gone. Stages 4/5/6 remain not-started; W1-1 is P5 integration evidence, not Stage 4. See Last wake snapshot.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
 **reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
 records were annotated, not rewritten: a SUPERSEDED banner on the In-flight entry, an inline
@@ -731,15 +731,13 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
-> ⚠️ **2026-08-22 merge-train close — read this first.** Four production PRs
-> squash-merged to `main` under James's I6 instruction, sequence
-> #155 → #151 → #154 → #152 (`d7e8242` · `67b3bae` · `f0b8f9c` · `62ccceb`).
-> W1-2 (V1 brief section) was CHALLENGEd and did not run. **#153 remains
-> open** (draft, `CONFLICTING`) — it is a dream overlay that still carries
-> the #152 production lane; do **not** merge it as a second SB PR. Dream-only
-> rebase onto `62ccceb` is required before any `/arbi-promote`. Stages 0→6
-> table is unchanged: Stage 4/5/6 still **not started**. The 2026-08-20
-> SUPERSEDED banner below is historical and is not current in-flight.
+> ⚠️ **2026-08-22 harness-promote close — read this first.** Three further
+> squash-merges under James's I6 instruction: **#158** `70b0156` (harness
+> rebuild), **#153** `f31ab51` (dream-only rebase, not a second SB PR),
+> **#159** `1ee184d` (L27–L45). Zero open PRs at close-probe. W1-2 stays
+> CHALLENGEd. Stages 0→6 table unchanged: Stage 4/5/6 still **not started**.
+> The merge-train banner and the 2026-08-20 SUPERSEDED banner below are
+> historical.
 
 > ⚠️ **SUPERSEDED 2026-08-20 — read this before the entry below.** Two of the four PRs described
 > here have since merged, a fifth (**#144**, opened after this entry was written) deleted Model
@@ -863,13 +861,13 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
-> **Live as of 2026-08-22 merge-train close.** The Stages 0→6 table at the
-> top of this file remains the only ranked queue. After the train, **James
-> names the next unit.** Do not treat W1-2 (V1 brief section) as #1 — it was
-> CHALLENGEd (recency overfit / experience-layer polish / ladder inversion).
-> Packet-first renderer stays P6-01 / Stage 6. #153 is a dream candidate, not
-> a production next-action. Written later-candidates that are *not* auto-#1:
-> screening seed INSERT (I5), apply 0045 (I5), MCP principal repoint (James).
+> **Live as of 2026-08-22 harness-promote close.** The Stages 0→6 table at
+> the top of this file remains the only ranked queue. **James names the
+> next unit.** Do not treat W1-2 as #1 (CHALLENGE stands). Packet-first
+> renderer stays P6-01 / Stage 6. The promotion backlog is closed (L1–L45
+> on `main`). Written later-candidates that are *not* auto-#1: screening
+> seed INSERT (I5), apply 0045 (I5), MCP principal repoint (James),
+> `defaultMode: auto` in `~/.claude/settings.json` (James).
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
@@ -1143,6 +1141,20 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-22 harness-promote `/arbi-close`. Supersedes the same-day merge-train snapshot below._
+
+```
+Close: 2026-08-22 (James: execute harness rebuild → merge #158 → merge lessons → /arbi-close)
+- main @ 1ee184d
+- Merged: #158 70b0156 · #153 f31ab51 · #159 1ee184d
+- Memory: L1–L45; dream-candidates/ live dir empty except README + archive/
+- Harness: review-gate gone; attended settings/hooks/CLAUDE.md un-denied; defaultMode NOT applied
+- REQUIRED_MIGRATIONS=97; latest applied 20260821080458; 0045 unapplied
+- Open PRs at probe: none (this close PR is next)
+- W1-2 CHALLENGE still stands — not #1
+- Next: James names the unit
+```
 
 _Recorded by the 2026-08-22 merge-train `/arbi-close`. Supersedes the same-day W1-1 snapshot below._
 
