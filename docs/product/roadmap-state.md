@@ -371,17 +371,22 @@ than displacing it.
 
 **What this run did instead of skipping to the packet lane.** The red-team named an
 arbi-owned, in-firewall, model-independent product surface with a running clock:
-`dark-launch-exit-plan.md:153`, the news/sentiment brief — the only row in that table whose
-flip owner is *arbi/main loop*, un-shipped and verdict-less since 2026-08-13, nine days from
-the 08-31 sweep. Its restated conditions were re-verified read-only against production and
+`dark-launch-exit-plan.md` surface #2 (section at `:41`, summary row at `:210`), the
+news/sentiment brief — the only row in that table whose flip owner is *arbi/main loop* alone,
+un-shipped and verdict-less since 2026-08-13, **ten** days from the 08-31 sweep (2026-08-21 →
+2026-08-31; that file's own countdown says 10, and this line said nine until it was
+reconciled). Its restated conditions were re-verified read-only against production and
 **both are met**; the fresh **SHIP** verdict is issued and recorded in that file. No flag was
 flipped (the flag was already `1`); nothing under `.github/` was touched.
 
 **Two doc-truth corrections fell out of the same probe** and are applied at source rather than
 left standing: the "symbol-mapping bug" that section names as the open cause is not the cause
-(`:589` already corrected this on 2026-08-17; the exit plan never carried it across), and
-`signal_sentiment` is **not** empty — it holds 9 rows, which falsifies `:589`'s own closing
-clause. Migration `0044` was also found **applied** (2026-08-21, `20260821080458`) while the
+(the **News/sentiment M14a/M14b** cross-walk row, `:644`, already corrected this on 2026-08-17;
+the exit plan never carried it across), and `signal_sentiment` is **not** empty — it holds 9
+rows, which falsifies that row's own closing clause, now struck there. (Both citations read
+`:589` until 2026-08-22, when review caught them: the target moved when this subsection was
+inserted above it. A bare line-number citation into a living file is itself a doc-rot instance —
+cite the row by name, then the offset.) Migration `0044` was also found **applied** (2026-08-21, `20260821080458`) while the
 08-20 handoff and `james-inbox.md` still carry it as an urgent open blocker, and
 `REQUIRED_MIGRATIONS` was one behind production (fixed, `asxos/api/main.py:14`, 96→97).
 
@@ -641,7 +646,7 @@ doc-derived, not live-probed.
 |---|---|---|---|
 | Rebuild M1–M12 | `docs/foundation/BUILD_GUIDE.md` | **All done.** Static manual, not a tracker. | `/sprint-plan` ("M1–M12 should all be done") |
 | Portfolio M13 | `asxos/domain/portfolio/*` | **Built, dark-launched** (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`). Weekly Sat 20:00 UTC. | V2 arch audit Part A |
-| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped, writing, but near-empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). Corrected 2026-08-17: `holding_news` does **not** have zero rows — it has **7** (2026-08-10..13), all `HUBS.NYSE`, all sourced `finance.yahoo.com`. So the ingest path works. **The cause is not symbol mapping** (this row claimed that until 2026-08-17 and it is falsified): `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and there is exactly **one open lot**, so the job is correctly ingesting news for the whole of a one-name portfolio. Coverage is bounded by portfolio breadth, not by a mapping bug. `signal_sentiment` downstream remains empty. Ingest guard + brief gate fixed 2026-08-05 (`deea76a`). See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
+| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped, writing, but near-empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). Corrected 2026-08-17: `holding_news` does **not** have zero rows — it has **7** (2026-08-10..13), all `HUBS.NYSE`, all sourced `finance.yahoo.com`. So the ingest path works. **The cause is not symbol mapping** (this row claimed that until 2026-08-17 and it is falsified): `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and there is exactly **one open lot**, so the job is correctly ingesting news for the whole of a one-name portfolio. Coverage is bounded by portfolio breadth, not by a mapping bug. ~~`signal_sentiment` downstream remains empty.~~ **Superseded 2026-08-21 (read-only production probe): `holding_news` holds 9 rows and `signal_sentiment` holds 9 — neither is empty, so the "near-empty" label at the head of this row no longer describes the live state. A fresh SHIP verdict was issued the same day (`dark-launch-exit-plan.md` surface #2).** Ingest guard + brief gate fixed 2026-08-05 (`deea76a`). See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
 | Governance Phase 0 / 0.5 | model-filtering + `approved_for_allocation` gate | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 1 | governance schema + first Postgres trigger | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 2a+2b | `macro_theses`, per-table audit triggers, `macro-economist`, `/discover-macro` | **Done** (PR #11). First live `/discover-macro` cycle run 2026-07-04. | handoff §Session summary |
@@ -1006,7 +1011,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 | Gate | Guards | State |
 |---|---|---|
 | `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
-| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — set in the **executing scheduler**, `.github/workflows/daily-brief.yml:61`. *(Corrected 2026-08-13, SB0-01: this cell previously cited `render.yaml:414`; Render was deleted 2026-08-12, so `render.yaml` sets nothing live.)* **Verdict reverted to UN-SHIPPED / RE-RAISED 2026-08-13** — the flag is still `1` but the surface has no valid SHIP verdict; see `dark-launch-exit-plan.md` surface #2 |
+| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — set in the **executing scheduler**, `.github/workflows/daily-brief.yml:61`. *(Corrected 2026-08-13, SB0-01: this cell previously cited `render.yaml:414`; Render was deleted 2026-08-12, so `render.yaml` sets nothing live.)* ~~**Verdict reverted to UN-SHIPPED / RE-RAISED 2026-08-13** — the flag is still `1` but the surface has no valid SHIP verdict~~ → ✅ **SHIP verdict issued 2026-08-21** (arbi, `/arbi-run`), on a read-only production probe of both restated conditions: `holding_news` 9 rows, `ingest_news` last six runs 3·2·2·1·0·4 all `success`. The flag was already `1` and was **not** touched — the gap was the missing verdict, not the config. See `dark-launch-exit-plan.md` surface #2 |
 | `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |
 
