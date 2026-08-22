@@ -31,6 +31,8 @@ __all__ = [
     "Contradiction",
     "CrossSourceEquality",
     "CROSS_SOURCE_EQUALITIES",
+    "FRESHNESS_BOUNDS",
+    "FreshnessBound",
     "LEAF_INTERNAL_EQUALITIES",
     "LeafInternalEquality",
     "Severity",
@@ -39,7 +41,16 @@ __all__ = [
     "reduce_snapshots",
 ]
 
-SEMANTICS_VERSION: Final = 1
+SEMANTICS_VERSION: Final = 2
+"""v2 (2026-08-22): added `duplicate_probe_name` and `stale_freshness`.
+
+Bumped on an ADDITION, not a redefinition, and deliberately. The version exists so a
+consumer diffing findings across wakes knows the comparison is apples-to-apples; a
+finding that newly appears must be attributable to new drift, not to new detection.
+Two codes that could not previously be emitted breaks that guarantee, so it is a
+semantics change from the consumer's side even though no existing check changed
+meaning. Under-bumping is the failure that bites; over-bumping costs a constant.
+"""
 
 Severity = Literal["info", "warning", "critical"]
 
@@ -134,6 +145,43 @@ _MONOTONIC_COUNTERS: Final[tuple[tuple[str, str], ...]] = (("data.migrations", "
 """Facts that can only increase. A decrease means one of the two readings is wrong."""
 
 
+@dataclass(frozen=True, slots=True)
+class FreshnessBound:
+    """A `freshness` payload key carrying an age, and the age past which it is stale."""
+
+    key: str
+    max_days: int
+    severity: Severity
+
+
+FRESHNESS_BOUNDS: Final[tuple[FreshnessBound, ...]] = (
+    FreshnessBound("age_days", 7, "warning"),
+    FreshnessBound("observed_minus_commit_days", 7, "warning"),
+)
+"""Closes `sb2_deferred_staleness_evaluation` — "Judging `freshness` values".
+
+SB1-01 carries `freshness` verbatim and never evaluates it; this is where it is judged.
+The 7-day bound matches `scripts/check_project_state.py`'s `DEFAULT_MAX_AGE_DAYS`, so the
+snapshot's own freshness rule and its probes' are not two different numbers.
+
+Found 2026-08-22: the first cut of this module judged the *skew between a probe's
+`observed_at` and its snapshot's*, which is a different quantity, and left `freshness`
+unread. `tests/fixtures/project_state_snapshot/stale.json` encodes its staleness purely
+as `freshness` payloads with both timestamps identical, so it produced zero findings.
+
+Two limits, stated rather than silently held:
+
+* **Top-level keys only.** A nested `{"prices": {"age_days": 20}}` is a false negative.
+  `_value_disagreements` recurses; this does not. Left narrow deliberately — no producer
+  emits a nested age today, and widening a staleness rule without a driving case buys
+  false positives.
+* **No live producer emits this shape at all.** `probes.py` sets no age keys, and the
+  live snapshot carries `freshness` as prose (`"job_runs window 2026-08-17..08-18"`),
+  which the mapping guard skips. So this closes the contract as the freeze doc defines
+  it — "pinned by the `stale` fixture test" — not live coverage.
+"""
+
+
 def _leaves(snapshot: ProjectStateSnapshot) -> dict[str, FieldObservation]:
     return {
         f"{section}.{field}": getattr(getattr(snapshot, section), field)
@@ -143,7 +191,51 @@ def _leaves(snapshot: ProjectStateSnapshot) -> dict[str, FieldObservation]:
 
 
 def _probes_by_name(snapshot: ProjectStateSnapshot) -> dict[str, ProbeRecord]:
-    return {probe.name: probe for probe in snapshot.probes}
+    """First probe of each name wins — see :func:`_check_duplicate_probes` for why.
+
+    Deliberately NOT last-wins: with a duplicate present the choice is arbitrary either
+    way, and first-wins makes the paired contradiction reproducible.
+    """
+    by_name: dict[str, ProbeRecord] = {}
+    for probe in snapshot.probes:
+        by_name.setdefault(probe.name, probe)
+    return by_name
+
+
+def _check_duplicate_probes(snapshot: ProjectStateSnapshot) -> list[Contradiction]:
+    """Two probes claiming the same name are two sources disagreeing — the core case.
+
+    `build_snapshot` rejects duplicates at construction, so this cannot arise from a
+    snapshot this codebase builds. It arises from one LOADED FROM JSON — which is every
+    snapshot a wake actually reads, including `docs/product/state/latest-snapshot.json`
+    and the checked-in fixtures.
+
+    Found 2026-08-22: `tests/fixtures/project_state_snapshot/contradictory.json` carries
+    two probes named `data.migrations`, and that IS its contradiction. The first cut of
+    this module indexed probes with a dict comprehension, so the second silently
+    overwrote the first and the disagreement was destroyed before any check ran — the
+    fixture named for contradictions produced zero findings above `info`.
+    """
+    seen: dict[str, ProbeRecord] = {}
+    found: list[Contradiction] = []
+
+    for probe in snapshot.probes:
+        first = seen.get(probe.name)
+        if first is None:
+            seen[probe.name] = probe
+            continue
+        found.append(
+            Contradiction(
+                code="duplicate_probe_name",
+                severity="critical",
+                subject=probe.name,
+                detail="two probes claim the same name; only one can be the observation",
+                left=f"{first.source}={first.value!r}",
+                right=f"{probe.source}={probe.value!r}",
+            )
+        )
+
+    return found
 
 
 def _mapping_value(observation: FieldObservation, key: str) -> object | None:
@@ -240,7 +332,14 @@ def _check_leaf_probe_agreement(
 def _check_probe_ages(
     snapshot: ProjectStateSnapshot, *, max_probe_age: timedelta
 ) -> list[Contradiction]:
-    """Staleness (`sb2_deferred_staleness_evaluation`): SB1 carries ages, SB2 judges them."""
+    """EPOCH SKEW: how far a probe lags the snapshot that contains it.
+
+    NOT `sb2_deferred_staleness_evaluation` — an earlier version of this docstring
+    claimed that, and it was wrong. That registry item is about judging `freshness`
+    VALUES, which is :data:`FRESHNESS_BOUNDS`. This measures a different quantity: a
+    snapshot whose probes were taken hours apart is mixing epochs even when every
+    `freshness` payload is well inside bounds.
+    """
     found: list[Contradiction] = []
 
     for probe in snapshot.probes:
@@ -333,17 +432,49 @@ def _check_leaf_internal(
     return found
 
 
+def _check_freshness_bounds(
+    snapshot: ProjectStateSnapshot, bounds: Iterable[FreshnessBound]
+) -> list[Contradiction]:
+    """Judge `freshness` payload ages — the SB1-deferred half of staleness."""
+    found: list[Contradiction] = []
+
+    for probe in snapshot.probes:
+        if not isinstance(probe.freshness, dict):
+            continue
+        for bound in bounds:
+            age = probe.freshness.get(bound.key)
+            if not isinstance(age, int) or isinstance(age, bool) or age <= bound.max_days:
+                continue
+            found.append(
+                Contradiction(
+                    code="stale_freshness",
+                    severity=bound.severity,
+                    subject=probe.name,
+                    detail=(
+                        f"probe reports {bound.key}={age}, over the {bound.max_days}-day bound"
+                    ),
+                    left=str(age),
+                    right=str(bound.max_days),
+                )
+            )
+
+    return found
+
+
 def check_snapshot(
     snapshot: ProjectStateSnapshot,
     *,
     max_probe_age: timedelta = DEFAULT_MAX_PROBE_AGE,
     cross_source: Iterable[CrossSourceEquality] = CROSS_SOURCE_EQUALITIES,
     leaf_internal: Iterable[LeafInternalEquality] = LEAF_INTERNAL_EQUALITIES,
+    freshness_bounds: Iterable[FreshnessBound] = FRESHNESS_BOUNDS,
 ) -> tuple[Contradiction, ...]:
     """Every intra-snapshot check, ordered deterministically."""
     found = [
+        *_check_duplicate_probes(snapshot),
         *_check_leaf_probe_agreement(snapshot),
         *_check_probe_ages(snapshot, max_probe_age=max_probe_age),
+        *_check_freshness_bounds(snapshot, freshness_bounds),
         *_check_cross_source(snapshot, cross_source),
         *_check_leaf_internal(snapshot, leaf_internal),
     ]
