@@ -22,10 +22,10 @@ authorization. Decimal-only arithmetic per
 `.claude/rules/portfolio-conventions.md` §Decimal-only; the frozen contracts
 reject float input and this module never introduces one.
 
-A real (non-fixture) acquisition path is unrepresentable today: widening
-`AcquisitionPath` beyond ``"hashed_fixture"`` is a separately authorized work
-order (freeze record §2), at which point this adapter must gain an explicit
-dispatch on the acquisition path.
+``hashed_fixture`` remains the regression path and can never be
+``data_mode="real"``. ``asxos_pit_db`` (W1-1) is the authorized live path and
+lives in ``pit_db.py`` — this module stays the in-memory verify/revalidate
+engine both paths reuse. G2 (ASX announcements) is still closed.
 """
 
 from __future__ import annotations

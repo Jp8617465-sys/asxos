@@ -1,0 +1,44 @@
+{
+  "symbol": "TLS.AU",
+  "period_end": "2024-06-30",
+  "cutoff": "2025-08-21T23:59:59+00:00",
+  "acquisition": "asxos_pit_db",
+  "data_mode": "real",
+  "outcome": "abstain",
+  "verdict": "abstain",
+  "missing_evidence": [
+    "ASX results announcement (asx_announcement) \u2014 no acquisition path exists (G2: asx_announcements dropped in migration 0030)",
+    "statutory/underlying bridge (G3) \u2014 rs_financial_statements carries a single normalised set, not a statutory/underlying pair",
+    "guidance change (G5) \u2014 no guidance store exists in this repo"
+  ],
+  "tax_readiness": "unknown",
+  "model_independence": true,
+  "source_classes": [
+    "asxos_pit_record",
+    "asxos_pit_record"
+  ],
+  "metric_deltas": [
+    {
+      "metric": "Revenue",
+      "basis": "statutory",
+      "currency": "AUD",
+      "scale": "billions",
+      "current": "22.928000000000000",
+      "prior": "22.702000000000000",
+      "delta_pct": "0.995507"
+    },
+    {
+      "metric": "NPAT",
+      "basis": "statutory",
+      "currency": "AUD",
+      "scale": "billions",
+      "current": "1.622000000000000",
+      "prior": "1.928000000000000",
+      "delta_pct": "-15.871369"
+    }
+  ],
+  "document_sha256": "133f09bfb617999bdd56639e275698d369a6fa4973c96c94a13cd2b41fb0c780",
+  "artifact_sha256": "d9f85feaaf56345d0703cd6cc1bb39d0e44fbfa5ac2290e838a199faa1efc25b",
+  "presentation_sha256": "1224d5f35440e55eb721bba0fbb65c12d018202bf79cdb6051517f81df7baac0",
+  "category": "presented"
+}
