@@ -21,12 +21,14 @@ edits happen here first:
 - **GOOD:** whole-project mining pass · product reality sweep · cross-layer feature
   (DB + domain + CLI + brief + tests) · competing debugging hypotheses · large parallel
   review/audit.
-- **BAD → refuse, route to `/arbi-mission` or a single specialist:** one-file edits ·
+- **BAD → refuse, route to `/build`, `/arbi-mission`, or a single specialist:** one-file edits ·
   same-file refactors · sequential bugs · tiny fixes · heavy shared mutable state · anything
   blocked on James's judgement before progress.
 
 Teams add real overhead (tokens, coordination, conflict risk); a mission that doesn't
 genuinely parallelise is *slower* as a team.
+
+**Two-speed routing (2026-08-22):** one-file edits go to `/build`. `/arbi-mission` is the multi-node dispatcher. See `docs/product/harness-profiles.md`.
 
 ## Flow
 
