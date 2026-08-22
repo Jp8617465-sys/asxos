@@ -7,8 +7,11 @@ action.
 **Pairs with:** `P3-01`, the Dagster deployment/cost/cutover work order
 (`docs/proposals/dagster-deployment-cost-cutover-work-order-2026-08-17.md`, merged #117). Together
 they are the two artifacts `P3-03` names as its dependency: *"P3-01..02 approvals"*
-(execution plan §7). **`P3-03`, and therefore all of P4/P5/P6/P7/P8, is blocked until both are
-approved.**
+(execution plan §7). **`P3-03` — and through it `P4-01/02`, `P5-02`, `P6-01`, `P7-01/02`, `P8-01` — is
+blocked until both are approved.** (`P5-01` is the one exception: it is James's own capital/risk
+calibration, gated on "before Stage 4", not on `P3-03`.)
+**Dependency:** `SB1-02` (execution plan §7 lists it as P3-02's sole dependency) — discharged
+2026-08-22, `asxos/secondbrain/probes.py`, commit `52683b7`.
 **Authority chain:** Amendment B execute-to-completion chaining; `/arbi-run` invoked by James
 2026-08-22 with the ruling "P3-02 first, then cap SB".
 **Status:** DRAFT — a proposal for James. **Nothing in this document has been performed.** No AWS
@@ -30,9 +33,8 @@ Per the execution plan's §2.3 recency rule: every live claim carries a source a
 - **Repo observations:** read-only, from the working tree at the base SHA.
 - **AWS pricing: `unavailable`.** Attempted `https://aws.amazon.com/s3/pricing/`; the network
   egress proxy blocked the domain (`EGRESS_BLOCKED`, `observed_at=2026-08-22T08:55Z`). No rate is
-  asserted anywhere below. §4 gives the cost *structure* and the exact quantities to multiply;
-  James (or a session with egress) fills the rates. **Do not approve the cost position on this
-  document alone.**
+  asserted anywhere below. **There is no cost model in this document** — see §4, which states the
+  gap rather than half-filling it. **Do not approve a cost position on this document.**
 - **Database sizing: `unavailable`.** The `pg_total_relation_size` probe required an approval this
   non-interactive session cannot obtain. §4.1 therefore sizes from row counts observed elsewhere
   this session rather than from on-disk bytes, and says so at each figure.
@@ -45,7 +47,8 @@ Per the execution plan's §2.3 recency rule: every live claim carries a source a
 `pg_dump` of the irreplaceable tables, gzipped, **committed to a private GitHub repository**
 (`$BACKUP_REPO`). Cron `30 13 * * *`, 20-minute timeout, `permissions: contents: read`.
 
-**Fourteen tables are dumped:** `holding_lots`, `decisions`, `screening_rules`, `model_versions`,
+**Fourteen tables are dumped** (thirteen unconditionally; `price_revisions` is included only once
+the table exists, which has held since 0043 was applied 2026-08-12)**:** `holding_lots`, `decisions`, `screening_rules`, `model_versions`,
 `profiles`, `themes`, `theses`, `thesis_revisions`, `theme_holdings`, `macro_theses`,
 `agent_runs`, `agent_evidence`, `governance_events`, `price_revisions`.
 
@@ -81,12 +84,17 @@ Not durability — GitHub is durable. Three real defects:
 
 ---
 
-## 2. The decision that cannot be reversed — read before anything else
+## 2. The decision that is expensive to reverse — read before anything else
 
-**S3 Object Lock can only be enabled when the bucket is created.** It requires versioning, and
-enabling it on an existing bucket is not a self-service operation. Every other setting in F6
-(lifecycle, encryption, credentials, even versioning) can be changed after the fact. This one
-cannot.
+**Enabling S3 Object Lock on an existing bucket is not a self-service operation** — AWS's
+documented route is a Support request. It also requires versioning. Every other setting in F6
+(lifecycle, encryption, credentials, versioning itself) is changed self-service, after the fact.
+This one is not.
+
+*(Corrected 2026-08-22 after red-team: an earlier draft of this line said Object Lock "can only be
+enabled when the bucket is created", and built the section heading on it. That is stronger than
+the truth and the two versions sat in the same paragraph. The conclusion survives the correction —
+a Support-ticket path still makes creation a deliberate call — but the overclaim did not.)*
 
 That makes the bucket-creation call a one-shot decision, and it is why F6 named a work order
 before it rather than letting a session create the bucket opportunistically.
@@ -116,12 +124,28 @@ keeps one set of credentials, one lifecycle document and one restore procedure.
 
 | Prefix | Contents | Object Lock | Lifecycle |
 |---|---|---|---|
-| `raw/` | §6.1's immutable analytical store — vendor payloads, announcements, extraction artifacts, Parquet, research-run artifacts, rendered decision packets | **retention ON**, governance mode, default retention to be set by James | transition to Standard-IA after 90d; **no expiry** |
-| `backup/` | the daily `pg_dump` set + the frozen `signal-evidence-2026-08-16/` archive | **frozen archive: retention ON. Daily dumps: retention OFF** | daily dumps: keep 30 daily, 12 monthly, then expire. Frozen archive: no expiry |
+| `raw/` | §6.1's immutable analytical store — vendor payloads, announcements, extraction artifacts, Parquet, research-run artifacts, rendered decision packets | **retention set per object at PUT**, governance mode | transition to Standard-IA after 90d; **no expiry** |
+| `backup/` | the daily `pg_dump` set + the frozen `signal-evidence-2026-08-16/` archive | **frozen archive: retention set at PUT. Daily dumps: no retention** | daily dumps: keep 30 daily, 12 monthly, then expire. Frozen archive: no expiry |
 
 The split is the point. It gives the frozen rule #11 evidence a genuine immutability guarantee —
 which it does not have today — without committing every future daily dump to permanent,
 unprunable storage.
+
+> ### ⚠️ The mechanism matters, and an earlier draft of this table got it wrong
+>
+> **Object Lock's *default retention* is a BUCKET-level setting.** It applies to every new object
+> version in the bucket and **cannot be scoped to a prefix**. So the split above is *not*
+> achievable by setting a bucket default on `raw/`; there is no such thing.
+>
+> The only configuration that produces this table is:
+>
+> - **no bucket default retention at all**, and
+> - **per-object retention applied at PUT** — which is exactly why the writer credential in the
+>   next section holds `s3:PutObjectRetention`.
+>
+> Setting a bucket default retention would lock **every daily dump too**, which is the precise
+> outcome this split exists to prevent. Caught by red-team 2026-08-22; the earlier draft asked
+> James to choose a bucket default *and* claimed a per-prefix result, which are incompatible.
 
 Key structure for `raw/`, taken verbatim from §6.1:
 
@@ -145,9 +169,19 @@ single-user system; if James wants KMS, that is a deliberate upgrade, not a defa
 
 ---
 
-## 4. Cost structure — quantities here, rates NOT asserted
+## 4. Cost — **there is no cost model here.** Read this section as a gap, not a draft
 
-Every rate below is `unavailable` (§0). These are the quantities to multiply.
+Being exact about what is missing, because an earlier draft of this heading promised "quantities
+here, rates NOT asserted" and that was too generous to itself:
+
+- **Rates:** `unavailable` — egress blocked (§0).
+- **Quantities:** also effectively `unavailable`. What §4.1 lists is **row counts**, and row
+  counts do not multiply against $/GB-month or $/1,000-requests. The byte figures that would
+  multiply (`pg_total_relation_size`) needed an approval this session could not obtain.
+
+So **neither factor is present for the only workload that exists today.** This is not "rates
+missing from an otherwise complete model"; it is an absent model. §4.1 is retained because the
+row counts are still the honest starting point for whoever derives it.
 
 ### 4.1 Sizing inputs
 
@@ -186,7 +220,7 @@ lifecycle policy · **a separately observed restore test**.
 | # | Requirement | How it is proven |
 |---|---|---|
 | 1 | Versioning | `get-bucket-versioning` returns `Enabled` |
-| 2 | Object Lock, governance | `get-object-lock-configuration` returns governance + the default retention |
+| 2 | Object Lock, governance | `get-object-lock-configuration` returns `ObjectLockEnabled` **and NO bucket default retention rule**; then `head-object` on a `raw/` object returns a governance-mode `ObjectLockRetainUntilDate`, and `head-object` on a daily dump returns **none**. Asserting a bucket default here would prove the configuration §3 exists to avoid |
 | 3 | Encryption | `get-bucket-encryption` returns the SSE algorithm |
 | 4 | Least privilege | writer credential's `DeleteObject` on `raw/*` returns `AccessDenied` — **proven by a denied call, not by reading the policy** |
 | 5 | Lifecycle | `get-bucket-lifecycle-configuration` returns the §3 rules |
@@ -217,7 +251,7 @@ Unchanged, and every one is load-bearing here:
 |---|---|---|
 | D1 | Create the bucket at all, in `ap-southeast-2` | not created; Stage 1 stays blocked |
 | D2 | The two-prefix split in §3, or Object Lock across everything | §3 split — the alternative makes every daily dump permanent |
-| D3 | Default retention period for `raw/` and for the frozen archive | unset; must be chosen before creation |
+| D3 | **Per-object** retention period applied at PUT — one value for `raw/`, one for the frozen archive. **Not** a bucket default: setting one would lock every daily dump (see §3's box) | unset; the writer must supply a retain-until date per object, so this must be chosen before `raw/` is first written |
 | D4 | SSE-S3 or SSE-KMS | SSE-S3 |
 | D5 | Move the frozen `signal-evidence-2026-08-16/` archive to S3, or leave it in the backup repo | leave it — moving it is a separate, observed operation |
 | D6 | Keep the git backup repo running in parallel during transition, and for how long | keep both until one observed S3 restore passes |
