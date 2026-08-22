@@ -309,7 +309,15 @@ def _provenance_lines(
         "## Provenance",
         "",
         f"- Case: {_md_text(case.case_id)} — {_md_text(case.label)}",
-        f"- Data mode: **{case.review.data_mode}** (a hashed fixture can never be `real`)",
+        (
+            f"- Data mode: **{case.review.data_mode}** "
+            "(a hashed fixture can never be `real`)"
+            if case.document.acquisition == "hashed_fixture"
+            else (
+                f"- Data mode: **{case.review.data_mode}** "
+                "(research-store PIT snapshot; not an ASX announcement)"
+            )
+        ),
         f"- Acquisition path: {case.document.acquisition}",
         f"- Document: {_md_text(case.document.document_id)} "
         f"(sha256 {case.document.document_sha256})",
@@ -423,6 +431,18 @@ def present_hashed_fixture(
         raise ResultsReviewPresentationError(
             f"could not build the results-review packet: {exc}"
         ) from exc
+    return present_adapted(adapted, evaluated_at=evaluated_at)
+
+
+def present_adapted(
+    adapted: AdaptedResultsReview, *, evaluated_at: datetime
+) -> PresentedResultsReview:
+    """Assemble a presented review from an already-adapted case.
+
+    Used by both the hashed-fixture path and the W1-1 PIT path so the
+    challenge/review/markdown assembly is not duplicated.
+    """
+    render_utc_timestamp(evaluated_at)
     challenge = challenge_adapted(adapted)
     verdict = review_adapted(adapted, challenge)
     presentation_json = canonical_json(

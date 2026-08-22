@@ -2,9 +2,7 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-08-11 (`/arbi-close`, retrospective — the 08-11 build session shipped five
-merged PRs and stood down without a close; this refresh reconciles the defect list against `main`
-@ `7aa8507`. See "PROGRAMME REFRAME" immediately below; the 2026-07-14 notes are retained as history)
+**Last verified:** 2026-08-22 (`/arbi-close`, merge-train close — `main` @ `62ccceb` after #155/#151/#154/#152. Stages 4/5/6 remain not-started; W1-1 is P5 integration evidence, not Stage 4. See Last wake snapshot. The 08-11 retrospective line is retained as history below the docs-truth corrections.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
 **reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
 records were annotated, not rewritten: a SUPERSEDED banner on the In-flight entry, an inline
@@ -55,6 +53,11 @@ remains valid but is governor-scoped decisions, not build work.
 | **4** | One governed paper investment case, end-to-end (**new screened candidates** — governor ruling) | not started |
 | **5** | Outcome learning — **initially a process audit + descriptive outcome evidence**, not statistical validation | not started |
 | **6** | Portfolio scale + surface cutover | not started |
+
+_2026-08-22 close note (does not change any Stage cell):_ W1-1 (`asxos_pit_db`,
+#155) is **P5 integration evidence**, not Stage 4 or Stage 5 complete. SB1-02 →
+SB3-01 (#152) is packet-lane work, not Stage 2/3 complete. Do not flip a Stage
+cell because a work order landed.
 
 ### Queued after the current remediation work (James, 2026-08-12)
 
@@ -338,6 +341,66 @@ stands as written; this records how its caveats resolved, rather than editing th
   2026-08-08 Actions migration; the Render deletion date is a governor statement never
   re-verified against the Render API — see the caveat at the 2026-08-12 entry below).
 
+#### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
+
+Amendment D (`:176-180`) makes the product lane rank **above** the packet lane and permits the
+fall-through to the packet lane's four-way only "when the product lane is exhausted or blocked."
+An `/arbi-run` this session proposed starting the pre-authorized four-way at `SB1-02`;
+`arbi-red-team` returned **CHALLENGE**, correctly, on the ground that the fall-through
+precondition had never been evidenced. Recorded here so the next run does not repeat it.
+
+**Finding — stated carefully, because a first pass at it was wrong.** There are TWO things
+called a product lane, and conflating them produces the wrong next action:
+
+1. **The packet's product lane** (`asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`
+   §6) IS enumerated — a wave-by-wave table with a "Product lane" column. Merged work puts the
+   programme at **wave 3**, whose product lane reads *"P3 Stage 1 evidence increments"* and whose
+   second-brain lane reads *"SB2 current-state projection"*. So the product lane at the current
+   wave is `P3-02` / `P3-03`, and it is neither empty nor undefined.
+2. **Amendment D's product lane** (`:176-180`, ratified 2026-08-18) is a *different* construct —
+   its own words place it "alongside the packet lane", so it cannot be the packet's own P-series.
+   It was populated only by the 2026-08-18 campaign (#129, #130, #132), all merged, and no row
+   list for it exists anywhere in `docs/`. That one is **exhausted in fact but undefined in
+   form** — a governance gap, and **naming its standing rows is James's**, since Amendment D is
+   his ruling.
+
+**Consequence, and it reverses the red-team's altitude objection on its own evidence:** `SB1-02`
+is not a detour from the product lane — packet §7 lists it as the **declared dependency of
+`P3-02`** ("Write S3 credential/Object Lock/restore work order … Depends on: SB1-02"). The
+product lane's own next row cannot start until it exists. Building `SB1-02` therefore *is* the
+shortest path into wave 3's product lane, not a substitute for it. The red-team was right that
+the precondition had not been evidenced; the evidence, once gathered, supports the item rather
+than displacing it.
+
+**What this run did instead of skipping to the packet lane.** The red-team named an
+arbi-owned, in-firewall, model-independent product surface with a running clock:
+`dark-launch-exit-plan.md` surface #2 (section at `:41`, summary row at `:210`), the
+news/sentiment brief — the only row in that table whose flip owner is *arbi/main loop* alone,
+un-shipped and verdict-less since 2026-08-13, **ten** days from the 08-31 sweep (2026-08-21 →
+2026-08-31; that file's own countdown says 10, and this line said nine until it was
+reconciled). Its restated conditions were re-verified read-only against production and
+**both are met**; the fresh **SHIP** verdict is issued and recorded in that file. No flag was
+flipped (the flag was already `1`); nothing under `.github/` was touched.
+
+**Two doc-truth corrections fell out of the same probe** and are applied at source rather than
+left standing: the "symbol-mapping bug" that section names as the open cause is not the cause
+(the **News/sentiment M14a/M14b** cross-walk row, `:644`, already corrected this on 2026-08-17;
+the exit plan never carried it across), and `signal_sentiment` is **not** empty — it holds 9
+rows, which falsifies that row's own closing clause, now struck there. (Both citations read
+`:589` until 2026-08-22, when review caught them: the target moved when this subsection was
+inserted above it. A bare line-number citation into a living file is itself a doc-rot instance —
+cite the row by name, then the offset.) Migration `0044` was also found **applied** (2026-08-21, `20260821080458`) while the
+08-20 handoff and `james-inbox.md` still carry it as an urgent open blocker, and
+`REQUIRED_MIGRATIONS` was one behind production (fixed, `asxos/api/main.py:14`, 96→97).
+
+Four independent doc-rot instances in one session — plus a fifth found while writing this very
+subsection, where a first draft asserted "the product lane has no enumerated rows anywhere" and
+the packet's own §6 table falsified it — is the standing argument for `SB1-02`/`SB2-02`. The
+fifth is the most pointed of them: the claim was made *in the file that reconciles state*, by
+the process that exists to stop exactly this, and it survived until a grep went looking. Prose
+state does not hold, including this prose. That is the case for a typed snapshot, made against
+its own author.
+
 Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
 single-builder with the independent-review function preserved in separate documented passes;
 the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
@@ -440,6 +503,37 @@ Full text in `target-architecture.md` Appendix F. Summary:
 
 **No implementation agent may invent or reinterpret these.** F1, F5 and F6 each name a later work
 order that must precede any action.
+
+#### ✅ Gate G1 — CLEARED by James, 2026-08-22
+
+Recorded per the GOV-01 two-artifact precedent: the ruling **and** the queue amendment. This is
+the queue amendment; the ruling and its full context are in `decision-log.md` (2026-08-22) and
+`decision-package-2026-08-22.md`.
+
+**James approved both `P3-01` and `P3-02`.** `P3-03`'s dependency reads literally
+"P3-01..02 **approvals**", so this is the moment the product lane reopens. It unblocks 8 of the
+17 remaining rows: `P3-03` → `P4-01` → `P4-02` → `P5-02` → `P6-01` → `P7-01` → `P7-02` → `P8-01`.
+
+**What it does NOT authorise.** Approving a work order is not approval to execute what it
+describes. **F6 still stands unchanged** — "no bucket/credential creation authorised yet" — and
+the packet routes credential creation, bucket creation and scheduler cutover to James regardless.
+So `P3-03` proceeds only on its read-only half (replay + lineage); the backup/restore leg of the
+Stage 1 exit gate stays blocked. Likewise **F5** still requires `P3-01`'s work order to precede any
+scheduler action, and approving the work order is not deploying Dagster.
+
+**Two holes carried forward, explicitly not resolved by the approval.** `P3-02` has **no cost
+model** (AWS pricing was `unavailable` — egress blocked from the authoring environment), and its
+Object Lock constraint is from documented behaviour rather than a probe. `P3-01`'s sizing rests on
+a 90-minute weekly chain that PR #128 cut to 4m35s. Any deployment decision must re-derive both.
+
+**What was decided against.** `SB4-01` was the next queue row when this was raised. The
+`arbi-red-team` vet CHALLENGED it on altitude — packet `:696` puts the SB4 eval harness in
+**wave 4** while the programme sits at **wave 3**, and no P-series row depends on it, so the
+"shortest path into the product lane" reasoning that reversed the 2026-08-21 altitude objection
+for `SB1-02` does not transfer. Compounding it: Amendment E bars closing a fixture-only row, and
+**zero emitted arbi briefs exist anywhere in the repo or its 400-commit history** (the section
+headings appear only in four format-defining files), so `SB4-01` was buildable but unclosable.
+It is **parked with a named revival trigger**: capture a real `/arbi` brief as a fixture.
 
 ---
 
@@ -586,7 +680,7 @@ doc-derived, not live-probed.
 |---|---|---|---|
 | Rebuild M1–M12 | `docs/foundation/BUILD_GUIDE.md` | **All done.** Static manual, not a tracker. | `/sprint-plan` ("M1–M12 should all be done") |
 | Portfolio M13 | `asxos/domain/portfolio/*` | **Built, dark-launched** (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`). Weekly Sat 20:00 UTC. | V2 arch audit Part A |
-| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped, writing, but near-empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). Corrected 2026-08-17: `holding_news` does **not** have zero rows — it has **7** (2026-08-10..13), all `HUBS.NYSE`, all sourced `finance.yahoo.com`. So the ingest path works. **The cause is not symbol mapping** (this row claimed that until 2026-08-17 and it is falsified): `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and there is exactly **one open lot**, so the job is correctly ingesting news for the whole of a one-name portfolio. Coverage is bounded by portfolio breadth, not by a mapping bug. `signal_sentiment` downstream remains empty. Ingest guard + brief gate fixed 2026-08-05 (`deea76a`). See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
+| News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped, writing, but near-empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). Corrected 2026-08-17: `holding_news` does **not** have zero rows — it has **7** (2026-08-10..13), all `HUBS.NYSE`, all sourced `finance.yahoo.com`. So the ingest path works. **The cause is not symbol mapping** (this row claimed that until 2026-08-17 and it is falsified): `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and there is exactly **one open lot**, so the job is correctly ingesting news for the whole of a one-name portfolio. Coverage is bounded by portfolio breadth, not by a mapping bug. ~~`signal_sentiment` downstream remains empty.~~ **Superseded 2026-08-21 (read-only production probe): `holding_news` holds 9 rows and `signal_sentiment` holds 9 — neither is empty, so the "near-empty" label at the head of this row no longer describes the live state. A fresh SHIP verdict was issued the same day (`dark-launch-exit-plan.md` surface #2).** Ingest guard + brief gate fixed 2026-08-05 (`deea76a`). See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
 | Governance Phase 0 / 0.5 | model-filtering + `approved_for_allocation` gate | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 1 | governance schema + first Postgres trigger | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 2a+2b | `macro_theses`, per-table audit triggers, `macro-economist`, `/discover-macro` | **Done** (PR #11). First live `/discover-macro` cycle run 2026-07-04. | handoff §Session summary |
@@ -637,6 +731,16 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+> ⚠️ **2026-08-22 merge-train close — read this first.** Four production PRs
+> squash-merged to `main` under James's I6 instruction, sequence
+> #155 → #151 → #154 → #152 (`d7e8242` · `67b3bae` · `f0b8f9c` · `62ccceb`).
+> W1-2 (V1 brief section) was CHALLENGEd and did not run. **#153 remains
+> open** (draft, `CONFLICTING`) — it is a dream overlay that still carries
+> the #152 production lane; do **not** merge it as a second SB PR. Dream-only
+> rebase onto `62ccceb` is required before any `/arbi-promote`. Stages 0→6
+> table is unchanged: Stage 4/5/6 still **not started**. The 2026-08-20
+> SUPERSEDED banner below is historical and is not current in-flight.
+
 > ⚠️ **SUPERSEDED 2026-08-20 — read this before the entry below.** Two of the four PRs described
 > here have since merged, a fifth (**#144**, opened after this entry was written) deleted Model
 > A, and one claim below is now the reverse of the truth. Current state:
@@ -656,6 +760,10 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > **#142 merged** (`32ed2f5`) — note it **grew from docs-only to docs + L0 substrate** (D1/D2/D3
 > as real code) before merging, so "docs only" below is stale. Its migrations `0044`/`0045` are
 > **drafted and NOT applied**. ⏰ **`0044` is time-boxed: apply before Sat 2026-08-22 16:00 UTC.**
+> **→ `0044` APPLIED 2026-08-21** as `20260821080458` (ledger count **97**), inside the deadline;
+> `REQUIRED_MIGRATIONS` bumped 96 → **97** on 2026-08-22. **`0045` is still drafted and NOT
+> applied** — the sentence above remains true for it. The blocking-step failure described below
+> is therefore resolved for `derive_fundamentals_pit`.
 > `weekly-research.yml` runs `derive_fundamentals_pit.py` as an ordered blocking step, and the
 > merged code writes a `currency` column that does not exist in production — the step fails and
 > blocks `sync_fundamentals` below it. (Stated inline deliberately: the tracking `james-inbox.md`
@@ -754,6 +862,14 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   commits + 10 conflicts through main for two clean units. **Zero open PRs** as of this close.
 
 ## Ranked next-action queue
+
+> **Live as of 2026-08-22 merge-train close.** The Stages 0→6 table at the
+> top of this file remains the only ranked queue. After the train, **James
+> names the next unit.** Do not treat W1-2 (V1 brief section) as #1 — it was
+> CHALLENGEd (recency overfit / experience-layer polish / ladder inversion).
+> Packet-first renderer stays P6-01 / Stage 6. #153 is a dream candidate, not
+> a production next-action. Written later-candidates that are *not* auto-#1:
+> screening seed INSERT (I5), apply 0045 (I5), MCP principal repoint (James).
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
@@ -947,7 +1063,7 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 | Gate | Guards | State |
 |---|---|---|
 | `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
-| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — set in the **executing scheduler**, `.github/workflows/daily-brief.yml:61`. *(Corrected 2026-08-13, SB0-01: this cell previously cited `render.yaml:414`; Render was deleted 2026-08-12, so `render.yaml` sets nothing live.)* **Verdict reverted to UN-SHIPPED / RE-RAISED 2026-08-13** — the flag is still `1` but the surface has no valid SHIP verdict; see `dark-launch-exit-plan.md` surface #2 |
+| `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — set in the **executing scheduler**, `.github/workflows/daily-brief.yml:61`. *(Corrected 2026-08-13, SB0-01: this cell previously cited `render.yaml:414`; Render was deleted 2026-08-12, so `render.yaml` sets nothing live.)* ~~**Verdict reverted to UN-SHIPPED / RE-RAISED 2026-08-13** — the flag is still `1` but the surface has no valid SHIP verdict~~ → ✅ **SHIP verdict issued 2026-08-21** (arbi, `/arbi-run`), on a read-only production probe of both restated conditions: `holding_news` 9 rows, `ingest_news` last six runs 3·2·2·1·0·4 all `success`. The flag was already `1` and was **not** touched — the gap was the missing verdict, not the config. See `dark-launch-exit-plan.md` surface #2 |
 | `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |
 
@@ -1028,8 +1144,93 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-08-21 `/arbi-close`. Supersedes the 2026-08-19 snapshot below, which is
+_Recorded by the 2026-08-22 merge-train `/arbi-close`. Supersedes the same-day W1-1 snapshot below._
+
+```
+Close: 2026-08-22 (James: /arbi-mission plan → CHALLENGE on W1-2 → I6 merge train)
+- main @ 62ccceb
+- Merged: #155 d7e8242 · #151 67b3bae · #154 f0b8f9c · #152 62ccceb
+- Held: #153 (dream overlay; CONFLICTING; unique commits a976173 + 450709e)
+- W1-2 CHALLENGE honored — no brief section
+- REQUIRED_MIGRATIONS=97 on main; latest applied 20260821080458; 0045 unapplied
+- /pm-review HUBS.NYSE OBSERVED (REVIEW; zero Model A)
+- renders: TLS.AU FY2024 PIT abstain (from #155)
+- Next: James names the unit. Do not merge #153 as a second SB PR.
+```
+
+_Recorded by the 2026-08-22 W1-1 `/arbi-close`. Supersedes the same-day #154 snapshot below._
+
+```
+Close: 2026-08-22 (James: sessions done; execute one chain unit)
+- THE ONE THING: W1-1 asxos_pit_db (P5 integration evidence, not Stage 4).
+- Squash-merged as #155 (`d7e8242`).
+- renders: TLS.AU FY2024 PIT review, outcome abstain, G2/G3/G5 named,
+  presentation_sha256 1224d5f35440e55eb721bba0fbb65c12d018202bf79cdb6051517f81df7baac0.
+- /pm-review HUBS.NYSE owed by #149: OBSERVED this session (REVIEW; zero Model A).
+```
+
+_Recorded by the 2026-08-22 #154 `/arbi-close`. Supersedes the 2026-08-21 snapshot below, which is
 kept verbatim as the audit trail._
+
+```
+Close: 2026-08-22 (/arbi-run → chained build → /arbi-close; James drove it, then stepped away)
+Branch: claude/production-code-session-tasks-5hqs5n, draft PR #154. main @ d15266f (unmoved).
+Commits: 6 — f021795, 726df91, 21016db, f9ca0ea, abc434a, b622a4e
+Migrations: 97 applied (20260821080458). REQUIRED_MIGRATIONS now 97 on branch (abc434a).
+Tests: 2427 passed, 1 skipped, ZERO collection errors, at pinned versions with .[dev]
+Episode score: 3.4 provisional (see arbi-run-ledger.md close-2026-08-22)
+ONE THING outcome: partial — the debt half landed, the capability half did not
+```
+
+**Four findings, ranked by what they change:**
+
+1. **The agent DB read-only role is INERT.** `asxos_agent_ro` exists in production but the MCP
+   authenticates as `supabase_read_only_user`, so the control has done nothing since it was
+   applied. The planned rule-#11 REVOKE would have been *recorded as* mechanical enforcement
+   while changing nothing measurable. The fallback principal is worse — it inherits SELECT via
+   `pg_read_all_data` and carries `rolbypassrls`, so a table REVOKE cannot bind. **Branch A
+   (repoint to `asxos_agent_ro`) is the only viable path.**
+   → `docs/proposals/agent-db-role-the-control-is-inert-2026-08-22.md`
+
+2. **The test suite was never broken, and the project guide's "known sandbox gaps" section is
+   dead.** It describes a `model_a.py → cache.py → joblib` chain that PR #144 deleted. With a
+   venv at pinned versions: 2427 pass, 0 collection errors, no ML extras needed.
+
+3. **The review gate biases the repo toward docs.** Its marker is denied to the agent
+   *intermittently*, so Python commits are a lottery while doc commits sail through. This
+   session ran **5 doc commits to 1 code commit**, and the code only landed because the
+   classifier relented late. That is the same bias already visible in four inert
+   `results_review` PRs and in Amendment E's reason for existing. Allow rule drafted:
+   `docs/proposals/review-gate-allow-rule-2026-08-22.md`.
+
+4. **`jobs/compose_brief.py:97` prints the entire brief into the daily-brief Actions run log** —
+   holdings, stops, targets. If the repository is public, every run log is world-readable.
+   Visibility unverified from the sandbox. Not in any diff; found during security review.
+
+**Three of arbi's eight planned items were falsified by live probe before work began** — the CBA
+price-detachment automation was already shipped (`discipline.py:240,257`), the tax/disposal unit
+would have closed "correct and empty" (0 disposals), and `detect_theme_stages` was unreachable
+(workflow files Edit-denied). Worth noting as a pattern: arbi plans read-only and its items need
+probing before they are costed.
+
+**Not built:** Units 4 (doc-expiry sweep, 25 expired), 6 (open-time thesis price-ordering
+validator), 7 (memory-gap brief line), 8 (V2 brief descope). Unit 6 carries a live design note —
+`open_thesis()` has *no* price validation at all, and enforcement must be open-time-only and
+revision-exempt because a raised trailing stop legitimately sits above entry.
+
+---
+
+_Recorded by the 2026-08-21 `/arbi-close`. Superseded by the block above; kept verbatim as the
+audit trail._
+
+> **Point-in-time record — one line was overtaken on 2026-08-22.** Kept verbatim. The
+> `migrations` bullet's residual *"main's REQUIRED_MIGRATIONS = 96 lags the observed 97"* is
+> **discharged**: the constant is bumped **96 → 97** (`asxos/api/main.py:14`), re-measured
+> against the live ledger the same day (97, latest `20260821080458`). The rest of the bullet
+> holds: `0045` is still unapplied, and the repo copies of `0043`/`0044` still assert
+> "unapplied"/"DRAFT" against a production that has both — a `migrations/**` (Edit-denied)
+> item now standing on James's inbox row. The "benign" judgement is now test-pinned:
+> `tests/test_api_main.py::test_migration_drift_passes_above_required`.
 
 ```
 Close: 2026-08-21 (session ran without a formal /arbi wake — James drove it directly)
@@ -1060,7 +1261,63 @@ Close: 2026-08-21 (session ran without a formal /arbi wake — James drove it di
   not produce it — agent definitions load at session start, so it still held the
   pre-amputation versions and running it there would have reproduced the leak. A fresh session
   owes this run. Ledger row reads did_it_work: PENDING per L18.
+
+_Recorded by the 2026-08-22 `/arbi` wake on the second-brain branch. Audit trail only — open-PR counts in this block are stale after the merge train._
+
+_Recorded by the 2026-08-22 interactive `/arbi` wake. Supersedes the 2026-08-19 entry below,
+which is kept verbatim as the audit trail._
+
 ```
+Wake: 2026-08-22 ~15:10Z (interactive /arbi)
+- branch: claude/product-roadmap-backlog-8k3jz5 @ d608130, 16 ahead of origin/main
+  (d15266f). Working tree clean. No PR opened for this branch.
+- open PRs: 1 — #151 "Tier 2a screening: liquidity gate + audit-log completeness",
+  DRAFT, branch claude/screening-liquidity-audit, opened 2026-08-22T07:23Z, last
+  updated 11:27Z. NOT authored by this session; unreviewed. Down from 7 at the
+  08-19 wake (#144/#142/#141/#124 merged; #80 parked-and-delisted).
+- tests: 2586 passed / 1 skipped / 0 failed / 0 collection errors. ruff clean.
+  mypy clean across 168 source files. The interpreter-dependent sandbox gap that
+  the 08-19 snapshot recorded (1 failed + 1 error) is GONE — its import chains died
+  with Model A in #144, and CLAUDE.md's "Known test environment gaps" was retired
+  as RESOLVED today.
+- CI: full-check + targeted-ml-tests both success on this branch at 15:02Z.
+- crons: backup scheduled success 13:50Z. daily-brief has a CLEAN record — 10 of 10
+  scheduled days ran green (08-09..08-13, 08-16..08-20). Its cron is
+  "30 20 * * 0-4" (daily-brief.yml:39) = Sun-Thu only, so 08-14/15/21/22 are
+  non-scheduled days, NOT misses. Two separate readings called them misses today;
+  both were wrong. UNPROBED this wake, treat as unknown not healthy:
+  pipeline-health, us-positions, weekly-research, migration-drill.
+- Supabase freshness: UNAVAILABLE. No MAX(prices.dt), no MAX(signals.as_of), no
+  job_runs, no live migration count. Two independent causes, both James's, both
+  diagnosed today in db-access-remediation-2026-08-22.md: (1) the environment
+  blocks outbound 5432 (measured — pooler times out, api.github.com:443 opens in
+  0.2s); (2) settings.json:4 allows mcp__supabase-ro__execute_sql while servers
+  register under per-session UUIDs, so the rule can never match
+  (.claude/permission-requests.log shows every DB call today as ASK).
+- migrations: NOT re-verified this wake (DB unreachable). Last known 2026-08-21:
+  0044 applied as 20260821080458, observed count 97, REQUIRED_MIGRATIONS=97,
+  0045_segment_map.sql on disk and unapplied.
+- governance: G1 CLEARED today — P3-01/P3-02 approved, P3-03 and the 8-row chain
+  unblocked. SB4-01 PARKED with a named revival trigger. Permission-allowlist
+  archive drafted, NOT applied. arbi-run-ledger row for this session still owed.
+
+CLOSE ADDENDUM (2026-08-22, /arbi-close — supersedes the three lines above):
+- head 130a0d8, 18 ahead of origin/main. DRAFT PR #152 (work) and #153 (dream,
+  branch claude/arbi-mem/2026-08-22). Ledger row close-2026-08-22 written,
+  episode_score 3.3 provisional — the "still owed" note above is discharged.
+- THE ONE THING (restore a DB read path) was NOT achieved. arbi's chosen route —
+  a project .mcp.json — is closed: no SUPABASE_ACCESS_TOKEN exists in this
+  environment. The credential-free route (defaultMode) is drafted as patch A and
+  was REFUSED on all four application attempts, including a cp that merely backed
+  up settings.json. Delivered as a paste-ready patch set instead.
+- Three .claude/** patches drafted and unapplied (A settings, B authority-guard,
+  C thesis-coherence-guard). C is the live capital-adjacent one.
+- NOT routed around: ~/.claude/settings.json is outside both the deny array and
+  the guard's fragment list and would have worked. Governor's call, not arbi's.
+- New for James: AWS_ACCESS_KEY_ID/SECRET are SET in this environment while F6
+  says no credentials are authorised.
+```
+
 
 _Recorded by the 2026-08-19 interactive `/arbi` wake, extended via `/arbi-run "ingest and
 explore this work from cursor"` after James pasted a full transcript from a parallel Cursor

@@ -11,11 +11,9 @@ from collections.abc import Collection, Mapping
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
-
-class _FrozenModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+from asxos.secondbrain._schema import FrozenModel
 
 
 class MissionState(StrEnum):
@@ -70,7 +68,7 @@ _EVIDENCE_REQUIRED_STATES = frozenset(
 )
 
 
-class RoadmapItem(_FrozenModel):
+class RoadmapItem(FrozenModel):
     """One compiled work order from an explicitly structured source row."""
 
     item_id: str = Field(pattern=r"^[A-Z][A-Z0-9]*-\d{2}$")
@@ -94,7 +92,7 @@ class RoadmapItem(_FrozenModel):
         return self
 
 
-class CompiledRoadmap(_FrozenModel):
+class CompiledRoadmap(FrozenModel):
     """Validated dependency graph compiled from one source artifact."""
 
     schema_version: Literal[1] = 1
@@ -141,7 +139,7 @@ class CompiledRoadmap(_FrozenModel):
         raise KeyError(item_id)
 
 
-class MissionEvent(_FrozenModel):
+class MissionEvent(FrozenModel):
     """One append-only state transition with source-addressable evidence."""
 
     mission_id: str = Field(min_length=1)
@@ -160,7 +158,7 @@ class MissionEvent(_FrozenModel):
         return self
 
 
-class MissionTimeline(_FrozenModel):
+class MissionTimeline(FrozenModel):
     """A validated append-only mission history."""
 
     events: tuple[MissionEvent, ...]
@@ -200,7 +198,7 @@ class MissionTimeline(_FrozenModel):
         return self.events[-1].state
 
 
-class MissionEnvelope(_FrozenModel):
+class MissionEnvelope(FrozenModel):
     """Executable mission input; candidate backlog text alone cannot create one."""
 
     schema_version: Literal[1] = 1
@@ -251,14 +249,14 @@ class MissionEnvelope(_FrozenModel):
         return self
 
 
-class CheckResult(_FrozenModel):
+class CheckResult(FrozenModel):
     name: str = Field(min_length=1)
     command: str = Field(min_length=1)
     status: Literal["PASS", "FAIL", "SKIPPED"]
     evidence: str = Field(min_length=1)
 
 
-class MissionReceipt(_FrozenModel):
+class MissionReceipt(FrozenModel):
     """Machine-verifiable result emitted at a mission transaction boundary."""
 
     schema_version: Literal[1] = 1
@@ -306,7 +304,7 @@ class MissionReceipt(_FrozenModel):
         return self
 
 
-class RoadmapSelection(_FrozenModel):
+class RoadmapSelection(FrozenModel):
     """Deterministic controller result; no work is dispatched by this object."""
 
     status: Literal["READY", "ACTIVE", "BLOCKED", "COMPLETE", "NO_ACTIVATION"]

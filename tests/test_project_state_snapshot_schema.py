@@ -34,6 +34,7 @@ from asxos.secondbrain.project_state import (
     ProductionState,
     ProjectStateSnapshot,
     RepositoryState,
+    leaves,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "project_state_snapshot"
@@ -330,15 +331,6 @@ def test_snapshot_instances_are_immutable() -> None:
 # ---------------------------------------------------------------------------
 
 
-def all_leaves(snapshot: ProjectStateSnapshot) -> dict[str, FieldObservation]:
-    leaves: dict[str, FieldObservation] = {}
-    for section_name in ("repository", "github", "production", "data"):
-        section = getattr(snapshot, section_name)
-        for field_name in type(section).model_fields:
-            leaves[f"{section_name}.{field_name}"] = getattr(section, field_name)
-    return leaves
-
-
 @pytest.mark.parametrize("name", FIXTURE_NAMES)
 def test_fixture_validates(name: str) -> None:
     snapshot = ProjectStateSnapshot.model_validate(load_fixture(name))
@@ -360,7 +352,7 @@ def test_unavailable_fixture_is_honest_everywhere() -> None:
     # A total observability outage is still a VALID snapshot -- and nothing
     # in it defaults to a value ("missing probes do not become zero/green").
     snapshot = ProjectStateSnapshot.model_validate(load_fixture("unavailable"))
-    for path, leaf in all_leaves(snapshot).items():
+    for path, leaf in leaves(snapshot).items():
         assert leaf.status == "unavailable", path
         assert leaf.value is None, path
     assert all(probe.status == "unavailable" for probe in snapshot.probes)
@@ -383,7 +375,7 @@ def test_branch_only_fixture_records_branch_identity() -> None:
 
 def test_partial_fixture_mixes_statuses_without_invention() -> None:
     snapshot = ProjectStateSnapshot.model_validate(load_fixture("partial"))
-    statuses = {leaf.status for leaf in all_leaves(snapshot).values()}
+    statuses = {leaf.status for leaf in leaves(snapshot).values()}
     assert statuses == {"observed", "unavailable", "error"}
     # The errored leaf carries no value; its detail lives in the probe log.
     assert snapshot.github.recent_merges.status == "error"

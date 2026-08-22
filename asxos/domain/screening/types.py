@@ -71,9 +71,13 @@ class ScreeningRule:
 class ScreenMatch:
     """One symbol that passed a rule's conditions.
 
-    values holds only the whitelisted fields the rule actually evaluated
-    (not every fundamentals/universe column) — keeps the CLI output focused
-    on what mattered to the match, not a full fundamentals dump.
+    values carries EVERY non-`sector` whitelisted field, not only the ones
+    the rule referenced — the SELECT list is generated from _FIELD_MAP so
+    alias/key alignment is structural. Adding a field to the whitelist
+    therefore widens every ScreenMatch and every `asx screen run` table,
+    including for rules that never mention it. (Corrected 2026-08-21: this
+    previously claimed only evaluated fields were carried, which the
+    generated SELECT list has never done.)
     """
 
     symbol: str
@@ -91,6 +95,18 @@ class ScreenRunResult:
     match_count separate from len(matches) preserves that signal even when
     matches is truncated. See screening_runs.match_count's column comment
     in migration 0038.
+
+    all_symbols is EVERY passing symbol, unbounded by `limit`, and exists
+    solely so the audit log records the whole answer. Persisting `matches`'s
+    symbols instead produced a screening_runs row reading "50 matched, 20
+    recorded" — which silently destroys the audit trail that pre-registration
+    depends on, because the unrecorded names are exactly the ones nobody
+    looked at. len(all_symbols) == match_count, enforced in log_run().
+
+    It is deterministically ORDERED: the match query ends ORDER BY u.symbol,
+    so two runs over identical data produce byte-identical arrays. That
+    reproducibility is a load-bearing property of an audit artifact, not an
+    incidental one — do not introduce a nondeterministic ordering.
     """
 
     rule_id: int
@@ -100,3 +116,4 @@ class ScreenRunResult:
     matches: tuple[ScreenMatch, ...]
     match_count: int
     duration_ms: int
+    all_symbols: tuple[str, ...]

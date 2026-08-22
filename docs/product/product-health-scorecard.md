@@ -98,7 +98,7 @@ below — an earlier draft of this doc mis-framed it as new); `retrain_model_a` 
 | portfolio discipline digest | 🟡 **new this session** — PR2a (loader, #40) + PR2b (render, #41) landed as draft PRs; not yet merged/live |
 | thesis cards w/o Model A | 🟢 yes (R9 shipped — best-effort model gate) |
 | portfolio brief | ⚪ dark (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`) |
-| news/sentiment brief | 🔴 shipped but empty (`ASXOS_NEWS_BRIEF_ENABLED=1`) — `holding_news` 0 rows since at least 2026-07-06; ingest guard + brief gate fixed 2026-08-05, symbol-mapping cause still open |
+| news/sentiment brief | 🟢 **SHIP — fresh verdict 2026-08-21** (`ASXOS_NEWS_BRIEF_ENABLED=1`). *Was 🔴 "shipped but empty … `holding_news` 0 rows … symbol-mapping cause still open" — falsified on all three counts by a read-only production probe:* `holding_news` **9 rows**, `signal_sentiment` **9 rows**, and the symbol-mapping bug is **not** the cause (`jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`; one open lot bounds coverage). `ingest_news` last six runs wrote 3·2·2·1·0·4, all `success`. See `dark-launch-exit-plan.md` surface #2 |
 | ETF/multi-instrument | 🟡 Slice 1 built + `security_kind` live in prod; Slice 2 blocked on James's VGS/VAS holding-lot data |
 
 ---

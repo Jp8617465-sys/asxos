@@ -69,6 +69,26 @@ async def test_migration_drift_passes_at_required(monkeypatch) -> None:
     await main._check_migration_drift()  # must not raise
 
 
+async def test_migration_drift_passes_above_required(monkeypatch) -> None:
+    """Being AHEAD of `REQUIRED_MIGRATIONS` must boot, not hard-fail.
+
+    The guard is deliberately asymmetric — `count < REQUIRED_MIGRATIONS`, not
+    `!=`. That asymmetry is load-bearing and is exercised in production every
+    time a migration is applied before the constant is bumped: on 2026-08-21
+    migration 0044 landed as `20260821080458`, taking the live count to 97
+    while `main` still read 96, and the API kept booting precisely because of
+    this branch. Tightening the comparison to `!=` would turn every
+    apply-then-bump window into a startup outage, and no test would have
+    caught it — the two tests either side of this one both pass under `!=`.
+    """
+
+    monkeypatch.setattr(main.settings, "skip_migration_drift_check", False)
+    conn = MagicMock()
+    conn.fetchval = AsyncMock(return_value=main.REQUIRED_MIGRATIONS + 1)
+    monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
+    await main._check_migration_drift()  # must not raise
+
+
 async def test_migration_drift_skipped_by_config(monkeypatch) -> None:
     monkeypatch.setattr(main.settings, "skip_migration_drift_check", True)
     called = MagicMock()

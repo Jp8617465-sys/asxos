@@ -10,6 +10,18 @@
 > (`asxos/api/main.py:15`). Session entry is now `CLAUDE.md` → `docs/session-handoff-2026-07-04.md`
 > → `docs/README.md`. The "Conventions to honor" section below is still broadly correct;
 > everything under "Branch / PR state" and "Already-applied DB state" is superseded.
+>
+> **⚠️ The banner itself has since gone stale — correction 2026-08-22.** Its "Current:"
+> figures (`through 0036`, `REQUIRED_MIGRATIONS = 90`) are a 2026-07-04 observation, not
+> today's state, and re-anchor a session four migration-epochs back exactly as the `84`
+> below did. As of 2026-08-22: migration files run **through `0045`** on disk;
+> `supabase_migrations.schema_migrations` = **97** (latest version `20260821080458`,
+> `0044` applied 2026-08-21); `REQUIRED_MIGRATIONS = 97` in `asxos/api/main.py`. `0042`
+> is **RESERVED** and must never be applied, and `0045` is drafted but **not** applied —
+> so the on-disk file count, the ledger count and the constant are three different
+> numbers by design. Session entry is now `CLAUDE.md` → the newest
+> `docs/session-handoff-*.md` → `docs/README.md`. **Never read a migration count out of
+> this file** — read `asxos/api/main.py` and the live ledger.
 
 # asxos — next-session kickoff prompt
 
