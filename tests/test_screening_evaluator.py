@@ -487,9 +487,7 @@ async def test_log_run_inserts_snapshot_not_live_rule() -> None:
     # positional: query, rule_id, sector_scope, universe_size, match_count, matched_symbols, rule_json_snapshot, duration_ms
     assert call_args[1] == 1
     assert call_args[4] == 1  # match_count
-    # matched_symbols comes from the result, not a live re-fetch -- and now
-    # from all_symbols rather than result.matches, which is bounded by `limit`.
-    assert call_args[5] == ["CBA.AU"]
+    assert call_args[5] == ["CBA.AU"]  # matched_symbols from the result, not a live re-fetch
 
 
 # ---------------------------------------------------------------------------
@@ -847,8 +845,45 @@ async def test_log_run_records_every_match_not_just_the_displayed_shortlist() ->
     assert len(result.all_symbols) == 50      # audit set, unbounded
     assert len(result.all_symbols) == result.match_count
 
+    # Reassignment is load-bearing twice over: _make_conn wired fetchrow for
+    # the zero-coverage guard (so log_run would KeyError on row["id"]), and it
+    # is what makes await_args refer to the INSERT rather than the guard query.
     conn.fetchrow = AsyncMock(return_value={"id": 1})
     await ev.log_run(conn, result, {"version": 1})
+
+    # Exact-sequence, not len() plus a tail check: the latter passes under a
+    # dedupe, a re-sort, or a substitution in the middle. This also pins the
+    # ORDER BY u.symbol determinism that makes the audit row reproducible.
     logged = conn.fetchrow.await_args.args[5]
-    assert len(logged) == 50, "log_run persisted the truncated shortlist"
-    assert logged[-1] == "SYM049.AU", "the tail of the match set was dropped"
+    assert logged == [f"SYM{i:03d}.AU" for i in range(50)]
+
+
+async def test_log_run_refuses_an_internally_inconsistent_row() -> None:
+    """log_run is the ONE gate on the output path, and it must hard-fail.
+
+    The input types are deliberately dumb because parse_rule() gates them.
+    ScreenRunResult is built from trusted internal data and had no gate at
+    all, so a row whose match_count disagrees with its symbol list would have
+    reached Postgres silently. On an audit substrate that is the worst
+    available failure: a row that looks authoritative and is not.
+
+    The state is reachable, not hypothetical -- pushing LIMIT into SQL and
+    taking match_count from a separate COUNT(*) would make the two values come
+    from different queries, which is exactly how the truncation bug arose.
+    """
+    from asxos.domain.screening.types import ScreenMatch, ScreenRunResult
+
+    bad = ScreenRunResult(
+        rule_id=1, rule_name="value-screen", sector_scope=None, universe_size=100,
+        matches=(ScreenMatch(symbol="AAA.AU", sector="Industrials", values={}),),
+        match_count=50,                      # claims 50...
+        duration_ms=42, all_symbols=("AAA.AU",),  # ...carries 1
+    )
+    conn = MagicMock()
+    conn.fetchrow = AsyncMock(return_value={"id": 1})
+
+    with pytest.raises(RuntimeError, match="inconsistent screening_runs row"):
+        await ev.log_run(conn, bad, {"version": 1})
+
+    # Nothing was written -- it refused BEFORE the INSERT, not after.
+    conn.fetchrow.assert_not_awaited()

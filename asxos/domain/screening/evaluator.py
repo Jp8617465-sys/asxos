@@ -611,8 +611,8 @@ async def evaluate_rule(
         matches=matches,
         match_count=len(rows),
         duration_ms=duration_ms,
-        # Every passing symbol, NOT rows[:limit] -- the audit log must
-        # record the whole answer, not the slice that happened to print.
+        # The audit log must record the whole answer, not the slice that
+        # happened to print.
         all_symbols=tuple(r["symbol"] for r in rows),
     )
 
@@ -655,6 +655,27 @@ async def log_run(
     this snapshot stops a later rule edit from silently reinterpreting an
     old run's meaning.
     """
+    # The ONE gate on the output path. The input types (ScreenCondition,
+    # ScreenGroup, ScreeningRule, ScreenMatch) are deliberately dumb because
+    # parse_rule() gates them; ScreenRunResult is built from trusted internal
+    # data and had NO gate at all. This is where an internally inconsistent
+    # audit row would reach Postgres, so it fails here -- loudly, never an
+    # assert (stripped under -O).
+    #
+    # Tautological today (both derive from the same `rows`). It is prospective:
+    # the obvious next optimisation -- push LIMIT into SQL and take match_count
+    # from a separate COUNT(*) -- makes these two come from DIFFERENT queries
+    # for the first time and re-creates this exact bug in a new shape. The
+    # check constrains the boundary, not the current call site.
+    if len(result.all_symbols) != result.match_count:
+        raise RuntimeError(
+            f"refusing to log an inconsistent screening_runs row for rule "
+            f"{result.rule_id}: match_count={result.match_count} but "
+            f"all_symbols carries {len(result.all_symbols)} symbols. The audit "
+            "row must record the whole answer; a mismatch means the count and "
+            "the symbol list came from different places."
+        )
+
     row = await conn.fetchrow(
         """
         INSERT INTO screening_runs
