@@ -611,6 +611,9 @@ async def evaluate_rule(
         matches=matches,
         match_count=len(rows),
         duration_ms=duration_ms,
+        # Every passing symbol, NOT rows[:limit] -- the audit log must
+        # record the whole answer, not the slice that happened to print.
+        all_symbols=tuple(r["symbol"] for r in rows),
     )
 
 
@@ -664,7 +667,10 @@ async def log_run(
         result.sector_scope,
         result.universe_size,
         result.match_count,
-        [m.symbol for m in result.matches],
+        # all_symbols, never [m.symbol for m in result.matches]: the latter
+        # is the display shortlist bounded by `limit`, so logging it wrote
+        # the true match_count beside a truncated symbol list.
+        list(result.all_symbols),
         json.dumps(rule_json_snapshot, default=str),
         result.duration_ms,
     )
