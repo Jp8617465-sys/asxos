@@ -7,7 +7,9 @@ session, and each must be caught mechanically.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from pydantic import JsonValue
@@ -248,7 +250,7 @@ def test_a_finding_is_frozen() -> None:
 
 def test_semantics_version_is_pinned() -> None:
     """Changing what a check MEANS is a version bump — consumers diff across wakes."""
-    assert SEMANTICS_VERSION == 1
+    assert SEMANTICS_VERSION == 2
     assert {r.code for r in CROSS_SOURCE_EQUALITIES} == {"migration_drift"}
     assert {r.code for r in LEAF_INTERNAL_EQUALITIES} == {"migration_drift"}
 
@@ -398,3 +400,87 @@ def test_a_nested_shared_scalar_that_disagrees_is_still_critical() -> None:
 
     hit = next(c for c in check_snapshot(nested) if c.code == "leaf_probe_value_mismatch")
     assert hit.subject == "data.freshness.prices.max_dt"
+
+
+# --------------------------------------------------------------------------
+# SB2-02's actual completion proof: "Known contradictions fail fixtures".
+#
+# These run against the repo's own checked-in fixtures, not synthetic ones.
+# Before 2026-08-22 all five returned 0 findings above `info` — the proof was
+# unmet while the work order was reported complete.
+# --------------------------------------------------------------------------
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "project_state_snapshot"
+
+
+def _fixture(name: str) -> ProjectStateSnapshot:
+    return ProjectStateSnapshot.model_validate(json.loads((FIXTURE_DIR / name).read_text()))
+
+
+def _above_info(snap: ProjectStateSnapshot) -> list[Contradiction]:
+    return [c for c in check_snapshot(snap) if c.severity != "info"]
+
+
+def test_the_contradictory_fixture_fails() -> None:
+    """Two probes both named data.migrations — that IS the fixture's contradiction."""
+    found = _above_info(_fixture("contradictory.json"))
+    dup = next(c for c in found if c.code == "duplicate_probe_name")
+
+    assert dup.severity == "critical"
+    assert dup.subject == "data.migrations"
+    assert dup.left != dup.right, "the two probes must be reported as differing sources"
+
+
+def test_the_stale_fixture_fails() -> None:
+    """stale.json encodes staleness ONLY in freshness payloads — both timestamps match."""
+    found = _above_info(_fixture("stale.json"))
+    stale = [c for c in found if c.code == "stale_freshness"]
+
+    assert {c.subject for c in stale} == {"data.freshness", "repository.base_sha"}
+    assert all(c.severity == "warning" for c in stale)
+
+
+@pytest.mark.parametrize("name", ["branch_only.json", "partial.json", "unavailable.json"])
+def test_the_legitimate_fixtures_stay_silent(name: str) -> None:
+    """These record valid states. A checker that flags them is noise, not signal.
+
+    Specifically pins the false positive removed on 2026-08-22: an
+    `uncorroborated_release_identity` rule fired on branch_only (a feature branch
+    legitimately differs from production's released commit) and on partial (whose
+    `recent_merges` is `status: error`, so nothing COULD corroborate). Both turned
+    "could not corroborate" into "contradiction" — the mistake
+    `test_cross_source_rule_needs_both_sides_present` already guards against.
+    """
+    assert _above_info(_fixture(name)) == []
+
+
+def test_duplicate_probe_names_survive_a_json_round_trip() -> None:
+    """build_snapshot rejects duplicates; a snapshot LOADED from JSON never sees it.
+
+    That is every snapshot a wake actually reads, which is why the guard has to
+    exist in check_snapshot too and not only at construction.
+    """
+    snap = _snapshot([_spec("data.migrations", {"applied_count": 97})])
+    twinned = snap.model_copy(
+        update={
+            "probes": [
+                *snap.probes,
+                snap.probes[0].model_copy(update={"value": {"applied_count": 12}}),
+            ]
+        }
+    )
+    reloaded = ProjectStateSnapshot.model_validate_json(twinned.model_dump_json())
+
+    assert "duplicate_probe_name" in _codes(check_snapshot(reloaded))
+
+
+def test_freshness_within_bound_is_silent() -> None:
+    snap = _snapshot([ProbeSpec("data.freshness", "t", lambda: 1, {"age_days": 3})])
+    assert "stale_freshness" not in _codes(check_snapshot(snap))
+
+
+def test_freshness_ignores_non_integer_and_boolean_payloads() -> None:
+    """A bool is an int in Python; `True` must not read as an age of 1."""
+    for payload in ({"age_days": "13"}, {"age_days": True}, {"age_days": None}, {"other": 99}):
+        snap = _snapshot([ProbeSpec("data.freshness", "t", lambda: 1, payload)])
+        assert "stale_freshness" not in _codes(check_snapshot(snap)), payload
