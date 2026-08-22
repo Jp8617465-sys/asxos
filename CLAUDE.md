@@ -194,23 +194,24 @@ personal-advice firewall or rule #11 (Model A quarantine), and never edits its o
 constitution/boundaries — it may only draft a change for James to approve.
 
 **Route dev work through these agents — do not freelance work that has an owner.**
-Before acting, consult the relevant agent:
+Before acting, consult the relevant agent. The hard owner→agent roster and the
+two-speed split live in `docs/product/harness-profiles.md`.
 
 | About to… | Consult first |
 |---|---|
 | Decide what to work on next / prioritise across the roadmap / "wake up" | `arbi` (via `/arbi`) |
-| Execute an arbi-approved reversible mission (task graph → specialists → draft PR) | `guilfoyle` (via `/arbi-mission`) |
+| One-file / same-file / tiny sequential reversible edit | `/build` (main loop; consult the hard owner in `docs/product/harness-profiles.md`) |
+| Execute an arbi-approved multi-node reversible mission (task graph → specialists → draft PR) | `/arbi-mission` (dispatcher: the **main loop** fans out; `guilfoyle` plans and judges only) |
+| Large parallel mission (whole-project / cross-layer / competing hypotheses) | `/arbi-team` (only if team-shaped; else `/arbi-mission`) |
 | Start a feature whose scope isn't already a written spec | `requirements-analyst` |
 | Add a module / cross-domain dependency / structural change | `system-architect` |
 | Design or change an API route, DB schema/migration, auth, or write-path job | `backend-architect` |
 | Add, swap, or upgrade a dependency or external service | `tech-stack-researcher` |
 | Touch a hot path (API query, job throughput, ML inference, vol calc) | `performance-engineer` |
 
-**After any non-trivial code change, before committing, run the review loop:**
-
-1. `security-engineer` — if the change touches secrets, external input, dependencies, or financial/PII data.
-2. `refactoring-expert` — reduce complexity/duplication without changing behaviour.
-3. `technical-writer` — update affected docs, runbooks, and docstrings.
+**After a change, consult by risk tier — not a flat three-agent loop.** Tiers A/B/C
+are `docs/product/harness-profiles.md`. The Review consult section below is the
+short in-file copy.
 
 `deep-research-agent` and `learning-guide` are on-demand (research / explanation),
 not part of the per-change loop. `frontend-architect` is dormant (no v1 frontend).
@@ -269,32 +270,21 @@ open --from-agent-run`, and reaches `approved` only via `asx macro-thesis approv
 to persist it as `agent_runs` rows (one per proposal) — the agent itself never
 writes to the DB.
 
-### Review gate (enforced)
+### Review consult (risk-tiered)
 
-`.claude/hooks/review-gate.sh` (wired via `.claude/settings.json` as a `PreToolUse`
-hook on Bash) **blocks `git commit` when Python files are staged** until the review
-loop has run for that exact staged diff. Flow: stage → attempt commit → the hook
-denies with instructions → run `security-engineer` / `refactoring-expert` /
-`technical-writer` on the staged diff → `touch .claude/.review-passed-<sha>` (the
-hook prints the exact marker path) → retry the commit. The marker is keyed to the
-staged-diff hash, so any further change re-arms the gate.
+Consult policy is `docs/product/harness-profiles.md`. The review-gate hook is
+**removed** (2026-08-22). Quality is `make check` + CI (`full-check`). Do not
+run a flat three-agent loop on every change.
 
-As of R13 (2026-07-13) the gate also blocks commands that stage Python in the
-*same step* as the commit — a compound `git add … && git commit`, or an
-auto-staging `git commit -a`/`-am`/`--all` — which previously slipped past
-because the gate inspects the staged diff and the staging hadn't happened yet.
-Those now deny up front (whenever the working tree carries pending `.py`) with a
-"stage the Python separately, then commit through the gate" message; a bare
-`git commit --amend` is not caught. `tests/test_review_gate_hook.py` drives the
-shell hook via subprocess to pin both the bypass-denials and the allow paths.
-
-Honest limit: the hook cannot itself spawn an agent or verify one ran — it forces a
-deliberate step (write the marker) rather than guaranteeing the review happened.
-Writing the marker without running the loop is an explicit, visible bypass. Doc-only
-and config-only commits (no staged `*.py`) are not gated. It remains advisory +
-fail-open (jq missing / bad project dir → no deny) and the marker stays forgeable
-by design — R13 closes a same-command race, not the intentional bypass surface.
+- **Tier A** — `asxos/**`, `jobs/**`, `scripts/*.py`, behaviour-bearing tests:
+  full loop (`security-engineer` when its trigger conditions hold,
+  `refactoring-expert`, `technical-writer`). Domain extras still apply
+  (`tax-spec-conformance`, `portfolio-invariant-guard`).
+- **Tier B** — `docs/**` and non-authority config: at most one
+  `technical-writer` pass on load-bearing docs (governance set, runbooks,
+  specs). None on session records (handoffs, ledger, decision-log rows).
+- **Tier C** — deny-listed authority paths: James only.
 
 ## Custom slash commands
 
-`.claude/commands/` has 31 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out four of the five investment-analysis agents (all but `thesis-coherence-guard`, dropped 2026-08-21 — see the delegation section) and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `arbi-run` (added 2026-07-10) is the attended multi-agent dispatch bridge: arbi plans + names specialists, the main loop fans them out in parallel (governor-invoked, reversible only — standing/unattended dispatch stays gated per `arbi-permission-model.md`). `arbi-mission` (added 2026-07-13) is its graph-driven, readiness-gated successor: **`guilfoyle`** (mission-control, read-only planner under arbi) turns an arbi-approved mission envelope into a task graph + specialist assignments + one readiness verdict, and the main loop executes the reversible fan-out to a draft PR — attended only, draft-PR ceiling, Guilfoyle plans/judges but never prioritises, spawns, or merges. `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` lists the paths that carry arbi's authority — `docs/product/memory/`, the `arbi-*` governance set, `north-star.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/arbi.md`. **It is currently advisory, not enforced.** Branch protection requires `full-check` and zero approving reviews; `require_code_owner_reviews` is on but inert, because the sole code owner authors every PR and GitHub cannot request a review from a PR's own author — verified 2026-08-18, when PR #137 touching `CLAUDE.md` reached `CLEAN` and merged with no review. With one identity the only reachable states are gate-everything (`required_approving_review_count: 1`, forcing `--admin` on every merge) or gate-nothing; path-scoped gating needs a separate GitHub identity for agent-authored PRs, tracked as R2/R5. Treat the CODEOWNERS list as a statement of which files deserve a second look, not as a control that will stop you.); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.
+`.claude/commands/` has 31 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out four of the five investment-analysis agents (all but `thesis-coherence-guard`, dropped 2026-08-21 — see the delegation section) and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `/build` (added 2026-08-22) is the one-file reversible path. `/arbi-run` is a deprecated stub that redirects to `/arbi-mission`. `arbi-mission` (added 2026-07-13, strengthened 2026-08-22) is the multi-node dispatcher: **`guilfoyle`** (mission-control, read-only planner under arbi) turns an arbi-approved mission envelope into a task graph + specialist assignments + one readiness verdict, and the main loop executes the reversible fan-out to a draft PR — attended only, draft-PR ceiling, Guilfoyle plans/judges but never prioritises, spawns, or merges. `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` lists the paths that carry arbi's authority — `docs/product/memory/`, the `arbi-*` governance set, `north-star.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/arbi.md`. **It is currently advisory, not enforced.** Branch protection requires `full-check` and zero approving reviews; `require_code_owner_reviews` is on but inert, because the sole code owner authors every PR and GitHub cannot request a review from a PR's own author — verified 2026-08-18, when PR #137 touching `CLAUDE.md` reached `CLEAN` and merged with no review. With one identity the only reachable states are gate-everything (`required_approving_review_count: 1`, forcing `--admin` on every merge) or gate-nothing; path-scoped gating needs a separate GitHub identity for agent-authored PRs, tracked as R2/R5. Treat the CODEOWNERS list as a statement of which files deserve a second look, not as a control that will stop you.); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.
