@@ -71,9 +71,13 @@ class ScreeningRule:
 class ScreenMatch:
     """One symbol that passed a rule's conditions.
 
-    values holds only the whitelisted fields the rule actually evaluated
-    (not every fundamentals/universe column) — keeps the CLI output focused
-    on what mattered to the match, not a full fundamentals dump.
+    values carries EVERY non-`sector` whitelisted field, not only the ones
+    the rule referenced — the SELECT list is generated from _FIELD_MAP so
+    alias/key alignment is structural. Adding a field to the whitelist
+    therefore widens every ScreenMatch and every `asx screen run` table,
+    including for rules that never mention it. (Corrected 2026-08-21: this
+    previously claimed only evaluated fields were carried, which the
+    generated SELECT list has never done.)
     """
 
     symbol: str
