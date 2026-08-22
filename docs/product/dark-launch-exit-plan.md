@@ -4,7 +4,10 @@
 **Scope:** every code-complete-but-gated-off surface in asxos. For each one: a **ship / delete /
 keep-dark** decision, the reason, an **expiry** if kept dark, and the exact gate that flips it.
 Closes risk R4 (built-but-dark ≠ released) by refusing to let a surface sit dark with no decision.
-**Last verified:** 2026-08-13 (SB0-01 doc-truth sweep — surface #2's verdict reverted to
+**Last verified:** 2026-08-21 (`/arbi-run` — **surface #2 issued a fresh SHIP verdict** on a
+read-only production probe of both restated conditions; the 8-day-old "no fresh verdict exists"
+gap is closed, and two stale claims inside that section were falsified by the same probe and
+corrected in place). Prior: 2026-08-13 (SB0-01 doc-truth sweep — surface #2's verdict reverted to
 UN-SHIPPED per this file's own `:133-138` rule; expiry countdowns restated). Prior: 2026-07-11
 (post ML-shelf; the model-independent product is now THE product)
 **Owner:** arbi maintains the decisions + expiries (I2, command-invoked); James owns any decision
@@ -35,10 +38,56 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 - **Owner of the flip:** James (firewall gate 1 + capital-adjacent) — a `james-inbox.md` item when
   the paper-trade window closes.
 
-### 2. News / sentiment brief — `ASXOS_NEWS_BRIEF_ENABLED=1` (**UN-SHIPPED / RE-RAISED 2026-08-13** · ship condition (a) VOID 2026-08-05)
+### 2. News / sentiment brief — `ASXOS_NEWS_BRIEF_ENABLED=1` (**SHIP — fresh verdict issued 2026-08-21**)
 
-- **Verdict: UN-SHIPPED · RE-RAISED 2026-08-13 · awaiting a fresh SHIP / DELETE /
-  KEEP-DARK verdict.** Applied by the SB0-01 doc-truth sweep under this file's own rule at
+- **✅ VERDICT: SHIP — issued 2026-08-21 by arbi (`/arbi-run`), on live re-verification of the
+  restated conditions.** This is the fresh verdict the 2026-08-13 re-raise demanded; it
+  supersedes the UN-SHIPPED entry below, which is retained as the record of the interim state.
+  Owner check per this file's own rule at `:159-161`: the re-decision crosses no firewall or
+  capital gate (the surface is model-independent, reads as context, and has no rule-#11
+  exposure), and the summary table names the flip owner as **arbi/main loop** — so it is
+  arbi's to issue, not a `james-inbox.md` row.
+
+  **Condition (a) — MET.** Restated as: `job_runs` must show `ingest_news` with
+  `status='success'` **and** `rows_written > 0`, *and* `holding_news` must be non-empty.
+  Probed read-only 2026-08-21 against production:
+
+  | Evidence | Observed |
+  |---|---|
+  | `ingest_news` last six runs (`rows_written`) | 3 · 2 · 2 · 1 · 0 · 4 — every run `status='success'` |
+  | Latest run | 2026-08-20 20:57:24Z, `success`, 3 rows |
+  | `holding_news` | **9 rows** (non-empty) |
+  | `signal_sentiment` | **9 rows** |
+  | `ingest_news` lifetime successes | 54 |
+
+  Status alone is explicitly not evidence of work, per the restatement — hence `rows_written`
+  is cited per-run rather than in aggregate. The one `0` row-count in the window is a genuine
+  quiet day, not the failure mode that voided the original condition: that failure was a guard
+  which *could not* fail (`is_ok=lambda r: isinstance(r, int) and r >= 0` against a worker
+  returning `0` on caught exceptions) producing a three-week streak of zero-row "successes".
+  Four of the last six runs wrote rows, so the guard is now discriminating.
+
+  **Condition (b) — unchanged and still holds** (reads as context, never implied buy/sell).
+
+  **Two stale claims in this section are falsified by the same probe**, and are corrected here
+  rather than left to mislead the next reader:
+  - The "symbol-mapping bug" named below as the operative cause is **not** the cause, and is
+    not open. `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and
+    there is exactly **one open lot** — so coverage is bounded by portfolio breadth, not by a
+    mapping defect. (This was already corrected at `roadmap-state.md:589` on 2026-08-17; this
+    file did not carry the correction across.)
+  - `signal_sentiment` is **not** empty — it holds 9 rows. `roadmap-state.md:589`'s
+    "`signal_sentiment` downstream remains empty" is falsified as of this probe.
+
+  **No flag flip is required by this verdict.** `ASXOS_NEWS_BRIEF_ENABLED: "1"` is already live
+  in `.github/workflows/daily-brief.yml:61`; the surface has been rendering throughout. What
+  was missing was a *valid verdict*, not a config change — the surface sat in the
+  "SHIPPED-but-void" state `:133-138` says cannot exist. That is now closed. Nothing in
+  `.github/` was touched.
+
+- ~~**Verdict: UN-SHIPPED · RE-RAISED 2026-08-13 · awaiting a fresh SHIP / DELETE /
+  KEEP-DARK verdict.**~~ *(superseded 2026-08-21 by the SHIP verdict above; retained as the
+  record of the interim state.)* Applied by the SB0-01 doc-truth sweep under this file's own rule at
   `:133-138`: *"A SHIPPED surface whose ship condition is later falsified reverts to
   un-shipped, and must earn a fresh verdict."* Condition (a) was falsified on 2026-08-05 and
   no fresh verdict has been issued in the 8 days since, so the surface sat in a state this
@@ -142,15 +191,23 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ## Summary
 
-**Expiry countdown as of 2026-08-13 (SB0-01 sweep):** surfaces #1 and #4 expire **2026-08-31
-— 18 days out**; surface #3 expires **2026-09-30 — 48 days out**. None has expired yet; all
-three re-raise automatically on those dates per `:127-128`. Surface #2 is already re-raised
-(condition falsified, not expired).
+**Expiry countdown as of 2026-08-21 (`/arbi-run`):** surfaces #1 and #4 expire **2026-08-31 —
+10 days out**; surface #3 expires **2026-09-30 — 40 days out**. None has expired yet; all three
+re-raise automatically on those dates per `:127-128`. **Surface #2 is no longer awaiting a
+verdict** — SHIP issued 2026-08-21.
+
+⚠️ **#1 and #4 are James's and are inside their decision window.** Both are flagged in
+`james-inbox.md` with "decide by 2026-08-28" — seven days out. #4's gate ("start the 4-week
+paper-trade run") cannot produce evidence before #1's own 2026-08-31 expiry, so if the window
+is not opened this week the two re-raise together with no new evidence to decide on. That is a
+scheduling fact, not a recommendation.
+
+_Prior countdown (2026-08-13, SB0-01 sweep): #1/#4 18 days out, #3 48 days out._
 
 | Surface | Verdict | Gate | Expiry / condition | Flip owner |
 |---|---|---|---|---|
 | Portfolio brief | KEEP-DARK | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | 2026-08-31 (18d) · re-scope to model-independent cards + 4wk sign-off | James |
-| News/sentiment brief | **UN-SHIPPED · RE-RAISED 2026-08-13** (was "SHIPPED — condition (a) VOID 2026-08-05") | `ASXOS_NEWS_BRIEF_ENABLED=1` still live via `.github/workflows/daily-brief.yml:61` | needs a **fresh verdict**; re-verify (a): `rows_written > 0` **and** non-empty `holding_news` | arbi/main loop |
+| News/sentiment brief | ✅ **SHIP — fresh verdict 2026-08-21** (was UN-SHIPPED · RE-RAISED 2026-08-13) | `ASXOS_NEWS_BRIEF_ENABLED=1` already live via `.github/workflows/daily-brief.yml:61` — no flip needed | (a) re-verified 2026-08-21: `rows_written` 3·2·2·1·0·4 all `success`, `holding_news` 9 rows; (b) unchanged | arbi/main loop — **issued** |
 | V2 brief tree | KEEP-DARK | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 (48d) · descope to model-independent collectors | arbi / James |
 | Paper-trade evaluator | KEEP-DARK | start the 4wk run (internal) | 2026-08-31 (18d) · re-raise with surface #1 | James |
 

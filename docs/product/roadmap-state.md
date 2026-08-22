@@ -338,6 +338,61 @@ stands as written; this records how its caveats resolved, rather than editing th
   2026-08-08 Actions migration; the Render deletion date is a governor statement never
   re-verified against the Render API — see the caveat at the 2026-08-12 entry below).
 
+#### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
+
+Amendment D (`:176-180`) makes the product lane rank **above** the packet lane and permits the
+fall-through to the packet lane's four-way only "when the product lane is exhausted or blocked."
+An `/arbi-run` this session proposed starting the pre-authorized four-way at `SB1-02`;
+`arbi-red-team` returned **CHALLENGE**, correctly, on the ground that the fall-through
+precondition had never been evidenced. Recorded here so the next run does not repeat it.
+
+**Finding — stated carefully, because a first pass at it was wrong.** There are TWO things
+called a product lane, and conflating them produces the wrong next action:
+
+1. **The packet's product lane** (`asxos-outcome-engine-and-arbi-second-brain-execution-plan-2026-08-12.md`
+   §6) IS enumerated — a wave-by-wave table with a "Product lane" column. Merged work puts the
+   programme at **wave 3**, whose product lane reads *"P3 Stage 1 evidence increments"* and whose
+   second-brain lane reads *"SB2 current-state projection"*. So the product lane at the current
+   wave is `P3-02` / `P3-03`, and it is neither empty nor undefined.
+2. **Amendment D's product lane** (`:176-180`, ratified 2026-08-18) is a *different* construct —
+   its own words place it "alongside the packet lane", so it cannot be the packet's own P-series.
+   It was populated only by the 2026-08-18 campaign (#129, #130, #132), all merged, and no row
+   list for it exists anywhere in `docs/`. That one is **exhausted in fact but undefined in
+   form** — a governance gap, and **naming its standing rows is James's**, since Amendment D is
+   his ruling.
+
+**Consequence, and it reverses the red-team's altitude objection on its own evidence:** `SB1-02`
+is not a detour from the product lane — packet §7 lists it as the **declared dependency of
+`P3-02`** ("Write S3 credential/Object Lock/restore work order … Depends on: SB1-02"). The
+product lane's own next row cannot start until it exists. Building `SB1-02` therefore *is* the
+shortest path into wave 3's product lane, not a substitute for it. The red-team was right that
+the precondition had not been evidenced; the evidence, once gathered, supports the item rather
+than displacing it.
+
+**What this run did instead of skipping to the packet lane.** The red-team named an
+arbi-owned, in-firewall, model-independent product surface with a running clock:
+`dark-launch-exit-plan.md:153`, the news/sentiment brief — the only row in that table whose
+flip owner is *arbi/main loop*, un-shipped and verdict-less since 2026-08-13, nine days from
+the 08-31 sweep. Its restated conditions were re-verified read-only against production and
+**both are met**; the fresh **SHIP** verdict is issued and recorded in that file. No flag was
+flipped (the flag was already `1`); nothing under `.github/` was touched.
+
+**Two doc-truth corrections fell out of the same probe** and are applied at source rather than
+left standing: the "symbol-mapping bug" that section names as the open cause is not the cause
+(`:589` already corrected this on 2026-08-17; the exit plan never carried it across), and
+`signal_sentiment` is **not** empty — it holds 9 rows, which falsifies `:589`'s own closing
+clause. Migration `0044` was also found **applied** (2026-08-21, `20260821080458`) while the
+08-20 handoff and `james-inbox.md` still carry it as an urgent open blocker, and
+`REQUIRED_MIGRATIONS` was one behind production (fixed, `asxos/api/main.py:14`, 96→97).
+
+Four independent doc-rot instances in one session — plus a fifth found while writing this very
+subsection, where a first draft asserted "the product lane has no enumerated rows anywhere" and
+the packet's own §6 table falsified it — is the standing argument for `SB1-02`/`SB2-02`. The
+fifth is the most pointed of them: the claim was made *in the file that reconciles state*, by
+the process that exists to stop exactly this, and it survived until a grep went looking. Prose
+state does not hold, including this prose. That is the case for a typed snapshot, made against
+its own author.
+
 Route note (red-team, 2026-08-16): P2-02 is packet-routed `arbi-team` and was executed
 single-builder with the independent-review function preserved in separate documented passes;
 the deviation is recorded, not silently normalised — each subsequent order re-evaluates route
