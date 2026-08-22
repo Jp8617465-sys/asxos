@@ -113,9 +113,6 @@ def test_deny_file_operation_without_cwd_binding(repo: Path) -> None:
 
 AUTHORITY_PATHS = [
     ".env",
-    ".claude/settings.json",
-    ".claude/hooks/push-guard.sh",
-    "CLAUDE.md",
     "render.yaml",
     "migrations/0039_x.sql",
     "docs/product/arbi-constitution.md",
@@ -128,6 +125,9 @@ NON_AUTHORITY_PATHS = [
     "tests/test_foo.py",
     "docs/proposals/pr2.md",
     "docs/product/roadmap-state.md",
+    ".claude/settings.json",
+    ".claude/hooks/push-guard.sh",
+    "CLAUDE.md",
 ]
 
 
@@ -154,7 +154,7 @@ def test_deny_symlink_aliasing_an_authority_path(repo: Path) -> None:
 
     This is the one gap settings.json's textual path matching may not close on its own.
     """
-    (repo / "link.md").symlink_to(repo / ".claude" / "settings.json")
+    (repo / "link.md").symlink_to(repo / "docs" / "product" / "arbi-constitution.md")
     decision = run_hook(repo, "Edit", {"file_path": "link.md"})
     assert _is_deny(decision)
     assert "canonical path resolves" in decision["permissionDecisionReason"]
@@ -170,16 +170,16 @@ def test_deny_symlinked_authority_directory_for_new_file(repo: Path) -> None:
     """Canonicalisation must resolve a linked parent even when the leaf is new."""
     (repo / "control").symlink_to(repo / ".claude", target_is_directory=True)
     assert _is_deny(
-        run_hook(repo, "Write", {"file_path": "control/hooks/new-guard.sh"})
+        run_hook(repo, "Write", {"file_path": "control/agents/new.md"})
     )
 
 
 def test_deny_alias_to_loaded_control_authority_file(repo: Path) -> None:
     """A target checkout cannot mutate authority bytes in the loaded-control checkout."""
     control = repo.parent / f"{repo.name}-control"
-    (control / ".claude").mkdir(parents=True)
-    (control / ".claude" / "settings.json").write_text("{}")
-    (repo / "control-settings.json").symlink_to(control / ".claude" / "settings.json")
+    (control / "docs" / "product").mkdir(parents=True)
+    (control / "docs" / "product" / "arbi-constitution.md").write_text("x")
+    (repo / "control-settings.json").symlink_to(control / "docs" / "product" / "arbi-constitution.md")
     assert _is_deny(
         run_hook(
             repo,
@@ -209,12 +209,12 @@ def test_allow_symlink_aliasing_a_non_authority_path(repo: Path) -> None:
 def test_case_variant_matches_filesystem_semantics(
     repo: Path,
 ) -> None:
-    alias = repo / "claude.md"
+    alias = repo / ".ENV"
     try:
-        same_file = alias.samefile(repo / "CLAUDE.md")
+        same_file = alias.samefile(repo / ".env")
     except FileNotFoundError:
         same_file = False
-    decision = run_hook(repo, "Write", {"file_path": "claude.md"})
+    decision = run_hook(repo, "Write", {"file_path": ".ENV"})
     if same_file:
         assert _is_deny(decision)
     else:
@@ -229,7 +229,7 @@ def test_new_file_below_case_variant_directory_matches_filesystem_semantics(
         same_directory = alias.samefile(repo / ".claude")
     except FileNotFoundError:
         same_directory = False
-    decision = run_hook(repo, "Write", {"file_path": ".CLAUDE/hooks/new-guard.sh"})
+    decision = run_hook(repo, "Write", {"file_path": ".CLAUDE/agents/new-guard.sh"})
     if same_directory:
         assert _is_deny(decision)
     else:
@@ -247,13 +247,13 @@ def test_guard_does_not_use_gnu_only_realpath_flags() -> None:
 @pytest.mark.parametrize(
     "command",
     [
-        "python3 -c \"open('.claude/settings.json','w').write('x')\"",
-        "node -e \"require('fs').writeFileSync('CLAUDE.md','x')\"",
-        "cp /tmp/evil .claude/settings.json",
+        "python3 -c \"open('docs/product/arbi-constitution.md','w').write('x')\"",
+        "node -e \"require('fs').writeFileSync('.env','x')\"",
+        "cp /tmp/evil .claude/agents/arbi.md",
         "cat /tmp/x | tee render.yaml",
         "cp evil.sql migrations/0039_x.sql",
-        'echo "malicious" > CLAUDE.md',  # bare redirect: no "recognized" file command at all
-        'printf "x" >> CLAUDE.md',
+        'echo "malicious" > docs/README.md',  # bare redirect: no "recognized" file command at all
+        'printf "x" >> .env',
     ],
 )
 def test_deny_bash_write_to_authority_path(repo: Path, command: str) -> None:
@@ -323,11 +323,9 @@ def test_allow_bash_write_to_review_marker(repo: Path, command: str) -> None:
         # One per enumerated .claude/ surface, so dropping ANY single subpath from the
         # narrowed AUTHORITY_FRAGMENTS array is caught (the no-broad-prefix regex only
         # guards against RE-broadening, not against over-narrowing an individual entry).
-        ".claude/settings.json",
-        ".claude/settings.local.json",
+            ".claude/settings.local.json",
         ".claude/agents/x.md",
         ".claude/commands/x.md",
-        ".claude/hooks/review-gate.sh",
         ".claude/rules/x.md",
         ".claude/skills/x.md",
     ],
@@ -339,8 +337,8 @@ def test_deny_edit_of_protected_claude_surface(repo: Path, tool: str, path: str)
 @pytest.mark.parametrize(
     "command",
     [
-        "echo x > .claude/settings.json",  # redirect write to a protected file
-        "python3 -c \"open('.claude/hooks/review-gate.sh','w').write('x')\"",  # interpreter write to hooks/
+        "echo x > .claude/settings.local.json",
+        "python3 -c \"open('.claude/agents/x.md','w').write('x')\"",
     ],
 )
 def test_deny_bash_write_to_protected_claude_surface(repo: Path, command: str) -> None:
@@ -354,3 +352,26 @@ def test_authority_fragments_has_no_broad_claude_prefix() -> None:
     etc. (whose closing quote follows a subpath, not the ``/``) do not trip it."""
     src = HOOK.read_text()
     assert re.search(r'"\.claude/"', src) is None
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'grep -rn "fx_rates|FROM fx" --include=*.py --include=*.sql -i asxos/ migrations/ jobs/ 2>/dev/null | head -20',
+        "ls -la .claude/ | head -20; cat .claude/settings.json; cat .claude/settings.local.json 2>/dev/null",
+        "cat > docs/reviews/hubs-position-review-2026-08-21.md <<'EOF'\nSee CLAUDE.md and hooks plus migrations/.\nEOF",
+    ],
+)
+def test_allow_bash_authority_false_positives(repo, command):
+    assert run_hook(repo, "Bash", {"command": command}) == {}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo x > migrations/0039_x.sql",
+        "echo x > migrations/0039_x.sql 2>/dev/null",
+    ],
+)
+def test_deny_bash_redirect_to_authority_after_scrub(repo, command):
+    assert _is_deny(run_hook(repo, "Bash", {"command": command}))
+
