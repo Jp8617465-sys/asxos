@@ -12,6 +12,7 @@ deliberately NOT tested here — a snapshot ages by the clock, and a test that
 reddens from time passing trains people to ignore it (the validator's
 ``--schema-only`` flag exists for exactly this split).
 """
+
 from __future__ import annotations
 
 # Import the script as a module. scripts/ is not a package; load by path so
@@ -149,3 +150,40 @@ def test_observed_null_leaf_rejected(tmp_path: Path) -> None:
     path.write_text(json.dumps(data))
     with pytest.raises(ValidationError):
         check_project_state.load_snapshot(path)
+
+
+# --------------------------------------------------------------------------
+# SB2 contradiction wiring
+# --------------------------------------------------------------------------
+
+
+def _snapshot_with_migration_drift() -> dict[str, Any]:
+    """applied_count and required_migrations disagree — the 2026-08-22 defect."""
+    snap = _minimal_snapshot()
+    snap["data"]["migrations"] = {
+        "status": "observed",
+        "value": {"applied_count": 97, "required_migrations": 96},
+    }
+    return snap
+
+
+def test_critical_contradiction_fails_even_when_schema_and_freshness_pass(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "snap.json"
+    path.write_text(json.dumps(_snapshot_with_migration_drift()), encoding="utf-8")
+
+    assert check_project_state.main([str(path), "--schema-only"]) == 1
+
+
+def test_contradiction_check_can_be_skipped(tmp_path: Path) -> None:
+    """--no-contradictions leaves the pre-SB2 behaviour exactly as it was."""
+    path = tmp_path / "snap.json"
+    path.write_text(json.dumps(_snapshot_with_migration_drift()), encoding="utf-8")
+
+    assert check_project_state.main([str(path), "--schema-only", "--no-contradictions"]) == 0
+
+
+def test_the_checked_in_snapshot_has_no_critical_contradictions() -> None:
+    """Guards the real artifact, not a fixture — this is the file wakes trust."""
+    assert check_project_state.main(["--schema-only"]) == 0

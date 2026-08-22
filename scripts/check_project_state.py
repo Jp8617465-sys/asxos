@@ -38,6 +38,7 @@ USAGE
 
 REQUIRES: pydantic (already a core dependency). Read-only: no writes.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -48,6 +49,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from asxos.secondbrain.contradictions import Contradiction, check_snapshot
 from asxos.secondbrain.project_state import SCHEMA_VERSION, ProjectStateSnapshot
 
 DEFAULT_PATH = Path("docs/product/state/latest-snapshot.json")
@@ -69,7 +71,9 @@ def load_snapshot(path: Path) -> ProjectStateSnapshot:
 _CLOCK_SKEW_ALLOWANCE = timedelta(minutes=5)
 
 
-def freshness_problem(snapshot: ProjectStateSnapshot, *, now: datetime, max_age_days: int) -> str | None:
+def freshness_problem(
+    snapshot: ProjectStateSnapshot, *, now: datetime, max_age_days: int
+) -> str | None:
     """Return a human-readable freshness defect, or ``None`` if fresh.
 
     Two failure modes, both exit 1 in main():
@@ -97,6 +101,34 @@ def freshness_problem(snapshot: ProjectStateSnapshot, *, now: datetime, max_age_
     return None
 
 
+def report_contradictions(found: tuple[Contradiction, ...]) -> int:
+    """Print SB2 findings; return the count of `critical` ones.
+
+    Severity decides the exit code, deliberately: `info` records a convention
+    not followed (probe linkage is deferred, so most leaves are legitimately
+    unbacked) and `warning` records staleness a wake should refresh. Only
+    `critical` — two sources disagreeing on the same fact — is a failure, the
+    class that silently misinforms every later reader.
+    """
+    if not found:
+        print("[project-state] no contradictions detected")
+        return 0
+
+    criticals = [c for c in found if c.severity == "critical"]
+    for c in found:
+        stream = sys.stderr if c.severity == "critical" else sys.stdout
+        print(
+            f"[project-state] {c.severity.upper():8} {c.code}: {c.subject} — {c.detail}",
+            file=stream,
+        )
+        if c.left is not None or c.right is not None:
+            print(f"                         left={c.left} right={c.right}", file=stream)
+
+    if criticals:
+        print(f"[project-state] FAIL — {len(criticals)} critical contradiction(s)", file=sys.stderr)
+    return len(criticals)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("path", nargs="?", type=Path, default=DEFAULT_PATH)
@@ -106,13 +138,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="skip the freshness check (REQUIRED in CI — snapshots age by the clock)",
     )
+    parser.add_argument(
+        "--no-contradictions",
+        action="store_true",
+        help="skip SB2 contradiction detection (schema + freshness only)",
+    )
     args = parser.parse_args(argv)
 
     snapshot_path: Path = args.path
     try:
         snapshot = load_snapshot(snapshot_path)
     except FileNotFoundError:
-        print(f"[project-state] {snapshot_path} not found — run from the repo root", file=sys.stderr)
+        print(
+            f"[project-state] {snapshot_path} not found — run from the repo root", file=sys.stderr
+        )
         return 2
     # UnicodeDecodeError is a ValueError but belongs with "unreadable" (exit 2),
     # not "checked and failed" (exit 1). Do NOT broaden this tuple to ValueError:
@@ -123,7 +162,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[project-state] cannot read {snapshot_path}: {exc}", file=sys.stderr)
         return 2
     except ValidationError as exc:
-        print(f"[project-state] FAIL — snapshot does not validate against the frozen v{SCHEMA_VERSION} schema:", file=sys.stderr)
+        print(
+            f"[project-state] FAIL — snapshot does not validate against the frozen v{SCHEMA_VERSION} schema:",
+            file=sys.stderr,
+        )
         # errors(include_input=False): never echo input fragments to stderr/CI
         # logs — if a future adapter bug put a secret into a failing field,
         # str(exc) would leak it into logs that outlive a git-history purge
@@ -140,13 +182,22 @@ def main(argv: list[str] | None = None) -> int:
         f"probes={observed}/{len(snapshot.probes)} observed"
     )
 
+    critical = 0
+    if not args.no_contradictions:
+        critical = report_contradictions(check_snapshot(snapshot))
+
     if args.schema_only:
+        if critical:
+            return 1
         print("[project-state] PASS (schema-only; freshness not checked)")
         return 0
 
     problem = freshness_problem(snapshot, now=datetime.now(UTC), max_age_days=args.max_age_days)
     if problem is not None:
         print(f"[project-state] FAIL — {problem}.", file=sys.stderr)
+        return 1
+
+    if critical:
         return 1
 
     print("[project-state] PASS")
