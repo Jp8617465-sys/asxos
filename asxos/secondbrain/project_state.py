@@ -70,7 +70,9 @@ from __future__ import annotations
 
 from typing import Final, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import AwareDatetime, Field, JsonValue, model_validator
+
+from asxos.secondbrain._schema import FrozenModel
 
 SCHEMA_VERSION: Final = 1
 """The frozen schema version. Any field addition bumps this (see module docstring)."""
@@ -85,20 +87,7 @@ attempted and failed; detail lives in the backing probe's ``error_class``).
 """
 
 
-class _FrozenModel(BaseModel):
-    """Shared base: closed field set (``extra="forbid"``) + immutable instances.
-
-    ``extra="forbid"`` is the mechanical half of the freeze rule -- an input
-    carrying any field this schema does not name fails validation at v1.
-    ``frozen=True`` gives snapshot semantics: an observation, once
-    constructed, cannot be mutated. (Deep immutability of ``JsonValue``
-    payloads is not enforced -- convention, not contract.)
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-
-class FieldObservation(_FrozenModel):
+class FieldObservation(FrozenModel):
     """One observed leaf: an explicit status plus (iff observed) a value.
 
     Makes ``unavailable`` first-class and distinct from absent/null-by-
@@ -130,7 +119,7 @@ class FieldObservation(_FrozenModel):
         return self
 
 
-class ProbeRecord(_FrozenModel):
+class ProbeRecord(FrozenModel):
     """One raw probe observation -- the packet's ``probes[]`` entry, verbatim
     (packet lines 514-521). Also the generic extension point: anything the
     named sections do not cover is recorded here as a probe, never as a new
@@ -180,7 +169,7 @@ class ProbeRecord(_FrozenModel):
         return self
 
 
-class RepositoryState(_FrozenModel):
+class RepositoryState(FrozenModel):
     """``repository`` section, verbatim (packet lines 499-502)."""
 
     base_sha: FieldObservation
@@ -188,7 +177,7 @@ class RepositoryState(_FrozenModel):
     dirty_state: FieldObservation
 
 
-class GithubState(_FrozenModel):
+class GithubState(FrozenModel):
     """``github`` section, verbatim (packet lines 503-506)."""
 
     open_prs: FieldObservation
@@ -196,14 +185,14 @@ class GithubState(_FrozenModel):
     workflow_runs: FieldObservation
 
 
-class ProductionState(_FrozenModel):
+class ProductionState(FrozenModel):
     """``production`` section, verbatim (packet lines 507-509)."""
 
     release_identity: FieldObservation
     scheduler_owners: FieldObservation
 
 
-class DataState(_FrozenModel):
+class DataState(FrozenModel):
     """``data`` section, verbatim (packet lines 510-513)."""
 
     migrations: FieldObservation
@@ -211,7 +200,7 @@ class DataState(_FrozenModel):
     coverage: FieldObservation
 
 
-class ProjectStateSnapshot(_FrozenModel):
+class ProjectStateSnapshot(FrozenModel):
     """The frozen top-level snapshot, verbatim (packet lines 496-514).
 
     Every field is required -- there are no defaults anywhere in the tree

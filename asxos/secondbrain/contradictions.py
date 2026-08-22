@@ -18,8 +18,7 @@ from datetime import timedelta
 from itertools import pairwise
 from typing import Final, Literal
 
-from pydantic import BaseModel, ConfigDict
-
+from asxos.secondbrain._schema import FrozenModel
 from asxos.secondbrain.project_state import (
     FieldObservation,
     ProbeRecord,
@@ -59,10 +58,8 @@ DEFAULT_MAX_PROBE_AGE: Final = timedelta(hours=24)
 """How far a probe may lag its snapshot before the snapshot is mixing epochs."""
 
 
-class Contradiction(BaseModel):
+class Contradiction(FrozenModel):
     """One detected inconsistency. Frozen: a finding is evidence, not a workspace."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
     code: str
     severity: Severity
