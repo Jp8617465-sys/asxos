@@ -95,6 +95,19 @@ class ScreenRunResult:
     match_count separate from len(matches) preserves that signal even when
     matches is truncated. See screening_runs.match_count's column comment
     in migration 0038.
+
+    all_symbols is EVERY passing symbol, unbounded by `limit`, and exists
+    solely so the audit log records the whole answer. `matches` is a
+    display shortlist carrying per-field values; persisting its symbols
+    produced a screening_runs row reading "50 matched, 20 recorded" —
+    which silently destroys the audit trail that pre-registration depends
+    on, because the unrecorded names are exactly the ones nobody looked at.
+    len(all_symbols) == match_count by construction. Deliberately has NO
+    default: a default of () would let a caller that forgets the field log
+    an EMPTY symbol list against a non-zero match_count -- silently, and it
+    is the exact silent-wrong this field exists to prevent. Required means
+    a missing value is a TypeError at construction, per the repo's
+    fail-loudly rule for infra code.
     """
 
     rule_id: int
@@ -104,3 +117,4 @@ class ScreenRunResult:
     matches: tuple[ScreenMatch, ...]
     match_count: int
     duration_ms: int
+    all_symbols: tuple[str, ...]

@@ -474,7 +474,7 @@ async def test_log_run_inserts_snapshot_not_live_rule() -> None:
     result = ScreenRunResult(
         rule_id=1, rule_name="value-screen", sector_scope=None,
         universe_size=100, matches=(ScreenMatch(symbol="CBA.AU", sector="Financial Services", values={}),),
-        match_count=1, duration_ms=42,
+        match_count=1, duration_ms=42, all_symbols=("CBA.AU",),
     )
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value={"id": 7})
@@ -487,7 +487,9 @@ async def test_log_run_inserts_snapshot_not_live_rule() -> None:
     # positional: query, rule_id, sector_scope, universe_size, match_count, matched_symbols, rule_json_snapshot, duration_ms
     assert call_args[1] == 1
     assert call_args[4] == 1  # match_count
-    assert call_args[5] == ["CBA.AU"]  # matched_symbols from result.matches, not a live re-fetch
+    # matched_symbols comes from the result, not a live re-fetch -- and now
+    # from all_symbols rather than result.matches, which is bounded by `limit`.
+    assert call_args[5] == ["CBA.AU"]
 
 
 # ---------------------------------------------------------------------------
@@ -817,3 +819,36 @@ async def test_liquidity_window_is_bounded_at_both_ends() -> None:
     await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
     for sql in (conn.fetchrow.await_args.args[0], conn.fetch.await_args.args[0]):
         assert "dt > CURRENT_DATE - 130 AND dt <= CURRENT_DATE" in sql
+
+
+async def test_log_run_records_every_match_not_just_the_displayed_shortlist() -> None:
+    """The audit row must carry the WHOLE answer, not the printed slice.
+
+    `matches` is truncated to `limit` inside evaluate_rule, so logging
+    [m.symbol for m in result.matches] wrote the true match_count beside a
+    truncated symbol list -- a screening_runs row reading "50 matched, 20
+    recorded". That silently destroys the audit trail pre-registration
+    depends on, because the unrecorded names are precisely the ones nobody
+    looked at and nobody can later check.
+    """
+    rows = [
+        {"symbol": f"SYM{i:03d}.AU", "sector": "Industrials",
+         "pe_ratio": None, "pb_ratio": None, "eps": None, "dividend_yield": None,
+         "franking_pct": None, "roe": None, "debt_to_equity": None, "revenue": None,
+         "net_income": None, "market_cap": None, "latest_close": None,
+         "avg_daily_value_aud_90d": None}
+        for i in range(50)
+    ]
+    conn = _make_conn(1872, rows, coverage=_full_coverage())
+    result = await ev.evaluate_rule(conn, _rule_on("roe"), limit=20)
+
+    assert result.match_count == 50
+    assert len(result.matches) == 20          # display shortlist, bounded
+    assert len(result.all_symbols) == 50      # audit set, unbounded
+    assert len(result.all_symbols) == result.match_count
+
+    conn.fetchrow = AsyncMock(return_value={"id": 1})
+    await ev.log_run(conn, result, {"version": 1})
+    logged = conn.fetchrow.await_args.args[5]
+    assert len(logged) == 50, "log_run persisted the truncated shortlist"
+    assert logged[-1] == "SYM049.AU", "the tail of the match set was dropped"
