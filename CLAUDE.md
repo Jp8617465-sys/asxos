@@ -42,9 +42,8 @@ tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
 the migrations.
-**The highest file number on disk is NOT what is live.** Check
-`supabase_migrations.schema_migrations`, never the directory listing — this row
-itself carried "through 0043" for nine days after 0044 shipped.
+**The highest file number on disk is NOT what is live** — the two diverge right
+now. Check `supabase_migrations.schema_migrations`, never the directory listing.
 Migration `0042` remains reserved for the parked rules-integrity branch and must
 not be applied. `0043_price_revisions.sql` was applied to production on 2026-08-12
 as version `20260812092925`; `0044_fundamentals_pit_currency.sql` was applied on
