@@ -501,6 +501,37 @@ Full text in `target-architecture.md` Appendix F. Summary:
 **No implementation agent may invent or reinterpret these.** F1, F5 and F6 each name a later work
 order that must precede any action.
 
+#### ✅ Gate G1 — CLEARED by James, 2026-08-22
+
+Recorded per the GOV-01 two-artifact precedent: the ruling **and** the queue amendment. This is
+the queue amendment; the ruling and its full context are in `decision-log.md` (2026-08-22) and
+`decision-package-2026-08-22.md`.
+
+**James approved both `P3-01` and `P3-02`.** `P3-03`'s dependency reads literally
+"P3-01..02 **approvals**", so this is the moment the product lane reopens. It unblocks 8 of the
+17 remaining rows: `P3-03` → `P4-01` → `P4-02` → `P5-02` → `P6-01` → `P7-01` → `P7-02` → `P8-01`.
+
+**What it does NOT authorise.** Approving a work order is not approval to execute what it
+describes. **F6 still stands unchanged** — "no bucket/credential creation authorised yet" — and
+the packet routes credential creation, bucket creation and scheduler cutover to James regardless.
+So `P3-03` proceeds only on its read-only half (replay + lineage); the backup/restore leg of the
+Stage 1 exit gate stays blocked. Likewise **F5** still requires `P3-01`'s work order to precede any
+scheduler action, and approving the work order is not deploying Dagster.
+
+**Two holes carried forward, explicitly not resolved by the approval.** `P3-02` has **no cost
+model** (AWS pricing was `unavailable` — egress blocked from the authoring environment), and its
+Object Lock constraint is from documented behaviour rather than a probe. `P3-01`'s sizing rests on
+a 90-minute weekly chain that PR #128 cut to 4m35s. Any deployment decision must re-derive both.
+
+**What was decided against.** `SB4-01` was the next queue row when this was raised. The
+`arbi-red-team` vet CHALLENGED it on altitude — packet `:696` puts the SB4 eval harness in
+**wave 4** while the programme sits at **wave 3**, and no P-series row depends on it, so the
+"shortest path into the product lane" reasoning that reversed the 2026-08-21 altitude objection
+for `SB1-02` does not transfer. Compounding it: Amendment E bars closing a fixture-only row, and
+**zero emitted arbi briefs exist anywhere in the repo or its 400-commit history** (the section
+headings appear only in four format-defining files), so `SB4-01` was buildable but unclosable.
+It is **parked with a named revival trigger**: capture a real `/arbi` brief as a fixture.
+
 ---
 
 ## State header — arbi's durable memory (read this first)

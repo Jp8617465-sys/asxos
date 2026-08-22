@@ -1,6 +1,30 @@
 # Decision package — 2026-08-22
 
-**Status:** current — awaiting James
+> ## ✅ G1 — CLEARED by James, 2026-08-22
+>
+> **James approved both `P3-01` and `P3-02`** in the `/arbi-mission` session on
+> `claude/product-roadmap-backlog-8k3jz5`, choosing "clear gate G1" over three alternatives
+> (proceed with `SB4-01` as amended, fix the `/pm-review` hazard first, or stand down).
+>
+> **What it unblocks:** `P3-03` → `P4-01` → `P4-02` → `P5-02` → `P6-01` → `P7-01` → `P7-02` →
+> `P8-01` — 8 of the 17 remaining rows. `P3-03`'s dependency is literally "P3-01..02 approvals",
+> and this is the first moment both artifacts existed *and* were approved.
+>
+> **What it does NOT authorise.** Approving the two work orders is not approval to execute what
+> they describe. `P3-02` §2 is explicit that bucket creation with Object Lock is effectively
+> one-shot, and the packet routes credential creation, bucket creation and scheduler cutover to
+> James regardless. So `P3-03` proceeds on the read-only half (replay + lineage) and the
+> backup/restore leg stays blocked until James creates the S3 credentials.
+>
+> **The two honest holes below remain holes.** Approval did not resolve them and they are not
+> treated as resolved: `P3-02` still carries **no cost model** (AWS pricing was `unavailable` —
+> egress blocked), and its Object Lock claim is still from documented behaviour rather than a
+> probe. `P3-01`'s sizing still rests on a 90-minute weekly chain that PR #128 cut to 4m35s, so
+> its cost case must be re-derived before anything is deployed.
+>
+> The G1 section below is preserved unedited as the record of what was decided against.
+
+**Status:** superseded in part — **G1 cleared 2026-08-22**; G2 and the seven carried items remain open
 **Scope:** every decision blocking the documented build, in one place, with what each unblocks
 **Prepared:** 2026-08-22, from the `/arbi-run` session on `claude/product-roadmap-backlog-8k3jz5`
 (10 commits ahead of `origin/main` @ `31c78f4`)
