@@ -1,0 +1,44 @@
+diff --git a/asxos/api/main.py b/asxos/api/main.py
+index d9b2ef1..f76c3e2 100644
+--- a/asxos/api/main.py
++++ b/asxos/api/main.py
+@@ -11,7 +11,7 @@ from asxos.config import BriefSettings, settings
+ _brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
+ from asxos.db import acquire, close_pool, init_pool  # noqa: E402
+ 
+-REQUIRED_MIGRATIONS = 96  # bump each time a new migration is applied; 0043 (price_revisions, applied 2026-08-12 as 20260812092925; 0042 reserved by parked PR #80) — observed count from supabase_migrations.schema_migrations
++REQUIRED_MIGRATIONS = 97  # bump each time a new migration is applied; 0044 (rs_fundamentals_pit.currency, applied 2026-08-21 as 20260821080458; 0042 reserved by parked PR #80, 0045 drafted but NOT applied) — observed count from supabase_migrations.schema_migrations, re-measured 2026-08-22
+ 
+ 
+ async def _check_migration_drift() -> None:
+diff --git a/tests/test_api_main.py b/tests/test_api_main.py
+index f64dc49..3faac17 100644
+--- a/tests/test_api_main.py
++++ b/tests/test_api_main.py
+@@ -69,6 +69,26 @@ async def test_migration_drift_passes_at_required(monkeypatch) -> None:
+     await main._check_migration_drift()  # must not raise
+ 
+ 
++async def test_migration_drift_passes_above_required(monkeypatch) -> None:
++    """Being AHEAD of `REQUIRED_MIGRATIONS` must boot, not hard-fail.
++
++    The guard is deliberately asymmetric — `count < REQUIRED_MIGRATIONS`, not
++    `!=`. That asymmetry is load-bearing and is exercised in production every
++    time a migration is applied before the constant is bumped: on 2026-08-21
++    migration 0044 landed as `20260821080458`, taking the live count to 97
++    while `main` still read 96, and the API kept booting precisely because of
++    this branch. Tightening the comparison to `!=` would turn every
++    apply-then-bump window into a startup outage, and no test would have
++    caught it — the two tests either side of this one both pass under `!=`.
++    """
++
++    monkeypatch.setattr(main.settings, "skip_migration_drift_check", False)
++    conn = MagicMock()
++    conn.fetchval = AsyncMock(return_value=main.REQUIRED_MIGRATIONS + 1)
++    monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
++    await main._check_migration_drift()  # must not raise
++
++
+ async def test_migration_drift_skipped_by_config(monkeypatch) -> None:
+     monkeypatch.setattr(main.settings, "skip_migration_drift_check", True)
+     called = MagicMock()

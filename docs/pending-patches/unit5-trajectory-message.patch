@@ -1,0 +1,113 @@
+diff --git a/asxos/domain/theses/discipline.py b/asxos/domain/theses/discipline.py
+index 09925ae..f69e244 100644
+--- a/asxos/domain/theses/discipline.py
++++ b/asxos/domain/theses/discipline.py
+@@ -383,10 +383,36 @@ def _trajectory(inp: ThesisDisciplineInput, as_of: date) -> DisciplineFinding |
+         if traj in (Trajectory.STOP_VIOLATED, Trajectory.STALLED)
+         else DisciplineLevel.yellow
+     )
++    # Name the leg that actually decided the verdict. The message previously
++    # interpolated `target` for EVERY state, so a stop-out read
++    # "STOP VIOLATED (current 215.170000, target 318.000000)" — the 230.00 stop
++    # that fired was invisible, and the one number shown was the one number the
++    # classification had not used. A reader cannot check a stop-out against a
++    # target; on the live HUBS.NYSE thesis that is a ~88-point difference
++    # between the figure printed and the figure the verdict rested on.
++    #
++    # ABOVE_TARGET keeps `target` because there the target IS the deciding leg
++    # (`current >= target`, trajectory.py:79). The pace bands keep it too — it
++    # is the denominator of progress_to_target(). Only the stop-out branch was
++    # ever wrong, and it was wrong in the one state that calls for action.
++    #
++    # stop_price_native is non-None here by construction: STOP_VIOLATED is
++    # returned only under `stop_price is not None` (trajectory.py:77). The
++    # explicit guard is for the type checker and for the next reader, not a
++    # runtime doubt — falling back to `target` would silently reinstate the
++    # exact defect this block removes.
++    if traj is Trajectory.STOP_VIOLATED and inp.stop_price_native is not None:
++        reference = f"stop {_fmt_price(inp.stop_price_native)}"
++    else:
++        reference = f"target {_fmt_price(target)}"
+     return DisciplineFinding(
+         check="trajectory",
+         level=level,
+-        message=f"{inp.symbol}: {traj} (current {current}, target {target})",
++        # _fmt_price, not raw interpolation: these arrive as NUMERIC(18,6), so
++        # the bare Decimal rendered "215.170000". Same helper _data_sanity uses,
++        # for the same reason its docstring gives — trim the zeros, keep the
++        # significant digits, never blanket-:.2f a legitimately small price.
++        message=f"{inp.symbol}: {traj} (current {_fmt_price(current)}, {reference})",
+         symbol=inp.symbol,
+     )
+ 
+diff --git a/tests/test_thesis_discipline.py b/tests/test_thesis_discipline.py
+index 38e3c65..edf191d 100644
+--- a/tests/test_thesis_discipline.py
++++ b/tests/test_thesis_discipline.py
+@@ -172,6 +172,66 @@ def test_stop_violated_is_red() -> None:
+     assert "STOP VIOLATED" in traj[0].message
+ 
+ 
++def test_stop_violated_names_the_stop_not_the_target() -> None:
++    """A stop-out must print the stop that fired — it previously printed the target.
++
++    The message interpolated `target` for every trajectory state, so the one
++    number shown in a STOP_VIOLATED finding was the one number the
++    classification had NOT used (`trajectory.py` decides the stop-out on
++    `current_price <= stop_price` and never looks at the target). On the live
++    HUBS.NYSE thesis that printed "STOP VIOLATED (current 215.17, target
++    318.00)" while the 230.00 stop that fired stayed invisible — an ~88-point
++    gap between the figure rendered and the figure the verdict rested on.
++
++    Both halves are asserted: the stop appears AND the target does not. Without
++    the negative half a message naming both would pass while still burying the
++    stop among numbers the reader has to disambiguate.
++    """
++
++    t = _thesis(entry="10", current="8.5", target="15", stop="9")
++    traj = _by_check(evaluate_thesis(t, AS_OF), "trajectory")
++    assert traj, "expected a trajectory finding"
++    assert "STOP VIOLATED" in traj[0].message
++    assert "stop 9" in traj[0].message
++    assert "target" not in traj[0].message
++
++
++def test_above_target_still_names_the_target() -> None:
++    """The sibling state keeps `target` — there it IS the deciding leg.
++
++    Guards against over-correcting Unit 5 into "always show the stop". ABOVE
++    TARGET is decided by `current >= target`, so naming the stop there would
++    reintroduce the same defect in mirror image.
++    """
++
++    t = _thesis(entry="10", current="16", target="15", stop="8")
++    traj = _by_check(evaluate_thesis(t, AS_OF), "trajectory")
++    assert traj and "ABOVE TARGET" in traj[0].message
++    assert "target 15" in traj[0].message
++    assert "stop" not in traj[0].message
++
++
++def test_trajectory_prices_are_trimmed_not_raw_numeric() -> None:
++    """NUMERIC(18,6) must not reach the reader as "8.500000".
++
++    `_fmt_price` already existed for exactly this and was used by
++    `_data_sanity`, but the trajectory message interpolated the bare `Decimal`.
++    The small-price case is the half that matters: a blanket `:.2f` would
++    render a legitimately small stop as "0.00" — a *wrong* number in a message
++    whose entire purpose is to show the user his own recorded data.
++    """
++
++    t = _thesis(entry="10", current="8.500000", target="15", stop="9.000000")
++    msg = _by_check(evaluate_thesis(t, AS_OF), "trajectory")[0].message
++    assert "8.5" in msg and "8.500000" not in msg
++    assert "stop 9" in msg and "9.000000" not in msg
++
++    tiny = _thesis(entry="0.38", current="0.01", target="0.60", stop="0.02")
++    tiny_msg = _by_check(evaluate_thesis(tiny, AS_OF), "trajectory")[0].message
++    assert "current 0.01" in tiny_msg and "stop 0.02" in tiny_msg
++    assert "0.00" not in tiny_msg
++
++
+ def test_behind_pace_is_yellow() -> None:
+     # Well into the timeline but only ~20% of the journey covered → below half the
+     # expected linear pace (but clear of the STALLED floor) → BEHIND (yellow).
