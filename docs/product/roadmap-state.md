@@ -1028,8 +1028,51 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-08-21 `/arbi-close`. Supersedes the 2026-08-19 snapshot below, which is
-kept verbatim as the audit trail._
+_Recorded by the 2026-08-22 interactive `/arbi` wake (James: "wake up"). Supersedes the
+2026-08-21 close snapshot below, which is kept verbatim as the audit trail._
+
+```
+Wake: 2026-08-22 (interactive /arbi, James "wake up")
+- branch: claude/hello-arbi-c0sfsx, clean, 0 ahead/0 behind origin/main (fresh cut from tip).
+  main @ d15266f (was ff377ef at last close).
+- merged since last close (3): #140 a8d6594 (arbi autonomy plan + reconciliation work order,
+  ratified) · #124 b2a5ad7 (Second Brain execution loop wave 1 — roadmap compiler, read-only/
+  inert until activated) · #150 d15266f (session records, closed 2 inbox rows).
+- closed unmerged, unexplained (2): #80 (PARKED rules-integrity — branch retention per
+  :404-407 not independently reverified this wake) · #105 (Supabase evidence-store plan).
+  Both closed 2026-08-21 ~06:35 UTC; no ledger row or commit message explaining either found.
+- open PRs (3, all opened today, all base=main@d15266f): #151 (Tier 2a screening liquidity
+  gate, CI green, mergeable_state clean, self-gated on a live `asx screen run` this sandbox
+  class cannot log) · #152 (second-brain lane + DB-access root-cause diagnosis, CI green,
+  mergeable_state DIRTY, ships 3 drafted-not-applied .claude/** patches) · #153 (dream
+  candidate L22.1-22.6/RM-1/RM-2, CI green, mergeable_state DIRTY, diff stats near-identical
+  to #152 — likely stacked per the Amendment A convention, unverified).
+- LIVE CORRECTION to #152's own PR body: it names `.claude/agents/thesis-coherence-guard.md`
+  step 1 as still querying `signals` ("patch C, highest priority, unfixed"). Verified directly
+  against this session's main@d15266f checkout: the file already carries the 2026-08-21
+  AMPUTATED banner and no longer touches `signals`. #152's diagnosis text predates a rebase
+  onto #149 — do not carry that specific claim forward as current; patches A/B unverified.
+- tests (this sandbox venv): 957 collected, 75 collection errors — sampled error is
+  `ModuleNotFoundError: asyncpg`, i.e. this sandbox is missing asyncpg entirely this session, a
+  LARGER gap than the 2026-08-21 snapshot's 20-error joblib/lightgbm-only baseline. Sandbox
+  variance per CLAUDE.md's own warning; CI (full-check) green throughout. Re-derived via
+  `pytest tests/ -q --co | grep '^ERROR'`, not trusted from a list.
+- migrations: 97 applied, latest 20260821080458, unchanged since last close.
+  `asxos/api/main.py:14` REQUIRED_MIGRATIONS still 96 — confirmed directly, now flagged 3x
+  (2026-08-21 handoff, #151, #152) without a landed fix.
+- job_runs: weekly-research chain full green today 16:30-16:52 UTC; backup green 13:50 UTC;
+  daily-brief chain green 2026-08-20 (last scheduled day, Sun-Thu cron). No red runs observed.
+- freshness: prices.dt=2026-08-20 (2 cal-day gap, expected — Sun-Thu-only sync) ·
+  signals.as_of=2026-08-05 (frozen, expected, rule #11).
+- OWED, still: #149's completion artifact (/pm-review HUBS.NYSE showing four agents + zero
+  Model A figures) remains did_it_work: PENDING (`decision-log.md` row close-2026-08-21).
+  This session's own agent checkout postdates #149 (verified above) — it is the fresh session
+  the last close said the run was owed to. Named THE ONE THING this wake; not yet executed,
+  awaiting James's go per /arbi's brief-only contract.
+```
+
+_Prior snapshot — recorded by the 2026-08-21 `/arbi-close`. Supersedes the 2026-08-19 snapshot
+below, which is kept verbatim as the audit trail._
 
 ```
 Close: 2026-08-21 (session ran without a formal /arbi wake — James drove it directly)
