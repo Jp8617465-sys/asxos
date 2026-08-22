@@ -22,7 +22,7 @@ this mission has none). No DB write, no migration, no schema applied anywhere.
 
 | # | §8 item | Status | Where frozen |
 |---|---|---|---|
-| 1 | Document-acquisition ruling + hashed fixture (G2) | **FROZEN — HASHED FIXTURE** | `contracts.py::AcquisitionPath`, `DOCUMENT_HASH_ALGORITHM`, `SourceDocumentRecord`; fixture in `fixtures.py::historical_results_case()` |
+| 1 | Document-acquisition ruling + hashed fixture (G2) | **FROZEN — HASHED FIXTURE; PIT path authorized 2026-08-22** | `contracts.py::AcquisitionPath` (`hashed_fixture` \| `asxos_pit_db`); fixture never-real stands; G2 announcement still closed |
 | 2 | Source hierarchy, verbatim and ranked (G5/G6/G8 context) | **FROZEN** | `contracts.py::SOURCE_RANK`, `ADMISSIBLE_SOURCE_CLASSES`, `LOAD_BEARING_SOURCE_CLASSES` |
 | 3 | The frozen-input tuple (8 elements) | **FROZEN** | `contracts.py::FrozenInputTuple` (content-addressed) |
 | 4 | `known_at` derivation rule (G8) | **FROZEN** | `contracts.py::derive_statement_known_at()` — reuses `derive_knowledge_date()` |
@@ -45,6 +45,11 @@ acquisition path for the ASX announcement exists (G2: `parse_json_announcements`
 pending an authenticated endpoint, `asxos/ingestion/regulatory.py:11-12,105-106`; migration
 `0030` dropped the legacy `asx_announcements` table). Standing up a real feed is not executable
 inside any mission and remains James's later decision.
+
+W1-1 (2026-08-22) authorized a second acquisition path, `asxos_pit_db`: a hashed
+SELECT snapshot of `rs_security_master` / `rs_financial_statements` /
+`rs_fundamentals_pit` / `prices`. That path may carry `data_mode="real"`. It is
+**not** an ASX announcement feed. G2 stays closed.
 
 Frozen consequences (matrix :429-430):
 
@@ -336,7 +341,8 @@ vocabularies.
 |---|---|---|
 | `p2_deferred_forward_trading_calendar_source` | A forward-looking session source for live-cutoff packets (§8) | First real, non-historical packet |
 | `p2_deferred_security_id_column_migration` | ISIN/surrogate identity for `rs_security_master` (§3) | Requires migration + B.4 governor amendment |
-| Real document acquisition path (G2) | Widening `AcquisitionPath` beyond `"hashed_fixture"` | James's decision; a separately authorized work order |
+| Real **announcement** acquisition path (G2) | Widening `AcquisitionPath` with an ASX announcement feed | Still James; **not** what W1-1 did |
+| PIT snapshot path (`asxos_pit_db`) | Widening `AcquisitionPath` with a research-store SELECT | **Authorized 2026-08-22** (James execute-the-chain after red-team); G2 stays closed |
 
 **JAMES_NEEDED items: none.** No freeze required a field change to any existing canonical
 artifact.

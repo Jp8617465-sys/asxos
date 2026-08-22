@@ -1028,6 +1028,22 @@ dev/ops side.
 
 ## Last wake snapshot
 
+_Recorded by the 2026-08-22 `/arbi-close`. Supersedes the 2026-08-21 snapshot below, which is
+kept verbatim as the audit trail._
+
+```
+Close: 2026-08-22 (James: sessions done; execute one chain unit)
+- THE ONE THING: W1-1 asxos_pit_db (P5 integration evidence, not Stage 4).
+- main @ d15266f (#150 already merged — the 08-21 handoff's "#150 is open" is stale).
+- Branch cursor/results-review-pit-adapter-091a. Draft PR this close.
+- renders: TLS.AU FY2024 PIT review, outcome abstain, G2/G3/G5 named,
+  presentation_sha256 1224d5f35440e55eb721bba0fbb65c12d018202bf79cdb6051517f81df7baac0.
+- /pm-review HUBS.NYSE owed by #149: OBSERVED this session (REVIEW; zero Model A).
+- Not done and not claimed: Stage 4, tax CLI, screening INSERT, 0045, CLI fired
+  against DATABASE_URL on this VM.
+- Do not chain the next unit until this PR closes.
+```
+
 _Recorded by the 2026-08-21 `/arbi-close`. Supersedes the 2026-08-19 snapshot below, which is
 kept verbatim as the audit trail._
 
