@@ -234,3 +234,31 @@ class ProjectStateSnapshot(_FrozenModel):
     production: ProductionState
     data: DataState
     probes: list[ProbeRecord]
+
+
+_SECTIONS: Final = ("repository", "github", "production", "data")
+"""The four section names, in packet order. The leaf set is these sections' fields."""
+
+
+def leaves(snapshot: ProjectStateSnapshot) -> dict[str, FieldObservation]:
+    """Every schema leaf keyed by its dotted path, read off the models themselves.
+
+    The canonical projection. It had been reimplemented three times — in
+    ``contradictions.py`` and in two test modules — which is one spelling per
+    consumer of a thing that has exactly one correct definition.
+
+    Reflection, not a literal list, because this must follow the schema: if a
+    section gains a field, every consumer sees it immediately rather than
+    silently reading a stale hardcoded set. The *pinning* job belongs to the
+    tests (``probes.FIELD_PATHS`` and the schema module's own field-set
+    assertions), which is the right split — reflect to read, enumerate to pin.
+
+    NOT a widening of the frozen schema: this adds no field and changes no
+    validation. The freeze rule (module docstring) governs the field set, and a
+    pure read-only projection over it leaves that set untouched.
+    """
+    return {
+        f"{section}.{field}": getattr(getattr(snapshot, section), field)
+        for section in _SECTIONS
+        for field in type(getattr(snapshot, section)).model_fields
+    }
