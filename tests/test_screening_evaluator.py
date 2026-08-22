@@ -434,7 +434,8 @@ async def test_evaluate_rule_returns_bounded_matches_with_true_total() -> None:
          "pe_ratio": Decimal("10"), "pb_ratio": None, "eps": None,
          "dividend_yield": None, "franking_pct": None, "roe": None,
          "debt_to_equity": None, "revenue": None, "net_income": None,
-         "market_cap": Decimal("1000000"), "latest_close": Decimal("5.00")}
+         "market_cap": Decimal("1000000"), "latest_close": Decimal("5.00"),
+         "avg_daily_value_aud_90d": Decimal("125000.00")}
         for i in range(30)
     ]
     conn = _make_conn(universe_size=100, match_rows=rows)
@@ -473,7 +474,7 @@ async def test_log_run_inserts_snapshot_not_live_rule() -> None:
     result = ScreenRunResult(
         rule_id=1, rule_name="value-screen", sector_scope=None,
         universe_size=100, matches=(ScreenMatch(symbol="CBA.AU", sector="Financial Services", values={}),),
-        match_count=1, duration_ms=42,
+        match_count=1, duration_ms=42, all_symbols=("CBA.AU",),
     )
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value={"id": 7})
@@ -486,7 +487,7 @@ async def test_log_run_inserts_snapshot_not_live_rule() -> None:
     # positional: query, rule_id, sector_scope, universe_size, match_count, matched_symbols, rule_json_snapshot, duration_ms
     assert call_args[1] == 1
     assert call_args[4] == 1  # match_count
-    assert call_args[5] == ["CBA.AU"]  # matched_symbols from result.matches, not a live re-fetch
+    assert call_args[5] == ["CBA.AU"]  # matched_symbols from the result, not a live re-fetch
 
 
 # ---------------------------------------------------------------------------
@@ -627,6 +628,7 @@ async def test_match_values_carry_all_whitelist_keys_for_repointed_fields() -> N
         "roe": Decimal("0.15"), "debt_to_equity": Decimal("0.8"),
         "revenue": Decimal("1000000"), "net_income": Decimal("100000"),
         "market_cap": Decimal("5000000"), "latest_close": Decimal("2.50"),
+        "avg_daily_value_aud_90d": Decimal("125000.00"),
     }
     conn = _make_conn(10, [row], coverage=_full_coverage())
     result = await ev.evaluate_rule(conn, _rule_on("roe"))
@@ -655,3 +657,239 @@ async def test_coverage_and_match_queries_share_population() -> None:
         assert "u.is_active AND u.security_kind = 'au_equity'" in sql
         assert "AND u.sector = $1" in sql
     assert conn.fetchrow.await_args.args[1] == "Industrials"
+
+
+# ---------------------------------------------------------------------------
+# Liquidity gate — avg_daily_value_aud_90d (added 2026-08-21)
+#
+# Why this field exists at all: market_cap was being used as a tradeability
+# proxy and measurably is not one. Measured against production on 2026-08-21,
+# AT LEAST 10 of the 72 symbols passing the quality screen's other gates traded
+# under A$50k/day despite every one of them clearing a A$100m market cap. The
+# gate is the difference between a queue of names James can actually enter and
+# exit over months and a queue that merely looks investable.
+#
+# That measurement used a plain avg(close * volume), NOT the expression this
+# module tests — see _AVG_DAILY_VALUE_SQL. The shipped formula returns lower
+# values for thin names, so 10 is a FLOOR, not a count. Do not propagate it.
+# ---------------------------------------------------------------------------
+
+
+def test_liquidity_field_is_whitelisted_and_numeric() -> None:
+    """It must accept the numeric ops a liquidity gate needs — a text-only op
+    restriction here would silently make range gating impossible. (Not the
+    complete _NUMERIC_OPS set: in/not_in are valid on it but meaningless for a
+    continuous money value, so they are not exercised.)"""
+    assert "avg_daily_value_aud_90d" in ev._FIELD_MAP
+    assert ev._FIELD_MAP["avg_daily_value_aud_90d"].is_text is False
+    for op in ("gte", "lt", "gt", "lte", "eq", "neq", "is_null", "is_not_null"):
+        tree = ev.parse_rule({
+            "version": 1,
+            "conditions": {"logic": "AND", "items": [
+                {"field": "avg_daily_value_aud_90d", "op": op, "value": 50000}
+            ]},
+        })
+        assert isinstance(tree, ev.ScreenGroup)
+
+
+def test_liquidity_threshold_binds_as_param_not_interpolated() -> None:
+    tree = ev.parse_rule({
+        "version": 1,
+        "conditions": {"logic": "AND", "items": [
+            {"field": "avg_daily_value_aud_90d", "op": "gte", "value": Decimal("50000")}
+        ]},
+    })
+    sql, params = ev.compile_where_clause(tree)
+    assert sql == "(liq.adv_aud >= $1)"
+    assert params == [Decimal("50000")]
+
+
+async def test_liquidity_cte_window_and_join_present_in_emitted_sql() -> None:
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    query = conn.fetch.await_args.args[0]
+    # 130 CALENDAR days is the window that yields ~90 ASX TRADING days.
+    # A literal 90 here would be ~62 trading days — a third short.
+    assert "dt > CURRENT_DATE - 130" in query
+    assert "GROUP BY symbol" in query
+    assert "LEFT JOIN liquidity_90d liq ON liq.symbol = u.symbol" in query
+    # Traded VALUE, not share count: share volume is meaningless across a
+    # 1c explorer and a $40 industrial.
+    assert "close * COALESCE(volume, 0)" in query
+
+
+async def test_liquidity_is_rounded_to_cents_in_sql() -> None:
+    """A bare aggregate returns a high-scale numeric that renders unreadably
+    in the CLI table. It is AUD; cents is the honest scale."""
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    assert "round(sum(close * COALESCE(volume, 0)) / 90.0, 2)" in conn.fetch.await_args.args[0]
+
+
+async def test_liquidity_null_volume_counts_as_zero_not_skipped() -> None:
+    """`prices.volume` is NULLable and SQL avg() SKIPS NULLs, so avg() would
+    score a symbol on only the days it actually traded — 89 blank days plus one
+    A$1m day would read as A$1m ADV and clear a A$50k gate. That inverts the
+    gate: the thinnest names would pass most easily. COALESCE(volume, 0) makes
+    an unrecorded day count as zero traded value."""
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    query = conn.fetch.await_args.args[0]
+    assert "COALESCE(volume, 0)" in query
+    # Deliberately NO `"avg(...)" not in query` assertion: it would be brittle
+    # (case, spacing and alias variants all slip past) and redundant, since the
+    # byte-exact expression test above fails first on any avg()-based
+    # regression. A negative string assertion is only durable when the space of
+    # wrong answers is small and enumerable; here it is not.
+
+
+async def test_liquidity_uses_fixed_denominator_not_rows_present() -> None:
+    """Second half of the same hazard: avg() divides by rows PRESENT, so a name
+    trading 10 days in 90 would be scored on those 10. A stock that trades one
+    day in nine is illiquid however busy those days were — the fixed nominal
+    90-trading-day denominator says so, and understating liquidity is the safe
+    direction of error for a gate that exists to keep names OUT.
+
+    Safe for THIN names ONLY. The divisor is fixed at 90 while the window is
+    bounded in calendar days, so it scales every ADV by N/90 for N priced days;
+    above 90 that OVERSTATES and admits. See _AVG_DAILY_VALUE_SQL. This
+    docstring previously asserted the safety unqualified — and it is the exact
+    place a reader checks to learn whether the denominator is deliberate."""
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    query = conn.fetch.await_args.args[0]
+    assert "/ 90.0" in query
+    assert "sum(close * COALESCE(volume, 0))" in query
+
+
+async def test_liquidity_dead_column_names_price_job_not_a_fundamentals_job() -> None:
+    """Zero coverage on this field means prices are missing, so the
+    remediation hint must point at the price job — a fundamentals hint would
+    send the reader to the wrong pipeline."""
+    conn = _make_conn(10, [], coverage={"avg_daily_value_aud_90d": 0})
+    with pytest.raises(RuntimeError, match="avg_daily_value_aud_90d"):
+        await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    assert ev._remediation_hint("liq.adv_aud") == "jobs/sync_prices.py"
+
+
+async def test_liquidity_cte_present_in_both_coverage_and_match_queries() -> None:
+    """Population parity: the guard must count liquidity over exactly the
+    candidate set the match query screens, or the two can disagree."""
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    for sql in (conn.fetchrow.await_args.args[0], conn.fetch.await_args.args[0]):
+        assert "liquidity_90d AS (" in sql
+        assert "LEFT JOIN liquidity_90d liq" in sql
+
+
+async def test_liquidity_null_when_no_volume_data_so_guard_can_see_it() -> None:
+    """The zero-coverage guard must stay REACHABLE for this field.
+
+    `close` is NOT NULL and COALESCE never yields NULL, so a bare
+    `sum(close * COALESCE(volume, 0))` can never be NULL — which would make
+    `count(liq.adv_aud)` non-zero for every symbol with any price row and leave
+    the guard unreachable. The failure that hides: if `prices.volume` went 100%
+    NULL, every value would be 0.00, coverage would read FULL, and every
+    `avg_daily_value_aud_90d >= N` rule would return a plausible zero-match on
+    ABSENT data — the exact 'silent, plausible zero-match' the guard exists to
+    prevent.
+
+    `CASE WHEN count(volume) > 0` keeps the per-day COALESCE (an unrecorded day
+    genuinely traded zero dollars) while letting a symbol with NO recorded
+    volume at all stay NULL — unknown, not zero, and visible to the guard.
+    """
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    for sql in (conn.fetchrow.await_args.args[0], conn.fetch.await_args.args[0]):
+        assert "CASE WHEN count(volume) > 0" in sql
+    # Gate semantics are unchanged by this: NULL and 0.00 both fail gte/lt.
+    # Only is_null/is_not_null and the guard change, both fail-loud (CLAUDE #10).
+
+
+async def test_liquidity_window_is_bounded_at_both_ends() -> None:
+    """A future-dated `prices` row must not inflate ADV.
+
+    The latest_pit CTE in this same module carries `knowledge_date <=
+    CURRENT_DATE` because live rows genuinely arrive future-dated; nothing
+    stops `prices` doing the same. Measured against real Postgres, one row at
+    CURRENT_DATE + 30 overstated a symbol's ADV by ~524x.
+
+    Direction matters here. The COALESCE and fixed-denominator choices both
+    UNDERSTATE liquidity, which fails safe for a gate that exists to keep names
+    out. Overstatement is the inverse: it ADMITS an untradeable name into the
+    shortlist, which is the one outcome this field exists to prevent.
+    """
+    conn = _make_conn(10, [], coverage=_full_coverage())
+    await ev.evaluate_rule(conn, _rule_on("avg_daily_value_aud_90d"))
+    for sql in (conn.fetchrow.await_args.args[0], conn.fetch.await_args.args[0]):
+        assert "dt > CURRENT_DATE - 130 AND dt <= CURRENT_DATE" in sql
+
+
+async def test_log_run_records_every_match_not_just_the_displayed_shortlist() -> None:
+    """The audit row must carry the WHOLE answer, not the printed slice.
+
+    `matches` is truncated to `limit` inside evaluate_rule, so logging
+    [m.symbol for m in result.matches] wrote the true match_count beside a
+    truncated symbol list -- a screening_runs row reading "50 matched, 20
+    recorded". That silently destroys the audit trail pre-registration
+    depends on, because the unrecorded names are precisely the ones nobody
+    looked at and nobody can later check.
+    """
+    rows = [
+        {"symbol": f"SYM{i:03d}.AU", "sector": "Industrials",
+         "pe_ratio": None, "pb_ratio": None, "eps": None, "dividend_yield": None,
+         "franking_pct": None, "roe": None, "debt_to_equity": None, "revenue": None,
+         "net_income": None, "market_cap": None, "latest_close": None,
+         "avg_daily_value_aud_90d": None}
+        for i in range(50)
+    ]
+    conn = _make_conn(1872, rows, coverage=_full_coverage())
+    result = await ev.evaluate_rule(conn, _rule_on("roe"), limit=20)
+
+    assert result.match_count == 50
+    assert len(result.matches) == 20          # display shortlist, bounded
+    assert len(result.all_symbols) == 50      # audit set, unbounded
+    assert len(result.all_symbols) == result.match_count
+
+    # Reassignment is load-bearing twice over: _make_conn wired fetchrow for
+    # the zero-coverage guard (so log_run would KeyError on row["id"]), and it
+    # is what makes await_args refer to the INSERT rather than the guard query.
+    conn.fetchrow = AsyncMock(return_value={"id": 1})
+    await ev.log_run(conn, result, {"version": 1})
+
+    # Exact-sequence, not len() plus a tail check: the latter passes under a
+    # dedupe, a re-sort, or a substitution in the middle. This also pins the
+    # ORDER BY u.symbol determinism that makes the audit row reproducible.
+    logged = conn.fetchrow.await_args.args[5]
+    assert logged == [f"SYM{i:03d}.AU" for i in range(50)]
+
+
+async def test_log_run_refuses_an_internally_inconsistent_row() -> None:
+    """log_run is the ONE gate on the output path, and it must hard-fail.
+
+    The input types are deliberately dumb because parse_rule() gates them.
+    ScreenRunResult is built from trusted internal data and had no gate at
+    all, so a row whose match_count disagrees with its symbol list would have
+    reached Postgres silently. On an audit substrate that is the worst
+    available failure: a row that looks authoritative and is not.
+
+    The state is reachable, not hypothetical -- pushing LIMIT into SQL and
+    taking match_count from a separate COUNT(*) would make the two values come
+    from different queries, which is exactly how the truncation bug arose.
+    """
+    from asxos.domain.screening.types import ScreenMatch, ScreenRunResult
+
+    bad = ScreenRunResult(
+        rule_id=1, rule_name="value-screen", sector_scope=None, universe_size=100,
+        matches=(ScreenMatch(symbol="AAA.AU", sector="Industrials", values={}),),
+        match_count=50,                      # claims 50...
+        duration_ms=42, all_symbols=("AAA.AU",),  # ...carries 1
+    )
+    conn = MagicMock()
+    conn.fetchrow = AsyncMock(return_value={"id": 1})
+
+    with pytest.raises(RuntimeError, match="inconsistent screening_runs row"):
+        await ev.log_run(conn, bad, {"version": 1})
+
+    # Nothing was written -- it refused BEFORE the INSERT, not after.
+    conn.fetchrow.assert_not_awaited()

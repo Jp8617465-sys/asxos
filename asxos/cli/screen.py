@@ -96,10 +96,11 @@ async def _run_screen(name: str, sector: str | None, limit: int, no_log: bool) -
 
             result = await evaluate_rule(conn, rule, sector=sector, limit=limit)
 
+            run_id: int | None = None
             if not no_log:
-                await log_run(conn, result, rule_json)
+                run_id = await log_run(conn, result, rule_json)
 
-        _print_result(result)
+        _print_result(result, run_id)
     except typer.Exit:
         raise
     except (ValueError, RuntimeError) as exc:
@@ -109,12 +110,22 @@ async def _run_screen(name: str, sector: str | None, limit: int, no_log: bool) -
         await close_pool()
 
 
-def _print_result(result: ScreenRunResult) -> None:
+def _print_result(result: ScreenRunResult, run_id: int | None = None) -> None:
     scope = result.sector_scope or "(cross-sector)"
+    # State the audit row id rather than leaving the user to go find it: for a
+    # pre-registered rule the citable screening_runs row IS the deliverable.
+    # Saying "all N symbols" also answers, without being asked, the obvious
+    # question raised by "showing 20" -- `--limit` is display-only and two runs
+    # of one rule at different limits produce identical audit rows.
+    logged = (
+        f" · logged as screening_runs #{run_id} (all {result.match_count} symbols)"
+        if run_id is not None
+        else " · not logged"
+    )
     console.print(
         f"[bold]{result.rule_name}[/bold] — sector: {scope} · "
         f"universe: {result.universe_size} · matches: {result.match_count} "
-        f"(showing {len(result.matches)}) · {result.duration_ms}ms"
+        f"(showing {len(result.matches)}) · {result.duration_ms}ms{logged}"
     )
     if not result.matches:
         console.print("[yellow]No matches.[/yellow]")

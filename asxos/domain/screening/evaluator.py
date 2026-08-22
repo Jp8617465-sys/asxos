@@ -2,7 +2,8 @@
 
 Turns a `screening_rules.rule_json` (curated_composite only — migration 0038
 CHECK constraint) into a parameterized SQL query against `universe` + latest
-`fundamentals` + latest usable `rs_fundamentals_pit` + latest `prices.close`,
+`fundamentals` + latest usable `rs_fundamentals_pit` + latest `prices.close`
++ a trailing ~90-trading-day `prices` aggregate,
 and logs the result to `screening_runs` for audit. See docs/proposals/
 thesis-coverage-framework-2026-07-11.md Tier 2a for the full design.
 
@@ -27,6 +28,33 @@ migration 0001 and were 100% NULL across all 138,087 rows, PR #142 finding D5;
   `market_cap`/`sector` on `universe` (propagated canonical values). One
   ScreenMatch therefore mixes vintages — standard for fundamental screens,
   stated here so nobody assumes a single as-of.
+* `avg_daily_value_aud_90d` is COMPUTED per run from `prices` over a
+  130-calendar-day window (~90 trading days), not stored — see
+  _AVG_DAILY_VALUE_SQL. It is the tradeability gate: `market_cap` is a size
+  measure and demonstrably not a liquidity proxy. Its NULL means "no priced
+  days inside the window", NOT "illiquid" — a symbol that traded with no
+  recorded volume scores 0.00, which is a value. The join is a LEFT JOIN and
+  NULL fails every comparison, so a `gte` liquidity gate drops
+  no-price-history symbols on ABSENT data rather than measured thinness;
+  fail-safe for a gate, but it is exclusion by missingness, and `is_null` is
+  the only op that surfaces those names.
+  Cost: the shared `_BASE_CTES_SQL`/`_BASE_FROM_SQL` force the aggregate on
+  EVERY screen run, and _FIELD_MAP membership puts it in every output row —
+  two mechanisms, not one. The CTE carries NO is_active/security_kind filter,
+  so it scans every symbol in `prices` within the window (inactive names,
+  .INDX and US holdings included), not just the screened set. It is served by
+  `prices_dt_idx`, NOT the (symbol, dt) PK — a leading-column range scan on
+  `dt` cannot use that PK. Measured at production scale: Parallel Index Scan,
+  ~174k rows, 61ms, twice per screen (coverage query + match query). Fine for
+  an on-demand CLI path; do not drop `prices_dt_idx` assuming the PK covers it.
+
+  Currency caveat: the `_aud` in the field name is true only because
+  `_BASE_FROM_SQL` filters `security_kind = 'au_equity'` — a filter in a
+  DIFFERENT SQL block. `prices.close` is NATIVE currency and this expression
+  has no FX step, so if that filter ever widens (ETF/multi-instrument
+  expansion is a planned follow-on) the column silently becomes a currency
+  lie. That mistake has already cost this repo once — see the
+  cost_base_normal note in portfolio-conventions.
 
 Fail-loud coverage guard (CLAUDE.md #10): a rule referencing any field with
 ZERO non-null coverage over the (sector-scoped) candidate universe raises
@@ -109,6 +137,62 @@ class _FieldSpec:
 # one answer. (backend-architect ruling, 2026-08-20.)
 _DEBT_TO_EQUITY_SQL = "(CASE WHEN pit.total_equity > 0 THEN pit.net_debt / pit.total_equity END)"
 
+# Average daily traded VALUE in AUD over ~90 trading days, computed from the
+# `prices` OHLCV rows rather than stored as a column: there is no ingestion
+# step to add and no staleness to manage, exactly as _DEBT_TO_EQUITY_SQL is
+# computed rather than stored. 130 calendar days is the window that yields
+# ~90 ASX trading days (weekends + public holidays removed).
+#
+# Why value and not share volume: a manual retail investor's constraint is
+# dollars he can move without crossing a wide spread, and share count is
+# meaningless across a 1c explorer and a $40 industrial. market_cap is NOT a
+# substitute — measured against the quality screen's other gates, 2026-08-21.
+# (No figure is quoted here deliberately: every distribution number measured
+# before this expression shipped used a plain avg() and over-counts how many
+# symbols clear a threshold. Re-measure before quoting one.)
+#
+# Why raw `close`, not `adj_close` — this repo's convention elsewhere: raw
+# close x raw volume is the dollars that actually changed hands, and it is
+# split-invariant (a 10:1 split multiplies historical volume by 10 and divides
+# close by 10). adj_close x volume would systematically understate pre-split
+# and pre-dividend days. This is a choice, not an oversight; do not "fix" it.
+#
+# SUM over a FIXED 90-day denominator, not avg() — two distinct hazards, both
+# of which would make the gate admit the LEAST liquid names, the exact inverse
+# of its purpose:
+#   1. `prices.volume` is NULLable (see the 0001 initial schema; only `close`
+#      is NOT NULL) and avg() SKIPS NULLs. A symbol with 89 blank days and one
+#      A$1m day would average to A$1m and clear a A$50k gate.
+#   2. avg() also divides by rows PRESENT, so a symbol that traded 10 days out
+#      of 90 would be scored on those 10 days alone. A name that trades one day
+#      in nine is illiquid however busy those days were.
+# Both choices deliberately UNDERSTATE liquidity for thin names. For a gate
+# whose job is to keep untradeable names out, understating fails safe — but
+# only for thin names: the same fixed divisor scales EVERY ADV by N/90, for N
+# priced days in the window, and N sits either side of 90 as the exchange
+# calendar moves (130 days is always 92–94 weekdays, less in-window holidays,
+# so a Christmas–Easter window can fall to ~87). Above 90 it ADMITS, which is
+# accepted — a match is a research-queue entry, not an order. N/90 is the
+# durable claim; one dated anchor for magnitude: N=92 on 2026-08-22 → +2.2%,
+# lifting a true A$48,913 ADV to exactly A$50k at a A$50k gate.
+#
+# Correcting the divisor to count real trading days is a BEHAVIOUR change, not
+# a correctness fix: it moves EVERY ADV, so past screening_runs counts stop
+# being comparable to future ones under a byte-identical rule_json_snapshot —
+# the reinterpretation that snapshot exists to prevent, and cannot catch,
+# because the change lives in code rather than in rule_json. Deliberate and
+# re-pre-registered, never a drive-by.
+#
+# Honest limit: this is still a mean, so a single large crossing inflates it.
+# The robustness check is the median daily value, which needs a percentile
+# aggregate this expression deliberately does not carry — if a matched name
+# looks untradeable in practice, check the median before assuming the gate is
+# wrong. And it measures traded VALUE only — not bid/ask spread, not free
+# float, not register concentration, which are precisely the properties whose
+# absence made market_cap fail as a proxy. It is a floor test, not a
+# tradeability score; do not let it acquire a second job by implication.
+_AVG_DAILY_VALUE_SQL = "liq.adv_aud"
+
 # Closed whitelist — the ONLY fields a rule_json condition may reference.
 # market_cap/sector read from universe (the propagated, canonical current
 # value — see asxos/ingestion/fundamentals.py's propagate_* functions),
@@ -116,8 +200,8 @@ _DEBT_TO_EQUITY_SQL = "(CASE WHEN pit.total_equity > 0 THEN pit.net_debt / pit.t
 # whitelisted here — they are hardcoded into the base query, never
 # author-controlled (v1 scope is au_equity only; ETF/LIC screening is a
 # separate follow-on per the multi-instrument-expansion proposal).
-# Every sql_expr remains a hardcoded Python constant — the computed D/E
-# expression included — so the injection boundary is unchanged: rule_json
+# Every sql_expr remains a hardcoded Python constant — both computed
+# expressions (D/E and the liquidity aggregate) included — so the injection boundary is unchanged: rule_json
 # contributes nothing to SQL text, ever.
 _FIELD_MAP: dict[str, _FieldSpec] = {
     "pe_ratio": _FieldSpec("f.pe_ratio", is_text=False),
@@ -132,6 +216,7 @@ _FIELD_MAP: dict[str, _FieldSpec] = {
     "market_cap": _FieldSpec("u.market_cap", is_text=False),
     "sector": _FieldSpec("u.sector", is_text=True),
     "latest_close": _FieldSpec("p.close", is_text=False),
+    "avg_daily_value_aud_90d": _FieldSpec(_AVG_DAILY_VALUE_SQL, is_text=False),
 }
 
 # Shared CTE + FROM/JOIN blocks — used by BOTH the coverage-guard query and
@@ -159,6 +244,34 @@ _BASE_CTES_SQL = """
             SELECT DISTINCT ON (symbol) symbol, close
             FROM prices
             ORDER BY symbol, dt DESC
+        ),
+        liquidity_90d AS (
+            -- CASE WHEN count(volume) > 0 is load-bearing, not defensive.
+            -- close is NOT NULL and COALESCE never yields NULL, so without it
+            -- sum(...) can NEVER be NULL and count(liq.adv_aud) is non-zero for
+            -- every symbol with any price row -- which makes the zero-coverage
+            -- guard unreachable for this field. If prices.volume ever went 100%
+            -- NULL (it is NULLable, and some feeds return null volume), every
+            -- adv_aud would be 0.00, coverage would read FULL, the guard would
+            -- stay silent, and every liquidity gate would return a plausible
+            -- zero-match on ABSENT data -- the exact defect the guard exists to
+            -- catch. COALESCE is right per-DAY (an unrecorded day traded zero);
+            -- it is wrong per-SYMBOL, where "no volume data at all" must stay
+            -- unknown, not become zero.
+            SELECT symbol,
+                   CASE WHEN count(volume) > 0
+                        THEN round(sum(close * COALESCE(volume, 0)) / 90.0, 2)
+                   END AS adv_aud
+            FROM prices
+            -- Bounded at BOTH ends. The dt <= CURRENT_DATE half is not
+            -- symmetry-for-its-own-sake: the latest_pit CTE above carries the
+            -- same guard precisely because live rows arrive future-dated, and
+            -- nothing stops prices doing likewise. Measured, one future row
+            -- overstated a symbol's ADV by ~524x -- and unlike the two
+            -- understatement hazards above, overstatement ADMITS an
+            -- untradeable name, the inverse of this gate's purpose.
+            WHERE dt > CURRENT_DATE - 130 AND dt <= CURRENT_DATE
+            GROUP BY symbol
         )
 """
 
@@ -167,6 +280,7 @@ _BASE_FROM_SQL = """
         LEFT JOIN latest_fundamentals f ON f.symbol = u.symbol
         LEFT JOIN latest_pit pit ON pit.symbol = u.symbol
         LEFT JOIN latest_price p ON p.symbol = u.symbol
+        LEFT JOIN liquidity_90d liq ON liq.symbol = u.symbol
         WHERE u.is_active AND u.security_kind = 'au_equity'
 """
 
@@ -511,6 +625,9 @@ async def evaluate_rule(
         matches=matches,
         match_count=len(rows),
         duration_ms=duration_ms,
+        # The audit log must record the whole answer, not the slice that
+        # happened to print.
+        all_symbols=tuple(r["symbol"] for r in rows),
     )
 
 
@@ -552,6 +669,27 @@ async def log_run(
     this snapshot stops a later rule edit from silently reinterpreting an
     old run's meaning.
     """
+    # The ONE gate on the output path. The input types (ScreenCondition,
+    # ScreenGroup, ScreeningRule, ScreenMatch) are deliberately dumb because
+    # parse_rule() gates them; ScreenRunResult is built from trusted internal
+    # data and had NO gate at all. This is where an internally inconsistent
+    # audit row would reach Postgres, so it fails here -- loudly, never an
+    # assert (stripped under -O).
+    #
+    # Tautological today (both derive from the same `rows`). It is prospective:
+    # the obvious next optimisation -- push LIMIT into SQL and take match_count
+    # from a separate COUNT(*) -- makes these two come from DIFFERENT queries
+    # for the first time and re-creates this exact bug in a new shape. The
+    # check constrains the boundary, not the current call site.
+    if len(result.all_symbols) != result.match_count:
+        raise RuntimeError(
+            f"refusing to log an inconsistent screening_runs row for rule "
+            f"{result.rule_id}: match_count={result.match_count} but "
+            f"all_symbols carries {len(result.all_symbols)} symbols. The audit "
+            "row must record the whole answer; a mismatch means the count and "
+            "the symbol list came from different places."
+        )
+
     row = await conn.fetchrow(
         """
         INSERT INTO screening_runs
@@ -564,7 +702,10 @@ async def log_run(
         result.sector_scope,
         result.universe_size,
         result.match_count,
-        [m.symbol for m in result.matches],
+        # all_symbols, never [m.symbol for m in result.matches]: the latter
+        # is the display shortlist bounded by `limit`, so logging it wrote
+        # the true match_count beside a truncated symbol list.
+        list(result.all_symbols),
         json.dumps(rule_json_snapshot, default=str),
         result.duration_ms,
     )
