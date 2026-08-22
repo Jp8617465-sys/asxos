@@ -1155,6 +1155,22 @@ Wake: 2026-08-22 ~15:10Z (interactive /arbi)
 - governance: G1 CLEARED today — P3-01/P3-02 approved, P3-03 and the 8-row chain
   unblocked. SB4-01 PARKED with a named revival trigger. Permission-allowlist
   archive drafted, NOT applied. arbi-run-ledger row for this session still owed.
+
+CLOSE ADDENDUM (2026-08-22, /arbi-close — supersedes the three lines above):
+- head 130a0d8, 18 ahead of origin/main. DRAFT PR #152 (work) and #153 (dream,
+  branch claude/arbi-mem/2026-08-22). Ledger row close-2026-08-22 written,
+  episode_score 3.3 provisional — the "still owed" note above is discharged.
+- THE ONE THING (restore a DB read path) was NOT achieved. arbi's chosen route —
+  a project .mcp.json — is closed: no SUPABASE_ACCESS_TOKEN exists in this
+  environment. The credential-free route (defaultMode) is drafted as patch A and
+  was REFUSED on all four application attempts, including a cp that merely backed
+  up settings.json. Delivered as a paste-ready patch set instead.
+- Three .claude/** patches drafted and unapplied (A settings, B authority-guard,
+  C thesis-coherence-guard). C is the live capital-adjacent one.
+- NOT routed around: ~/.claude/settings.json is outside both the deny array and
+  the guard's fragment list and would have worked. Governor's call, not arbi's.
+- New for James: AWS_ACCESS_KEY_ID/SECRET are SET in this environment while F6
+  says no credentials are authorised.
 ```
 
 _Recorded by the 2026-08-19 interactive `/arbi` wake, extended via `/arbi-run "ingest and

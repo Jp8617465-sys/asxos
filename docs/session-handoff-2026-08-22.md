@@ -1,8 +1,39 @@
 # Session handoff — 2026-08-22
 
-**Branch:** `claude/product-roadmap-backlog-8k3jz5` (not merged; no PR opened)
-**Baseline held all session:** ruff clean · mypy clean · **2543 passed / 1 skipped**
+**Status:** current
+**Read priority:** read first
+**Branch:** `claude/product-roadmap-backlog-8k3jz5` @ `130a0d8`, 18 ahead of `main` — **draft PR #152**
+**Dream:** `claude/arbi-mem/2026-08-22` — **draft PR #153**
+**Baseline at close:** ruff clean · mypy clean across 168 files · **2586 passed / 1 skipped**
 **Read next:** `docs/proposals/db-access-remediation-2026-08-22.md` — it blocks the next task.
+
+## STOP — read first
+
+**Rule #11 (Model A quarantine) is STANDING POLICY, not a blocker awaiting lift.** Resolved
+2026-07-11 against Model A on 19,032 matured signals: `corr(ml_prob, 21d) = −0.03`, STRONG_BUY
+21d −0.09% vs HOLD +5.07%. Never use Model A output — signals, scans, allocator runs, thesis
+proposals — as a basis for a real capital decision.
+
+**`/pm-review` is unsafe until patch C lands.** `thesis-coherence-guard` step 1 queries
+`signals WHERE model='model_a'`; PR #144 deleted every writer, so it returns **frozen Model A
+evidence presented as a current answer** into holding decisions. Its frontmatter says use
+PROACTIVELY, so declining to run `/pm-review` does **not** contain it. The fix is drafted and
+unapplied at `docs/proposals/claude-config-patches-2026-08-22/thesis-coherence-guard.md`.
+
+**The personal-advice firewall (s766B) is structural and unchanged.**
+
+## What James must do (nothing below is arbi's)
+
+1. **Apply the three `.claude/**` patches** — `claude-config-patches-2026-08-22/README.md`.
+   **C first**: it is the only one touching a live capital-adjacent hazard.
+2. **Permit outbound 5432** in the environment's network policy. Independent of the repo.
+3. **Merge or reject #152 and #153.** Both draft.
+4. **Dark surfaces #1 and #4** — expire 2026-08-31, decide-by **2026-08-28**. Rule them together.
+5. **`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` are set in this environment**, while F6 says no
+   credentials are authorised and `P3-02` was written assuming none existed. Not used. May mean
+   `P3-03`'s restore leg is closer than the work order assumes.
+6. **Rule on the `close-2026-08-22` ledger row's `defect:` field** — see the ledger; the stretch
+   is stated in the row rather than hidden.
 
 ---
 
