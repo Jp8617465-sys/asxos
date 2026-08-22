@@ -1,5 +1,10 @@
 # Permission and guard friction — measured, with the patches James must apply
 
+**Superseded as operating SoT (2026-08-22):** permission-mode mapping, two-speed
+routing, and risk-tiered consult now live in `docs/product/harness-profiles.md`.
+Keep this file as the measured 32-row / 3-denial evidence and the James-owned
+patch list (§4).
+
 **Status:** draft proposal — requires James to apply (both targets are authority paths)
 **Prepared:** 2026-08-21, from one full working session (the HUBS position review)
 **Evidence:** `.claude/permission-requests.log` (32 rows), 3 observed hook denials

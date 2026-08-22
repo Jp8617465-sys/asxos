@@ -54,20 +54,25 @@
       "Bash(date:*)",
       "Bash(which:*)",
       "Bash(mkdir:*)",
-      "Bash(curl -s --max-time 25 -H \"Authorization: Bearer $RENDER_API_KEY\" \"https://api.render.com/v1/:*)"
+      "Bash(sed -n:*)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(cut:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(diff:*)",
+      "Bash(realpath:*)",
+      "Bash(git rev-parse:*)"
     ],
     "deny": [
       "mcp__github__enable_pr_auto_merge",
-      "Edit(/.claude/settings.json)",
       "Edit(/.claude/settings.local.json)",
       "Edit(/.claude/agents/**)",
       "Edit(/.claude/commands/**)",
-      "Edit(/.claude/hooks/**)",
       "Edit(/.claude/rules/**)",
       "Edit(/.claude/skills/**)",
       "Edit(/.github/**)",
       "Edit(/migrations/**)",
-      "Edit(/CLAUDE.md)",
       "Edit(/render.yaml)",
       "Edit(/docs/README.md)",
       "Edit(/docs/product/north-star.md)",
@@ -103,10 +108,6 @@
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/review-gate.sh"
-          },
           {
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/push-guard.sh"

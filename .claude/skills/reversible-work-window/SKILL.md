@@ -1,6 +1,6 @@
 ---
 name: reversible-work-window
-description: Run asxos reversible dev work under arbi/Guilfoyle — code/docs/test work on claude/** branches that may open draft PRs but cannot merge, deploy, migrate, mutate production DB/Render, read secrets, or execute capital actions. Use for long autonomy windows (the /goal recipes) and mission build nodes.
+description: Run asxos reversible dev work under arbi/Guilfoyle — code/docs/test work on claude/** or cursor/** branches that may open draft PRs but cannot merge, deploy, migrate, mutate production DB/Render, read secrets, or execute capital actions. Use for long autonomy windows (the /goal recipes) and mission build nodes.
 disable-model-invocation: true
 allowed-tools:
   - Read
@@ -16,6 +16,10 @@ allowed-tools:
   - Bash(git checkout -B claude/*)
   - Bash(git switch claude/*)
   - Bash(git switch -c claude/*)
+  - Bash(git checkout -B cursor/*)
+  - Bash(git checkout -b cursor/*)
+  - Bash(git switch cursor/*)
+  - Bash(git switch -c cursor/*)
   - Bash(git add:*)
   - Bash(git commit:*)
   - Bash(make check:*)
@@ -38,8 +42,10 @@ prompts or is denied exactly as before.
 ## What is pre-allowed (and why it is safe)
 
 Only I0–I4 actions (`docs/product/arbi-permission-model.md` — the authority): read/search,
-edit, tests/linters, staging/commits (the `review-gate.sh` hook still gates every commit with
-staged `.py`, including the R13 same-step-staging denial).
+edit, tests/linters, staging/commits. `cursor/**` is the Cursor Cloud Agent branch family
+(template `cursor/<slug>-651f`); same reversible ceiling as `claude/**`. Quality is
+`make check` + CI. Consult is risk-tiered (`docs/product/harness-profiles.md`);
+there is no PreToolUse review-gate.
 
 ## What deliberately stays outside this skill
 
@@ -53,11 +59,11 @@ staged `.py`, including the R13 same-step-staging denial).
   PR-creation prompt cannot be answered (operator asleep), "ready + PR queued, surfaced
   first in the morning report" satisfies L-cand-3 (`docs/product/memory/working/2026-07-12-scope-reversible-without-asking.md`) — see `docs/product/arbi-goal-recipes.md`.
 - Anything I5/I6: merge, push to `main`, migrations, every `mcp__supabase__*` write, Render
-  API mutation, secrets. Not pre-allowed here; at the settings layer these **ask** (there is
-  currently no `deny` array in `.claude/settings.json` — ask-while-unattended means
-  blocked-until-morning, which is safe but should be said honestly). A mechanical deny list
-  + unconditional authority-path guard is **PR-2 (Permission Friction Pack)** territory —
-  James's build order — not this pack.
+  API mutation, secrets. Not pre-allowed here. The settings `deny` array plus
+  `authority-guard.sh` / `push-guard.sh` / `pr-draft-guard.sh` are the attended
+  mechanical floor; `unattended-guard.sh` still treats `CLAUDE.md`,
+  `.claude/settings.json`, and `.claude/hooks/` as authority when
+  `ARBI_UNATTENDED=1`.
 - `AskUserQuestion` for reversible choices — inside a window, make the reversible call and
   log it (governor correction L-cand-2, 2026-07-12,
   `docs/product/memory/working/2026-07-12-scope-reversible-without-asking.md`); ask only at
@@ -67,11 +73,10 @@ staged `.py`, including the R13 same-step-staging denial).
 
 `Edit`/`Write` here are unscoped, and pre-allowed executors (`pytest`, `make check`, `mypy`)
 run whatever the tree contains — so an edited `conftest.py`/`Makefile` is an arbitrary-code
-path that bypasses the Bash allowlist, and unscoped Write can reach `.claude/**` itself.
-Attended, the operator sees the edits; the review gate covers what gets committed. Until
-PR-2 lands the mechanical guards (settings `deny` for authority paths; authority-path
-Edit/Write check in the guard hook running attended too), **this skill must not be active in
-an unmonitored window without the operator accepting this residual** — the runbook states it.
+path that bypasses the Bash allowlist. Attended, the operator sees the edits; quality is
+`make check` + CI. Authority paths still in the deny list remain blocked by
+`authority-guard.sh`. **This skill must not be active in an unmonitored window
+without the operator accepting the residual** — the runbook states it.
 
 ## Binding conduct while active
 

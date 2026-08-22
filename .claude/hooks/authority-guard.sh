@@ -49,19 +49,20 @@ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
 # array, so the two matching mechanisms (different by necessity — one tests a resolved path,
 # the other substring-scans raw command text) can't silently drift apart.
 #
-# The `.claude/` entries are enumerated EXPLICITLY — settings.json / settings.local.json plus
-# the agents/commands/hooks/rules/skills directories — NOT a broad `.claude/` prefix, mirroring
-# the narrowed settings.json deny array. A broad `.claude/` fragment here would re-create the
-# self-inflicted lockout the settings.json narrowing already fixed (arbi-run-ledger.md,
-# 2026-07-14): it would treat the review-gate's own `.claude/.review-passed-*` markers as
-# authority and block every future `.py` commit. Those loose root-level markers are
-# INTENTIONALLY absent from this list and MUST remain writable.
+# The `.claude/` entries are enumerated EXPLICITLY — settings.local.json plus
+# agents/commands/rules/skills — NOT a broad `.claude/` prefix, mirroring the
+# narrowed settings.json deny array. settings.json, hooks/, and CLAUDE.md are
+# intentionally absent so attended harness edits can land (2026-08-22). Unattended
+# runs still treat those three as authority via unattended-guard.sh. A broad
+# `.claude/` fragment here would re-create the 2026-07-14 lockout (it treated
+# loose `.claude/.review-passed-*` markers as authority). Those loose root-level
+# files are INTENTIONALLY absent from this list and MUST remain writable.
 AUTHORITY_FRAGMENTS=(
   ".env"
-  ".claude/settings.json" ".claude/settings.local.json"
-  ".claude/agents/" ".claude/commands/" ".claude/hooks/" ".claude/rules/" ".claude/skills/"
+  ".claude/settings.local.json"
+  ".claude/agents/" ".claude/commands/" ".claude/rules/" ".claude/skills/"
   ".github/" "migrations/" "docs/product/rubrics/"
-  "CLAUDE.md" "render.yaml" "docs/README.md"
+  "render.yaml" "docs/README.md"
   "docs/product/north-star.md" "docs/product/arbi-constitution.md" "docs/product/arbi-authority.md"
   "docs/product/arbi-permission-model.md" "docs/product/arbi-harness.md" "docs/product/arbi-scorecard.md"
   "docs/product/arbi-promotion-gate.md" "docs/product/arbi-memory-policy.md" "docs/product/arbi-dream-policy.md"
@@ -213,24 +214,21 @@ case "$tool" in
   Bash)
     cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty')"
     [ -n "$cmd" ] || exit 0
-    # Interpreter-based writes (the docs-confirmed gap): python/perl/ruby/node opening a
-    # file directly, plus utilities whose "recognized by Claude Code" status is unconfirmed
-    # (tee/dd/cp/mv/install/ln -sf/awk-inplace/patch/truncate/sponge/ed/ex/git checkout|
-    # restore --) referencing an authority path in the same command. `>>?` is explicitly
-    # included (security-engineer, 2026-07-14): a bare shell redirect (`echo x > CLAUDE.md`)
-    # names no "recognized file command" at all — echo isn't a file-handling command, the
-    # shell's own redirection operator performs the write — so the docs' "cat/head/tail/sed"
-    # carve-out for settings-level Edit-deny does NOT extend to it. Mirrors
-    # unattended-guard.sh's A4 check, which already includes `>>?`; this hook had dropped it,
-    # a real regression this fixes.
-    # Boundary is "start-of-string or any non-identifier char" rather than strictly
-    # whitespace — a quoted string literal (python's `'.claude/settings.json'`) is preceded
-    # by a quote, not whitespace, and must still be caught.
+    scrub="$(printf '%s' "$cmd" | sed -E 's#[0-9]*>>?[[:space:]]*/dev/(null|stderr)##g')"
     authority_ref="(^|[^A-Za-z0-9_./-])($(_authority_regex_alt))"
-    write_verb='(>>?|python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|tee\b|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'
-    if printf '%s' "$cmd" | grep -Eiq "$authority_ref" && printf '%s' "$cmd" | grep -Eiq "$write_verb"; then
+    util_verb='(python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|tee\b|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'
+    if printf '%s' "$scrub" | grep -Eiq "$authority_ref" && printf '%s' "$scrub" | grep -Eiq "$util_verb"; then
       deny "authority-guard: this Bash command references an authority/boundary path alongside a write-capable interpreter/utility — blocked. arbi may only DRAFT authority changes via a reviewed PR."
     fi
+    redirect_targets="$(printf '%s' "$scrub" | grep -oE '[^<]>>?[[:space:]]*[^[:space:]|&;<>()]+' || true)"
+    while IFS= read -r tok; do
+      [ -n "$tok" ] || continue
+      target="$(printf '%s' "$tok" | sed -E 's/^[^>]*>>?[[:space:]]*//; s/["'"'"']//g')"
+      [ -n "$target" ] || continue
+      if printf '%s' "$target" | grep -Eiq "$authority_ref"; then
+        deny "authority-guard: this Bash command references an authority/boundary path alongside a write-capable interpreter/utility — blocked. arbi may only DRAFT authority changes via a reviewed PR."
+      fi
+    done <<< "$redirect_targets"
     exit 0
     ;;
   *)

@@ -13,7 +13,7 @@ open draft PRs queued behind one merger — six of them from the 2026-08-17..19 
 19-of-22 uncited merged PRs, R17, flat-rate review ceremony)
 **Owner:** main loop executed items 2 and the recordable parts of 4 this session; items 1, 3,
 5, 6 carry James-gated steps drafted below
-**Superseded by:** N/A
+**Superseded as operating SoT (2026-08-22):** §5–§6 now live in `docs/product/harness-profiles.md` plus the CLAUDE.md Review consult section. This file stays the six-point ruling record. Items 1, 3, and 5 remain James-owned.
 
 The six items, their status after this session, and what remains:
 

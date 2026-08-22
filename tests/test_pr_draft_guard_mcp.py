@@ -258,7 +258,6 @@ class TestSettingsWiring:
             (
                 "Bash",
                 (
-                    "review-gate.sh",
                     "push-guard.sh",
                     "authority-guard.sh",
                     "pr-draft-guard.sh",

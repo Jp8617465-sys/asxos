@@ -1,13 +1,11 @@
 """Tests that the PreToolUse hooks resolve paths against the *tool call's* checkout.
 
-Three hooks — ``review-gate.sh``, ``push-guard.sh`` and ``unattended-guard.sh`` —
+Two hooks — ``push-guard.sh`` and ``unattended-guard.sh`` —
 used to anchor every path/branch lookup to ``$CLAUDE_PROJECT_DIR``. A tool call
 made inside a **git worktree** has its own index, its own HEAD and its own tree,
 so each of those lookups inspected an unrelated checkout and the guarded category
 silently failed **open**:
 
-* ``review-gate.sh`` inspected the project root's (empty) index, so Python staged
-  in a worktree reached a commit without the review loop ever running;
 * ``push-guard.sh`` read the primary checkout's branch, so a worktree sitting on
   ``main`` passed the "are we on main?" check;
 * ``unattended-guard.sh``'s ``rel_path()`` strip never matched, so the absolute
@@ -131,28 +129,6 @@ def _edit(cwd: Path, file_path: Path) -> dict:
 # --------------------------------------------------------------- the worktree gap
 
 
-def test_review_gate_sees_python_staged_inside_a_worktree(
-    worktree_repo: tuple[Path, Path],
-) -> None:
-    """Staged .py in a worktree must gate, though the project root's index is empty."""
-    primary, worktree = worktree_repo
-    (worktree / "danger.py").write_text("y = 2\n")
-    _git(worktree, "add", "danger.py")
-
-    assert not subprocess.run(
-        ["git", "diff", "--cached", "--name-only"],
-        cwd=primary,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip(), "precondition: the primary index must be empty for this to bite"
-
-    decision = run_hook(
-        "review-gate.sh", project_dir=primary, payload=_bash(worktree, "git commit -m wip")
-    )
-    assert _denied(decision), "staged .py in a worktree reached a commit ungated"
-
-
 def test_push_guard_reads_the_worktrees_own_branch(
     worktree_repo: tuple[Path, Path],
 ) -> None:
@@ -190,38 +166,6 @@ def test_unattended_guard_matches_capital_paths_inside_a_worktree(
         unattended=True,
     )
     assert _denied(decision), "capital-path edit inside a worktree failed open"
-
-
-def test_review_gate_prints_an_absolute_marker_path(
-    worktree_repo: tuple[Path, Path],
-) -> None:
-    """The marker instruction must name the checkout it belongs to.
-
-    ``marker`` is resolved under the commit's own checkout, which is not
-    necessarily where the user is standing. Printed relative, a worktree commit
-    produced a silent deny loop: touching ``.claude/.review-passed-*`` at the
-    project root does not satisfy it, and nothing in the message says so. The
-    path is therefore emitted absolute.
-    """
-    primary, worktree = worktree_repo
-    (worktree / "danger.py").write_text("y = 2\n")
-    _git(worktree, "add", "danger.py")
-
-    decision = run_hook(
-        "review-gate.sh", project_dir=primary, payload=_bash(worktree, "git commit -m wip")
-    )
-    reason = decision.get("permissionDecisionReason", "")
-    marker = next(
-        (tok for tok in reason.split() if ".review-passed-" in tok),
-        "",
-    )
-    assert marker.startswith("/"), f"marker path is not absolute: {marker!r}"
-    assert marker.startswith(str(worktree.resolve())), (
-        f"marker names the wrong checkout: {marker!r} should live under {worktree}"
-    )
-
-
-# ------------------------------------------------------- fail-closed / fail-open
 
 
 def test_unattended_guard_still_denies_when_payload_omits_cwd(
@@ -470,23 +414,6 @@ def test_push_still_allowed_when_no_checkout_is_on_main(
     assert not _denied(decision), "a safe claude/** push was blocked"
 
 
-def test_review_gate_sees_python_staged_in_the_control_checkout(
-    worktree_repo: tuple[Path, Path],
-) -> None:
-    """Staged Python in the *other* checkout must still gate the commit.
-
-    Repointing the gate at the payload's cwd fixed worktree-staged Python but blinded
-    it to Python staged in the control checkout — trading one fail-open for another.
-    """
-    primary, worktree = worktree_repo
-    (primary / "only_in_primary.py").write_text("p = 1\n")
-    _git(primary, "add", "only_in_primary.py")
-    decision = run_hook(
-        "review-gate.sh", project_dir=primary, payload=_bash(worktree, "git commit -m wip")
-    )
-    assert _denied(decision), "Python staged in the control checkout went ungated"
-
-
 def test_unknown_path_predicate_fails_closed(
     worktree_repo: tuple[Path, Path],
 ) -> None:
@@ -511,28 +438,6 @@ def test_unknown_path_predicate_fails_closed(
 
 
 # ------------------------------------------------------------ regression anchors
-
-
-def test_review_gate_unchanged_at_the_primary_root(
-    worktree_repo: tuple[Path, Path],
-) -> None:
-    primary, _ = worktree_repo
-    (primary / "more.py").write_text("z = 3\n")
-    _git(primary, "add", "more.py")
-    decision = run_hook(
-        "review-gate.sh", project_dir=primary, payload=_bash(primary, "git commit -m wip")
-    )
-    assert _denied(decision)
-
-
-def test_review_gate_still_ignores_docs_only_commits(
-    worktree_repo: tuple[Path, Path],
-) -> None:
-    primary, _ = worktree_repo
-    decision = run_hook(
-        "review-gate.sh", project_dir=primary, payload=_bash(primary, "git commit -m docs")
-    )
-    assert not _denied(decision)
 
 
 def test_unattended_guard_unchanged_at_the_primary_root(
