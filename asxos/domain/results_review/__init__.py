@@ -5,7 +5,9 @@ One package per major entity (house convention). `contracts.py` and
 (`P2`) builds on; the freeze decisions and their citations are recorded in
 `docs/product/results-review-contracts-2026-08-16.md`. `adapter.py` (P2-03)
 mechanically surfaces those frozen artifacts from a hashed fixture — pure
-in-memory, read-only, no DB access, and no persistence of its output.
+in-memory, read-only, and no persistence of its output. `pit_db.py` (W1-1)
+adds the authorized ``asxos_pit_db`` SELECT path; the fixture never-real
+invariant is unchanged.
 `gates.py` / `reviewer.py` / `challenger.py` (P2-04) are the deterministic
 review core: the frozen mechanical acceptance gates, the
 ``complete | revise | abstain`` reviewer, and the first producer of the
@@ -76,6 +78,11 @@ from asxos.domain.results_review.gates import (
     GateName,
     MechanicalGateReport,
     evaluate_case,
+)
+from asxos.domain.results_review.pit_db import (
+    adapt_pit_snapshot,
+    build_pit_case,
+    fetch_pit_snapshot,
 )
 from asxos.domain.results_review.presentation import (
     ABSTENTION_IS_SUCCESS,
@@ -153,6 +160,9 @@ __all__ = [
     "UnitScale",
     "VERDICT_SCOPE_STATEMENT",
     "adapt_hashed_fixture",
+    "adapt_pit_snapshot",
+    "build_pit_case",
+    "fetch_pit_snapshot",
     "artifact_output_sha256",
     "canonical_decimal_text",
     "challenge_adapted",

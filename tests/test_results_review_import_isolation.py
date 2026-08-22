@@ -38,6 +38,7 @@ import sys
 import asxos.domain.results_review.adapter
 import asxos.domain.results_review.contracts
 import asxos.domain.results_review.fixtures
+import asxos.domain.results_review.pit_db
 import asxos.ingestion.financial_statements
 
 assert "asxos.config" not in sys.modules, "asxos.config executed on import"

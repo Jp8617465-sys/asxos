@@ -53,14 +53,11 @@ RESULTS_REVIEW_SCHEMA_VERSION: Final[str] = "results-review-contracts-1.0"
 # ---------------------------------------------------------------------------
 # §8 item 1 — the document-acquisition ruling (G2, matrix :427-430)
 # ---------------------------------------------------------------------------
-# RULED: the acquisition path is a HASHED FIXTURE. No ASX announcement
-# acquisition path exists in this repo (G2: `parse_json_announcements` is dead,
-# migration 0030 dropped `asx_announcements`), a real feed is not executable
-# inside any mission, and choosing one stays James's later decision. The
-# Literal below therefore admits exactly one value today; a real acquisition
-# path is added by widening this Literal in a future, separately authorized
-# work order — never by relabeling a fixture.
-AcquisitionPath = Literal["hashed_fixture"]
+# RULED 2026-08-16: hashed fixture only. Widened 2026-08-22 (W1-1, James
+# authorized the freeze exception by executing this chain after the 2026-08-22
+# red-team). `asxos_pit_db` is a hashed research-store snapshot — not an ASX
+# announcement feed. G2 stays closed. Never relabel a fixture as `asxos_pit_db`.
+AcquisitionPath = Literal["hashed_fixture", "asxos_pit_db"]
 
 # The frozen integrity algorithm for the document payload (matrix :429).
 DOCUMENT_HASH_ALGORITHM: Final[Literal["sha256"]] = "sha256"
@@ -383,9 +380,8 @@ class SourceDocumentRecord(ContentAddressedContract):
 
     @model_validator(mode="after")
     def validate_fixture_never_real(self) -> Self:
-        # §8 item 1 (matrix :429-430): a fixture can NEVER be labelled
-        # data_mode="real" — only a real acquisition path may ever do that,
-        # and no such path exists (G2).
+        # §8 item 1: a fixture can NEVER be labelled data_mode="real".
+        # `asxos_pit_db` is the authorized real path (W1-1); it is not G2.
         if self.acquisition == "hashed_fixture" and self.data_mode == "real":
             raise ValueError(
                 "a hashed fixture can never carry data_mode='real'; "
