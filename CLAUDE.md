@@ -37,14 +37,20 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (currently through 0043; `REQUIRED_MIGRATIONS = 96`) is the canonical schema** — roughly 40
+**`migrations/` (on disk through 0045; latest APPLIED is 0044; `REQUIRED_MIGRATIONS = 97`) is the canonical schema** — roughly 40
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
 the migrations.
+**The highest file number on disk is NOT what is live.** Check
+`supabase_migrations.schema_migrations`, never the directory listing — this row
+itself carried "through 0043" for nine days after 0044 shipped.
 Migration `0042` remains reserved for the parked rules-integrity branch and must
-not be applied; `0043_price_revisions.sql` was applied to production on 2026-08-12
-as version `20260812092925`.
+not be applied. `0043_price_revisions.sql` was applied to production on 2026-08-12
+as version `20260812092925`; `0044_fundamentals_pit_currency.sql` was applied on
+2026-08-21 as `20260821080458` (observed count 97). `0045_segment_map.sql` is on
+disk but **NOT applied** — `public.segment_map` does not exist in production and
+nothing runs `build_segment_map` yet.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
@@ -89,38 +95,38 @@ irreversible production writes, direct pushes to `main`, PR ready/merge actions,
 self-merging unless repository policy and James's explicit instruction authorize
 that exact PR, migration `0042`, and any Model A or capital-execution boundary.
 
-## Known test environment gaps (do not chase)
+## Known test environment gaps — RESOLVED 2026-08-22 (retained as a standing lesson)
 
-Some tests permanently collection-error in the remote Claude Code sandbox because
-`joblib` (transitively `lightgbm` / `sklearn`) is not installed in the sandbox Python
-env, via one of two import chains: direct (`domain/models/model_a.py` ->
-`domain/models/cache.py` -> `joblib`) or indirect through `from asxos.cli import
-main as cli_main` (`cli/main.py` -> `cli/predict.py` -> the same chain) — the
-indirect route is easy to miss since the erroring test file itself may import
-nothing ML-related.
+**This section is obsolete: the gap it described no longer exists.** It documented
+tests that permanently collection-errored in the remote Claude Code sandbox because
+`joblib` (transitively `lightgbm` / `sklearn`) was absent, reached by either of two
+import chains — direct (`domain/models/model_a.py` -> `domain/models/cache.py` ->
+`joblib`) or indirect through `from asxos.cli import main as cli_main`
+(`cli/main.py` -> `cli/predict.py` -> the same chain).
 
-**Do NOT trust any enumerated list of the affected files — including any this file
-used to carry.** The list rotted from 4 -> 14 -> 16 while documented here, then was
-observed wrong three more times (39 failed/65 errors on 2026-07-16; 43/72 plus a
-missing-pytest-asyncio variant on 2026-07-21): the failing SET varies with which
-sandbox pytest environment you get, not just with the code. **The re-derivation
-command is the only authority:**
+**Both chains were deleted with Model A** (PR #144, `da64c1b`): the training chain,
+artefacts, feature engine, signal machinery, `cli/signal.py`, `brief/shap.py` and
+`tests/test_train_walk_forward.py` are all gone. Measured 2026-08-22 in the remote
+sandbox against a `uv` venv built from `pip install -e ".[dev]"` — **no `[ml]`
+extra, so `joblib`/`lightgbm` are still absent** — the full suite returns
+**2456 passed, 1 skipped, 0 failed, 0 collection errors.** The single skip is
+`tests/test_price_revision_migration_integration.py`, which requires
+`MIGRATION_TEST_DATABASE_URL`; that is a deliberate opt-in, not a gap.
+
+The re-derivation command is still the only authority, and it now returns nothing:
 
 ```
 pytest tests/ -q 2>&1 | grep '^ERROR'
 ```
 
-These all pass in CI (`full-check`) and the GitHub Actions runners where
-`pip install -e ".[ml]"` is run — CI is the real gate. Do not add workarounds or
-skip markers — the tests themselves are correct. Practical note (verified
-2026-07-21): a sandbox `python3` with `pip install pytest-asyncio asyncpg httpx
-tenacity pydantic pydantic-settings python-dotenv python-dateutil jinja2 numpy
-pandas` runs the non-ML suite for real — only the joblib/lightgbm ML-chain gaps
-remain, e.g.:
-
-- `tests/test_train_walk_forward.py::test_train_model_a_returns_valid_result` — requires
-  `lightgbm` in the venv. The system Python has it; the sandbox venv does not. Passes
-  in CI / the GitHub Actions runner.
+**Why this is annotated rather than deleted.** The enumerated file list this section
+used to carry rotted 4 -> 14 -> 16 while documented here, then was observed wrong
+three more times (39 failed/65 errors on 2026-07-16; 43/72 plus a
+missing-pytest-asyncio variant on 2026-07-21) — the failing SET varied with which
+sandbox environment you got, not with the code. Never trust an enumerated list of
+failing tests in a doc, including this one; re-derive. CI (`full-check`) remains the
+real gate, and workarounds or skip markers are still the wrong fix — the tests are
+correct.
 
 ## Known coverage gaps (verify, don't assume)
 
