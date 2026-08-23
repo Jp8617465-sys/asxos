@@ -319,12 +319,15 @@ class BriefData:
         if self.sections:
             return self.sections
         computed = datetime.now(UTC)
-        prices_stale = (
-            self.latest_price_date is None or (self.as_of - self.latest_price_date).days > 5
-        )
+        # `self.prices_stale`, not a third copy of the `> 5` threshold. The
+        # property below is the canonical definition; `collect()` carries the
+        # only other copy because no BriefData exists yet at that point. Two
+        # copies that must agree is already one too many -- a third, here,
+        # would let the integrity line and the headline disagree the moment
+        # the window is tuned.
         return assemble_sections(
             latest_price_date=self.latest_price_date,
-            prices_stale=prices_stale,
+            prices_stale=self.prices_stale,
             job_failures=self.job_failures,
             discipline_findings=self.discipline_findings,
             outcome_section=self.outcome_section,
