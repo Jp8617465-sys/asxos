@@ -34,6 +34,12 @@
        name. Keeping the declaration up here keeps the section's rendered text
        free of incidental vocabulary. #}
     .footnote { font-size: 0.8em; color: #888; }
+    .integrity { font-size: 0.85em; color: #444; margin: 0 0 0.8em; }
+    .integrity-warn { background: #fff6e5; border-left: 4px solid #c50; padding: 0.6em 0.8em; color: #432; }
+    .sec-FRESH { color: #0a6; }
+    .sec-STALE { color: #c50; font-weight: 600; }
+    .sec-MISSING { color: #c00; font-weight: 600; }
+    .sec-EMPTY { color: #888; }
   </style>
 </head>
 <body>
@@ -48,6 +54,21 @@
        "evidence as of" would claim a provenance no query backs. #}
     · Prices complete to: {{ d.data_as_of or "unavailable" }}
   </p>
+
+  {# Stage 0 integrity / lineage line. Always present. Warning chrome when
+     core prices are STALE or MISSING — not a footnote. Health-report
+     (Review) stays in the meta line above. #}
+  <table role="presentation" class="integrity{% if d.core_untrusted %} integrity-warn{% endif %}" id="integrity-line">
+    <tr>
+      <td>
+        <strong>Integrity</strong>
+        · prices as-of {{ d.data_as_of or "unavailable" }}
+        {%- for name, sec in d.resolved_sections.items() %}
+        · {{ name }}: <span class="sec-{{ sec.status }}">{{ sec.status }}</span>
+        {%- endfor %}
+      </td>
+    </tr>
+  </table>
 
   <p class="caveat">
     <strong>Evidence only.</strong> This brief is model-independent. It reports one of

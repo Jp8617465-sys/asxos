@@ -16,7 +16,7 @@ import jinja2
 from asxos.domain.brief.types import Brief
 
 _TEMPLATE_DIR = Path(__file__).parent.parent.parent / "brief" / "templates"
-_V2_TEMPLATE = "brief_v2.html.j2"
+_V2_TEMPLATE = "_archive/brief_v2.html.j2"  # frozen; canonical live template is brief.html.j2
 
 _env: jinja2.Environment | None = None
 

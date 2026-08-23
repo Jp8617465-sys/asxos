@@ -85,7 +85,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field, replace
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
@@ -95,6 +95,11 @@ from urllib.parse import urlparse
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.brief.section import (
+    SectionResult,
+    SectionStatus,
+    assemble_sections,
+)
 from asxos.domain.benchmark.outcome import (
     MAX_ANCHOR_LAG_DAYS,
     BenchmarkAnchor,
@@ -303,6 +308,42 @@ class BriefData:
     # about — so the template says "Prices complete to". None only when no
     # complete day exists at all.
     data_as_of: date | None = None
+    # Stage 0 seam: four-state section artefacts. Empty default keeps every
+    # existing BriefData(...) test constructing without `sections` valid;
+    # `resolved_sections` synthesises from the payload fields in that case.
+    sections: dict[str, SectionResult] = field(default_factory=dict)
+
+    @property
+    def resolved_sections(self) -> dict[str, SectionResult]:
+        if self.sections:
+            return self.sections
+        computed = datetime.now(UTC)
+        prices_stale = self.latest_price_date is None or (
+            self.as_of - self.latest_price_date
+        ).days > 5
+        return assemble_sections(
+            latest_price_date=self.latest_price_date,
+            prices_stale=prices_stale,
+            job_failures=self.job_failures,
+            discipline_findings=self.discipline_findings,
+            outcome_section=self.outcome_section,
+            outcome_error=self.outcome_error,
+            regulatory_hits=self.regulatory_hits,
+            news_items=self.news_items,
+            news_status=str(self.news_status),
+            news_error=None,
+            portfolio_section=self.portfolio_section,
+            computed_at=computed,
+            data_as_of=self.data_as_of,
+        )
+
+    @property
+    def core_untrusted(self) -> bool:
+        """Prices (core) are STALE or MISSING — integrity line is a warning."""
+        prices = self.resolved_sections.get("prices")
+        if prices is None:
+            return self.prices_stale
+        return prices.status in {SectionStatus.STALE, SectionStatus.MISSING}
 
     @property
     def has_failures(self) -> bool:
@@ -452,7 +493,15 @@ async def collect(as_of: date) -> BriefData:
 
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
-        news_items, news_status = await _news_section(conn, as_of)
+        # News is non-core: a collector exception must not block the send
+        # (docs/product/daily-brief-v2.md §3.1). Map to MISSING + UNVERIFIED
+        # body copy so the template still refuses to claim a quiet day.
+        news_error: str | None = None
+        try:
+            news_items, news_status = await _news_section(conn, as_of)
+        except Exception as exc:
+            news_items, news_status = [], NEWS_UNVERIFIED
+            news_error = f"news section could not run: {exc}"
         portfolio_section = await _portfolio_section(conn, as_of)
 
         # Fail-loud isolation (CLAUDE.md #10): a broken discipline query must
@@ -499,6 +548,27 @@ async def collect(as_of: date) -> BriefData:
         except Exception as exc:
             outcome_error = f"outcome section could not run: {exc}"
 
+    computed_at = datetime.now(UTC)
+    # Sequential on one asyncpg connection — never asyncio.gather here
+    # (MagicStack/asyncpg #56/#258). See docs/product/daily-brief-v2.md §2.1.
+    prices_stale = latest_price_date is None or (
+        as_of - latest_price_date
+    ).days > 5
+    sections = assemble_sections(
+        latest_price_date=latest_price_date,
+        prices_stale=prices_stale,
+        job_failures=job_failures,
+        discipline_findings=discipline_findings,
+        outcome_section=outcome_section,
+        outcome_error=outcome_error,
+        regulatory_hits=regulatory_hits,
+        news_items=news_items,
+        news_status=str(news_status),
+        news_error=news_error,
+        portfolio_section=portfolio_section,
+        computed_at=computed_at,
+        data_as_of=data_as_of,
+    )
     return BriefData(
         as_of=as_of,
         holdings_count=int(holdings_count),
@@ -512,6 +582,7 @@ async def collect(as_of: date) -> BriefData:
         outcome_error=outcome_error,
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
+        sections=sections,
     )
 
 
