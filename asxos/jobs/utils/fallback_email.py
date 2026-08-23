@@ -21,8 +21,9 @@ import asyncio
 import html
 import logging
 import sys
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
+from asxos import clock
 from asxos.redaction import redact_secrets
 
 log = logging.getLogger(__name__)
@@ -126,7 +127,7 @@ async def _record_fallback_failure(*, subject: str, error: str) -> None:
                     finished_at   = EXCLUDED.finished_at
                 """,
                 "fallback_email_dispatch",
-                date.today(),
+                clock.today(),
                 now,
                 err_message,
             )

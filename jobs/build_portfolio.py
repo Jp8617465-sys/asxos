@@ -29,6 +29,7 @@ import os
 import sys
 from datetime import date
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -98,4 +99,4 @@ if __name__ == "__main__":
         help="Build and log the result without writing to the DB.",
     )
     args = parser.parse_args()
-    asyncio.run(main(args.as_of or date.today(), dry_run=args.dry_run))
+    asyncio.run(main(args.as_of or clock.today(), dry_run=args.dry_run))

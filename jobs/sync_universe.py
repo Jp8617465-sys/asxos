@@ -8,8 +8,8 @@ Usage:
 """
 import asyncio
 import logging
-from datetime import date
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.eodhd import get_client
@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    today = date.today()
+    today = clock.today()
     await init_pool()
     client = get_client()
 

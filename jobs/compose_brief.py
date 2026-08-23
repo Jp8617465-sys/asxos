@@ -20,6 +20,8 @@ import logging
 import traceback
 from datetime import date
 
+from asxos import clock
+
 # V2 composer — orchestrates collectors, persists brief_runs, returns Brief.
 # Falls back to V1 path on import error (belt-and-suspenders for deploy safety).
 from asxos.domain.brief.composer import compose as v2_compose
@@ -151,4 +153,4 @@ if __name__ == "__main__":
         "--no-send", action="store_true", help="Render + stdout only; skip Resend"
     )
     args = parser.parse_args()
-    asyncio.run(main(args.as_of or date.today(), send=not args.no_send))
+    asyncio.run(main(args.as_of or clock.today(), send=not args.no_send))
