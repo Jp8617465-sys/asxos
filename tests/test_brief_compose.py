@@ -26,6 +26,7 @@ import jinja2
 import pytest
 
 from asxos.brief import compose
+from asxos.brief.section import SectionStatus
 from asxos.brief.compose import (
     NEWS_DISABLED,
     NEWS_OK,
@@ -1784,3 +1785,36 @@ def test_source_strips_bidi_override_that_survives_autoescape() -> None:
 def test_source_is_length_bounded() -> None:
     """Untrusted strings are capped everywhere else in this codebase."""
     assert len(_news("https://" + "a" * 400 + ".com/x").source) <= 64
+
+
+def test_collect_news_exception_is_missing_not_silent() -> None:
+    """News collector crash must not abort the send; integrity marks MISSING."""
+    today = date(2026, 5, 22)
+    conn = _make_conn(
+        holdings_count=0,
+        tax_rows=[],
+        reg_rows=[],
+        hold_syms=[],
+        fail_rows=[],
+    )
+
+    @asynccontextmanager
+    async def fake_acquire():
+        yield conn
+
+    with (
+        patch("asxos.brief.compose.acquire", fake_acquire),
+        patch(
+            "asxos.brief.compose._news_section",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+    ):
+        data = asyncio.run(collect(today))
+
+    assert data.sections["news"].status is SectionStatus.MISSING
+    assert "boom" in (data.sections["news"].error or "")
+    assert data.news_status is NEWS_UNVERIFIED
+    assert data.news_items == []
+    html = render_html(data)
+    assert 'class="sec-MISSING">MISSING</span>' in html
+    assert "Integrity" in html
