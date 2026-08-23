@@ -17,7 +17,8 @@ name: backup
 
 on:
   schedule:
-    - cron: "30 13 * * *"   # daily 13:30 UTC
+    - cron: "30 13 * * *"        # existing daily dump
+    - cron: "0 15 * * 0"         # Sunday restore drill
   workflow_dispatch:
     inputs:
       restore_drill:
@@ -110,7 +111,7 @@ jobs:
 
   restore_drill:
     needs: backup
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.restore_drill }}
+    if: ${{ github.event.schedule == '0 15 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.restore_drill) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
