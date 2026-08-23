@@ -70,7 +70,7 @@ def test_integrity_line_always_present() -> None:
     assert 'id="integrity-line"' in html
     assert "Integrity" in html
     assert "Review:" in html
-    assert html.index("Review:") < html.index("Integrity")
+    assert html.index("Integrity") < html.index("Review:")
     assert html.index("Integrity") < html.index("Evidence only.")
 
 

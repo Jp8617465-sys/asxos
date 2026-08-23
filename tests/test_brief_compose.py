@@ -42,6 +42,7 @@ from asxos.brief.compose import (
     _cgt_boundary_findings,
     _discipline_findings,
     collect,
+    render_detail_html,
     render_html,
 )
 from asxos.brief.section import SectionStatus
@@ -532,30 +533,31 @@ def test_render_html_escapes_user_content() -> None:
     assert "&lt;script&gt;" in html
 
 
-def test_render_html_shows_cgt_boundary_finding() -> None:
-    """The CGT-boundary fact now renders as an info discipline line, folded from
-    the retired standalone 'Tax actions' table."""
-    html = render_html(
-        _brief(
-            discipline_findings=[
-                DisciplineFinding(
-                    check="cgt_discount_boundary",
-                    level=DisciplineLevel.info,
-                    symbol="CBA.AU",
-                    message=(
-                        "CBA.AU: lot 42 (acquired 2025-06-01) reaches the 12-month "
-                        "CGT-discount threshold on 2026-06-02 — 10 day(s) away "
-                        "(s 115-25(1) ITAA 1997)."
-                    ),
-                )
-            ]
-        )
+def test_render_html_omits_info_cgt_from_exceptions_detail_keeps_it() -> None:
+    """CGT-boundary info is not an exception on the short brief; it lives on detail."""
+    data = _brief(
+        discipline_findings=[
+            DisciplineFinding(
+                check="cgt_discount_boundary",
+                level=DisciplineLevel.info,
+                symbol="CBA.AU",
+                message=(
+                    "CBA.AU: lot 42 (acquired 2025-06-01) reaches the 12-month "
+                    "CGT-discount threshold on 2026-06-02 — 10 day(s) away "
+                    "(s 115-25(1) ITAA 1997)."
+                ),
+            )
+        ]
     )
-    assert "CBA.AU" in html
-    assert "12-month CGT-discount threshold" in html
-    assert 'class="disc-info"' in html
-    # The standalone "Tax actions" table is retired — the fact lives in the digest.
+    html = render_html(data)
+    assert "12-month CGT-discount threshold" not in html
+    assert 'class="disc-info"' not in html
     assert "Tax actions" not in html
+    detail = render_detail_html(data)
+    assert "CBA.AU" in detail
+    assert "12-month CGT-discount threshold" in detail
+    assert 'class="disc-info"' in detail
+    assert "Tax actions" not in detail
 
 
 def test_cgt_boundary_gate_off_returns_empty() -> None:
