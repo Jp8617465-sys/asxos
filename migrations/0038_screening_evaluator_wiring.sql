@@ -1,5 +1,4 @@
--- migrations/0038_screening_evaluator_wiring.sql  (DRAFT — NOT APPLIED.
--- James applies via mcp__supabase__apply_migration when ready.)
+-- 0038_screening_evaluator_wiring.sql
 --
 -- Tier 2a mechanical screen (docs/proposals/thesis-coverage-framework-2026-07-11.md,
 -- buildable-now item #2). Two pieces:
@@ -28,9 +27,7 @@
 -- every row is already 'curated_composite'). Verified 2026-07-11: zero rows.
 -- Re-verify live at apply time -- don't trust that finding as still current.
 --
--- Applied via: mcp__supabase__apply_migration
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py to the observed
--- SELECT count(*) FROM supabase_migrations.schema_migrations.
+-- Apply via: mcp__supabase__apply_migration
 
 BEGIN;
 

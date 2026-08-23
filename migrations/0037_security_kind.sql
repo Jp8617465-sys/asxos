@@ -34,8 +34,6 @@
 -- non-transactional, un-droppable `ALTER TYPE ... ADD VALUE` when the kind list grows.
 --
 -- Applied via: mcp__supabase__apply_migration
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py to the observed
--- SELECT count(*) FROM supabase_migrations.schema_migrations.
 
 BEGIN;
 

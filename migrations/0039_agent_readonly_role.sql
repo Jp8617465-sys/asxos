@@ -1,6 +1,5 @@
--- 0039_agent_readonly_role.sql  (DRAFT — NOT APPLIED. James applies via
--- mcp__supabase__apply_migration when ready. Renumbered from the design doc's
--- 0038 — that number is taken by 0038_screening_evaluator_wiring.sql.)
+-- 0039_agent_readonly_role.sql  (Renumbered from the design doc's 0038 — that
+-- number is taken by 0038_screening_evaluator_wiring.sql.)
 --
 -- Source of truth: docs/proposals/agent-db-readonly-role-design-2026-07-11.md
 -- (pre-apply checks §Pre-apply, acceptance test §Post-apply, rollback §Rollback).
@@ -24,8 +23,6 @@
 -- asxos_agent_ro.gxjqezqndltaelmyctnl). This file MUST NOT contain the role's
 -- password (it is committed to git); James sets it out-of-band.
 --
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py to the
--- observed SELECT count(*) FROM supabase_migrations.schema_migrations.
 
 BEGIN;
 

@@ -1,9 +1,6 @@
 -- 0029_widen_market_cap_columns.sql
 -- =====================================================================
--- NOT YET APPLIED. Widen the base market_cap columns from NUMERIC(18,6)
--- to NUMERIC(24,6). After applying via mcp__supabase__apply_migration:
--- bump REQUIRED_MIGRATIONS in asxos/api/main.py to the observed post-apply
--- count in supabase_migrations.schema_migrations (NOT a guessed +1).
+-- Widen the base market_cap columns from NUMERIC(18,6) to NUMERIC(24,6).
 -- =====================================================================
 --
 -- FORCED DEVIATION from CLAUDE.md non-negotiable #5 (NUMERIC(18,6) everywhere),
@@ -45,7 +42,7 @@
 --   2. Capture before-image: SELECT max(market_cap), min(market_cap), count(*) ...
 -- POST-APPLY: verify information_schema.columns shows numeric_precision=24,
 --   numeric_scale=6 for both; confirm stock_universe + its grants survive; confirm
---   before/after max/min/count unchanged; then bump REQUIRED_MIGRATIONS.
+--   before/after max/min/count unchanged.
 
 DROP VIEW IF EXISTS public.stock_universe;
 

@@ -20,8 +20,6 @@
 --      up via a dedicated `symbol LIKE '%.INDX'` query (get_index_symbols).
 --
 -- Applied via: mcp__supabase__apply_migration (project gxjqezqndltaelmyctnl).
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py to the observed
--- SELECT count(*) FROM supabase_migrations.schema_migrations.
 
 ALTER TABLE thesis_revisions
     ADD COLUMN IF NOT EXISTS disposal_return_vs_xjo_pct NUMERIC(18,6);
