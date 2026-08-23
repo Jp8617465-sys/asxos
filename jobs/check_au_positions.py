@@ -125,8 +125,19 @@ def _build_alerts(
     return alerts
 
 
-def _send_alert(subject: str, body: str) -> None:
-    """Send email via Resend. Never raises."""
+def _send_alert(subject: str, body: str) -> str | None:
+    """Send email via Resend. Never raises; RETURNS a failure note or None.
+
+    The swallow stays — a dead notification channel must not crash a position
+    check. What was wrong is that it left no trace: a failed send made the run
+    look identical to one with nothing to report, so the operator experiences a
+    broken alerter as "quiet lately". The caller records the return on
+    JobMonitor.note, which lands in job_runs.error_message.
+
+    Returns the exception CLASS NAME, never str(exc) — a Resend/httpx error
+    embeds the request URL and the API key travels with it, and job_runs is
+    queryable and agent-readable (CWE-532).
+    """
     try:
         import resend
 
@@ -134,7 +145,7 @@ def _send_alert(subject: str, body: str) -> None:
         to = os.environ.get("BRIEF_TO_EMAIL", "")
         sender = os.environ.get("BRIEF_FROM_EMAIL", "")
         if not (api_key and to and sender):
-            return
+            return "alert not sent: RESEND_API_KEY/BRIEF_TO_EMAIL/BRIEF_FROM_EMAIL not all set"
 
         resend.api_key = api_key
         resend.Emails.send({
@@ -143,8 +154,9 @@ def _send_alert(subject: str, body: str) -> None:
             "subject": subject,
             "html": f"<pre>{body}</pre>",
         })
-    except Exception:
-        pass
+    except Exception as exc:
+        return f"alert send failed: {type(exc).__name__}"
+    return None
 
 
 async def _run(as_of: date) -> None:
@@ -177,8 +189,19 @@ async def _run(as_of: date) -> None:
                 alerts = _build_alerts(symbol, close, prev_close, stop_d, target_d, next_ed, as_of)
                 all_alerts.extend(alerts)
 
-            for subject, body in all_alerts:
-                _send_alert(f"asxos {subject} — {as_of}", body)
+            # Collect every send failure, not just the last: with several
+            # alerts a single overwritten note would understate how much of the
+            # batch never arrived.
+            send_failures = [
+                note
+                for subject, body in all_alerts
+                if (note := _send_alert(f"asxos {subject} — {as_of}", body)) is not None
+            ]
+            if send_failures:
+                monitor.note = (
+                    f"{len(send_failures)}/{len(all_alerts)} alerts undelivered: "
+                    + "; ".join(sorted(set(send_failures)))
+                )
 
             monitor.rows_written = len(all_alerts)
     finally:
