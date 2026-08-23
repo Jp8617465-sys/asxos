@@ -1,4 +1,5 @@
 """Stage 0: integrity line, four-state markers, golden snapshots."""
+
 from __future__ import annotations
 
 import re
@@ -30,20 +31,21 @@ def _integrity(html: str) -> str:
 
 
 def _brief(**overrides) -> BriefData:
-    defaults = dict(
-        as_of=AS_OF,
-        latest_price_date=AS_OF,
-        data_as_of=AS_OF,
-        holdings_count=0,
-        regulatory_hits=[],
-        job_failures=[],
-        news_status=NEWS_DISABLED,
-    )
+    defaults = {
+        "as_of": AS_OF,
+        "latest_price_date": AS_OF,
+        "data_as_of": AS_OF,
+        "holdings_count": 0,
+        "regulatory_hits": [],
+        "job_failures": [],
+        "news_status": NEWS_DISABLED,
+    }
     defaults.update(overrides)
     if "sections" not in defaults:
-        prices_stale = defaults["latest_price_date"] is None or (
-            defaults["as_of"] - defaults["latest_price_date"]
-        ).days > 5
+        prices_stale = (
+            defaults["latest_price_date"] is None
+            or (defaults["as_of"] - defaults["latest_price_date"]).days > 5
+        )
         defaults["sections"] = assemble_sections(
             latest_price_date=defaults["latest_price_date"],
             prices_stale=prices_stale,

@@ -1,4 +1,5 @@
 """Stage 0 SectionResult seam — pure mapper + constructor contract."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -12,7 +13,6 @@ from asxos.brief.section import (
     assemble_sections,
     news_to_status,
 )
-
 
 FIXED = datetime(2026, 5, 22, 8, 0, tzinfo=UTC)
 
@@ -31,22 +31,22 @@ def test_news_to_status_four_states() -> None:
     assert news_to_status("mystery") is SectionStatus.MISSING
 
 
-def _assemble(**overrides):
-    defaults = dict(
-        latest_price_date=date(2026, 5, 22),
-        prices_stale=False,
-        job_failures=[],
-        discipline_findings=[],
-        outcome_section=None,
-        outcome_error=None,
-        regulatory_hits=[],
-        news_items=[],
-        news_status="disabled",
-        news_error=None,
-        portfolio_section=None,
-        computed_at=FIXED,
-        data_as_of=date(2026, 5, 22),
-    )
+def _assemble(**overrides):  # type: ignore[no-untyped-def]
+    defaults = {
+        "latest_price_date": date(2026, 5, 22),
+        "prices_stale": False,
+        "job_failures": [],
+        "discipline_findings": [],
+        "outcome_section": None,
+        "outcome_error": None,
+        "regulatory_hits": [],
+        "news_items": [],
+        "news_status": "disabled",
+        "news_error": None,
+        "portfolio_section": None,
+        "computed_at": FIXED,
+        "data_as_of": date(2026, 5, 22),
+    }
     defaults.update(overrides)
     return assemble_sections(**defaults)
 

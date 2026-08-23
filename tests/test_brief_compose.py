@@ -10,6 +10,7 @@ A mocked conn returns its canned rows whatever the WHERE clause says, so the
 freshness gate's own SQL is asserted directly instead — see the
 `_news_ingest_fresh` block at the end of this file.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,7 +27,6 @@ import jinja2
 import pytest
 
 from asxos.brief import compose
-from asxos.brief.section import SectionStatus
 from asxos.brief.compose import (
     NEWS_DISABLED,
     NEWS_OK,
@@ -44,11 +44,13 @@ from asxos.brief.compose import (
     collect,
     render_html,
 )
+from asxos.brief.section import SectionStatus
 from asxos.domain.review.status import ReviewStatus, directive_terms
 
 # ---------------------------------------------------------------------------
 # render_html — pure path
 # ---------------------------------------------------------------------------
+
 
 def _brief(**overrides) -> BriefData:
     defaults = {
@@ -119,9 +121,7 @@ def test_an_info_finding_does_not_count_as_discipline_evidence() -> None:
     assert any("no discipline evidence" in u for u in b.review.unknowns)
 
     # A real discipline check having run does clear the unknown.
-    checked = _brief(
-        holdings_count=3, discipline_findings=[cgt_only, _REVISIT_OVERDUE_FINDING]
-    )
+    checked = _brief(holdings_count=3, discipline_findings=[cgt_only, _REVISIT_OVERDUE_FINDING])
     assert not any("no discipline evidence" in u for u in checked.review.unknowns)
 
 
@@ -287,8 +287,7 @@ def test_compose_module_imports_are_model_independent() -> None:
     # function-local `from asxos.domain.models.production_gate import ...` walk
     # straight past the test whose entire job is to catch it.
     import_lines = [
-        line for line in source.splitlines()
-        if line.strip().startswith(("import ", "from "))
+        line for line in source.splitlines() if line.strip().startswith(("import ", "from "))
     ]
     banned = ("production_gate", "domain.models", "domain.signals", "brief.shap")
     for line in import_lines:
@@ -302,11 +301,15 @@ def test_brief_template_source_has_no_model_references() -> None:
     Three of the five `model_shelved` references were `{% if %}` conditions, so a
     render-only assertion can pass while the dead branches sit in the file.
     """
-    template = (
-        Path(compose.__file__).parent / "templates" / "brief.html.j2"
-    ).read_text()
-    for token in ("model_shelved", "signal_changes", "signals_stale",
-                  "latest_signal_date", "d.regime", "label-"):
+    template = (Path(compose.__file__).parent / "templates" / "brief.html.j2").read_text()
+    for token in (
+        "model_shelved",
+        "signal_changes",
+        "signals_stale",
+        "latest_signal_date",
+        "d.regime",
+        "label-",
+    ):
         assert token not in template, f"{token!r} still in brief.html.j2"
 
 
@@ -367,7 +370,9 @@ def test_render_html_renders_failures_banner() -> None:
     html = render_html(
         _brief(
             job_failures=[
-                JobFailure(job_name="sync_prices", as_of=date(2026, 5, 22), error_message="HTTP 503"),
+                JobFailure(
+                    job_name="sync_prices", as_of=date(2026, 5, 22), error_message="HTTP 503"
+                ),
             ]
         )
     )
@@ -566,9 +571,21 @@ def test_cgt_boundary_flags_only_in_window_lots() -> None:
     conn = MagicMock()
     conn.fetch = AsyncMock(
         return_value=[
-            {"id": 42, "symbol": "CBA.AU", "acquired_at": date(2025, 8, 1)},  # eligible 2026-08-02 → 17d (in window)
-            {"id": 7, "symbol": "BHP.AU", "acquired_at": date(2025, 7, 1)},   # eligible 2026-07-02 → already (0, skip)
-            {"id": 9, "symbol": "WES.AU", "acquired_at": date(2026, 1, 1)},   # eligible 2027-01-02 → ~170d (skip)
+            {
+                "id": 42,
+                "symbol": "CBA.AU",
+                "acquired_at": date(2025, 8, 1),
+            },  # eligible 2026-08-02 → 17d (in window)
+            {
+                "id": 7,
+                "symbol": "BHP.AU",
+                "acquired_at": date(2025, 7, 1),
+            },  # eligible 2026-07-02 → already (0, skip)
+            {
+                "id": 9,
+                "symbol": "WES.AU",
+                "acquired_at": date(2026, 1, 1),
+            },  # eligible 2027-01-02 → ~170d (skip)
         ]
     )
     with patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}):
@@ -584,16 +601,12 @@ def test_cgt_boundary_flags_only_in_window_lots() -> None:
     # "threshold" does not falsely trip on "hold".
     import re
 
-    assert not re.search(
-        r"\b(sell|trim|exit|hold|defer|recommend|should)\b", f.message.lower()
-    )
+    assert not re.search(r"\b(sell|trim|exit|hold|defer|recommend|should)\b", f.message.lower())
 
 
 def test_cgt_boundary_malformed_acquired_at_is_loud_error() -> None:
     conn = MagicMock()
-    conn.fetch = AsyncMock(
-        return_value=[{"id": 1, "symbol": "XYZ.AU", "acquired_at": None}]
-    )
+    conn.fetch = AsyncMock(return_value=[{"id": 1, "symbol": "XYZ.AU", "acquired_at": None}])
     with patch.dict(os.environ, {"ASXOS_PERSONAL_USE": "1"}):
         out = asyncio.run(_cgt_boundary_findings(conn, date(2026, 7, 16)))
     assert len(out) == 1
@@ -605,6 +618,7 @@ def test_cgt_boundary_malformed_acquired_at_is_loud_error() -> None:
 # ---------------------------------------------------------------------------
 # collect — under a mocked DB
 # ---------------------------------------------------------------------------
+
 
 def _make_conn(
     *,
@@ -631,9 +645,7 @@ def _make_conn(
                         model_versions state.
     """
     _latest_price_date = latest_price_date
-    _model_gate_rows = (
-        model_gate_rows if model_gate_rows is not None else [{"model": "model_a"}]
-    )
+    _model_gate_rows = model_gate_rows if model_gate_rows is not None else [{"model": "model_a"}]
 
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value=None)
@@ -684,7 +696,11 @@ def _all_queries(conn) -> list[str]:
 def test_collect_assembles_brief_data() -> None:
     today = date(2026, 5, 22)
     tax_rows = [
-        {"id": 7, "symbol": "CBA.AU", "acquired_at": today.replace(day=21).replace(year=today.year - 1)},
+        {
+            "id": 7,
+            "symbol": "CBA.AU",
+            "acquired_at": today.replace(day=21).replace(year=today.year - 1),
+        },
     ]
     reg_rows = [
         {
@@ -887,13 +903,11 @@ def test_render_html_quiet_reports_no_news_rather_than_vanishing() -> None:
     """A verified-fresh, genuinely empty ingest states that finding explicitly."""
     html = render_html(_brief(news_status=NEWS_QUIET, news_items=[]))
 
-    assert "Market news on holdings" in html, (
-        "a quiet day is a reportable finding, not an omitted section"
-    )
+    assert (
+        "Market news on holdings" in html
+    ), "a quiet day is a reportable finding, not an omitted section"
     assert "No qualifying news found" in html
-    assert "not</strong> evidence" not in html, (
-        "quiet must not carry the unverified disclaimer"
-    )
+    assert "not</strong> evidence" not in html, "quiet must not carry the unverified disclaimer"
 
 
 def test_render_html_unverified_does_not_claim_no_news() -> None:
@@ -909,9 +923,9 @@ def test_render_html_unverified_does_not_claim_no_news() -> None:
     assert "Market news on holdings" in html
     assert "News unavailable" in html
     assert "not</strong> evidence" in html, "must disclaim absence-as-evidence"
-    assert "No qualifying news found" not in html, (
-        "an unverified pipeline must never assert that no news existed"
-    )
+    assert (
+        "No qualifying news found" not in html
+    ), "an unverified pipeline must never assert that no news existed"
 
 
 def test_render_html_disabled_omits_the_section_entirely() -> None:
@@ -945,8 +959,7 @@ def test_brief_data_defaults_to_disabled_not_quiet() -> None:
     to NEWS_DISABLED. Defaulting to NEWS_QUIET would let any incomplete
     construction assert a finding it never established.
     """
-    assert BriefData(as_of=date(2026, 5, 22),
-                     holdings_count=1).news_status == NEWS_DISABLED
+    assert BriefData(as_of=date(2026, 5, 22), holdings_count=1).news_status == NEWS_DISABLED
 
 
 def test_render_html_news_section_escapes_title() -> None:
@@ -962,7 +975,7 @@ def test_render_html_news_section_escapes_title() -> None:
                     published_at=date(2026, 5, 23),
                     sentiment="",
                 )
-            ]
+            ],
         )
     )
     assert "<script>" not in html
@@ -983,13 +996,15 @@ def test_collect_news_section_absent_when_flag_off() -> None:
         reg_rows=[],
         hold_syms=[{"symbol": "BHP.AU"}],
         fail_rows=[],
-        news_rows=[{
-            "url": "https://example.com/bhp",
-            "title": "BHP news",
-            "published_at": today,
-            "symbols": ["BHP.AU"],
-            "sentiment": "positive",
-        }],
+        news_rows=[
+            {
+                "url": "https://example.com/bhp",
+                "title": "BHP news",
+                "published_at": today,
+                "symbols": ["BHP.AU"],
+                "sentiment": "positive",
+            }
+        ],
         news_job_rows=[{"as_of": today, "status": "success", "error_message": None}],
     )
 
@@ -1016,13 +1031,15 @@ def test_collect_assembles_news_items() -> None:
         reg_rows=[],
         hold_syms=[{"symbol": "BHP.AU"}],
         fail_rows=[],
-        news_rows=[{
-            "url": "https://example.com/bhp",
-            "title": "BHP quarterly",
-            "published_at": today,
-            "symbols": ["BHP.AU"],
-            "sentiment": "positive",
-        }],
+        news_rows=[
+            {
+                "url": "https://example.com/bhp",
+                "title": "BHP quarterly",
+                "published_at": today,
+                "symbols": ["BHP.AU"],
+                "sentiment": "positive",
+            }
+        ],
         news_job_rows=[{"as_of": today, "status": "success", "error_message": None}],
     )
 
@@ -1032,10 +1049,13 @@ def test_collect_assembles_news_items() -> None:
 
     with (
         patch("asxos.brief.compose.acquire", fake_acquire),
-        patch.dict(os.environ, {
-            "ASXOS_PERSONAL_USE": "1",
-            "ASXOS_NEWS_BRIEF_ENABLED": "1",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "ASXOS_PERSONAL_USE": "1",
+                "ASXOS_NEWS_BRIEF_ENABLED": "1",
+            },
+        ),
     ):
         data = asyncio.run(collect(today))
 
@@ -1060,14 +1080,16 @@ def test_collect_news_absent_when_ingest_stale() -> None:
         reg_rows=[],
         hold_syms=[{"symbol": "BHP.AU"}],
         fail_rows=[],
-        news_rows=[{
-            "url": "https://example.com/bhp",
-            "title": "BHP news",
-            "published_at": today,
-            "symbols": ["BHP.AU"],
-            "sentiment": "",
-        }],
-        news_job_rows=[],   # no recent ingest_news success → stale
+        news_rows=[
+            {
+                "url": "https://example.com/bhp",
+                "title": "BHP news",
+                "published_at": today,
+                "symbols": ["BHP.AU"],
+                "sentiment": "",
+            }
+        ],
+        news_job_rows=[],  # no recent ingest_news success → stale
     )
 
     @asynccontextmanager
@@ -1076,10 +1098,13 @@ def test_collect_news_absent_when_ingest_stale() -> None:
 
     with (
         patch("asxos.brief.compose.acquire", fake_acquire),
-        patch.dict(os.environ, {
-            "ASXOS_PERSONAL_USE": "1",
-            "ASXOS_NEWS_BRIEF_ENABLED": "1",
-        }),
+        patch.dict(
+            os.environ,
+            {
+                "ASXOS_PERSONAL_USE": "1",
+                "ASXOS_NEWS_BRIEF_ENABLED": "1",
+            },
+        ),
     ):
         data = asyncio.run(collect(today))
 
@@ -1312,13 +1337,9 @@ def test_discipline_findings_concentration_uses_fx_converted_market_value() -> N
 
     # BHP: 50 * $10 = $500 AUD (~6% of the converted total) -> no finding.
     # HUBS: 24 * $205 / 0.6450 ~= $7,627.91 AUD (~94% of total) -> red.
-    hubs_conc = next(
-        f for f in findings if f.check == "concentration" and f.symbol == "HUBS.NYSE"
-    )
+    hubs_conc = next(f for f in findings if f.check == "concentration" and f.symbol == "HUBS.NYSE")
     assert hubs_conc.level == DisciplineLevel.red
-    assert not any(
-        f.check == "concentration" and f.symbol == "BHP.AU" for f in findings
-    )
+    assert not any(f.check == "concentration" and f.symbol == "BHP.AU" for f in findings)
 
 
 def test_discipline_findings_no_fx_rate_skips_foreign_holding() -> None:
@@ -1387,9 +1408,7 @@ def test_discipline_findings_escalates_unanswered_watching_thesis() -> None:
     assert esc.watchlist_only is True
     # The watching row runs ONLY the escalation pass — no revisit/timeline/
     # data-sanity noise from the active-only battery leaks in for it.
-    assert not any(
-        f.check in ("revisit_overdue", "data_sanity", "timeline") for f in findings
-    )
+    assert not any(f.check in ("revisit_overdue", "data_sanity", "timeline") for f in findings)
 
 
 def test_watchlist_escalation_does_not_count_as_holding_evidence() -> None:
@@ -1417,9 +1436,7 @@ def test_watchlist_escalation_does_not_count_as_holding_evidence() -> None:
         price_rows=_CBA_PRICE_ROWS,
     )
     with patch.dict(os.environ, _PERSONAL_USE_ON):
-        active_findings = asyncio.run(
-            _discipline_findings(active_conn, date(2026, 7, 13))
-        )
+        active_findings = asyncio.run(_discipline_findings(active_conn, date(2026, 7, 13)))
     checked = _brief(holdings_count=3, discipline_findings=active_findings)
     assert not any("no discipline evidence" in u for u in checked.review.unknowns)
 
@@ -1607,8 +1624,7 @@ def _job_runs_conn(*runs: dict):
         lo = args[0] if len(args) > 0 else None
         hi = args[1] if len(args) > 1 and "as_of <= $2" in sql else None
         rows = [
-            r for r in runs
-            if (lo is None or r["as_of"] >= lo) and (hi is None or r["as_of"] <= hi)
+            r for r in runs if (lo is None or r["as_of"] >= lo) and (hi is None or r["as_of"] <= hi)
         ]
         if "status = 'success'" in sql:
             rows = [r for r in rows if r["status"] == "success"]
@@ -1616,8 +1632,7 @@ def _job_runs_conn(*runs: dict):
             rows = [r for r in rows if r["error_message"] is None]
         if "rows_written > 0" in sql:
             rows = []  # column not modelled; a query relying on it gets nothing
-        rows = sorted(rows, key=lambda r: r["as_of"],
-                      reverse="ORDER BY as_of DESC" in sql)
+        rows = sorted(rows, key=lambda r: r["as_of"], reverse="ORDER BY as_of DESC" in sql)
         return rows[:1] if "LIMIT 1" in sql else rows
 
     conn.fetch = AsyncMock(side_effect=_fetch)
@@ -1658,9 +1673,7 @@ def test_news_ingest_fresh_reads_the_latest_run_and_judges_it_in_python() -> Non
     assert "as_of <= $2" in sql, f"window must be bounded above too: {sql}"
     assert "rows_written" not in sql, f"row count is not a health signal: {sql}"
     assert "status = 'success'" not in sql, f"health must not be a WHERE filter: {sql}"
-    assert "error_message" not in sql.split("WHERE")[1], (
-        f"health must not be a WHERE filter: {sql}"
-    )
+    assert "error_message" not in sql.split("WHERE")[1], f"health must not be a WHERE filter: {sql}"
 
 
 def test_news_ingest_fresh_true_when_a_qualifying_run_exists() -> None:
@@ -1726,8 +1739,13 @@ def test_a_future_run_cannot_make_a_historical_brief_fresh() -> None:
 
 
 def _news(url: str) -> NewsItem:
-    return NewsItem(symbols=["HUBS.NYSE"], title="HubSpot beats Q2",
-                    url=url, published_at=date(2026, 8, 8), sentiment="")
+    return NewsItem(
+        symbols=["HUBS.NYSE"],
+        title="HubSpot beats Q2",
+        url=url,
+        published_at=date(2026, 8, 8),
+        sentiment="",
+    )
 
 
 def test_source_strips_scheme_and_www() -> None:

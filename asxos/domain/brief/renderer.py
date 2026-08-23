@@ -7,6 +7,7 @@ render_v2_html(brief) → str   (new V2 Jinja path, used when ASXOS_V2_BRIEF_ENA
 Phase 3: delegates to the stored Brief.rendered_html (populated by V1 path).
 Phase 4: render_v2_html() drives the new 10-section template.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

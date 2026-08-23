@@ -5,6 +5,7 @@ intentionally a separate type from the dark V2 ``SectionResult`` in
 ``asxos.domain.brief.types`` (``ok`` / ``degraded`` / ``suppressed`` / ``failed``).
 Do not mix the vocabularies. See ``docs/product/daily-brief-v2.md``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -109,8 +110,7 @@ def assemble_sections(
             (
                 getattr(f, "message", None)
                 for f in discipline_findings
-                if getattr(f, "check", None)
-                in {"discipline_section", "cgt_discount_boundary"}
+                if getattr(f, "check", None) in {"discipline_section", "cgt_discount_boundary"}
             ),
             "discipline section could not run",
         )
@@ -138,9 +138,7 @@ def assemble_sections(
 
     jobs_status = SectionStatus.EMPTY if not job_failures else SectionStatus.FRESH
     reg_status = SectionStatus.EMPTY if not regulatory_hits else SectionStatus.FRESH
-    port_status = (
-        SectionStatus.EMPTY if portfolio_section is None else SectionStatus.FRESH
-    )
+    port_status = SectionStatus.EMPTY if portfolio_section is None else SectionStatus.FRESH
 
     results = (
         SectionResult(

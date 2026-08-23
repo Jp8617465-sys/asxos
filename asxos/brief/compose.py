@@ -81,6 +81,7 @@ numbered it 7. Left as found; renumbering here would not fix it.)
      `.github/workflows/daily-brief.yml` already sets; no new flag, and explicitly
      not `ASXOS_V2_BRIEF_ENABLED` (the V2 tree stays dark, deferred to Stage 6).
 """
+
 from __future__ import annotations
 
 import os
@@ -208,7 +209,7 @@ class JobProblemKind(StrEnum):
     """
 
     FAILURE = "failure"  # the job ran and raised
-    STUCK = "stuck"      # started, never reported — no failure, so nothing alerts
+    STUCK = "stuck"  # started, never reported — no failure, so nothing alerts
 
 
 @dataclass(frozen=True)
@@ -264,10 +265,10 @@ class NewsStatus(StrEnum):
     vocabulary across.
     """
 
-    DISABLED = "disabled"      # a gate is off; the feature is not running
+    DISABLED = "disabled"  # a gate is off; the feature is not running
     UNVERIFIED = "unverified"  # ingestion did not pass its freshness gate
-    QUIET = "quiet"            # verified fresh, genuinely nothing qualifying
-    OK = "ok"                  # qualifying items present
+    QUIET = "quiet"  # verified fresh, genuinely nothing qualifying
+    OK = "ok"  # qualifying items present
 
 
 # Module-level aliases: the call sites and tests read better unqualified, and
@@ -318,9 +319,9 @@ class BriefData:
         if self.sections:
             return self.sections
         computed = datetime.now(UTC)
-        prices_stale = self.latest_price_date is None or (
-            self.as_of - self.latest_price_date
-        ).days > 5
+        prices_stale = (
+            self.latest_price_date is None or (self.as_of - self.latest_price_date).days > 5
+        )
         return assemble_sections(
             latest_price_date=self.latest_price_date,
             prices_stale=prices_stale,
@@ -424,14 +425,8 @@ class BriefData:
         # and the template filters the same field with Jinja's `equalto`. Using
         # `is` here would let a raw-string level render the "could not run"
         # banner while leaving the headline un-BLOCKED.
-        blocking = [
-            f.message
-            for f in self.discipline_findings
-            if f.level == DisciplineLevel.error
-        ]
-        blocking += [
-            f"job {f.job_name} failed on {f.as_of}" for f in self.job_failures
-        ]
+        blocking = [f.message for f in self.discipline_findings if f.level == DisciplineLevel.error]
+        blocking += [f"job {f.job_name} failed on {f.as_of}" for f in self.job_failures]
         attention = [
             f.message
             for f in self.discipline_findings
@@ -440,8 +435,7 @@ class BriefData:
         unknowns: list[str] = []
         if self.prices_stale:
             unknowns.append(
-                "Prices stale — latest price date: "
-                f"{self.latest_price_date or 'no data'}"
+                f"Prices stale — latest price date: {self.latest_price_date or 'no data'}"
             )
         if self.outcome_error:
             unknowns.append(f"Outcome vs benchmark not measured — {self.outcome_error}")
@@ -450,9 +444,7 @@ class BriefData:
             for f in self.discipline_findings
         )
         if self.holdings_count and not checked:
-            unknowns.append(
-                f"{self.holdings_count} holding(s) with no discipline evidence"
-            )
+            unknowns.append(f"{self.holdings_count} holding(s) with no discipline evidence")
         return classify(blocking=blocking, attention=attention, unknowns=unknowns)
 
 
@@ -478,9 +470,7 @@ async def collect(as_of: date) -> BriefData:
         # still the brief's title/delivery date.
         data_as_of = await latest_complete_trading_day(conn)
 
-        holdings_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM current_holdings"
-        ) or 0
+        holdings_count = await conn.fetchval("SELECT COUNT(*) FROM current_holdings") or 0
 
         latest_price_date: date | None = await conn.fetchval(
             """
@@ -551,9 +541,7 @@ async def collect(as_of: date) -> BriefData:
     computed_at = datetime.now(UTC)
     # Sequential on one asyncpg connection — never asyncio.gather here
     # (MagicStack/asyncpg #56/#258). See docs/product/daily-brief-v2.md §2.1.
-    prices_stale = latest_price_date is None or (
-        as_of - latest_price_date
-    ).days > 5
+    prices_stale = latest_price_date is None or (as_of - latest_price_date).days > 5
     sections = assemble_sections(
         latest_price_date=latest_price_date,
         prices_stale=prices_stale,
@@ -665,6 +653,7 @@ async def _regulatory_hits(
         tags = r["relevance_tags"] or {}
         if isinstance(tags, str):
             import json
+
             tags = json.loads(tags)
         symbols = tags.get("symbols") if isinstance(tags, dict) else []
         kind = tags.get("kind", "other") if isinstance(tags, dict) else "other"
@@ -715,9 +704,7 @@ def _problem_message(row: asyncpg.Record) -> str:
     return raised[:200]
 
 
-async def _job_failures(
-    conn: asyncpg.Connection, as_of: date
-) -> list[JobFailure]:
+async def _job_failures(conn: asyncpg.Connection, as_of: date) -> list[JobFailure]:
     """Operational problems this brief must surface.
 
     Why the filter is a wall-clock window and not ``as_of = $1``. In
@@ -847,9 +834,7 @@ async def _job_failures(
     ]
 
 
-async def _news_section(
-    conn: asyncpg.Connection, as_of: date
-) -> tuple[list[NewsItem], NewsStatus]:
+async def _news_section(conn: asyncpg.Connection, as_of: date) -> tuple[list[NewsItem], NewsStatus]:
     """Return ``(items, status)`` for section 6 (M14a).
 
     Three-layer gating (mirrors M13.7 Amendment C):
@@ -976,6 +961,7 @@ async def _holding_news(
         syms = r["symbols"] or []
         if isinstance(syms, str):
             import json
+
             syms = json.loads(syms)
         matched = [s for s in syms if s in holdings]
         if not matched:
@@ -992,9 +978,7 @@ async def _holding_news(
     return out
 
 
-async def _portfolio_section(
-    conn: asyncpg.Connection, as_of: date
-) -> PortfolioSection | None:
+async def _portfolio_section(conn: asyncpg.Connection, as_of: date) -> PortfolioSection | None:
     """Return portfolio adjustments for section 6, or None if gated out.
 
     Gating (plan I.7 + plan I.6 + Part 0 Q1):
@@ -1146,9 +1130,7 @@ def _holding_weights(
     return tuple(holdings)
 
 
-async def _discipline_findings(
-    conn: asyncpg.Connection, as_of: date
-) -> list[DisciplineFinding]:
+async def _discipline_findings(conn: asyncpg.Connection, as_of: date) -> list[DisciplineFinding]:
     """Loader for `asxos.domain.theses.discipline.evaluate_discipline()` (PR2a).
 
     Fetches thesis/holding/price rows, then delegates the native-currency
@@ -1254,9 +1236,7 @@ async def _discipline_findings(
     # findings for uninvested watchlist rows.
     all_inputs = _thesis_discipline_inputs(thesis_rows, prices)
     active_inputs = tuple(
-        ti
-        for row, ti in zip(thesis_rows, all_inputs, strict=True)
-        if row["status"] == "active"
+        ti for row, ti in zip(thesis_rows, all_inputs, strict=True) if row["status"] == "active"
     )
     holdings = _holding_weights(holding_rows, prices, fx_rate)
 
@@ -1280,9 +1260,7 @@ async def _discipline_findings(
                 DisciplineFinding(
                     check="data_sanity_escalation",
                     level=DisciplineLevel.error,
-                    message=(
-                        f"⚠ data_sanity_escalation could not run for {ti.symbol}: {exc}"
-                    ),
+                    message=(f"⚠ data_sanity_escalation could not run for {ti.symbol}: {exc}"),
                     symbol=ti.symbol,
                     watchlist_only=watchlist_only,
                 )
@@ -1315,9 +1293,7 @@ async def _discipline_findings(
     return findings
 
 
-def _resolve_anchor(
-    rows: list[asyncpg.Record], target: date
-) -> BenchmarkAnchor | None:
+def _resolve_anchor(rows: list[asyncpg.Record], target: date) -> BenchmarkAnchor | None:
     """The benchmark level in effect at ``target`` — latest row on or before it.
 
     ``rows`` must be ascending by ``as_of`` and carry only non-NULL
@@ -1347,9 +1323,7 @@ def _resolve_anchor(
     )
 
 
-async def _lot_outcomes(
-    conn: asyncpg.Connection, as_of: date
-) -> OutcomeSection | None:
+async def _lot_outcomes(conn: asyncpg.Connection, as_of: date) -> OutcomeSection | None:
     """Section 8 loader — per-open-lot return, benchmark return, alpha.
 
     This is the first production consumer of `asxos.domain.benchmark.returns`
@@ -1422,8 +1396,7 @@ async def _lot_outcomes(
         as_of,
     )
     closes = {
-        r["symbol"]: Observation(as_of=r["dt"], value=Decimal(str(r["close"])))
-        for r in price_rows
+        r["symbol"]: Observation(as_of=r["dt"], value=Decimal(str(r["close"]))) for r in price_rows
     }
 
     # AUDUSD from `fx_rates` — the primary source `jobs/snapshot_portfolio.py`
@@ -1444,18 +1417,14 @@ async def _lot_outcomes(
             as_of,
         )
         if fx_row is not None:
-            fx_audusd = Observation(
-                as_of=fx_row["dt"], value=Decimal(str(fx_row["rate"]))
-            )
+            fx_audusd = Observation(as_of=fx_row["dt"], value=Decimal(str(fx_row["rate"])))
 
     # Benchmark levels, ASX lots only (F2). The window starts MAX_ANCHOR_LAG_DAYS
     # before the earliest ASX acquisition — the same tolerance the outcome layer
     # applies when deciding whether an anchor still describes the lot's window.
     # NOTE: this SELECT deliberately does not list `capital_aud`. See the
     # docstring; the omission is the fix, not an oversight.
-    asx_acquisitions = [
-        r["acquired_at"] for r in lot_rows if sleeve_for(r["symbol"]) is Sleeve.asx
-    ]
+    asx_acquisitions = [r["acquired_at"] for r in lot_rows if sleeve_for(r["symbol"]) is Sleeve.asx]
     benchmark_rows: list[asyncpg.Record] = []
     if asx_acquisitions:
         benchmark_rows = list(
