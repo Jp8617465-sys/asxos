@@ -45,6 +45,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          # No requirements.txt in this repo — pyproject.toml is the manifest
+          # (PEP 621), so it is what the cache key hashes. The heavy half of the
+          # install is the ml extra (lightgbm/shap/scikit-learn; shap builds
+          # llvmlite), which is why caching is worth a step here at all.
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
 
       - name: Install (ml + dev extras)
         run: |
