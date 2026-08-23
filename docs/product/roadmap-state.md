@@ -731,6 +731,27 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+> ⚠️ **2026-08-23 bundle-placement close — read this first; it supersedes the
+> banner below.** One branch open and **unmerged**:
+> `claude/file-placement-review-0y5u8b` (draft PR). It places the 23 Aug design
+> bundle — a new **`docs/product/architecture-decision-record.md`** carrying
+> ratified decisions **D1–D14** (cash floor 7.5%, 0% gross leverage, the
+> eight-criteria Model A successor bar, vertical slices not sprints, GitHub
+> Issues as work substrate, the two-layer challenge mechanism) plus a §6 build
+> sequence of Slices 0–5 — two audits into `docs/archive/`, the ticketing
+> research into `docs/research-archive/`, four D11 issue forms, and one
+> `docs/README.md` map row. **Zero application code.** Stages 0→6 unchanged:
+> Stage 4/5/6 still **not started**; nothing in the ADR has been acted on.
+>
+> **Two conflicts this file cannot resolve on its own, both James's:**
+> (a) the ADR's **D10 declares this file frozen** and moves actionable work to
+> GitHub Issues — the map row added this session states that conflict rather
+> than enacting it, so *this file remains the live queue until James rules*;
+> (b) `target-architecture.md` still declares itself the CANONICAL ratified
+> target while the ADR's §2/§6 overlap it, and `arbi-authority.md`'s ladder
+> does not know the ADR exists. **Slice 0 remains in flight elsewhere** on
+> `claude/audit-p0-remediation` — do not restart it.
+
 > ⚠️ **2026-08-22 harness-promote close — read this first.** Three further
 > squash-merges under James's I6 instruction: **#158** `70b0156` (harness
 > rebuild), **#153** `f31ab51` (dream-only rebase, not a second SB PR),
@@ -861,7 +882,24 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
-> **Live as of 2026-08-22 harness-promote close.** The Stages 0→6 table at
+> **Live as of 2026-08-23 bundle-placement close.** The Stages 0→6 table at
+> the top of this file remains the only ranked queue, and **remains live** —
+> the placed ADR's D10 would freeze it, but that conflict is stated and
+> unresolved, so nothing has moved to GitHub Issues yet. **James names the
+> next unit.** Top of the written candidate list, all James-owned and all
+> newly evidenced this session: **(1)** add `gh issue create/list/view/edit`
+> to `permissions.allow` — D10's own prerequisite; the four issue forms are
+> inert without it, and the edit was refused by the harness classifier, not
+> by this repo; **(2)** rule on D10 vs this file; **(3)** decide whether the
+> ADR should actually be guarded — it declares itself governor-owned and is
+> **not** in `AUTHORITY_FRAGMENTS`, so today arbi can edit it directly;
+> **(4)** D10's stated-required `gh issue list --json` export, absent —
+> without it, off-repo ticket state reproduces the §3.3 `signal_outcomes`
+> failure the ADR itself documents. Carried unchanged: W1-2 CHALLENGE stands,
+> packet-first renderer stays P6-01, screening seed INSERT (I5), apply 0045
+> (I5), MCP principal repoint (James), `defaultMode: auto` (James).
+
+> **Superseded — 2026-08-22 harness-promote close.** The Stages 0→6 table at
 > the top of this file remains the only ranked queue. **James names the
 > next unit.** Do not treat W1-2 as #1 (CHALLENGE stands). Packet-first
 > renderer stays P6-01 / Stage 6. The promotion backlog is closed (L1–L45
@@ -1141,6 +1179,24 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-23 bundle-placement `/arbi-close`. No `/arbi` wake this session — governor-named task. Supersedes the 2026-08-22 harness-promote snapshot below._
+
+```
+Close: 2026-08-23 (James: "Read README-PLACEMENT.md and place these files. Don't act on
+                   anything yet" → "I give you authoritative permissions to make this edit")
+- main @ 0a66cfc (unchanged — nothing merged this session)
+- Branch claude/file-placement-review-0y5u8b @ 1e319c8, 3 commits, draft PR, UNMERGED
+- Placed: ADR (docs/product/architecture-decision-record.md, D1-D14) + 2 audits to
+  docs/archive/ + ticketing research to docs/research-archive/ + 4 issue forms + 1 map row
+- Zero application code; full-check + targeted-ml-tests green on every head
+- REQUIRED_MIGRATIONS=97; 43 migration files; latest applied 20260821080458; 0045 unapplied
+- ADR §4 corrections row 5 added: docs/product/ is NOT in AUTHORITY_FRAGMENTS — the ADR is
+  unguarded as committed
+- NOT DONE: gh issue allow-rule (harness classifier refused; diff handed to James)
+- Slice 0 still in flight on claude/audit-p0-remediation — do not restart
+- Next: James names the unit. D10-vs-this-file is unresolved; this file is still the queue.
+```
 
 _Recorded by the 2026-08-22 harness-promote `/arbi-close`. Supersedes the same-day merge-train snapshot below._
 
