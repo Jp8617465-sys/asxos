@@ -1142,6 +1142,26 @@ dev/ops side.
 
 ## Last wake snapshot
 
+_Recorded by the 2026-08-23 audit-P0 `/arbi-close`. Supersedes the 2026-08-22 snapshots below._
+
+```
+Close: 2026-08-23 (James: review #151-159 → cheap cleanups → external correctness audit, Phase 0/1/2)
+- main @ 0a66cfc (#162 lifted the migrations/** Edit-deny; .github/** still denied)
+- Open drafts: #161 (3 cleanups) · #163 (6-commit audit remediation) — both green, NEITHER merged
+- Migrations: 97 ledger rows = 41 in-repo + 47 pre-asxos (a DIFFERENT project, < 20260521085552)
+  + 9 asxos-era orphans; 2 in-repo unapplied (0025, 0045). 44 files after 0018 reconstructed.
+- REQUIRED_MIGRATIONS still 97 on main; #163 DELETES it for a name diff (verified exit-0 live)
+- Tests on main 2610; on #163 2640. ruff + mypy clean.
+- Brief date drift is LIVE: 10/10 scheduled runs stamp as_of a day behind Sydney;
+  2026-08-16 brief stamped Sunday while snapshot_portfolio used Friday. Phase 2, NOT started.
+- Last verified restore 2026-08-12 — 11 days. Drill asserts row counts already; only unscheduled.
+- signal_outcomes FROZEN: 60,072 rows, last write 2026-08-02, terminal signal_date 2026-07-10.
+  Created by a job at runtime, never by a migration; its creating code no longer exists.
+- Local checkout defect: authority-guard.sh is ~20 commits stale and still enforces the deny
+  James removed in #162. Fast-forward it or the next session hits the same wall.
+- Next: James merges (or rejects) #161/#163, applies the 4 handed-over artifacts, then Phase 2.
+```
+
 _Recorded by the 2026-08-22 harness-promote `/arbi-close`. Supersedes the same-day merge-train snapshot below._
 
 ```
