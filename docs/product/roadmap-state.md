@@ -740,8 +740,19 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > Issues as work substrate, the two-layer challenge mechanism) plus a §6 build
 > sequence of Slices 0–5 — two audits into `docs/archive/`, the ticketing
 > research into `docs/research-archive/`, four D11 issue forms, and one
-> `docs/README.md` map row. **Zero application code.** Stages 0→6 unchanged:
-> Stage 4/5/6 still **not started**; nothing in the ADR has been acted on.
+> `docs/README.md` map row. **Zero application code on this branch.** Stages
+> 0→6 unchanged: Stage 4/5/6 still **not started**.
+>
+> **`main` moved mid-session: Slice 0 merged as #163 (`b352eef`)** — schema
+> reproducibility, timezone pin, verified backup, observable alerts. Merged
+> into this branch. Consequences: `0018_perf_indexes.sql` now **exists**
+> (reconstructed from live `pg_get_indexdef()`), `0046` added, **45** migration
+> files, and `REQUIRED_MIGRATIONS` is **deleted** in favour of
+> `_check_migration_drift()` → `scripts/check_migration_drift.py`. **ADR §3.5
+> still describes the pre-Slice-0 world** and needs a sixth corrections row —
+> James's call whether it is rewritten or superseded. The bundle's *"Slice 0
+> must merge before Slice 1 starts"* gate is now **met**; Slice 1 remains
+> blocked only on the undecided `EvidencePacket` contract.
 >
 > **Two conflicts this file cannot resolve on its own, both James's:**
 > (a) the ADR's **D10 declares this file frozen** and moves actionable work to
@@ -1185,16 +1196,20 @@ _Recorded by the 2026-08-23 bundle-placement `/arbi-close`. No `/arbi` wake this
 ```
 Close: 2026-08-23 (James: "Read README-PLACEMENT.md and place these files. Don't act on
                    anything yet" → "I give you authoritative permissions to make this edit")
-- main @ 0a66cfc (unchanged — nothing merged this session)
-- Branch claude/file-placement-review-0y5u8b @ 1e319c8, 3 commits, draft PR, UNMERGED
+- main @ b352eef — SLICE 0 MERGED MID-SESSION as #163 (audit P0/P1 remediation)
+- Branch claude/file-placement-review-0y5u8b, draft PR #166, UNMERGED, main merged in
 - Placed: ADR (docs/product/architecture-decision-record.md, D1-D14) + 2 audits to
   docs/archive/ + ticketing research to docs/research-archive/ + 4 issue forms + 1 map row
-- Zero application code; full-check + targeted-ml-tests green on every head
-- REQUIRED_MIGRATIONS=97; 43 migration files; latest applied 20260821080458; 0045 unapplied
+- Zero application code on this branch; full-check + targeted-ml-tests green on every head
+- POST-#163, re-measured: 45 migration files; 0018_perf_indexes.sql RECONSTRUCTED and present;
+  0046 added; REQUIRED_MIGRATIONS DELETED, replaced by _check_migration_drift() ->
+  scripts/check_migration_drift.py (the name-set diff). 0042 absent; 0025/0045 unapplied.
+  >> ADR §3.5 still describes the PRE-Slice-0 world and needs a 6th corrections row.
 - ADR §4 corrections row 5 added: docs/product/ is NOT in AUTHORITY_FRAGMENTS — the ADR is
   unguarded as committed
 - NOT DONE: gh issue allow-rule (harness classifier refused; diff handed to James)
-- Slice 0 still in flight on claude/audit-p0-remediation — do not restart
+- Slice 0 DONE -> the bundle's "Slice 0 must merge before Slice 1 starts" gate is now MET.
+  Slice 1 is blocked only on the undecided EvidencePacket contract (ADR §5.3/§6).
 - Next: James names the unit. D10-vs-this-file is unresolved; this file is still the queue.
 ```
 

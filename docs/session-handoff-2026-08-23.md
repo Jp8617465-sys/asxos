@@ -16,8 +16,15 @@ Nothing this session touched it, and the ADR placed below **enforces it further*
 it as ratified, and `decision_engine/types.py` makes a non-model-independent `DecisionPacket`
 unconstructable (`_MODEL_A_RE` in the manifest validator). Do not read `signals` as current.
 
-**Nothing in the placed ADR has been acted on.** D1–D14 are ratified decisions; Slices 0–5 are
-unstarted here. Slice 0 remains in flight on `claude/audit-p0-remediation` — do not restart it.
+**Nothing in the placed ADR has been acted on *by this branch*.** D1–D14 are ratified decisions;
+Slices 1–5 are unstarted.
+
+**Slice 0 merged mid-session as #163** (`b352eef`), after this branch's records were first
+written and while the PR was open — merged into this branch, and the affected claims corrected
+below. That satisfies two things the bundle called prerequisites: *"Slice 0 must merge before
+Slice 1 starts"* is now **met**, and the audit v2 this branch archived is now correctly archived
+rather than prematurely (its README said "active input until Slice 0 merges, then move to
+`docs/archive/`").
 
 ---
 
@@ -74,10 +81,23 @@ than worked around. Done — §4 row 5 and a §9 change-log row are the only edi
    queue is the governor's call.
 5. **Two ADR versions shipped in one upload set.** Suggest §0 name a digest, not a filename.
 
-**Verified correct, so do not re-litigate:** 43 migration files · `REQUIRED_MIGRATIONS = 97`
-(`asxos/api/main.py:14`) · `0018`/`0042` absent, `0025`/`0045` present-unapplied · `types.py`
-31,409 bytes · **zero INSERT/UPDATE to `signal_outcomes`** anywhere in `asxos/`, `jobs/`,
-`scripts/` · D7 executed exactly as §10.2 specifies.
+**Verified correct, so do not re-litigate:** `types.py` 31,409 bytes · **zero INSERT/UPDATE to
+`signal_outcomes`** anywhere in `asxos/`, `jobs/`, `scripts/` · D7 executed exactly as §10.2
+specifies · `0042` absent, `0025`/`0045` present-unapplied.
+
+⚠️ **Three figures I verified early in this session were overtaken by #163 landing, and the ADR
+§3.5 text they came from is now stale.** Re-measured after merging `main`:
+
+| ADR §3.5 / my earlier claim | Now |
+|---|---|
+| 43 migration files | **45** (`0018` reconstructed, `0046` added) |
+| `REQUIRED_MIGRATIONS = 97` at `asxos/api/main.py:14` | **Deleted.** Replaced by `_check_migration_drift()` calling `scripts/check_migration_drift.py` — the name-set diff §10.1 commit 2 specified. The hand-maintained integer is gone |
+| `0018` absent from the sequence | **Present** — `migrations/0018_perf_indexes.sql`, reconstructed from live `pg_get_indexdef()` with a provenance header, per §10.1 commit 6 |
+
+**ADR §3.5 should be updated to match** — it still describes the pre-Slice-0 world. That is a
+sixth corrections-log row, not written here: §3.5 is a *statement of fact about production* that
+Slice 0 deliberately changed, so the correct edit is the governor's call on whether §3.5 gets
+rewritten or superseded.
 
 ---
 
