@@ -18,6 +18,18 @@ on:
       - "claude/**"
   workflow_dispatch:
 
+# Ref-scoped, unlike the static singleton groups on the scheduled workflows
+# (backup, daily-brief, …). Those exist to stop a job overlapping ITSELF; a
+# static group here would serialise every branch behind one queue and cancel
+# nothing. Superseded runs measured 2026-08-23: 26 of the last 100 runs were
+# still in flight when a later push landed on the same branch.
+#
+# `main` never cancels — it is the continuous-deploy trigger, and a cancelled
+# run there would leave the deployed state unverified.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 permissions:
   contents: read
 
