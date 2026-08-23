@@ -72,7 +72,6 @@
       "Edit(/.claude/rules/**)",
       "Edit(/.claude/skills/**)",
       "Edit(/.github/**)",
-      "Edit(/migrations/**)",
       "Edit(/render.yaml)",
       "Edit(/docs/README.md)",
       "Edit(/docs/product/north-star.md)",
