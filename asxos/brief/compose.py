@@ -96,6 +96,8 @@ from urllib.parse import urlparse
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.brief.bluf import bluf_sentence
+from asxos.brief.deltas import BookDelta, load_book_delta
 from asxos.brief.section import (
     SectionResult,
     SectionStatus,
@@ -313,6 +315,9 @@ class BriefData:
     # existing BriefData(...) test constructing without `sections` valid;
     # `resolved_sections` synthesises from the payload fields in that case.
     sections: dict[str, SectionResult] = field(default_factory=dict)
+    # Stage 1: book-level snapshot delta vs the previous snapshot. None when a
+    # test constructs BriefData without collect(); collect() always sets it.
+    deltas: BookDelta | None = None
 
     @property
     def resolved_sections(self) -> dict[str, SectionResult]:
@@ -450,6 +455,14 @@ class BriefData:
             unknowns.append(f"{self.holdings_count} holding(s) with no discipline evidence")
         return classify(blocking=blocking, attention=attention, unknowns=unknowns)
 
+    @property
+    def bluf(self) -> str:
+        return bluf_sentence(self.review)
+
+    @property
+    def exception_findings(self) -> list[DisciplineFinding]:
+        return [f for f in self.discipline_findings if f.level != DisciplineLevel.info]
+
 
 async def collect(as_of: date) -> BriefData:
     """Single async DB session, four sections + optional portfolio section.
@@ -541,6 +554,9 @@ async def collect(as_of: date) -> BriefData:
         except Exception as exc:
             outcome_error = f"outcome section could not run: {exc}"
 
+        # Sequential on the same connection — never asyncio.gather (asyncpg #56).
+        deltas = await load_book_delta(conn, as_of)
+
     computed_at = datetime.now(UTC)
     # Sequential on one asyncpg connection — never asyncio.gather here
     # (MagicStack/asyncpg #56/#258). See docs/product/daily-brief-v2.md §2.1.
@@ -574,6 +590,7 @@ async def collect(as_of: date) -> BriefData:
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
         sections=sections,
+        deltas=deltas,
     )
 
 
@@ -1485,6 +1502,11 @@ def render_html(data: BriefData) -> str:
     environment was the outlier.
     """
     return brief_env().get_template("brief.html.j2").render(d=data)
+
+
+def render_detail_html(data: BriefData) -> str:
+    """Render the full-tables detail page. Same StrictUndefined contract as render_html."""
+    return brief_env().get_template("brief_detail.html.j2").render(d=data)
 
 
 def brief_env() -> jinja2.Environment:
