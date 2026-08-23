@@ -29,8 +29,6 @@
 -- table still matches -- a weaker, separate guarantee this design doesn't claim.
 --
 -- Applied via: mcp__supabase__apply_migration
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py to the observed
--- SELECT count(*) FROM supabase_migrations.schema_migrations.
 
 -- ============================================================
 -- theses: two new governance columns

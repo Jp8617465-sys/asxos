@@ -122,6 +122,59 @@ git -C "$WORK" clone --depth=1 \
   --config credential.helper="store --file=$CRED" \
   "https://github.com/${BACKUP_REPO}.git" repo
 
+# --- Frozen-evidence archive: assert it, don't re-dump it --------------------
+#
+# `signals` and `signal_outcomes` are deliberately absent from the pg_dump set
+# above (see the header): they stopped changing when P1-02 deleted their
+# writers, so a daily dump would commit ~124k identical rows into this git repo
+# forever. They were captured once instead, with recorded checksums.
+#
+# Until now nothing verified that capture still existed. The header asserted it
+# in prose, the restore drill's 14-table list excludes it, and
+# `signal_outcomes` is the matured-signals evidence base that resolved the Model
+# A dispute -- CLAUDE.md rule #11's standing quarantine rests on it. An
+# unverified single copy of that is a hypothesis, exactly like an unverified
+# backup.
+#
+# Confirmed frozen 2026-08-23: last write to signal_outcomes was 2026-08-02,
+# terminal signal_date 2026-07-10, and no INSERT/UPDATE to either table survives
+# anywhere in asxos/, jobs/ or scripts/. So these digests are expected to hold
+# indefinitely -- if one ever changes, either a writer came back (which needs
+# investigating) or the archive was altered (which needs investigating more).
+#
+# Matched by DIGEST, not filename: the check should survive the archive being
+# reorganised, and should fail if the bytes change under an unchanged name.
+ARCHIVE_DIR="$WORK/repo/signal-evidence-2026-08-16"
+SIGNALS_SHA256="e61ee6a4d1774194b86ff2072c362315142ed31bb1d66db7a2a21b5f30d57828"
+SIGNAL_OUTCOMES_SHA256="7aef52345d4d93d50e10428a3233b725d677f26873077b2b00e2623a0b7f3b8f"
+
+if [ ! -d "$ARCHIVE_DIR" ]; then
+  echo "[backup] FATAL: frozen-evidence archive ${ARCHIVE_DIR#"$WORK/repo/"} is missing from ${BACKUP_REPO}." >&2
+  echo "[backup] signals + signal_outcomes exist in no other backup; rule #11's evidence base is unrecoverable if production is lost." >&2
+  exit 1
+fi
+
+sha256_of() {
+  if command -v sha256sum > /dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
+ARCHIVE_DIGESTS="$(find "$ARCHIVE_DIR" -type f -print0 | while IFS= read -r -d '' f; do sha256_of "$f"; done)"
+
+for pair in "signals:$SIGNALS_SHA256" "signal_outcomes:$SIGNAL_OUTCOMES_SHA256"; do
+  table="${pair%%:*}"
+  want="${pair##*:}"
+  if ! printf '%s\n' "$ARCHIVE_DIGESTS" | grep -qx "$want"; then
+    echo "[backup] FATAL: no file in the frozen-evidence archive matches the recorded sha256 for ${table}." >&2
+    echo "[backup] expected ${want}. Either the archive was altered, or a writer to ${table} came back and the capture is now stale." >&2
+    exit 1
+  fi
+  echo "[backup] frozen-evidence archive verified: ${table} sha256 matches"
+done
+
 cp "$DUMP_GZ" "$WORK/repo/"
 
 cd "$WORK/repo"

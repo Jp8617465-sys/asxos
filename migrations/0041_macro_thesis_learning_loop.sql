@@ -1,11 +1,5 @@
 -- 0041_macro_thesis_learning_loop.sql
 --
--- DRAFT — NOT applied by the build session. James applies via
--- mcp__supabase__apply_migration against project gxjqezqndltaelmyctnl, then
--- bumps REQUIRED_MIGRATIONS in asxos/api/main.py to the observed
---   SELECT count(*) FROM supabase_migrations.schema_migrations
--- (the observed count, not a guessed +1 — api-conventions.md).
---
 -- Macro-thesis learning loop, Layer A
 -- (docs/proposals/macro-thesis-learning-loop-2026-07-21.md §3). Adds:
 --   1. macro_theses.machine_conditions JSONB — the optional structured,
@@ -19,8 +13,7 @@
 -- RENDER CRON IS A FOLLOW-UP: do NOT wire the asxos-score-macro-theses cron in
 -- render.yaml until AFTER this migration is applied. A cron that runs before
 -- macro_thesis_outcomes / the machine_conditions column exist would hard-fail
--- (CLAUDE.md #1). Sequence: apply 0041 -> bump REQUIRED_MIGRATIONS -> add the
--- cron.
+-- (CLAUDE.md #1). Sequence: apply 0041 -> add the cron.
 
 BEGIN;
 

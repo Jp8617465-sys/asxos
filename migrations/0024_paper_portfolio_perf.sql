@@ -5,7 +5,6 @@
 -- prices. This is a strategy-incubation tracker, NOT proof of alpha.
 --
 -- Applied via: mcp__supabase__apply_migration (project gxjqezqndltaelmyctnl).
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py.
 --
 -- All writes are idempotent UPSERTs keyed on (run_id, eval_as_of[, symbol|dt]);
 -- re-running the monitor for a later eval date extends, never overwrites,

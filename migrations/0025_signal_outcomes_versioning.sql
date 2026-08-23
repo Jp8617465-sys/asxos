@@ -2,10 +2,11 @@
 -- Versions the pre-existing `signal_outcomes` table (created ad-hoc by
 -- jobs/track_signal_outcomes.py and never captured in migrations/ — audit gap).
 --
--- This is IDEMPOTENT and ALREADY SATISFIED in production: the table exists there
--- with this exact shape, so CREATE TABLE IF NOT EXISTS is a no-op in prod. It is
--- NOT applied via MCP and REQUIRED_MIGRATIONS is NOT bumped — the file exists so
--- a fresh/dev database reproduces the table and the schema is reviewable in repo.
+-- Every statement is IF NOT EXISTS, so this is a no-op against any database that
+-- already carries the table. It exists so a fresh/dev database reproduces it and
+-- so the shape is reviewable in repo. Whether it has been applied is a question
+-- for scripts/check_migration_drift.py, which reads the ledger; it is
+-- deliberately not asserted here.
 --
 -- TYPE DEBT (do not silently "fix" in prod): this table uses double precision /
 -- varchar rather than the house NUMERIC(18,6) / text convention because the
@@ -33,3 +34,9 @@ CREATE TABLE IF NOT EXISTS signal_outcomes (
 
 CREATE INDEX IF NOT EXISTS idx_signal_outcomes_date   ON signal_outcomes(signal_date);
 CREATE INDEX IF NOT EXISTS idx_signal_outcomes_symbol ON signal_outcomes(symbol);
+
+-- Added 2026-08-23: found by diffing production's indexes against this repo and
+-- declared by nothing until now. It belongs here rather than in the
+-- reconstructed 0018 for a mechanical reason — files replay in filename order
+-- and signal_outcomes does not exist until this file.
+CREATE INDEX IF NOT EXISTS idx_signal_outcomes_model_date ON signal_outcomes(model, signal_date);

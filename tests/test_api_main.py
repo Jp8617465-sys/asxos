@@ -52,39 +52,75 @@ def _acquire_yielding(conn: object):
 # ---------------------------------------------------------------------------
 
 
-async def test_migration_drift_raises_below_required(monkeypatch) -> None:
-    monkeypatch.setattr(main.settings, "skip_migration_drift_check", False)
+def _ledger(*names: str) -> MagicMock:
+    """A conn whose fetch() returns ledger rows for the given asxos-era names."""
     conn = MagicMock()
-    conn.fetchval = AsyncMock(return_value=main.REQUIRED_MIGRATIONS - 1)
-    monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
+    conn.fetch = AsyncMock(
+        return_value=[{"version": "20260601000000", "name": n} for n in names]
+    )
+    return conn
+
+
+async def test_migration_drift_raises_when_a_repo_file_is_unapplied(monkeypatch) -> None:
+    """The startup guard still hard-fails (CLAUDE.md #1) — now on a name diff."""
+    monkeypatch.setattr(main.settings, "skip_migration_drift_check", False)
+    monkeypatch.setattr(main, "acquire", _acquire_yielding(_ledger("0001_initial")))
     with pytest.raises(RuntimeError, match="Migration drift"):
         await main._check_migration_drift()
 
 
-async def test_migration_drift_passes_at_required(monkeypatch) -> None:
+async def test_migration_drift_raises_on_applied_but_untracked(monkeypatch) -> None:
+    """The case the old count guard could not detect AT ALL.
+
+    `count < REQUIRED_MIGRATIONS` passes when production carries a migration
+    this repo has no file for: the count only rises. That is the state
+    production was actually in — ledger row 20260602102212 / 0018_perf_indexes
+    with no file — while the guard stayed green.
+
+    The whole real ledger is passed so the only anomaly is the injected one.
+    """
+    from asxos.schema_drift import repo_migration_keys
+
     monkeypatch.setattr(main.settings, "skip_migration_drift_check", False)
-    conn = MagicMock()
-    conn.fetchval = AsyncMock(return_value=main.REQUIRED_MIGRATIONS)
-    monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
+    names = [*repo_migration_keys().keys(), "a_migration_with_no_file"]
+    monkeypatch.setattr(main, "acquire", _acquire_yielding(_ledger(*names)))
+    with pytest.raises(RuntimeError, match="APPLIED BUT NOT IN REPO"):
+        await main._check_migration_drift()
+
+
+async def test_migration_drift_passes_when_names_agree(monkeypatch) -> None:
+    """Every repo file applied, plus the two allowlisted-unapplied ones absent."""
+    from asxos.schema_drift import EXPECTED_UNAPPLIED, _key, repo_migration_keys
+
+    monkeypatch.setattr(main.settings, "skip_migration_drift_check", False)
+    unapplied = {_key(n) for n in EXPECTED_UNAPPLIED}
+    names = [k for k in repo_migration_keys() if k not in unapplied]
+    monkeypatch.setattr(main, "acquire", _acquire_yielding(_ledger(*names)))
     await main._check_migration_drift()  # must not raise
 
 
-async def test_migration_drift_passes_above_required(monkeypatch) -> None:
-    """Being AHEAD of `REQUIRED_MIGRATIONS` must boot, not hard-fail.
+async def test_migration_drift_ignores_pre_asxos_ledger_rows(monkeypatch) -> None:
+    """47 rows predate asxos on this shared Supabase instance.
 
-    The guard is deliberately asymmetric — `count < REQUIRED_MIGRATIONS`, not
-    `!=`. That asymmetry is load-bearing and is exercised in production every
-    time a migration is applied before the constant is bumped: on 2026-08-21
-    migration 0044 landed as `20260821080458`, taking the live count to 97
-    while `main` still read 96, and the API kept booting precisely because of
-    this branch. Tightening the comparison to `!=` would turn every
-    apply-then-bump window into a startup outage, and no test would have
-    caught it — the two tests either side of this one both pass under `!=`.
+    They are excluded by version epoch, not by an enumerated list, so they can
+    never be mistaken for asxos migrations that lost their files.
     """
+    from asxos.schema_drift import EXPECTED_UNAPPLIED, _key, repo_migration_keys
 
     monkeypatch.setattr(main.settings, "skip_migration_drift_check", False)
+    unapplied = {_key(n) for n in EXPECTED_UNAPPLIED}
     conn = MagicMock()
-    conn.fetchval = AsyncMock(return_value=main.REQUIRED_MIGRATIONS + 1)
+    conn.fetch = AsyncMock(
+        return_value=[
+            {"version": "20260217004354", "name": "add_assistant_conversations"},
+            {"version": "20260320045542", "name": "056_scenario_templates"},
+            *(
+                {"version": "20260601000000", "name": k}
+                for k in repo_migration_keys()
+                if k not in unapplied
+            ),
+        ]
+    )
     monkeypatch.setattr(main, "acquire", _acquire_yielding(conn))
     await main._check_migration_drift()  # must not raise
 

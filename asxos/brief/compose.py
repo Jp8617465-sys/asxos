@@ -691,11 +691,16 @@ async def _job_failures(
 
     Every boundary is explicitly ``timestamptz`` at UTC. ``$1::date ± INTERVAL``
     alone yields ``timestamp without time zone``, which Postgres compares to
-    ``finished_at`` by converting through the session ``TimeZone`` GUC —
-    unpinned here, since ``asxos/db.py::init_pool`` passes no ``server_settings``.
-    Setting the database or role timezone to ``Australia/Sydney`` would then slide
-    this window seven hours off the 20:30–22:30 UTC pipeline it exists to cover,
-    with no error and no failing test.
+    ``finished_at`` by converting through the session ``TimeZone`` GUC. Setting
+    the database or role timezone to ``Australia/Sydney`` would slide this window
+    off the 20:30–22:30 UTC pipeline it exists to cover, with no error and no
+    failing test.
+
+    That is now prevented rather than merely documented: ``asxos/db.py::init_pool``
+    pins ``server_settings={"timezone": "UTC"}`` on every pooled connection
+    (2026-08-23), so this window's premise is enforced at connection time instead
+    of resting on nobody having run ``ALTER ROLE ... SET timezone``. If that pin
+    is ever removed, this analysis becomes live again.
     """
     rows = await conn.fetch(
         """

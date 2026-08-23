@@ -1,7 +1,7 @@
 -- 0028_widen_research_dollar_columns.sql
 -- =====================================================================
--- APPLIED 2026-06-24. Widen the research-store ABSOLUTE-DOLLAR columns from
--- NUMERIC(18,6) to NUMERIC(24,6). After applying: bump REQUIRED_MIGRATIONS.
+-- Widen the research-store ABSOLUTE-DOLLAR columns from NUMERIC(18,6) to
+-- NUMERIC(24,6).
 -- =====================================================================
 --
 -- FORCED DEVIATION from CLAUDE.md non-negotiable #5 (NUMERIC(18,6) everywhere),
