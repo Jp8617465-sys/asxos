@@ -33,3 +33,17 @@ CREATE TABLE IF NOT EXISTS signal_outcomes (
 
 CREATE INDEX IF NOT EXISTS idx_signal_outcomes_date   ON signal_outcomes(signal_date);
 CREATE INDEX IF NOT EXISTS idx_signal_outcomes_symbol ON signal_outcomes(symbol);
+
+-- Added 2026-08-23. Live in production and declared by no migration until now;
+-- found by diffing every production index against migrations/. It belongs here
+-- rather than in the reconstructed 0018 for a mechanical reason: files replay in
+-- filename order and signal_outcomes does not exist until this file.
+--
+-- Production/repo state of the three indexes on this table, measured 2026-08-23,
+-- because they disagree and that disagreement is the point:
+--   idx_signal_outcomes_date        live AND declared here (created ad-hoc)
+--   idx_signal_outcomes_model_date  live, declared NOWHERE until this line
+--   idx_signal_outcomes_symbol      declared here, NOT live
+-- So this file's own "ALREADY SATISFIED in production" header is two-thirds
+-- true: the table matches, one index is missing and one was undeclared.
+CREATE INDEX IF NOT EXISTS idx_signal_outcomes_model_date ON signal_outcomes(model, signal_date);
