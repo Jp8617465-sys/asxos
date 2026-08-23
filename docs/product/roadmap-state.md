@@ -2,7 +2,7 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-08-22 (`/arbi-close`, harness-promote close — `main` @ `1ee184d` after #158/#153/#159. Memory is L1–L45. Review-gate gone. Stages 4/5/6 remain not-started; W1-1 is P5 integration evidence, not Stage 4. See Last wake snapshot.)
+**Last verified:** 2026-08-23 (`/arbi-close`, cursor D10-ops close — `main` @ `b352eef` after #163. 0046 applied as `20260823054040`. 0045 still unapplied. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
 **reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
 records were annotated, not rewritten: a SUPERSEDED banner on the In-flight entry, an inline
@@ -731,10 +731,12 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
-> ⚠️ **2026-08-22 harness-promote close — read this first.** Three further
+> ⚠️ **2026-08-23 cursor D10-ops close — read this first.** `main` @ `b352eef` (**#163** merged by James). 0046 applied as `20260823054040` (`screening_runs_comment_fix`). 0045 still unapplied. D10 ratified-not-in-force. Open drafts at probe: #170/#169/#168/#167/#166/#165 CLEAN; #164/#161 BEHIND. Safe train (governor): 165 then 167 then 166; rebase 164 after 166; do not mix 161. W1-2 stays CHALLENGEd. Stages 4/5/6 still **not started**. The 2026-08-22 harness-promote banner below is historical.
+>
+> ⚠️ **2026-08-22 harness-promote close — historical.** Three further
 > squash-merges under James's I6 instruction: **#158** `70b0156` (harness
 > rebuild), **#153** `f31ab51` (dream-only rebase, not a second SB PR),
-> **#159** `1ee184d` (L27–L45). Zero open PRs at close-probe. W1-2 stays
+> **#159** `1ee184d` (L27–L45). Zero open PRs at that close-probe. W1-2 stays
 > CHALLENGEd. Stages 0→6 table unchanged: Stage 4/5/6 still **not started**.
 > The merge-train banner and the 2026-08-20 SUPERSEDED banner below are
 > historical.
@@ -861,13 +863,9 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
-> **Live as of 2026-08-22 harness-promote close.** The Stages 0→6 table at
+> **Live as of 2026-08-23 cursor D10-ops close.** The Stages 0→6 table at
 > the top of this file remains the only ranked queue. **James names the
-> next unit.** Do not treat W1-2 as #1 (CHALLENGE stands). Packet-first
-> renderer stays P6-01 / Stage 6. The promotion backlog is closed (L1–L45
-> on `main`). Written later-candidates that are *not* auto-#1: screening
-> seed INSERT (I5), apply 0045 (I5), MCP principal repoint (James),
-> `defaultMode: auto` in `~/.claude/settings.json` (James).
+> next unit.** Do not treat W1-2 as #1 (CHALLENGE stands). D10 is ratified-not-in-force — do not treat GitHub Issues as the live queue. Packet-first renderer stays P6-01 / Stage 6. Promotion backlog closed (L1–L45 on `main`). Written later-candidates that are *not* auto-#1: governor train 165 then 167 then 166; screening seed INSERT (I5); apply 0045 (I5); MCP principal repoint (James); D10 in-force (James); `defaultMode: auto` in user settings (James).
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
@@ -1141,6 +1139,20 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-23 cursor D10-ops `/arbi-close`. Supersedes the 2026-08-22 harness-promote snapshot below._
+
+```
+Close: 2026-08-23 (James: finish audit-P0 GitHub artifacts + apply 0046 + D10-ops drafts → /arbi-close)
+- main @ b352eef (#163 merged by James)
+- Applied: 20260823054040 screening_runs_comment_fix (0046). 0045 still unapplied.
+- Drafts CLEAN: #165 allowlist, #167 issue snapshot, #166 ADR/docs, #168 CI, #169 nightly, #170 RUNBOOK
+- Drafts BEHIND: #164 earlier 08-23 close (file overlap with #166), #161 cheap cleanups
+- Safe train (governor): 165 then 167 then 166; rebase 164 after 166; do not mix 161
+- D10 ratified-not-in-force. W1-2 CHALLENGEd. Rule #11 stands.
+- Tests on main: 2640 passed, 1 skipped (full-check run 32621965350)
+- Next: James names the unit
+```
 
 _Recorded by the 2026-08-22 harness-promote `/arbi-close`. Supersedes the same-day merge-train snapshot below._
 
