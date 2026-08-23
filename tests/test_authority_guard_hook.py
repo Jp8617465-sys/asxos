@@ -114,13 +114,13 @@ def test_deny_file_operation_without_cwd_binding(repo: Path) -> None:
 AUTHORITY_PATHS = [
     ".env",
     "render.yaml",
-    "migrations/0039_x.sql",
     "docs/product/arbi-constitution.md",
     "docs/product/rubrics/arbi-safety-boundary.md",
     "docs/product/memory/approved-lessons.md",
 ]
 
 NON_AUTHORITY_PATHS = [
+    "migrations/0039_x.sql",
     "asxos/domain/foo.py",
     "tests/test_foo.py",
     "docs/proposals/pr2.md",
@@ -251,7 +251,6 @@ def test_guard_does_not_use_gnu_only_realpath_flags() -> None:
         "node -e \"require('fs').writeFileSync('.env','x')\"",
         "cp /tmp/evil .claude/agents/arbi.md",
         "cat /tmp/x | tee render.yaml",
-        "cp evil.sql migrations/0039_x.sql",
         'echo "malicious" > docs/README.md',  # bare redirect: no "recognized" file command at all
         'printf "x" >> .env',
     ],
@@ -280,6 +279,9 @@ def test_deny_direct_edit_of_docs_readme(repo: Path) -> None:
         "echo x > docs/CLAUDE.md",  # same basename below a non-authority directory
         "echo x > CLAUDE.md/child",  # exact files are not directory prefixes
         "echo x > .env/child",  # same rule for a dotfile authority name
+        "cp evil.sql migrations/0039_x.sql",
+        "echo x > migrations/0039_x.sql",
+        "echo x > migrations/0039_x.sql 2>/dev/null",
         "git status",
     ],
 )
@@ -368,8 +370,8 @@ def test_allow_bash_authority_false_positives(repo, command):
 @pytest.mark.parametrize(
     "command",
     [
-        "echo x > migrations/0039_x.sql",
-        "echo x > migrations/0039_x.sql 2>/dev/null",
+        "echo x > docs/product/arbi-constitution.md",
+        "echo x > docs/product/arbi-constitution.md 2>/dev/null",
     ],
 )
 def test_deny_bash_redirect_to_authority_after_scrub(repo, command):

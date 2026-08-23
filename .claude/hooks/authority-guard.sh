@@ -61,7 +61,7 @@ AUTHORITY_FRAGMENTS=(
   ".env"
   ".claude/settings.local.json"
   ".claude/agents/" ".claude/commands/" ".claude/rules/" ".claude/skills/"
-  ".github/" "migrations/" "docs/product/rubrics/"
+  ".github/" "docs/product/rubrics/"
   "render.yaml" "docs/README.md"
   "docs/product/north-star.md" "docs/product/arbi-constitution.md" "docs/product/arbi-authority.md"
   "docs/product/arbi-permission-model.md" "docs/product/arbi-harness.md" "docs/product/arbi-scorecard.md"
