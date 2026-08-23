@@ -1,7 +1,5 @@
 -- 0044_fundamentals_pit_currency.sql
 -- =====================================================================
--- DRAFT — NOT APPLIED. James applies via Supabase MCP, then bumps
--- REQUIRED_MIGRATIONS in asxos/api/main.py to the observed count.
 --
 -- Segment-valuation architecture doc (docs/proposals/
 -- segment-valuation-portfolio-architecture-2026-08-18.md), defect D1: every

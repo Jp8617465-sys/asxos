@@ -1,9 +1,8 @@
 -- 0027_research_store.sql
 -- =====================================================================
--- APPLIED 2026-06-22 (approved). The point-in-time, survivorship-free research
+-- The point-in-time, survivorship-free research
 -- store. Tables start EMPTY — no ingestion code runs until each source job is
 -- reviewed. Accompanies docs/research/research-store-schema.md.
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py.
 -- =====================================================================
 --
 -- The research store is the point-in-time, survivorship-free foundation for

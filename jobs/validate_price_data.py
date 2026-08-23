@@ -38,8 +38,27 @@ _LARGE_MOVE_MIN_PRICE = 0.02
 _HARD_FAIL_THRESHOLD = 10
 
 
-def _send_alert(subject: str, body: str) -> None:
-    """Best-effort Resend alert. Never raises."""
+def _send_alert(subject: str, body: str) -> str | None:
+    """Best-effort Resend alert. Never raises; RETURNS a failure note or None.
+
+    The swallow is correct and stays: a dead notification channel must not
+    crash the validation run that found the anomalies. What was wrong is that
+    the failure left no trace anywhere. If Resend is down, the API key rotates,
+    or BRIEF_TO_EMAIL is wrong, the alert evaporates and the operator
+    experiences it as "the system has been quiet lately" — silence from an
+    alerting system being indistinguishable from good news is the one failure
+    mode it cannot afford.
+
+    So the outcome is returned rather than discarded, and the caller records it
+    on JobMonitor.note, which lands in job_runs.error_message on an otherwise
+    successful run. That makes undelivered alerts queryable after the fact.
+
+    Returns the exception CLASS NAME, never str(exc): a Resend/httpx error
+    embeds the request URL, and the API key rides in the Authorization header
+    or query string depending on the client path. job_runs is queryable and
+    agent-readable (CWE-532). JobMonitor redacts known secret shapes on the way
+    in, but not leaking them in the first place is the stronger position.
+    """
     try:
         import resend
 
@@ -47,7 +66,11 @@ def _send_alert(subject: str, body: str) -> None:
         to = os.environ.get("BRIEF_TO_EMAIL", "")
         sender = os.environ.get("BRIEF_FROM_EMAIL", "")
         if not (api_key and to and sender):
-            return
+            # A deliberate no-send (local runs, --no-send style configs) is not
+            # the same event as a failed send, but it is still an alert that did
+            # not arrive, so it is reported — named distinctly so the two are
+            # never conflated when reading job_runs.
+            return "alert not sent: RESEND_API_KEY/BRIEF_TO_EMAIL/BRIEF_FROM_EMAIL not all set"
 
         resend.api_key = api_key
         resend.Emails.send({
@@ -56,8 +79,9 @@ def _send_alert(subject: str, body: str) -> None:
             "subject": subject,
             "html": f"<pre>{body}</pre>",
         })
-    except Exception:
-        pass
+    except Exception as exc:
+        return f"alert send failed: {type(exc).__name__}"
+    return None
 
 
 async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type-arg]
@@ -179,12 +203,18 @@ async def _run(as_of: date, *, anchor: bool = True) -> None:
 
             body = "\n".join(f"• {i}" for i in issues)
             if len(issues) <= _HARD_FAIL_THRESHOLD:
-                _send_alert(
+                monitor.note = _send_alert(
                     f"[asxos] price anomalies detected — {effective}",
                     body,
                 )
                 return
             else:
+                # Deliberately NOT recorded on the monitor: this branch raises,
+                # and JobMonitor's exit gives the exception string priority over
+                # note, so assigning here would be dead. The RuntimeError below
+                # already makes the run 'failure' and visible; an undelivered
+                # alert on an already-failing run is not the silent case this
+                # change exists to expose.
                 _send_alert(
                     f"[asxos] PRICE VALIDATION HARD FAIL — {len(issues)} anomalies — {effective}",
                     body,
