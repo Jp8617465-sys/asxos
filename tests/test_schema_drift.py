@@ -150,8 +150,9 @@ def test_epoch_boundary_is_inclusive_of_initial() -> None:
 
 def test_repo_keys_are_unique_and_cover_every_file() -> None:
     keys = repo_migration_keys()
-    assert len(keys) == 44, f"expected 44 .sql files, found {len(keys)}"
+    assert len(keys) == 45, f"expected 45 .sql files, found {len(keys)}"
     assert "perf_indexes" in keys, "0018 must be tracked after its reconstruction"
+    assert "screening_runs_comment_fix" in keys, "0046 comment fix must be tracked"
     assert "initial" in keys
 
 

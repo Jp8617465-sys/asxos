@@ -91,6 +91,9 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "screening_runs_comment_fix": (
+        "0046 — comment-only; awaiting governor apply via Supabase MCP"
+    ),
 }
 
 
