@@ -1142,6 +1142,30 @@ dev/ops side.
 
 ## Last wake snapshot
 
+_Recorded by the 2026-08-24 pr-review-train `/arbi-close`. Supersedes the 2026-08-22 snapshots below, which are kept verbatim as the audit trail._
+
+```
+Close: 2026-08-24 (James: PR review train → merge train waves 1-3 → Cursor prompt → /arbi-close)
+- main @ b352eef (UNMOVED this session — zero merges)
+- No /arbi wake this session — governor-named across three asks
+- Reviewed: 13/13 open PRs, one comment each
+- Pushed: 3d51766 to #175 (prices_stale dedup) — 2656 passed/1 skipped, ruff+mypy clean
+- Merge train: BLOCKED, 0 merges. pr-draft-guard.sh denies agent un-drafting
+  (no attended exception); same hook PERMITS attended merges. Split by design:
+  James marks ready -> agent merges. Not routed around (gh absent).
+- Tests on main-equivalent tree: 2640 passed, 1 skipped
+- Migrations: 46 files on disk (0046 present); 0042 reserved; 0045 unapplied
+- Open PRs: 13 — all still DRAFT
+    Wave 1 ready to merge: #174 #173 #171 #165, then #161 (BEHIND by 2, needs branch update)
+    Wave 2: #169 first, then CLOSE #168 (contained in #169), then #170 (depends on #169)
+    PULLED: #175 — Stage 1 (843 lines) added AFTER review, full-check RED on
+            test_collect_never_reads_capital_aud_and_never_touches_a_model
+    HELD:   #167 — paths-ignore on a REQUIRED check = merge deadlock; also pushes to main
+    JAMES:  #164 #166 #172 — three competing same-day 2026-08-23 close records
+- Squash is the merge convention (every recent main commit has exactly 1 parent)
+- Next: James flips 8 drafts to ready, Cursor runs waves 1-2 from the handed-over prompt
+```
+
 _Recorded by the 2026-08-22 harness-promote `/arbi-close`. Supersedes the same-day merge-train snapshot below._
 
 ```
