@@ -240,10 +240,38 @@ def test_loader_never_reads_capital_aud(personal_use: Any) -> None:
     assert "*" not in projection
 
 
-def test_collect_never_reads_capital_aud_and_never_touches_a_model(
+_BOOK_DELTA_SNAPSHOT_COLS = [
+    "as_of",
+    "capital_aud",
+    "holdings_mv_aud",
+    "cash_aud",
+    "holdings_count",
+]
+
+
+def _is_book_delta_snapshot_query(q: str) -> bool:
+    """True only for Stage 1's two snapshot-level SELECTs, never a return."""
+    if "FROM portfolio_daily_snapshots" not in q:
+        return False
+    if "benchmark_tr_level" in q:
+        return False
+    if "/" in q:
+        return False
+    projection = q.split("SELECT", 1)[1].split("FROM", 1)[0]
+    if "*" in projection:
+        return False
+    cols = [c.strip() for c in projection.split(",")]
+    return cols == _BOOK_DELTA_SNAPSHOT_COLS
+
+
+def test_collect_capital_aud_only_on_book_delta_path_and_never_touches_a_model(
     personal_use: Any,
 ) -> None:
-    """Same negative, asserted over the whole brief rather than one loader."""
+    """Whole-brief firewall; capital_aud is a book-delta *level*, never a return.
+
+    Outcome loader still must not see capital_aud (`test_loader_never_reads_capital_aud`).
+    Collect still never touches model_versions or signals.
+    """
     conn = _make_conn(
         lot_rows=[HUBS_LOT, CBA_LOT],
         price_rows=[
@@ -271,8 +299,17 @@ def test_collect_never_reads_capital_aud_and_never_touches_a_model(
 
     queries = _all_queries(conn)
     assert queries
+    delta_qs = [q for q in queries if _is_book_delta_snapshot_query(q)]
+    assert len(delta_qs) == 2
+    assert any("as_of <= $1" in q for q in delta_qs)
+    assert any("as_of < $1" in q for q in delta_qs)
     for q in queries:
+        if q in delta_qs:
+            continue
         assert "capital_aud" not in q, f"capital_aud read: {q}"
+        assert "model_versions" not in q, f"model gate query: {q}"
+        assert "FROM signals" not in q, f"signals read: {q}"
+    for q in delta_qs:
         assert "model_versions" not in q, f"model gate query: {q}"
         assert "FROM signals" not in q, f"signals read: {q}"
 
