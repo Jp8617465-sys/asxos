@@ -283,7 +283,7 @@ order except the new integrity line).
 |---|---|---|
 | **0** | Live `SectionResult` seam on `collect()`; integrity/lineage line; one canonical Jinja template; golden snapshots; four-state markers. No BLUF reorder. No gold tables. No migrations. | **Yes** |
 | **1** | BLUF reorder / inverted pyramid; delta-oriented "what changed"; linked static detail page. | **Yes (continuation of #175)** |
-| **2** | Gold section artefacts (migrations); composer becomes read-and-assemble; optional pool as *interim* only. | Yes (stacked PR; 0047 drafted, not applied) |
+| **2** | Gold section artefacts (migrations); composer becomes read-and-assemble; optional pool as *interim* only. | Yes (stacked PR; 0047 applied 2026-08-24 by governor grant; this PR drops `brief_section_gold` from `EXPECTED_UNAPPLIED`) |
 | **3** | Contribution analysis; inverse-vol as a brief section; Brinson; factors as research commentary. | No — deferred; several items are DO NOT BUILD for V1 |
 
 Stage 0 is a **seam**, not a rewrite. `collect()` keeps returning `BriefData` so

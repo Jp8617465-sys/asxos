@@ -1,10 +1,8 @@
 -- 0047_brief_section_gold.sql
 -- =====================================================================
 --
--- DRAFT — NOT APPLIED.
--- Modelled on 0045 honesty: drafted in-repo, awaiting a governor decision
--- to apply. Do not apply via mcp__supabase__apply_migration or psql against
--- production from this change.
+-- APPLIED 2026-08-24 — governor grant. Ledger name `brief_section_gold`,
+-- version `20260824002827` (asx-portfolio-os / gxjqezqndltaelmyctnl).
 --
 -- Stage 2 gold artefacts for the live daily brief (asxos.brief). Status
 -- vocabulary is SectionStatus: FRESH / STALE / MISSING / EMPTY — matching
@@ -30,6 +28,4 @@ CREATE TABLE IF NOT EXISTS brief_section_gold (
 );
 
 COMMENT ON TABLE brief_section_gold IS
-    'DRAFT/unapplied: per-as_of gold artefacts for the live daily brief. '
-    'Seven SECTION_ORDER names plus header and deltas. Status is FRESH/'
-    'STALE/MISSING/EMPTY matching asxos.brief.section.SectionStatus.';
+    'Per-as_of gold artefacts for the live daily brief. Seven SECTION_ORDER names plus header and deltas. Status is FRESH/STALE/MISSING/EMPTY matching asxos.brief.section.SectionStatus.';
