@@ -731,7 +731,28 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
-> ⚠️ **2026-08-23 cursor D10-ops close — read this first.** `main` @ `b352eef` (**#163** merged by James). 0046 applied as `20260823054040` (`screening_runs_comment_fix`). 0045 still unapplied. D10 ratified-not-in-force. Open drafts at probe: #170/#169/#168/#167/#166/#165 CLEAN; #164/#161 BEHIND. Safe train (governor): 165 then 167 then 166; rebase 164 after 166; do not mix 161. W1-2 stays CHALLENGEd. Stages 4/5/6 still **not started**. The 2026-08-22 harness-promote banner below is historical.
+> ⚠️ **2026-08-23 cursor D10-ops close — read this first.** `main` @ `b352eef` at that close (**#163**). **Merge-resolution 2026-08-24:** #166 (`4cf8c39`, ADR bundle) and #165 (`gh issue` allowlist) are on `main`. 0046 applied as `20260823054040` (`screening_runs_comment_fix`). 0045 still unapplied. D10 ratified-not-in-force. Close-time drafts: #170/#169/#168/#167 CLEAN; #164/#161 BEHIND. Remaining D10 substrate: **#167**. Rebase **#164** after this close. W1-2 stays CHALLENGEd. Stages 4/5/6 still **not started**. The banners below are historical.
+>
+> ⚠️ **2026-08-23 bundle-placement close — historical (merged as #166, `4cf8c39`).** Placed the 23 Aug design
+> bundle — **`docs/product/architecture-decision-record.md`** carrying
+> ratified decisions **D1–D14** (cash floor 7.5%, 0% gross leverage, the
+> eight-criteria Model A successor bar, vertical slices not sprints, GitHub
+> Issues as work substrate, the two-layer challenge mechanism) plus a §6 build
+> sequence of Slices 0–5 — two audits into `docs/archive/`, the ticketing
+> research into `docs/research-archive/`, four D11 issue forms, and one
+> `docs/README.md` map row. **Zero application code.** **ADR §3.5
+> still describes the pre-Slice-0 world** and needs a sixth corrections row —
+> James's call whether it is rewritten or superseded. The bundle's *"Slice 0
+> must merge before Slice 1 starts"* gate is **met**; Slice 1 remains
+> blocked only on the undecided `EvidencePacket` contract.
+>
+> **Two conflicts this file cannot resolve on its own, both James's:**
+> (a) the ADR's **D10 declares this file frozen** and moves actionable work to
+> GitHub Issues — the map row states that conflict rather
+> than enacting it, so *this file remains the live queue until James rules*;
+> (b) `target-architecture.md` still declares itself the CANONICAL ratified
+> target while the ADR's §2/§6 overlap it, and `arbi-authority.md`'s ladder
+> does not know the ADR exists.
 >
 > ⚠️ **2026-08-22 harness-promote close — historical.** Three further
 > squash-merges under James's I6 instruction: **#158** `70b0156` (harness
@@ -865,7 +886,15 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 > **Live as of 2026-08-23 cursor D10-ops close.** The Stages 0→6 table at
 > the top of this file remains the only ranked queue. **James names the
-> next unit.** Do not treat W1-2 as #1 (CHALLENGE stands). D10 is ratified-not-in-force — do not treat GitHub Issues as the live queue. Packet-first renderer stays P6-01 / Stage 6. Promotion backlog closed (L1–L45 on `main`). Written later-candidates that are *not* auto-#1: governor train 165 then 167 then 166; screening seed INSERT (I5); apply 0045 (I5); MCP principal repoint (James); D10 in-force (James); `defaultMode: auto` in user settings (James).
+> next unit.** Do not treat W1-2 as #1 (CHALLENGE stands). D10 is ratified-not-in-force — do not treat GitHub Issues as the live queue. Packet-first renderer stays P6-01 / Stage 6. Promotion backlog closed (L1–L45 on `main`). Written later-candidates that are *not* auto-#1: **#167** (issue snapshot; #165/#166 now on `main`); screening seed INSERT (I5); apply 0045 (I5); MCP principal repoint (James); D10 in-force (James); `defaultMode: auto` in user settings (James). Rebase **#164** after this close.
+
+> **Same-day, now historical — 2026-08-23 bundle-placement close (#166 merged 2026-08-24 as `4cf8c39`).** The Stages 0→6 table at
+> the top of this file remains the only ranked queue, and **remains live** —
+> the placed ADR's D10 would freeze it, but that conflict is stated and
+> unresolved, so nothing has moved to GitHub Issues yet. Item (1) of that
+> close (`gh issue` allow-rule) landed as **#165**. Remaining from that list:
+> rule on D10 vs this file; whether the ADR should actually be guarded; D10's
+> stated-required `gh issue list --json` export (**#167**).
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
@@ -1140,18 +1169,40 @@ dev/ops side.
 
 ## Last wake snapshot
 
-_Recorded by the 2026-08-23 cursor D10-ops `/arbi-close`. Supersedes the 2026-08-22 harness-promote snapshot below._
+_Recorded by the 2026-08-23 cursor D10-ops `/arbi-close`. Supersedes the same-day bundle-placement snapshot and the 2026-08-22 harness-promote snapshot below._
 
 ```
 Close: 2026-08-23 (James: finish audit-P0 GitHub artifacts + apply 0046 + D10-ops drafts → /arbi-close)
-- main @ b352eef (#163 merged by James)
+- main @ b352eef (#163 merged by James) at close-probe
 - Applied: 20260823054040 screening_runs_comment_fix (0046). 0045 still unapplied.
-- Drafts CLEAN: #165 allowlist, #167 issue snapshot, #166 ADR/docs, #168 CI, #169 nightly, #170 RUNBOOK
-- Drafts BEHIND: #164 earlier 08-23 close (file overlap with #166), #161 cheap cleanups
-- Safe train (governor): 165 then 167 then 166; rebase 164 after 166; do not mix 161
+- Close-time drafts CLEAN: #165 allowlist, #167 issue snapshot, #166 ADR/docs, #168 CI, #169 nightly, #170 RUNBOOK
+- Close-time drafts BEHIND: #164 earlier 08-23 close (file overlap with #166), #161 cheap cleanups
+- Merge-resolution 2026-08-24: #166 landed (`4cf8c39`); #165 landed. #167 still the remaining D10 substrate. Rebase #164 after this close.
 - D10 ratified-not-in-force. W1-2 CHALLENGEd. Rule #11 stands.
-- Tests on main: 2640 passed, 1 skipped (full-check run 32621965350)
+- Tests on main at close: 2640 passed, 1 skipped (full-check run 32621965350)
 - Next: James names the unit
+```
+
+_Recorded by the 2026-08-23 bundle-placement `/arbi-close`. No `/arbi` wake that session — governor-named task. Historical: #166 merged 2026-08-24 as `4cf8c39`. Supersedes the 2026-08-22 harness-promote snapshot below._
+
+```
+Close: 2026-08-23 (James: "Read README-PLACEMENT.md and place these files. Don't act on
+                   anything yet" → "I give you authoritative permissions to make this edit")
+- main @ b352eef — SLICE 0 MERGED MID-SESSION as #163 (audit P0/P1 remediation)
+- Branch claude/file-placement-review-0y5u8b, draft PR #166 — **merged 2026-08-24 as `4cf8c39`**
+- Placed: ADR (docs/product/architecture-decision-record.md, D1-D14) + 2 audits to
+  docs/archive/ + ticketing research to docs/research-archive/ + 4 issue forms + 1 map row
+- Zero application code on that branch; full-check + targeted-ml-tests green on every head
+- POST-#163, re-measured: 45 migration files; 0018_perf_indexes.sql RECONSTRUCTED and present;
+  0046 added; REQUIRED_MIGRATIONS DELETED, replaced by _check_migration_drift() ->
+  scripts/check_migration_drift.py (the name-set diff). 0042 absent; 0025/0045 unapplied.
+  >> ADR §3.5 still describes the PRE-Slice-0 world and needs a 6th corrections row.
+- ADR §4 corrections row 5 added: docs/product/ is NOT in AUTHORITY_FRAGMENTS — the ADR is
+  unguarded as committed
+- gh issue allow-rule later landed as #165 (this close recorded it as NOT DONE)
+- Slice 0 DONE -> the bundle's "Slice 0 must merge before Slice 1 starts" gate is now MET.
+  Slice 1 is blocked only on the undecided EvidencePacket contract (ADR §5.3/§6).
+- Next: James names the unit. D10-vs-this-file is unresolved; this file is still the queue.
 ```
 
 _Recorded by the 2026-08-22 harness-promote `/arbi-close`. Supersedes the same-day merge-train snapshot below._

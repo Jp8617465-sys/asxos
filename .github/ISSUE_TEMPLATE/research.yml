@@ -1,0 +1,81 @@
+name: Research / spike
+description: An open question. Timeboxed, not estimated. Output is a decision, never code.
+labels: ["type:research", "approval:L3"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This ticket must not ship code.** Its definition of done is a decision recorded
+        in the ADR, or an ADR written. A research ticket that ships code has failed.
+
+        **Fill in Hypothesis, Success metric and Falsification BEFORE touching any data.**
+        Writing them after seeing results is the failure mode this template exists to prevent.
+
+  - type: input
+    id: timebox
+    attributes:
+      label: Timebox (hours)
+      description: This is the circuit breaker, not a deadline. Blow it and the item dies and is re-shaped — no automatic extension.
+      placeholder: "4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What is genuinely unknown. If you already know the answer, this is a product ticket.
+    validations:
+      required: true
+
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis (pre-registered — written BEFORE any data is touched)
+      description: Including why the effect should exist and why it should persist.
+    validations:
+      required: true
+
+  - type: textarea
+    id: success_metric
+    attributes:
+      label: Success metric and threshold (decided BEFORE seeing results)
+      description: A specific number. "It looks better" is not a metric.
+    validations:
+      required: true
+
+  - type: textarea
+    id: falsification
+    attributes:
+      label: Falsification condition
+      description: What result would make you abandon this. If nothing would, this is not research.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+
+  - type: checkboxes
+    id: model_bar
+    attributes:
+      label: If this proposes a Model A successor — ADR §1.7, all eight required
+      options:
+        - label: Economic hypothesis written before any data touched
+        - label: Point-in-time data only, no look-ahead
+        - label: Survivorship-clean (delisted included)
+        - label: Purged / combinatorial-purged walk-forward; parameters locked before OOS
+        - label: Deflated Sharpe ratio and PBO reported, WITH the number of trials attempted
+        - label: t-statistic > 3.0 (not 2.0)
+        - label: Beats the deterministic factor-tilt baseline net of costs
+        - label: Pre-committed kill criteria and live decay monitoring — a state and a date
+
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of done
+      options:
+        - label: A decision recorded in the ADR, or an ADR written
+        - label: NOT shipped code
+        - label: If the timebox blew — item closed and re-shaped, not extended
