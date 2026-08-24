@@ -6,7 +6,8 @@ capital, merge approval, migration approval, policy/conviction, broker execution
 these; it never decides them.
 **Last verified:** 2026-08-24 (Amendment G recorded — not a full inbox sweep. `auto` in
 user settings is ⚙️ execution-pending. GitHub App is ⚙️ execution-pending. Auto-merge stays
-denied. Dark-launch #1/#4 still decide by **2026-08-28**. `0045` still unapplied.)
+denied. Dark-launch #1/#4 still decide by **2026-08-28**. `0045` still unapplied.
+#166 is on `main`. D10 vs this file still open.)
 _Prior: 2026-08-22 (`/arbi-run` + `#154` merge — **the migration `0044` row is
 CLOSED**: applied 2026-08-21 as `20260821080458`, live count 97, Patch 0 confirmed present in the
 column comment; deadline met. `REQUIRED_MIGRATIONS` 96→97 residual discharged on `main` via

@@ -794,6 +794,47 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+> ⚠️ **2026-08-24 Amendment G recorded — read this first.** Governor rulings
+> on `auto` / GitHub App / no auto-merge are Amendment G above. **#166
+> merged** (`4cf8c39`) — the 08-23 "unmerged" banner below is historical.
+> **#165** (`dd8ca7b`) applied `gh issue create/list/view/edit` to
+> `permissions.allow` (D10 item 1). D10 vs this file is still unresolved —
+> this file remains the live queue. Next product unit is still James-named.
+> Stages 0→6: Stage 4/5/6 still **not started**. Amendment G is not THE ONE
+> THING.
+
+> ⚠️ **2026-08-23 bundle-placement close — historical; #166 merged as
+> `4cf8c39`.** One branch **was** open as draft PR #166:
+> `claude/file-placement-review-0y5u8b`. It placed the 23 Aug design
+> bundle — a new **`docs/product/architecture-decision-record.md`** carrying
+> ratified decisions **D1–D14** (cash floor 7.5%, 0% gross leverage, the
+> eight-criteria Model A successor bar, vertical slices not sprints, GitHub
+> Issues as work substrate, the two-layer challenge mechanism) plus a §6 build
+> sequence of Slices 0–5 — two audits into `docs/archive/`, the ticketing
+> research into `docs/research-archive/`, four D11 issue forms, and one
+> `docs/README.md` map row. **Zero application code on this branch.** Stages
+> 0→6 unchanged: Stage 4/5/6 still **not started**.
+>
+> **`main` moved mid-session: Slice 0 merged as #163 (`b352eef`)** — schema
+> reproducibility, timezone pin, verified backup, observable alerts. Merged
+> into this branch. Consequences: `0018_perf_indexes.sql` now **exists**
+> (reconstructed from live `pg_get_indexdef()`), `0046` added, **45** migration
+> files, and `REQUIRED_MIGRATIONS` is **deleted** in favour of
+> `_check_migration_drift()` → `scripts/check_migration_drift.py`. **ADR §3.5
+> still describes the pre-Slice-0 world** and needs a sixth corrections row —
+> James's call whether it is rewritten or superseded. The bundle's *"Slice 0
+> must merge before Slice 1 starts"* gate is now **met**; Slice 1 remains
+> blocked only on the undecided `EvidencePacket` contract.
+>
+> **Two conflicts this file cannot resolve on its own, both James's:**
+> (a) the ADR's **D10 declares this file frozen** and moves actionable work to
+> GitHub Issues — the map row added this session states that conflict rather
+> than enacting it, so *this file remains the live queue until James rules*;
+> (b) `target-architecture.md` still declares itself the CANONICAL ratified
+> target while the ADR's §2/§6 overlap it, and `arbi-authority.md`'s ladder
+> does not know the ADR exists. **Slice 0 remains in flight elsewhere** on
+> `claude/audit-p0-remediation` — do not restart it.
+
 > ⚠️ **2026-08-22 harness-promote close — read this first.** Three further
 > squash-merges under James's I6 instruction: **#158** `70b0156` (harness
 > rebuild), **#153** `f31ab51` (dream-only rebase, not a second SB PR),
@@ -925,15 +966,48 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 ## Ranked next-action queue
 
 > **Live as of 2026-08-24 Amendment G.** The Stages 0→6 table at the top of
-> this file remains the only ranked queue. **James names the next unit.**
+> this file remains the only ranked queue, and **remains live** — the placed
+> ADR's D10 would freeze it, but that conflict is stated and unresolved, so
+> nothing has moved to GitHub Issues yet. **James names the next unit.**
 > Do not treat W1-2 as #1 (CHALLENGE stands). Packet-first renderer stays
 > P6-01 / Stage 6. Brief V2 Stages 0–2 are on `main` (#175, #176); that is
-> not a V2-flag flip. Amendment G (same day): `auto` in user settings first,
-> then a week of permission-log data before any hook `allow` rewrite; GitHub
-> App not a second account; no auto-merge. Written later-candidates that
-> are *not* auto-#1: screening seed INSERT (I5), apply 0045 (I5), MCP
+> not a V2-flag flip. **#166 is on `main`** (`4cf8c39`). Amendment G: `auto`
+> in user settings first, then a week of permission-log data before any hook
+> `allow` rewrite; GitHub App not a second account; no auto-merge. D10
+> candidate list: **(1) DONE via #165** — `gh issue create/list/view/edit`
+> is in `permissions.allow`; **(2)** rule on D10 vs this file; **(3)** decide
+> whether the ADR should be guarded (not in `AUTHORITY_FRAGMENTS`); **(4)**
+> D10's `gh issue list --json` export, still absent. Other later-candidates
+> that are *not* auto-#1: screening seed INSERT (I5), apply 0045 (I5), MCP
 > principal repoint (James), App install (James), `defaultMode: auto` in
 > `~/.claude/settings.json` (James — now dated, re-read ~2026-08-31).
+
+> **Superseded — 2026-08-23 bundle-placement close.** The Stages 0→6 table at
+> the top of this file remains the only ranked queue, and **remains live** —
+> the placed ADR's D10 would freeze it, but that conflict is stated and
+> unresolved, so nothing has moved to GitHub Issues yet. **James names the
+> next unit.** Top of the written candidate list, all James-owned and all
+> newly evidenced this session: **(1)** add `gh issue create/list/view/edit`
+> to `permissions.allow` — D10's own prerequisite; the four issue forms are
+> inert without it, and the edit was refused by the harness classifier, not
+> by this repo; **(2)** rule on D10 vs this file; **(3)** decide whether the
+> ADR should actually be guarded — it declares itself governor-owned and is
+> **not** in `AUTHORITY_FRAGMENTS`, so today arbi can edit it directly;
+> **(4)** D10's stated-required `gh issue list --json` export, absent —
+> without it, off-repo ticket state reproduces the §3.3 `signal_outcomes`
+> failure the ADR itself documents. Carried unchanged: W1-2 CHALLENGE stands,
+> packet-first renderer stays P6-01, screening seed INSERT (I5), apply 0045
+> (I5), MCP principal repoint (James), `defaultMode: auto` (James).
+> **2026-08-24 annotation:** item (1) landed as #165; #166 merged; live banner
+> is Amendment G above.
+
+> **Superseded — 2026-08-22 harness-promote close.** The Stages 0→6 table at
+> the top of this file remains the only ranked queue. **James names the
+> next unit.** Do not treat W1-2 as #1 (CHALLENGE stands). Packet-first
+> renderer stays P6-01 / Stage 6. The promotion backlog is closed (L1–L45
+> on `main`). Written later-candidates that are *not* auto-#1: screening
+> seed INSERT (I5), apply 0045 (I5), MCP principal repoint (James),
+> `defaultMode: auto` in `~/.claude/settings.json` (James).
 
 Each action names its north-star tie, the roadmap item it advances, and the owning
 agent/command. arbi keeps this ranked; it is brief-only and does not execute these.
@@ -1207,6 +1281,29 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-08-23 bundle-placement `/arbi-close`. No `/arbi` wake this session — governor-named task. Supersedes the 2026-08-22 harness-promote snapshot below._
+_Postscript 2026-08-24: #166 squash-merged as `4cf8c39`. Snapshot body below is the close-time record and is not rewritten. Amendment G is a queue amendment, not a wake/close._
+
+```
+Close: 2026-08-23 (James: "Read README-PLACEMENT.md and place these files. Don't act on
+                   anything yet" → "I give you authoritative permissions to make this edit")
+- main @ b352eef — SLICE 0 MERGED MID-SESSION as #163 (audit P0/P1 remediation)
+- Branch claude/file-placement-review-0y5u8b, draft PR #166, UNMERGED, main merged in
+- Placed: ADR (docs/product/architecture-decision-record.md, D1-D14) + 2 audits to
+  docs/archive/ + ticketing research to docs/research-archive/ + 4 issue forms + 1 map row
+- Zero application code on this branch; full-check + targeted-ml-tests green on every head
+- POST-#163, re-measured: 45 migration files; 0018_perf_indexes.sql RECONSTRUCTED and present;
+  0046 added; REQUIRED_MIGRATIONS DELETED, replaced by _check_migration_drift() ->
+  scripts/check_migration_drift.py (the name-set diff). 0042 absent; 0025/0045 unapplied.
+  >> ADR §3.5 still describes the PRE-Slice-0 world and needs a 6th corrections row.
+- ADR §4 corrections row 5 added: docs/product/ is NOT in AUTHORITY_FRAGMENTS — the ADR is
+  unguarded as committed
+- NOT DONE: gh issue allow-rule (harness classifier refused; diff handed to James)
+- Slice 0 DONE -> the bundle's "Slice 0 must merge before Slice 1 starts" gate is now MET.
+  Slice 1 is blocked only on the undecided EvidencePacket contract (ADR §5.3/§6).
+- Next: James names the unit. D10-vs-this-file is unresolved; this file is still the queue.
+```
 
 _Recorded by the 2026-08-22 harness-promote `/arbi-close`. Supersedes the same-day merge-train snapshot below._
 

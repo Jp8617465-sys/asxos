@@ -1,0 +1,75 @@
+name: Data infrastructure
+description: Schema, migration, or write-path change. Always L3.
+labels: ["type:data-infra", "approval:L3"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Always L3.** Migrations are applied by James, never by an agent.
+        Schema drift caused four of six production bugs in one sprint — the ordering
+        checklist below is the control, not a formality.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options: [pipeline, ml, db, cli, email, cron, screens]
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / outcome
+      description: One sentence. The problem and why it matters now.
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Files to touch (expected)
+      description: Include the migration filename and number. Paths, or "unknown — spike first".
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (Given/When/Then)
+      value: |
+        Given <state>
+        When <action>
+        Then <observable result>
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: migration_ordering
+    attributes:
+      label: Migration ordering
+      description: All four required. This is the schema-drift control.
+      options:
+        - label: Migration commits BEFORE the code that depends on it
+        - label: Schema source of truth is the migration — production is never hand-edited
+        - label: Drift check passes (name-set diff, zero asymmetry in either direction)
+        - label: Expand-contract used for any rename — never rename in place
+        - label: No state header on the .sql file (applied state is answered by the drift check)
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of done
+      options:
+        - label: Migration applied by James — never the agent
+        - label: "`make check` green, including migration-integration.yml"
+        - label: Conventional commit
+        - label: PR merged
