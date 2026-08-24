@@ -6,7 +6,7 @@ from datetime import date
 import typer
 
 from asxos.cli._common import _require_personal_use, console
-from asxos.db import close_pool, init_pool
+from asxos.db import acquire, close_pool, init_pool
 
 
 def brief(
@@ -16,18 +16,20 @@ def brief(
         False, "--detail", help="Print the full-tables detail page (email stays short)"
     ),
 ) -> None:
-    """Render the morning brief; pass --send to dispatch via Resend."""
+    """Render the morning brief from gold; pass --send to dispatch via Resend."""
     _require_personal_use()
     target = date.fromisoformat(as_of) if as_of else date.today()
     asyncio.run(_run_brief(target, send=send, detail=detail))
 
 
 async def _run_brief(target: date, *, send: bool, detail: bool) -> None:
-    from asxos.brief.compose import collect, render_detail_html, render_html
+    from asxos.brief.compose import render_detail_html, render_html
+    from asxos.brief.gold import hydrate
 
     await init_pool()
     try:
-        data = await collect(target)
+        async with acquire() as conn:
+            data = await hydrate(conn, target)
         short = render_html(data)
         html = render_detail_html(data) if detail else short
     finally:
