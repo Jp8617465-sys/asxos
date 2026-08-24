@@ -1,0 +1,40 @@
+# Dependabot configuration.
+#
+# The github-actions half is the load-bearing one: it is what makes the SHA pins
+# in .github/workflows/ sustainable for a single maintainer. Dependabot updates a
+# pinned SHA *and* rewrites the trailing `# v4` version comment, so pinning does
+# not decay into "frozen on whatever was current the day someone pinned it."
+#
+# Both ecosystems are grouped so a week's updates arrive as ONE pull request
+# rather than one per dependency — with a solo reviewer, PR volume is the thing
+# that kills adoption.
+#
+# The pip half reads pyproject.toml (PEP 621); there is no requirements.txt.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Let a release sit for a week before proposing it. Guards against pulling in
+    # a version that gets yanked within days — the ml extras pin exact versions
+    # (lightgbm==4.5.0, shap==0.46.0, …) so a bad bump is a real breakage.
+    cooldown:
+      default-days: 7
+    groups:
+      python:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore"

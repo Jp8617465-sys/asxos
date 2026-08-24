@@ -44,7 +44,7 @@ jobs:
       BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
       EXPECTED_SUPABASE_PROJECT_REF: gxjqezqndltaelmyctnl
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Install postgresql-client 17 from PGDG
         run: |
@@ -137,7 +137,7 @@ jobs:
       PGPORT: "5432"
       PGUSER: postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Install postgresql-client 17 from PGDG
         run: |
