@@ -99,6 +99,9 @@ jobs:
       - name: Ingest sentiment
         run: python jobs/ingest_sentiment.py
 
+      - name: Materialise brief sections
+        run: python jobs/materialise_brief_sections.py
+
       - name: Compose and send brief
         run: python jobs/compose_brief.py
 
