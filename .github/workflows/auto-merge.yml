@@ -1,0 +1,85 @@
+# Auto-merge on green — roadmap-state.md Amendment H (James, 2026-08-25).
+#
+# Reverses Amendment G ruling 3 ("no auto-merge, keep the click"). Every path is
+# in scope: asxos/**, migrations/**, .github/**, .claude/**, CLAUDE.md and the
+# docs/product/ governance set all land without a human read once full-check is
+# green. That is the governor's explicit, scoped-and-declined-to-scope choice.
+#
+# WHY THIS IS A WORKFLOW AND NOT A LOOSENED HOOK. The obvious implementation is
+# to drop `mcp__github__enable_pr_auto_merge` from .claude/settings.json's deny
+# array and delete the auto-merge case from pr-draft-guard.sh. That is an agent
+# editing its own permission surface (§10.2), and it would hand every future
+# agent session a merge-to-main capability that outlives this ruling. Instead the
+# agent fence is UNCHANGED — no agent session may enable auto-merge, un-draft, or
+# merge — and this reviewed, in-repo workflow is the only thing that can. Autonomy
+# is config you merged once, not a widened blast radius.
+#
+# NO CHECKOUT, DELIBERATELY. This job never fetches PR head code, so a PR cannot
+# influence the thing that merges it. Do not add actions/checkout here. Do not
+# switch the trigger to pull_request_target (the Comment-and-Control / CVSS 9.4
+# class the App runbook says to refuse).
+#
+# THE ONLY BRAKE is the `no-auto-merge` label. Apply it to any PR that should
+# wait for a human. The label is read at event time, so adding it to an already
+# armed PR does NOT disarm auto-merge — use `gh pr merge --disable-auto` for that.
+#
+# PRECONDITION: repo Settings -> Pull Requests -> "Allow auto-merge" must be on.
+# The first step fails loudly if it is off, because a silent no-op here would
+# look exactly like a working gate.
+
+name: auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, labeled, unlabeled]
+
+# Ref-scoped and never cancelled: arming is idempotent but not safe to interrupt
+# between the ready-for-review flip and the auto-merge enable.
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  arm:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-auto-merge') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Arm auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          allow="$(gh api "repos/${GH_REPO}" --jq '.allow_auto_merge')"
+          if [ "${allow}" != "true" ]; then
+            echo "::error::'Allow auto-merge' is OFF for ${GH_REPO}; Amendment H cannot take effect."
+            echo "Turn it on: https://github.com/${GH_REPO}/settings -> Pull Requests -> Allow auto-merge" >&2
+            exit 1
+          fi
+
+          pr="$(gh pr view "${PR}" --json state,isDraft,autoMergeRequest)"
+
+          if [ "$(jq -r '.state' <<< "${pr}")" != "OPEN" ]; then
+            echo "PR ${PR} is not open; nothing to arm."
+            exit 0
+          fi
+
+          if [ "$(jq -r '.isDraft' <<< "${pr}")" = "true" ]; then
+            echo "PR ${PR} is a draft; marking ready (Amendment H lifts the draft ceiling)."
+            gh pr ready "${PR}"
+          fi
+
+          if [ "$(jq -r '.autoMergeRequest != null' <<< "${pr}")" = "true" ]; then
+            echo "auto-merge already armed on PR ${PR}; nothing to do."
+            exit 0
+          fi
+
+          gh pr merge "${PR}" --auto --squash
+          echo "auto-merge armed on PR ${PR} — it lands when the required checks pass."
