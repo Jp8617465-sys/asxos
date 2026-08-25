@@ -12,10 +12,14 @@ name: full-check
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/ops/github-issues-snapshot.json"
   push:
     branches:
       - main
       - "claude/**"
+    paths-ignore:
+      - "docs/ops/github-issues-snapshot.json"
   workflow_dispatch:
 
 # Ref-scoped, unlike the static singleton groups on the scheduled workflows
