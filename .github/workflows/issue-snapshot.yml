@@ -13,9 +13,11 @@
 #      not an accepted cost of the whole PR gate.
 #
 # Commits docs/ops/github-issues-snapshot.json on main when the payload
-# changed. full-check.yml paths-ignore that file so a snapshot-only push does
-# not run the full pytest suite. GitHub cron only fires from the default
-# branch. workflow_dispatch works from any ref after merge.
+# changed. full-check.yml carries a paths-ignore for that file on its `push`
+# trigger ONLY — never on `pull_request`, where a skipped required check never
+# reports and would park a snapshot-only PR on "Expected" permanently. GitHub
+# cron only fires from the default branch. workflow_dispatch works from any ref
+# after merge.
 
 name: issue-snapshot
 
@@ -38,7 +40,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Export issues
         env:
@@ -56,4 +58,10 @@ jobs:
             exit 0
           fi
           git commit -m "chore(ops): refresh GitHub issues snapshot"
+          # The branch can move between checkout and push — a merge landing
+          # mid-run. Without this the job dies non-fast-forward and the day has
+          # no snapshot at all. The rebase carries one commit touching one file
+          # that nothing else writes, so there is nothing for it to conflict
+          # with.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push
