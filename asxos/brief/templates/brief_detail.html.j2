@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>asxos brief — {{ d.as_of }}</title>
+  <title>asxos brief detail — {{ d.as_of }}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 640px; margin: 1em auto; color: #222; }
     h1 { font-size: 1.2em; margin: 0 0 0.4em; }
@@ -40,14 +40,24 @@
     .sec-STALE { color: #c50; font-weight: 600; }
     .sec-MISSING { color: #c00; font-weight: 600; }
     .sec-EMPTY { color: #888; }
-    .bluf { font-size: 1.15em; font-weight: 600; margin: 0.8em 0; }
-    .delta { font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
-  <h1>asxos brief — {{ d.as_of }}</h1>
+  <h1>asxos brief detail — {{ d.as_of }}</h1>
+  {# One headline state, from the four-value review vocabulary
+     (asxos/domain/review/status.py). Never a trade direction. #}
+  <p class="meta">
+    Review: <strong class="status-{{ d.review.status }}">{{ d.review.status }}</strong>
+    · Holdings: {{ d.holdings_count }}
+    {# Names exactly what this date covers. It is the latest complete day in
+       `prices`; every other section is computed on the calendar as_of, so
+       "evidence as of" would claim a provenance no query backs. #}
+    · Prices complete to: {{ d.data_as_of or "unavailable" }}
+  </p>
 
-  {# Stage 1: integrity first — lineage is a precondition, not a footnote. #}
+  {# Stage 0 integrity / lineage line. Always present. Warning chrome when
+     core prices are STALE or MISSING — not a footnote. Health-report
+     (Review) stays in the meta line above. #}
   <table role="presentation" class="integrity{% if d.core_untrusted %} integrity-warn{% endif %}" id="integrity-line">
     <tr>
       <td>
@@ -59,17 +69,6 @@
       </td>
     </tr>
   </table>
-
-  {# One headline state, from the four-value review vocabulary
-     (asxos/domain/review/status.py). Never a trade direction. #}
-  <p class="meta">
-    Review: <strong class="status-{{ d.review.status }}">{{ d.review.status }}</strong>
-    · Holdings: {{ d.holdings_count }}
-    {# Names exactly what this date covers. It is the latest complete day in
-       `prices`; every other section is computed on the calendar as_of, so
-       "evidence as of" would claim a provenance no query backs. #}
-    · Prices complete to: {{ d.data_as_of or "unavailable" }}
-  </p>
 
   <p class="caveat">
     <strong>Evidence only.</strong> This brief is model-independent. It reports one of
@@ -92,12 +91,24 @@
   </div>
   {% endif %}
 
-  <p class="bluf" id="bluf">{{ d.bluf }}</p>
+  {% if d.has_failures %}
+  <div class="banner">
+    <strong>Job problems since the previous brief.</strong>
+    <ul>
+      {% for f in d.job_failures %}
+      <li>
+        {%- if f.kind == "stuck" %}<strong>STUCK</strong> — {% endif -%}
+        <code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
-  {% if d.exception_findings %}
+  {% if d.discipline_findings %}
   <h2>Portfolio discipline</h2>
-  {% set disc_errors = d.exception_findings | selectattr("level", "equalto", "error") | list %}
-  {% set disc_items = d.exception_findings | rejectattr("level", "equalto", "error") | list %}
+  {% set disc_errors = d.discipline_findings | selectattr("level", "equalto", "error") | list %}
+  {% set disc_items = d.discipline_findings | rejectattr("level", "equalto", "error") | list %}
   {% if disc_errors %}
   <div class="banner">
     <strong>Discipline checks that could not run.</strong>
@@ -115,56 +126,6 @@
     {% endfor %}
   </ul>
   {% endif %}
-  {% endif %}
-
-  <h2>Deltas</h2>
-  {% if d.has_failures %}
-  <div class="banner">
-    <strong>Job problems since the previous brief.</strong>
-    <ul>
-      {% for f in d.job_failures %}
-      <li>
-        {%- if f.kind == "stuck" %}<strong>STUCK</strong> — {% endif -%}
-        <code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-  {% if d.deltas and d.deltas.current and d.deltas.prior %}
-  <p class="meta">
-    Book levels {{ d.deltas.prior.as_of }} → {{ d.deltas.current.as_of }}.
-    Figures are changes in snapshot levels, not a return.
-  </p>
-  <table class="delta">
-    <tr><th>Level</th><th class="num">Prior</th><th class="num">Current</th><th class="num">Delta</th></tr>
-    <tr>
-      <td>Capital (AUD)</td>
-      <td class="num">{{ "%.2f"|format(d.deltas.prior.capital_aud) }}</td>
-      <td class="num">{{ "%.2f"|format(d.deltas.current.capital_aud) }}</td>
-      <td class="num">{{ "%+.2f"|format(d.deltas.capital_delta) }}</td>
-    </tr>
-    <tr>
-      <td>Holdings MV (AUD)</td>
-      <td class="num">{{ "%.2f"|format(d.deltas.prior.holdings_mv_aud) }}</td>
-      <td class="num">{{ "%.2f"|format(d.deltas.current.holdings_mv_aud) }}</td>
-      <td class="num">{{ "%+.2f"|format(d.deltas.holdings_mv_delta) }}</td>
-    </tr>
-    <tr>
-      <td>Cash (AUD)</td>
-      <td class="num">{{ "%.2f"|format(d.deltas.prior.cash_aud) }}</td>
-      <td class="num">{{ "%.2f"|format(d.deltas.current.cash_aud) }}</td>
-      <td class="num">{{ "%+.2f"|format(d.deltas.cash_delta) }}</td>
-    </tr>
-    <tr>
-      <td>Holdings count</td>
-      <td class="num">{{ d.deltas.prior.holdings_count }}</td>
-      <td class="num">{{ d.deltas.current.holdings_count }}</td>
-      <td class="num">{{ "%+d"|format(d.deltas.holdings_count_delta) }}</td>
-    </tr>
-  </table>
-  {% else %}
-  <p class="empty">No prior snapshot to compare.</p>
   {% endif %}
 
   {# Section 8 — outcome vs benchmark.
@@ -360,6 +321,5 @@
     Run <code>asx propose-trades --run-id {{ p.run_id }}</code> for full details.
   </p>
   {% endif %}
-  <p class="footnote">Full tables: <code>asx brief --as-of {{ d.as_of }} --detail</code></p>
 </body>
 </html>

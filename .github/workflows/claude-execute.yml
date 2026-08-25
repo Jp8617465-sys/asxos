@@ -71,11 +71,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
 
@@ -86,7 +86,14 @@ jobs:
           pip install -e ".[ml]"
           pip install pytest pytest-asyncio
 
-      - uses: anthropics/claude-code-action@v1
+      # Pinned to an immutable commit, not the mutable `v1` tag. This is the
+      # highest-privilege action in the repo — the job grants contents/PR/issues/
+      # actions write plus id-token — so a repointed tag here has the widest blast
+      # radius of any dependency the repo has. Note `v1` is an ANNOTATED tag: the
+      # ref resolves to tag object 8569a83, and the commit below is that tag
+      # dereferenced. Pinning the tag object instead would not resolve.
+      # Dependabot (.github/dependabot.yml) owns keeping this current.
+      - uses: anthropics/claude-code-action@c81e3bc69d1b18badbb63ba39581218f02421678  # v1
         env:
           GH_TOKEN: ${{ secrets.CLAUDE_WORKFLOW_PAT || secrets.GITHUB_TOKEN }}
         with:

@@ -75,5 +75,12 @@ exclude = ["tests*", "jobs*", "scripts*"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-ra --strict-markers --continue-on-collection-errors"
+# --continue-on-collection-errors was removed 2026-08-23. It was masking nothing:
+# with the flag off, the suite collects clean both in CI (2640 passed, 1 skipped)
+# and locally (2303 passed, 1 skipped, exit 0). The ML import chain it was
+# originally added for (joblib/lightgbm via domain/models/cache.py) died with the
+# Model A training-chain retirement in da64c1b. Leaving it on would let a genuine
+# broken import degrade into a silent skip.
+# --strict-config turns a typo in THIS block into an error instead of a default.
+addopts = "-ra --strict-markers --strict-config"
 
