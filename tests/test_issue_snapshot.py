@@ -7,8 +7,12 @@ when the clone has no tickets. Analogous to tests/test_backup_script.py.
 """
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 _SCRIPT = Path(__file__).parent.parent / "scripts" / "export_github_issues.sh"
 _TEXT = _SCRIPT.read_text(encoding="utf-8")
@@ -99,8 +103,56 @@ def test_workflow_runs_the_script_and_commits_only_on_change() -> None:
     assert "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}" in _WORKFLOW_TEXT
 
 
-def test_full_check_ignores_snapshot_only_pushes() -> None:
-    assert "docs/ops/github-issues-snapshot.json" in _FULL_CHECK_TEXT
+def _triggers(path: Path) -> dict[str, Any]:
+    """Parse a workflow's `on:` block.
+
+    YAML 1.1 resolves the bare key `on` to the boolean True, which is why both
+    spellings are looked up rather than indexing "on" directly.
+    """
+    parsed: dict[Any, Any] = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return parsed.get("on", parsed.get(True)) or {}
+
+
+def test_full_check_ignores_snapshot_pushes_but_never_snapshot_prs() -> None:
+    """The paths filter belongs on `push`, and must never reach `pull_request`.
+
+    full-check is a required status check, and a required check SKIPPED by a
+    paths filter never reports at all: a PR touching only the snapshot file
+    would park on "Expected — waiting for status" and could never merge, a
+    deadlock that reads as a hung check rather than a config bug. The original
+    pin — the filename appearing somewhere in the file — passes in BOTH the safe
+    and the deadlocked configuration, so what is pinned here is the
+    trigger-level shape.
+    """
+    triggers = _triggers(_FULL_CHECK)
+    assert triggers["push"]["paths-ignore"] == ["docs/ops/github-issues-snapshot.json"]
+    assert "paths-ignore" not in triggers["pull_request"]
+    assert "paths" not in triggers["pull_request"]
+
+
+def test_workflow_pins_its_actions_to_a_sha() -> None:
+    """A floating tag opts this workflow out of the repo's pinning regime.
+
+    Every other workflow pins the digest with a trailing version comment, and
+    dependabot's github-actions ecosystem is what keeps those pins from
+    decaying — it rewrites SHA -> SHA and tag -> tag, so a tag ref would never
+    become a pin on its own.
+    """
+    refs = re.findall(r"uses:\s*(\S+)", _WORKFLOW_TEXT)
+    assert refs, "workflow declares no actions — the assertion below would be vacuous"
+    for ref in refs:
+        assert re.fullmatch(r"[^@]+@[0-9a-f]{40}", ref), f"unpinned action: {ref}"
+
+
+def test_workflow_rebases_before_pushing() -> None:
+    """The branch can move between checkout and push — a merge landing mid-run.
+
+    Without the rebase the job dies non-fast-forward and the day has no
+    snapshot at all, which is the same missing-evidence outcome the whole
+    workflow exists to prevent.
+    """
+    assert "git pull --rebase" in _WORKFLOW_TEXT
+    assert _WORKFLOW_TEXT.index("git pull --rebase") < _WORKFLOW_TEXT.rindex("git push")
 
 
 def test_placeholder_snapshot_is_valid_empty_json_array() -> None:
