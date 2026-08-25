@@ -12,12 +12,19 @@ name: full-check
 on:
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/ops/github-issues-snapshot.json"
+    # Deliberately NO paths-ignore here. full-check is a REQUIRED status check,
+    # and a required check skipped by a paths filter never reports at all — the
+    # PR parks on "Expected — waiting for status" and can never merge. A future
+    # snapshot-only PR would hang forever, reading as a stuck check rather than
+    # a config bug. The filter belongs on `push` only, below.
   push:
     branches:
       - main
       - "claude/**"
+    # A snapshot-only push skips the suite: the payload cannot break the code.
+    # Inert while issue-snapshot.yml pushes with GITHUB_TOKEN (pushes made with
+    # that token do not trigger workflows at all), load-bearing the moment it
+    # pushes with anything else.
     paths-ignore:
       - "docs/ops/github-issues-snapshot.json"
   workflow_dispatch:
