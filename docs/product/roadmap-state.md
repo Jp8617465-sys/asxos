@@ -341,6 +341,77 @@ stands as written; this records how its caveats resolved, rather than editing th
   2026-08-08 Actions migration; the Render deletion date is a governor statement never
   re-verified against the Render API — see the caveat at the 2026-08-12 entry below).
 
+#### Amendment H — auto-merge on green, unscoped (James, 2026-08-25)
+
+**Reverses Amendment G ruling 3 one day after it was made.** G stands as the
+2026-08-24 record; this is the supersession, not an edit of it. Letter **H** —
+do not reuse **C** or **G**.
+
+**Ruling (James, 2026-08-25, on PR #179 and in session):** *"I am happy to
+allow auto merge if checks etc are clean."* Asked to scope it, James chose
+**every path, no exclusions**, and chose that the automation **lifts the draft
+ceiling itself** rather than waiting on a human Ready click.
+
+**What this authorizes.**
+
+1. **Auto-merge on green, any path.** A PR whose required checks pass merges
+   without a human click. No path allowlist — `asxos/**`, `migrations/**`,
+   `.github/**`, `.claude/**`, `CLAUDE.md` and the `docs/product/` governance
+   set are all in scope.
+2. **The automation marks agent PRs ready.** `auto-merge.yml` un-drafts an
+   eligible PR and enables auto-merge. GitHub then merges when `full-check`
+   goes green. The draft-PR ceiling survives as the *agent's* ceiling — agents
+   still open drafts only — but it is no longer the merge gate.
+3. **A `no-auto-merge` label opts any single PR out**, applied by James at any
+   time before the merge fires.
+
+**What this does NOT authorize.**
+
+- Rewriting `push-guard.sh` or `pr-draft-guard.sh`. Both keep denying
+  auto-merge enablement, agent-initiated merge, agent un-drafting and non-draft
+  `create_pull_request` **from agent sessions**. Autonomy comes from a reviewed
+  workflow, not from widening what an agent may call — §10.2 (an agent must not
+  edit its own permission surface) is untouched by this amendment and still
+  binds.
+- Removing `mcp__github__enable_pr_auto_merge` from `.claude/settings.json`'s
+  deny array. It stays denied.
+- `contents: write` on the `asxos-arbi-approver` App (ruling 2's least-privilege
+  table is unchanged — the App approves, it does not merge).
+- `required_approving_review_count: 1`, `enforce_admins: true`, or any other
+  branch-protection flip. `full-check` stays the required check.
+- Admin-bypass merges, merging past a red check, or merging a PR with
+  conflicts. Auto-merge waits; it does not force.
+- Capital, Model A / rule #11, migration **0042**, applying **0045**, W1-2.
+
+**Stated cost, accepted (record this rather than discover it).** With no path
+exclusions and `required_approving_review_count: 0`, `full-check` becomes the
+*only* gate on `main`, and it tests the code, not the policy. The sharp case:
+a PR that edits `auto-merge.yml`, the guard hooks, `.claude/settings.json` or
+`CLAUDE.md` is un-drafted and merged by the automation those files constrain —
+the fence becomes self-amending, in the same PR that could also edit the tests
+that would have caught it. G ruling 3's objection (no CFR/MTTR baseline;
+"auto-merge is earned after the check suite is trustworthy, it is not what
+makes the suite trustworthy") is **not answered by this amendment** — it is
+overridden by the governor, knowingly. Two consequences follow: the
+`no-auto-merge` label is the only per-PR brake, and a `full-check` that goes
+green on a broken suite is now a `main` incident rather than a red PR.
+
+**Precondition James must satisfy for any of this to work.** Repository
+Settings → General → Pull Requests → **Allow auto-merge** must be checked.
+Until it is, `auto-merge.yml` fails loudly on every PR (deliberately — a
+silent no-op would look like a working gate). The workflow is inert, not
+broken, in that state.
+
+**What is NOT reversed from Amendment G.** Ruling 1 (`auto` in user settings
+first, re-read `.claude/permission-requests.log` ~2026-08-31 before any hook
+`allow` rewrite) and ruling 2 (GitHub App, not a second account,
+`pull-requests: write` only) both stand exactly as written. The App remains an
+*approver* identity; nothing here gives it merge rights, and the CODEOWNERS
+caveat on James-authored authority PRs is unaffected.
+
+**Queue placement.** Not THE ONE THING. Next product unit is still
+James-named.
+
 #### Amendment G — three autonomy rulings (James, 2026-08-24)
 
 Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-08-24
@@ -794,7 +865,17 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
-> ⚠️ **2026-08-24 Amendment G recorded — read this first.** Governor rulings
+> ⚠️ **2026-08-25 Amendment H — auto-merge is ON, unscoped. Read this first.** James reversed Amendment G ruling 3 the day after making it: a PR
+> whose required checks pass now merges with no click, on **every** path,
+> and `auto-merge.yml` un-drafts eligible PRs itself. `no-auto-merge` is the
+> per-PR brake. **Precondition:** repo Settings → Pull Requests → *Allow
+> auto-merge* must be checked, or the workflow fails loudly on every PR.
+> G rulings 1 and 2 are untouched. The guard hooks and the settings deny
+> array are untouched — autonomy is the workflow, not a widened agent.
+> **#167 merged** (`608ff58`) — D10 candidate (4), the issue-snapshot
+> export, is now done.
+
+> ⚠️ **2026-08-24 Amendment G recorded — historical on ruling 3 only.** Governor rulings
 > on `auto` / GitHub App / no auto-merge are Amendment G above. **#166
 > merged** (`4cf8c39`) — the 08-23 "unmerged" banner below is historical.
 > **#165** (`dd8ca7b`) applied `gh issue create/list/view/edit` to
@@ -956,7 +1037,22 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
-> **Live as of 2026-08-24 Amendment G.** The Stages 0→6 table at the top of
+> **Live as of 2026-08-25 Amendment H.** The Stages 0→6 table at the top of
+> this file remains the only ranked queue. **James names the next unit.**
+> Do not treat W1-2 as #1 (CHALLENGE stands). Packet-first renderer stays
+> P6-01 / Stage 6. Auto-merge on green is authorised for every path
+> (Amendment H) — the merge click is no longer the gate, `full-check` is.
+> D10 candidate list: **(1) DONE via #165**; **(2)** rule on D10 vs this
+> file; **(3)** decide whether the ADR should be guarded (not in
+> `AUTHORITY_FRAGMENTS`); **(4) DONE via #167** (`608ff58`) — the
+> `gh issue list --json` export now runs daily. Other later-candidates that
+> are *not* auto-#1: screening seed INSERT (I5), apply 0045 (I5), MCP
+> principal repoint (James), App install (James), `defaultMode: auto` in
+> `~/.claude/settings.json` (James — re-read ~2026-08-31). **James still
+> owes one thing before auto-merge works at all:** the repo-level *Allow
+> auto-merge* setting.
+
+> **Superseded — 2026-08-24 Amendment G.** The Stages 0→6 table at the top of
 > this file remains the only ranked queue, and **remains live** — the placed
 > ADR's D10 would freeze it, but that conflict is stated and unresolved, so
 > nothing has moved to GitHub Issues yet. **James names the next unit.**

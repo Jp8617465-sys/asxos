@@ -3,7 +3,7 @@
 **Status:** current · awaiting James's execution
 **Scope:** one GitHub App James creates in the browser. An agent session
 **must not create the App, mint the private key, or write Actions secrets.**
-**Last verified:** 2026-08-24 (Amendment G)
+**Last verified:** 2026-08-25 (Amendment H — auto-merge reversed ON; this runbook's least-privilege table unchanged)
 **Owner:** James
 **Supersedes as the chosen identity path:**
 `docs/product/runbooks/second-github-identity.md` (second *account* — kept as
@@ -26,8 +26,11 @@ self-approving). That is why a separate identity exists at all.
 `required_approving_review_count: 1` can be set without the 2026-08-12
 self-approval deadlock.
 
-**Does not buy:** a second pair of eyes. James still reads the diff and keeps the merge click
-(Amendment G ruling 3 — no auto-merge).
+**Does not buy:** a second pair of eyes. **Amendment H (2026-08-25) removed
+the merge click entirely** — auto-merge on green, every path — so nothing in
+this repo now guarantees a human read of a diff before it lands. That makes
+the App's approval the *only* remaining place a second identity could ever
+be inserted, if `required_approving_review_count` is later set to 1.
 
 **Does not buy:** mechanical CODEOWNERS on James-authored PRs. GitHub forbids
 the PR author from being the CODEOWNER reviewer. The App is not
@@ -102,9 +105,12 @@ count is live and not deadlocking, consider `enforce_admins: true`.
   `main` was the 2026-08-24 example of why "green means mergeable" is not yet
   a standing claim — even after #176 landed the 0047 *file*, the next drift
   run is the observation, not this runbook.
-- Adding `contents: write` "so it can merge later." Ruling 3 would have to
-  be reversed first, in writing, with a CFR/MTTR baseline that does not
-  exist today.
+- Adding `contents: write` "so it can merge later." **Still refuse this,**
+  even though ruling 3 WAS reversed in writing on 2026-08-25 (Amendment H,
+  without a CFR/MTTR baseline — overridden, not answered). Auto-merge is
+  performed by `auto-merge.yml` under `GITHUB_TOKEN`, never by this App.
+  The App approves; it does not merge. The least-privilege table above is
+  unchanged by Amendment H.
 
 ## Verify-before-row-close
 

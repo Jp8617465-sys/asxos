@@ -4,7 +4,7 @@
 **Scope:** how Claude Code's official permission modes (`plan` / `auto` / `dontAsk`)
 map onto asxos work; the main-loop fan-out topology; the two-speed command split
 (`/build` vs `/arbi-mission`); the hard owner→agent roster; rejected alternatives
-**Last verified:** 2026-08-24 (Amendment G — identity path + auto-merge + user `auto` measurement; modes table unchanged)
+**Last verified:** 2026-08-25 (Amendment H — auto-merge reversed ON, unscoped; rejected item 9 struck. Modes table unchanged)
 **Owner:** James (governor) applies local mode; arbi / the main loop obey this file
 **Superseded by:** N/A
 **Supersedes as operating SoT:** the profile / review-ceremony claims in
@@ -123,7 +123,7 @@ port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
 6. `defaultMode: "auto"` in project settings
 7. Standing / unattended mission dispatch (still gated)
 8. Allowlisting rotating MCP UUIDs
-9. Docs-only auto-merge of `docs/product/**` — **widened 2026-08-24 (Amendment G ruling 3):** no auto-merge of any path. Keep the click. Not earned until the check suite is trustworthy and a CFR/MTTR baseline exists.
+9. ~~Docs-only auto-merge of `docs/product/**`~~ — **REVERSED 2026-08-25 (Amendment H).** Auto-merge on green is authorised for **every** path, and `auto-merge.yml` un-drafts eligible PRs. No longer a rejected item. The CFR/MTTR objection that G ruling 3 rested on was overridden, not answered: `full-check` is now the only gate on `main`. Per-PR brake is the `no-auto-merge` label. What stays rejected: agent-callable auto-merge — `push-guard.sh` / `pr-draft-guard.sh` and the settings deny array are unchanged, so no agent session may enable auto-merge, un-draft, or merge.
 10. Session lift-and-reinstate guards
 11. `gh run rerun`
 
@@ -139,3 +139,4 @@ port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
 | `supabase-ro` → `asxos_agent_ro` re-point | agent-db-readonly-role design |
 | Standing 7b / Guilfoyle-as-main-thread | later, on evidence |
 | `docs/README.md` map row for this file | deny-listed; James applies |
+| **Enable repo-level *Allow auto-merge*** (Settings → Pull Requests) | Amendment H precondition — `auto-merge.yml` fails loudly until it is on |
