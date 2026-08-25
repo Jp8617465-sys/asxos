@@ -31,10 +31,19 @@ def test_script_lists_every_state_with_pinned_json_fields() -> None:
     assert "--state all" in _TEXT
     assert "LIMIT=1000" in _TEXT
     assert "--limit" in _TEXT
+    # Exact, not substring: `"state" in _TEXT` is satisfied by `stateReason`,
+    # by `--state all`, and by the word "state" in a comment, so the loop below
+    # cannot on its own catch a field being dropped. The `--json` line is
+    # asserted verbatim so a silent shrink of the dump fails here.
+    assert (
+        "--json number,title,state,stateReason,labels,body,author,"
+        "createdAt,updatedAt,closedAt,url" in _TEXT
+    )
     for field in (
         "number",
         "title",
         "state",
+        "stateReason",
         "labels",
         "body",
         "author",
@@ -48,6 +57,18 @@ def test_script_lists_every_state_with_pinned_json_fields() -> None:
     assert "exported_at" not in _TEXT, (
         "a timestamp in the payload would force an empty commit every run"
     )
+
+
+def test_script_anchors_gh_to_this_checkout_before_calling_it() -> None:
+    """`gh` reads the repo from the CWD's git remote, not from $0's location.
+
+    Without the cd, a manual run from another checkout writes THAT repo's
+    issues into this snapshot — wrong evidence rather than absent evidence,
+    which is the worse failure for a file that exists to be the evidence.
+    Order matters, so it is asserted rather than assumed.
+    """
+    assert 'cd "${ROOT}"' in _TEXT
+    assert _TEXT.index('cd "${ROOT}"') < _TEXT.index("gh issue list")
 
 
 def test_script_exits_2_when_gh_is_missing() -> None:
