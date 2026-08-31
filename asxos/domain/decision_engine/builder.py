@@ -38,7 +38,7 @@ ChallengeResult -> PortfolioAssessment -> DecisionPacket -> DecisionCase`,
   fixture: Slice 2.5 (the independent challenger) has not been built, so
   every case this builder produces is mechanically forced to `abstain`
   by `DecisionCase`'s own validators — this is the intended, honest
-  Slice 1 outcome (`docs/product/architecture-decision-record.md` SS6),
+  Slice 1 outcome (`docs/product/architecture-decision-record.md` §6),
   not a bug to fix later in this module.
 
 Import-isolation (rule #11): this module never reads `signals`,

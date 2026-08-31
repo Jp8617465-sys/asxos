@@ -2,7 +2,7 @@
 
 `asxos/domain/results_review/pit_db.py`'s `TradingSessionCalendar` is built
 from `prices.dt` rows *observed after* a historical cutoff (G6,
-`docs/product/results-review-contracts-2026-08-16.md` SS8) — it can only see
+`docs/product/results-review-contracts-2026-08-16.md` §8) — it can only see
 sessions the market has already traded, so it cannot serve a live/current
 `knowledge_cutoff` (there is no future `prices` data to select). That gap is
 named and deferred in the same doc as
@@ -12,8 +12,9 @@ real packet, which is forced into `abstain` before any calendar-derived
 expiry could matter to an action.
 
 **Not an ASX exchange calendar.** Sessions are naive Mon-Fri weekdays with
-no public-holiday awareness — a real trading day the market is actually
-closed (e.g. Australia Day, Anzac Day) will be counted here as if it traded.
+no public-holiday awareness — a weekday the market is actually closed for a
+public holiday (e.g. Australia Day, Anzac Day) will be counted here as if
+it traded.
 `calendar_id` says so explicitly (`asx-forward-weekdays-not-exchange-
 verified`) so nothing downstream can mistake this for a verified exchange
 feed. **Do not reuse this calendar for any packet whose
@@ -23,7 +24,7 @@ miscounted holiday would silently shift an action packet's real deadline.
 
 Each session closes at 16:00 `Australia/Sydney`, converted to UTC via
 `zoneinfo` (AEST/AEDT-aware) — the same convention
-`results-review-contracts-2026-08-16.md` SS8 fixes for the historical
+`results-review-contracts-2026-08-16.md` §8 fixes for the historical
 calendar. This module writes its own anchor helper rather than importing
 `pit_db.py`'s private `_session_close_utc` — the two calendars are
 independent sources (observed-past vs. synthesized-future) and should not
