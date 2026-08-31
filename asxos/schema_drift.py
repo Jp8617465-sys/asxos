@@ -91,6 +91,12 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "decision_packets": (
+        "0048 — authored for the Slice 1 decision-spine mission "
+        "(docs/proposals/architecture-decision-record.md SS6/SS10.5); the "
+        "authoring agent is allow-listed to mcp__supabase-ro__* (read-only) "
+        "only, so apply_migration is reserved to James"
+    ),
 }
 
 
