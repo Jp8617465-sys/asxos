@@ -166,8 +166,23 @@ and they are distinguishable:
   run log's install step shows the versions; compare against the last green run.
 - **A date-dependent test.** 15:17 UTC puts the UTC date and the Sydney date on
   different calendar days year-round — that is deliberate, and it is exactly the
-  bug class this run exists to surface. See the 61 open bare `date.today()` call
-  sites.
+  bug class this run exists to surface. Bare `date.today()` is banned in
+  `asxos/`, `jobs/` and `scripts/` by an AST guard
+  (`tests/test_no_bare_date_today.py`) that fails CI on any new call; every
+  former call site goes through `asxos/clock.py::today()`, which resolves the
+  date in `settings.asxos_tz` (Sydney) rather than on the UTC runner. So if a
+  failure here involves a wall-clock date, ask which side of that line the code
+  is on: something is reaching the UTC runner's day (`date.today()`, or a
+  `datetime.now()` without a zone) where it should be reaching `clock.today()`.
+  The only permitted bare calls are the two tax allow-list sites,
+  `asxos/domain/tax/positions.py` and `asxos/domain/tax/cgt.py` — the sweep
+  stopped at `asxos/domain/tax/` by ADR constraint, and each is a
+  `today = today or date.today()` injectable default that every caller
+  overrides and every test pins, so no test exercises the bare path. They are
+  not harmless (a CGT disposal evaluated a day early can flip the 12-month
+  discount, spec §5.1); converting them needs a tax-spec review, not a sweep,
+  and the guard fails if an allow-listed site is converted without being
+  removed from the list.
 
 ---
 
