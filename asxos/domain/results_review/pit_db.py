@@ -175,6 +175,32 @@ def _as_date(value: object) -> date:
     return date.fromisoformat(str(value))
 
 
+def _prior_period_end(period_end: date) -> date:
+    """The same calendar date one year earlier.
+
+    One helper rather than the expression inline, because BOTH
+    ``fetch_pit_snapshot`` (which SELECTs the prior row) and ``build_pit_case``
+    (which names it in ``missing_evidence`` and on the prior EvidenceItem)
+    derive it. Two copies of a date computation that must agree is how a
+    snapshot ends up fetched for one year and labelled with another.
+
+    A Feb-29 ``period_end`` has no same-date prior year, and the bare
+    ``date(...)`` call raises ``ValueError`` — an exception type nothing on this
+    path catches, so it would escape as a traceback rather than as this module's
+    own refusal. Clamping to Feb 28 (or Mar 1) is not obviously right and no
+    caller could tell which was chosen, so it refuses instead — the same posture
+    as ``build_pit_case``'s "refusing to slide to an older year". Rare against
+    ASX fiscal calendars; the point is the failure mode, not the frequency.
+    """
+    try:
+        return date(period_end.year - 1, period_end.month, period_end.day)
+    except ValueError as exc:
+        raise ResultsReviewAdapterError(
+            f"period_end {period_end.isoformat()} has no same-date prior year "
+            "(leap day); refusing to guess Feb 28 vs Mar 1"
+        ) from exc
+
+
 def _session_close_utc(day: date) -> datetime:
     return datetime(day.year, day.month, day.day, 16, 0, tzinfo=_SYDNEY).astimezone(UTC)
 
@@ -224,7 +250,7 @@ async def fetch_pit_snapshot(
         )
 
     current = await conn.fetchrow(SQL_INCOME, symbol, period_end, period_type)
-    prior_end = date(period_end.year - 1, period_end.month, period_end.day)
+    prior_end = _prior_period_end(period_end)
     prior = await conn.fetchrow(SQL_INCOME, symbol, prior_end, period_type)
     pit = await conn.fetchrow(SQL_PIT, symbol, period_end, cutoff)
     session_rows = await conn.fetch(SQL_SESSIONS, symbol, cutoff)
@@ -234,7 +260,26 @@ async def fetch_pit_snapshot(
             return None
         out: dict[str, object] = {}
         for key, raw in mapping.items():
-            if key == "line_items" or key in _FORBIDDEN:
+            # SUBSTRING, matching assert_sql_admissible's test against the same
+            # tuple -- not `key in _FORBIDDEN`, which was exact tuple membership.
+            # _FORBIDDEN carries prefix entries ("tax_", "thesis_") that only
+            # mean anything as substrings, so under exact matching those two
+            # were dead here while live in the sibling check: `tax_rate` passed
+            # this gate and would have been refused by the other. Two tests of
+            # one list must not disagree about what the list means.
+            #
+            # `key == "line_items"` is gone with it -- "line_items" is already a
+            # _FORBIDDEN entry, and that special case only existed to work
+            # around this same asymmetry.
+            #
+            # Verified against every column the four SQL constants select
+            # (symbol, period_end, period_type, statement_type, filing_date,
+            # report_date, currency, total_revenue, net_income, as_of,
+            # knowledge_date, revenue_ttm, net_income_ttm): none contains a
+            # _FORBIDDEN token, so nothing admissible starts failing. Re-check
+            # that if a SELECT list ever widens.
+            lowered = key.lower()
+            if any(token in lowered for token in _FORBIDDEN):
                 raise ResultsReviewAdapterError(f"forbidden column {key!r}")
             if isinstance(raw, float):
                 raise ResultsReviewAdapterError(f"float in column {key!r}")
@@ -330,7 +375,7 @@ def build_pit_case(
         current = None
         current_known = None
 
-    prior_end = date(period_end.year - 1, period_end.month, period_end.day)
+    prior_end = _prior_period_end(period_end)
     prior_known = _known_at_for_income(
         prior if isinstance(prior, Mapping) else None,
         as_of=as_of,
