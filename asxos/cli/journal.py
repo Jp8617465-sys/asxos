@@ -5,6 +5,7 @@ import asyncio
 import typer
 from rich.table import Table
 
+from asxos import clock
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
@@ -30,7 +31,6 @@ def journal_add(
 
 
 async def _run_journal_add(symbol: str | None, action: str, rationale: str, tax_note: str) -> None:
-    from datetime import date as _date
 
     await init_pool()
     try:
@@ -46,7 +46,7 @@ async def _run_journal_add(symbol: str | None, action: str, rationale: str, tax_
                 RETURNING id, decision_date
                 """,
                 symbol,
-                _date.today(),
+                clock.today(),
                 action,
                 rationale,
                 None,
@@ -72,13 +72,12 @@ def journal_list(
 
 
 async def _run_journal_list(days: int, symbol: str | None) -> None:
-    from datetime import date as _date
     from datetime import timedelta
 
     await init_pool()
     try:
         async with acquire() as conn:
-            cutoff = _date.today() - timedelta(days=days)
+            cutoff = clock.today() - timedelta(days=days)
             if symbol:
                 rows = await conn.fetch(
                     """
@@ -139,13 +138,12 @@ def journal_review(
 
 
 async def _run_journal_review(stale_days: int) -> None:
-    from datetime import date as _date
     from datetime import timedelta
 
     await init_pool()
     try:
         async with acquire() as conn:
-            cutoff = _date.today() - timedelta(days=stale_days)
+            cutoff = clock.today() - timedelta(days=stale_days)
             rows = await conn.fetch(
                 """
                 SELECT id, symbol, decision_date, action, rationale, signal_ref

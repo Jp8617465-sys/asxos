@@ -31,9 +31,34 @@ READ-ONLY IS ENFORCED BY POSTGRES, NOT BY THIS FILE
     and the server as the guarantee.
 
     Consequence worth stating plainly: allowlisting this script grants **read**
-    access to everything in the database, including the tax and holdings tables.
-    It cannot grant write access. Widening to writes is a separate decision that
-    this file deliberately cannot express.
+    access to everything in the database -- the tax and holdings tables, and also
+    ``signals`` / ``signal_outcomes`` / ``model_versions``. It cannot grant write
+    access. Widening to writes is a separate decision that this file deliberately
+    cannot express.
+
+RULE #11 AND THE MODEL A TABLES
+    Naming those three explicitly, because this is the one read surface the repo
+    has a standing rule about and a blast-radius paragraph that stops at "tax and
+    holdings" reads like they were considered and excluded.
+
+    Rule #11 forbids *using* Model A output as a basis for real capital
+    decisions. It does not forbid reading the rows -- the decay analysis that
+    settled the dispute was itself a read of 19,032 ``signal_outcomes``. So this
+    is a stated blast radius, not a violation, and no table blocklist is added
+    here. Contrast ``asxos/domain/results_review/pit_db.py``, which DOES carry a
+    ``_FORBIDDEN`` list naming these tables: that module builds an artifact whose
+    whole claim is model-independence, so a read there would falsify the output.
+    A general-purpose query tool has no such claim to protect, and a blocklist on
+    it would be theatre -- trivially routed around by anyone who can already type
+    SQL, while blocking the legitimate reads (a second decay check, a coverage
+    count) that resolving Model A actually needs.
+
+    One thing that IS worth knowing: this script connects on ``DATABASE_URL``,
+    which is not the MCP session's role. So the planned repoint of MCP to
+    ``asxos_agent_ro`` followed by ``REVOKE ... ON signals`` does **not** reach
+    this path -- it keeps reading ``signals`` afterwards unless it is pointed at
+    the same restricted DSN. If that repoint is meant to be the mechanical
+    control rather than a control on paper, this script has to move with it.
 
 UNTRUSTED OUTPUT
     Rows are printed verbatim into an agent transcript, and some of this database

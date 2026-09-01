@@ -18,6 +18,7 @@ from asxos.domain.results_review.pit_db import (
     SQL_PIT,
     SQL_SECURITY,
     SQL_SESSIONS,
+    _prior_period_end,
     adapt_pit_snapshot,
     assert_sql_admissible,
     build_pit_case,
@@ -261,3 +262,125 @@ async def test_fetch_pit_snapshot_uses_bound_parameters() -> None:
     assert all("$1" in call[0] for call in conn.calls)
     assert all("signals" not in call[0].lower() for call in conn.calls)
     assert conn.calls[0][1][0] == "BHP.AU"
+
+
+# ---------------------------------------------------------------------------
+# _prior_period_end — the leap-day refusal, at both call sites
+# ---------------------------------------------------------------------------
+
+
+def test_prior_period_end_normal_year() -> None:
+    assert _prior_period_end(date(2024, 6, 30)) == date(2023, 6, 30)
+    assert _prior_period_end(date(2025, 1, 1)) == date(2024, 1, 1)
+    # 2024 is a leap year and 2023 is not, but Feb 28 exists in both.
+    assert _prior_period_end(date(2024, 2, 28)) == date(2023, 2, 28)
+
+
+def test_prior_period_end_refuses_leap_day() -> None:
+    """Feb 29 has no same-date prior year.
+
+    The pre-2026-08-23 inline ``date(year - 1, ...)`` raised a bare ``ValueError``
+    here — an exception type nothing on this path catches, so it escaped as a
+    traceback instead of as this module's refusal.
+    """
+    with pytest.raises(ResultsReviewAdapterError, match="leap day"):
+        _prior_period_end(date(2024, 2, 29))
+
+
+@pytest.mark.asyncio
+async def test_fetch_pit_snapshot_refuses_leap_day_period_end() -> None:
+    """The fetch call site surfaces the refusal, not a ValueError."""
+    conn = _FakeConn([{"symbol": "BHP.AU"}, None])
+    with pytest.raises(ResultsReviewAdapterError, match="leap day"):
+        await fetch_pit_snapshot(
+            conn,
+            symbol="BHP.AU",
+            period_end=date(2024, 2, 29),
+            cutoff=date(2025, 8, 21),
+        )
+
+
+def test_build_pit_case_refuses_leap_day_period_end() -> None:
+    """The build call site does too — and reaches the refusal before the
+    'no admissible yearly income' raise, so the message names the real cause."""
+    snap = _snapshot()
+    assert isinstance(snap["income_current"], dict)
+    snap["period_end"] = "2024-02-29"
+    snap["income_current"]["period_end"] = "2024-02-29"
+    with pytest.raises(ResultsReviewAdapterError, match="leap day"):
+        build_pit_case(snap, cutoff=_cutoff())
+
+
+# ---------------------------------------------------------------------------
+# _row's forbidden-column test — substring, matching assert_sql_admissible
+# ---------------------------------------------------------------------------
+
+
+def _conn_returning_income(row: dict[str, object]) -> _FakeConn:
+    sessions = [{"dt": date(2025, 8, 22) + timedelta(days=i)} for i in range(30)]
+    return _FakeConn([{"symbol": "BHP.AU"}, row, None, None, sessions])
+
+
+@pytest.mark.asyncio
+async def test_row_refuses_a_prefix_forbidden_column() -> None:
+    """``tax_rate`` matches the ``tax_`` prefix entry.
+
+    Under the previous ``key in _FORBIDDEN`` (exact tuple membership) this
+    passed, while ``assert_sql_admissible`` — testing the SAME tuple by
+    substring — would have refused it. The two tests of one list now agree.
+    """
+    conn = _conn_returning_income(
+        {
+            "symbol": "BHP.AU",
+            "period_end": date(2024, 6, 30),
+            "tax_rate": Decimal("0.30"),
+        }
+    )
+    with pytest.raises(ResultsReviewAdapterError, match="forbidden column 'tax_rate'"):
+        await fetch_pit_snapshot(
+            conn,
+            symbol="BHP.AU",
+            period_end=date(2024, 6, 30),
+            cutoff=date(2025, 8, 21),
+        )
+
+
+@pytest.mark.asyncio
+async def test_row_accepts_every_admissible_column() -> None:
+    """The substring test must not start rejecting columns the SELECTs return.
+
+    Every column name across SQL_INCOME and SQL_PIT, in one row — the guard
+    against tightening _row into a false positive. If a SELECT list widens,
+    add the new column here.
+    """
+    sessions = [{"dt": date(2025, 8, 22) + timedelta(days=i)} for i in range(30)]
+    income = {
+        "symbol": "BHP.AU",
+        "period_end": date(2024, 6, 30),
+        "period_type": "yearly",
+        "statement_type": "income",
+        "filing_date": date(2024, 8, 20),
+        "report_date": date(2024, 8, 15),
+        "currency": "AUD",
+        "total_revenue": Decimal("55000000000"),
+        "net_income": Decimal("7900000000"),
+    }
+    pit = {
+        "symbol": "BHP.AU",
+        "as_of": date(2024, 6, 30),
+        "knowledge_date": date(2024, 8, 20),
+        "revenue_ttm": Decimal("55000000000"),
+        "net_income_ttm": Decimal("7900000000"),
+        "currency": "AUD",
+    }
+    conn = _FakeConn([{"symbol": "BHP.AU"}, income, None, pit, sessions])
+    snap = await fetch_pit_snapshot(
+        conn,
+        symbol="BHP.AU",
+        period_end=date(2024, 6, 30),
+        cutoff=date(2025, 8, 21),
+    )
+    assert isinstance(snap["income_current"], dict)
+    assert set(snap["income_current"]) == set(income)
+    assert isinstance(snap["pit_current"], dict)
+    assert set(snap["pit_current"]) == set(pit)
