@@ -1,7 +1,14 @@
 # Runbook — second GitHub identity for agent-authored PRs
 
-**Status:** current · awaiting James's execution (every step below is interactive-browser work only the account owner can do — verified three ways in PR #140: no GitHub MCP path, read-only integration token, no token-authenticated App-creation route)
-**Why:** the review gate is structurally inert with one identity. `Jp8617465-sys` is both the author of every agent PR and the sole CODEOWNER; GitHub forbids self-approval, so the only reachable states are gate-everything (deadlock) or gate-nothing (today — PR #137 merged touching `CLAUDE.md` with zero review). Demonstrated, not theoretical.
+> **SUPERSEDED as the chosen path, 2026-08-24 (Amendment G ruling 2).** James
+> picked a GitHub App over a second account. The standing procedure is
+> `docs/product/runbooks/arbi-approver-github-app.md`. This file is kept as
+> the rejected alternative (author-side identity) so the CODEOWNERS-on-
+> James-authored-PRs caveat in that runbook has somewhere to point. Do not
+> create `asxos-agent`. Do not mint a second-account PAT.
+
+**Status:** superseded as chosen path · retained as rejected alternative
+**Why (still true):** the review gate is structurally inert with one identity. `Jp8617465-sys` is both the author of every agent PR and the sole CODEOWNER; GitHub forbids self-approval, so the only reachable states are gate-everything (deadlock) or gate-nothing (today — PR #137 merged touching `CLAUDE.md` with zero review). Demonstrated, not theoretical. The App path solves the *approver* side of that deadlock, not the *author* side.
 **What this buys:** author/approver **separation** — required reviews become mechanically enforceable. It does **not** buy a second pair of eyes; James still reads every diff himself.
 **Source spec:** PR #140's appendix ("the least-technical route"); this runbook is the standing copy so the procedure survives that PR's merge-or-close.
 
