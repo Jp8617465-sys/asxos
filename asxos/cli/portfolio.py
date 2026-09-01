@@ -6,6 +6,7 @@ from datetime import date
 import typer
 from rich.table import Table
 
+from asxos import clock
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
@@ -314,7 +315,7 @@ def portfolio_paper_review(
     weekly during the paper-trading window (plan Part 0 Q3 / M13.8).
     """
     _require_personal_use()
-    _today = date.fromisoformat(today) if today else date.today()
+    _today = date.fromisoformat(today) if today else clock.today()
     asyncio.run(_run_portfolio_paper_review(weeks=weeks, today=_today))
 
 
@@ -392,7 +393,7 @@ def portfolio_signoff(
 async def _run_portfolio_signoff(*, note: str, force: bool) -> None:
     from asxos.domain.portfolio.paper_trade import has_enough_paper_weeks, record_signoff
 
-    today = date.today()
+    today = clock.today()
 
     await init_pool()
     try:

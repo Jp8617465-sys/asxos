@@ -31,6 +31,8 @@ from defusedxml.ElementTree import (  # type: ignore[import-untyped]  # no stubs
     fromstring as _safe_fromstring,
 )
 
+from asxos import clock
+
 # Symbol regex — ASX tickers are 3 to 5 uppercase letters. `.AU` suffix
 # is the asxos convention; events may carry the bare ticker so we capture
 # the bare form and normalise downstream.
@@ -93,7 +95,7 @@ def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> 
                 # flow into the brief/alert render paths (07-18 audit).
                 title=title[:500],
                 url=link,
-                published_at=_parse_date(pub_str) or date.today(),
+                published_at=_parse_date(pub_str) or clock.today(),
                 summary=summary[:2000],
                 symbols=extract_symbols(f"{title} {summary}"),
                 kind=classify_kind(title, summary, default_kind),
@@ -127,7 +129,7 @@ def parse_json_announcements(payload: list[dict[str, Any]], *, source: str = "AS
                 source=source,
                 title=title[:500],
                 url=url,
-                published_at=_parse_date(released) or date.today(),
+                published_at=_parse_date(released) or clock.today(),
                 summary=(item.get("description") or "")[:2000],
                 symbols=symbols,
                 kind=classify_kind(title, "", "disclosure"),

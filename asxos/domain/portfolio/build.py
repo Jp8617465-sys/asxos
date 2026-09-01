@@ -30,6 +30,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
+from asxos import clock
 from asxos.domain.models.production_gate import resolve_production_model
 from asxos.domain.portfolio import allocator as _allocator
 from asxos.domain.portfolio import constraints as _constraints
@@ -185,7 +186,7 @@ class PortfolioService:
                 "(plan H.1 CRITICAL-5)"
             )
 
-        build_date = as_of or date.today()
+        build_date = as_of or clock.today()
 
         # Step 2. Governance Section 4.4 Step B / plan H.1 CRITICAL-4: resolve the
         # single active+approved_for_allocation model. Gate condition + error
@@ -456,7 +457,7 @@ class PortfolioService:
 
     async def list_runs(self, conn: Any, days: int = 30) -> list[dict[str, Any]]:
         """List rebalance runs from the last ``days`` days, newest first."""
-        cutoff = date.today() - timedelta(days=days)
+        cutoff = clock.today() - timedelta(days=days)
         rows = await conn.fetch(
             """
             SELECT r.run_id, r.as_of, r.signals_as_of, r.model_version,

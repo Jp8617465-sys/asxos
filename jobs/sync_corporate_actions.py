@@ -16,8 +16,8 @@ Usage:
 import argparse
 import asyncio
 import logging
-from datetime import date
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.corporate_actions import refresh_corporate_actions
@@ -84,7 +84,7 @@ async def main() -> None:
     parser.add_argument("--symbols", type=str, default=None, help="comma-separated symbols")
     args = parser.parse_args()
 
-    today = date.today()
+    today = clock.today()
     await init_pool()
     client = get_client()
 

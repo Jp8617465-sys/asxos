@@ -18,6 +18,7 @@ from decimal import Decimal
 
 import asyncpg
 
+from asxos import clock
 from asxos.domain.governance import transitions as governance_transitions
 from asxos.domain.governance.agent_run_guards import load_unacted_run, mark_run_acted
 from asxos.domain.themes.types import CoverageSegment, Theme, ThemeHolding
@@ -106,7 +107,7 @@ async def create_theme(
         raise ValueError("description is required for a theme")
 
     now = _now_utc()
-    _started = started_at or date.today()
+    _started = started_at or clock.today()
 
     row = await conn.fetchrow(
         """
@@ -392,7 +393,7 @@ async def retire_theme(
     Sets retired_at to the given date (default: today). The theme row is
     preserved — history is not deleted.
     """
-    _retired = retired_at or date.today()
+    _retired = retired_at or clock.today()
     row = await conn.fetchrow(
         """
         UPDATE themes
@@ -612,7 +613,7 @@ async def create_theme_from_agent_run(
             proposal.description,
             proposal.conviction_band,
             proposal.stage,
-            date.today(),
+            clock.today(),
             now,
             proposal.macro_thesis_id,
             run_id,

@@ -24,6 +24,7 @@ import os
 from datetime import date, timedelta
 from decimal import Decimal
 
+from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.jobs._helpers import require_personal_use_job
@@ -180,5 +181,5 @@ if __name__ == "__main__":
     parser.add_argument("--as-of", metavar="YYYY-MM-DD", help="Date override (default: yesterday)")
     args = parser.parse_args()
 
-    as_of = date.fromisoformat(args.as_of) if args.as_of else date.today() - timedelta(days=1)
+    as_of = date.fromisoformat(args.as_of) if args.as_of else clock.today() - timedelta(days=1)
     asyncio.run(_run(as_of))

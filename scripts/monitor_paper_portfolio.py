@@ -32,6 +32,7 @@ from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.portfolio.monitor import CostModel, PerfReport, compute_report
@@ -314,7 +315,7 @@ async def run_one(
 
 
 async def main(args: argparse.Namespace) -> None:
-    eval_as_of: date = args.as_of or date.today()
+    eval_as_of: date = args.as_of or clock.today()
     cost = CostModel(
         commission_bps=Decimal(str(args.commission_bps)),
         slippage_bps=Decimal(str(args.slippage_bps)),

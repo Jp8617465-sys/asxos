@@ -60,7 +60,7 @@ class Thesis:
     enter_thesis() hard-fails if either is None.
 
     timeline_days: days from opened_at to expected exit.
-    Compute day-N-of-M: (date.today() - opened_at.date()).days
+    Compute day-N-of-M: (clock.today() - opened_at.date()).days
     Compute deadline:    opened_at.date() + timedelta(days=timeline_days)
     None for research status.
 

@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import asyncpg
 
+from asxos import clock
 from asxos.domain.portfolio.types import ProposedTrade
 
 # ---------------------------------------------------------------------------
@@ -245,7 +246,7 @@ async def list_evaluable_runs(
     list is ordered most-recent first.
     """
     if today is None:
-        today = date.today()
+        today = clock.today()
 
     cutoff = today - timedelta(days=weeks * 7)
     rows = await conn.fetch(
@@ -320,7 +321,7 @@ async def has_enough_paper_weeks(
     alone (e.g. for a manual override path).
     """
     if today is None:
-        today = date.today()
+        today = clock.today()
     window_open = today - timedelta(days=maturation_weeks * 7)
 
     matured = await conn.fetchval(
@@ -365,7 +366,7 @@ async def record_signoff(
     takes effect on the next scheduled run.
     """
     if as_of is None:
-        as_of = date.today()
+        as_of = clock.today()
 
     parts = [
         "[m13_paper_signoff] Operator signed off ≥4 weeks of paper trading.",
