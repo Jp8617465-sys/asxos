@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>asxos brief detail — {{ d.as_of }}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 640px; margin: 1em auto; color: #222; }
+    h1 { font-size: 1.2em; margin: 0 0 0.4em; }
+    h2 { font-size: 1em; margin: 1.2em 0 0.3em; text-transform: uppercase; letter-spacing: 0.04em; color: #555; }
+    .meta { color: #666; font-size: 0.9em; margin-bottom: 0.8em; }
+    .banner { background: #fee; border-left: 4px solid #c00; padding: 0.6em 0.8em; margin-bottom: 1em; }
+    .caveat { background: #eef3fb; border-left: 4px solid #36c; padding: 0.5em 0.8em; margin: 0.6em 0; font-size: 0.85em; color: #334; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+    th, td { border-bottom: 1px solid #eee; padding: 0.35em 0.5em; text-align: left; }
+    th { background: #f7f7f7; }
+    .empty { color: #888; font-style: italic; }
+    .status-CLEAR         { color: #0a6; }
+    .status-ATTENTION     { color: #c50; font-weight: 600; }
+    .status-BLOCKED       { color: #c00; font-weight: 600; }
+    .status-EVIDENCE_THIN { color: #666; font-weight: 600; }
+    .sentiment-positive  { color: #0a6; }
+    .sentiment-negative  { color: #c00; }
+    .disc-red            { color: #c00; font-weight: 600; }
+    .disc-yellow         { color: #c50; }
+    .disc-info           { color: #666; }
+    h3 { font-size: 0.92em; margin: 0.9em 0 0.2em; color: #333; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .gain { color: #0a6; }
+    .loss { color: #c00; }
+    .unavailable { color: #888; font-style: italic; }
+    {# A class, not an inline `style="font-size:..."`, because section 8's text is
+       grep-asserted against the advice vocabulary and `\bsize\b` is on that list —
+       an inline style attribute would trip the firewall test on a CSS property
+       name. Keeping the declaration up here keeps the section's rendered text
+       free of incidental vocabulary. #}
+    .footnote { font-size: 0.8em; color: #888; }
+    .integrity { font-size: 0.85em; color: #444; margin: 0 0 0.8em; }
+    .integrity-warn { background: #fff6e5; border-left: 4px solid #c50; padding: 0.6em 0.8em; color: #432; }
+    .sec-FRESH { color: #0a6; }
+    .sec-STALE { color: #c50; font-weight: 600; }
+    .sec-MISSING { color: #c00; font-weight: 600; }
+    .sec-EMPTY { color: #888; }
+  </style>
+</head>
+<body>
+  <h1>asxos brief detail — {{ d.as_of }}</h1>
+  {# One headline state, from the four-value review vocabulary
+     (asxos/domain/review/status.py). Never a trade direction. #}
+  <p class="meta">
+    Review: <strong class="status-{{ d.review.status }}">{{ d.review.status }}</strong>
+    · Holdings: {{ d.holdings_count }}
+    {# Names exactly what this date covers. It is the latest complete day in
+       `prices`; every other section is computed on the calendar as_of, so
+       "evidence as of" would claim a provenance no query backs. #}
+    · Prices complete to: {{ d.data_as_of or "unavailable" }}
+  </p>
+
+  {# Stage 0 integrity / lineage line. Always present. Warning chrome when
+     core prices are STALE or MISSING — not a footnote. Health-report
+     (Review) stays in the meta line above. #}
+  <table role="presentation" class="integrity{% if d.core_untrusted %} integrity-warn{% endif %}" id="integrity-line">
+    <tr>
+      <td>
+        <strong>Integrity</strong>
+        · prices as-of {{ d.data_as_of or "unavailable" }}
+        {%- for name, sec in d.resolved_sections.items() %}
+        · {{ name }}: <span class="sec-{{ sec.status }}">{{ sec.status }}</span>
+        {%- endfor %}
+      </td>
+    </tr>
+  </table>
+
+  <p class="caveat">
+    <strong>Evidence only.</strong> This brief is model-independent. It reports one of
+    CLEAR / ATTENTION / BLOCKED / EVIDENCE_THIN over your own theses, your holdings'
+    discipline checks, price freshness and this system's job health. Tax and CGT facts
+    are printed as evidence but never move the status. It carries no ranking, no
+    scoring, and no instruction to act on any holding.
+  </p>
+
+  {# Every unknown is printed, never defaulted away. A brief that cannot see
+     something says so; it does not quietly render a neutral value. #}
+  {% if d.review.unknowns %}
+  <div class="banner">
+    <strong>Data freshness warning.</strong> Unknown or unavailable — stated, not assumed:
+    <ul>
+      {% for u in d.review.unknowns %}
+      <li>{{ u }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if d.has_failures %}
+  <div class="banner">
+    <strong>Job problems since the previous brief.</strong>
+    <ul>
+      {% for f in d.job_failures %}
+      <li>
+        {%- if f.kind == "stuck" %}<strong>STUCK</strong> — {% endif -%}
+        <code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if d.discipline_findings %}
+  <h2>Portfolio discipline</h2>
+  {% set disc_errors = d.discipline_findings | selectattr("level", "equalto", "error") | list %}
+  {% set disc_items = d.discipline_findings | rejectattr("level", "equalto", "error") | list %}
+  {% if disc_errors %}
+  <div class="banner">
+    <strong>Discipline checks that could not run.</strong>
+    <ul>
+      {% for f in disc_errors %}
+      <li>{{ f.message }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if disc_items %}
+  <ul>
+    {% for f in disc_items %}
+    <li class="disc-{{ f.level }}">{{ f.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
+
+  {# Section 8 — outcome vs benchmark.
+
+     The HTML comment delimiters below are load-bearing for the s766B firewall
+     test, not decoration. The advice-vocabulary grep has to run over THIS
+     section's text alone: the rest of the page legitimately prints "Portfolio
+     discipline", "holdings" and the CLEAR/ATTENTION/BLOCKED review tokens, all
+     of which appear in the frozen vocabulary list. A whole-page assertion would
+     therefore have to be weakened to nothing. Markers are emitted
+     unconditionally so the extraction never depends on the section's own state.
+
+     Nothing here derives from `signals`, `shap_factors`, `prob_up` or any model
+     (rule #11), and nothing here is an instruction — it is arithmetic on James's
+     own acquisition record. #}
+  <!-- outcome:start -->
+  {% if d.outcome_error %}
+  <h2>Outcome vs benchmark</h2>
+  <div class="banner">
+    <strong>This measurement could not run.</strong> {{ d.outcome_error }}
+  </div>
+  {% elif d.outcome_section %}
+  {% set oc = d.outcome_section %}
+  <h2>Outcome vs benchmark</h2>
+  <p class="meta">
+    Return since acquisition, per open lot, stated in AUD as at {{ oc.as_of }}.
+    Each lot is measured from its own acquisition record against the latest close —
+    never from a snapshot balance, which moves with money paid in or taken out and
+    is therefore not a return.
+  </p>
+  {% for s in oc.sleeves %}
+  <h3>{{ s.label }}</h3>
+  <p class="meta">Benchmark: {{ s.benchmark_label }}</p>
+  {% if s.lots %}
+  <table>
+    <tr>
+      <th>Lot</th>
+      <th>Acquired</th>
+      <th class="num">Units</th>
+      <th class="num">Cost base A$</th>
+      <th class="num">Value A$</th>
+      <th class="num">Return</th>
+      <th class="num">Benchmark</th>
+      <th class="num">Alpha</th>
+    </tr>
+    {% for lot in s.lots %}
+    <tr>
+      <td>{{ lot.symbol }} #{{ lot.lot_id }}</td>
+      <td>{{ lot.acquired_at }}</td>
+      <td class="num">{{ "%g"|format(lot.quantity) }}</td>
+      <td class="num">{{ "%.2f"|format(lot.cost_base_aud) }}</td>
+      {# Every unavailable cell prints its reason. A dash or a zero here would be
+         indistinguishable from a measured flat result — see
+         `asxos/domain/benchmark/outcome.py`'s docstring. #}
+      <td class="num">
+        {%- if lot.market_value_aud is not none -%}
+          {{ "%.2f"|format(lot.market_value_aud) }}
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+      <td class="num">
+        {%- if lot.lot_return is not none -%}
+          <span class="{{ 'gain' if lot.lot_return >= 0 else 'loss' }}">{{ "%+.2f"|format(lot.lot_return * 100) }}%</span>
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+      <td class="num">
+        {%- if lot.benchmark_return is not none -%}
+          {{ "%+.2f"|format(lot.benchmark_return * 100) }}%
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+      <td class="num">
+        {%- if lot.alpha is not none -%}
+          <span class="{{ 'gain' if lot.alpha >= 0 else 'loss' }}">{{ "%+.2f"|format(lot.alpha * 100) }}%</span>
+        {%- else -%}
+          <span class="unavailable">unavailable</span>
+        {%- endif -%}
+      </td>
+    </tr>
+    {% if lot.return_note or lot.benchmark_note or lot.benchmark_window or lot.priced_at %}
+    <tr>
+      <td colspan="8" class="unavailable">
+        {# The valuation date is printed whenever there is one. "Value A$ 7,603.20"
+           with no date invites the reader to assume today; naming the close date
+           makes the measurement window visible on the page rather than only
+           enforced in code. #}
+        {%- if lot.priced_at %}Valued to {{ lot.priced_at }}.{% endif -%}
+        {%- if lot.benchmark_window %} Window {{ lot.benchmark_window[0] }} → {{ lot.benchmark_window[1] }}.{% endif -%}
+        {%- if lot.return_note %} {{ lot.return_note }}{% endif -%}
+        {%- if lot.benchmark_note %} Benchmark: {{ lot.benchmark_note }}{% endif -%}
+      </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">{{ s.empty_note }}</p>
+  {% endif %}
+  {% endfor %}
+  <p class="footnote">
+    Measurement only — arithmetic on your own acquisition record and the latest close.
+    It carries no ranking, no instruction, and no view on what to do next.
+    For personal use only (s766B Corporations Act 2001).
+  </p>
+  {% endif %}
+  <!-- outcome:end -->
+
+  {# The "Signal changes on holdings" section that sat here rendered the Model A
+     label ladder (STRONG_BUY … STRONG_SELL) and its top SHAP driver. It was
+     retired whole by mission P1-04 (manifest A6) rather than emptied, because an
+     empty section header still advertises an engine that no longer exists. #}
+
+  <h2>Regulatory hits on holdings (last 24h)</h2>
+  {% if d.regulatory_hits %}
+  <ul>
+    {% for r in d.regulatory_hits %}
+    <li><strong>{{ r.symbol }}</strong> · {{ r.source }} ({{ r.kind }}): {{ r.title }} — {{ r.published_at }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No regulatory hits on current holdings.</p>
+  {% endif %}
+
+  {# News renders its STATE, never silence. An omitted section reads as "nothing
+     happened", which is indistinguishable from a broken pipeline — the 2026-08
+     false-green shape. Only `quiet` may assert that no news was found. #}
+  {# A positive allowlist, not `!= "disabled"`: news_status is a bare str, so an
+     unrecognised value must fall through to the omitted section rather than
+     render the "unverified" copy by default. Fail closed on the gated branch. #}
+  {% if d.news_status in ("ok", "quiet", "unverified") %}
+  <h2>Market news on holdings (last 24h)</h2>
+  {% if d.news_status == "ok" %}
+  <ul>
+    {% for n in d.news_items %}
+    <li>
+      <strong>{{ n.symbols | join(", ") }}</strong> ·
+      <a href="{{ n.url }}">{{ n.title }}</a>
+      {# Publisher before the date: who said it changes what the headline is
+         worth. Omitted entirely when the URL has no parseable host, rather
+         than printing an empty or invented attribution. #}
+      {% if n.source %}— <span class="source">{{ n.source }}</span>{% endif %}
+      — {{ n.published_at }}
+      {% if n.sentiment %}<em class="sentiment-{{ n.sentiment }}">({{ n.sentiment }})</em>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif d.news_status == "quiet" %}
+  <p class="empty">No qualifying news found for current holdings in the last 24h.
+    News ingestion ran and reported no degradation.</p>
+  {% else %}
+  <p class="empty">News unavailable — ingestion has not been verified in the last
+    24h, so the absence of items here is <strong>not</strong> evidence that there
+    was no news.</p>
+  {% endif %}
+  {% endif %}
+
+  {% if d.portfolio_section %}
+  {% set p = d.portfolio_section %}
+  <h2>Portfolio adjustments (run #{{ p.run_id }} · {{ p.run_as_of }})</h2>
+  <p class="meta">
+    Turnover ${{ "%.0f"|format(p.turnover_aud) }} ·
+    Buys +${{ "%.0f"|format(p.total_buy_aud) }} ·
+    Sells ${{ "%.0f"|format(p.total_sell_aud) }}
+  </p>
+  {% if p.top_buys %}
+  <table>
+    <tr><th colspan="2">Top buys</th></tr>
+    {% for t in p.top_buys %}
+    <tr>
+      <td>{{ t.symbol }}</td>
+      <td style="text-align:right">+${{ "%.0f"|format(t.delta_aud) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  {% if p.top_sells %}
+  <table style="margin-top:0.4em">
+    <tr><th colspan="2">Top sells</th></tr>
+    {% for t in p.top_sells %}
+    <tr>
+      <td>{{ t.symbol }}</td>
+      <td style="text-align:right">${{ "%.0f"|format(t.delta_aud) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  <p style="font-size:0.8em;color:#888;">
+    For personal use only (s766B Corporations Act 2001).
+    Run <code>asx propose-trades --run-id {{ p.run_id }}</code> for full details.
+  </p>
+  {% endif %}
+</body>
+</html>

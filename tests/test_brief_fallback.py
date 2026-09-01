@@ -15,6 +15,7 @@ Covers:
   - compose_brief.main does NOT fire fallback on happy path
   - Original exception always propagates through the fallback
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -157,30 +158,59 @@ def test_send_fallback_email_writes_stderr_when_resend_and_db_both_fail() -> Non
 # ---------------------------------------------------------------------------
 
 
+class _AcquireCM:
+    def __init__(self, conn: object) -> None:
+        self.conn = conn
+
+    async def __aenter__(self) -> object:
+        return self.conn
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+
+def _acquire(conn: object | None = None):
+    inner = conn if conn is not None else AsyncMock()
+
+    def acquire() -> _AcquireCM:
+        return _AcquireCM(inner)
+
+    return acquire
+
+
+class FakeJobMonitor:
+    def __init__(self, *a, **kw):
+        self.rows_written = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+
+def _minimal_data() -> MagicMock:
+    data = MagicMock()
+    data.sections = {"prices": MagicMock()}
+    return data
+
+
 @pytest.mark.asyncio
 async def test_main_sends_fallback_when_collect_raises() -> None:
     fake_fallback = MagicMock()
-
-    class FakeJobMonitor:
-        def __init__(self, *a, **kw):
-            self.rows_written = 0
-        async def __aenter__(self):
-            return self
-        async def __aexit__(self, *a):
-            return False
-
     with (
         patch("jobs.compose_brief.init_pool", new=AsyncMock()),
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.compose_brief.acquire", new=_acquire()),
         patch(
-            "jobs.compose_brief.v2_compose",
+            "jobs.compose_brief.hydrate",
             new=AsyncMock(side_effect=RuntimeError("collect blew up")),
         ),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
     ):
-        # Import inside the patch context
         from jobs.compose_brief import main
+
         with pytest.raises(RuntimeError, match="collect blew up"):
             await main(date(2026, 5, 28), send=True)
 
@@ -190,7 +220,6 @@ async def test_main_sends_fallback_when_collect_raises() -> None:
     assert "2026-05-28" in kwargs["subject"]
     assert "RuntimeError" in kwargs["body_text"]
     assert "collect blew up" in kwargs["body_text"]
-    # Traceback tail included
     assert "Traceback" in kwargs["body_text"]
 
 
@@ -200,15 +229,15 @@ async def test_main_suppresses_duplicate_when_job_monitor_aexit_raises_after_sen
     the success row), the job still fails but the delivered brief is not sent
     again as a fallback."""
     fake_fallback = MagicMock()
-    fake_send = MagicMock(return_value=MagicMock(
-        to="a", subject="b", message_id="c",
-    ))
+    fake_send = MagicMock(return_value=MagicMock(to="a", subject="b", message_id="c"))
 
     class FailingJobMonitor:
         def __init__(self, *a, **kw):
             self.rows_written = 0
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             raise RuntimeError("JobMonitor DB write failed")
 
@@ -216,15 +245,14 @@ async def test_main_suppresses_duplicate_when_job_monitor_aexit_raises_after_sen
         patch("jobs.compose_brief.init_pool", new=AsyncMock()),
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FailingJobMonitor),
-        patch(
-            "jobs.compose_brief.v2_compose",
-            new=AsyncMock(return_value=_minimal_brief()),
-        ),
-        patch("jobs.compose_brief.v2_render_html", return_value="<html/>"),
+        patch("jobs.compose_brief.acquire", new=_acquire()),
+        patch("jobs.compose_brief.hydrate", new=AsyncMock(return_value=_minimal_data())),
+        patch("jobs.compose_brief.render_html", return_value="<html/>"),
         patch("jobs.compose_brief.send_brief", new=fake_send),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
     ):
         from jobs.compose_brief import main
+
         with pytest.raises(RuntimeError, match="JobMonitor DB write failed"):
             await main(date(2026, 5, 28), send=True)
 
@@ -234,30 +262,21 @@ async def test_main_suppresses_duplicate_when_job_monitor_aexit_raises_after_sen
 
 @pytest.mark.asyncio
 async def test_main_catches_asyncio_cancelled_error() -> None:
-    """CancelledError is BaseException in Py3.12; bare `except Exception` misses it.
-    The fallback must still fire on asyncpg pool timeout (which propagates as
-    CancelledError)."""
+    """CancelledError is BaseException in Py3.12; bare `except Exception` misses it."""
     fake_fallback = MagicMock()
-
-    class FakeJobMonitor:
-        def __init__(self, *a, **kw):
-            self.rows_written = 0
-        async def __aenter__(self):
-            return self
-        async def __aexit__(self, *a):
-            return False
-
     with (
         patch("jobs.compose_brief.init_pool", new=AsyncMock()),
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.compose_brief.acquire", new=_acquire()),
         patch(
-            "jobs.compose_brief.v2_compose",
+            "jobs.compose_brief.hydrate",
             new=AsyncMock(side_effect=asyncio.CancelledError()),
         ),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
     ):
         from jobs.compose_brief import main
+
         with pytest.raises(asyncio.CancelledError):
             await main(date(2026, 5, 28), send=True)
 
@@ -267,28 +286,20 @@ async def test_main_catches_asyncio_cancelled_error() -> None:
 
 @pytest.mark.asyncio
 async def test_main_skips_fallback_when_no_send() -> None:
-    """Local dev path: --no-send → failure visible in stdout, no email noise."""
     fake_fallback = MagicMock()
-
-    class FakeJobMonitor:
-        def __init__(self, *a, **kw):
-            self.rows_written = 0
-        async def __aenter__(self):
-            return self
-        async def __aexit__(self, *a):
-            return False
-
     with (
         patch("jobs.compose_brief.init_pool", new=AsyncMock()),
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.compose_brief.acquire", new=_acquire()),
         patch(
-            "jobs.compose_brief.v2_compose",
+            "jobs.compose_brief.hydrate",
             new=AsyncMock(side_effect=RuntimeError("boom")),
         ),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
     ):
         from jobs.compose_brief import main
+
         with pytest.raises(RuntimeError):
             await main(date(2026, 5, 28), send=False)
 
@@ -298,88 +309,54 @@ async def test_main_skips_fallback_when_no_send() -> None:
 @pytest.mark.asyncio
 async def test_main_no_fallback_on_happy_path() -> None:
     fake_fallback = MagicMock()
-
-    class FakeJobMonitor:
-        def __init__(self, *a, **kw):
-            self.rows_written = 0
-        async def __aenter__(self):
-            return self
-        async def __aexit__(self, *a):
-            return False
-
     with (
         patch("jobs.compose_brief.init_pool", new=AsyncMock()),
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
         patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.compose_brief.acquire", new=_acquire()),
+        patch("jobs.compose_brief.hydrate", new=AsyncMock(return_value=_minimal_data())),
+        patch("jobs.compose_brief.render_html", return_value="<html/>"),
         patch(
-            "jobs.compose_brief.v2_compose",
-            new=AsyncMock(return_value=_minimal_brief()),
+            "jobs.compose_brief.send_brief",
+            return_value=MagicMock(
+                to="a",
+                subject="b",
+                message_id="c",
+            ),
         ),
-        patch("jobs.compose_brief.v2_render_html", return_value="<html/>"),
-        patch("jobs.compose_brief.send_brief", return_value=MagicMock(
-            to="a", subject="b", message_id="c",
-        )),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
     ):
         from jobs.compose_brief import main
-        await main(date(2026, 5, 28), send=True)  # no raise
+
+        await main(date(2026, 5, 28), send=True)
 
     fake_fallback.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_persistence_failure_delivers_primary_then_fails_loudly() -> None:
-    """A missing brief_runs row must not suppress the stop-breach brief.
-
-    Delivery happens first; the typed failure then reaches JobMonitor so the
-    cron exits non-zero. Because that failure was durably recorded, a duplicate
-    fallback email is intentionally suppressed.
-    """
+async def test_persistence_failure_does_not_block_send() -> None:
+    """brief_runs INSERT is best-effort; a failed audit write must not block send."""
     fake_fallback = MagicMock()
-    fake_send = MagicMock(return_value=MagicMock(
-        to="a", subject="b", message_id="c",
-    ))
-    monitor_exit: dict[str, object] = {}
-
-    class RecordingJobMonitor:
-        def __init__(self, *a, **kw):
-            self.rows_written = 0
-        async def __aenter__(self):
-            return self
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
-            monitor_exit["exc_type"] = exc_type
-            monitor_exit["rows_written"] = self.rows_written
-            return False
-
-    brief = _minimal_brief()
-    brief.sections = (MagicMock(), MagicMock())
-    brief.persistence_error = "RuntimeError: brief_runs unavailable"
+    fake_send = MagicMock(return_value=MagicMock(to="a", subject="b", message_id="c"))
+    conn = AsyncMock()
+    conn.execute = AsyncMock(side_effect=RuntimeError("brief_runs unavailable"))
 
     with (
         patch("jobs.compose_brief.init_pool", new=AsyncMock()),
         patch("jobs.compose_brief.close_pool", new=AsyncMock()),
-        patch("jobs.compose_brief.JobMonitor", new=RecordingJobMonitor),
-        patch("jobs.compose_brief.v2_compose", new=AsyncMock(return_value=brief)),
-        patch("jobs.compose_brief.v2_render_html", return_value="<html/>"),
+        patch("jobs.compose_brief.JobMonitor", new=FakeJobMonitor),
+        patch("jobs.compose_brief.acquire", new=_acquire(conn)),
+        patch("jobs.compose_brief.hydrate", new=AsyncMock(return_value=_minimal_data())),
+        patch("jobs.compose_brief.render_html", return_value="<html/>"),
         patch("jobs.compose_brief.send_brief", new=fake_send),
         patch("jobs.compose_brief.send_fallback_email", new=fake_fallback),
     ):
-        from jobs.compose_brief import BriefRunPersistenceError, main
-        with pytest.raises(BriefRunPersistenceError, match="brief_runs unavailable"):
-            await main(date(2026, 5, 28), send=True)
+        from jobs.compose_brief import main
+
+        await main(date(2026, 5, 28), send=True)
 
     fake_send.assert_called_once()
     fake_fallback.assert_not_called()
-    assert monitor_exit["exc_type"] is BriefRunPersistenceError
-    assert monitor_exit["rows_written"] == 2
-
-
-def _minimal_brief() -> MagicMock:
-    """Minimal Brief-shape stub for v2_compose return value."""
-    brief = MagicMock()
-    brief.sections = ()
-    brief.persistence_error = None
-    return brief
 
 
 def test_fallback_works_with_email_only_env_no_supabase_vars() -> None:

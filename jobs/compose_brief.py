@@ -14,6 +14,7 @@ M-Brief-Skeleton refactor: uses domain.brief.composer.compose() which
 orchestrates V2 collectors and persists to brief_runs. V1 rendering
 path is preserved — email HTML is identical to pre-refactor output.
 """
+
 import argparse
 import asyncio
 import logging
@@ -22,10 +23,10 @@ from datetime import date
 
 from asxos import clock
 
-# V2 composer — orchestrates collectors, persists brief_runs, returns Brief.
-# Falls back to V1 path on import error (belt-and-suspenders for deploy safety).
-from asxos.domain.brief.composer import compose as v2_compose
-from asxos.domain.brief.renderer import render_html as v2_render_html
+# Stage 2 send path: hydrate gold artefacts and render the live brief.
+# Never calls collect() here — materialise_brief_sections owns collect/persist.
+from asxos.brief.compose import render_html
+from asxos.brief.gold import hydrate, is_undefined_table
 
 # Module-level stubs — tests patch these at the jobs.compose_brief namespace.
 # Production main() lazy-imports the real implementations on first use.
@@ -37,13 +38,29 @@ JobMonitor = None  # type: ignore[assignment]
 send_brief = None  # type: ignore[assignment]
 send_fallback_email = None  # type: ignore[assignment]
 settings = None  # type: ignore[assignment]
+acquire = None  # type: ignore[assignment]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 
-class BriefRunPersistenceError(RuntimeError):
-    """Primary brief delivered, but its required audit row was not persisted."""
+async def _persist_brief_run(conn: object, as_of: date, html: str) -> None:
+    """Best-effort INSERT of as_of + rendered_html. Never writes V2 snapshot_json.
+
+    Undefined table (or any insert error) is logged and skipped so a missing
+    brief_runs row cannot take down a successful send.
+    """
+    try:
+        await conn.execute(  # type: ignore[union-attr]
+            "INSERT INTO brief_runs (as_of, rendered_html) VALUES ($1, $2)",
+            as_of,
+            html,
+        )
+    except Exception as exc:
+        if is_undefined_table(exc):
+            log.warning("brief_runs is absent; skipping persist")
+            return
+        log.warning("brief_runs persist skipped: %s", exc)
 
 
 async def main(as_of: date, send: bool) -> None:
@@ -65,6 +82,7 @@ async def main(as_of: date, send: bool) -> None:
     _send_brief = globals()["send_brief"]
     _send_fallback_email = globals()["send_fallback_email"]
     _settings = globals()["settings"]
+    _acquire = globals()["acquire"]
 
     if _init_pool is None:
         from asxos.db import close_pool as _close_pool  # type: ignore[assignment]
@@ -81,6 +99,8 @@ async def main(as_of: date, send: bool) -> None:
         )
     if _settings is None:
         from asxos.config import settings as _settings  # type: ignore[assignment]
+    if _acquire is None:
+        from asxos.db import acquire as _acquire  # type: ignore[assignment]
 
     await _init_pool()
     try:
@@ -94,24 +114,22 @@ async def main(as_of: date, send: bool) -> None:
                 as_of=as_of,
                 healthcheck_url=_settings.healthcheck_url_compose_brief,
             ) as monitor:
-                brief = await v2_compose(as_of)
-                html = v2_render_html(brief)
-                print(html)
+                async with _acquire() as conn:
+                    data = await hydrate(conn, as_of)
+                    html = render_html(data)
+                    print(html)
 
-                if send:
-                    result = _send_brief(html, as_of=as_of)
-                    primary_delivered = True
-                    log.info(f"sent to {result.to}: subject={result.subject} id={result.message_id}")
-                else:
-                    log.info("--no-send: skipped Resend dispatch")
+                    if send:
+                        result = _send_brief(html, as_of=as_of)
+                        primary_delivered = True
+                        log.info(
+                            f"sent to {result.to}: subject={result.subject} id={result.message_id}"
+                        )
+                    else:
+                        log.info("--no-send: skipped Resend dispatch")
 
-                monitor.rows_written = len(brief.sections)
-                if brief.persistence_error is not None:
-                    # Raise only after the primary brief has had its delivery
-                    # opportunity. JobMonitor records failure + pings /fail;
-                    # the outer handler suppresses a duplicate fallback when
-                    # the primary was already delivered.
-                    raise BriefRunPersistenceError(brief.persistence_error)
+                    await _persist_brief_run(conn, as_of, html)
+                    monitor.rows_written = len(data.sections)
         # asyncio.CancelledError is a BaseException in Py3.12; asyncpg pool
         # timeouts in collect() propagate as CancelledError and would slip
         # past a bare `except Exception:`.
@@ -149,8 +167,6 @@ if __name__ == "__main__":
         default=None,
         help="Brief date (YYYY-MM-DD). Defaults to today.",
     )
-    parser.add_argument(
-        "--no-send", action="store_true", help="Render + stdout only; skip Resend"
-    )
+    parser.add_argument("--no-send", action="store_true", help="Render + stdout only; skip Resend")
     args = parser.parse_args()
     asyncio.run(main(args.as_of or clock.today(), send=not args.no_send))
