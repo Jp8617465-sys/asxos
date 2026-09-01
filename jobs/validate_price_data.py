@@ -24,6 +24,7 @@ import asyncio
 import os
 from datetime import date
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.coverage import latest_complete_trading_day
@@ -232,6 +233,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Validate price data quality")
     parser.add_argument("--as-of", metavar="YYYY-MM-DD", help="Date override (default: today)")
     args = parser.parse_args()
-    as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
+    as_of = date.fromisoformat(args.as_of) if args.as_of else clock.today()
     # An explicit --as-of means "validate exactly this day" — no anchoring.
     asyncio.run(_run(as_of, anchor=args.as_of is None))

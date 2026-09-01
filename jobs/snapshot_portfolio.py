@@ -48,6 +48,7 @@ import logging
 from datetime import date, timedelta
 from decimal import Decimal
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.coverage import latest_complete_trading_day
@@ -408,7 +409,7 @@ async def main(as_of_arg: date | None, from_date: date | None) -> None:
     try:
         if from_date is not None:
             # Backfill: one JobMonitor per weekday, tracked independently.
-            today = date.today()
+            today = clock.today()
             current = from_date
             while current < today:
                 if current.weekday() < 5:

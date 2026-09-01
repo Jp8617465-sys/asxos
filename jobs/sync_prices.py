@@ -23,6 +23,7 @@ import asyncio
 import logging
 from datetime import date, timedelta
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.coverage import (
@@ -242,7 +243,7 @@ async def _sync_fx_rates(from_date: date, client, conn) -> int:
 
 
 async def main(from_date: date | None) -> None:
-    today = date.today()
+    today = clock.today()
 
     await init_pool()
     client = get_client()
