@@ -4,9 +4,13 @@
 **Scope:** a single trace of how a decision travels across the governance docs, the agent
 and command layer, the hooks, and the code seams. `docs/README.md` maps *which doc governs
 which area*; this file maps *how a decision moves through the areas*.
-**Last verified:** 2026-08-30 (every `file:line` below re-verified at write time)
+**Last verified:** 2026-09-01 (every `file:line` below re-verified at write time, 2026-08-30;
+§1, §4C and §6 re-verified against `main` `f10b392` on 2026-09-01)
 **Owner:** James (governor). Descriptive only — it grants nothing and binds nothing.
 **Superseded by:** N/A
+**Revisions:** 2026-09-01 — §1 workflow count 12 → 13 (`nightly-check.yml`, PR #169); §4C
+caveat corrected in place for PR #183 (decision spine persisted, migration `0048` applied);
+§6 gains the `0048` append-only-trigger row. Corrections of fact only — no new ruling.
 
 > **Self-demotion clause — read this before citing anything here.**
 > This is a **`compiled_view`** in the sense of `doc-truth-map-2026-08-13.md:48`: a
@@ -54,10 +58,13 @@ roadmap and arbi producing a portfolio memo are different authorities; collapsin
 let track record earned on docs unlock something capital-adjacent.
 
 **Where decisions execute.** GitHub Actions is the scheduler — Render was deleted 2026-08-12
-(CLAUDE.md non-negotiable #2). Twelve workflows: `daily-brief`, `weekly-research`,
+(CLAUDE.md non-negotiable #2). Thirteen workflows: `daily-brief`, `weekly-research`,
 `us-positions`, `pipeline-health`, `backup`, `issue-snapshot`, `migration-drift`,
-`migration-integration`, `full-check`, `targeted-ml-tests`, `claude-execute`,
-`pr-review-agent`. A decision that never reaches one of these never executes.
+`migration-integration`, `nightly-check` (15:17 UTC daily — the full pytest suite against
+`main` on a fixed clock, with a Healthchecks deadman ping on success so a run that never
+happens is as visible as one that fails; PR #169), `full-check`, `targeted-ml-tests`,
+`claude-execute`, `pr-review-agent`. A decision that never reaches one of these never
+executes.
 
 **The organising principle is not autonomy.** `arbi-constitution.md:57`: the line is
 **reversible vs irreversible**. Broad standing autonomy for reversible work (read, prioritise,
@@ -254,9 +261,35 @@ citation chain — thesis→evidence, challenge→thesis, challenge→evidence �
 cite a challenge that examined a different thesis.
 
 **Honest caveat, required whenever this is cited:** these are the **frozen canonical
-contracts** — *"deliberately independent of databases, agents, and renderers"* (`types.py:3`).
-They define what a valid capital decision looks like. They are **not yet a live end-to-end
-capital pipeline**.
+contracts** — *"deliberately independent of databases, agents, and renderers"* (`types.py:3`,
+unchanged). They define what a valid capital decision looks like. As first written
+(2026-08-30) they were *not yet a live end-to-end capital pipeline*; since PR #183 (`main`
+`f10b392`, 2026-09-01) they are **persisted end-to-end for one symbol** — a live
+**persistence spine**, still **not a live *capital* pipeline**:
+
+- `asxos/domain/decision_engine/repository.py` (`save` / `load` / `load_case` /
+  `supersede`) writes the five-artifact chain into the five append-only tables of
+  `migrations/0048_decision_packets.sql` — **APPLIED** 2026-09-01, ledger version
+  `20260901062502`. Every table carries a `BEFORE UPDATE OR DELETE` trigger
+  (`_decision_engine_forbid_mutation()`) that hard-fails any mutation; `supersede()` inserts
+  a new row pointing at the old one and never touches it. Reconstruction is *exclusively*
+  `model_validate(payload)`, never a shadow column — a `NUMERIC(18,6)` round-trip can change
+  the string form of an equal value and silently break `verify_content_hash()`.
+- `builder.py::build_cba_decision_case` composes the first real packet,
+  `dpk-cba-1-2026-09-01` (CBA.AU, `thesis_id=1`), from the live `theses` row and
+  research-store fundamentals. It is persisted and **live-verified**: content hash valid
+  after the DB round-trip, upstream hash bindings hold, and the trigger rejected a test
+  `UPDATE`.
+- The packet is honestly **`abstain`**, and could not be anything else: no independent
+  challenger exists until Slice 2.5 (`architecture-decision-record.md` §6), and
+  `tax_assessment_reference.readiness` is honestly `unknown` — there is no real
+  dividend/realised-gains feed, so the builder reuses `unresolved_tax_assessment_reference()`
+  rather than fabricate a `pass`. Under the gate above, an action state therefore remains
+  **mechanically impossible** until Slice 2.5 lands.
+
+*(One live drift instance, same class as §4D: `repository.py`'s module docstring still
+describes migration `0048` as "NOT YET APPLIED". The migration header and the ledger are the
+truth.)*
 
 ### D. A discipline finding reaching James
 
@@ -397,6 +430,7 @@ The honest split. `arbi-permission-model.md` §Runtime enforcement honesty is th
 | Control | What it actually stops |
 |---|---|
 | Postgres audit triggers (0034/0036) | A governance status change with no audit row, or written in the wrong order |
+| Postgres append-only triggers (0048) | Any `UPDATE`/`DELETE` on a persisted decision-engine artifact — a packet can only be superseded, never edited (§4C) |
 | `production_gate.py` + `build.py:209-213` | Allocation when no model is approved |
 | `job_monitor.py:131-132` | A deliberate dormancy paging as an outage |
 | Pydantic validators (`types.py`) | An invalid capital decision being representable at all |
