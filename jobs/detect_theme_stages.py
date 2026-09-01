@@ -25,6 +25,7 @@ import json
 import sys
 from datetime import UTC, date, datetime
 
+from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.themes.stage_classifier import (
     CLASSIFIER_VERSION,
@@ -174,7 +175,7 @@ async def _process_theme(conn, theme_id: int, theme_code: str, current_suggested
 
 
 async def main() -> None:
-    as_of = date.today()
+    as_of = clock.today()
     updated = 0
 
     await init_pool()

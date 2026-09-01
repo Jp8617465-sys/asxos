@@ -34,10 +34,32 @@
        name. Keeping the declaration up here keeps the section's rendered text
        free of incidental vocabulary. #}
     .footnote { font-size: 0.8em; color: #888; }
+    .integrity { font-size: 0.85em; color: #444; margin: 0 0 0.8em; }
+    .integrity-warn { background: #fff6e5; border-left: 4px solid #c50; padding: 0.6em 0.8em; color: #432; }
+    .sec-FRESH { color: #0a6; }
+    .sec-STALE { color: #c50; font-weight: 600; }
+    .sec-MISSING { color: #c00; font-weight: 600; }
+    .sec-EMPTY { color: #888; }
+    .bluf { font-size: 1.15em; font-weight: 600; margin: 0.8em 0; }
+    .delta { font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
   <h1>asxos brief — {{ d.as_of }}</h1>
+
+  {# Stage 1: integrity first — lineage is a precondition, not a footnote. #}
+  <table role="presentation" class="integrity{% if d.core_untrusted %} integrity-warn{% endif %}" id="integrity-line">
+    <tr>
+      <td>
+        <strong>Integrity</strong>
+        · prices as-of {{ d.data_as_of or "unavailable" }}
+        {%- for name, sec in d.resolved_sections.items() %}
+        · {{ name }}: <span class="sec-{{ sec.status }}">{{ sec.status }}</span>
+        {%- endfor %}
+      </td>
+    </tr>
+  </table>
+
   {# One headline state, from the four-value review vocabulary
      (asxos/domain/review/status.py). Never a trade direction. #}
   <p class="meta">
@@ -70,24 +92,12 @@
   </div>
   {% endif %}
 
-  {% if d.has_failures %}
-  <div class="banner">
-    <strong>Job problems since the previous brief.</strong>
-    <ul>
-      {% for f in d.job_failures %}
-      <li>
-        {%- if f.kind == "stuck" %}<strong>STUCK</strong> — {% endif -%}
-        <code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
+  <p class="bluf" id="bluf">{{ d.bluf }}</p>
 
-  {% if d.discipline_findings %}
+  {% if d.exception_findings %}
   <h2>Portfolio discipline</h2>
-  {% set disc_errors = d.discipline_findings | selectattr("level", "equalto", "error") | list %}
-  {% set disc_items = d.discipline_findings | rejectattr("level", "equalto", "error") | list %}
+  {% set disc_errors = d.exception_findings | selectattr("level", "equalto", "error") | list %}
+  {% set disc_items = d.exception_findings | rejectattr("level", "equalto", "error") | list %}
   {% if disc_errors %}
   <div class="banner">
     <strong>Discipline checks that could not run.</strong>
@@ -105,6 +115,56 @@
     {% endfor %}
   </ul>
   {% endif %}
+  {% endif %}
+
+  <h2>Deltas</h2>
+  {% if d.has_failures %}
+  <div class="banner">
+    <strong>Job problems since the previous brief.</strong>
+    <ul>
+      {% for f in d.job_failures %}
+      <li>
+        {%- if f.kind == "stuck" %}<strong>STUCK</strong> — {% endif -%}
+        <code>{{ f.job_name }}</code> ({{ f.as_of }}): {{ f.error_message }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if d.deltas and d.deltas.current and d.deltas.prior %}
+  <p class="meta">
+    Book levels {{ d.deltas.prior.as_of }} → {{ d.deltas.current.as_of }}.
+    Figures are changes in snapshot levels, not a return.
+  </p>
+  <table class="delta">
+    <tr><th>Level</th><th class="num">Prior</th><th class="num">Current</th><th class="num">Delta</th></tr>
+    <tr>
+      <td>Capital (AUD)</td>
+      <td class="num">{{ "%.2f"|format(d.deltas.prior.capital_aud) }}</td>
+      <td class="num">{{ "%.2f"|format(d.deltas.current.capital_aud) }}</td>
+      <td class="num">{{ "%+.2f"|format(d.deltas.capital_delta) }}</td>
+    </tr>
+    <tr>
+      <td>Holdings MV (AUD)</td>
+      <td class="num">{{ "%.2f"|format(d.deltas.prior.holdings_mv_aud) }}</td>
+      <td class="num">{{ "%.2f"|format(d.deltas.current.holdings_mv_aud) }}</td>
+      <td class="num">{{ "%+.2f"|format(d.deltas.holdings_mv_delta) }}</td>
+    </tr>
+    <tr>
+      <td>Cash (AUD)</td>
+      <td class="num">{{ "%.2f"|format(d.deltas.prior.cash_aud) }}</td>
+      <td class="num">{{ "%.2f"|format(d.deltas.current.cash_aud) }}</td>
+      <td class="num">{{ "%+.2f"|format(d.deltas.cash_delta) }}</td>
+    </tr>
+    <tr>
+      <td>Holdings count</td>
+      <td class="num">{{ d.deltas.prior.holdings_count }}</td>
+      <td class="num">{{ d.deltas.current.holdings_count }}</td>
+      <td class="num">{{ "%+d"|format(d.deltas.holdings_count_delta) }}</td>
+    </tr>
+  </table>
+  {% else %}
+  <p class="empty">No prior snapshot to compare.</p>
   {% endif %}
 
   {# Section 8 — outcome vs benchmark.
@@ -300,5 +360,6 @@
     Run <code>asx propose-trades --run-id {{ p.run_id }}</code> for full details.
   </p>
   {% endif %}
+  <p class="footnote">Full tables: <code>asx brief --as-of {{ d.as_of }} --detail</code></p>
 </body>
 </html>

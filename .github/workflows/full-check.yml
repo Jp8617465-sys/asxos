@@ -12,11 +12,27 @@ name: full-check
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/ops/github-issues-snapshot.json"
   push:
     branches:
       - main
       - "claude/**"
+    paths-ignore:
+      - "docs/ops/github-issues-snapshot.json"
   workflow_dispatch:
+
+# Ref-scoped, unlike the static singleton groups on the scheduled workflows
+# (backup, daily-brief, …). Those exist to stop a job overlapping ITSELF; a
+# static group here would serialise every branch behind one queue and cancel
+# nothing. Superseded runs measured 2026-08-23: 26 of the last 100 runs were
+# still in flight when a later push landed on the same branch.
+#
+# `main` never cancels — it is the continuous-deploy trigger, and a cancelled
+# run there would leave the deployed state unverified.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -27,12 +43,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
+          # No requirements.txt in this repo — pyproject.toml is the manifest
+          # (PEP 621), so it is what the cache key hashes. The heavy half of the
+          # install is the ml extra (lightgbm/shap/scikit-learn; shap builds
+          # llvmlite), which is why caching is worth a step here at all.
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
 
       - name: Install (ml + dev extras)
         run: |

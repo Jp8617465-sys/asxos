@@ -1,0 +1,87 @@
+# Nightly full-suite run against main.
+#
+# Why this exists when full-check.yml already runs the same suite: full-check
+# fires on push/PR, so it only ever sees the days and times someone happens to
+# push. This runs 7 days a week on a fixed clock, which is what surfaces
+# weekend- and trading-day-dependent assumptions — the class of bug that passes
+# every weekday PR run and fails on a Saturday.
+#
+# It also watches main itself. full-check's last word on main is whatever the
+# merge commit said; a dependency resolving differently a week later (this repo
+# does not pin transitively) changes nothing in git and is invisible until the
+# next push. A scheduled run on a fixed ref is the only thing that catches it.
+#
+# The heartbeat step is the point of the `if: success()` guard: Healthchecks
+# alerts on a MISSING ping, so a run that is delayed, silently dropped by
+# GitHub, or disabled outright fires the deadman even though no job ever ran to
+# report its own failure. A workflow that can only report failures it is alive
+# to observe is not a watchdog — the same argument pipeline-health.yml makes for
+# living outside daily-brief.yml.
+#
+# Honest limitations, stated rather than discovered later:
+#   - `schedule:` only fires from the default branch, so this file must merge to
+#     main before the schedule is live. workflow_dispatch works immediately.
+#   - GitHub cron is best-effort. Its docs state runs "can be delayed during
+#     periods of high loads" and that "some queued jobs may be dropped." The
+#     off-the-hour minute below reduces that exposure; it does not remove it.
+#     The heartbeat is what makes a dropped run visible rather than silent.
+#   - HC_NIGHTLY_URL left unset skips the ping silently, matching existing
+#     JobMonitor behaviour. GitHub's own run-failure notifications cover the
+#     failure case in the interim, but NOT the never-ran case.
+
+name: nightly-check
+
+on:
+  schedule:
+    # 15:17 UTC daily. Two deliberate choices:
+    #   :17 — off the top of the hour, where GitHub's documented scheduler
+    #         backlog concentrates.
+    #   15  — puts the UTC date and the Sydney date on different calendar days
+    #         year-round, across both AEST (+10) and AEDT (+11). Any code that
+    #         conflates "today" in the two zones fails here and nowhere else.
+    - cron: "17 15 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  nightly-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install (ml + dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ml,dev]"
+
+      - name: Test (full pytest suite)
+        run: python -m pytest -q
+
+      - name: Heartbeat
+        if: success()
+        run: |
+          set -euo pipefail
+          if [ -z "${HC_NIGHTLY_URL:-}" ]; then
+            echo "HC_NIGHTLY_URL unset — skipping deadman ping."
+            exit 0
+          fi
+          curl -fsS -m 10 --retry 3 "$HC_NIGHTLY_URL"
+        env:
+          HC_NIGHTLY_URL: ${{ secrets.HC_NIGHTLY_URL }}

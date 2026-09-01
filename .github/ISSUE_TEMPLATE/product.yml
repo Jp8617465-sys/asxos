@@ -1,0 +1,86 @@
+name: Product engineering
+description: A shippable change to application behaviour. Estimable.
+labels: ["type:product"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Definition of Ready** — all six must hold before this leaves `backlog` for `ready`.
+        Applies to agent-opened tickets without exception.
+
+  - type: dropdown
+    id: approval_tier
+    attributes:
+      label: Approval tier
+      description: L1 auto-fix + auto-merge (≤50 lines, protected paths guarded). L2 agent implements, opens PR, waits. L3 diagnosis only until explicit approval.
+      options:
+        - L1
+        - L2
+        - L3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options: [pipeline, ml, db, cli, email, cron, screens]
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / outcome
+      description: One sentence. The problem and why it matters now — not the feature. Include the "so that".
+      placeholder: "Screens can't be trusted because backtests silently use post-revision prices, so I can't act on their output."
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Files to touch (expected)
+      description: Paths, or the literal string "unknown — spike first". Do not leave blank.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (Given/When/Then)
+      description: These become the tests. Write them so they can be executed.
+      value: |
+        Given <state>
+        When <action>
+        Then <observable result>
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: Explicit no-gos. This is the scope-drift guard — be specific.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of done
+      options:
+        - label: "`make check` green (ruff + mypy + pytest)"
+        - label: Conventional commit
+        - label: Acceptance criteria demonstrably met by a test
+        - label: PR merged
+
+  - type: checkboxes
+    id: guards
+    attributes:
+      label: Standing constraints (ADR §7 anti-scope)
+      options:
+        - label: No changes under `asxos/domain/tax/`, no Decimal→float, no NUMERIC column changes
+        - label: No new agents, commands, or skills
+        - label: No new files under `docs/`

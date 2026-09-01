@@ -21,6 +21,7 @@ import os
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
+from asxos import clock
 from asxos.clients.fred import get_client as get_fred_client
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.regime.classifier import CLASSIFIER_VERSION, classify
@@ -359,4 +360,4 @@ async def _run(as_of: date) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(_run(date.today()))
+    asyncio.run(_run(clock.today()))

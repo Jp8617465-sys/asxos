@@ -23,9 +23,10 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 
-TODAY = date.today()
+TODAY = clock.today()
 SCORECARD_PATH = Path(__file__).resolve().parents[1] / "docs/product/product-health-scorecard.md"
 
 

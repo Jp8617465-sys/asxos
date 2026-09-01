@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Not sure which type?
+    url: https://github.com
+    about: "product = shippable behaviour change. data-infra = schema/migration/write-path (always L3). research = an open question, timeboxed, output is a decision not code."

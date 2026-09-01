@@ -33,6 +33,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -197,5 +198,5 @@ if __name__ == "__main__":
     parser.add_argument("--as-of", metavar="YYYY-MM-DD", help="Date override (default: today)")
     args = parser.parse_args()
 
-    as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
+    as_of = date.fromisoformat(args.as_of) if args.as_of else clock.today()
     asyncio.run(_run(as_of))
