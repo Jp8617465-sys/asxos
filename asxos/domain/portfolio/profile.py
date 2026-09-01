@@ -13,12 +13,12 @@ module itself is importable without the flag — tests don't need it set.
 from __future__ import annotations
 
 import json
-from datetime import date
 from decimal import Decimal
 from typing import Any
 
 import asyncpg
 
+from asxos import clock
 from asxos.domain.portfolio.types import (
     DEFAULT_SCORE_WEIGHTS,
     RISK_TOLERANCE_SCALARS,
@@ -161,7 +161,7 @@ async def save(
     `is_active=FALSE`.
     """
     weights = score_weights_json or dict(DEFAULT_SCORE_WEIGHTS)
-    today = date.today()
+    today = clock.today()
 
     # Construct and validate via the dataclass before hitting the DB.
     Profile(

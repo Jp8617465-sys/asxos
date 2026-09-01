@@ -21,7 +21,9 @@ Regulatory firewall: raises RuntimeError if ASXOS_PERSONAL_USE != "1"
 import asyncio
 import logging
 import os
-from datetime import date, timedelta
+from datetime import timedelta
+
+from asxos import clock
 
 # asxos.ingestion.news is stdlib + asyncpg only — safe at module level.
 from asxos.ingestion.news import ParseStats, parse_news_response_with_stats, upsert_news
@@ -114,7 +116,7 @@ async def _fetch_and_upsert(
             eodhd_symbol(symbol), limit=10, from_date=from_date
         )
         items, stats = parse_news_response_with_stats(
-            raw, holdings=holdings, as_of=date.today(), requested_symbol=symbol
+            raw, holdings=holdings, as_of=clock.today(), requested_symbol=symbol
         )
         dropped_total = (
             stats.dropped_no_match
@@ -179,7 +181,7 @@ async def main() -> None:
             init_pool as _init_pool,
         )
 
-    today = date.today()
+    today = clock.today()
     await _init_pool()
     try:
         async with _acquire() as conn:

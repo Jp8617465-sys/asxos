@@ -32,10 +32,10 @@ import asyncio
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date
 
 import httpx
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.regulatory import parse_rss, upsert_events
@@ -160,7 +160,7 @@ def _degraded_note(
 
 
 async def main() -> None:
-    today = date.today()
+    today = clock.today()
     await init_pool()
     try:
         async with JobMonitor(

@@ -46,6 +46,7 @@ try:
 except ImportError as exc:
     sys.exit(f"Missing dependency: {exc}\nRun: pip3.12 install numpy pandas scipy")
 
+from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.eodhd import get_client
 
@@ -395,7 +396,7 @@ def write_report(results: list[dict], as_of: date, months: int) -> str:
 # ---------------------------------------------------------------------------
 
 async def _run(symbols_arg: str | None, months: int, dry_run: bool) -> None:
-    today = date.today()
+    today = clock.today()
     from_date = today - timedelta(days=months * 30)
     from_date_str = from_date.isoformat()
 

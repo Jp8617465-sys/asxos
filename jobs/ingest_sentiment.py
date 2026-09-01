@@ -23,6 +23,7 @@ import logging
 import os
 from datetime import date
 
+from asxos import clock
 from asxos.jobs._helpers import UpstreamBlocked
 
 # ---------------------------------------------------------------------------
@@ -131,7 +132,7 @@ async def main(allow_stale_upstream: bool = False) -> None:
             init_pool as _init_pool,
         )
 
-    today = date.today()
+    today = clock.today()
     await _init_pool()
     try:
         async with _acquire() as conn:

@@ -20,6 +20,7 @@ from datetime import date
 
 import asyncpg
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.fundamentals_pit import (
@@ -78,7 +79,7 @@ async def main() -> None:
     args = parser.parse_args()
     symbols = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
 
-    today = date.today()
+    today = clock.today()
     await init_pool()
 
     async with JobMonitor(
