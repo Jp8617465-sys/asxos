@@ -13,6 +13,7 @@ from datetime import date
 
 import typer
 
+from asxos import clock
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.portfolio.profile import load_active
@@ -77,7 +78,7 @@ async def _monitor_async(
     regime: str | None,
     intraday: bool = False,
 ) -> None:
-    run_date = date.fromisoformat(as_of_str) if as_of_str else date.today()
+    run_date = date.fromisoformat(as_of_str) if as_of_str else clock.today()
 
     console.print(f"[bold]Fetching price data for {symbol}…[/bold]")
     try:

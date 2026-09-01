@@ -17,6 +17,7 @@ import asyncio
 import logging
 from datetime import date
 
+from asxos import clock
 from asxos.brief.compose import collect
 from asxos.brief.gold import persist
 from asxos.brief.section import SECTION_ORDER
@@ -72,4 +73,4 @@ if __name__ == "__main__":
         help="Brief date (YYYY-MM-DD). Defaults to today.",
     )
     args = parser.parse_args()
-    asyncio.run(main(args.as_of or date.today()))
+    asyncio.run(main(args.as_of or clock.today()))

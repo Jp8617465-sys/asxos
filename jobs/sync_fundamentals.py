@@ -15,6 +15,7 @@ import asyncio
 import logging
 from datetime import date
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.ingestion.eodhd import get_client
@@ -46,7 +47,7 @@ async def sync_symbol(symbol: str, as_of: date) -> bool:
 
 
 async def main(single_symbol: str | None) -> None:
-    today = date.today()
+    today = clock.today()
     await init_pool()
 
     if single_symbol:

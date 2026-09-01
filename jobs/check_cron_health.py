@@ -27,6 +27,7 @@ import os
 import textwrap
 from datetime import UTC, date, datetime
 
+from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs.utils.job_monitor import JobMonitor
 
@@ -169,7 +170,7 @@ def _send_alert(issues: list[str]) -> None:
             {
                 "from": sender,
                 "to": to,
-                "subject": f"asxos pipeline alert — {date.today().isoformat()}",
+                "subject": f"asxos pipeline alert — {clock.today().isoformat()}",
                 "html": html_body,
             }
         )
@@ -194,4 +195,4 @@ async def _run(as_of: date) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(_run(date.today()))
+    asyncio.run(_run(clock.today()))
