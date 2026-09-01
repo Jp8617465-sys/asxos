@@ -1,8 +1,9 @@
 """Slice 1 (D5) persistence + builder tests — ADR SS10.5, verbatim from the
 mission plan (`docs/proposals/architecture-decision-record.md` SS6/SS10.5).
 
-Nothing here touches a live database. Migration `0048_decision_packets.sql`
-is NOT applied anywhere; per `.claude/rules/api-conventions.md`'s testing
+Nothing here touches a live database (migration `0048_decision_packets.sql`
+was applied to production 2026-09-01 as `20260901062502`, but these tests
+stay DB-independent); per `.claude/rules/api-conventions.md`'s testing
 convention, every test mocks `asxos.domain.decision_engine.repository`'s
 connection seam with a synthetic asyncpg-`Record`-shaped fake rather than
 `asxos.db.acquire()` itself, and the builder tests mock the DB connection

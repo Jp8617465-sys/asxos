@@ -1,14 +1,12 @@
 -- 0048_decision_packets.sql
 -- =====================================================================
 --
--- NOT APPLIED. Authored by the Slice 1 "decision spine" mission
--- (plan: i-feel-like-we-synchronous-lighthouse.md). Agent tooling in
--- this repo is allow-listed to mcp__supabase-ro__* (read-only) only --
--- apply_migration is NOT available to the authoring agent. James must
--- run mcp__supabase__apply_migration himself before repository.py can
--- be exercised against a live database. Do not backdate an "APPLIED"
--- line -- add one, with the real date and schema_migrations version,
--- only once James has actually run it (see the 0043-0047 convention).
+-- APPLIED 2026-09-01 — governor grant (James's explicit instruction,
+-- attended session). Ledger name `decision_packets`, version
+-- `20260901062502` (asx-portfolio-os / gxjqezqndltaelmyctnl).
+-- Authored by the Slice 1 "decision spine" mission; applied only after
+-- PR #183 went green (full-check CI + tax/security consults) and James
+-- authorized the apply.
 --
 -- Persists the decision-engine contract chain
 -- (asxos/domain/decision_engine/types.py, 705 lines, FROZEN -- do not
