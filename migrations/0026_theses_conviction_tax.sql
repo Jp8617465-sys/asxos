@@ -5,7 +5,6 @@
 --   tax_notes        : free-text CGT / franking / holding-period notes
 --
 -- Applied via: mcp__supabase__apply_migration (project gxjqezqndltaelmyctnl).
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py.
 -- Additive + nullable: zero risk to existing rows. Both fields are revisable
 -- via `asx thesis revise` (allowlisted in REVISABLE_FIELDS).
 

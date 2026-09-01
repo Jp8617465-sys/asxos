@@ -17,7 +17,8 @@ name: backup
 
 on:
   schedule:
-    - cron: "30 13 * * *"   # daily 13:30 UTC
+    - cron: "30 13 * * *"        # existing daily dump
+    - cron: "0 15 * * 0"         # Sunday restore drill
   workflow_dispatch:
     inputs:
       restore_drill:
@@ -43,7 +44,7 @@ jobs:
       BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
       EXPECTED_SUPABASE_PROJECT_REF: gxjqezqndltaelmyctnl
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Install postgresql-client 17 from PGDG
         run: |
@@ -110,7 +111,7 @@ jobs:
 
   restore_drill:
     needs: backup
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.restore_drill }}
+    if: ${{ github.event.schedule == '0 15 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.restore_drill) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -136,7 +137,7 @@ jobs:
       PGPORT: "5432"
       PGUSER: postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Install postgresql-client 17 from PGDG
         run: |

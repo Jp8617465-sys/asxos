@@ -1,10 +1,10 @@
 -- 0043_price_revisions.sql
 --
--- PRODUCTION-READY — still unapplied. Apply only through the separately approved
--- Supabase migration workflow in docs/product/runbooks/price-revisions-0043.md,
--- then bump REQUIRED_MIGRATIONS to the observed schema_migrations count. Migration
--- number 0042 is deliberately skipped here:
--- it is reserved by the parked rules-integrity PR #80 and must remain unapplied.
+-- Apply only through the separately approved Supabase migration workflow in
+-- docs/product/runbooks/price-revisions-0043.md. Migration number 0042 is
+-- deliberately skipped here: it is reserved by the parked rules-integrity
+-- PR #80 (CLOSED, branch claude/rules-integrity-build) and must remain
+-- unapplied.
 --
 -- Stage 1 price-history containment. The serving `prices` table remains the
 -- current projection, but every UPDATE that actually changes a row and every

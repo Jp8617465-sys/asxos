@@ -81,11 +81,12 @@ numbered it 7. Left as found; renumbering here would not fix it.)
      `.github/workflows/daily-brief.yml` already sets; no new flag, and explicitly
      not `ASXOS_V2_BRIEF_ENABLED` (the V2 tree stays dark, deferred to Stage 6).
 """
+
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field, replace
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
@@ -95,6 +96,13 @@ from urllib.parse import urlparse
 import jinja2
 from dateutil.relativedelta import relativedelta
 
+from asxos.brief.bluf import bluf_sentence
+from asxos.brief.deltas import BookDelta, load_book_delta
+from asxos.brief.section import (
+    SectionResult,
+    SectionStatus,
+    assemble_sections,
+)
 from asxos.domain.benchmark.outcome import (
     MAX_ANCHOR_LAG_DAYS,
     BenchmarkAnchor,
@@ -203,7 +211,7 @@ class JobProblemKind(StrEnum):
     """
 
     FAILURE = "failure"  # the job ran and raised
-    STUCK = "stuck"      # started, never reported — no failure, so nothing alerts
+    STUCK = "stuck"  # started, never reported — no failure, so nothing alerts
 
 
 @dataclass(frozen=True)
@@ -259,10 +267,10 @@ class NewsStatus(StrEnum):
     vocabulary across.
     """
 
-    DISABLED = "disabled"      # a gate is off; the feature is not running
+    DISABLED = "disabled"  # a gate is off; the feature is not running
     UNVERIFIED = "unverified"  # ingestion did not pass its freshness gate
-    QUIET = "quiet"            # verified fresh, genuinely nothing qualifying
-    OK = "ok"                  # qualifying items present
+    QUIET = "quiet"  # verified fresh, genuinely nothing qualifying
+    OK = "ok"  # qualifying items present
 
 
 # Module-level aliases: the call sites and tests read better unqualified, and
@@ -303,6 +311,48 @@ class BriefData:
     # about — so the template says "Prices complete to". None only when no
     # complete day exists at all.
     data_as_of: date | None = None
+    # Stage 0 seam: four-state section artefacts. Empty default keeps every
+    # existing BriefData(...) test constructing without `sections` valid;
+    # `resolved_sections` synthesises from the payload fields in that case.
+    sections: dict[str, SectionResult] = field(default_factory=dict)
+    # Stage 1: book-level snapshot delta vs the previous snapshot. None when a
+    # test constructs BriefData without collect(); collect() always sets it.
+    deltas: BookDelta | None = None
+
+    @property
+    def resolved_sections(self) -> dict[str, SectionResult]:
+        if self.sections:
+            return self.sections
+        computed = datetime.now(UTC)
+        # `self.prices_stale`, not a third copy of the `> 5` threshold. The
+        # property below is the canonical definition; `collect()` carries the
+        # only other copy because no BriefData exists yet at that point. Two
+        # copies that must agree is already one too many -- a third, here,
+        # would let the integrity line and the headline disagree the moment
+        # the window is tuned.
+        return assemble_sections(
+            latest_price_date=self.latest_price_date,
+            prices_stale=self.prices_stale,
+            job_failures=self.job_failures,
+            discipline_findings=self.discipline_findings,
+            outcome_section=self.outcome_section,
+            outcome_error=self.outcome_error,
+            regulatory_hits=self.regulatory_hits,
+            news_items=self.news_items,
+            news_status=str(self.news_status),
+            news_error=None,
+            portfolio_section=self.portfolio_section,
+            computed_at=computed,
+            data_as_of=self.data_as_of,
+        )
+
+    @property
+    def core_untrusted(self) -> bool:
+        """Prices (core) are STALE or MISSING — integrity line is a warning."""
+        prices = self.resolved_sections.get("prices")
+        if prices is None:
+            return self.prices_stale
+        return prices.status in {SectionStatus.STALE, SectionStatus.MISSING}
 
     @property
     def has_failures(self) -> bool:
@@ -383,14 +433,8 @@ class BriefData:
         # and the template filters the same field with Jinja's `equalto`. Using
         # `is` here would let a raw-string level render the "could not run"
         # banner while leaving the headline un-BLOCKED.
-        blocking = [
-            f.message
-            for f in self.discipline_findings
-            if f.level == DisciplineLevel.error
-        ]
-        blocking += [
-            f"job {f.job_name} failed on {f.as_of}" for f in self.job_failures
-        ]
+        blocking = [f.message for f in self.discipline_findings if f.level == DisciplineLevel.error]
+        blocking += [f"job {f.job_name} failed on {f.as_of}" for f in self.job_failures]
         attention = [
             f.message
             for f in self.discipline_findings
@@ -399,8 +443,7 @@ class BriefData:
         unknowns: list[str] = []
         if self.prices_stale:
             unknowns.append(
-                "Prices stale — latest price date: "
-                f"{self.latest_price_date or 'no data'}"
+                f"Prices stale — latest price date: {self.latest_price_date or 'no data'}"
             )
         if self.outcome_error:
             unknowns.append(f"Outcome vs benchmark not measured — {self.outcome_error}")
@@ -409,10 +452,16 @@ class BriefData:
             for f in self.discipline_findings
         )
         if self.holdings_count and not checked:
-            unknowns.append(
-                f"{self.holdings_count} holding(s) with no discipline evidence"
-            )
+            unknowns.append(f"{self.holdings_count} holding(s) with no discipline evidence")
         return classify(blocking=blocking, attention=attention, unknowns=unknowns)
+
+    @property
+    def bluf(self) -> str:
+        return bluf_sentence(self.review)
+
+    @property
+    def exception_findings(self) -> list[DisciplineFinding]:
+        return [f for f in self.discipline_findings if f.level != DisciplineLevel.info]
 
 
 async def collect(as_of: date) -> BriefData:
@@ -437,9 +486,7 @@ async def collect(as_of: date) -> BriefData:
         # still the brief's title/delivery date.
         data_as_of = await latest_complete_trading_day(conn)
 
-        holdings_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM current_holdings"
-        ) or 0
+        holdings_count = await conn.fetchval("SELECT COUNT(*) FROM current_holdings") or 0
 
         latest_price_date: date | None = await conn.fetchval(
             """
@@ -452,7 +499,15 @@ async def collect(as_of: date) -> BriefData:
 
         regulatory_hits = await _regulatory_hits(conn, as_of)
         job_failures = await _job_failures(conn, as_of)
-        news_items, news_status = await _news_section(conn, as_of)
+        # News is non-core: a collector exception must not block the send
+        # (docs/product/daily-brief-v2.md §3.1). Map to MISSING + UNVERIFIED
+        # body copy so the template still refuses to claim a quiet day.
+        news_error: str | None = None
+        try:
+            news_items, news_status = await _news_section(conn, as_of)
+        except Exception as exc:
+            news_items, news_status = [], NEWS_UNVERIFIED
+            news_error = f"news section could not run: {exc}"
         portfolio_section = await _portfolio_section(conn, as_of)
 
         # Fail-loud isolation (CLAUDE.md #10): a broken discipline query must
@@ -499,6 +554,28 @@ async def collect(as_of: date) -> BriefData:
         except Exception as exc:
             outcome_error = f"outcome section could not run: {exc}"
 
+        # Sequential on the same connection — never asyncio.gather (asyncpg #56).
+        deltas = await load_book_delta(conn, as_of)
+
+    computed_at = datetime.now(UTC)
+    # Sequential on one asyncpg connection — never asyncio.gather here
+    # (MagicStack/asyncpg #56/#258). See docs/product/daily-brief-v2.md §2.1.
+    prices_stale = latest_price_date is None or (as_of - latest_price_date).days > 5
+    sections = assemble_sections(
+        latest_price_date=latest_price_date,
+        prices_stale=prices_stale,
+        job_failures=job_failures,
+        discipline_findings=discipline_findings,
+        outcome_section=outcome_section,
+        outcome_error=outcome_error,
+        regulatory_hits=regulatory_hits,
+        news_items=news_items,
+        news_status=str(news_status),
+        news_error=news_error,
+        portfolio_section=portfolio_section,
+        computed_at=computed_at,
+        data_as_of=data_as_of,
+    )
     return BriefData(
         as_of=as_of,
         holdings_count=int(holdings_count),
@@ -512,6 +589,8 @@ async def collect(as_of: date) -> BriefData:
         outcome_error=outcome_error,
         latest_price_date=latest_price_date,
         data_as_of=data_as_of,
+        sections=sections,
+        deltas=deltas,
     )
 
 
@@ -594,6 +673,7 @@ async def _regulatory_hits(
         tags = r["relevance_tags"] or {}
         if isinstance(tags, str):
             import json
+
             tags = json.loads(tags)
         symbols = tags.get("symbols") if isinstance(tags, dict) else []
         kind = tags.get("kind", "other") if isinstance(tags, dict) else "other"
@@ -644,9 +724,7 @@ def _problem_message(row: asyncpg.Record) -> str:
     return raised[:200]
 
 
-async def _job_failures(
-    conn: asyncpg.Connection, as_of: date
-) -> list[JobFailure]:
+async def _job_failures(conn: asyncpg.Connection, as_of: date) -> list[JobFailure]:
     """Operational problems this brief must surface.
 
     Why the filter is a wall-clock window and not ``as_of = $1``. In
@@ -691,11 +769,16 @@ async def _job_failures(
 
     Every boundary is explicitly ``timestamptz`` at UTC. ``$1::date ± INTERVAL``
     alone yields ``timestamp without time zone``, which Postgres compares to
-    ``finished_at`` by converting through the session ``TimeZone`` GUC —
-    unpinned here, since ``asxos/db.py::init_pool`` passes no ``server_settings``.
-    Setting the database or role timezone to ``Australia/Sydney`` would then slide
-    this window seven hours off the 20:30–22:30 UTC pipeline it exists to cover,
-    with no error and no failing test.
+    ``finished_at`` by converting through the session ``TimeZone`` GUC. Setting
+    the database or role timezone to ``Australia/Sydney`` would slide this window
+    off the 20:30–22:30 UTC pipeline it exists to cover, with no error and no
+    failing test.
+
+    That is now prevented rather than merely documented: ``asxos/db.py::init_pool``
+    pins ``server_settings={"timezone": "UTC"}`` on every pooled connection
+    (2026-08-23), so this window's premise is enforced at connection time instead
+    of resting on nobody having run ``ALTER ROLE ... SET timezone``. If that pin
+    is ever removed, this analysis becomes live again.
     """
     rows = await conn.fetch(
         """
@@ -771,9 +854,7 @@ async def _job_failures(
     ]
 
 
-async def _news_section(
-    conn: asyncpg.Connection, as_of: date
-) -> tuple[list[NewsItem], NewsStatus]:
+async def _news_section(conn: asyncpg.Connection, as_of: date) -> tuple[list[NewsItem], NewsStatus]:
     """Return ``(items, status)`` for section 6 (M14a).
 
     Three-layer gating (mirrors M13.7 Amendment C):
@@ -900,6 +981,7 @@ async def _holding_news(
         syms = r["symbols"] or []
         if isinstance(syms, str):
             import json
+
             syms = json.loads(syms)
         matched = [s for s in syms if s in holdings]
         if not matched:
@@ -916,9 +998,7 @@ async def _holding_news(
     return out
 
 
-async def _portfolio_section(
-    conn: asyncpg.Connection, as_of: date
-) -> PortfolioSection | None:
+async def _portfolio_section(conn: asyncpg.Connection, as_of: date) -> PortfolioSection | None:
     """Return portfolio adjustments for section 6, or None if gated out.
 
     Gating (plan I.7 + plan I.6 + Part 0 Q1):
@@ -1070,9 +1150,7 @@ def _holding_weights(
     return tuple(holdings)
 
 
-async def _discipline_findings(
-    conn: asyncpg.Connection, as_of: date
-) -> list[DisciplineFinding]:
+async def _discipline_findings(conn: asyncpg.Connection, as_of: date) -> list[DisciplineFinding]:
     """Loader for `asxos.domain.theses.discipline.evaluate_discipline()` (PR2a).
 
     Fetches thesis/holding/price rows, then delegates the native-currency
@@ -1178,9 +1256,7 @@ async def _discipline_findings(
     # findings for uninvested watchlist rows.
     all_inputs = _thesis_discipline_inputs(thesis_rows, prices)
     active_inputs = tuple(
-        ti
-        for row, ti in zip(thesis_rows, all_inputs, strict=True)
-        if row["status"] == "active"
+        ti for row, ti in zip(thesis_rows, all_inputs, strict=True) if row["status"] == "active"
     )
     holdings = _holding_weights(holding_rows, prices, fx_rate)
 
@@ -1204,9 +1280,7 @@ async def _discipline_findings(
                 DisciplineFinding(
                     check="data_sanity_escalation",
                     level=DisciplineLevel.error,
-                    message=(
-                        f"⚠ data_sanity_escalation could not run for {ti.symbol}: {exc}"
-                    ),
+                    message=(f"⚠ data_sanity_escalation could not run for {ti.symbol}: {exc}"),
                     symbol=ti.symbol,
                     watchlist_only=watchlist_only,
                 )
@@ -1239,9 +1313,7 @@ async def _discipline_findings(
     return findings
 
 
-def _resolve_anchor(
-    rows: list[asyncpg.Record], target: date
-) -> BenchmarkAnchor | None:
+def _resolve_anchor(rows: list[asyncpg.Record], target: date) -> BenchmarkAnchor | None:
     """The benchmark level in effect at ``target`` — latest row on or before it.
 
     ``rows`` must be ascending by ``as_of`` and carry only non-NULL
@@ -1271,9 +1343,7 @@ def _resolve_anchor(
     )
 
 
-async def _lot_outcomes(
-    conn: asyncpg.Connection, as_of: date
-) -> OutcomeSection | None:
+async def _lot_outcomes(conn: asyncpg.Connection, as_of: date) -> OutcomeSection | None:
     """Section 8 loader — per-open-lot return, benchmark return, alpha.
 
     This is the first production consumer of `asxos.domain.benchmark.returns`
@@ -1346,8 +1416,7 @@ async def _lot_outcomes(
         as_of,
     )
     closes = {
-        r["symbol"]: Observation(as_of=r["dt"], value=Decimal(str(r["close"])))
-        for r in price_rows
+        r["symbol"]: Observation(as_of=r["dt"], value=Decimal(str(r["close"]))) for r in price_rows
     }
 
     # AUDUSD from `fx_rates` — the primary source `jobs/snapshot_portfolio.py`
@@ -1368,18 +1437,14 @@ async def _lot_outcomes(
             as_of,
         )
         if fx_row is not None:
-            fx_audusd = Observation(
-                as_of=fx_row["dt"], value=Decimal(str(fx_row["rate"]))
-            )
+            fx_audusd = Observation(as_of=fx_row["dt"], value=Decimal(str(fx_row["rate"])))
 
     # Benchmark levels, ASX lots only (F2). The window starts MAX_ANCHOR_LAG_DAYS
     # before the earliest ASX acquisition — the same tolerance the outcome layer
     # applies when deciding whether an anchor still describes the lot's window.
     # NOTE: this SELECT deliberately does not list `capital_aud`. See the
     # docstring; the omission is the fix, not an oversight.
-    asx_acquisitions = [
-        r["acquired_at"] for r in lot_rows if sleeve_for(r["symbol"]) is Sleeve.asx
-    ]
+    asx_acquisitions = [r["acquired_at"] for r in lot_rows if sleeve_for(r["symbol"]) is Sleeve.asx]
     benchmark_rows: list[asyncpg.Record] = []
     if asx_acquisitions:
         benchmark_rows = list(
@@ -1437,6 +1502,11 @@ def render_html(data: BriefData) -> str:
     environment was the outlier.
     """
     return brief_env().get_template("brief.html.j2").render(d=data)
+
+
+def render_detail_html(data: BriefData) -> str:
+    """Render the full-tables detail page. Same StrictUndefined contract as render_html."""
+    return brief_env().get_template("brief_detail.html.j2").render(d=data)
 
 
 def brief_env() -> jinja2.Environment:

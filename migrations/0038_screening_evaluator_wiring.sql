@@ -1,5 +1,4 @@
--- migrations/0038_screening_evaluator_wiring.sql  (DRAFT — NOT APPLIED.
--- James applies via mcp__supabase__apply_migration when ready.)
+-- 0038_screening_evaluator_wiring.sql
 --
 -- Tier 2a mechanical screen (docs/proposals/thesis-coverage-framework-2026-07-11.md,
 -- buildable-now item #2). Two pieces:
@@ -28,9 +27,7 @@
 -- every row is already 'curated_composite'). Verified 2026-07-11: zero rows.
 -- Re-verify live at apply time -- don't trust that finding as still current.
 --
--- Applied via: mcp__supabase__apply_migration
--- After applying: bump REQUIRED_MIGRATIONS in asxos/api/main.py to the observed
--- SELECT count(*) FROM supabase_migrations.schema_migrations.
+-- Apply via: mcp__supabase__apply_migration
 
 BEGIN;
 
@@ -60,7 +57,7 @@ CREATE TABLE screening_runs (
                                        -- runtime --sector param); NULL = cross-sector
     universe_size       INTEGER      NOT NULL,  -- candidate pool size before rule_json filtering
     match_count         INTEGER      NOT NULL,  -- TRUE total matches, before bounding
-    matched_symbols     TEXT[]       NOT NULL DEFAULT '{}',  -- bounded shortlist actually shown (<=limit)
+    matched_symbols     TEXT[]       NOT NULL DEFAULT '{}',  -- EVERY passing symbol, unbounded by --limit (corrected: PR #151 made --limit display-only)
     rule_json_snapshot  JSONB        NOT NULL,  -- rule_json AT EVALUATION TIME -- screening_rules
                                                   -- rows are mutable; this snapshot stops a later
                                                   -- rule edit from silently reinterpreting old runs
@@ -78,8 +75,9 @@ COMMENT ON TABLE screening_runs IS
     'thesis-coverage-framework-2026-07-11.md Tier 2a.';
 
 COMMENT ON COLUMN screening_runs.match_count IS
-    'Total rule-passing symbols BEFORE the limit bound applied to matched_symbols. '
-    'A rule matching 1800/1872 names is a no-op, not a triage tool -- match_count '
-    'preserves that signal even when matched_symbols is truncated to the shortlist.';
+    'Total rule-passing symbols. A rule matching 1800/1872 names is a no-op, not a '
+    'triage tool. Equal to cardinality(matched_symbols) since PR #151, which made '
+    '--limit display-only and enforces the equality in log_run(); the two columns '
+    'are kept separate because match_count is the pre-registered figure.';
 
 COMMIT;

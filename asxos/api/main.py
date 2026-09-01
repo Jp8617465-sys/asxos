@@ -10,23 +10,26 @@ from asxos.config import BriefSettings, settings
 # Do NOT remove — this is intentional, not dead code.
 _brief_settings = BriefSettings()  # type: ignore[call-arg]  # pydantic-settings reads from env vars
 from asxos.db import acquire, close_pool, init_pool  # noqa: E402
-
-REQUIRED_MIGRATIONS = 97  # bump each time a new migration is applied; 0044 (rs_fundamentals_pit.currency, applied 2026-08-21 as 20260821080458; 0042 reserved by parked PR #80, 0045 drafted but NOT applied) — observed count from supabase_migrations.schema_migrations, re-measured 2026-08-22
+from asxos.schema_drift import check as migration_check  # noqa: E402
 
 
 async def _check_migration_drift() -> None:
+    """Hard-fail if applied migrations and migrations/ disagree by NAME.
+
+    Replaces a hand-maintained ``REQUIRED_MIGRATIONS`` integer compared with
+    ``<``. That form could not detect a migration applied to production with no
+    file in this repo — the count rises and the guard passes — which is the
+    failure that leaves production carrying schema the repo cannot reproduce.
+    It had been green while exactly that was true (see 0018, and 0040's own
+    provenance note recording the same thing in July).
+
+    The comparison lives in scripts/check_migration_drift.py so the same logic
+    runs from CI and by hand without booting the app.
+    """
     if settings.skip_migration_drift_check:
         return
     async with acquire() as conn:
-        count = await conn.fetchval(
-            "SELECT COUNT(*) FROM supabase_migrations.schema_migrations"
-        )
-    if count < REQUIRED_MIGRATIONS:
-        raise RuntimeError(
-            f"Migration drift: {count} migrations applied, "
-            f"{REQUIRED_MIGRATIONS} required. "
-            "Run the pending migrations via Supabase MCP before starting."
-        )
+        await migration_check(conn)
 
 
 @asynccontextmanager
