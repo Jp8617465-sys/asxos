@@ -221,11 +221,11 @@ def _zscores(values: dict[str, float | None]) -> dict[str, float]:
     """
     present = {k: v for k, v in values.items() if v is not None}
     if len(present) < 2:
-        return {k: 0.0 for k in present}
+        return dict.fromkeys(present, 0.0)
     mean = statistics.fmean(present.values())
     sd = statistics.pstdev(present.values())
     if sd == 0:
-        return {k: 0.0 for k in present}
+        return dict.fromkeys(present, 0.0)
     return {k: _winsor((v - mean) / sd) for k, v in present.items()}
 
 

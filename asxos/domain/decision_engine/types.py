@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from itertools import pairwise
-from typing import Literal, Self, assert_never, cast
+from typing import Literal, Self, assert_never
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
@@ -487,9 +487,7 @@ class DecisionPacket(ContentAddressedContract):
         cutoff = _DATETIME_ADAPTER.validate_python(cutoff_raw)
         calendar = TradingSessionCalendar.model_validate(calendar_raw)
         updated = dict(value)
-        updated["expires_at"] = default_packet_expiry(
-            cutoff, cast(RecommendationState, state), calendar
-        )
+        updated["expires_at"] = default_packet_expiry(cutoff, state, calendar)
         return updated
 
     @model_validator(mode="after")
