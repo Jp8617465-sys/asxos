@@ -363,6 +363,11 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
   (2026-08-21: ledger 97, constant 96). Note the referenced path moved —
   `docs/backlog-test-coverage.md` is now `docs/archive/backlog-test-coverage.md`, and its
   `:16` entry carries the same superseded claim.
+  **Postscript 2026-09-02:** the count guard described above is itself gone —
+  `REQUIRED_MIGRATIONS` was deleted 2026-08-23 in favour of the name-set diff in
+  `asxos/schema_drift.py`, so the "apply-then-bump window" it protected no longer exists.
+  The paragraph stands as the record of why that test was written; the mechanism it
+  describes is historical.
 
 ## P3 — DB tidy-ups (optional, low risk) and CI / scope
 
@@ -375,8 +380,10 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
   none are referenced by an asxos trigger before dropping. Governing: audit doc §3.
 - **Drop empty `public.schema_migrations` leftover** — confirm it is the dead foreign
   leftover and not asxos's live migration-tracking table before dropping. Governing:
-  audit doc (inventory §1) + the migration-tracking-table count behind
-  `REQUIRED_MIGRATIONS`.
+  audit doc (inventory §1). The live ledger the drift check reads is
+  `supabase_migrations.schema_migrations`, compared by migration *name* set
+  (`asxos/schema_drift.py`) since 2026-08-23 — the `REQUIRED_MIGRATIONS` count named
+  here previously no longer exists.
 - **Make `full-check` a REQUIRED status check** — needs a paid GitHub plan to enforce
   server-side branch protection. Meanwhile the pre-push hook + CI signal cover it; the
   user runs `make install-hooks` locally. Governing: CLAUDE.md (CI / `full-check`).
