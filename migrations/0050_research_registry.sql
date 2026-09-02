@@ -1,9 +1,11 @@
 -- 0050_research_registry.sql
 -- =====================================================================
 --
--- DRAFT — NOT APPLIED. Apply only under James's I5 grant (Amendment H,
--- 2026-09-02: "I authorise you to apply the migrations"), after the carrying
--- branch's tests are green.
+-- APPLIED to production 2026-09-02 as ledger name `research_registry`, under
+-- James's in-session I5 grant (Amendment H, 2026-09-02: "I authorise you to
+-- apply the migrations"), after the carrying branch's tests were green
+-- (2778 passed). Verified after apply: four tables, each with its
+-- forbid-mutation trigger and CHECK constraints.
 --
 -- Stage 2 — research registry and evaluation (target-architecture.md §15):
 --   * ResearchHypothesis, ResearchRun, StrategyVersion contracts;
