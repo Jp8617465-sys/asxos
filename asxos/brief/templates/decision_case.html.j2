@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decision case {{ case.case_id }}</title>
+  <style>
+    body { margin: 0; background: #f4f3ed; color: #17211f; font-family: Inter, ui-sans-serif, system-ui, sans-serif; line-height: 1.5; }
+    .shell { max-width: 900px; margin: 0 auto; padding: 32px 20px 60px; }
+    .eyebrow { color: #176b4d; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { font-family: Georgia, serif; font-size: 34px; margin: 8px 0 12px; }
+    h2 { font-family: Georgia, serif; font-size: 20px; margin: 26px 0 8px; }
+    .verdict { display: inline-block; padding: 6px 12px; font-weight: 800; border: 2px solid; }
+    .tone-positive { color: #176b4d; } .tone-caution, .tone-review { color: #996515; } .tone-blocked, .tone-expired { color: #a33b35; }
+    .muted { color: #61706b; font-size: 12px; }
+    .mono { font-family: ui-monospace, Menlo, monospace; font-size: 11px; word-break: break-all; }
+    .block { border: 1px solid #d9ddd5; background: #fffefa; padding: 14px; margin-top: 10px; }
+    .finding strong { text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+    .finding-blocking strong { color: #a33b35; } .finding-material strong { color: #996515; } .finding-monitor strong { color: #315d73; }
+    .constraint { display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid #d9ddd5; font-size: 12px; }
+    .status-pass { color: #176b4d; font-weight: 800; } .status-fail { color: #a33b35; font-weight: 800; } .status-unknown { color: #996515; font-weight: 800; }
+    .ask { background: #fff1ce; border-left: 4px solid #996515; padding: 12px; margin-top: 12px; }
+    .scenario { display: inline-block; width: 30%; vertical-align: top; margin-right: 2%; }
+    .disclaimer { margin-top: 24px; font-size: 12px; color: #61706b; border-top: 1px solid #d9ddd5; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="eyebrow">Governed decision case · as of {{ case.evidence.as_of }} · rendered {{ rendered_at.isoformat() }}</div>
+    <h1>{{ case.thesis.security_id }} — {{ case.label }}</h1>
+    <p><span class="verdict tone-{{ presentation.tone }}">{{ presentation.status_label }}</span>
+       <span class="muted">state {{ presentation.recommendation_state }} · {{ presentation.size_label }}</span></p>
+    <p class="muted">Packet <span class="mono">{{ case.decision.decision_packet_id }}</span> · sha256 <span class="mono">{{ case.decision.content_hash }}</span> · expires {{ case.decision.expires_at.isoformat() }}</p>
+
+    <h2>Investment question</h2>
+    <div class="block">
+      <p>{{ case.thesis.investment_question }}</p>
+      <p class="muted">Horizon {{ case.thesis.horizon_months }} months · theme: {{ case.thesis.theme }}</p>
+      <p>{{ case.thesis.thesis_summary }}</p>
+    </div>
+
+    <h2>Scenarios (from the recorded price plan)</h2>
+    <div class="block">
+      {% for s in case.thesis.scenarios %}
+      <div class="scenario"><strong>{{ s.label | upper }}</strong> · {{ s.return_pct }}% · p={{ s.probability_pct }}%<br><span class="muted">{{ s.rationale }}</span></div>
+      {% endfor %}
+    </div>
+
+    <h2>Independent challenge — {{ case.challenge.outcome | upper }}</h2>
+    <div class="block">
+      <p>{{ case.challenge.strongest_bear_case }}</p>
+      {% for f in case.challenge.findings %}
+      <div class="finding finding-{{ f.severity }}"><strong>{{ f.severity }}</strong> — {{ f.finding }}<br><span class="muted">Required response: {{ f.required_response }} · evidence {{ f.evidence_ids | join(', ') }}</span></div>
+      {% endfor %}
+      {% if not case.challenge.findings %}<p class="muted">No findings.</p>{% endif %}
+    </div>
+
+    <h2>Portfolio constraints</h2>
+    <div class="block">
+      {% for c in case.portfolio.constraints %}
+      <div class="constraint"><span class="status-{{ c.status }}">{{ c.status }}</span><span>{{ c.name }} — {{ c.detail }}</span></div>
+      {% endfor %}
+      <p class="muted">{{ case.portfolio.marginal_risk }}</p>
+    </div>
+
+    <h2>Tax readiness</h2>
+    <div class="block"><p>applicability {{ case.decision.tax_assessment_reference.applicability }} · readiness {{ case.decision.tax_assessment_reference.readiness }}</p></div>
+
+    {% if case.decision.missing_or_uncertain_inputs %}
+    <h2>Missing or uncertain inputs</h2>
+    <div class="block"><ul>{% for m in case.decision.missing_or_uncertain_inputs %}<li>{{ m }}</li>{% endfor %}</ul></div>
+    {% endif %}
+
+    <div class="ask"><strong>Decision ask</strong><br>{{ presentation.decision_ask }}</div>
+
+    <h2>Evidence ({{ case.evidence.items | length }} items, packet <span class="mono">{{ case.evidence.evidence_packet_id }}</span>)</h2>
+    <div class="block">
+      {% for item in case.evidence.items %}
+      <p><span class="mono">{{ item.evidence_id }}</span> · {{ item.evidence_type }} · {{ item.evidence_tier }} · observed {{ item.observed_at }} · known {{ item.known_at.isoformat() }}<br>{{ item.title }}</p>
+      {% endfor %}
+    </div>
+
+    <p class="disclaimer">Evidence, not advice. This case is a governed paper artifact: the process is non-executing, no Model A input enters the chain, and the render contains no financial computation — every figure above is read from the immutable packet.</p>
+  </main>
+</body>
+</html>
