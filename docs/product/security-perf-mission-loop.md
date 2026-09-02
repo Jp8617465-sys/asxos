@@ -1,10 +1,13 @@
 # Security + Performance mission loop — standing autonomous rules
 
-**Status:** current (design HARDENED post-adversarial-pass 2026-07-15; **write loop gated on
-the mechanical pack in §10** — read-only interim posture in §11 is live-safe today)
-**Scope:** the every-8h unattended arbi→guilfoyle→specialists loop that finds and drafts
-fixes for **security vulnerabilities and performance regressions only**
-**Last verified:** 2026-07-15 (arbi-red-team + security-engineer reviews folded in)
+**Status:** current — **substrate migrated to GitHub Actions 2026-09-02 (Amendment H).** The
+§10 mechanical pack is CLOSED by the migration, not waived: `ARBI_UNATTENDED=1` and the
+secret-free environment are workflow properties on Actions, not infra James must provision.
+**Scope:** the unattended arbi→guilfoyle→specialists lanes that find and draft fixes for
+**security vulnerabilities, performance regressions, and test failures** — plus the toolwatch
+research lane that shares this safety envelope
+**Last verified:** 2026-09-02 (substrate migration; the 2026-07-15 arbi-red-team +
+security-engineer hardening is preserved and still binds)
 **Owner:** James (governor — authorized the live posture; owns the kill switch, the merge
 gate, and the §10 mechanical prerequisites)
 **Superseded by:** N/A
@@ -48,6 +51,34 @@ claims corrected against repository evidence. **No gate lifted; the write loop s
 > `arbi-permission-model.md` §"Dispatch splits by *attendance*", which is the authority, not from
 > this file.
 
+> ### SUBSTRATE MIGRATION — 2026-09-02 (Amendment H)
+>
+> **The Routine substrate is retired.** Routine `trig_011o24xerepfL9Cq3abtrJ3M` fired once
+> (2026-07-18T15:39Z, reported SUCCEEDED) and left **no repo-observable artifact of any kind**:
+> no `claude/secperf-*` branch ever existed on origin, and `security-perf-findings-log.md`
+> still holds only its seed row — despite §2 and §6 both mandating a findings-log line on every
+> fire including nothing-cycles. Whether the fires never happened or the write-back silently
+> failed was never determined, and could not be determined after the fact. That ambiguity is
+> the defect.
+>
+> Three consequences, all binding:
+>
+> 1. **A Claude Routine is not an acceptable scheduler for this repo.** It is job config living
+>    in a SaaS trigger list, invisible to git and to review — CLAUDE.md non-negotiable #2. Its
+>    liveness record here is 2 silent failures out of 2 (7a and this loop). Lanes run as
+>    workflows in `.github/workflows/`.
+> 2. **§10's blocking gates are closed by the substrate, not waived.** Items 1 (mechanical
+>    arming) and 2 (secret-free env) were Routine artefacts: on Actions, `ARBI_UNATTENDED=1` is
+>    a job-level `env:` entry scoped to that one workflow — so it arms the guard *without*
+>    caging James's attended sessions, which was item 1's whole concern — and "no secrets" is
+>    satisfied by omitting a secrets block. See the rewritten §7 and §10.
+> 3. **Artifact-per-fire is now mechanical** (§6). The findings-log row is written by a workflow
+>    step, not by agent judgement. Silence becomes impossible rather than merely forbidden.
+>
+> Amendment H also lifted `harness-profiles.md` rejected-item 7, so standing unattended dispatch
+> is permitted. It did **not** lift the draft-PR ceiling, item 9 (no auto-merge, any path), or
+> I5/I6, which `arbi-permission-model.md:203-204` fixes as never-standing by design.
+
 James's verdict as governor (2026-07-15): run the full arbi→guilfoyle→specialists execution
 loop **live**, scoped to security + performance, overriding the 7b *infra* preconditions
 (branch protection, the `0039` DB role) and accepting the **draft-PR ceiling** as the
@@ -76,6 +107,22 @@ security finding *in* these is logged `deferred: capital-adjacent, human-only`, 
 actioned. (Red-team #1 / security LOW-8: §1's "never touch capital" was contradicted by a
 scope line that included these paths; this closes it. §10 makes it mechanical.)
 
+**Measurable but not patchable — clarified 2026-09-02.** The carve-out bars *writes*, not
+*reads*. The only hot paths in this repo with a measured baseline —
+`asxos/domain/portfolio/volatility.py` (2.7 ms/symbol) and `asxos/domain/tax/lots.py` (224 µs),
+both from `model-a-audit-and-extension-plan-2026-07-04.md:119-124` — sit inside it. Read
+literally as "never touch", the loop was blind to the only code anyone had numbers for, which
+is a large part of why it never produced a finding. So: the loop **may measure and report**
+capital-adjacent code, and the report goes to James as a `deferred: capital-adjacent,
+human-only` row with its numbers attached. It may never open a PR against those paths.
+`unattended-guard.sh`'s `CAPITAL_FRAGMENTS` deny (armed by `ARBI_UNATTENDED=1`) enforces the
+write half mechanically; measurement is unaffected because it is a read.
+
+Note for the perf lane specifically: both existing measurements returned **"not worth
+optimising"**, and `executable-roadmap-2026-07-04.md:18` records that *"every measured hot path
+is weekly-trivial or already native."* A perf lane that re-derives that conclusion and reports
+"nothing worth doing" is functioning correctly, not failing.
+
 **Never (hard stops — refuse, do not "plan around"):**
 - **Never merges, pushes to `main`, deploys, or enables auto-merge.** Draft PR is the ceiling.
   (Mechanical, always-on: `push-guard.sh`, `pr-draft-guard.sh`.)
@@ -100,7 +147,20 @@ scope line that included these paths; this closes it. §10 makes it mechanical.)
 
 ## 2. Cadence + change-detector pre-gate
 
-Every 8h: **09:30 / 17:30 / 01:30 AEST** = `30 23,7,15 * * *` UTC, fresh session per fire.
+**Superseded 2026-09-02** — the every-8h single loop is replaced by three lanes on their own
+schedules, because perf and bug-hunting have opposite behaviour-preservation contracts (a bug
+fix is *supposed* to change behaviour; a perf fix must not) and different evidence bases.
+
+| Lane | Workflow | Cadence | Evidence base | Status |
+|---|---|---|---|---|
+| Bug triage | `nightly-triage.yml` | on `nightly-check` failure | test suite (exists) | live |
+| Toolwatch | `weekly-toolwatch.yml` | Sun 19:00 UTC (Mon 06:00 AEDT) | web (scoped grant) | live |
+| Perf | `weekly-perf.yml` | weekly | `duration_ms` trend | **gated on `asxos/domain/opsmetrics/`** |
+
+Every lane is a fresh run; GitHub Actions gives no session reuse, which is the desired property.
+
+**Original text (still binding on the lanes it applies to):** Every 8h: **09:30 / 17:30 /
+01:30 AEST** = `30 23,7,15 * * *` UTC, fresh session per fire.
 
 **Pre-gate (runs before any finder is dispatched):** compare `git log` against the last fire's
 recorded SHA (from `arbi-run-ledger.md`). **If no commit touched `{asxos,jobs,tests}/**` since
@@ -183,24 +243,64 @@ converting "James notices no email" into a mechanical dead-man's switch. The pin
 **Every security PR's notification includes a one-line "what this diff could be hiding"**
 (security MED-6) so James reads it adversarially, not as a rubber-stamp.
 
-## 7. Arming — mechanical primary, STEP 0 as defense-in-depth (corrected)
+### Artifact-per-fire is MECHANICAL (added 2026-09-02 — closes the silence defect)
 
-`unattended-guard.sh:32` is a **no-op unless `ARBI_UNATTENDED=1`** — so the DB/secret/Render/
-GitHub-MCP-write denies bind only when that env var is present. Firing cannot set its own env.
+The findings-log row is appended **by a workflow step, not by agent judgement**, and it runs
+`if: always()` so it fires on agent failure, timeout, and pre-gate stop alike. The step commits
+the row; a fire that opens no PR still leaves a commit.
 
-- **PRIMARY (mechanical, §10):** arming is enforced *before the agent acts* — via the env-config
-  `ARBI_UNATTENDED=1` plus a fire wrapper / SessionStart hook that hard-exits (or blocks all
-  write tools) if the var is not exactly `1`. The agent must not be able to begin write work
-  with the guard down.
-- **STEP 0 (defense-in-depth only):** the session's first action is
-  `echo "ARBI_UNATTENDED=${ARBI_UNATTENDED:-UNSET}"`; if not `1`, it runs read-only and warns.
-  This is a backstop, **not** the arming mechanism — an LLM instruction can be skipped or
-  injected past, so it does not stand alone. (security HIGH-1.)
+This exists because the previous incarnation of this loop reported SUCCEEDED and left nothing
+behind, and after the fact nobody could tell whether it had run. Both prior loops in this repo
+(7a and secperf) died the same way, which `roadmap-state.md:1254` names directly: their
+*"quality and liveness problems are the same problem."* An agent instructed to write a
+heartbeat can skip it; a workflow step cannot.
 
-**Corrected claim:** STEP 0 is prompt-degradation, not a physical guarantee. The always-on trio
-(`push`/`draft`/`authority`) bounds merge/push/non-draft/authority-edit regardless; but with the
-env unset, DB / secret / Render / GitHub-MCP-write are **exposed if STEP 0 is subverted** — not
-"physically impossible." That subset is what §10 closes.
+**The regression test:** after two fires, `git log docs/product/*findings-log.md` must show two
+commits. If it shows fewer, the lane is not observable and must be treated as dead regardless
+of what its run status says.
+
+## 7. Arming — a workflow property (rewritten 2026-09-02 for Actions)
+
+`unattended-guard.sh:37` is a **no-op unless `ARBI_UNATTENDED=1`** — the DB/secret/Render/
+GitHub-MCP-write denies bind only when that env var is present. On the Routine substrate that
+was an environment James had to provision, which is why §10 item 1 blocked for seven weeks.
+
+**On Actions it is three lines of YAML in the lane's own file:**
+
+```yaml
+jobs:
+  lane:
+    env:
+      ARBI_UNATTENDED: "1"      # arms unattended-guard.sh:37 for this workflow only
+```
+
+Two properties this buys that the Routine substrate could not:
+
+- **Scoped.** It arms exactly this workflow. §10 item 1's concern — that setting the var on the
+  shared interactive environment would cage James's own attended sessions (pytest scrub,
+  interpreter denies, capital-path denies all binding him) — cannot arise.
+- **Reviewable.** The arming lives in git, is diffed in the PR that introduces it, and cannot
+  drift silently the way a SaaS trigger's environment can.
+
+**STEP 0 stays as defense-in-depth only:** the session's first action is
+`echo "ARBI_UNATTENDED=${ARBI_UNATTENDED:-UNSET}"`; if not `1`, run read-only and warn. It is
+prompt-degradation, not a physical guarantee — an LLM instruction can be skipped or injected
+past (security HIGH-1). Its value now is diagnostic: it puts the arming state in the run log,
+so a lane running disarmed is visible in the transcript rather than inferred later.
+
+### The two Actions-specific hazards (both must be handled in every lane)
+
+1. **A6 will deny the agent's own `pytest`.** `unattended-guard.sh:285-287` denies any `pytest`
+   not fronted by an `env -i` scrub. With the guard armed, an agent Bash call to run the suite
+   is blocked. **Do not teach the prompt `env -i`** — run the suite as a *separate workflow
+   step* against the pushed branch. That sidesteps A6 entirely and, more importantly, converts
+   the agent's self-report into a CI fact. The PR opens only if that step passed.
+2. **The hooks have never been verified to fire inside `claude-code-action`** — same class as
+   R16 (`pr-draft-guard.sh` unverified in this harness). **Do not design safety around the
+   hooks in CI.** The load-bearing controls are `--allowedTools`, the workflow's `permissions:`
+   block, and the absence of secrets. The hooks are belt. Verify empirically — a lane's first
+   run must show at least one guard denial on a deliberately out-of-tier action, or the guard
+   must be assumed disarmed.
 
 ## 8. All read content is UNTRUSTED (new — security HIGH-3)
 
@@ -226,13 +326,35 @@ framing — the draft-PR ceiling means the whole residual is James spotting it.)
   ceiling + **James's merge**.
 - `pytest` is an allowlisted arbitrary-code-execution path; §3's new-test rule + §10's env-scrub
   are what bound it.
-- Branch protection on `main` and the `0039` DB role (PR #45) remain the outstanding
-  server-side backstops. Landing them upgrades the loop from "safe by ceiling + guard" to "safe
-  by boundary."
+- ~~Branch protection on `main` and the `0039` DB role remain outstanding.~~ **Corrected
+  2026-08-14 (`SB0-02`) and again 2026-09-02** — branch protection landed 2026-07-17 and `0039`
+  applied 2026-07-16; see the correction box at the head of this file for what each actually
+  buys (branch protection binds non-admin credentials only; the `0039` residual is a re-point
+  between two read-only roles). Left struck rather than deleted because this line was cited as
+  live fact for three months after it stopped being true.
+- **The hooks are unverified inside `claude-code-action`** (R16 class). In CI the load-bearing
+  controls are `--allowedTools`, the workflow `permissions:` block, and the absence of secrets;
+  `unattended-guard.sh` is belt, not boundary, until a lane's run log shows it denying something.
 - Security fixes are the highest-judgement class: review loop + fresh-reviewer + guilfoyle
   readiness + **human merge** are mandatory; nothing here auto-applies a security change.
 
-## 10. Enablement gates for the WRITE loop (James / mechanical — required before write goes live)
+## 10-A. Enablement status after the Actions migration (2026-09-02)
+
+| # | Gate | Status on Actions |
+|---|---|---|
+| 1 | Mechanical arming | ✅ **CLOSED** — job-level `env: ARBI_UNATTENDED: "1"`, scoped per lane (§7) |
+| 2 | Secret-scrubbed test env | ✅ **CLOSED** — the lane mounts no secrets at all; the suite runs as a workflow step, not an agent Bash call, so A6 is moot |
+| 3 | GitHub-MCP-write always-on deny | ❌ dropped by James 2026-07-16 (unchanged); armed lanes still hit the `mcp__github__*` default-deny catch-all |
+| 4 | Capital-adjacent path deny | ✅ landed PR #45; armed by item 1 above |
+| 5 | Healthchecks deadman URL | ⏳ **James** — one secret per lane (`HC_TRIAGE_URL`, `HC_TOOLWATCH_URL`, `HC_PERF_URL`) |
+| 6 | `0039` read-only DB role | ⏳ recommended, not blocking — these lanes call no DB tool at all (§1) |
+
+**Remaining to flip a lane live: James merges its workflow file (the merge IS the arming
+action, since `schedule:` only fires from the default branch) and adds its deadman URL.**
+
+The historical §10 below is retained as the record of what the Routine substrate required.
+
+## 10. Enablement gates for the WRITE loop (SUPERSEDED by §10-A — historical record)
 
 The write loop stays gated until these land (each is a mechanical fix for a HIGH/MED finding).
 Status as of 2026-07-15 — the hook/settings edits are **drafted in PR #45** (backend-architect
@@ -274,7 +396,18 @@ them itself), reviewed by `backend-architect` + `security-engineer`, for James t
 1), provides the deadman URL (item 5); then create the write Routine and retire the read-only
 one.** A6/A7 are belt-only (`unattended-guard.sh` header records the honest limit).
 
-## 11. Read-only interim posture (LIVE-SAFE now)
+## 11. Read-only interim posture — SUPERSEDED 2026-09-02
+
+This section described the interim posture used while §10 blocked the write loop. §10-A closes
+those gates on the Actions substrate, and Amendment H permits standing dispatch, so the write
+lanes go live directly. **The Routine referenced below is retired, not paused** — do not re-arm
+it; its job moved to `.github/workflows/`.
+
+The read-only *shape* remains the correct fallback for any lane whose evidence base is missing:
+a lane that cannot produce a non-speculative finding must report and stop, never patch. That is
+the standing rule for the perf lane until `asxos/domain/opsmetrics/` has trend data.
+
+<details><summary>Historical record — the Routine posture</summary>
 
 **LIVE as of 2026-07-15** — Routine `trig_01T8xWxKqjmruzSUrvryf7TH`, cron `30 23,7,15 * * *`
 (09:30 / 17:30 / 01:30 AEST), fresh session, push+email. Kill:
@@ -289,13 +422,19 @@ fix PR. This is the same risk class as the already-accepted 7a brief (prompt-lev
 the always-on trio still bounds the catastrophic tier), so it needs none of §10. §8 (untrusted
 content) and §6 (deadman) apply in this posture too.
 
-## 12. Kill switches
+</details>
+
+## 12. Kill switches (Actions substrate)
 
 | Target | Action |
 |---|---|
-| Pause one cycle | `update_trigger <id> enabled=false` |
-| Stop entirely | `delete_trigger <id>` |
-| Disarm write globally | remove `ARBI_UNATTENDED=1` from env → §7 primary blocks, STEP 0 degrades |
-| Block all landing | branch protection / `pr-draft-guard` prevent merge regardless |
+| Pause one lane | Actions UI → the workflow → **Disable workflow**. Takes effect immediately, no merge needed. |
+| Pause every lane | Actions UI → **Disable Actions** for the repo |
+| Stop a lane permanently | delete its `.github/workflows/*.yml` on a PR |
+| Disarm the guard for a lane | remove `ARBI_UNATTENDED: "1"` from its `env:` → §7 denies stop binding, STEP 0 degrades it to read-only |
+| Kill an in-flight run | Actions UI → **Cancel run** |
+| Block all landing | branch protection + draft-PR ceiling — unchanged, and independent of every row above |
 
-Trigger id recorded in `roadmap-state.md` (PR-7b row) + `decision-log.md` on creation.
+**The disable switch does not need James at a keyboard with a merge.** That asymmetry is
+deliberate: arming requires a merge, disarming is one click. Lane names and their deadman URLs
+are recorded in `decision-log.md` on creation.
