@@ -91,6 +91,11 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "pit_knowledge_tier": (
+        "0049 — drafted, awaiting a governor decision to apply (Amendment H "
+        "click H-18). The deriver writes knowledge_tier only once the column "
+        "exists; until then the tier is computed and discarded."
+    ),
 }
 
 
