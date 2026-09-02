@@ -405,6 +405,63 @@ authority-file PRs. Record that before flipping the count.
 is still James-named. The App and the `auto` setting are James-executed,
 not agent-dispatched.
 
+#### Amendment H — campaign sequencing + bounded decision delegation (James, 2026-09-02)
+
+**Ruling (James, 2026-09-02, verbatim intent, authority ladder level 0):** *"pull this wake
+into a comprehensive task list including the stage 0-6 that I authorise all work and required
+agents. arbi you will run this in an autonomous session until complete you have full autonomy
+and authority. I delegate decisions to you, as the North Star and other guideline
+principles/backlog/roadmap docs to reference and run Arbi mission so that all agents are
+engaged for their expertise. This all needs to be finished."* Recorded per the GOV-01
+two-artifact precedent: this amendment + the `decision-log.md` row of the same date. The full
+task list is `docs/proposals/amendment-h-campaign-plan-2026-09-02.md` (Waves 0→8, node IDs
+`H0-A` … `H7-A`, the 39-click James list `H-01` … `H-39`). Letter C is burned; H is next free.
+
+**What the ruling grants — and what it cannot.** The governance set distinguishes delegation of
+*sequencing* (grantable; precedent Amendments B `:136-159` and D `:172-207`) from delegation of
+*tier* (not grantable: I5/I6 and P5/P6 are "never promotable", `arbi-permission-model.md` §tiers;
+`arbi-constitution.md` §reserved-to-James; mechanically enforced by `push-guard.sh`,
+`pr-draft-guard.sh`, `authority-guard.sh`, `.claude/settings.json` deny rules). Effect:
+
+1. **Sequencing.** arbi may chain the campaign-plan missions in any dependency-respecting
+   order, including parallel packet missions, without James naming each pair. Stacking per
+   Amendment A; a merge conflict stops the chain.
+2. **Decisions arbi makes alone** — anything inside `arbi-constitution.md` §what-arbi-decides
+   ("what matters next, what is blocked, which specialist, what evidence counts as current
+   truth, when a PR is good enough, when a claim is stale"): backup-membership calls,
+   contract-recording calls, slice ordering, replay-date and positive-control **method**,
+   doc-drift corrections in unguarded `docs/**`. The seven decisions D-1…D-7 in the campaign
+   plan §4 are made under this clause.
+3. **Decisions arbi drafts, James ratifies** — dark-surface verdicts, migration application,
+   any workflow/schedule, any environment flip, capital/risk calibration (F4), authority-set
+   edits, ADR rulings named James-only.
+4. **Hard stops, unchanged** — no merge/ready/un-draft, no non-draft PR, no migration apply,
+   no secrets, no prod DB write, no deploy or scheduler cutover, no `.github/**` or
+   authority-set edits, no capital action, rule #11 standing, `signals` never read as
+   evidence, W1-2 never #1.
+5. **Click-list.** Every mission writes its James clicks into `james-inbox.md` under
+   `## Amendment H click-list`, numbered `H-nn`, each with the exact command / secret name /
+   ruling text. arbi never blocks on a click while an independent node exists (recipe R1
+   "JAMES_NEEDED → pivot").
+6. **Completion.** The campaign ends when every node is `done`, `parked-with-trigger`, or
+   `JAMES_NEEDED`, and no Stage cell has flipped without its `target-architecture.md` §15 exit
+   gate cited (anti-drift `:58-60`: never flip a cell because a work order landed).
+7. **Expiry / kill switch.** H expires at the end of the attended session window in which it
+   is recorded, on James saying "stop", on any `arbi-permission-model.md` circuit breaker, or
+   on two consecutive NOT-READY passes on one mission. `ARBI_UNATTENDED=1` stays off — this is
+   an attended window James opened, not standing autonomy (preconditions 3/4/5 remain open).
+
+**Honest limit, stated up front.** Even under H the campaign cannot finish inside one session:
+S3 bucket/credentials (F6), Dagster deployment/spend (F5), risk calibration (F4/P5-01), any
+new production schedule, and Stage 5's 21/63/126-session observation windows are James's or
+calendar-bound. Realistic end state: backup green and observed; Stage 1 clauses (1)(2)(3) met
+in-repo with F6 carried; Stage 2 and 3 gates met with cited evidence; Stage 4 case delivered
+and disposed by James (at `abstain` unless P5-01 lands first); Stage 5 t0 captured; Stage 6 not
+reachable. Programme "done" (`target-architecture.md` §16) is not reachable this session.
+
+**Queue placement.** THE ONE THING is unchanged: `H0-B` restore the irreplaceable backup
+(campaign plan Wave 0). H does not reorder the Stages 0→6 table; it authorises working it.
+
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 
 Amendment D (`:176-180`) makes the product lane rank **above** the packet lane and permits the
@@ -822,6 +879,10 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > `check_cron_health` failures (08-28 mid-session `sync_prices` ASX=0; 08-31 Monday-morning
 > `check_us_positions` 36h-window false positive). Orphaned 08-21 wake snapshot still stashed on
 > `claude/live-validation-followup-2026-08-20` (`ddd005d`). The 08-25 banner below is historical.
+> **Same day, after the wake: James ruled Amendment H** (recorded above, after Amendment G) —
+> the campaign plan `docs/proposals/amendment-h-campaign-plan-2026-09-02.md` is the working task
+> list (Waves 0→8); this file stays the only ranked queue and its Stage cells flip only on cited
+> exit gates. Wave 0 (`H0-A` records + `H0-B` backup fix) is in flight on `claude/arbi-wake-tvhllf`.
 >
 > ⚠️ **2026-08-25 close — historical (the live banner is the 2026-09-02 wake above).** `main` @ `2f98332`. **Two governor-named tasks,
 > no `/arbi` wake:** (1) implement the five ADOPT-NOW items from a CI/CD engineering review;

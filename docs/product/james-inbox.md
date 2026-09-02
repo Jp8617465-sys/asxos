@@ -69,6 +69,22 @@ judgement arbi has no standing to make:
 
 ---
 
+## Amendment H click-list (opened 2026-09-02 — the only James actions the campaign needs)
+
+Per `roadmap-state.md` Amendment H §5 and `docs/proposals/amendment-h-campaign-plan-2026-09-02.md`
+§3. Each row is one click, secret, apply, dispatch, or ruling; arbi never blocks on a row while an
+independent node exists. Rows are appended per wave; a row moves to ✅ when James does it.
+
+| # | Wave | Click | Exact action |
+|---|---|---|---|
+| H-01 | 0 | Ratify Amendment H | Reply "ratified" (or amend the text in `roadmap-state.md` §Amendment H). The ruling is recorded from your 2026-09-02 instruction; this row is the confirmation. |
+| H-02 | 0 | Merge | Merge the `claude/arbi-wake-tvhllf` draft PR (wake snapshot + Amendment H + close records + campaign plan). |
+| H-03 | 0 | Secret | Add Actions secret `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` (a new Healthchecks.io check, daily grace ≥ 26h). |
+| H-04 | 0 | `.github` patch | In `.github/workflows/backup.yml`: add `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE: ${{ secrets.HEALTHCHECK_URL_BACKUP_IRREPLACEABLE }}` to the `env:` block (`:41-45`), and add the five 0048 tables (`evidence_packets thesis_versions challenge_results portfolio_assessments decision_packets`) to the restore-drill table array (`:226-230`) + its "14 table counts" literal → 19. Exact patch text is in the H0-B PR body. |
+| H-05 | 0 | Merge | Merge the H0-B draft PR (`scripts/backup_irreplaceable.sh` dump-before-verify + 0048 tables + tests + RUNBOOK). |
+| H-06 | 0 | Dispatch | `gh workflow run backup.yml` then `gh workflow run backup.yml -f restore_drill=true`; paste both run ids back. |
+| H-07 | 0 | Inspect (conditional) | If H-06 still reports "no file matches the recorded sha256": in `$BACKUP_REPO`, run `sha256sum signal-evidence-2026-08-16/*` and `cat signal-evidence-2026-08-16/MANIFEST.txt`; paste the output. arbi corrects the constant in a follow-up `/build`. Only you can see that repo. |
+
 ## How arbi uses it
 
 - **Surface open rows every wake** in the brief's "Decisions needed from James" line — these are
