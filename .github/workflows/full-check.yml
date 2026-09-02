@@ -53,7 +53,7 @@ jobs:
           # (PEP 621), so it is what the cache key hashes. The heavy half of the
           # install is the ml extra (lightgbm/shap/scikit-learn; shap builds
           # llvmlite), which is why caching is worth a step here at all.
-          cache: 'pip'
+          cache: pip
           cache-dependency-path: pyproject.toml
 
       - name: Install (ml + dev extras)

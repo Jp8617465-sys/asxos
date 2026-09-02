@@ -37,19 +37,25 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (on disk through 0045; latest APPLIED is 0044; `REQUIRED_MIGRATIONS = 97`) is the canonical schema** — roughly 40
+**`migrations/` (on disk through 0048; latest APPLIED is
+`0048_decision_packets`) is the canonical schema** — roughly 40
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
 the migrations.
-**The highest file number on disk is NOT what is live** — the two diverge right
-now. Check `supabase_migrations.schema_migrations`, never the directory listing.
+Migration numbering is **NOT** evidence of what is live — the disk and ledger
+sets still diverge because 0045 is intentionally unapplied. Check
+`supabase_migrations.schema_migrations`, never the directory listing.
+Schema drift is detected by the migration-name set difference in
+`asxos/schema_drift.py`, not by a required migration count.
 Migration `0042` remains reserved for the parked rules-integrity branch and must
 not be applied. `0043_price_revisions.sql` was applied to production on 2026-08-12
 as version `20260812092925`; `0044_fundamentals_pit_currency.sql` was applied on
-2026-08-21 as `20260821080458` (observed count 97). `0045_segment_map.sql` is on
-disk but **NOT applied** — `public.segment_map` does not exist in production and
-nothing runs `build_segment_map` yet.
+2026-08-21 as `20260821080458`. `0045_segment_map.sql` is on disk but **NOT
+applied** — `public.segment_map` does not exist in production and nothing runs
+`build_segment_map` yet. `0046_screening_runs_comment_fix.sql` was applied as
+`20260823054040`; `0047_brief_section_gold.sql` was applied as `20260824002827`;
+and `0048_decision_packets.sql` was applied on 2026-09-01 as `20260901062502`.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
