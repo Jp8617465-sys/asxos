@@ -12,10 +12,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import fields, is_dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from enum import Enum
 from typing import Any, Protocol
 
 from asxos.brief.compose import (
@@ -40,6 +38,7 @@ from asxos.domain.benchmark.outcome import (
     SleeveOutcome,
 )
 from asxos.domain.theses.discipline import DisciplineFinding, DisciplineLevel
+from asxos.serde.canonical import to_canonical
 
 GOLD_TABLE = "brief_section_gold"
 HEADER_NAME = "header"
@@ -94,26 +93,14 @@ def _table_from_exc(exc: BaseException) -> str:
 
 
 def jsonable(value: object) -> object:
-    """Dates ISO, Decimal as strings, dataclasses via field recursion. No secrets."""
-    if value is None or isinstance(value, bool | int | str):
-        return value
-    if isinstance(value, float):
-        return value
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, Enum):
-        return value.value
-    if is_dataclass(value) and not isinstance(value, type):
-        return {f.name: jsonable(getattr(value, f.name)) for f in fields(value)}
-    if isinstance(value, dict):
-        return {str(k): jsonable(v) for k, v in value.items()}
-    if isinstance(value, list | tuple):
-        return [jsonable(v) for v in value]
-    raise TypeError(f"cannot encode {type(value).__name__} for gold payload")
+    """Dates ISO, Decimal as strings, dataclasses via field recursion. No secrets.
+
+    Thin alias over ``asxos.serde.canonical.to_canonical``, which this function
+    was extracted into (2026-09-02) once a second caller wanted it. The
+    ``context`` keeps the ``TypeError`` message byte-identical to the pre-split
+    version.
+    """
+    return to_canonical(value, context="gold payload")
 
 
 def _as_date(value: object) -> date | None:
