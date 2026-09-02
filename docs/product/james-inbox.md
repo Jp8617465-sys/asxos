@@ -95,22 +95,37 @@ independent node exists. Rows are appended per wave; a row moves to ✅ when Jam
 | H-17 | 1 | Ruling (one word) | Retire CBA thesis #1? Live: entry band 42–45 against a close of 159.15 (3.5× detached), target 60 now 62% below price, revisit 67 days overdue, never revised. arbi will write a `thesis_revisions` row recording why rather than silently flipping a status. |
 | H-18 | 2 | Apply migration | **PR #192** — apply `migrations/0049_pit_knowledge_tier.sql`, then remove the `pit_knowledge_tier` entry from `EXPECTED_UNAPPLIED` in `asxos/schema_drift.py`. The drift check fails loudly if you forget; that is what the directional allowlist is for. |
 | H-11 | 1 | Ruling (one word) | The orphaned 08-21 wake snapshot was a local `git stash` on the 08-25 session's machine — never pushed; `origin/claude/live-validation-followup-2026-08-20` carries only merges. Not recoverable from a sandbox. Recommend **drop** (reply "drop", or paste the stash if you still have it and arbi will archive it). |
+| H-18 ✅ | 2 | ~~Apply 0049~~ **done by arbi under your 2026-09-02 grant** | Applied as `20260902201241`; the `pit_knowledge_tier` allowlist entry is already removed on #192's branch. Nothing left on this row. |
+| H-19 | 2 | Merge | **PR #192** — PIT `knowledge_tier` (filed / estimated) + the corrected A.0 cause (`period_end + 75d` fallback, 326 rows). Existing rows carry NULL until the Saturday 19:18 UTC `derive_fundamentals_pit` run. |
+| H-20 | 2 | Merge | **PR #193** (stacked on #192) — replay harness + lineage resolver, `asx replay show SYMBOL --cutoff DATE`. Live replay for TLS.AU 2025-08-21 is observable only after that Saturday backfill. |
+| H-24 ✅ | 3 | ~~Apply 0050~~ **done by arbi under the grant** | Applied as `20260902203202`; entry removed on #194's branch. |
+| H-25 | 3 | Merge | **PR #194** (stacked on #193) — research registry: `ResearchHypothesis` / `StrategyVersion` / `ResearchRun`, promotion state machine with no code-reachable transition to capital, 12-1 momentum harness at 25 bp. |
+| H-25a | 3 | Live run (paste) | From a machine that reaches the Supabase pooler: `asx research run --as-of 2026-09-01 --dry-run` (builds twice, exits 2 if the run hashes differ). Paste the two hashes. `--persist` writes the first registry rows — your call, it is a production write. The sandbox cannot connect (asyncpg timeout, recorded in the ledger). |
+| H-26 ✅ | 4 | ~~Apply 0051~~ **done by arbi under the grant** | Applied as `20260902204920`; entry removed on #195's branch. Verified via `pg_catalog`: no verdict / weight / size / target / state column on either table. |
+| H-27 | 4 | Merge | **PR #195** (stacked on #194) — Stage 3 theme + candidate engine: `ThemeVersion`, `CandidateSnapshot`, deterministic measures, the LLM extraction boundary (tier cap + recommendation-verb refusal), `asx candidates build`. |
+| H-27a | 4 | Live run (paste) | `asx candidates build --theme big-4-banks --symbol CBA.AU --as-of 2026-09-01 --dry-run`. Paste the two `sha256=` values and the `quality_checks` block. Expected from live recon: `factor_scores_fresh = pass` (latest `rs_factor_scores` cross-section 2026-08-11), `regime_quadrant = null` (the theme has no `macro_thesis_id`). This is the Stage 3 gate's *live* half; arbi does not flip the Stage 3 cell until you have seen it. |
+| H-28 | 4 | Schedule ruling | `detect_theme_stages` has no workflow home (C4/D12). F5 forbids arbi adding a schedule. Not required for the Stage 3 gate — rule only if you want stage drift observed weekly. |
 
-**Campaign status at the 2026-09-02 session close.** Waves 0, 1 and node H2-A are built and
-pushed as **eight draft PRs**: #185 (wake + Amendment H), #186 (backup fix, stacked), #187
-(cron-health), #188 (0044 header), #189 (doc-drift, stacked), #190 (governor drafts, stacked),
-#191 (dependency audit), #192 (PIT knowledge tier). Two planned nodes were **found void on
-inspection** and cost nothing: H1-B (`render.yaml` is already gone from `main` and
-`check_us_positions.py` already reads 21:30 UTC) and H1-D (the orphaned 08-21 snapshot was a
-local `git stash`, never pushed — unrecoverable from a sandbox, so H-11 is a one-word ruling
-rather than a merge).
+**Campaign status, 2026-09-02 (updated after the migration grant).** Waves 0–4 are built and
+pushed as **eleven draft PRs**: #185 (wake + Amendment H), #186 (backup fix, stacked), #187
+(cron-health), #188 (0044 header), #189 (doc-drift, stacked), #190 (governor drafts, stacked —
+carries the ledger), #191 (dependency audit), #192 (PIT knowledge tier), #193 (replay + lineage,
+stacked), #194 (research registry, stacked), #195 (theme + candidate engine, stacked). Two
+planned nodes were **found void on inspection** and cost nothing: H1-B (`render.yaml` is already
+gone from `main` and `check_us_positions.py` already reads 21:30 UTC) and H1-D (the orphaned
+08-21 snapshot was a local `git stash`, never pushed — unrecoverable from a sandbox, so H-11 is a
+one-word ruling rather than a merge).
 
-**Everything after H2-A is JAMES_NEEDED, not unfinished.** Waves 3–7 each add a migration
-(0050 research registry, 0051 themes/candidates, 0052 outcome materialisation) whose "done when"
-is reproducibility *against applied schema*, and Wave 6's Stage 4 case consumes Wave 4's
-candidate output. Building four more unappliable migrations on top of eight unreviewed PRs would
-be inventory, not progress — and it is the "correct-and-empty is not done" trap Amendment D
-names. The campaign resumes at H3-A once this stack is merged and 0049 is applied.
+**The migration grant changed the shape of the tail.** Your in-session instruction ("I authorise
+you to apply the migrations and then continue the work") is an explicit I5 grant for the
+campaign's own migrations: 0049, 0050 and 0051 are **applied and verified** (each has a ledger
+row naming the grant); 0052 will be applied the same way when Wave 7 writes it. `0045_segment_map`
+is deliberately **not** covered — nothing runs `build_segment_map`, it has no workflow home, and
+applying it would redden `migration-drift` on `main` with no PR in flight to clear it; it stays
+C8. Merges, secrets, `.github` edits, env flips and capital stay yours. Until the stack merges,
+`migration-drift` on `main` reports the three applied names as applied-not-in-repo — true, stated
+in advance, self-clearing on merge. The campaign continues into Wave 5 (ADR §6 slices 2.5 → 2 → 3,
+no migration) on the same stack.
 
 ## How arbi uses it
 
