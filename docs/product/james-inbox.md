@@ -78,16 +78,39 @@ independent node exists. Rows are appended per wave; a row moves to ✅ when Jam
 | # | Wave | Click | Exact action |
 |---|---|---|---|
 | H-01 | 0 | Ratify Amendment H | Reply "ratified" (or amend the text in `roadmap-state.md` §Amendment H). The ruling is recorded from your 2026-09-02 instruction; this row is the confirmation. |
-| H-02 | 0 | Merge | Merge the `claude/arbi-wake-tvhllf` draft PR (wake snapshot + Amendment H + close records + campaign plan). |
+| H-02 | 0 | Merge | **PR #185** — wake snapshot + Amendment H + close records + campaign plan. Head of the doc stack (#186 → #189 → #190 build on it). |
 | H-03 | 0 | **Inspect the archive — first, unconditional** (`arbi-red-team` correction 2026-09-02) | In `$BACKUP_REPO`: `ls -la signal-evidence-2026-08-16/ && sha256sum signal-evidence-2026-08-16/* && cat signal-evidence-2026-08-16/MANIFEST.txt`; and for any `.gz` file also `gzip -dc <file> \| sha256sum`. Paste the output. Only you can read that repo. This is the only path to *green*: H0-B's script fix keeps the dump safe on a red run, but the job stays red (and the restore drill stays skipped) until the recorded digest matches the archive. If a decompressed digest matches, H0-B's gzip-aware check already clears it and this row is informational. |
-| H-04 | 0 | Merge | Merge the H0-B draft PR (`scripts/backup_irreplaceable.sh` dump-before-verify + gzip-aware digest + `/fail` ping + 0048 tables + tests + RUNBOOK + this list). |
+| H-04 | 0 | Merge | **PR #186** (stacked on **#185**) — `backup_irreplaceable.sh` dump-before-verify + gzip-aware digest + `/fail` ping + the 0048 tables + tests + RUNBOOK. Merge #185 first, or retarget. |
 | H-05 | 0 | Secret | Add Actions secret `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` (a new Healthchecks.io check, period 1 day, grace ≥ 6h). **Note:** until H-03's result is resolved, a verification failure will ping `/fail` daily — that is a true signal ("ran and failed"), not silence; if you prefer quiet until then, do H-03 first. |
 | H-06 | 0 | `.github` patch | In `.github/workflows/backup.yml`: (a) add `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE: ${{ secrets.HEALTHCHECK_URL_BACKUP_IRREPLACEABLE }}` to the `env:` block (`:41-45`); (b) add `evidence_packets thesis_versions challenge_results portfolio_assessments decision_packets` to the restore-drill `TRUNCATE` list and `tables=(…)` array (`:200-230`) and change the literal `all 14 table counts match` → `all 19 table counts match` (then un-xfail `test_backup_workflow_arms_the_deadman` and update `test_restore_drill_covers_revision_rows_and_sequence` in `tests/test_backup_script.py` — or tell arbi and it will). Exact patch text is in the H0-B PR body. |
 | H-07 | 0 | Dispatch | After H-04 (and H-03's constant fix if one was needed): `gh workflow run backup.yml`, then `gh workflow run backup.yml -f restore_drill=true`; paste both run ids back. Green on both = defect row #1 closes. |
-| H-08 | 1 | Merge | Merge draft PR for `claude/amendment-h-h1-a` (`check_cron_health` per-job window — the 08-31 Monday false positive). |
+| H-08 | 1 | Merge | **PR #187** — `check_cron_health` per-job window (the 08-31 Monday false positive). |
 | H-09 | 1 | ~~`render.yaml` removal~~ **VOID** | `render.yaml` no longer exists on `main` and `check_us_positions.py` already says 21:30 UTC — inventory rows B2/B3 were stale. Nothing to do. |
-| H-10 | 1 | Merge | Merge draft PR for `claude/amendment-h-0044-header` (0044 header records the apply; COMMENT text matches the live DB, 947 not 102). |
+| H-10 | 1 | Merge | **PR #188** — 0044's header records its apply; its COMMENT text matches the live DB (947, not 102). |
+| H-12 | 1 | Merge + rule | **PR #178** (Dependabot) with the named follow-ups in **PR #191**'s audit — verdict MERGE WITH FOLLOW-UPS. The fallout commit is a genuine fix, not suppression (noqa 12→12, `type: ignore` 23→22, `ruff.toml`/`mypy.ini`/asyncio settings untouched). Watch the first scheduled `daily-brief` after merge: `resend` moves 2.4.0 → 2.39.0 on the live send path and every test mocks it. |
+| H-13 | 1 | Rule | Phase 2 CI dev-deps (**PR #191**): `pip-audit` **ADOPT** (exact step + the `--skip-editable` requirement are in the doc; needs a `.github` edit), `mypy-baseline` **DECLINE for now** (unmeasured necessity; wrong order against the mypy 2 move). |
+| H-14 | 1 | Merge | **PR #189** — doc-drift sweep (the deleted `REQUIRED_MIGRATIONS` instructions, ADR §3.5 rewrite + corrections rows 6 and 7, dark-launch countdown, inbox deadlines, Stage 1 F5/F6). |
+| H-15 | 1 | Apply text | Deny-listed doc fixes: `docs/README.md:20` (handoff pointer) and `:39` (schema row), plus `.claude/rules/api-conventions.md:16-17,50-51`. Exact replacement text is in **PR #189**'s body. |
+| H-16 | 1 | Ruling | Dark surfaces #1 and #4 — **PR #190** drafts both. Recommendation: KEEP-DARK to 2026-11-30 with #1's ship condition **restated**, because the current one is mechanically unreachable (its gate needs `build_portfolio` alive; last success 2026-07-11, in no workflow, ruled DELETED by Amendment F). |
+| H-17 | 1 | Ruling (one word) | Retire CBA thesis #1? Live: entry band 42–45 against a close of 159.15 (3.5× detached), target 60 now 62% below price, revisit 67 days overdue, never revised. arbi will write a `thesis_revisions` row recording why rather than silently flipping a status. |
+| H-18 | 2 | Apply migration | **PR #192** — apply `migrations/0049_pit_knowledge_tier.sql`, then remove the `pit_knowledge_tier` entry from `EXPECTED_UNAPPLIED` in `asxos/schema_drift.py`. The drift check fails loudly if you forget; that is what the directional allowlist is for. |
 | H-11 | 1 | Ruling (one word) | The orphaned 08-21 wake snapshot was a local `git stash` on the 08-25 session's machine — never pushed; `origin/claude/live-validation-followup-2026-08-20` carries only merges. Not recoverable from a sandbox. Recommend **drop** (reply "drop", or paste the stash if you still have it and arbi will archive it). |
+
+**Campaign status at the 2026-09-02 session close.** Waves 0, 1 and node H2-A are built and
+pushed as **eight draft PRs**: #185 (wake + Amendment H), #186 (backup fix, stacked), #187
+(cron-health), #188 (0044 header), #189 (doc-drift, stacked), #190 (governor drafts, stacked),
+#191 (dependency audit), #192 (PIT knowledge tier). Two planned nodes were **found void on
+inspection** and cost nothing: H1-B (`render.yaml` is already gone from `main` and
+`check_us_positions.py` already reads 21:30 UTC) and H1-D (the orphaned 08-21 snapshot was a
+local `git stash`, never pushed — unrecoverable from a sandbox, so H-11 is a one-word ruling
+rather than a merge).
+
+**Everything after H2-A is JAMES_NEEDED, not unfinished.** Waves 3–7 each add a migration
+(0050 research registry, 0051 themes/candidates, 0052 outcome materialisation) whose "done when"
+is reproducibility *against applied schema*, and Wave 6's Stage 4 case consumes Wave 4's
+candidate output. Building four more unappliable migrations on top of eight unreviewed PRs would
+be inventory, not progress — and it is the "correct-and-empty is not done" trap Amendment D
+names. The campaign resumes at H3-A once this stack is merged and 0049 is applied.
 
 ## How arbi uses it
 
