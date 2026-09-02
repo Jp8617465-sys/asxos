@@ -91,11 +91,9 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
-    "pit_knowledge_tier": (
-        "0049 — drafted, awaiting a governor decision to apply (Amendment H "
-        "click H-18). The deriver writes knowledge_tier only once the column "
-        "exists; until then the tier is computed and discarded."
-    ),
+    # 0049 pit_knowledge_tier was here from draft to apply. APPLIED 2026-09-02
+    # under James's in-session I5 grant; the entry is removed in the same PR
+    # (#192) so the directional allowlist does not flag it as STALE on merge.
 }
 
 

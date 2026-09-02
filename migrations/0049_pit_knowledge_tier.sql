@@ -1,7 +1,10 @@
 -- 0049_pit_knowledge_tier.sql
 -- =====================================================================
 --
--- DRAFT — NOT APPLIED. Apply only on James's instruction (I5).
+-- APPLIED to production 2026-09-02 as ledger name `pit_knowledge_tier`, under
+-- James's in-session I5 grant ("I authorise you to apply the migrations",
+-- 2026-09-02; Amendment H click H-18). Verified after apply: column TEXT,
+-- CHECK constraint present, index present, every pre-existing row NULL.
 --
 -- Stage 1 exit gate, clause (1): "one historical decision date can be replayed
 -- using ONLY facts with known_at <= cutoff" (target-architecture.md §15).
