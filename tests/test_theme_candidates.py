@@ -490,7 +490,8 @@ async def test_repository_round_trips_both_artifacts_through_payload() -> None:
         await load_candidate_snapshot(conn, "cand-missing")
 
 
-def test_migration_0051_is_on_disk_and_marked_draft_until_applied() -> None:
+def test_migration_0051_is_on_disk_and_records_its_apply() -> None:
     text = MIGRATION.read_text()
     assert "0051_theme_candidates.sql" in text.splitlines()[0]
     assert "_theme_candidates_forbid_mutation" in text
+    assert "APPLIED 2026-09-02 as ledger version 20260902204920" in text

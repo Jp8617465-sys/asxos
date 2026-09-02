@@ -1,8 +1,10 @@
 -- 0051_theme_candidates.sql
 -- =====================================================================
 --
--- DRAFT — NOT APPLIED. Apply only under James's I5 grant (Amendment H,
--- 2026-09-02), after the carrying branch's tests are green.
+-- APPLIED 2026-09-02 as ledger version 20260902204920 (name `theme_candidates`)
+-- under James's in-session I5 grant (Amendment H, 2026-09-02), after the
+-- carrying branch's tests were green. Verified via pg_catalog: both tables,
+-- both forbid-mutation triggers, the FK and every index present; 0 rows.
 --
 -- Stage 3 — theme and candidate engine (target-architecture.md §15):
 --   * versioned ThemeVersion + relationship model;
