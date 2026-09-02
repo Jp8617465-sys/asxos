@@ -42,6 +42,7 @@ from asxos.domain.decision_engine.challenge.steelman import (
     admit_llm_finding,
     falsifiability,
     outside_view,
+    readmit,
     strongest_bear_case,
 )
 from asxos.domain.decision_engine.types import ChallengeFinding, ChallengeResult
@@ -79,17 +80,18 @@ def challenge_thesis(
     created_at: datetime | None = None,
     log: DispositionLog | None = None,
     llm_findings: tuple[ChallengeFinding, ...] = (),
+    known_evidence_ids: frozenset[str] | None = None,
 ) -> ChallengeResult:
-    """Challenge one proposal. `llm_findings` must have come through
-    `admit_llm_finding` — anything else is refused by the contract's own
-    evidence requirement and by the severity cap re-checked here."""
+    """Challenge one proposal. Every entry of `llm_findings` is re-admitted
+    through `admit_llm_finding` here, so constructing a `ChallengeFinding`
+    directly cannot bypass the door; with `known_evidence_ids` the citations
+    must also resolve inside the packet."""
     if knowledge_cutoff.date() != x.as_of:
         raise ValueError("ChallengeInput.as_of must equal the UTC knowledge_cutoff date")
-    if any(f.severity == "blocking" for f in llm_findings):
-        raise BoundaryError("an LLM finding cannot be blocking (D14)")
+    admitted = tuple(readmit(f, known_evidence_ids=known_evidence_ids) for f in llm_findings)
     log = log or DispositionLog()
     outcomes = run_layer1(x)
-    findings = (*findings_of(outcomes), *outside_view(x), *falsifiability(x), *llm_findings)
+    findings = (*findings_of(outcomes), *outside_view(x), *falsifiability(x), *admitted)
     return ChallengeResult(
         challenge_result_id=f"chr-{thesis_version_id}",
         thesis_version_id=thesis_version_id,

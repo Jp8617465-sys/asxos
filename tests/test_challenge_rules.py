@@ -224,7 +224,11 @@ def test_bear_case_is_template_only_and_never_quotes_the_thesis() -> None:
     assert all(narrative not in f.finding for f in res.findings)
 
 
-@pytest.mark.parametrize("text", ["Buy CBA before results", "Price target 200", "We recommend trimming", "Strong sell"])
+@pytest.mark.parametrize(
+    "text",
+    ["Buy CBA before results", "Price target 200", "We recommend trimming", "Strong sell", "Recommending a review",
+     "Add to the position", "The stock is undervalued", "B\u200buy the dip", "Bu\u0443 now"],
+)
 def test_llm_door_refuses_recommendations_and_unevidenced_or_blocking_findings(text: str) -> None:
     with pytest.raises(BoundaryError, match="recommendation"):
         admit_llm_finding(text=text, required_response="x", evidence_ids=("ev:1",), severity="material")
@@ -232,10 +236,20 @@ def test_llm_door_refuses_recommendations_and_unevidenced_or_blocking_findings(t
         admit_llm_finding(text="NIM has compressed", required_response="x", evidence_ids=(), severity="material")
     with pytest.raises(BoundaryError, match="blocking"):
         admit_llm_finding(text="NIM has compressed", required_response="x", evidence_ids=("ev:1",), severity="blocking")  # type: ignore[arg-type]
+    with pytest.raises(BoundaryError, match="percentage"):
+        admit_llm_finding(text="Base rate is 35% for this class", required_response="x", evidence_ids=("ev:1",), severity="material")
+    with pytest.raises(BoundaryError, match="outside the packet"):
+        admit_llm_finding(text="NIM has compressed", required_response="x", evidence_ids=("ev:9",), severity="material", known_evidence_ids=frozenset({"ev:1"}))
     ok = admit_llm_finding(text="NIM has compressed for two halves", required_response="Re-underwrite the margin path", evidence_ids=("ev:1",), severity="material")
     assert _challenge(_input(), llm_findings=(ok,)).outcome == "revise"
     with pytest.raises(BoundaryError):
         _challenge(_input(), llm_findings=(ChallengeFinding(severity="blocking", finding="x", required_response="y", evidence_ids=("e",)),))
+    # a bare ChallengeFinding is re-admitted through the door: the door cannot be bypassed by construction
+    raw = ChallengeFinding(severity="material", finding="Sell into strength", required_response="y", evidence_ids=("e",))
+    with pytest.raises(BoundaryError, match="recommendation"):
+        _challenge(_input(), llm_findings=(raw,))
+    with pytest.raises(BoundaryError, match="outside the packet"):
+        _challenge(_input(), llm_findings=(ok,), known_evidence_ids=frozenset({"ev:thesis"}))
 
 
 def test_every_finding_is_unconstructable_without_evidence() -> None:

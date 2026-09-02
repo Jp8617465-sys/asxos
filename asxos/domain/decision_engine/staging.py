@@ -8,8 +8,27 @@ built only from a `ChallengeResult` whose outcome is `pass` and a
 
 Lot selection is DELEGATED to `asxos.domain.tax.lots` (`select_min_cgt`,
 `select_fifo`, `select_lifo`) — the sanctioned selectors, which apply the
-spec §5.1 calendar rule through `cgt.is_discountable` — never re-implemented
-here. The default is `min_cgt`.
+spec §5.1 calendar rule through `cgt.is_discountable` and the account-type
+discount of spec §2 through `cgt.cgt_discount_rate` — never re-implemented
+here. The default is `min_cgt`. `account_type` is threaded to the selector
+because the discount differs by account type (§2); every lot staged must
+carry that same account type, or staging refuses.
+
+**Projection, not a CGT event.** Spec §5.1 (line 110) and §10 (line 371)
+fix the disposal date as the CONTRACT date. A staged order has none: the
+`discountable` flag and `realised_gain_aud` on each `StagedLot` are §5.1
+projections evaluated at the packet `as_of` and at `reference_price`, and
+are marked `provisional`. Both MUST be re-evaluated at the contract date
+and fill price before any tax figure is relied on; eligibility can only
+improve with time, so a lot projected non-discountable may be discountable
+at fill.
+
+`select_min_cgt` falls back to FIFO above six lots; staging refuses rather
+than record a selector that was not the one applied. The spec carries no
+section for lot selection itself — min-CGT's objective is
+implementation-defined (`lots.py`) — so a spec amendment (§5.5 + a numeric
+test case) is required before a staged sell's lot choice is relied on for
+capital; recorded as a James item, not fixed here.
 
 There is no broker, no venue, no credential, no network and no write in this
 module. `not_executable` is a `Literal[True]` on every order, and no function
@@ -42,12 +61,18 @@ class StagingError(ValueError):
     """The inputs do not permit a staged order."""
 
 
+MIN_CGT_MAX_LOTS: Final[int] = 6  # above this `select_min_cgt` silently falls back to FIFO
+
+
 class StagedLot(Contract):
     lot_id: int
     qty: Decimal = Field(gt=Decimal("0"), max_digits=18, decimal_places=6)
     realised_gain_aud: Decimal = Field(max_digits=18, decimal_places=6)
     holding_period_days: int
     discountable: bool
+    eligibility_evaluated_at: date
+    gain_priced_at: Decimal = Field(gt=Decimal("0"), max_digits=18, decimal_places=6)
+    provisional: Literal[True] = True
 
 
 class StagedOrder(Contract):
@@ -119,6 +144,16 @@ def stage_order(
     quantity = (notional_cap / reference_price).quantize(Decimal("1"), rounding=ROUND_DOWN)
     if side == "sell":
         symbol_lots = [lot for lot in open_lots if lot.symbol == symbol and lot.disposed_at is None]
+        mismatched = sorted(lot.lot_id for lot in symbol_lots if lot.account_type != account_type)
+        if mismatched:
+            raise StagingError(
+                f"lots {mismatched} carry a different account_type from {account_type!r}; the §2 discount would be wrong"
+            )
+        if lot_selector == "min_cgt" and len(symbol_lots) > MIN_CGT_MAX_LOTS:
+            raise StagingError(
+                f"{len(symbol_lots)} open lots exceed the min-CGT search bound ({MIN_CGT_MAX_LOTS}); "
+                "the selector would silently fall back to FIFO — choose fifo/lifo explicitly or pre-filter the lots"
+            )
         held = sum((lot.quantity for lot in symbol_lots), Decimal("0"))
         quantity = min(quantity, held)
     if quantity <= 0:
@@ -133,6 +168,7 @@ def stage_order(
             StagedLot(
                 lot_id=s.lot_id, qty=_q(s.qty_sold), realised_gain_aud=_q(s.realised_gain_aud),
                 holding_period_days=s.holding_period_days, discountable=s.discountable,
+                eligibility_evaluated_at=as_of, gain_priced_at=_q(reference_price),
             )
             for s in chosen
         )

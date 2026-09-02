@@ -450,7 +450,7 @@ async def build_decision_case(
 
     if thesis.timeline_days is None or thesis.timeline_days <= 0:
         raise ValueError(f"thesis_id={thesis_id} has no timeline_days to derive a horizon from")
-    horizon_months = max(1, min(120, round(thesis.timeline_days / 30)))
+    horizon_months = max(1, min(120, (thesis.timeline_days + 15) // 30))  # integer arithmetic; no float op on the path
     theme = ", ".join(thesis.themes) if thesis.themes else "No theme_code attached to this thesis"
 
     thesis_version = ThesisVersion(

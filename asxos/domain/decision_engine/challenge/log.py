@@ -13,6 +13,7 @@ in the PR body rather than smuggled in here.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Literal
 
@@ -25,7 +26,9 @@ Disposition = Literal["accepted", "overridden"]
 
 def finding_key(finding: ChallengeFinding) -> str:
     """Stable identity for a finding: severity + text + sorted evidence ids."""
-    return f"{finding.severity}|{finding.finding}|{','.join(sorted(finding.evidence_ids))}"
+    return json.dumps(
+        [finding.severity, finding.finding, sorted(finding.evidence_ids)], separators=(",", ":"), ensure_ascii=True
+    )
 
 
 class FindingDisposition(Contract):

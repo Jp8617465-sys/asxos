@@ -30,7 +30,7 @@ def _challenge(outcome: str, *, blocking: bool = False) -> ChallengeResult:
 SIZE = SizeRange(minimum_pct=Decimal("1"), maximum_pct=Decimal("8"))
 LOTS = (
     HoldingLot(lot_id=1, symbol="CBA.AU", acquired_at=date(2024, 3, 1), quantity=Decimal("200"), cost_base_normal=Decimal("20000"), cost_base_div296=Decimal("20000")),
-    HoldingLot(lot_id=2, symbol="CBA.AU", acquired_at=date(2026, 3, 1), quantity=Decimal("100"), cost_base_normal=Decimal("15500"), cost_base_div296=Decimal("15500")),
+    HoldingLot(lot_id=2, symbol="CBA.AU", acquired_at=date(2026, 3, 1), quantity=Decimal("100"), cost_base_normal=Decimal("12000"), cost_base_div296=Decimal("12000")),
     HoldingLot(lot_id=3, symbol="NAB.AU", acquired_at=date(2024, 3, 1), quantity=Decimal("50"), cost_base_normal=Decimal("1500"), cost_base_div296=Decimal("1500")),
 )
 
@@ -55,14 +55,27 @@ def test_buy_is_staged_from_the_maximum_size_and_is_not_executable() -> None:
 def test_sell_delegates_lot_selection_to_the_tax_module() -> None:
     order = _stage(side="sell", open_lots=LOTS, reference_price=Decimal("160"))
     assert order.quantity == Decimal("250")  # floor(40000/160); held 300
-    assert {lot.lot_id for lot in order.lot_selections} <= {1, 2}
     assert sum((lot.qty for lot in order.lot_selections), Decimal("0")) == Decimal("250")
-    # min-CGT prefers the discountable 2024 lot (spec §5.1 calendar rule via cgt.is_discountable)
     by_id = {lot.lot_id: lot for lot in order.lot_selections}
-    assert by_id[1].discountable is True and by_id[1].qty == Decimal("200")
-    assert by_id[2].discountable is False and by_id[2].qty == Decimal("50")
+    # Lot 1: 200 u @ 100, discountable (acquired 2024-03-01, earliest qualifying 2025-03-02 ≤ 2026-09-01):
+    #   gain 12,000, post-discount 6,000. Lot 2: 100 u @ 120, NOT discountable (earliest 2027-03-02):
+    #   per-unit 40 post-discount vs lot 1's 30, so the true minimum draws lot 1 in full and 50 of lot 2:
+    #   6,000 + 2,000 = 8,000 (vs 8,500 the other way). Arithmetic per spec §2 (individual d = 0.5) and §5.1.
+    assert by_id[1].discountable is True and by_id[1].qty == Decimal("200") and by_id[1].realised_gain_aud == Decimal("12000")
+    assert by_id[2].discountable is False and by_id[2].qty == Decimal("50") and by_id[2].realised_gain_aud == Decimal("2000")
+    assert all(lot.provisional is True and lot.eligibility_evaluated_at == AS_OF and lot.gain_priced_at == Decimal("160") for lot in order.lot_selections)
     fifo = _stage(side="sell", open_lots=LOTS, reference_price=Decimal("160"), lot_selector="fifo")
     assert [lot.lot_id for lot in fifo.lot_selections] == [1, 2]
+
+
+def test_sell_refuses_mixed_account_types_and_the_min_cgt_fallback_bound() -> None:
+    smsf = (HoldingLot(lot_id=7, symbol="CBA.AU", acquired_at=date(2024, 1, 1), quantity=Decimal("10"), cost_base_normal=Decimal("1000"), cost_base_div296=Decimal("1000"), account_type="smsf"),)
+    with pytest.raises(StagingError, match="account_type"):
+        _stage(side="sell", open_lots=LOTS + smsf)
+    many = tuple(HoldingLot(lot_id=100 + i, symbol="CBA.AU", acquired_at=date(2024, 1, 1 + i), quantity=Decimal("10"), cost_base_normal=Decimal("1000"), cost_base_div296=Decimal("1000")) for i in range(7))
+    with pytest.raises(StagingError, match="min-CGT search bound"):
+        _stage(side="sell", open_lots=many)
+    assert _stage(side="sell", open_lots=many, lot_selector="fifo").quantity == Decimal("70")
 
 
 def test_sell_is_capped_at_held_quantity() -> None:
