@@ -4,7 +4,7 @@
 **Scope:** how Claude Code's official permission modes (`plan` / `auto` / `dontAsk`)
 map onto asxos work; the main-loop fan-out topology; the two-speed command split
 (`/build` vs `/arbi-mission`); the hard owner→agent roster; rejected alternatives
-**Last verified:** 2026-08-22 (mission `harness-rebuild-2026-08-22`)
+**Last verified:** 2026-08-24 (Amendment G — identity path + auto-merge + user `auto` measurement; modes table unchanged)
 **Owner:** James (governor) applies local mode; arbi / the main loop obey this file
 **Superseded by:** N/A
 **Supersedes as operating SoT:** the profile / review-ceremony claims in
@@ -123,7 +123,7 @@ port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
 6. `defaultMode: "auto"` in project settings
 7. Standing / unattended mission dispatch (still gated)
 8. Allowlisting rotating MCP UUIDs
-9. Docs-only auto-merge of `docs/product/**`
+9. Docs-only auto-merge of `docs/product/**` — **widened 2026-08-24 (Amendment G ruling 3):** no auto-merge of any path. Keep the click. Not earned until the check suite is trustworthy and a CFR/MTTR baseline exists.
 10. Session lift-and-reinstate guards
 11. `gh run rerun`
 
@@ -133,9 +133,9 @@ port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
 
 | Action | Where |
 |---|---|
-| Set `permissions.defaultMode` to `"auto"` in `~/.claude/settings.json` | `docs/product/runbooks/claude-code-user-settings.md` |
+| Set `permissions.defaultMode` to `"auto"` in `~/.claude/settings.json` | `docs/product/runbooks/claude-code-user-settings.md` — Amendment G ruling 1; re-read permission log ~2026-08-31 before any hook `allow` rewrite |
 | Pin `supabase-ro` alias / OAuth MCP servers | friction proposal §4 |
-| Second GitHub identity | `docs/product/runbooks/second-github-identity.md` |
+| GitHub App reviewer (`asxos-arbi-approver`) | `docs/product/runbooks/arbi-approver-github-app.md` — Amendment G ruling 2; second *account* runbook is the rejected alternative |
 | `supabase-ro` → `asxos_agent_ro` re-point | agent-db-readonly-role design |
 | Standing 7b / Guilfoyle-as-main-thread | later, on evidence |
 | `docs/README.md` map row for this file | deny-listed; James applies |

@@ -15,8 +15,8 @@ Usage:
 """
 import asyncio
 import logging
-from datetime import date
 
+from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.research.segment_map import refresh_segment_map
@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    today = date.today()
+    today = clock.today()
     await init_pool()
 
     async with JobMonitor(

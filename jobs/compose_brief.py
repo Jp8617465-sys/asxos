@@ -21,6 +21,8 @@ import logging
 import traceback
 from datetime import date
 
+from asxos import clock
+
 # Stage 2 send path: hydrate gold artefacts and render the live brief.
 # Never calls collect() here — materialise_brief_sections owns collect/persist.
 from asxos.brief.compose import render_html
@@ -167,4 +169,4 @@ if __name__ == "__main__":
     )
     parser.add_argument("--no-send", action="store_true", help="Render + stdout only; skip Resend")
     args = parser.parse_args()
-    asyncio.run(main(args.as_of or date.today(), send=not args.no_send))
+    asyncio.run(main(args.as_of or clock.today(), send=not args.no_send))

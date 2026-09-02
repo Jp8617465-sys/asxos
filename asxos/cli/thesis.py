@@ -33,6 +33,7 @@ from pydantic import ValidationError as PydanticValidationError
 from rich.markup import escape
 from rich.table import Table
 
+from asxos import clock
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.theses import service as svc
@@ -117,8 +118,8 @@ def _parse_figure(raw: str) -> ReportFigure:
 
 def _thesis_summary_row(t: Thesis) -> tuple[str, ...]:
     """Return (symbol, status, thesis_id, entry_band, stop, target, days_since, overdue)."""
-    days_since = (date.today() - t.opened_at.date()).days
-    overdue = date.today() > t.revisit_due_at.date()
+    days_since = (clock.today() - t.opened_at.date()).days
+    overdue = clock.today() > t.revisit_due_at.date()
     entry = (
         f"{t.entry_band_lower}–{t.entry_band_upper}"
         if t.entry_band_lower and t.entry_band_upper
@@ -799,7 +800,7 @@ async def _update_consensus(
             await svc.update_analyst_consensus(
                 conn, t.thesis_id,
                 buy=buy, neutral=neutral, sell=sell,
-                target=target, updated_at=date.today(),
+                target=target, updated_at=clock.today(),
             )
         console.print(
             f"[green]✓[/green] Updated consensus for {symbol}: "
@@ -831,7 +832,7 @@ def thesis_log_analyst(
         raise typer.BadParameter("--action must be upgrade|downgrade|initiate|reiterate")
     ft = _parse_decimal(from_target, "from-target") if from_target else None
     tt = _parse_decimal(to_target, "to-target") if to_target else None
-    ed = date.fromisoformat(event_date) if event_date else date.today()
+    ed = date.fromisoformat(event_date) if event_date else clock.today()
     asyncio.run(_log_analyst(symbol, analyst, action, from_rating, to_rating, ft, tt, ed))
 
 
@@ -912,10 +913,10 @@ def _print_thesis_detail(t: Thesis) -> None:
     deadline_str = "—"
     if t.timeline_days and t.opened_at:
         deadline = t.opened_at.date() + timedelta(days=t.timeline_days)
-        days_elapsed = (date.today() - t.opened_at.date()).days
+        days_elapsed = (clock.today() - t.opened_at.date()).days
         deadline_str = f"{deadline} ({days_elapsed}/{t.timeline_days}d elapsed)"
 
-    overdue = date.today() > t.revisit_due_at.date()
+    overdue = clock.today() > t.revisit_due_at.date()
     revisit_str = str(t.revisit_due_at.date())
     if overdue:
         revisit_str = f"[red]{revisit_str} OVERDUE[/red]"

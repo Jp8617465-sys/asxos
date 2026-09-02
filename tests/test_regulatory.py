@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from asxos import clock
 from asxos.ingestion.regulatory import (
     RegulatoryEvent,
     classify_kind,
@@ -178,8 +179,8 @@ def test_parse_rss_falls_back_to_today_when_date_missing() -> None:
 <title>Generic</title><link>https://x</link><description>body</description>
 </item></channel></rss>"""
     events = parse_rss(fixture, source="X")
-    # Falls back to today when pubDate missing
-    assert events[0].published_at <= date.today()
+    # Falls back to today when pubDate missing (Sydney day, matching parse_rss)
+    assert events[0].published_at <= clock.today()
 
 
 def test_parse_rss_skips_items_missing_title_or_link() -> None:

@@ -4,6 +4,7 @@ import asyncio
 
 import typer
 
+from asxos import clock
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
@@ -29,9 +30,8 @@ def news_signoff(
 
 
 async def _run_news_signoff(*, note: str, force: bool) -> None:
-    from datetime import date as _date
 
-    today = _date.today()
+    today = clock.today()
 
     await init_pool()
     try:

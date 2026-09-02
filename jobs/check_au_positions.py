@@ -23,6 +23,7 @@ import os
 from datetime import date
 from decimal import Decimal
 
+from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -217,5 +218,5 @@ if __name__ == "__main__":
 
     # Default to today — prices for the current ASX session are loaded by sync_prices
     # at 20:30 UTC, which runs 35 min before this job at 21:05 UTC.
-    as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
+    as_of = date.fromisoformat(args.as_of) if args.as_of else clock.today()
     asyncio.run(_run(as_of))
