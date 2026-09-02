@@ -1,9 +1,9 @@
 """Persistence for the decision-engine contract chain — Slice 1 (D5).
 
-Targets `migrations/0048_decision_packets.sql` (authored alongside this
-module, NOT YET APPLIED — James applies it via
-`mcp__supabase__apply_migration`; this module is inert against a live
-database until then). Five append-only tables, one per top-level
+Targets `migrations/0048_decision_packets.sql` (APPLIED to production
+2026-09-01 as ledger version `20260901062502`, on James's instruction;
+the first real packet, `dpk-cba-1-2026-09-01`, was persisted and
+live-verified the same day). Five append-only tables, one per top-level
 `ContentAddressedContract` in `asxos/domain/decision_engine/types.py`
 (FROZEN — never edited to make persistence easier):
 `evidence_packets -> thesis_versions -> challenge_results ->
