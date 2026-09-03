@@ -129,8 +129,15 @@ def receipt_for(
     resend_message_id: str | None = None,
 ) -> DeliveryReceipt:
     digest = render_sha256(html)
+    delivered_at = require_utc(delivered_at, field_name="delivered_at")
     return DeliveryReceipt(
-        receipt_id=f"rcpt-{case.decision.decision_packet_id}-{channel}-{digest[:12]}",
+        # The instant is part of the identity: two deliveries of the same bytes
+        # on the same channel are two FACTS for a provability ledger, and an id
+        # that omitted the time made the second one vanish into ON CONFLICT.
+        receipt_id=(
+            f"rcpt-{case.decision.decision_packet_id}-{channel}-"
+            f"{delivered_at.strftime('%Y%m%dT%H%M%SZ')}-{digest[:12]}"
+        ),
         decision_packet_id=case.decision.decision_packet_id,
         decision_content_hash=case.decision.content_hash,
         render_sha256=digest,
@@ -144,8 +151,14 @@ def receipt_for(
 def disposition_for(
     case: DecisionCase, *, verdict: DispositionVerdict, note: str, recorded_at: datetime
 ) -> Disposition:
+    recorded_at = require_utc(recorded_at, field_name="recorded_at")
     return Disposition(
-        disposition_id=f"disp-{case.decision.decision_packet_id}-{verdict}",
+        # Same reasoning as the receipt id: a second `defer` after new
+        # information is a new decision, not a duplicate of the first.
+        disposition_id=(
+            f"disp-{case.decision.decision_packet_id}-{verdict}-"
+            f"{recorded_at.strftime('%Y%m%dT%H%M%SZ')}"
+        ),
         decision_packet_id=case.decision.decision_packet_id,
         decision_content_hash=case.decision.content_hash,
         verdict=verdict,

@@ -7,9 +7,12 @@ holdings are converted with the same AUDUSD convention as
 `jobs/snapshot_portfolio.py` (USD → AUD = close / rate).
 
 **Personal-use firewall.** These loaders read holdings, cash and the active
-profile — personal financial data under s766B. Every public function checks
-`ASXOS_PERSONAL_USE == "1"` itself (defence in depth) and the `asx decision`
-CLI checks it again before calling. A future brief surface carrying a
+profile — personal financial data under s766B. Every public function here
+checks `ASXOS_PERSONAL_USE == "1"` itself — including the price and candidate
+readers, which touch no holdings today but sit one edit away from a caller
+that does — and the `asx decision` CLI checks it again before calling. A
+`security-engineer` pass (2026-09-03) found this sentence true of only two of
+the five; the gates were added rather than the sentence weakened. A future brief surface carrying a
 non-zero `SizeRange` must additionally honour `ASXOS_PORTFOLIO_BRIEF_ENABLED`
 (the portfolio conventions rule file, §Regulatory firewall).
 
@@ -152,6 +155,7 @@ async def load_sizing_policy(conn: StateConn) -> SizingPolicy:
 
 async def load_annualised_vol(conn: StateConn, symbol: str, as_of: date, *, window_days: int = 60) -> Decimal | None:
     """Annualised vol from the last `window_days + 1` closes, or None if history is short."""
+    require_personal_use()
     rows = await conn.fetch(SQL_CLOSES, symbol, as_of, window_days + 1)
     closes = [_dec(r["close"]) for r in reversed(rows)]
     if len(closes) < window_days + 1:
@@ -160,6 +164,7 @@ async def load_annualised_vol(conn: StateConn, symbol: str, as_of: date, *, wind
 
 
 async def load_peer_vols(conn: StateConn, state: PortfolioState, as_of: date) -> tuple[VolInput, ...]:
+    require_personal_use()
     out: list[VolInput] = []
     for symbol in sorted(state.position_weights_pct):
         vol = await load_annualised_vol(conn, symbol, as_of)
@@ -194,6 +199,7 @@ def rank_positive_controls(candidates: tuple[CandidateSnapshot, ...]) -> tuple[C
 
 
 async def select_positive_control(conn: StateConn, as_of: date, *, now: date) -> CandidateSnapshot | None:
+    require_personal_use()
     rows = await conn.fetch(SQL_CANDIDATES, as_of, now)
     candidates = tuple(CandidateSnapshot.model_validate(_payload(r)) for r in rows)
     ranked = rank_positive_controls(candidates)

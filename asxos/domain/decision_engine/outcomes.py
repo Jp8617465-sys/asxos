@@ -44,7 +44,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from datetime import date, datetime
-from decimal import ROUND_HALF_EVEN, Decimal
+from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from typing import Any, Final, Literal, Protocol, Self
 
 from pydantic import Field, model_validator
@@ -154,14 +154,37 @@ def _scenarios(case: DecisionCase) -> dict[str, str]:
     return {s.label: format(s.return_pct, "f") for s in case.thesis.scenarios}
 
 
+#: The token `builder.py` writes into the last-close evidence claim, and the
+#: only thing this module parses out of prose. Pinned from both sides by
+#: tests/test_decision_outcomes.py::test_reference_price_parser_is_pinned_to_the_builders_wording
+#: — if the builder's wording drifts, that test fails rather than every
+#: horizon silently recording `unavailable_no_price` while looking healthy.
+PRICE_CLAIM_TOKEN: Final[str] = "close="
+
+
 def _reference_price(case: DecisionCase) -> Decimal | None:
     """The price the scenarios were struck from, read out of the packet's own
-    evidence — never re-derived from a live query at observation time."""
+    evidence — never re-derived from a live query at observation time.
+
+    Recovering a number from prose is a known weakness (`security-engineer`,
+    2026-09-03): the structural fix is to carry the price as a typed field on
+    the evidence item, which edits the frozen `types.py` and is therefore a
+    governor-scoped change. Until then a malformed token raises `OutcomeError`
+    loudly instead of `decimal.InvalidOperation` from deep inside a builder.
+    """
     for item in case.evidence.items:
-        if item.evidence_id.endswith("-last-close"):
-            for token in item.claim.split():
-                if token.startswith("close="):
-                    return Decimal(token.removeprefix("close=").rstrip("."))
+        if not item.evidence_id.endswith("-last-close"):
+            continue
+        for token in item.claim.split():
+            if token.startswith(PRICE_CLAIM_TOKEN):
+                raw = token.removeprefix(PRICE_CLAIM_TOKEN).rstrip(".")
+                try:
+                    return Decimal(raw)
+                except InvalidOperation as exc:
+                    raise OutcomeError(
+                        f"evidence {item.evidence_id!r} carries a non-numeric price token {raw!r}; "
+                        "the outcome ledger cannot be anchored on it"
+                    ) from exc
     return None
 
 

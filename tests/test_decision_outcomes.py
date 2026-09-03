@@ -30,6 +30,7 @@ from asxos.domain.decision_engine.delivery import (
 )
 from asxos.domain.decision_engine.outcomes import (
     HORIZONS,
+    PRICE_CLAIM_TOKEN,
     T0,
     OutcomeError,
     ThesisOutcome,
@@ -244,6 +245,83 @@ async def test_outcomes_round_trip_through_the_repository() -> None:
         await save_outcome(conn, row)
     loaded = await load_outcomes(conn, case.decision.decision_packet_id)
     assert loaded == rows
+
+
+# --- security-consult follow-ups (2026-09-03) ----------------------------------------
+
+
+async def test_reference_price_parser_is_pinned_to_the_builders_wording() -> None:
+    """`_reference_price` recovers the number the whole ledger is measured against
+    by scanning prose the builder emits. That coupling is invisible, so it is
+    pinned from both sides: if the builder's wording drifts, this fails rather
+    than every horizon quietly recording `unavailable_no_price`."""
+    case = await _case()
+    claim = next(i.claim for i in case.evidence.items if i.evidence_id.endswith("-last-close"))
+    assert PRICE_CLAIM_TOKEN in claim
+    builder_src = (ROOT / "asxos" / "domain" / "decision_engine" / "builder.py").read_text()
+    assert f'{PRICE_CLAIM_TOKEN}{{last_close}}' in builder_src
+    assert materialise_t0(case)[0].claim.reference_price == Decimal("159.15")
+
+
+async def test_a_non_numeric_price_token_fails_loudly_not_as_a_decimal_error() -> None:
+    case = await _case()
+    items = tuple(
+        i.model_copy(update={"claim": i.claim.replace("close=159.15", "close=n/a")})
+        if i.evidence_id.endswith("-last-close") else i
+        for i in case.evidence.items
+    )
+    broken = case.model_copy(update={"evidence": case.evidence.model_copy(update={"items": items})})
+    with pytest.raises(OutcomeError, match="non-numeric price token"):
+        materialise_t0(broken)
+
+
+async def test_two_deliveries_of_the_same_bytes_are_two_facts() -> None:
+    """A re-send is a separate delivery. Ids that omitted the instant made the
+    second one vanish into `ON CONFLICT DO NOTHING` while the CLI still said it
+    had persisted — wrong for a ledger whose job is provability."""
+    case = await _case()
+    html = render_decision_case(case, evaluated_at=CUTOFF)
+    first = receipt_for(case, html, channel="cli", delivered_at=CUTOFF)
+    later = receipt_for(case, html, channel="cli", delivered_at=CUTOFF + timedelta(minutes=5))
+    assert first.receipt_id != later.receipt_id
+    assert first.render_sha256 == later.render_sha256  # same bytes, two deliveries
+    conn = _FakeOutcomeConn()
+    await persist_receipt(conn, first, html)
+    await persist_receipt(conn, later, html)
+    assert await load_receipts(conn, case.decision.decision_packet_id) == (first, later)
+    # a byte-identical replay at the SAME instant is still one fact
+    assert receipt_for(case, html, channel="cli", delivered_at=CUTOFF).receipt_id == first.receipt_id
+
+
+async def test_a_second_disposition_is_a_new_decision_not_a_duplicate() -> None:
+    case = await _case()
+    first = disposition_for(case, verdict="defer", note="await tax feed", recorded_at=CUTOFF)
+    later = disposition_for(case, verdict="defer", note="still no feed", recorded_at=CUTOFF + timedelta(days=1))
+    assert first.disposition_id != later.disposition_id
+    conn = _FakeOutcomeConn()
+    await persist_disposition(conn, first)
+    await persist_disposition(conn, later)
+    assert await load_dispositions(conn, case.decision.decision_packet_id) == (first, later)
+
+
+def test_every_public_loader_gates_on_the_personal_use_flag() -> None:
+    """The module docstring claims defence in depth; a consult found it true of
+    only two of five. This asserts the claim rather than trusting it."""
+    src = (ROOT / "asxos" / "domain" / "decision_engine" / "portfolio_state.py").read_text()
+    tree = ast.parse(src)
+    public = [
+        n for n in tree.body
+        if isinstance(n, ast.AsyncFunctionDef | ast.FunctionDef)
+        and not n.name.startswith("_")
+        and n.name not in {"require_personal_use", "rank_positive_controls"}
+    ]
+    assert len(public) == 5, [n.name for n in public]
+    for fn in public:
+        calls = {
+            c.func.id for c in ast.walk(fn)
+            if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+        }
+        assert "require_personal_use" in calls, f"{fn.name} does not gate"
 
 
 # --- W7-0: the delivery ledger is off brief_runs -------------------------------------
