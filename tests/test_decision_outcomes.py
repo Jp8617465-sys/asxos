@@ -229,6 +229,7 @@ def test_no_alpha_claim_or_verdict_surface_exists() -> None:
     assert re.search(r"^\s*(?:from|import)\s+asxos\.domain\.models", src, re.MULTILINE) is None
     assert "signals" not in src.split('"""', 2)[2].lower()
     ddl = (ROOT / "migrations" / "0052_outcome_materialisation.sql").read_text()
+    assert "APPLIED 2026-09-03 as ledger version 20260903025557" in ddl
     body = "\n".join(x for x in ddl.splitlines() if not x.lstrip().startswith("--"))
     body = re.sub(r"COMMENT ON TABLE.*?';", "", body, flags=re.DOTALL)
     for token in ("verdict", "weight", "size", "recommend", "signal"):

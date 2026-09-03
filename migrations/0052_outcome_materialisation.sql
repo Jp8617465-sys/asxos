@@ -1,8 +1,16 @@
 -- 0052_outcome_materialisation.sql
 -- =====================================================================
 --
--- DRAFT — NOT APPLIED. Apply only under James's I5 grant (Amendment H,
--- 2026-09-02), after the carrying branch's tests are green.
+-- APPLIED 2026-09-03 as ledger version 20260903025557 (name
+-- `outcome_materialisation`) under James's in-session I5 grant (Amendment H,
+-- 2026-09-02), after the carrying branch reached 4214 passed / ruff / mypy
+-- clean. Verified via pg_catalog: three tables (12/11/7 columns), three
+-- BEFORE UPDATE OR DELETE triggers all bound to _outcome_forbid_mutation,
+-- three FKs to decision_packets, the (packet, horizon, state) unique key,
+-- 0 rows. The forbidden-column scan returns exactly one hit,
+-- `decision_dispositions.verdict` -- that column is JAMES'S OWN recorded
+-- reading of a packet (accept/request_revision/reject/defer), not a machine
+-- recommendation, which is why it is the one permitted use of the word.
 --
 -- Stage 5 / ADR Slice 4 — outcome materialisation, plus the two delivery
 -- ledgers Wave 6 should not have borrowed.
