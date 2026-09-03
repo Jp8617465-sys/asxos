@@ -10,14 +10,19 @@ Disposition → paper intent*. This module is that tail:
   renderer contains no financial logic: every figure is read from the
   packet; the only derivation is `renderer.presentation_for` (tone / label).
 - `DeliveryReceipt` is content-addressed and records the packet identity,
-  the packet hash, the render hash, the channel and the time. It is
-  persisted into `brief_runs` (migration 0015) — the delivery ledger the
-  brief already uses — under `snapshot_json.decision_delivery`, so no new
-  table is needed this wave.
+  the packet hash, the render hash, the channel, the time and the exact
+  rendered bytes, in its own append-only `delivery_receipts` table
+  (migration 0052). It was briefly written into `brief_runs` instead, to
+  avoid opening a migration; that was wrong. `asxos/brief/deltas.py`'s
+  `_PRIOR_BRIEF_SQL` takes the most recent `brief_runs` row with
+  `as_of < $1` and does not filter on row kind, so a receipt was returned
+  as "the prior brief" and skewed the brief's since-last timestamp. Nothing
+  in this module touches `brief_runs`; `load_receipts` re-hashes the stored
+  bytes and refuses a row whose `render_sha256` no longer matches them.
 - `Disposition` is James's recorded reading of the packet (accept / request
-  revision / reject / defer). It is a contract this wave; its append-only
-  persistence is the 0052 migration's item (Wave 7), stated rather than
-  smuggled in.
+  revision / reject / defer), persisted append-only in
+  `decision_dispositions` (migration 0052) and bound to the packet's
+  content hash, so a disposition cannot silently follow a changed packet.
 - `PaperIntent` exists only for an ACTION state with an accepting
   disposition — which no packet can reach until tax readiness is earned
   (G12) — so `paper_intent_for()` returns `None` for every packet this
@@ -30,7 +35,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol, Self
 
@@ -47,7 +52,6 @@ from asxos.domain.decision_engine.types import (
 
 _TEMPLATE_DIR: Final = Path(__file__).parent.parent.parent / "brief" / "templates"
 _TEMPLATE_NAME: Final[str] = "decision_case.html.j2"
-DELIVERY_KEY: Final[str] = "decision_delivery"
 
 Channel = Literal["cli", "email"]
 DispositionVerdict = Literal["accept", "request_revision", "reject", "defer"]
@@ -173,39 +177,84 @@ class ReceiptConn(Protocol):
 
 
 SQL_INSERT_RECEIPT: Final[str] = (
-    "INSERT INTO brief_runs (as_of, rendered_html, snapshot_json, section_runs, resend_message_id) "
-    "VALUES ($1, $2, $3::jsonb, $4::jsonb, $5)"
+    "INSERT INTO delivery_receipts (receipt_id, content_hash, decision_packet_id, "
+    "decision_content_hash, render_sha256, render_bytes, channel, delivered_at, "
+    "resend_message_id, rendered_html, payload) "
+    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb) "
+    "ON CONFLICT (receipt_id) DO NOTHING"
 )
 SQL_LOAD_RECEIPTS: Final[str] = (
-    "SELECT snapshot_json FROM brief_runs "
-    f"WHERE snapshot_json->'{DELIVERY_KEY}'->>'decision_packet_id' = $1 ORDER BY composed_at"
+    "SELECT payload, rendered_html FROM delivery_receipts "
+    "WHERE decision_packet_id = $1 ORDER BY delivered_at, receipt_id"
+)
+SQL_INSERT_DISPOSITION: Final[str] = (
+    "INSERT INTO decision_dispositions (disposition_id, content_hash, decision_packet_id, "
+    "decision_content_hash, verdict, recorded_at, payload) "
+    "VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb) "
+    "ON CONFLICT (disposition_id) DO NOTHING"
+)
+SQL_LOAD_DISPOSITIONS: Final[str] = (
+    "SELECT payload FROM decision_dispositions "
+    "WHERE decision_packet_id = $1 ORDER BY recorded_at, disposition_id"
 )
 
 
-async def persist_receipt(conn: ReceiptConn, receipt: DeliveryReceipt, html: str, *, as_of: date) -> None:
-    """One `brief_runs` row per delivery, carrying the receipt and the exact render."""
-    await conn.execute(
-        SQL_INSERT_RECEIPT,
-        as_of,
-        html,
-        json.dumps({DELIVERY_KEY: receipt.model_dump(mode="json")}),
-        json.dumps({"decision_case": {"packet": receipt.decision_packet_id, "channel": receipt.channel}}),
-        receipt.resend_message_id,
-    )
+class ReceiptIntegrityError(RuntimeError):
+    """A stored render no longer hashes to the digest its receipt claims."""
 
 
-def _snapshot(row: Mapping[str, object]) -> dict[str, Any]:
-    raw = row["snapshot_json"]
+def _payload(row: Mapping[str, object]) -> dict[str, Any]:
+    raw = row["payload"]
     if isinstance(raw, str):
         return dict(json.loads(raw))
     if isinstance(raw, Mapping):
         return dict(raw)
-    raise TypeError(f"unexpected snapshot_json column type: {type(raw)!r}")
+    raise TypeError(f"unexpected payload column type: {type(raw)!r}")
+
+
+async def persist_receipt(conn: ReceiptConn, receipt: DeliveryReceipt, html: str) -> None:
+    """One `delivery_receipts` row per delivery, carrying the exact bytes sent."""
+    if render_sha256(html) != receipt.render_sha256:
+        raise ReceiptIntegrityError(
+            f"receipt {receipt.receipt_id} does not describe the supplied render"
+        )
+    await conn.execute(
+        SQL_INSERT_RECEIPT,
+        receipt.receipt_id, receipt.content_hash, receipt.decision_packet_id,
+        receipt.decision_content_hash, receipt.render_sha256, receipt.render_bytes,
+        receipt.channel, receipt.delivered_at, receipt.resend_message_id, html,
+        json.dumps(receipt.model_dump(mode="json")),
+    )
 
 
 async def load_receipts(conn: ReceiptConn, decision_packet_id: str) -> tuple[DeliveryReceipt, ...]:
-    rows = await conn.fetch(SQL_LOAD_RECEIPTS, decision_packet_id)
-    return tuple(DeliveryReceipt.model_validate(_snapshot(r)[DELIVERY_KEY]) for r in rows)
+    """Every delivery of one packet. Re-hashes the stored bytes rather than
+    trusting the recorded digest — a receipt whose render has drifted is a
+    corrupted record of what James saw, and is refused loudly."""
+    out: list[DeliveryReceipt] = []
+    for row in await conn.fetch(SQL_LOAD_RECEIPTS, decision_packet_id):
+        receipt = DeliveryReceipt.model_validate(_payload(row))
+        stored = row["rendered_html"]
+        if not isinstance(stored, str) or render_sha256(stored) != receipt.render_sha256:
+            raise ReceiptIntegrityError(
+                f"stored render for {receipt.receipt_id} does not match its recorded sha256"
+            )
+        out.append(receipt)
+    return tuple(out)
+
+
+async def persist_disposition(conn: ReceiptConn, disposition: Disposition) -> None:
+    await conn.execute(
+        SQL_INSERT_DISPOSITION,
+        disposition.disposition_id, disposition.content_hash, disposition.decision_packet_id,
+        disposition.decision_content_hash, disposition.verdict, disposition.recorded_at,
+        json.dumps(disposition.model_dump(mode="json")),
+    )
+
+
+async def load_dispositions(conn: ReceiptConn, decision_packet_id: str) -> tuple[Disposition, ...]:
+    rows = await conn.fetch(SQL_LOAD_DISPOSITIONS, decision_packet_id)
+    return tuple(Disposition.model_validate(_payload(r)) for r in rows)
 
 
 def send_decision_case(html: str, *, case: DecisionCase) -> str | None:

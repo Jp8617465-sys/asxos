@@ -4,7 +4,7 @@
 candidate for the same symbol), challenges it with the live book, renders
 it ONCE, prints that render (the CLI delivery), optionally emails the same
 string (the email delivery), and — with `--persist` — saves the case to the
-0048 tables and one `brief_runs` receipt row per channel. `positive-control`
+0048 tables and one `delivery_receipts` row per channel (0052). `positive-control`
 reports which candidate D-5 would pick. `dispose` prints James's Disposition
 contract (persistence is the 0052 migration's item).
 
@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import date, datetime
+from decimal import Decimal
 
 import typer
 
@@ -27,13 +28,22 @@ from asxos.domain.decision_engine.builder import ChallengeContext, build_decisio
 from asxos.domain.decision_engine.challenge import DispositionLog
 from asxos.domain.decision_engine.delivery import (
     disposition_for,
+    load_dispositions,
     now_utc,
     paper_intent_for,
+    persist_disposition,
     persist_receipt,
     receipt_for,
     render_decision_case,
     render_sha256,
     send_decision_case,
+)
+from asxos.domain.decision_engine.outcomes import (
+    due_horizons,
+    load_outcomes,
+    materialise_t0,
+    observe,
+    save_outcome,
 )
 from asxos.domain.decision_engine.portfolio_state import (
     load_annualised_vol,
@@ -59,7 +69,7 @@ def decision_build(
     as_of: str = typer.Option(..., "--as-of", help="Knowledge cutoff YYYY-MM-DD"),
     theme: str | None = typer.Option(None, "--theme", help="theme_code; builds a CandidateSnapshot for the thesis symbol"),
     context: bool = typer.Option(True, "--context/--no-context", help="Challenge against the live book (default)"),
-    persist: bool = typer.Option(False, "--persist/--dry-run", help="Save the case (0048) and receipts (brief_runs)"),
+    persist: bool = typer.Option(False, "--persist/--dry-run", help="Save the case (0048) and receipts (0052)"),
     send: bool = typer.Option(False, "--send", help="Email the identical render via Resend"),
 ) -> None:
     """Build, challenge, render and (optionally) deliver one governed case."""
@@ -101,7 +111,7 @@ async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bo
             if persist:
                 await repository.save(case, conn=conn)
                 for r in receipts:
-                    await persist_receipt(conn, r, html, as_of=day)
+                    await persist_receipt(conn, r, html)
     finally:
         await close_pool()
     typer.echo(html)
@@ -110,6 +120,90 @@ async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bo
         f"challenge={case.challenge.outcome} render_sha256={render_sha256(html)} "
         f"receipts={[r.channel for r in receipts]} persisted={persist}[/dim]"
     )
+
+
+@decision_app.command("record-t0")
+def decision_record_t0(
+    packet_id: str = typer.Option(..., "--packet-id"),
+    persist: bool = typer.Option(False, "--persist/--dry-run", help="Write thesis_outcomes rows (0052)"),
+) -> None:
+    """Record what was known and claimed at t0, and schedule the 21/63/126-session horizons."""
+    _require_personal_use()
+    asyncio.run(_record_t0(packet_id, persist))
+
+
+async def _record_t0(packet_id: str, persist: bool) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            case = await repository.load_case(packet_id, conn=conn)
+            rows = materialise_t0(case)
+            if persist:
+                for row in rows:
+                    await save_outcome(conn, row)
+            stored = len(await load_outcomes(conn, packet_id))
+    finally:
+        await close_pool()
+    for row in rows:
+        console.print(
+            f"[dim]{row.outcome_id} horizon={row.horizon_trading_days}d due={row.due_at.isoformat()} "
+            f"state={row.observation_state}[/dim]"
+        )
+    console.print(
+        f"[dim]t0 claim: state={rows[0].claim.recommendation_state} challenge={rows[0].claim.challenge_outcome} "
+        f"reference_price={rows[0].claim.reference_price} blocking={rows[0].claim.blocking_finding_count} "
+        f"persisted={persist} rows_on_packet={stored}[/dim]"
+    )
+    console.print(
+        "[yellow]One observation is not an alpha claim; the Stage 5 gate needs a complete "
+        "episode (21/63/126 sessions).[/yellow]"
+    )
+
+
+@decision_app.command("observe")
+def decision_observe(
+    packet_id: str = typer.Option(..., "--packet-id"),
+    as_of: str = typer.Option(..., "--as-of", help="Observation date YYYY-MM-DD"),
+    persist: bool = typer.Option(False, "--persist/--dry-run"),
+) -> None:
+    """Observe every horizon whose trading session has arrived."""
+    _require_personal_use()
+    asyncio.run(_observe(packet_id, date.fromisoformat(as_of), persist))
+
+
+async def _observe(packet_id: str, day: date, persist: bool) -> None:
+    from asxos.domain.decision_engine.portfolio_state import SQL_CLOSE
+
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            rows = await load_outcomes(conn, packet_id)
+            if not rows:
+                raise typer.BadParameter(f"no thesis_outcomes rows for {packet_id}; run record-t0 first")
+            cutoff = _cutoff(day.isoformat())
+            due = due_horizons(rows, cutoff)
+            observed = []
+            for row in due:
+                price_row = await conn.fetchrow(SQL_CLOSE, row.symbol, day)
+                price = Decimal(str(price_row["close"])) if price_row and price_row["close"] is not None else None
+                # Benchmark levels are deliberately not passed: AXJOA.INDX is
+                # absent from `prices`, so the comparison reports unavailable
+                # (governor ruling F1) rather than being proxied.
+                filled = observe(row, observed_at=day, observed_price=price)
+                if persist:
+                    await save_outcome(conn, filled)
+                observed.append(filled)
+    finally:
+        await close_pool()
+    if not observed:
+        console.print(f"[dim]nothing due at {day.isoformat()}; {len(rows)} row(s) on this packet[/dim]")
+        return
+    for row in observed:
+        console.print(
+            f"[dim]{row.outcome_id} return={row.security_return_pct} ({row.return_state}) "
+            f"benchmark={row.benchmark_return_pct} ({row.benchmark_state}) excess={row.excess_return_pct} "
+            f"persisted={persist}[/dim]"
+        )
 
 
 @decision_app.command("positive-control")
@@ -140,20 +234,27 @@ def decision_dispose(
     packet_id: str = typer.Option(..., "--packet-id"),
     verdict: str = typer.Option(..., "--verdict", help="accept | request_revision | reject | defer"),
     note: str = typer.Option(..., "--note"),
+    persist: bool = typer.Option(True, "--persist/--dry-run", help="Record into decision_dispositions"),
 ) -> None:
-    """Print James's Disposition contract for a persisted packet (dry-run until 0052 persists it)."""
+    """Record James's disposition of a persisted packet."""
     _require_personal_use()
-    asyncio.run(_dispose(packet_id, verdict, note))
+    asyncio.run(_dispose(packet_id, verdict, note, persist))
 
 
-async def _dispose(packet_id: str, verdict: str, note: str) -> None:
+async def _dispose(packet_id: str, verdict: str, note: str, persist: bool) -> None:
     await init_pool()
     try:
         async with acquire() as conn:
             case = await repository.load_case(packet_id, conn=conn)
+            disposition = disposition_for(case, verdict=verdict, note=note, recorded_at=now_utc())  # type: ignore[arg-type]
+            intent = paper_intent_for(case, disposition, created_at=now_utc())
+            if persist:
+                await persist_disposition(conn, disposition)
+            recorded = len(await load_dispositions(conn, packet_id))
     finally:
         await close_pool()
-    disposition = disposition_for(case, verdict=verdict, note=note, recorded_at=now_utc())  # type: ignore[arg-type]
-    intent = paper_intent_for(case, disposition, created_at=now_utc())
     console.print(json.dumps(disposition.model_dump(mode="json"), indent=2, sort_keys=True))
-    console.print(f"[dim]paper_intent={'none (non-action state)' if intent is None else intent.intent_id} persisted=False (0052)[/dim]")
+    console.print(
+        f"[dim]paper_intent={'none (non-action state)' if intent is None else intent.intent_id} "
+        f"persisted={persist} dispositions_on_packet={recorded}[/dim]"
+    )

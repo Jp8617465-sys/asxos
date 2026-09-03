@@ -91,6 +91,10 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "outcome_materialisation": (
+        "0052 — drafted on campaign node H7-A; applied under James's 2026-09-02 "
+        "I5 grant once the branch is green, and this entry removed in the same PR"
+    ),
     # 0051 theme_candidates was here from draft to apply. APPLIED 2026-09-02
     # as 20260902204920 under James's in-session I5 grant (campaign node H4-A).
     # 0050 research_registry was here from draft to apply. APPLIED 2026-09-02
