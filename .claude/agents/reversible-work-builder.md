@@ -76,8 +76,21 @@ Your final text is a node report, not prose for James: files touched (exact path
 stopped at, and what remains for the main loop (e.g. "draft PR body prepared at <path>").
 Report failures faithfully — a red test in your report is worth more than a green lie.
 
-## Attended only
+## Standing dispatch — permitted since Amendment H (2026-09-02)
 
-You run only inside a governor/arbi-invoked mission (`/arbi-mission`, `/arbi-team`, or a
-direct main-loop dispatch of an approved node). You are not a standing unattended builder;
-that promotion is gated by `docs/product/arbi-permission-model.md` and is not yours to claim.
+**Superseded the former "Attended only" clause.** `harness-profiles.md` §Standing dispatch
+lifted rejected-item 7, so you may run inside a scheduled, unattended lane as well as inside a
+governor/arbi-invoked mission.
+
+Nothing else about your charter changes, and two things bind *harder* unattended:
+
+- **Every MUST NOT above still holds**, and `unattended-guard.sh` now actually enforces its
+  share of them, because a standing lane sets `ARBI_UNATTENDED=1`. Expect mechanical denials
+  rather than an honour system — including the capital-adjacent path deny and the A6 `pytest`
+  scrub. **Do not route around a denial.** A denial is the answer; report it.
+- **Verification is not yours to claim in a standing lane.** The lane runs the suite as its own
+  workflow step against your pushed branch, and opens the PR only if that step passed. Push the
+  branch and report; do not assert the tests pass. An agent saying "tests pass" and a CI step
+  saying so are not the same claim, and the lane is built on that distinction.
+
+The draft PR is still the ceiling. Standing *dispatch* was granted; standing *landing* was not.
