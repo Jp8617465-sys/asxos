@@ -49,8 +49,7 @@ def to_canonical(value: object, *, context: str = DEFAULT_CONTEXT) -> object:
         return value.value
     if is_dataclass(value) and not isinstance(value, type):
         return {
-            f.name: to_canonical(getattr(value, f.name), context=context)
-            for f in fields(value)
+            f.name: to_canonical(getattr(value, f.name), context=context) for f in fields(value)
         }
     if isinstance(value, dict):
         return {str(k): to_canonical(v, context=context) for k, v in value.items()}
