@@ -244,7 +244,7 @@ def test_a_finding_is_frozen() -> None:
             ]
         )
     )
-    with pytest.raises(Exception, match="frozen|Instance is frozen"):
+    with pytest.raises(Exception, match=r"frozen|Instance is frozen"):
         found[0].code = "tampered"  # type: ignore[misc]
 
 

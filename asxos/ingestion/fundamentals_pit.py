@@ -22,7 +22,7 @@ import logging
 from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any, TypedDict, TypeVar
+from typing import Any, TypedDict
 
 import asyncpg
 from dateutil.relativedelta import relativedelta
@@ -45,8 +45,6 @@ MAX_PIT_BATCH_SIZE = 200
 # timeout as one very large ``executemany`` call for history-rich symbols.
 DEFAULT_PIT_WRITE_BATCH_SIZE = 250
 MAX_PIT_WRITE_BATCH_SIZE = 1_000
-
-_T = TypeVar("_T")
 
 log = logging.getLogger(__name__)
 
@@ -263,7 +261,7 @@ def _normalise_symbols(symbols: list[str]) -> list[str]:
     return normalised
 
 
-def _chunks(values: list[_T], batch_size: int) -> Iterator[list[_T]]:
+def _chunks[T](values: list[T], batch_size: int) -> Iterator[list[T]]:
     for start in range(0, len(values), batch_size):
         yield values[start : start + batch_size]
 

@@ -33,7 +33,7 @@ def risk_tolerance_scalar(label: str) -> Decimal:
         raise ValueError(
             f"unknown risk_tolerance {label!r}; valid: {list(RISK_TOLERANCE_SCALARS)}"
         )
-    return RISK_TOLERANCE_SCALARS[label]  # type: ignore[index]  # validated above
+    return RISK_TOLERANCE_SCALARS[label]
 
 
 def _normalise_score_weights(raw: dict[str, Any]) -> dict[str, Decimal]:
