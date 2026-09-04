@@ -477,6 +477,73 @@ reachable. Programme "done" (`target-architecture.md` §16) is not reachable thi
 
 **Queue placement.** THE ONE THING is unchanged: `H0-B` restore the irreplaceable backup
 (campaign plan Wave 0). H does not reorder the Stages 0→6 table; it authorises working it.
+#### Amendment I — one-train merge grant (James, 2026-09-04)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-04
+instruction during a plan-mode backlog wake ("optimise this that the first action
+is to run a merge train on all open PRs"), confirmed through `AskUserQuestion` as
+**"Grant it — I run the train"**; this block is the queue amendment. Letter **I** —
+**H** is taken (the campaign envelope on the unmerged wake branch, PR #185) and
+**C** stays burned (unenacted force-with-lease, 2026-08-13 pack).
+
+**Ruling.** For **this train only**, arbi may call `mcp__github__merge_pull_request`
+on the open Amendment H PRs without returning to James per PR. This is a narrow,
+expiring override of **Amendment G ruling 3** ("No auto-merge. Keep the click."),
+which otherwise stands unamended for every future PR.
+
+**Precedent — this shape has run before.** `decision-log.md` carries a 2026-08-22
+row, *"Governor ruling: run a merge train on the open PRs if checks are green, in
+the correct sequence"*, executed as #155 → #151 → #154 → #152: four squash-merges,
+each re-verified CI-green and `mergeable_state: clean` on an up-to-date head, no
+`--admin`. Amendment I is the same instrument on a larger stack, and inherits that
+row's two operating lessons — re-verify green on the head you are about to merge
+(not a stale measurement), and a rebase may be needed purely because branch
+protection wants an up-to-date head, with no file overlap implied.
+
+**Scope — the 16 PRs open at 2026-09-04:** #178, #185, #186, #187, #188, #189,
+#190, #191, #192, #193, #194, #195, #196, #197, #198, #199. No PR opened after
+this date is covered.
+
+**What this authorizes.** Merging those PRs, squash, in dependency order.
+The Amendment A rebase repair on each stacked child after its parent
+squash-merges (`--force-with-lease` to its own `claude/**` branch only).
+Reversible branch fixes needed to get a head green — the ruff C416 fix on
+`claude/amendment-h-outcomes` is the only one taken.
+
+**What this does NOT authorize, and what did not move.**
+
+- **Un-drafting.** `pr-draft-guard.sh:60-63` hard-denies `update_pull_request`
+  with `draft:false`. It is a mechanical hook, not prose, so this grant cannot
+  lift it and no attempt was made to route around it. 15 of the 16 PRs are draft
+  and GitHub will not merge a draft, so **James clicks "Ready for review" on each
+  one**; that click stays his and is the train's actual gate.
+- `ARBI_UNATTENDED` stays **off**. `pr-draft-guard.sh:88-96` denies
+  `merge_pull_request` outright under unattended mode; this grant is attended-only
+  and relies on that denial remaining intact.
+- `enable_pr_auto_merge` stays denied in every mode (settings deny + hook).
+- No tier moved. I5/I6 and P5/P6 remain never-promotable per the constitution and
+  the permission model. This is one instructed execution window, not a track
+  record and not a precedent.
+- Untouched: rule #11, capital, `0042`, `0045`, secrets, `.github/**` edits,
+  environment flips, production DB writes, W1-2.
+
+**Expiry.** At the end of the attended session that ratified it, on James saying
+stop, on any permission-model circuit breaker, or on the first merge conflict or
+unexplained red check — whichever comes first.
+
+**Why the train was ranked first.** Not tidiness. Production carries four
+migrations `main` cannot reproduce — `20260902201241 pit_knowledge_tier`,
+`20260902203202 research_registry`, `20260902204920 theme_candidates`,
+`20260903025557 outcome_materialisation` — whose `.sql` files exist only on the
+unmerged branches, while `main`'s `EXPECTED_UNAPPLIED` (`asxos/schema_drift.py`)
+lists only `0025` and `0045`. That is the exact failure `schema_drift.py` was
+written to catch, and `migration-drift` has been red on `main` since 09-03
+(runs `33744214689`, `33862108539`; green 09-02, before 0049 was applied). The
+drift self-clears when the code chain lands.
+
+**Queue placement.** This amendment does not become THE ONE THING and flips no
+Stage cell. The dark surfaces #1/#4 ruling — expired 2026-08-31, decide-by
+2026-08-28 — remains the oldest overdue item in the repo and is still James's.
 
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 
