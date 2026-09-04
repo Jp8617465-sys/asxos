@@ -85,7 +85,7 @@ class _FakeOutcomeConn:
 
     async def fetch(self, query: str, *args: object) -> list[Any]:
         if "thesis_outcomes" in query:
-            payloads = [v for v in self.rows.values()]
+            payloads = list(self.rows.values())
             return sorted(payloads, key=lambda r: json.loads(str(r["payload"]))["horizon_trading_days"])
         if "delivery_receipts" in query:
             return [
