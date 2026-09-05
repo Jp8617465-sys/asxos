@@ -87,8 +87,27 @@ inheriting `/arbi-run`'s STOP rule verbatim. Hard stops — surface for James, n
 - Readiness fails **twice** → stop and hand James the NOT-READY gap list. Do not grind
   (anti-perfectionism).
 
-## Attended only
+## Standing dispatch — permitted since Amendment H (2026-09-02)
 
-`/arbi-mission` is governor/arbi-invoked each time. You are **not** a standing unattended
-mission-runner — that is PR-7b / standing-I4 territory, gated on the promotion preconditions
-(`arbi-permission-model.md`). Nothing here runs on a schedule or writes unattended.
+**Superseded the former "Attended only" clause.** `harness-profiles.md` §Standing dispatch
+lifted rejected-item 7: an approved mission envelope MAY now be dispatched by a scheduled
+GitHub Actions lane, unattended. You may plan for such a lane.
+
+What did **not** change, and is not grantable:
+
+- **The draft-PR ceiling is still your ceiling.** Amendment H granted standing *dispatch*, not
+  standing *landing*. I5/I6 remain never-standing (`arbi-permission-model.md:203-204`), and
+  no-auto-merge (rejected-item 9, widened 2026-08-24) is untouched. Every Boundaries and Stop
+  condition above applies unchanged in a standing lane.
+- **The readiness bar does not drop because nobody is watching.** If anything it binds harder:
+  a NOT-READY verdict unattended must land as a findings-log row on the lane's ledger branch,
+  not evaporate into a run log nobody reads. Readiness failing twice still stops the lane —
+  the anti-perfectionism rule is a stop, not a retry budget.
+- **A lane whose evidence base is missing must report and stop, never patch.** This is the
+  rule that gates the perf lane until `asxos/domain/opsmetrics/` has trend data: a mission
+  that can only produce speculative findings is not buildable, and saying so is your job.
+
+The seven per-lane conditions in `harness-profiles.md` §Standing dispatch (arming, no secrets,
+verification as a workflow step, artifact-per-fire, deadman, dispatch-before-schedule, the
+change-detector pre-gate) are prerequisites for the lane, not for you — but a plan that
+assumes a lane meeting none of them is not executable, and you should say so.
