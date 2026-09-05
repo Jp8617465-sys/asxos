@@ -67,11 +67,15 @@ claims corrected against repository evidence. **No gate lifted; the write loop s
 >    in a SaaS trigger list, invisible to git and to review — CLAUDE.md non-negotiable #2. Its
 >    liveness record here is 2 silent failures out of 2 (7a and this loop). Lanes run as
 >    workflows in `.github/workflows/`.
-> 2. **§10's blocking gates are closed by the substrate, not waived.** Items 1 (mechanical
->    arming) and 2 (secret-free env) were Routine artefacts: on Actions, `ARBI_UNATTENDED=1` is
+> 2. **§10's mechanical-arming gate is closed by the substrate; credential isolation is not.**
+>    On Actions, `ARBI_UNATTENDED=1` is
 >    a job-level `env:` entry scoped to that one workflow — so it arms the guard *without*
->    caging James's attended sessions, which was item 1's whole concern — and "no secrets" is
->    satisfied by omitting a secrets block. See the rewritten §7 and §10.
+>    caging James's attended sessions, which was item 1's whole concern. But the agent step
+>    necessarily receives `CLAUDE_CODE_OAUTH_TOKEN` and a repo `GITHUB_TOKEN` capable of pushing
+>    its output branch. GitHub Actions permissions are job-scoped, not ref-scoped, so the latter
+>    cannot be mechanically confined to `claude/**` without a GitHub App or separately scoped
+>    credential. That residual prompt-injection-to-git-push risk is **open P1 and dispatch-gated**,
+>    not fixed by an "absence of secrets" claim. See §9 and §10-A.
 > 3. **Artifact-per-fire is now mechanical** (§6). The findings-log row is written by a workflow
 >    step, not by agent judgement. Silence becomes impossible rather than merely forbidden.
 >
@@ -196,10 +200,11 @@ does this change do, does it weaken any invariant/guard, does it add a vuln or r
 Finder and reviewer are never the same context. The review-gate marker and guilfoyle's READY
 verdict are **self-attested and do NOT substitute for James's pre-merge adversarial read**.
 
-**New-test rule (security HIGH-2):** the loop runs only the **existing `main` test suite**
-against patched non-test code. **New or modified test files on the branch are NOT executed
-unattended** (a test file is arbitrary code execution) — they are left for James's review.
-Tests run with secrets scrubbed from the env (§7 / §10).
+**New-test rule (security HIGH-2, revised 2026-09-06):** new or modified test files may execute
+only in the dedicated `verify` job. That job has `contents: read`, checks out the producer's
+validated immutable SHA with `persist-credentials: false`, and receives no Claude OAuth,
+Healthchecks, or write token. Agent-authored code never executes in the write-capable producer
+or publisher jobs. The separate job is the boundary; a later step in the producer job is not.
 
 ## 4. One mission per fire — convergence, not volume
 
@@ -293,12 +298,16 @@ so a lane running disarmed is visible in the transcript rather than inferred lat
 1. **A6 will deny the agent's own `pytest`.** `unattended-guard.sh:285-287` denies any `pytest`
    not fronted by an `env -i` scrub. With the guard armed, an agent Bash call to run the suite
    is blocked. **Do not teach the prompt `env -i`** — run the suite as a *separate workflow
-   step* against the pushed branch. That sidesteps A6 entirely and, more importantly, converts
-   the agent's self-report into a CI fact. The PR opens only if that step passed.
+   job* against the validated immutable SHA, with `contents: read`, no OAuth/deadman secret, and
+   `persist-credentials: false`. That sidesteps A6 entirely and, more importantly, converts the
+   agent's self-report into a CI fact without executing its code beside a write credential. The
+   PR opens only if that job passed and the branch still resolves to the verified SHA.
 2. **The hooks have never been verified to fire inside `claude-code-action`** — same class as
    R16 (`pr-draft-guard.sh` unverified in this harness). **Do not design safety around the
-   hooks in CI.** The load-bearing controls are `--allowedTools`, the workflow's `permissions:`
-   block, and the absence of secrets. The hooks are belt. Verify empirically — a lane's first
+   hooks in CI.** The load-bearing controls are `--allowedTools`, least-privilege job boundaries,
+   immutable-SHA validation, and human review. The producer agent still holds OAuth plus a
+   repo write token; that is the explicitly gated P1 residual, not an absent-secret boundary.
+   The hooks are belt. Verify empirically — a lane's first
    run must show at least one guard denial on a deliberately out-of-tier action, or the guard
    must be assumed disarmed.
 
@@ -324,17 +333,23 @@ framing — the draft-PR ceiling means the whole residual is James spotting it.)
   (DB/secret/Render/MCP-write deny; unattended merge-deny) hold **only when armed**
   (`ARBI_UNATTENDED=1`). The unconditional boundaries are the always-on trio + the draft-PR
   ceiling + **James's merge**.
-- `pytest` is an allowlisted arbitrary-code-execution path; §3's new-test rule + §10's env-scrub
-  are what bound it.
+- `pytest` is arbitrary-code execution; §3's dedicated credential-free verification job is what
+  bounds it.
 - ~~Branch protection on `main` and the `0039` DB role remain outstanding.~~ **Corrected
   2026-08-14 (`SB0-02`) and again 2026-09-02** — branch protection landed 2026-07-17 and `0039`
   applied 2026-07-16; see the correction box at the head of this file for what each actually
   buys (branch protection binds non-admin credentials only; the `0039` residual is a re-point
   between two read-only roles). Left struck rather than deleted because this line was cited as
   live fact for three months after it stopped being true.
-- **The hooks are unverified inside `claude-code-action`** (R16 class). In CI the load-bearing
-  controls are `--allowedTools`, the workflow `permissions:` block, and the absence of secrets;
-  `unattended-guard.sh` is belt, not boundary, until a lane's run log shows it denying something.
+- **The hooks are unverified inside `claude-code-action`** (R16 class). In CI the producer's
+  `--allowedTools` and permissions reduce exposure but do not confine `contents: write` to a ref.
+  The real token surface is OAuth plus a repo write token. `unattended-guard.sh` is belt, not
+  boundary, until a lane's run log shows it denying something.
+- **Open P1 — write token exposed to untrusted-content agent.** Both producer agents must push a
+  branch, and GitHub's workflow `permissions:` cannot express a branch/ref scope. Until a GitHub
+  App or separately scoped credential is designed and red-teamed, both workflows remain
+  `workflow_dispatch`-only, owner-only, and require an explicit per-dispatch acknowledgement.
+  No `schedule` or `workflow_run` trigger may be added while this row is open.
 - Security fixes are the highest-judgement class: review loop + fresh-reviewer + guilfoyle
   readiness + **human merge** are mandatory; nothing here auto-applies a security change.
 
@@ -343,14 +358,16 @@ framing — the draft-PR ceiling means the whole residual is James spotting it.)
 | # | Gate | Status on Actions |
 |---|---|---|
 | 1 | Mechanical arming | ✅ **CLOSED** — job-level `env: ARBI_UNATTENDED: "1"`, scoped per lane (§7) |
-| 2 | Secret-scrubbed test env | ✅ **CLOSED** — the lane mounts no secrets at all; the suite runs as a workflow step, not an agent Bash call, so A6 is moot |
+| 2 | Credential-free test env | ✅ **CLOSED for verification only** — agent-authored code runs in a separate `contents: read` job at a validated SHA, with `persist-credentials: false` and no OAuth/deadman/write token |
 | 3 | GitHub-MCP-write always-on deny | ❌ dropped by James 2026-07-16 (unchanged); armed lanes still hit the `mcp__github__*` default-deny catch-all |
 | 4 | Capital-adjacent path deny | ✅ landed PR #45; armed by item 1 above |
 | 5 | Healthchecks deadman URL | ⏳ **James** — one secret per lane (`HC_TRIAGE_URL`, `HC_TOOLWATCH_URL`, `HC_PERF_URL`) |
 | 6 | `0039` read-only DB role | ⏳ recommended, not blocking — these lanes call no DB tool at all (§1) |
+| 7 | Branch-scoped producer credential | ❌ **OPEN P1 / GATED** — requires a GitHub App or separately scoped credential; ordinary `GITHUB_TOKEN` permissions are not ref-scoped |
 
-**Remaining to flip a lane live: James merges its workflow file (the merge IS the arming
-action, since `schedule:` only fires from the default branch) and adds its deadman URL.**
+**Current posture:** merging installs the workflows but does not authorize automatic execution.
+Both remain owner-only `workflow_dispatch` lanes with an explicit write-token-risk acknowledgement.
+Do not add `schedule` or `workflow_run` until gate 7 has a reviewed mechanical control.
 
 The historical §10 below is retained as the record of what the Routine substrate required.
 

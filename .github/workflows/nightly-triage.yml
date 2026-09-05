@@ -45,21 +45,30 @@ on:
         description: "nightly-check run ID to triage (blank = most recent failure)"
         required: false
         type: string
+      acknowledge_write_token_risk:
+        description: "I accept the gated residual risk: the agent receives a repo write token"
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: nightly-triage
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: read
+permissions: {}
 
 jobs:
   triage:
+    if: github.actor == 'Jp8617465-sys' && inputs.acknowledge_write_token_risk == true
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: write
+    outputs:
+      branch_found: ${{ steps.branch.outputs.found }}
+      branch_name: ${{ steps.branch.outputs.name }}
+      branch_sha: ${{ steps.branch.outputs.sha }}
     env:
       # Arms .claude/hooks/unattended-guard.sh:37 for THIS workflow only.
       ARBI_UNATTENDED: "1"
@@ -69,6 +78,16 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Validate dispatch input
+        env:
+          REQUESTED_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$REQUESTED_RUN_ID" && ! "$REQUESTED_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::run_id must contain decimal digits only"
+            exit 1
+          fi
 
       - name: Arming self-check (STEP 0)
         run: |
@@ -83,6 +102,7 @@ jobs:
         uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10  # v1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_RUN_ID: ${{ inputs.run_id }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -101,7 +121,8 @@ jobs:
             PROCEDURE:
             1. Find the failing run and read its log. `gh run list --workflow
                nightly-check.yml` and `gh run view <id> --log`. The dispatch input
-               `run_id` names one if given, else take the most recent failure.
+               `REQUESTED_RUN_ID` names one if non-empty; it has already been
+               validated as decimal digits. Otherwise take the most recent failure.
             2. Identify the failing test(s) and the commit range since the last
                green run. Per error-triage.md: a failure that starts at one commit
                is a regression; one that comes and goes is data or an upstream API;
@@ -148,50 +169,23 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f .triage-branch ]; then
-            name="$(tr -d '[:space:]' < .triage-branch)"
+            name="$(tr -d '\r\n' < .triage-branch)"
+            if [[ ! "$name" =~ ^claude/triage-[0-9]{8}-[a-z0-9-]+$ ]]; then
+              echo "::error::invalid triage branch name"
+              exit 1
+            fi
+            sha="$(git ls-remote --exit-code origin "refs/heads/$name" | awk '{print $1}')"
+            if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::triage branch did not resolve to one commit SHA"
+              exit 1
+            fi
             echo "name=$name" >> "$GITHUB_OUTPUT"
+            echo "sha=$sha"   >> "$GITHUB_OUTPUT"
             echo "found=true"  >> "$GITHUB_OUTPUT"
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
             echo "No branch produced — diagnosis-only run."
           fi
-
-      # Verification the agent cannot reach. This is the gate, not its self-report.
-      - name: Set up Python 3.12
-        if: steps.branch.outputs.found == 'true'
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-
-      - name: Verify the fix (independent of the agent)
-        if: steps.branch.outputs.found == 'true'
-        run: |
-          set -euo pipefail
-          git fetch origin "${{ steps.branch.outputs.name }}"
-          git checkout "${{ steps.branch.outputs.name }}"
-          python -m pip install --upgrade pip
-          pip install -e ".[ml,dev]"
-          ruff check .
-          mypy asxos
-          python -m pytest -q
-
-      - name: Open draft PR (only if verification passed)
-        if: success() && steps.branch.outputs.found == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh pr create --draft \
-            --base main \
-            --head "${{ steps.branch.outputs.name }}" \
-            --title "fix(triage): nightly-check failure $(date -u +%Y-%m-%d)" \
-            --body "Automated triage of a red \`nightly-check\`. Suite, ruff and mypy verified green by workflow step, independently of the agent.
-
-          Review adversarially: confirm the fix addresses the root cause rather than the symptom, and that no assertion was weakened.
-
-          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
       # Artifact-per-fire — `if: always()` so a failed, timed-out, or diagnosis-only
       # run still leaves a commit. See security-perf-mission-loop.md §6.
@@ -202,8 +196,23 @@ jobs:
       # action, which Amendment H explicitly did not grant.
       - name: Findings-log heartbeat
         if: always()
+        env:
+          TRIAGE_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
+          diagnosis=""
+          if [ -e .triage-diagnosis.md ]; then
+            if [ ! -f .triage-diagnosis.md ] || [ -L .triage-diagnosis.md ]; then
+              echo "::error::.triage-diagnosis.md must be a regular, non-symlink file"
+              exit 1
+            fi
+            if [ "$(wc -c < .triage-diagnosis.md)" -gt 65536 ]; then
+              echo "::error::.triage-diagnosis.md exceeds 64 KiB"
+              exit 1
+            fi
+            diagnosis="$RUNNER_TEMP/triage-diagnosis.md"
+            cp .triage-diagnosis.md "$diagnosis"
+          fi
           LEDGER=claude/secperf-ledger
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -217,12 +226,17 @@ jobs:
           printf '| %s | %s | triage | — | %s | run %s |\n' \
             "$(date -u +%Y-%m-%d)" \
             "${GITHUB_RUN_NUMBER}" \
-            "${{ job.status }}" \
+            "$TRIAGE_STATUS" \
             "${GITHUB_RUN_ID}" \
             >> docs/product/security-perf-findings-log.md
+          if [ -n "$diagnosis" ]; then
+            mkdir -p docs/ops/triage-diagnoses
+            cp "$diagnosis" "docs/ops/triage-diagnoses/${GITHUB_RUN_ID}.md"
+            git add "docs/ops/triage-diagnoses/${GITHUB_RUN_ID}.md"
+          fi
           git add docs/product/security-perf-findings-log.md
           if git diff --staged --quiet; then echo "no delta"; exit 0; fi
-          git commit -m "chore(triage): fire heartbeat run ${GITHUB_RUN_ID} (${{ job.status }})"
+          git commit -m "chore(triage): fire heartbeat run ${GITHUB_RUN_ID} ($TRIAGE_STATUS)"
           git push origin "$LEDGER"
 
       - name: Heartbeat
@@ -236,3 +250,77 @@ jobs:
           curl -fsS -m 10 --retry 3 "$HC_TRIAGE_URL"
         env:
           HC_TRIAGE_URL: ${{ secrets.HC_TRIAGE_URL }}
+
+  # Agent-authored code runs only here: read-only token, no OAuth/deadman secret,
+  # and checkout credentials are not persisted. The immutable SHA is resolved and
+  # validated by the producer job before it crosses this boundary.
+  verify:
+    needs: triage
+    if: needs.triage.outputs.branch_found == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.triage.outputs.branch_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Confirm immutable checkout
+        env:
+          EXPECTED_SHA: ${{ needs.triage.outputs.branch_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Verify the fix
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[ml,dev]"
+          ruff check .
+          mypy asxos
+          python -m pytest -q
+
+  publish:
+    needs: [triage, verify]
+    if: needs.triage.outputs.branch_found == 'true' && needs.verify.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Open draft PR for the verified SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRIAGE_BRANCH: ${{ needs.triage.outputs.branch_name }}
+          VERIFIED_SHA: ${{ needs.triage.outputs.branch_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$TRIAGE_BRANCH" =~ ^claude/triage-[0-9]{8}-[a-z0-9-]+$ ]]
+          [[ "$VERIFIED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          remote_sha="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/git/ref/heads/${TRIAGE_BRANCH}" \
+            --jq '.object.sha')"
+          test "$remote_sha" = "$VERIFIED_SHA"
+          gh pr create --draft \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$TRIAGE_BRANCH" \
+            --title "fix(triage): nightly-check failure $(date -u +%Y-%m-%d)" \
+            --body "Automated triage of a red \`nightly-check\`. Suite, ruff and mypy verified at immutable commit \`$VERIFIED_SHA\` by a separate read-only job with no persisted checkout credential.
+
+          Review adversarially: confirm the fix addresses the root cause rather than the symptom, and that no assertion was weakened.
+
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"

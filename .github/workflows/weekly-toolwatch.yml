@@ -31,7 +31,13 @@
 name: weekly-toolwatch
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      acknowledge_write_token_risk:
+        description: "I accept the gated residual risk: the agent receives a repo write token"
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: weekly-toolwatch
@@ -43,6 +49,7 @@ permissions:
 
 jobs:
   toolwatch:
+    if: github.actor == 'Jp8617465-sys' && inputs.acknowledge_write_token_risk == true
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
