@@ -48,6 +48,7 @@ from asxos.domain.tax.types import AccountType, HoldingLot, LotSelection
 
 _Q6: Final[Decimal] = Decimal("0.000001")
 _HUNDRED: Final[Decimal] = Decimal("100")
+MAX_LIMIT_OFFSET_PCT: Final[Decimal] = Decimal("100")
 
 Side = Literal["buy", "sell"]
 LotSelector = Literal["min_cgt", "fifo", "lifo"]
@@ -136,12 +137,21 @@ def stage_order(
         raise StagingError("cannot stage a zero size range")
     if reference_price <= 0 or capital_aud <= 0:
         raise StagingError("reference price and capital must be positive")
+    if limit_offset_pct < 0 or limit_offset_pct >= MAX_LIMIT_OFFSET_PCT:
+        raise StagingError(
+            f"limit offset must be at least 0 and below {MAX_LIMIT_OFFSET_PCT}%"
+        )
     if challenge.as_of != as_of:
         raise StagingError("staging as_of must equal the challenge as_of")
     staged_at = require_utc(staged_at, field_name="staged_at")
 
+    offset = reference_price * limit_offset_pct / _HUNDRED
+    limit_price = _q(reference_price + offset if side == "buy" else reference_price - offset)
     notional_cap = capital_aud * size.maximum_pct / _HUNDRED
-    quantity = (notional_cap / reference_price).quantize(Decimal("1"), rounding=ROUND_DOWN)
+    # A buy can fill up to its limit, so sizing it at the lower reference
+    # price would let the executable notional exceed the challenged cap.
+    sizing_price = limit_price if side == "buy" else reference_price
+    quantity = (notional_cap / sizing_price).quantize(Decimal("1"), rounding=ROUND_DOWN)
     if side == "sell":
         symbol_lots = [lot for lot in open_lots if lot.symbol == symbol and lot.disposed_at is None]
         mismatched = sorted(lot.lot_id for lot in symbol_lots if lot.account_type != account_type)
@@ -159,8 +169,6 @@ def stage_order(
     if quantity <= 0:
         raise StagingError("the permitted size buys or sells fewer than one unit")
 
-    offset = reference_price * limit_offset_pct / _HUNDRED
-    limit_price = _q(reference_price + offset if side == "buy" else reference_price - offset)
     selections: tuple[StagedLot, ...] = ()
     if side == "sell":
         chosen = _select(lot_selector, symbol_lots, quantity, reference_price, as_of, account_type)
@@ -172,7 +180,7 @@ def stage_order(
             )
             for s in chosen
         )
-    notional = _q(quantity * reference_price)
+    notional = _q(quantity * limit_price)
     return StagedOrder(
         staged_order_id=f"stg-{challenge.challenge_result_id}-{side}",
         challenge_result_id=challenge.challenge_result_id,
