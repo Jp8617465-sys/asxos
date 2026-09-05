@@ -67,7 +67,7 @@ def test_two_lots_weighted_average_and_order() -> None:
 
 def test_all_lots_eligible_distinct_from_no_lot() -> None:
     raw = [_lot("100", "2023-01-01", "3000"), _lot("50", "2024-02-01", "2000")]
-    lots, cost_ps, qty, cgt_date, all_elig = _build_lot_ladder(
+    lots, _cost_ps, _qty, cgt_date, all_elig = _build_lot_ladder(
         raw, Decimal("5000"), Decimal("150"), _AS_OF,
     )
     assert cgt_date is None
