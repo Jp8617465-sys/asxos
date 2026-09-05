@@ -108,3 +108,138 @@ def test_restore_drill_covers_revision_rows_and_sequence() -> None:
         _WORKFLOW_TEXT
     )
     assert "all 14 table counts match" in _WORKFLOW_TEXT
+
+
+# --- 2026-09-02 (campaign node H0-B): the 11-day silent outage --------------
+#
+# From 2026-08-23 to 2026-09-01 the frozen-evidence sha256 assertion exited
+# BEFORE the dump was copied into the backup repo: 12 consecutive red scheduled
+# runs, and not one dump pushed. Nothing below executes the script; these pins
+# make the ORDER and the coverage visible at review time, which is the only
+# place a bash script's control flow actually gets reviewed.
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        # migration 0048 — the decision spine. Append-only and content-addressed,
+        # recording what James saw and decided; not re-derivable from anything
+        # else (arbi decision D-1 under Amendment H).
+        "evidence_packets",
+        "thesis_versions",
+        "challenge_results",
+        "portfolio_assessments",
+        "decision_packets",
+    ],
+)
+def test_decision_engine_table_is_in_dump_list(table: str) -> None:
+    assert f"--table={table}" in _TEXT, (
+        f"{table} (0048) is irreplaceable and must be in the pg_dump list"
+    )
+
+
+def test_decision_engine_tables_are_conditional_like_price_revisions() -> None:
+    """The script must stay green against a schema where 0048 is not applied."""
+    assert "to_regclass('public.decision_packets') IS NOT NULL" in _TEXT
+    assert "DECISION_ENGINE_TABLE_ARGS=()" in _TEXT
+    assert '"${DECISION_ENGINE_TABLE_ARGS[@]}"' in _TEXT
+
+
+def test_dump_is_pushed_before_the_frozen_evidence_check_runs() -> None:
+    """Contain irreversible loss first (target-architecture.md Errata E7).
+
+    Verifying a FROZEN archive must never withhold the backup of the LIVE
+    tables that archive does not cover. Pin: the cp and push of today's dump
+    both precede the digest loop, and the failure path says so out loud.
+    """
+    cp_at = _TEXT.index('cp "$DUMP_GZ" "$WORK/repo/"')
+    push_at = _TEXT.index("git push origin HEAD")
+    loop_at = _TEXT.index('for pair in "signals:$SIGNALS_SHA256"')
+    assert cp_at < push_at < loop_at
+    assert "was pushed before this check ran" in _TEXT
+    assert "was identical to the last dump, so no push was required" in _TEXT
+
+
+def test_frozen_evidence_check_accepts_raw_or_gunzipped_bytes() -> None:
+    """The recorded digests do not say whether they were taken pre- or post-gzip.
+
+    Matching either representation keeps the assertion strict — the bytes must
+    still equal a recorded digest — while removing the one ambiguity that the
+    very first scheduled run of this check failed on.
+    """
+    assert "gzip -dc" in _TEXT
+    for digest in (
+        "e61ee6a4d1774194b86ff2072c362315142ed31bb1d66db7a2a21b5f30d57828",
+        "7aef52345d4d93d50e10428a3233b725d677f26873077b2b00e2623a0b7f3b8f",
+    ):
+        # once in the header, once in the constant — they must not drift apart
+        assert _TEXT.count(digest) == 2
+
+
+def test_corrupt_gzip_routes_through_failure_ping(tmp_path: Path) -> None:
+    """A decompressor failure must not escape through `set -e` before `/fail`."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    ping_log = tmp_path / "pings"
+
+    def executable(name: str, body: str) -> None:
+        path = fake_bin / name
+        path.write_text("#!/usr/bin/env bash\nset -eu\n" + body, encoding="utf-8")
+        path.chmod(0o755)
+
+    executable("psql", "printf 't\\n'\n")
+    executable("pg_dump", "printf '%s\\n' '-- fake dump'\n")
+    executable(
+        "gzip",
+        'if [ "${1:-}" = "-dc" ]; then exit 1; fi\nexec /usr/bin/gzip "$@"\n',
+    )
+    executable(
+        "git",
+        """
+work=''
+previous=''
+for arg in "$@"; do
+  if [ "$previous" = '-C' ]; then work="$arg"; fi
+  previous="$arg"
+done
+case " $* " in
+  *' clone '*)
+    mkdir -p "$work/repo/signal-evidence-2026-08-16"
+    printf 'corrupt' > "$work/repo/signal-evidence-2026-08-16/corrupt.gz"
+    ;;
+  *' diff --cached --quiet '*) exit 0 ;;
+esac
+exit 0
+""",
+    )
+    executable("curl", f"printf '%s\\n' \"$*\" >> {ping_log!s}\n")
+
+    env = {
+        "PATH": f"{fake_bin}:/usr/bin:/bin:/usr/sbin:/sbin",
+        "DATABASE_URL": "postgres://unused",
+        "BACKUP_GITHUB_TOKEN": "unused",
+        "BACKUP_REPO": "owner/repo",
+        "HEALTHCHECK_URL_BACKUP_IRREPLACEABLE": "https://health.invalid/job",
+    }
+    proc = subprocess.run(
+        ["bash", str(_SCRIPT)],
+        text=True,
+        capture_output=True,
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 1
+    assert "cannot be decompressed" in proc.stderr
+    assert "no push was required" in proc.stderr
+    assert "/fail" in ping_log.read_text(encoding="utf-8")
+
+
+def test_verification_failure_tells_the_deadman_it_failed() -> None:
+    """A red verification pings /fail; only a clean run pings success.
+
+    Silence is reserved for "never ran" — that is the whole point of a deadman
+    (docs/RUNBOOK.md, deadman section).
+    """
+    assert 'ping_deadman "/fail"' in _TEXT
+    assert 'ping_deadman ""' in _TEXT
+    assert _TEXT.index('ping_deadman "/fail"') < _TEXT.index('ping_deadman ""')

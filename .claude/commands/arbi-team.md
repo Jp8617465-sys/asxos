@@ -8,9 +8,9 @@ envelope, same red-team vet, same draft-PR ceiling — plus a team topology and 
 **plan-approval gate**. Agent teams are Anthropic-experimental and disabled by default; this
 command runs only when the operator has set **local/user** config
 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (never committed as a repo default — see
-`docs/product/runbooks/agent-team-mission.md`). It is **attended + reversible**:
-governor/arbi invoked, never standing/unattended (the PR 7b/8 promotion preconditions in
-`arbi-permission-model.md` stay gated).
+`docs/product/runbooks/agent-team-mission.md`). It is **reversible**: draft-PR ceiling, and
+since Amendment H (2026-09-02) it may be dispatched by a standing scheduled lane as well as
+by governor/arbi invocation — see §Boundaries.
 
 ## Qualifying gate — refuse and reroute if the mission is not team-shaped
 
@@ -48,7 +48,9 @@ mechanically — a plan failing any criterion never proceeds, no one can waive t
 **attended-live**, James sees and approves the plan before implementation; **inside a
 James-granted window** (the recipe grant is the standing authorisation), Guilfoyle's
 criteria-application is the gate and the full approved plan lands **verbatim in the morning
-report** — a borderline plan is a JAMES_NEEDED pivot, not a judgement call. No teammate
+report** — a borderline plan is a JAMES_NEEDED pivot, not a judgement call. **In a standing
+lane** (Amendment H) the same mechanical application is the gate, and the approved plan lands
+verbatim in the lane's findings-log row — a borderline plan stops the lane. No teammate
 implements before this gate passes.
 
 **3 — Teammates execute in owned areas.** Each teammate is the builder pattern
@@ -58,7 +60,9 @@ implements before this gate passes.
 teammate that touches a branch. File-ownership conflicts detected → pause the overlapping
 teammate, resolve in the plan, resume.
 
-**4 — Collect + verify.** Tests + the review loop on the combined diff, per CLAUDE.md.
+**4 — Collect + verify.** Tests + the review loop on the combined diff, per CLAUDE.md. In a
+standing lane, verification runs as the lane's own workflow step against the pushed branch,
+not as a teammate's self-report.
 
 **5 — ONE draft PR.** Converge to a single draft PR (or one per genuinely independent module
 if the approved plan said so). Never merge, never auto-merge (I6 = James).
@@ -71,16 +75,24 @@ the gap list.
 
 Carried verbatim from `/arbi-mission`:
 
-- **Attended + reversible only.** Governor/arbi invoked each time — not standing dispatch
-  (PR 8 / I4 standing stays gated: `arbi-permission-model.md`).
+- **Reversible only. Standing dispatch permitted since Amendment H (2026-09-02)** —
+  `harness-profiles.md` §Standing dispatch lifted rejected-item 7, so a team mission may be
+  dispatched by a scheduled lane, not only by governor/arbi invocation. **Standing *dispatch*
+  was granted; standing *landing* was not** — the draft-PR ceiling, I5/I6-never-standing
+  (`arbi-permission-model.md:203-204`), and no-auto-merge on any path (rejected-item 9,
+  widened 2026-08-24) are all untouched. A standing lane must also meet the seven conditions
+  in `harness-profiles.md` §Standing dispatch (arming, no secrets, verification as a workflow
+  step, artifact-per-fire, deadman, dispatch-before-schedule, change-detector pre-gate).
 - **Never dispatch or perform:** merge · deploy · migration · DB write · Render mutation ·
   secret handling · capital action · a Model A-derived capital recommendation · a boundary
   change. Those STOP for James (I5–I6 / P5–P6).
 - **Guilfoyle plans; it never prioritises.** Its only pushback is executability evidence to
   `arbi-red-team` / arbi — never a competing priority call.
 - **No permission broadening.** `/arbi-team` runs on the existing tool permissions +
-  interactive prompts + branch protection + the review gate. It adds no `allow` rules, never
-  uses `bypassPermissions`, and never runs unattended.
+  interactive prompts + branch protection + the review gate. It adds no `allow` rules and
+  never uses `bypassPermissions`. Unattended, `ARBI_UNATTENDED=1` makes the guard's denials
+  mechanical rather than an honour system — a denial is the answer, never something to route
+  around.
 
 ## Design principles (required citations — James, 2026-07-14)
 

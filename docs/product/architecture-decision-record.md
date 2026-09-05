@@ -272,11 +272,26 @@ Load-bearing for keeping L2/L3 gates tight. All cautionary, all from 2025–26:
 
 ### 3.5 Schema state
 
-- 43 migration files in repo; **97 applied** rows reported in production
-- `0018_perf_indexes` live in production (10 indexes) with no file in the repo — reconstruction from `pg_get_indexdef()` in progress
-- `0025`, `0045` in repo, deliberately unapplied
-- Numbers 18 and 42 absent from the sequence (42 reserved by parked PR #80)
-- Old drift guard was `count < REQUIRED_MIGRATIONS` — a count comparison that cannot detect extras by construction. Being replaced by a name-set diff with a **directional** allowlist (entries assert *expected-unapplied* and fail if later applied, so exceptions self-expire).
+> **Rewritten 2026-09-02 (campaign node H1-F). Every line of the 2026-08-23 version had gone
+> stale**, because it described the world Slice 0 was about to change and was then not revisited
+> after Slice 0 merged. Corrections row 6 records what it said. The rule this section now
+> follows: **state the mechanism, not the counts** — a document that restates a live number goes
+> stale by construction, which is the same lesson `docs/next-session-kickoff.md` has now learned
+> three times.
+
+- **Drift detection is a migration-*name* set difference** (`asxos/schema_drift.py`, imported by
+  `asxos/api/main.py`), with a **directional** allowlist: entries assert *expected-unapplied* and
+  fail if later applied, so exceptions self-expire. Shipped 2026-08-23.
+- **`REQUIRED_MIGRATIONS` is deleted.** The old guard was `count < REQUIRED_MIGRATIONS`, a count
+  comparison that cannot detect extras by construction. No count is maintained anywhere; do not
+  reintroduce one.
+- **`0018_perf_indexes` was reconstructed** from `pg_get_indexdef()` and is in the repo (Slice 0,
+  #163). The "no file in the repo" gap is closed.
+- **`0025` and `0045` are deliberately unapplied**; `0042` is RESERVED by parked PR #80 and must
+  never be applied. So the on-disk file set, the ledger set, and the allowlist are three
+  different sets *by design* — a divergence is not automatically a defect.
+- For the live picture, read `supabase_migrations.schema_migrations` and the on-disk
+  `migrations/` directory. Neither number is restated here.
 
 ---
 
@@ -291,6 +306,8 @@ Recording what earlier analysis got wrong. This section exists because a decisio
 | 2026-08-23 | Permission analysis conflated "James lifts the deny" with "the agent lifts its own deny" | These are different. The second is the anti-pattern; the first is the governor exercising authority. The objection to option 1 was about permanence and drift, not principle. |
 | 2026-08-23 | `signal_outcomes` "is not backed up" | **Imprecise.** A one-time hashed export exists (2026-08-16). It is absent from the *recurring* dump. |
 | 2026-08-23 | §0 and the bundle README: "`docs/product/` sits in `AUTHORITY_FRAGMENTS`" | **Wrong.** `.claude/hooks/authority-guard.sh:60-76` enumerates individual `docs/product/*.md` files plus `docs/product/rubrics/`; there is no directory-prefix entry for `docs/product/`, and the deny array in `.claude/settings.json` mirrors that same file list. This record is therefore **unguarded** as committed — arbi can edit it directly — and it is absent from `CODEOWNERS`. The governor-owned property claimed for it does not hold until both lists name the path. |
+| 2026-09-02 | §3.5 "Schema state" as written 2026-08-23: "43 migration files in repo; **97 applied**"; "`0018_perf_indexes` … reconstruction in progress"; "Being replaced by a name-set diff" | **Every line stale, and stale in the same direction: it described the world Slice 0 was about to change, and was not revisited when Slice 0 merged (#163).** By 2026-09-02: 47 files on disk through `0048`; latest applied ledger version `20260901062502`; `0018` reconstructed and in-repo; the name-set diff shipped 2026-08-23 and `REQUIRED_MIGRATIONS` was deleted, so "being replaced" describes a completed migration and a constant that no longer exists. §3.5 is rewritten to state the *mechanism* and cite no counts — the counts are what rotted. |
+| 2026-09-02 | §6 Slice 0 and §4's backup row: "plus `signal_outcomes` and `signals` into the daily backup table list" (`:353`, `:467`) | **Contradicts the backup design and must not be executed literally.** `scripts/backup_irreplaceable.sh:33-48,127-130` deliberately excludes both: they stopped changing when P1-02 deleted their writers, so a daily dump would commit ~124k identical rows into the backup repo forever. They were captured once instead, as the hashed `signal-evidence-2026-08-16/` archive, and the script *asserts* that capture still exists. Anyone following the ADR literally reintroduces exactly what the current design avoids. The real Slice 0 gap was that nothing verified the archive — closed 2026-08-23 by the assertion, which then caused its own 12-run outage (see campaign node H0-B). Slice 0 is otherwise **DONE**; §6's "(in flight)" label is also stale. |
 
 ---
 

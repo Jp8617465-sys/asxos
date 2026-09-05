@@ -41,8 +41,8 @@ draw that line explicitly.
 | I0 | Read repo / docs / live-state snapshot | yes | **Yes** | `always_allow` (read-only tools) |
 | I1 | Summarise / prioritise / detect drift / draft NEXT PROMPT + PR summaries | yes | **Yes** | `always_allow` |
 | I2 | Write docs (roadmap-state, handoffs, ledgers, README links) | yes (git-revertible) | **command-invoked only today** | `always_allow` on a docs-scoped write tool |
-| I3 | Open a **docs-only draft** PR (branch + commit docs + classify) | yes | not granted yet | `always_ask` → `always_allow` when promoted |
-| I4 | Dispatch NEXT PROMPT to a specialist (who produces a **draft** code PR) | yes (draft) | not granted yet | multi-agent delegation, `always_ask` |
+| I3 | Open a **docs-only draft** PR (branch + commit docs + classify) | yes | **standing, general — Amendment L, 2026-09-05** | `always_allow` |
+| I4 | Dispatch NEXT PROMPT to a specialist (who produces a **draft** code PR) | yes (draft) | **standing, general — Amendment L, 2026-09-05** | multi-agent delegation, `always_allow` |
 | I5 | Migrations / DB writes / Render / secrets | **no** | **never standing** | `always_ask` (or disabled) — James approves each |
 | I6 | Merge / deploy / push to `main` / CI changes | **no** | **never standing** | `always_ask` — James approves each |
 
@@ -189,7 +189,16 @@ allocator path is unavailable to the portfolio capacity until rule #11 lifts.
 - **I2 (docs write):** performed **only inside an explicitly invoked command** (`/arbi`
   refreshing state, `/arbi-close` writing a handoff) — human-in-the-loop, James ran it — not
   unattended standing autonomy. The subagent itself is `Read, Glob, Grep` only.
-- **I3–I6:** not granted.
+- **I3–I4: standing, general — Amendment L (James, 2026-09-05).** A lane-scoped form of
+  this was already granted 2026-09-02 (Amendment H, `harness-profiles.md` §Standing
+  dispatch) to three defined workflows (`nightly-triage.yml`, `weekly-toolwatch.yml`,
+  `backlog-roll.yml`) meeting seven named conditions; Amendment L extends the same
+  shape — open a draft PR, dispatch a specialist for a draft code PR, draft-PR ceiling
+  throughout — to arbi's general judgement, attended and unattended, not only inside
+  those three lanes or an explicitly invoked command. Granted with promotion
+  preconditions 2 and 3 below **explicitly waived by governor decision, not met** — see
+  `roadmap-state.md` Amendment L for the ruling and the named gap.
+- **I5–I6:** not granted, **never promotable** — unchanged by Amendment L. See below.
 
 **Portfolio ladder:**
 - **Standing autonomy:** P0 (read-only portfolio/market state).
@@ -199,7 +208,10 @@ allocator path is unavailable to the portfolio capacity until rule #11 lifts.
   (`portfolio-outcome-ledger.md` is empty at seed).
 
 Promotion to *standing* I2/I3 (later I4 dispatch) and to *standing* P3/P4 requires the
-preconditions below and an explicit James decision. **I5–I6 and P5–P6 are never promoted to
+preconditions below and an explicit James decision — **I3/I4 promotion happened this way,
+2026-09-05, as an explicit waiver of preconditions 2/3 rather than their satisfaction; see
+below.** This does not extend to the portfolio ladder: P3/P4 still require the
+preconditions in the normal, unwaived sense. **I5–I6 and P5–P6 are never promoted to
 standing** — they are permanently `always_ask`/disabled/not-held by design.
 
 ## Scheduled / unattended runs (PR 7a vs 7b)
@@ -249,6 +261,17 @@ Before arbi earns standing autonomy at a higher reversible tier (either ladder),
    window. For P3/P4 this specifically means the `portfolio-outcome-ledger.md` shows a run of
    in-policy, model-independent, useful memos — with **no** memo that ever implied an order,
    used Model A while quarantined, or breached `portfolio-policy.md`.
+
+**Amendment L exception (infra ladder I3/I4 only, James, 2026-09-05).** Preconditions 2
+and 3 above are **explicitly waived**, not met, for the general I3/I4 promotion recorded
+in `roadmap-state.md` Amendment L: `supabase-ro` still authenticates as
+`supabase_read_only_user`, not migration 0039's `asxos_agent_ro` (precondition 2, open as
+backlog item `B-7`), and no sustained-window evaluation of the scorecard/ledger trend has
+been run as a formal gate (precondition 3) — only per-session `episode_score` entries
+exist. James chose the promotion with both gaps named in the question he answered. This
+waiver is scoped to I3/I4 only: it does not extend to any future I-ladder promotion past
+I4, and it does not extend to the portfolio ladder — a P3/P4 promotion still requires
+these preconditions met, not waived, on their own separate governor decision.
 
 **Never promotable:** I5–I6 (irreversible infra), P5 (capital-policy change — draft-only
 forever), P6 (execution — not a tool arbi holds). No track record unlocks these.

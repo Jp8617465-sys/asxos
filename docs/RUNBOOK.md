@@ -130,6 +130,24 @@ longer rebuild the production schema.** That second case is the same class of
 problem as `applied_not_in_repo` above — check migration drift first, they often
 fire together.
 
+**Third cause (found 2026-09-02, red for 11 days unnoticed): the frozen-evidence
+digest check.** `scripts/backup_irreplaceable.sh` asserts that a file in the backup
+repo's `signal-evidence-2026-08-16/` archive hashes to the recorded sha256 for
+`signals` and `signal_outcomes`. From 2026-08-23 the assertion sat *before* the dump
+was copied, so every red run also meant **no dump was pushed**. Since H0-B the
+order is dump → push → verify: a red run whose log says `frozen-evidence …
+FATAL` has still pushed the day's dump (the log says so explicitly), and the
+deadman receives `/fail` rather than silence. Response: (1) confirm the line
+`[backup] pushed asxos-<date>.sql.gz` is in the log — if it is, the backup is
+safe and this is an integrity question, not a loss; (2) in the backup repo, run
+`sha256sum signal-evidence-2026-08-16/*` and read `MANIFEST.txt`; compare to the
+constants at `backup_irreplaceable.sh` `SIGNALS_SHA256` / `SIGNAL_OUTCOMES_SHA256`
+(the check accepts raw or gzip-decompressed bytes); (3) if the manifest and the
+files agree and the constant is simply wrong, correct the constant via a draft PR;
+if the bytes differ from the manifest, **stop** — that is the "archive altered"
+branch and needs James, never a re-recorded digest. Never "fix" this by deleting
+the assertion or by adding `signals`/`signal_outcomes` to the daily dump.
+
 ---
 
 ## ALERT: Healthchecks deadman fired (no ping)
@@ -153,7 +171,40 @@ quarantine is doing its job. It deliberately does not ping, so a long-running
 before assuming a break.
 
 If `HEALTHCHECK_URL_*` (or `HC_NIGHTLY_URL`) is unset, the ping is skipped
-silently and this alert can never fire for that job.
+silently and this alert can never fire for that job. **Exception:** `backlog-roll`
+checks `HC_BACKLOG_URL` at STEP 0 and fails the run if it is unset — see below.
+
+---
+
+## ALERT: backlog-roll failed, or its deadman missed
+
+The proactive standing lane (Amendment K). Three distinct shapes, told apart by
+which step went red in the run log:
+
+- **STEP 0 red, "HC_BACKLOG_URL is unset".** Not a defect. The lane refuses to run
+  unwatched. Add the secret (backlog item A-20) and re-dispatch. This is the one
+  lane where an unset deadman URL fails loudly instead of skipping — both prior
+  unattended loops died as unobserved silence, and this is the fix.
+- **"Pick" step red, exit 2.** `docs/product/backlog.yaml` no longer parses — an
+  unknown `status`/`owner`/`route`, a duplicate id, a `depends_on` naming an id that
+  does not exist. `python scripts/backlog_next.py` reproduces it locally in under a
+  second. Fix the YAML on a branch; the lane never edits it on `main`.
+- **"Verify each branch" red.** The agent's work on that branch failed `ruff`,
+  `mypy`, or the suite. No PR was opened for it — that is the gate doing its job.
+  The branch is still on `origin`; read the step's `::group::` for that id, then
+  either fix on the branch and open the PR by hand, or delete the branch. Do not
+  weaken a test to get it green; the agent was forbidden to, and so are you.
+
+**Exit 3 is not red.** "Nothing eligible this fire — click-list only" means the
+picker found no arbi-owned, dependency-met, guard-safe item. Once the Amendment H
+train lands this is the normal state: the backlog is mostly James's. The fire still
+appends a ledger row and pings the deadman.
+
+**Where the evidence is.** `docs/product/backlog-ledger.md` on the
+`claude/backlog-ledger` branch — one row per fire, written by a workflow step the
+agent cannot skip. A fire with no row is a fire that did not happen. The
+`backlog-pick.json` printed in the "Pick" step's `::group::` is the click-list for
+that day.
 
 ---
 

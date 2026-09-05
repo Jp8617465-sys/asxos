@@ -22,6 +22,18 @@
 > numbers by design. Session entry is now `CLAUDE.md` → the newest
 > `docs/session-handoff-*.md` → `docs/README.md`. **Never read a migration count out of
 > this file** — read `asxos/api/main.py` and the live ledger.
+>
+> **⚠️ The correction has itself gone stale, and the mechanism it names is gone —
+> 2026-09-02.** `REQUIRED_MIGRATIONS` **no longer exists**: it was deleted on 2026-08-23 and
+> replaced by a migration-name set difference (`asxos/schema_drift.py`, imported by
+> `asxos/api/main.py`), so there is no count to read, bump, or compare, and every
+> instruction above that says otherwise is describing a deleted constant. Live figures at
+> this date: 47 migration files on disk (through `0048`); latest applied ledger version
+> `20260901062502` (`0048_decision_packets`, applied 2026-09-01). `0042` remains RESERVED
+> and `0045` remains drafted-not-applied. **This is the third recorded staleness of this
+> same banner** (2026-07-04 → 2026-08-22 → now), which is the actual lesson: a doc that
+> re-states a live number goes stale by construction. No further "Current:" figure will be
+> written here. Read `supabase_migrations.schema_migrations`, never this file.
 
 # asxos — next-session kickoff prompt
 
@@ -44,9 +56,12 @@ You are resuming asxos work. Read CLAUDE.md and the relevant `.claude/rules/` fi
   NUMERIC(24,6), with the `stock_universe` view drop/recreate/regrant) and **0030**
   (single-tenant wipe: 122 non-asxos tables dropped, archived in schema
   `archive_dropped_20260628`) are **ALREADY APPLIED to production**
-  (project `gxjqezqndltaelmyctnl`). `REQUIRED_MIGRATIONS = 84`. Do not re-run them.
-- Verify live state via `mcp__supabase__*` (read-only) before any new migration; never
-  guess `REQUIRED_MIGRATIONS` — read the observed post-apply count.
+  (project `gxjqezqndltaelmyctnl`). Do not re-run them. _(The `REQUIRED_MIGRATIONS = 84`
+  figure that stood here is deleted, not corrected — the constant no longer exists; see the
+  2026-09-02 note in the banner above.)_
+- Verify live state via `mcp__supabase__*` (read-only) before any new migration. Drift is
+  detected by the migration-name set difference in `asxos/schema_drift.py`; there is no
+  count to guess or bump.
 
 **Conventions to honor**
 - Route work through the agent team per CLAUDE.md's delegation table (e.g.
