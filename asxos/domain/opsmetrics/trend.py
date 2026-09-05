@@ -32,7 +32,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
 SUCCESS_STATUS = "success"
 
@@ -49,7 +49,7 @@ DEFAULT_RATIO_THRESHOLD = Decimal("1.5")
 DEFAULT_ROBUST_Z_THRESHOLD = Decimal("3")
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     OK = "ok"
     REGRESSED = "regressed"
     IMPROVED = "improved"
