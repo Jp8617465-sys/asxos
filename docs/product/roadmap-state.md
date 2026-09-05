@@ -2,7 +2,8 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-08-23 (`/arbi-close`, cursor D10-ops close — `main` @ `b352eef` after #163. 0046 applied as `20260823054040`. 0045 still unapplied. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
+**Last verified:** 2026-09-02 (`/arbi` wake — `main` @ `55f2619` after #184. 0048 applied as `20260901062502`. 0045 still unapplied. **`backup.yml` red 12 consecutive scheduled runs since 2026-08-23 — THE ONE THING.** Dark surfaces #1/#4 expired 08-31 unruled. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
+**Prior verification:** 2026-08-23 (`/arbi-close`, cursor D10-ops close — `main` @ `b352eef` after #163. 0046 applied as `20260823054040`.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
 **reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
 records were annotated, not rewritten: a SUPERSEDED banner on the In-flight entry, an inline
@@ -404,6 +405,63 @@ authority-file PRs. Record that before flipping the count.
 is still James-named. The App and the `auto` setting are James-executed,
 not agent-dispatched.
 
+#### Amendment H — campaign sequencing + bounded decision delegation (James, 2026-09-02)
+
+**Ruling (James, 2026-09-02, verbatim intent, authority ladder level 0):** *"pull this wake
+into a comprehensive task list including the stage 0-6 that I authorise all work and required
+agents. arbi you will run this in an autonomous session until complete you have full autonomy
+and authority. I delegate decisions to you, as the North Star and other guideline
+principles/backlog/roadmap docs to reference and run Arbi mission so that all agents are
+engaged for their expertise. This all needs to be finished."* Recorded per the GOV-01
+two-artifact precedent: this amendment + the `decision-log.md` row of the same date. The full
+task list is `docs/proposals/amendment-h-campaign-plan-2026-09-02.md` (Waves 0→8, node IDs
+`H0-A` … `H7-A`, the 39-click James list `H-01` … `H-39`). Letter C is burned; H is next free.
+
+**What the ruling grants — and what it cannot.** The governance set distinguishes delegation of
+*sequencing* (grantable; precedent Amendments B `:136-159` and D `:172-207`) from delegation of
+*tier* (not grantable: I5/I6 and P5/P6 are "never promotable", `arbi-permission-model.md` §tiers;
+`arbi-constitution.md` §reserved-to-James; mechanically enforced by `push-guard.sh`,
+`pr-draft-guard.sh`, `authority-guard.sh`, `.claude/settings.json` deny rules). Effect:
+
+1. **Sequencing.** arbi may chain the campaign-plan missions in any dependency-respecting
+   order, including parallel packet missions, without James naming each pair. Stacking per
+   Amendment A; a merge conflict stops the chain.
+2. **Decisions arbi makes alone** — anything inside `arbi-constitution.md` §what-arbi-decides
+   ("what matters next, what is blocked, which specialist, what evidence counts as current
+   truth, when a PR is good enough, when a claim is stale"): backup-membership calls,
+   contract-recording calls, slice ordering, replay-date and positive-control **method**,
+   doc-drift corrections in unguarded `docs/**`. The seven decisions D-1…D-7 in the campaign
+   plan §4 are made under this clause.
+3. **Decisions arbi drafts, James ratifies** — dark-surface verdicts, migration application,
+   any workflow/schedule, any environment flip, capital/risk calibration (F4), authority-set
+   edits, ADR rulings named James-only.
+4. **Hard stops, unchanged** — no merge/ready/un-draft, no non-draft PR, no migration apply,
+   no secrets, no prod DB write, no deploy or scheduler cutover, no `.github/**` or
+   authority-set edits, no capital action, rule #11 standing, `signals` never read as
+   evidence, W1-2 never #1.
+5. **Click-list.** Every mission writes its James clicks into `james-inbox.md` under
+   `## Amendment H click-list`, numbered `H-nn`, each with the exact command / secret name /
+   ruling text. arbi never blocks on a click while an independent node exists (recipe R1
+   "JAMES_NEEDED → pivot").
+6. **Completion.** The campaign ends when every node is `done`, `parked-with-trigger`, or
+   `JAMES_NEEDED`, and no Stage cell has flipped without its `target-architecture.md` §15 exit
+   gate cited (anti-drift `:58-60`: never flip a cell because a work order landed).
+7. **Expiry / kill switch.** H expires at the end of the attended session window in which it
+   is recorded, on James saying "stop", on any `arbi-permission-model.md` circuit breaker, or
+   on two consecutive NOT-READY passes on one mission. `ARBI_UNATTENDED=1` stays off — this is
+   an attended window James opened, not standing autonomy (preconditions 3/4/5 remain open).
+
+**Honest limit, stated up front.** Even under H the campaign cannot finish inside one session:
+S3 bucket/credentials (F6), Dagster deployment/spend (F5), risk calibration (F4/P5-01), any
+new production schedule, and Stage 5's 21/63/126-session observation windows are James's or
+calendar-bound. Realistic end state: backup green and observed; Stage 1 clauses (1)(2)(3) met
+in-repo with F6 carried; Stage 2 and 3 gates met with cited evidence; Stage 4 case delivered
+and disposed by James (at `abstain` unless P5-01 lands first); Stage 5 t0 captured; Stage 6 not
+reachable. Programme "done" (`target-architecture.md` §16) is not reachable this session.
+
+**Queue placement.** THE ONE THING is unchanged: `H0-B` restore the irreplaceable backup
+(campaign plan Wave 0). H does not reorder the Stages 0→6 table; it authorises working it.
+
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 
 Amendment D (`:176-180`) makes the product lane rank **above** the packet lane and permits the
@@ -794,7 +852,39 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
-> ⚠️ **2026-08-25 close — read this first.** `main` @ `2f98332`. **Two governor-named tasks,
+> ⚠️ **2026-09-02 `/arbi` wake — read this first.** `main` @ `55f2619`. **The 2026-09-01/02
+> attended session merged 11 PRs with no `/arbi-close`:** #167 (issue snapshot), **#183** (ADR §6
+> Slice 1 — decision spine: `decision_engine/{builder,calendar,repository}.py`, migration 0048
+> **applied** `20260901062502`, first real packet `dpk-cba-1-2026-09-01` persisted for CBA.AU,
+> honest-abstain because no independent challenger exists until Slice 2.5), #161, #169
+> (`nightly-check`), #171 (Sydney clock), #170 (`RUNBOOK.md`), #180 (08-25 close), #181
+> (Dependabot actions bump, was #177), #182 (`decision-flow-2026-08-30.md`), #179 (Amendment G),
+> #184 (follow-ups: fixed the false pip-cache comment and the CLAUDE.md migration-line drift
+> named in the 08-25 banner below — both CLOSED). Tests `2691` → `2735` passed / 1 skipped, CI and
+> a fresh local venv agree. **Only open PR: #178** (Dependabot 27-package pip bump incl. ruff 0.16
+> / mypy 2 / pytest-asyncio 1.4; green on `3417645`; merge is James's). **NEW BUG, not recorded
+> anywhere before this wake: `backup.yml` has failed every scheduled run since 2026-08-23 — 12
+> consecutive reds, last green 2026-08-22 (`d15266f`).** First red is `b352eef` (#163), the commit
+> that added the frozen-evidence sha256 assertion (`scripts/backup_irreplaceable.sh:125-176`); it
+> exits at `:170-173` ("no file in the frozen-evidence archive matches the recorded sha256 for
+> signals") before the `cp` at `:178`, so **no irreplaceable-table dump has reached the backup
+> repo and no restore drill has run in 11 days.** Live `signals` still holds exactly the 64,189
+> rows the script header records, so the DB did not change — the mismatch is script-constant vs
+> archive bytes; `$BACKUP_REPO` was not inspectable from this session. Nothing alerted: the
+> backup deadman secret was never set, so the ping is skipped silently. Defect row #1 (`:515`,
+> "FIXED + OBSERVED GREEN") is stale — that green run predates the assertion. **Also overdue:**
+> dark surfaces #1 (portfolio brief) and #4 (paper-trade evaluator) expired 2026-08-31 with no
+> verdict (`james-inbox.md`, `dark-launch-exit-plan.md`) — formally re-raised. `nightly-check`
+> has 0 runs (first cron fire 15:17 UTC today — verify tomorrow). Two self-cleared
+> `check_cron_health` failures (08-28 mid-session `sync_prices` ASX=0; 08-31 Monday-morning
+> `check_us_positions` 36h-window false positive). Orphaned 08-21 wake snapshot still stashed on
+> `claude/live-validation-followup-2026-08-20` (`ddd005d`). The 08-25 banner below is historical.
+> **Same day, after the wake: James ruled Amendment H** (recorded above, after Amendment G) —
+> the campaign plan `docs/proposals/amendment-h-campaign-plan-2026-09-02.md` is the working task
+> list (Waves 0→8); this file stays the only ranked queue and its Stage cells flip only on cited
+> exit gates. Wave 0 (`H0-A` records + `H0-B` backup fix) is in flight on `claude/arbi-wake-tvhllf`.
+>
+> ⚠️ **2026-08-25 close — historical (the live banner is the 2026-09-02 wake above).** `main` @ `2f98332`. **Two governor-named tasks,
 > no `/arbi` wake:** (1) implement the five ADOPT-NOW items from a CI/CD engineering review;
 > (2) verify and act on a monitoring/alerting research dossier. **Merged since the 08-23
 > D10-ops close:** **#168** CI hardening (concurrency, pip cache, dependabot, 20 SHA pins,
@@ -987,7 +1077,29 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
-> **Live as of 2026-08-25 close.** The Stages 0→6 table at the top of this file remains the
+> **Live as of 2026-09-02 `/arbi` wake.** The Stages 0→6 table at the top of this file remains
+> the only ranked queue; Slice 1 of ADR §6 is on `main` (#183) without flipping any Stage cell.
+> **THE ONE THING (#1): restore the irreplaceable backup to green and observed** — diagnose the
+> `signals` digest mismatch against the actual archive bytes, keep the assertion (it protects
+> rule #11's evidence base), fix by case, then one green scheduled `backup` + one green
+> `restore_drill` observed by run id, arm the deadman secret, correct `RUNBOOK.md` and defect row
+> #1 (`:515`). Owner: main loop attended via `/build` for the script; every secret/workflow/
+> dispatch step is James's. Unblock before build — no new slice until the floor is green.
+> **#2 (James):** rule the expired dark surfaces #1/#4 (SHIP / DELETE / KEEP-DARK with a new
+> expiry, ruled together). **#3:** run `/arbi-close` for the 09-01/02 session (decision-log,
+> ledger, handoff) and in it decide whether the five 0048 `decision_packets` tables are
+> irreplaceable (they are absent from the dump list at `backup_irreplaceable.sh:88-101`).
+> **#4 (James-named next product unit):** ADR §6 Slice 2 (inverse-vol sizer downstream of the
+> decision gate) then Slice 2.5 (thin challenge layer — an action-state packet is impossible
+> until it exists); `/arbi-mission` with `arbi-red-team` first. Minor, any time: verify
+> `nightly-check`'s first run; merge #178 (James). Carried unresolved: Phase 2 CI deps
+> (`mypy-baseline`, `pip-audit`); orphaned 08-21 snapshot backfill-or-drop; `defaultMode: auto`
+> week-of-log re-read (due ~08-31); GitHub App install; D10 vs this file; apply 0045; agent-role
+> `REVOKE SELECT ON signals`; `docs/README.md` handoff pointer + `REQUIRED_MIGRATIONS` row. Do
+> not treat W1-2 as #1 (CHALLENGE stands). Do not delete the digest assertion or re-add
+> `signals`/`signal_outcomes` to the nightly dump as a shortcut.
+>
+> **Superseded — 2026-08-25 close (the live block is the 2026-09-02 wake above).** The Stages 0→6 table at the top of this file remains the
 > only ranked queue. **James names the next unit** — unchanged since the 08-23 close, and
 > two direct governor tasks intervened without displacing it. Not auto-#1, but immediately
 > actionable in any order James picks: **merge #169/#170/#171** (all green, independent of
@@ -1303,6 +1415,47 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-09-02 `/arbi` wake (interactive, James-invoked). Supersedes the 2026-08-25
+close snapshot below._
+
+```
+Wake: 2026-09-02 ~12:00 UTC (James: "wake up")
+- main @ 55f2619 (#184). Branch claude/arbi-wake-tvhllf == origin/main; tree clean.
+- Merged since the 08-25 snapshot (2f98332): #167, #183, #161, #169, #171, #170, #180, #181,
+  #182, #179, #184 — 11 PRs, no /arbi-close for the 09-01/02 session.
+- Open PRs: #178 only (Dependabot pip bump, non-draft, green on 3417645, mergeable_state
+  "unknown" at probe). #169/#170/#171 merged; #177 merged as #181.
+- tests: 2735 passed / 1 skipped (CI full-check run 33616132894 on 55f2619; fresh local uv
+  venv without [ml] agrees). Skip = MIGRATION_TEST_DATABASE_URL opt-in. 08-25: 2691 (+44).
+- migrations: 47 files on disk (0001..0048, 0042 absent). Ledger latest 20260901062502
+  decision_packets (0048, applied 09-01). 0047 applied 08-24 (20260824002827). 0045
+  unapplied — public.segment_map does not exist. migration-drift green 09-02 10:14 UTC.
+- freshness: MAX(prices.dt)=2026-09-01; MAX(portfolio_daily_snapshots)=2026-09-01;
+  signals frozen at 64,189 rows / as_of 2026-08-05 (expected, rule #11);
+  decision_packets = 1 row (dpk-cba-1-2026-09-01, 09-01 06:40 UTC).
+- job_runs (14d): every daily job success-only, last batch 09-01 22:43 UTC; weekly chain
+  08-29. check_cron_health 11 ok / 2 failed (08-28 sync_prices ASX=0 mid-session; 08-31
+  check_us_positions 36h weekend false positive), both self-cleared.
+- Actions: full-check/targeted-ml-tests/PR Review Agent green on every push since 08-25;
+  daily-brief green daily through 09-01; pipeline-health, us-positions, issue-snapshot,
+  weekly-research (08-29) green. nightly-check: 0 runs (first cron 15:17 UTC 09-02).
+- NEW BUG: backup.yml red 12 consecutive scheduled runs 08-23 13:52 → 09-01 17:22 UTC.
+  Last green 08-22 (run 32576947460, d15266f). First red b352eef (#163) = the commit that
+  added the frozen-evidence sha256 assertion (backup_irreplaceable.sh:125-176); fails at
+  :170-173 "no file matches the recorded sha256 for signals" (expected e61ee6a4…) before
+  the cp at :178. No dump committed, no restore drill, for 11 days. Live signals count
+  (64,189) matches the script header, so DB unchanged — mismatch is constant vs archive
+  bytes. $BACKUP_REPO not inspectable this session. No deadman secret set → no alert.
+  Not in james-inbox, ledger, or any handoff before this wake.
+- 08-25 defects: pip-cache comment + CLAUDE.md migration drift both FIXED by #184.
+  Orphaned 08-21 snapshot still stashed on claude/live-validation-followup-2026-08-20.
+- Dark surfaces #1/#4 expired 08-31, unruled. Rule #11 stands.
+- THE ONE THING: restore backup.yml to green + observed (see Ranked next-action queue).
+- Probe gaps: backup repo contents; Healthchecks.io not re-read; no gh CLI (GitHub MCP).
+```
+
+_Prior snapshot (2026-08-25 close) retained below for diffing._
 
 _Recorded by the 2026-08-25 `/arbi-close`. No `/arbi` wake this session — two governor-named
 tasks. Supersedes the 2026-08-23 cursor D10-ops snapshot below._
