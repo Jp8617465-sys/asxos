@@ -2,8 +2,8 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-09-02 (`/arbi` wake — `main` @ `55f2619` after #184. 0048 applied as `20260901062502`. 0045 still unapplied. **`backup.yml` red 12 consecutive scheduled runs since 2026-08-23 — THE ONE THING.** Dark surfaces #1/#4 expired 08-31 unruled. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
-**Prior verification:** 2026-08-23 (`/arbi-close`, cursor D10-ops close — `main` @ `b352eef` after #163. 0046 applied as `20260823054040`.)
+**Last verified:** 2026-09-03 (`/arbi-close`, Amendment H campaign Waves 2→7 — `main` **unchanged @ `55f2619`**: fourteen draft PRs open (#185–#198), **none merged**. Four migrations applied under James's I5 grant: 0049 `20260902201241`, 0050 `20260902203202`, 0051 `20260902204920`, 0052 `20260903025557`; **0045 still deliberately unapplied**. **`backup.yml` still red — still THE ONE THING**, and nothing this session could touch it: every remaining step is a James click (H-03 inspect the archive, H-05 secret, H-06 workflow patch, H-07 dispatch). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
+**Prior verification:** 2026-09-02 (`/arbi` wake — `main` @ `55f2619` after #184. 0048 applied as `20260901062502`. `backup.yml` red 12 consecutive scheduled runs since 2026-08-23 — THE ONE THING.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
 **reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
 records were annotated, not rewritten: a SUPERSEDED banner on the In-flight entry, an inline
@@ -59,6 +59,22 @@ _2026-08-22 close note (does not change any Stage cell):_ W1-1 (`asxos_pit_db`,
 #155) is **P5 integration evidence**, not Stage 4 or Stage 5 complete. SB1-02 →
 SB3-01 (#152) is packet-lane work, not Stage 2/3 complete. Do not flip a Stage
 cell because a work order landed.
+
+_2026-09-03 close note — **the same rule, applied to this campaign, which is the largest
+test of it so far.** The Amendment H campaign built machinery against Stages 1→5 and
+**flipped nothing.** Every cell above reads exactly as it did on 2026-09-02, deliberately.
+What exists now, and what each stage still owes:_
+
+| Stage | Built in-repo (unmerged, PRs #192–#198) | Why the cell did **not** move |
+|---|---|---|
+| **1** | `knowledge_tier` (0049) so replay reads `filed` only; `domain/replay/` — deterministic cutoff + lineage resolver, identical hash on two runs | Clause (3) "backup/restore is observed" is **still red**; F6 raw-object retention is James's infra (H-21). Cell wording is his ruling: **H-23** |
+| **2** | `domain/research/registry/` + 0050 — hypothesis/strategy/run contracts, promotion state machine with **no code-reachable transition to capital**, failed variants retained | Gate wants one hypothesis reproduced **live** from raw `prices`; the sandbox cannot reach the pooler, so that run is James's click (**H-25a**) |
+| **3** | `domain/themes/candidates/` + 0051 — `ThemeVersion` / `CandidateSnapshot`, deterministic measures, the LLM extraction boundary | Gate wants theme + candidate reproduced **live** from cited evidence: **H-27a** |
+| **4** | `decision_engine/{challenge,sizer,staging,delivery,portfolio_state}` + the generalised builder — the chain runs end-to-end to a delivery receipt and a disposition | The **positive control cannot be built at all**: the only governed theme's sole member is CBA.AU, which the Stage 4 text names a *negative* control. Blocked on governance, not code — **H-33a** |
+| **5** | `decision_engine/outcomes.py` + 0052 — t0 record and the 21/63/126-session horizon schedule | Gate needs a **complete learning episode** — 1/3/6 months of observation. This captures t0 only (decision **D-9**). No alpha claim from one observation |
+
+_The honest summary: the campaign moved the **code** a long way and the **stages** not at all.
+Both statements are true and neither cancels the other._
 
 ### Queued after the current remediation work (James, 2026-08-12)
 
@@ -852,7 +868,47 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
-> ⚠️ **2026-09-02 `/arbi` wake — read this first.** `main` @ `55f2619`. **The 2026-09-01/02
+> ⚠️ **2026-09-03 `/arbi-close` — read this first. The Amendment H campaign ran Waves 2→7.**
+> **`main` is UNCHANGED @ `55f2619`.** Everything below is on branches: **fourteen draft PRs,
+> #185–#198, none merged.** One stack — #185 → #186 → #189 → #190 (docs), and
+> #192 → #193 → #194 → #195 → #196 → #197 → #198 (product), with #187/#188/#191 standing alone.
+> Merge order is in `docs/session-handoff-2026-09-03.md`; out of order forces rebases.
+>
+> **What was built:** 51 files, ~8,000 insertions, 13 commits on the product stack. Nine new
+> tables and one new column across four migrations; seven new domain surfaces (`domain/replay/`,
+> `domain/research/registry/`, `domain/themes/candidates/`, and in `decision_engine/`:
+> `challenge/`, `sizer.py`, `staging.py`, `delivery.py`, `outcomes.py`, `portfolio_state.py`);
+> four new CLI groups (`asx replay`, `research`, `candidates`, `decision`). Tests **2735 → 4219**
+> passed, 1 skipped (the `MIGRATION_TEST_DATABASE_URL` opt-in); ruff and mypy clean throughout.
+>
+> **Migrations applied under James's 2026-09-02 I5 grant**, each verified at `pg_catalog` (never
+> `information_schema`, which under-reported triggers once during Wave 4): **0049**
+> `20260902201241`, **0050** `20260902203202`, **0051** `20260902204920`, **0052**
+> `20260903025557`. **0045 deliberately NOT applied** — nothing runs `build_segment_map`, it has
+> no workflow home, and applying it would strand its allowlist entry and redden the daily drift
+> check on `main` with no PR in flight to clear it (stays C8, James's).
+>
+> **THE ONE THING IS UNCHANGED AND UNMET: `backup.yml` is still red.** Not deprioritised —
+> unreachable. H0-B fixed the script (dump-before-verify, gzip-aware digest, `/fail` ping, the
+> 0048 tables) and it sits in #186, but every remaining step is a James click: **H-03** inspect
+> the archive bytes, **H-05** add the deadman secret, **H-06** patch the workflow, **H-07**
+> dispatch. The floor has now been cracked ~11 days.
+>
+> **Three defects found this session, all mine, all fixed before James ran anything.** (1) A
+> min-CGT staging test asserted the *higher* post-discount gain (6,250 vs a true 5,000) and
+> passed only through `lots.py`'s partial-draw ordering — caught by `tax-spec-conformance`.
+> (2) Wave 6 wrote decision receipts into `brief_runs`, where `asxos/brief/deltas.py`'s
+> `_PRIOR_BRIEF_SQL` would return one as "the prior brief" — self-caught at the start of Wave 7,
+> fixed at the schema level in 0052 rather than by patching the one reader, and pinned with an
+> AST guard. (3) `portfolio_state.py` claimed every public loader gates on `ASXOS_PERSONAL_USE`
+> when two of five did — caught by `security-engineer`; the gates were added rather than the
+> claim weakened.
+>
+> **No Stage cell moved** (see the 2026-09-03 note under the Stages table for what each still
+> owes). **Nothing merged, no secret, no workflow edit, no environment flip, no capital action.**
+> Rule #11 untouched: `signals` is never read, grep-pinned in five test files.
+>
+> ⚠️ **2026-09-02 `/arbi` wake — historical (the live banner is the close above).** `main` @ `55f2619`. **The 2026-09-01/02
 > attended session merged 11 PRs with no `/arbi-close`:** #167 (issue snapshot), **#183** (ADR §6
 > Slice 1 — decision spine: `decision_engine/{builder,calendar,repository}.py`, migration 0048
 > **applied** `20260901062502`, first real packet `dpk-cba-1-2026-09-01` persisted for CBA.AU,
@@ -1077,7 +1133,48 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
-> **Live as of 2026-09-02 `/arbi` wake.** The Stages 0→6 table at the top of this file remains
+> **Live as of the 2026-09-03 `/arbi-close`.** The Stages 0→6 table at the top of this file
+> remains the only ranked queue. **Almost every entry below is now a James click, because the
+> campaign built everything that could be built without one.**
+>
+> **#1 — UNCHANGED, and now ~11 days old: restore the irreplaceable backup to green + observed.**
+> Still THE ONE THING; the campaign could not touch it. The script fix is written and waiting in
+> **#186**. The sequence is entirely yours: **H-03** inspect `$BACKUP_REPO`'s
+> `signal-evidence-2026-08-16/` bytes (only you can read that repo — this is the only path to
+> green), **H-04** merge #186, **H-05** add `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE`, **H-06**
+> patch the workflow (exact patch in #186's body), **H-07** dispatch `backup.yml` then
+> `restore_drill=true` and paste both run ids. Unblock before build still holds — but note the
+> campaign *did* build, on James's explicit Amendment H instruction, while this stayed red.
+>
+> **#2 — merge the stack.** Fourteen draft PRs is inventory until it lands, and Amendment D
+> names that trap by name. Order in `docs/session-handoff-2026-09-03.md`; out of order forces
+> rebases. Nothing else in this queue moves until the stack does.
+>
+> **#3 — H-33a: approve a second governed theme member.** This is the real blocker on Stage 4's
+> positive control, and it is **governance, not code**: the only governed theme (`big-4-banks`)
+> has one member, CBA.AU, which the Stage 4 text names a *negative* control. No amount of
+> building fixes it.
+>
+> **#4 — the rulings, ~15 minutes total:** **H-16** dark surfaces #1/#4 (expired 08-31, drafted
+> in #190 with a KEEP-DARK recommendation and a restated ship condition, because the current one
+> is mechanically unreachable); **H-17** retire CBA thesis #1 (entry band 3.5× detached, revisit
+> 67 days overdue); **H-23** Stage 1 cell wording; **H-29a** the two `price_detached` thresholds
+> (arbi drafts: blocking ≥ 1.0, material ≥ 0.25); **H-29b** a tax-spec amendment for lot
+> selection — `select_min_cgt`'s objective is implementation-defined and Slice 3 staging has now
+> made it capital-facing; **H-38** retention/erasure for stored renders.
+>
+> **#5 — the live runs**, once the stack is merged and from a machine that reaches the pooler:
+> H-25a (research reproducibility), H-27a (theme + candidate), H-33b (the CBA decision case),
+> H-37 (record-t0). Each is one command; each fills a `renders:` that is honestly empty today.
+>
+> Carried unresolved, unchanged: Phase 2 CI deps (`mypy-baseline`, `pip-audit`, ruled in H-13);
+> `defaultMode: auto` week-of-log re-read; GitHub App install; D10 vs this file; apply 0045
+> (C8 — deliberately still unapplied); agent-role `REVOKE SELECT ON signals`;
+> `docs/README.md` pointer (H-15). **Do not** treat W1-2 as #1 (CHALLENGE stands). **Do not**
+> delete the digest assertion or re-add `signals`/`signal_outcomes` to the nightly dump as a
+> shortcut.
+>
+> **Superseded — 2026-09-02 wake (the live block is the close above).** The Stages 0→6 table at the top of this file remains
 > the only ranked queue; Slice 1 of ADR §6 is on `main` (#183) without flipping any Stage cell.
 > **THE ONE THING (#1): restore the irreplaceable backup to green and observed** — diagnose the
 > `signals` digest mismatch against the actual archive bytes, keep the assertion (it protects
@@ -1415,6 +1512,49 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-09-03 `/arbi-close` (Amendment H campaign, Waves 2→7). **No `/arbi` wake
+this session** — it is the continuation of the 2026-09-02 wake, whose snapshot is retained below
+for diffing._
+
+```
+Close: 2026-09-03 (James: "run arbi close catalogue whatever you need to")
+- main @ 55f2619 — UNCHANGED since the 09-02 wake. Nothing merged this session.
+- Open PRs: 14 drafts, #185-#198, none merged. Product stack #192→#198 (each based on its
+  predecessor); doc stack #185→#186→#189→#190; #187/#188/#191 standalone.
+- Campaign diff (origin/main...claude/amendment-h-outcomes): 13 commits, 51 files,
+  +8001/-193.
+- tests: 4219 passed / 1 skipped (local uv venv without [ml]; ruff + mypy clean). 09-02
+  baseline was 2735 (+1484). Skip = MIGRATION_TEST_DATABASE_URL opt-in, unchanged.
+- migrations: 51 files on disk (0001..0052, 0042 absent). FOUR applied this session under
+  James's 09-02 I5 grant — 0049 pit_knowledge_tier 20260902201241; 0050 research_registry
+  20260902203202; 0051 theme_candidates 20260902204920; 0052 outcome_materialisation
+  20260903025557. Each verified at pg_catalog (tables, triggers, FKs, uniques, 0 rows).
+  0045 segment_map STILL UNAPPLIED, deliberately (C8).
+- New schema: 9 tables + 1 column. research_hypotheses, strategy_versions, research_runs,
+  research_promotions (0050); theme_versions, candidate_snapshots (0051); thesis_outcomes,
+  delivery_receipts, decision_dispositions (0052); rs_fundamentals_pit.knowledge_tier (0049).
+  All new tables append-only by BEFORE UPDATE OR DELETE trigger.
+- New CLI: asx replay | research | candidates | decision (5 subcommands: build,
+  record-t0, observe, positive-control, dispose). All personal-use gated.
+- backup.yml: STILL RED. Unchanged from the 09-02 wake — every remaining step is a James
+  click (H-03/H-05/H-06/H-07). Script fix waits in #186. ~11 days without a dump or drill.
+- Defects found this session: 3, all mine, all fixed pre-merge. (1) min-CGT staging test
+  asserted the wrong number — caught by tax-spec-conformance. (2) receipts written into
+  brief_runs where deltas.py would read one as "the prior brief" — self-caught, fixed in
+  0052 schema + AST guard. (3) portfolio_state.py claimed 5/5 loaders gated when 2/5 did —
+  caught by security-engineer; gates added, not the claim weakened.
+- Consults: portfolio-invariant-guard PASS-WITH-NOTES; security-engineer PASS-WITH-NOTES
+  (x2, the first died on a rate limit and was re-run against the shipped shape);
+  tax-spec-conformance FAIL → fixed. Platform grants checked: anon/authenticated/PUBLIC
+  hold ZERO grants on all five decision tables.
+- Stage cells: NONE moved. Rule #11 untouched; signals never read (grep-pinned, 5 files).
+- Probe gaps: no live CLI run anywhere — this sandbox holds DATABASE_URL but asyncpg
+  cannot complete a connection to the pooler (6th recorded instance), so every `renders:`
+  the campaign would fill is a James click. $BACKUP_REPO still not inspectable.
+```
+
+_Prior snapshot (2026-09-02 wake) retained below for diffing._
 
 _Recorded by the 2026-09-02 `/arbi` wake (interactive, James-invoked). Supersedes the 2026-08-25
 close snapshot below._
