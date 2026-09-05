@@ -356,9 +356,17 @@ def observe(
 def due_horizons(rows: tuple[ThesisOutcome, ...], at: datetime) -> tuple[ThesisOutcome, ...]:
     """Rows whose session has arrived and which have not been observed."""
     at = require_utc(at, field_name="at")
+    observed_schedule_ids = {
+        r.outcome_id.removesuffix("-observed")
+        for r in rows
+        if r.observation_state == "observed" and r.outcome_id.endswith("-observed")
+    }
     return tuple(
         r for r in rows
-        if not r.is_t0 and r.observation_state == "recorded" and r.due_at <= at
+        if not r.is_t0
+        and r.observation_state == "recorded"
+        and r.due_at <= at
+        and r.outcome_id not in observed_schedule_ids
     )
 
 

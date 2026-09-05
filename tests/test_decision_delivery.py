@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from asxos.cli import decision as decision_cli
 from asxos.domain.decision_engine import builder, repository
 from asxos.domain.decision_engine.builder import ChallengeContext
 from asxos.domain.decision_engine.challenge import PortfolioState
@@ -95,6 +96,38 @@ async def test_cli_and_email_render_are_the_same_bytes_and_receipts_share_the_ha
     assert case.challenge.outcome.upper() in html_cli
     with pytest.raises(ValueError, match="CLI delivery"):
         receipt_for(case, html_cli, channel="cli", delivered_at=CUTOFF, resend_message_id="x")
+    with pytest.raises(ValueError, match="provider message id"):
+        receipt_for(case, html_email, channel="email", delivered_at=CUTOFF)
+    pending = receipt_for(
+        case,
+        html_email,
+        channel="email",
+        delivered_at=CUTOFF,
+        delivery_status="pending",
+    )
+    assert pending.resend_message_id is None and pending.delivery_status == "pending"
+
+
+async def test_email_attempt_is_persisted_before_provider_send(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = await _case()
+    html = render_decision_case(case, evaluated_at=CUTOFF)
+    events: list[str] = []
+
+    async def fake_persist(conn: object, receipt: object, rendered: str) -> None:
+        events.append(receipt.delivery_status)  # type: ignore[attr-defined]
+
+    def fake_send(rendered: str, *, case: object) -> str:
+        events.append("provider")
+        return "re_123"
+
+    monkeypatch.setattr(decision_cli, "persist_receipt", fake_persist)
+    monkeypatch.setattr(decision_cli, "send_decision_case", fake_send)
+    pending, sent = await decision_cli._send_with_receipts(object(), case, html)
+    assert events == ["pending", "provider", "sent"]
+    assert pending.delivery_status == "pending"
+    assert sent.delivery_status == "sent" and sent.resend_message_id == "re_123"
 
 
 async def test_render_is_deterministic_and_changes_with_the_packet() -> None:
@@ -188,12 +221,29 @@ async def test_missing_evidence_forces_abstention_in_the_delivered_render() -> N
 
 
 class _StateConn:
-    def __init__(self, *, snapshot: Mapping[str, object] | None, holdings: Sequence[Mapping[str, object]], closes: Mapping[str, Sequence[Decimal]], fx: Decimal | None, profile: Mapping[str, object] | None, candidates: Sequence[Mapping[str, object]] = ()) -> None:
+    def __init__(
+        self,
+        *,
+        snapshot: Mapping[str, object] | None,
+        holdings: Sequence[Mapping[str, object]],
+        closes: Mapping[str, Sequence[Decimal]],
+        fx: Decimal | None,
+        profile: Mapping[str, object] | None,
+        holdings_changed_at: datetime | None,
+        sectors_changed_at: datetime | None,
+        candidates: Sequence[Mapping[str, object]] = (),
+    ) -> None:
         self.snapshot, self.holdings, self.closes, self.fx, self.profile, self.candidates = snapshot, holdings, closes, fx, profile, candidates
+        self.holdings_changed_at = holdings_changed_at
+        self.sectors_changed_at = sectors_changed_at
 
     async def fetchrow(self, query: str, *args: object) -> Any:
         if "FROM portfolio_daily_snapshots" in query:
             return self.snapshot
+        if "MAX(updated_at) AS changed_at FROM holding_lots" in query:
+            return {"changed_at": self.holdings_changed_at}
+        if "MAX(u.updated_at) AS changed_at" in query:
+            return {"changed_at": self.sectors_changed_at}
         if "FROM fx_rates" in query:
             return {"rate": self.fx} if self.fx is not None else None
         if "FROM prices" in query and "LIMIT 1" in query:
@@ -216,14 +266,16 @@ class _StateConn:
 
 def _state_conn(**kw: Any) -> _StateConn:
     base: dict[str, Any] = {
-        "snapshot": {"as_of": AS_OF, "capital_aud": Decimal("500000"), "holdings_mv_aud": Decimal("400000"), "cash_aud": Decimal("100000")},
+        "snapshot": {"as_of": AS_OF, "capital_aud": Decimal("500000"), "holdings_mv_aud": Decimal("400000"), "cash_aud": Decimal("100000"), "ingested_at": CUTOFF},
         "holdings": [
             {"symbol": "NAB.AU", "quantity": Decimal("1000"), "sector": "Financials"},
             {"symbol": "HUBS.NYSE", "quantity": Decimal("24"), "sector": None},
         ],
         "closes": {"NAB.AU": [Decimal("40")] * 61, "HUBS.NYSE": [Decimal("250")] * 61},
         "fx": Decimal("0.65"),
-        "profile": {"capital_aud": Decimal("500000"), "cash_floor_pct": Decimal("0.05"), "per_name_cap_pct": Decimal("0.10"), "sector_cap_pct": Decimal("0.40"), "min_position_aud": Decimal("5000")},
+        "profile": {"capital_aud": Decimal("500000"), "cash_floor_pct": Decimal("0.05"), "per_name_cap_pct": Decimal("0.10"), "sector_cap_pct": Decimal("0.40"), "min_position_aud": Decimal("5000"), "updated_at": CUTOFF - timedelta(days=1)},
+        "holdings_changed_at": CUTOFF - timedelta(days=1),
+        "sectors_changed_at": CUTOFF - timedelta(days=1),
     }
     base.update(kw)
     return _StateConn(**base)
@@ -249,7 +301,7 @@ async def test_portfolio_state_hard_fails_on_missing_snapshot_price_or_fx() -> N
 
 
 async def test_sizing_policy_is_never_looser_than_the_register() -> None:
-    policy = await load_sizing_policy(_state_conn())
+    policy = await load_sizing_policy(_state_conn(), AS_OF)
     assert policy.cash_floor_pct == Decimal("7.5")  # profile 5% is tightened to D1
     assert policy.sector_cap_pct == Decimal("30")  # profile 40% is tightened to D8
     assert policy.position_cap_pct == Decimal("10") and policy.min_position_aud == Decimal("5000")
@@ -265,7 +317,34 @@ async def test_loaders_refuse_without_the_personal_use_flag(monkeypatch: pytest.
     with pytest.raises(PersonalUseRequired):
         await load_portfolio_state(_state_conn(), AS_OF)
     with pytest.raises(PersonalUseRequired):
-        await load_sizing_policy(_state_conn())
+        await load_sizing_policy(_state_conn(), AS_OF)
+
+
+async def test_portfolio_state_refuses_historical_or_post_snapshot_current_rows() -> None:
+    with pytest.raises(RuntimeError, match="latest exact snapshot"):
+        await load_portfolio_state(_state_conn(), AS_OF - timedelta(days=1))
+    with pytest.raises(RuntimeError, match="holding lots changed"):
+        await load_portfolio_state(
+            _state_conn(holdings_changed_at=CUTOFF + timedelta(seconds=1)), AS_OF
+        )
+    with pytest.raises(RuntimeError, match="held-symbol sectors changed"):
+        await load_portfolio_state(
+            _state_conn(sectors_changed_at=CUTOFF + timedelta(seconds=1)), AS_OF
+        )
+    with pytest.raises(RuntimeError, match="active profile changed"):
+        await load_sizing_policy(
+            _state_conn(
+                profile={
+                    "capital_aud": Decimal("500000"),
+                    "cash_floor_pct": Decimal("0.05"),
+                    "per_name_cap_pct": Decimal("0.10"),
+                    "sector_cap_pct": Decimal("0.40"),
+                    "min_position_aud": Decimal("5000"),
+                    "updated_at": CUTOFF + timedelta(seconds=1),
+                }
+            ),
+            AS_OF,
+        )
 
 
 # --- positive control (D-5) --------------------------------------------------------------

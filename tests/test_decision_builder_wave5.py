@@ -32,8 +32,23 @@ REVISITED = datetime(2026, 8, 1, tzinfo=UTC)
 
 
 class _Conn:
-    def __init__(self, *, thesis_row: Mapping[str, object], close: Decimal | None, close_dt: date | None) -> None:
+    def __init__(
+        self,
+        *,
+        thesis_row: Mapping[str, object],
+        close: Decimal | None,
+        close_dt: date | None,
+        income_rows: Sequence[Mapping[str, object]] | None = None,
+    ) -> None:
         self.thesis_row, self.close, self.close_dt = thesis_row, close, close_dt
+        self.income_rows = list(income_rows) if income_rows is not None else [
+            {
+                "symbol": "CBA.AU",
+                "period_end": date(2026, 6, 30),
+                "report_date": date(2026, 8, 11),
+                "filing_date": date(2026, 8, 11),
+            }
+        ]
         self.queries: list[str] = []
 
     async def fetchrow(self, query: str, *args: object) -> Mapping[str, object] | None:
@@ -41,8 +56,6 @@ class _Conn:
         lowered = query.lower()
         if "from theses" in lowered:
             return self.thesis_row
-        if "max(period_end)" in lowered:
-            return {"period_end": date(2026, 6, 30)}
         if "from rs_financial_statements" in lowered:
             pe = args[1]
             assert isinstance(pe, date)
@@ -52,6 +65,9 @@ class _Conn:
         raise AssertionError(query)
 
     async def fetch(self, query: str, *args: object) -> Sequence[Mapping[str, object]]:
+        self.queries.append(query)
+        if "from rs_financial_statements" in query.lower():
+            return self.income_rows
         raise AssertionError(query)
 
 
@@ -148,6 +164,33 @@ async def test_no_context_path_is_the_honest_slice1_abstain_and_issues_no_price_
     assert case.decision.recommendation_state == "abstain"
     assert "did not run" in case.decision.missing_or_uncertain_inputs[1]
     assert not any("from prices" in q.lower() for q in conn.queries)
+
+
+async def test_builder_selects_latest_income_period_knowable_at_cutoff() -> None:
+    future = {
+        "symbol": "CBA.AU",
+        "period_end": date(2026, 6, 30),
+        "report_date": date(2026, 8, 11),
+        "filing_date": date(2026, 8, 11),
+    }
+    older = {
+        "symbol": "CBA.AU",
+        "period_end": date(2025, 6, 30),
+        "report_date": date(2025, 8, 11),
+        "filing_date": date(2025, 8, 11),
+    }
+    historical_cutoff = datetime(2026, 8, 1, 23, 59, 59, tzinfo=UTC)
+    conn = _Conn(
+        thesis_row=_thesis_row(last_revisited_at=datetime(2026, 7, 1, tzinfo=UTC)),
+        close=None,
+        close_dt=None,
+        income_rows=[future, older],
+    )
+    case = await builder.build_decision_case(conn, cutoff=historical_cutoff, thesis_id=1)
+    current = next(item for item in case.evidence.items if item.evidence_id == "cba-income-current")
+    assert current.observed_at == date(2025, 6, 30)
+    assert "2025-06-30" in current.source_uri
+    assert any("period_end <= $2" in query for query in conn.queries)
     assert case.challenge.findings[0].severity == "blocking"
 
 

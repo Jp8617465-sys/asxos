@@ -297,26 +297,21 @@ def test_manifest_entry_matching_v1_5_still_raises() -> None:
 class _FakeBuilderConn:
     """Mocked-but-realistic DB for the builder: a `theses` row (thesis_id=1,
     CBA.AU), two yearly `rs_financial_statements` income rows, and the
-    latest-period lookup query — nothing else. `fetch()` is never called by
-    the builder (see module docstring), so it hard-fails if it is."""
+    cutoff-aware period lookup query — nothing else."""
 
     def __init__(
         self,
         *,
         thesis_row: Mapping[str, object],
-        period_end: date,
         income_rows: dict[date, Mapping[str, object] | None],
     ) -> None:
         self._thesis_row = thesis_row
-        self._period_end = period_end
         self._income_rows = income_rows
 
     async def fetchrow(self, query: str, *args: object) -> Mapping[str, object] | None:
         lowered = query.lower()
         if "from theses" in lowered:
             return self._thesis_row
-        if "max(period_end)" in lowered:
-            return {"period_end": self._period_end}
         if "from rs_financial_statements" in lowered:
             period_end = args[1]
             assert isinstance(period_end, date)
@@ -324,6 +319,14 @@ class _FakeBuilderConn:
         raise AssertionError(f"unexpected fetchrow query: {query!r}")
 
     async def fetch(self, query: str, *args: object) -> Sequence[Mapping[str, object]]:
+        if "from rs_financial_statements" in query.lower():
+            cutoff = args[1]
+            assert isinstance(cutoff, date)
+            return [
+                row
+                for period_end, row in sorted(self._income_rows.items(), reverse=True)
+                if period_end <= cutoff and row is not None
+            ]
         raise AssertionError(f"unexpected fetch query: {query!r}")
 
 
@@ -395,7 +398,6 @@ async def test_builder_produces_one_real_honest_abstain_packet_for_cba() -> None
 
     conn = _FakeBuilderConn(
         thesis_row=_cba_thesis_row(last_revisited_at=last_revisited_at),
-        period_end=period_end,
         income_rows={
             period_end: _income_row(period_end=period_end, report_date=date(2025, 8, 11)),
             prior_end: _income_row(period_end=prior_end, report_date=date(2024, 8, 12)),
@@ -419,7 +421,6 @@ async def test_builder_persists_through_the_repository() -> None:
 
     conn = _FakeBuilderConn(
         thesis_row=_cba_thesis_row(last_revisited_at=last_revisited_at),
-        period_end=period_end,
         income_rows={period_end: _income_row(period_end=period_end, report_date=date(2025, 8, 11))},
     )
     case = await builder.build_cba_decision_case(conn, cutoff=cutoff)

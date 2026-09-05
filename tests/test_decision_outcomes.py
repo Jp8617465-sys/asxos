@@ -8,15 +8,18 @@ claim. Also covers W7-0 — the delivery ledger moving off `brief_runs`.
 from __future__ import annotations
 
 import ast
+import inspect
 import json
 import re
-from datetime import UTC, datetime, timedelta
+from collections.abc import Mapping
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from asxos.cli.decision import _observe_due_row, decision_dispose
 from asxos.domain.decision_engine import builder
 from asxos.domain.decision_engine.delivery import (
     ReceiptIntegrityError,
@@ -213,6 +216,46 @@ async def test_due_horizons_only_returns_arrived_unobserved_rows() -> None:
     far = CUTOFF + timedelta(days=400)
     due = due_horizons(rows, far)
     assert due and all(not r.is_t0 and r.observation_state == "recorded" for r in due)
+    observed = observe(due[0], observed_at=due[0].due_at.date(), observed_price=Decimal("160"))
+    remaining = due_horizons((*rows, observed), far)
+    assert due[0] not in remaining
+    assert {r.horizon_trading_days for r in remaining} == {
+        r.horizon_trading_days for r in due[1:]
+    }
+
+
+async def test_catch_up_observes_each_horizon_at_its_promised_session() -> None:
+    first = await _pending()
+    second = first.model_copy(
+        update={
+            "outcome_id": first.outcome_id.replace("-21d", "-63d"),
+            "horizon_trading_days": 63,
+            "due_at": first.due_at + timedelta(days=60),
+        }
+    )
+    scheduled = [first, second]
+
+    class Conn:
+        def __init__(self) -> None:
+            self.queried_dates: list[date] = []
+
+        async def fetchrow(self, query: str, *args: object) -> Mapping[str, object]:
+            due_day = args[1]
+            assert isinstance(due_day, date)
+            self.queried_dates.append(due_day)
+            return {"dt": due_day, "close": Decimal("160") + len(self.queried_dates)}
+
+    conn = Conn()
+    observed = [await _observe_due_row(conn, row) for row in scheduled]
+    expected_dates = [row.due_at.date() for row in scheduled]
+    assert conn.queried_dates == expected_dates
+    assert [row.observed_at for row in observed] == expected_dates
+    assert observed[0].observed_price != observed[1].observed_price
+
+
+def test_dispose_requires_explicit_persist() -> None:
+    option = inspect.signature(decision_dispose).parameters["persist"].default
+    assert option.default is False
 
 
 async def test_excess_return_cannot_be_fabricated() -> None:
