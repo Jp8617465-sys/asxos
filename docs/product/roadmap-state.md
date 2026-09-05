@@ -587,8 +587,8 @@ next backlog item: #199's lanes are reactive and `/arbi-mission` is one-shot.
   `settings.json` and fails if the copy drifts. Ranks unblocking-first. Emits `picked`
   and the **click-list** — every James item unblocked right now — and exits 3 when
   nothing is buildable, click-list still printed.
-- `.github/workflows/backlog-roll.yml` — lane C, `workflow_dispatch`-only until one green
-  manual run (Amendment H condition 6), mirroring `nightly-triage.yml` with two ★
+- `.github/workflows/backlog-roll.yml` — lane C, owner-only `workflow_dispatch` while the
+  producer write-token P1 remains open, mirroring `nightly-triage.yml` with two ★
   departures: the deadman is checked at STEP 0 and an unset `HC_BACKLOG_URL` **fails the
   run** rather than skipping (both prior loops died of the silent skip); and it builds
   several independent branches per fire, never stacked, because stacking needs the
@@ -604,8 +604,9 @@ second is the residue it may build.
 
 **The click path to online, in order** (backlog ids): A-0 un-draft → A-2…A-16 the
 train (arbi) → A-17 merge #200 → A-20 `HC_BACKLOG_URL` + B-4/B-5 the other deadmen →
-A-21 dispatch each lane once → A-22 arbi drafts `schedule:` → A-23 James merges. The
-next scheduled fire appearing in Healthchecks is the observation that means online.
+A-21 dispatch each lane once with explicit risk acknowledgement → A-22 provision and red-team
+a branch-scoped producer credential → A-23 review and merge automatic triggers. The next
+scheduled fire appearing in Healthchecks is the observation that means online.
 
 **Queue placement.** Does not become THE ONE THING; flips no Stage cell. Dark surfaces
 #1/#4 remain the oldest overdue item. Rule #11, capital, `0042`, `0045`, W1-2 untouched.

@@ -64,6 +64,7 @@ PICKABLE_OWNERS: frozenset[str] = frozenset({"arbi", "both"})
 CLICK_STATUSES: frozenset[str] = frozenset({"open", "built-unmerged"})
 
 _ID_RE = re.compile(r"^[A-E]-\d+[a-z]?$")
+_GLOB_META_RE = re.compile(r"[*?\[\]{}]")
 _REQUIRED = ("id", "title", "phase", "owner", "status", "depends_on", "route", "paths", "source")
 
 # --- The denied set — mirrors the guards, never widens the grant --------------------
@@ -167,6 +168,18 @@ def _norm(p: str) -> str:
     return p.lstrip("/")
 
 
+def _scope_is_canonical(path: str) -> bool:
+    """Only literal, repo-relative file or directory scopes are executable grants."""
+    raw = path.strip()
+    if not raw or raw.startswith("/") or "\\" in raw or "//" in raw:
+        return False
+    while raw.startswith("./"):
+        raw = raw[2:]
+    if not raw or _GLOB_META_RE.search(raw):
+        return False
+    return all(part not in {"", ".", ".."} for part in raw.rstrip("/").split("/"))
+
+
 def is_denied_path(path: str) -> bool:
     """True if ``path`` is, is inside, or CONTAINS anything the guards deny.
 
@@ -174,9 +187,9 @@ def is_denied_path(path: str) -> bool:
     licensed to touch ``north-star.md``. A directory glob broader than the denied set is
     denied, so a coarse path can never launder a guarded file.
     """
-    p = _norm(path)
-    if not p:
+    if not _scope_is_canonical(path):
         return True
+    p = _norm(path)
     if p in DENIED_FILES:
         return True
     p_dir = p if p.endswith("/") else p + "/"
@@ -262,6 +275,13 @@ def parse(doc: Mapping[str, Any]) -> list[Item]:
         if route not in ROUTES:
             raise BacklogSchemaError(f"{item_id}: route {route!r} not in {sorted(ROUTES)}")
 
+        paths = _expect_list_of_str(raw, "paths", item_id)
+        invalid_paths = [path for path in paths if not _scope_is_canonical(path)]
+        if invalid_paths:
+            raise BacklogSchemaError(
+                f"{item_id}: paths must be literal repo-relative scopes: {invalid_paths!r}"
+            )
+
         items.append(
             Item(
                 id=item_id,
@@ -271,7 +291,7 @@ def parse(doc: Mapping[str, Any]) -> list[Item]:
                 status=status,
                 depends_on=_expect_list_of_str(raw, "depends_on", item_id),
                 route=route,
-                paths=_expect_list_of_str(raw, "paths", item_id),
+                paths=paths,
                 source=_expect_str(raw, "source", item_id),
             )
         )
@@ -283,6 +303,24 @@ def parse(doc: Mapping[str, Any]) -> list[Item]:
                 raise BacklogSchemaError(f"{it.id}: depends on itself")
             if dep not in ids:
                 raise BacklogSchemaError(f"{it.id}: depends_on unknown id {dep!r}")
+
+    by_id = {item.id: item for item in items}
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(item_id: str) -> None:
+        if item_id in visiting:
+            raise BacklogSchemaError(f"dependency cycle includes {item_id}")
+        if item_id in visited:
+            return
+        visiting.add(item_id)
+        for dependency in by_id[item_id].depends_on:
+            visit(dependency)
+        visiting.remove(item_id)
+        visited.add(item_id)
+
+    for item_id in by_id:
+        visit(item_id)
     return annotate(items)
 
 
@@ -366,7 +404,11 @@ def click_list(items: Sequence[Item]) -> list[Item]:
         (
             i
             for i in items
-            if i.route == "james" and i.status in CLICK_STATUSES and deps_satisfied(i, by_id)
+            if (
+                (i.status == "built-unmerged" or i.route == "james")
+                and i.status in CLICK_STATUSES
+                and deps_satisfied(i, by_id)
+            )
         ),
         key=rank_key,
     )
@@ -397,6 +439,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--max", type=int, default=3, dest="max_items")
     ap.add_argument("--json", action="store_true", help="emit JSON only (default)")
     ns = ap.parse_args(argv)
+
+    if not 1 <= ns.max_items <= 3:
+        print("backlog_next: schema error: --max must be between 1 and 3", file=sys.stderr)
+        return 2
 
     try:
         with ns.backlog.open(encoding="utf-8") as fh:

@@ -152,13 +152,13 @@ picker decides, before any agent runs, which backlog items this fire may build.
 
 | | Lane C |
 |---|---|
-| Workflow | `.github/workflows/backlog-roll.yml` — `workflow_dispatch` only until one green manual run (condition 6) |
+| Workflow | `.github/workflows/backlog-roll.yml` — owner-only `workflow_dispatch` while the producer write-token P1 is open; explicit per-run acknowledgement required |
 | Pre-gate | `scripts/backlog_next.py` over `docs/product/backlog.yaml` — no model. Eligible = arbi-owned, `route` build/mission, `status` open, every `depends_on` done, every `paths` entry outside the denied set copied from `unattended-guard.sh` + `settings.json` (drift-tested). Exit 3 = nothing buildable; the click-list is still emitted and the fire records a heartbeat |
-| Arming | job-scoped `ARBI_UNATTENDED=1` + STEP-0 self-check (condition 1); no DB/API secrets mounted (condition 2) |
+| Arming | job-scoped `ARBI_UNATTENDED=1` + STEP-0 self-check. The producer receives OAuth, deadman, and repo write tokens; that surface is an explicit gated residual, not a secret-free boundary |
 | Agent | `claude-code-action`, `--allowedTools` identical to lane A — no `pytest`, no `gh pr create`, no MCP. One branch per item off `main`, never stacked; touches only the item's `paths`; sets that item `built-unmerged` in `backlog.yaml` on its own branch only |
-| Verify | a workflow step, per branch: `ruff check . && mypy asxos && python -m pytest -q` (condition 3). A red branch gets no PR and is recorded |
-| PR | `gh pr create --draft` per green branch; the body carries the item's `source` and the click-list |
-| Artifact-per-fire | one row appended to `docs/product/backlog-ledger.md` on the long-lived `claude/backlog-ledger` branch, `if: always()` (condition 4) |
+| Verify | separate `contents: read` matrix jobs at validated immutable SHAs, `persist-credentials: false`, no OAuth/deadman/write token. A red matrix opens no PR |
+| PR | separate `pull-requests: write` publisher rechecks each remote SHA, then `gh pr create --draft` |
+| Artifact-per-fire | separate record job, which never checks out agent-authored code, appends one row to `docs/product/backlog-ledger.md` on `claude/backlog-ledger` |
 | Deadman ★ | `HC_BACKLOG_URL`, checked at **STEP 0** — unset **fails the run** (condition 5, hardened). Pings the check on success and `/fail` otherwise |
 
 **Primary product is the click-list.** Once the Amendment H train lands the backlog is
@@ -170,5 +170,5 @@ items as they are un-parked.
 **What it cannot do, unchanged from lanes A/B:** merge, un-draft, push to `main`, apply
 a migration, touch a secret, edit `.github/**` or any authority path, touch
 capital-adjacent code, flip a dark surface, approve a theme member, or calibrate risk.
-Standing dispatch was granted; standing landing was not. James's merge of the workflow
-is the arming action; his `schedule:` merge (backlog item A-23) is what makes it standing.
+Standing dispatch was granted; standing landing was not. The workflow remains manually gated.
+Automatic triggers stay blocked until backlog item A-22 closes the branch-scoped credential P1.

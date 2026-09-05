@@ -18,8 +18,8 @@
 # THE STRUCTURAL CHOICE — the agent does NOT open the PR (same as nightly-triage):
 #   step 1  picker decides. Exit 3 = nothing eligible, skip straight to the ledger.
 #   step 2  agent builds each picked item on its own branch. No PR.
-#   step 3  a separate workflow step checks out each branch and runs the suite.
-#   step 4  a draft PR opens per branch ONLY if step 3 passed for that branch.
+#   step 3  separate read-only matrix jobs check out validated immutable SHAs.
+#   step 4  a least-privilege publisher opens draft PRs only after the matrix passes.
 # unattended-guard.sh denies unscrubbed `pytest` (A6), so the agent cannot verify its own
 # work, and the fix is not to teach the prompt `env -i` — it is to keep verification out
 # of the agent's reach so "tests pass" is a CI fact, not a self-report.
@@ -32,14 +32,10 @@
 #     which the armed guard denies, so the picker skips any item whose paths overlap an
 #     earlier pick and the agent builds each one off main.
 #
-# WHY NO `schedule:` TRIGGER YET — Amendment H condition 6: dispatch first, automatic
-# trigger only after a green manual run. `schedule:` fires only from the default branch,
-# so it is not testable here. Once a dispatched run is green, add:
-#
-#   schedule:
-#     - cron: "17 16 * * 1-5"   # 02:17 AEST Tue-Sat, after nightly-check (15:17 UTC)
-#
-# That addition is its own PR (backlog item A-22) and James's merge arms it (A-23).
+# WHY NO `schedule:` TRIGGER — the producer agent needs `contents: write` to push its
+# branches, and GitHub workflow permissions cannot scope that token to `claude/**`.
+# Until a GitHub App or separately scoped credential is provisioned and red-teamed, this
+# lane remains owner-only `workflow_dispatch` with an explicit per-run risk acknowledgement.
 
 name: backlog-roll
 
@@ -51,21 +47,31 @@ on:
         required: false
         default: "3"
         type: string
+      acknowledge_write_token_risk:
+        description: "I accept the gated residual risk: the agent receives a repo write token"
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: backlog-roll
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: read
+permissions: {}
 
 jobs:
   roll:
+    if: github.actor == 'Jp8617465-sys' && inputs.acknowledge_write_token_risk == true
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: write
+    outputs:
+      branch_found: ${{ steps.branches.outputs.found }}
+      branch_matrix: ${{ steps.branches.outputs.matrix }}
+      picked_ids: ${{ steps.pick.outputs.picked_ids }}
+      click_count: ${{ steps.pick.outputs.click_count }}
     env:
       # Arms .claude/hooks/unattended-guard.sh:37 for THIS workflow only.
       ARBI_UNATTENDED: "1"
@@ -110,10 +116,16 @@ jobs:
       # eligible (click-list still written), 2 = the backlog file is malformed (fail).
       - name: Pick (scripts/backlog_next.py)
         id: pick
+        env:
+          MAX_ITEMS: ${{ inputs.max_items }}
         run: |
           set -uo pipefail
+          if [[ ! "$MAX_ITEMS" =~ ^[1-3]$ ]]; then
+            echo "::error::max_items must be an integer from 1 through 3"
+            exit 1
+          fi
           set +e
-          python scripts/backlog_next.py --max "${{ inputs.max_items }}" > backlog-pick.json
+          python scripts/backlog_next.py --max "$MAX_ITEMS" > backlog-pick.json
           rc=$?
           set -e
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
@@ -122,6 +134,10 @@ jobs:
             3) echo "picked=false" >> "$GITHUB_OUTPUT"; echo "Nothing eligible this fire — click-list only." ;;
             *) echo "::error::backlog_next.py exited $rc (schema error?)"; cat backlog-pick.json || true; exit 1 ;;
           esac
+          selection="$(jq -c '{picked, click_list}' backlog-pick.json)"
+          echo "selection=$selection" >> "$GITHUB_OUTPUT"
+          echo "picked_ids=$(jq -r '[.picked[].id] | join(" ") // "—"' backlog-pick.json)" >> "$GITHUB_OUTPUT"
+          echo "click_count=$(jq -r '.click_list | length' backlog-pick.json)" >> "$GITHUB_OUTPUT"
           echo "::group::backlog-pick.json"; cat backlog-pick.json; echo "::endgroup::"
 
       - name: Build the picked items (no PR)
@@ -189,99 +205,192 @@ jobs:
       - name: Read branch list
         id: branches
         if: steps.pick.outputs.picked == 'true'
+        env:
+          PICK_SELECTION: ${{ steps.pick.outputs.selection }}
         run: |
           set -euo pipefail
-          if [ -s .backlog-branches ]; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-            echo "::group::.backlog-branches"; cat .backlog-branches; echo "::endgroup::"
-          else
+          if [ ! -s .backlog-branches ]; then
             echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
             echo "No branches produced — every picked item was blocked or the agent stopped."
+            exit 0
           fi
+
+          matrix='[]'
+          count=0
+          declare -A seen=()
+          while IFS=$'\t' read -r id branch extra; do
+            if [ -n "${extra:-}" ] || [[ ! "$id" =~ ^[A-E]-[0-9]+[a-z]?$ ]]; then
+              echo "::error::invalid .backlog-branches row"
+              exit 1
+            fi
+            expected_prefix="claude/backlog-${id,,}-"
+            if [[ ! "$branch" =~ ^claude/backlog-[a-e]-[0-9]+[a-z]?-[0-9]{8}$ ]] \
+               || [[ "$branch" != "$expected_prefix"* ]]; then
+              echo "::error::branch does not match its backlog id"
+              exit 1
+            fi
+            if [ -n "${seen[$id]:-}" ]; then
+              echo "::error::duplicate backlog id in branch list"
+              exit 1
+            fi
+            seen[$id]=1
+            item="$(jq -ce --arg id "$id" '.picked[] | select(.id == $id)' \
+              <<< "$PICK_SELECTION")"
+            sha="$(git ls-remote --exit-code origin "refs/heads/$branch" | awk '{print $1}')"
+            if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::backlog branch did not resolve to one commit SHA"
+              exit 1
+            fi
+            matrix="$(jq -cn \
+              --argjson current "$matrix" --argjson item "$item" \
+              --arg branch "$branch" --arg sha "$sha" \
+              '$current + [{id: $item.id, title: $item.title, source: $item.source, branch: $branch, sha: $sha}]')"
+            count=$((count + 1))
+            if [ "$count" -gt 3 ]; then
+              echo "::error::agent returned more branches than the lane limit"
+              exit 1
+            fi
+          done < .backlog-branches
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "::group::validated branch matrix"; jq . <<< "$matrix"; echo "::endgroup::"
           for f in .backlog-blocked-*.md; do
             [ -e "$f" ] || continue
             echo "::warning::$f"; echo "::group::$f"; cat "$f"; echo "::endgroup::"
           done
 
-      # Verification the agent cannot reach. Per branch, and it does NOT stop at the
-      # first red one — every branch gets a verdict, recorded to .backlog-verify.
-      - name: Verify each branch (independent of the agent)
-        id: verify
-        if: steps.branches.outputs.found == 'true'
-        run: |
-          set -uo pipefail
-          : > .backlog-verify
-          any_pass=false
-          while IFS=$'\t' read -r id branch; do
-            [ -n "${branch:-}" ] || continue
-            echo "::group::verify $id on $branch"
-            if git fetch origin "$branch" \
-               && git checkout -q "$branch" \
-               && pip install -q -e ".[ml,dev]" \
-               && ruff check . \
-               && mypy asxos \
-               && python -m pytest -q; then
-              printf '%s\t%s\tPASS\n' "$id" "$branch" >> .backlog-verify
-              any_pass=true
-            else
-              printf '%s\t%s\tFAIL\n' "$id" "$branch" >> .backlog-verify
-              echo "::error::$id failed verification on $branch — no PR will be opened"
-            fi
-            echo "::endgroup::"
-            git checkout -q main
-          done < .backlog-branches
-          echo "any_pass=$any_pass" >> "$GITHUB_OUTPUT"
-          cat .backlog-verify
+  # The matrix executes agent-authored code only with a read-only token, no OAuth
+  # or deadman secret, and no persisted checkout credential.
+  verify:
+    needs: roll
+    if: needs.roll.outputs.branch_found == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.roll.outputs.branch_matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ matrix.sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
-      - name: Open draft PRs (only for branches that passed)
-        if: steps.verify.outputs.any_pass == 'true'
+      - name: Confirm immutable checkout
+        env:
+          EXPECTED_SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Verify ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[ml,dev]"
+          ruff check .
+          mypy asxos
+          python -m pytest -q
+
+  publish:
+    needs: [roll, verify]
+    if: needs.roll.outputs.branch_found == 'true' && needs.verify.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.roll.outputs.branch_matrix) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Open draft PR for verified ${{ matrix.id }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ITEM_ID: ${{ matrix.id }}
+          ITEM_TITLE: ${{ matrix.title }}
+          ITEM_SOURCE: ${{ matrix.source }}
+          ITEM_BRANCH: ${{ matrix.branch }}
+          VERIFIED_SHA: ${{ matrix.sha }}
         run: |
           set -euo pipefail
-          clicks="$(python - <<'PY'
-          import json
-          d = json.load(open("backlog-pick.json"))
-          rows = d.get("click_list", [])
-          print("\n".join(f"- `{r['id']}` {r['title']}" for r in rows[:12]) or "- (none)")
-          PY
-          )"
-          while IFS=$'\t' read -r id branch verdict; do
-            [ "$verdict" = "PASS" ] || continue
-            source="$(python -c "import json,sys; d=json.load(open('backlog-pick.json')); print(next((i['source'] for i in d['picked'] if i['id']=='$id'), ''))")"
-            title="$(python -c "import json,sys; d=json.load(open('backlog-pick.json')); print(next((i['title'] for i in d['picked'] if i['id']=='$id'), ''))")"
-            gh pr create --draft \
-              --base main \
-              --head "$branch" \
-              --title "backlog($id): $title" \
-              --body "Automated build of backlog item \`$id\` by the \`backlog-roll\` standing lane (Amendment K).
+          [[ "$ITEM_ID" =~ ^[A-E]-[0-9]+[a-z]?$ ]]
+          expected_prefix="claude/backlog-${ITEM_ID,,}-"
+          [[ "$ITEM_BRANCH" =~ ^claude/backlog-[a-e]-[0-9]+[a-z]?-[0-9]{8}$ ]]
+          [[ "$ITEM_BRANCH" == "$expected_prefix"* ]]
+          [[ "$VERIFIED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          remote_sha="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/git/ref/heads/${ITEM_BRANCH}" \
+            --jq '.object.sha')"
+          test "$remote_sha" = "$VERIFIED_SHA"
+          gh pr create --draft \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$ITEM_BRANCH" \
+            --title "backlog($ITEM_ID): $ITEM_TITLE" \
+            --body "Automated build of backlog item \`$ITEM_ID\` by the \`backlog-roll\` standing lane (Amendment K).
 
-          **Source:** $source
+          **Source:** $ITEM_SOURCE
 
-          Suite, ruff and mypy verified green by a workflow step, independently of the agent. Review adversarially: confirm the work matches the item's \`source\`, that only its listed \`paths\` changed, and that no assertion was weakened.
-
-          **James's click-list at this fire** (what is blocked on you, ranked):
-          $clicks
+          Suite, Ruff and Mypy were verified at immutable commit \`$VERIFIED_SHA\` by a separate read-only job with no persisted checkout credential. Review adversarially: confirm the work matches the item source, only its listed paths changed, and no assertion was weakened.
 
           Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          done < .backlog-verify
 
-      # Artifact-per-fire — `if: always()` so a nothing-cycle, a failed run, or a
-      # timed-out one still leaves a commit. Appends to the long-lived
-      # `claude/backlog-ledger` branch, NOT to main (security-perf-mission-loop.md §5-§6).
+  # Mechanical artifact and deadman run after the complete pipeline. This job never
+  # checks out agent-authored code, so its contents:write token is not exposed to it.
+  record:
+    needs: [roll, verify, publish]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
       - name: Ledger heartbeat
-        if: always()
+        id: ledger
+        continue-on-error: true
+        env:
+          ROLL_RESULT: ${{ needs.roll.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          BRANCH_FOUND: ${{ needs.roll.outputs.branch_found }}
+          PICKED_IDS: ${{ needs.roll.outputs.picked_ids }}
+          CLICK_COUNT: ${{ needs.roll.outputs.click_count }}
         run: |
           set -euo pipefail
+          pipeline=success
+          if [ "$ROLL_RESULT" != success ]; then
+            pipeline=failure
+          elif [ "$BRANCH_FOUND" = true ] \
+               && { [ "$VERIFY_RESULT" != success ] || [ "$PUBLISH_RESULT" != success ]; }; then
+            pipeline=failure
+          fi
           LEDGER=claude/backlog-ledger
-          git checkout -q main || true
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git ls-remote --exit-code --heads origin "$LEDGER" >/dev/null 2>&1; then
             git fetch origin "$LEDGER"
             git checkout -q -B "$LEDGER" "origin/$LEDGER"
           else
-            git fetch origin main
             git checkout -q -B "$LEDGER" origin/main
           fi
           mkdir -p docs/product
@@ -290,31 +399,43 @@ jobs:
             {
               echo "# backlog-roll ledger — one row per fire, written mechanically"
               echo
-              echo "| date (UTC) | run | picked | verified | click-list | job |"
+              echo "| date (UTC) | run | picked | verification | click-list | pipeline |"
               echo "|---|---|---|---|---|---|"
             } > "$f"
           fi
-          picked="$(python -c "import json; d=json.load(open('backlog-pick.json')); print(' '.join(i['id'] for i in d['picked']) or '—')" 2>/dev/null || echo '?')"
-          clicks="$(python -c "import json; d=json.load(open('backlog-pick.json')); print(len(d['click_list']))" 2>/dev/null || echo '?')"
-          verified="$( [ -f .backlog-verify ] && awk -F'\t' '{printf "%s:%s ", $1, $3}' .backlog-verify || echo '—')"
-          printf '| %s | %s | %s | %s | %s | %s |\n' \
-            "$(date -u +%Y-%m-%d)" "${GITHUB_RUN_NUMBER}" "$picked" "${verified:-—}" "$clicks" "${{ job.status }} run ${GITHUB_RUN_ID}" >> "$f"
+          printf '| %s | %s | %s | %s/%s | %s | %s run %s |\n' \
+            "$(date -u +%Y-%m-%d)" "$GITHUB_RUN_NUMBER" "${PICKED_IDS:-—}" \
+            "$VERIFY_RESULT" "$PUBLISH_RESULT" "${CLICK_COUNT:-?}" "$pipeline" \
+            "$GITHUB_RUN_ID" >> "$f"
           git add "$f"
-          if git diff --staged --quiet; then echo "no delta"; exit 0; fi
-          git commit -q -m "chore(backlog-roll): fire heartbeat run ${GITHUB_RUN_ID} (${{ job.status }})"
+          git commit -q -m "chore(backlog-roll): fire heartbeat run ${GITHUB_RUN_ID} ($pipeline)"
           git push origin "$LEDGER"
 
-      # ★ Pings on every outcome. Success -> the check URL; anything else -> /fail, so
-      # Healthchecks distinguishes "ran and failed" from silence. STEP 0 already
-      # guaranteed the URL is set.
       - name: Deadman
         if: always()
         env:
           HC_BACKLOG_URL: ${{ secrets.HC_BACKLOG_URL }}
+          ROLL_RESULT: ${{ needs.roll.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          BRANCH_FOUND: ${{ needs.roll.outputs.branch_found }}
+          LEDGER_OUTCOME: ${{ steps.ledger.outcome }}
         run: |
           set -euo pipefail
-          if [ "${{ job.status }}" = "success" ]; then
+          if [ -z "${HC_BACKLOG_URL:-}" ]; then
+            echo "::error::HC_BACKLOG_URL is unset"
+            exit 1
+          fi
+          pipeline=success
+          if [ "$ROLL_RESULT" != success ] || [ "$LEDGER_OUTCOME" != success ]; then
+            pipeline=failure
+          elif [ "$BRANCH_FOUND" = true ] \
+               && { [ "$VERIFY_RESULT" != success ] || [ "$PUBLISH_RESULT" != success ]; }; then
+            pipeline=failure
+          fi
+          if [ "$pipeline" = success ]; then
             curl -fsS -m 10 --retry 3 "$HC_BACKLOG_URL"
           else
             curl -fsS -m 10 --retry 3 "$HC_BACKLOG_URL/fail"
+            exit 1
           fi

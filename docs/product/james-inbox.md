@@ -151,8 +151,8 @@ that gets the loop armed. Rows move to ✅ when James does them.
 | K-02 | Merge **PR #200** | Amendment I + J + K records, `backlog.yaml`, the picker, its tests, and `backlog-roll.yml`. Outside Amendment I's 16-PR scope, so this merge is yours. Merge **after #199** (the lane cites Amendment H, which #185 records and #199 operationalises). | A-17 |
 | K-03 | Secret `HC_BACKLOG_URL` | New Healthchecks check, period 1 day, grace ≥ 6h. **The lane fails at STEP 0 without it — by design.** | A-20 |
 | K-04 | Secrets `HC_TRIAGE_URL`, `HC_TOOLWATCH_URL`, `HC_NIGHTLY_URL` | One Healthchecks check each. Unset = a silent skip in those lanes, which is how both prior loops died unnoticed. | B-4, B-5 |
-| K-05 | Dispatch each lane once | `gh workflow run nightly-triage.yml`, `gh workflow run weekly-toolwatch.yml`, `gh workflow run backlog-roll.yml`. Confirm green. Amendment H condition 6 — `schedule:` fires only from `main`, so this is the only pre-arming test that exists. | A-21 |
-| K-06 | Merge the `schedule:` PR | arbi drafts the three `schedule:`/`workflow_run:` additions via the API on a branch once K-05 is green; your merge arms them. The next scheduled fire in Healthchecks = **online**. | A-22 → A-23 |
+| K-05 | Dispatch each lane once | Dispatch manually with `acknowledge_write_token_risk=true` (and `max_items=1` for backlog-roll). Confirm green. Do not dispatch during the current merge train. | A-21 |
+| K-06 | Close credential P1 before automation | Provision and red-team a GitHub App or separately scoped producer credential that can be confined to the intended branch namespace. Only then review an automatic-trigger PR. The next observed scheduled fire in Healthchecks = **online**. | A-22 → A-23 |
 
 Everything else in the backlog — backup green, the dark-surface rulings, the theme
 member, F4 calibration, the paper case, the DB-role repoint — is surfaced by the lane's

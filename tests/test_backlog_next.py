@@ -117,6 +117,20 @@ class TestDeniedPaths:
         assert is_denied_path("/CLAUDE.md")
         assert not is_denied_path("./docs/proposals/x.md")
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "docs/proposals/../product/north-star.md",
+            "docs/**",
+            "docs/proposals/*.md",
+            "docs//proposals/x.md",
+            r"docs\proposals\x.md",
+            "/docs/proposals/x.md",
+        ],
+    )
+    def test_non_literal_or_non_relative_scopes_fail_closed(self, path: str) -> None:
+        assert is_denied_path(path)
+
 
 class TestOverlap:
     def test_distinct_files_in_one_dir_do_not_overlap(self) -> None:
@@ -167,6 +181,19 @@ class TestSchema:
     def test_rejects_wrong_version(self) -> None:
         with pytest.raises(BacklogSchemaError, match="version"):
             parse({"version": 2, "items": [_row("A-1")]})
+
+    def test_rejects_path_traversal_and_dependency_cycles(self) -> None:
+        with pytest.raises(BacklogSchemaError, match="literal repo-relative"):
+            parse(_doc([_row("A-1", paths=["docs/proposals/../product/north-star.md"])]))
+        with pytest.raises(BacklogSchemaError, match="dependency cycle"):
+            parse(
+                _doc(
+                    [
+                        _row("A-1", depends_on=["A-2"]),
+                        _row("A-2", depends_on=["A-1"]),
+                    ]
+                )
+            )
 
 
 # --- selection --------------------------------------------------------------------------
@@ -255,7 +282,7 @@ class TestSelection:
         picked, _ = pick(items, max_items=2)
         assert [i.id for i in picked] == ["A-1", "A-2"]
 
-    def test_click_list_is_route_james_with_met_deps(self) -> None:
+    def test_click_list_includes_james_routes_and_built_unmerged_work(self) -> None:
         items = parse(
             _doc(
                 [
@@ -264,11 +291,11 @@ class TestSelection:
                     _row("A-3", owner="both", route="james"),
                     _row("A-4", owner="james", route="james", status="done"),
                     _row("A-5", owner="james", route="james", status="built-unmerged"),
-                    _row("A-6", owner="arbi", route="build"),
+                    _row("A-6", owner="arbi", route="build", status="built-unmerged"),
                 ]
             )
         )
-        assert [i.id for i in click_list(items)] == ["A-1", "A-3", "A-5"]
+        assert [i.id for i in click_list(items)] == ["A-1", "A-3", "A-5", "A-6"]
 
 
 # --- CLI + exit codes -------------------------------------------------------------------
@@ -311,6 +338,14 @@ class TestCli:
 
     def test_exit_2_on_missing_file(self, tmp_path: Path) -> None:
         assert main(["--backlog", str(tmp_path / "missing.yaml")]) == 2
+
+    @pytest.mark.parametrize("value", ["0", "-1", "4"])
+    def test_exit_2_when_max_is_outside_bounded_lane_limit(
+        self, tmp_path: Path, capsys, value: str
+    ) -> None:
+        p = self._write(tmp_path, [_row("A-1")])
+        assert main(["--backlog", str(p), "--max", value]) == 2
+        assert "--max must be between 1 and 3" in capsys.readouterr().err
 
 
 # --- the checked-in seed ---------------------------------------------------------------
@@ -358,8 +393,8 @@ class TestSeed:
         assert skipped == []
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-0", clicks
-        assert "B-13a" not in clicks  # built-unmerged, route arbi — never a click-list row
-        assert "B-14a" not in clicks
+        assert "B-13a" in clicks  # every built PR needs James's merge click
+        assert "B-14a" in clicks
         assert "E-11" not in clicks  # .github path, correctly refused regardless of route
 
 

@@ -284,24 +284,24 @@ items:
     source: "harness-profiles.md §Standing dispatch condition 6; roadmap-state.md 2026-09-03 item 1"
 
   - id: A-22
-    title: "Draft the schedule:/workflow_run: additions for the three lanes (one PR, via the GitHub API on a claude/** branch)"
+    title: "Provision and red-team a branch-scoped producer credential for the three standing lanes"
     phase: A
-    owner: arbi
+    owner: james
     status: open
     depends_on: [A-21]
-    route: attended
-    paths: [".github/workflows/nightly-triage.yml", ".github/workflows/weekly-toolwatch.yml", ".github/workflows/backlog-roll.yml"]
-    source: "Amendment H condition 6; nightly-triage.yml header 'WHY NO workflow_run: TRIGGER YET'"
+    route: james
+    paths: []
+    source: "security-perf-mission-loop.md §9 open P1 / §10-A gate 7"
 
   - id: A-23
-    title: "Merge the schedule PR — the next scheduled fire appearing in Healthchecks is ONLINE"
+    title: "After A-22 closes, review and merge the automatic-trigger PR — the next observed scheduled fire is ONLINE"
     phase: A
     owner: james
     status: open
     depends_on: [A-22]
     route: james
     paths: []
-    source: "Amendment K definition of online"
+    source: "Amendment K definition of online; blocked while credential-isolation P1 is open"
 
   # ---------------------------------------------------------------------------
   # Phase B — James-only infrastructure
