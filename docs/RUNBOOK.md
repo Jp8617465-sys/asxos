@@ -130,6 +130,24 @@ longer rebuild the production schema.** That second case is the same class of
 problem as `applied_not_in_repo` above — check migration drift first, they often
 fire together.
 
+**Third cause (found 2026-09-02, red for 11 days unnoticed): the frozen-evidence
+digest check.** `scripts/backup_irreplaceable.sh` asserts that a file in the backup
+repo's `signal-evidence-2026-08-16/` archive hashes to the recorded sha256 for
+`signals` and `signal_outcomes`. From 2026-08-23 the assertion sat *before* the dump
+was copied, so every red run also meant **no dump was pushed**. Since H0-B the
+order is dump → push → verify: a red run whose log says `frozen-evidence …
+FATAL` has still pushed the day's dump (the log says so explicitly), and the
+deadman receives `/fail` rather than silence. Response: (1) confirm the line
+`[backup] pushed asxos-<date>.sql.gz` is in the log — if it is, the backup is
+safe and this is an integrity question, not a loss; (2) in the backup repo, run
+`sha256sum signal-evidence-2026-08-16/*` and read `MANIFEST.txt`; compare to the
+constants at `backup_irreplaceable.sh` `SIGNALS_SHA256` / `SIGNAL_OUTCOMES_SHA256`
+(the check accepts raw or gzip-decompressed bytes); (3) if the manifest and the
+files agree and the constant is simply wrong, correct the constant via a draft PR;
+if the bytes differ from the manifest, **stop** — that is the "archive altered"
+branch and needs James, never a re-recorded digest. Never "fix" this by deleting
+the assertion or by adding `signals`/`signal_outcomes` to the daily dump.
+
 ---
 
 ## ALERT: Healthchecks deadman fired (no ping)
