@@ -46,14 +46,22 @@ items:
   # ---------------------------------------------------------------------------
 
   - id: A-0
-    title: "Click Ready-for-review on the 15 draft PRs — the train's actual gate"
+    title: "Un-draft the 16 open PRs — one command on James's own machine, not 16 clicks"
     phase: A
     owner: james
     status: open
     depends_on: []
     route: james
     paths: []
-    source: ".claude/hooks/pr-draft-guard.sh:59-62; roadmap-state.md Amendment I"
+    source: >-
+      .claude/hooks/pr-draft-guard.sh:59-62 (denies arbi, not James);
+      roadmap-state.md Amendment I. The hook binds the agent's surfaces only —
+      push-guard.sh blocks `gh pr ready` from arbi's Bash, and pr-draft-guard.sh
+      blocks draft:false from arbi's MCP (both confirmed firing live 2026-09-05,
+      see risk-register R16 correction). Neither constrains James's own shell, so
+      the whole gate is one paste:
+      `for n in 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200; do gh pr ready $n; done`
+      Then arbi runs the train on 15 of them; #200 stays James's own merge (A-17).
 
   - id: A-0b
     title: "Alternative to A-0: apply Amendment J (ready-grant) patches 1,2,4 then 3, plus the settings.json hooks deny"
