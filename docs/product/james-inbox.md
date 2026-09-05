@@ -138,6 +138,26 @@ C8. Merges, secrets, `.github` edits, env flips and capital stay yours. Until th
 `migration-drift` on `main` reports the three applied names as applied-not-in-repo — true, stated
 in advance, self-clearing on merge. The campaign continues into Wave 5 (ADR §6 slices 2.5 → 2 → 3,
 no migration) on the same stack.
+## Amendment K click-list (opened 2026-09-05 — the path to "online = the loop running")
+
+Per `roadmap-state.md` Amendment K. **The live, ranked click-list is now emitted
+mechanically** by `scripts/backlog_next.py` from `docs/product/backlog.yaml` on every
+`backlog-roll` fire and in every PR it opens — this section is the human-readable subset
+that gets the loop armed. Rows move to ✅ when James does them.
+
+| # | Click | Exact action | Backlog id |
+|---|---|---|---|
+| K-01 | Un-draft the 15 Amendment H PRs | Click "Ready for review" ×15 (or apply Amendment J). `pr-draft-guard.sh:59-62` is mechanical; nothing downstream moves until this. | A-0 / A-0b |
+| K-02 | Merge **PR #200** | Amendment I + J + K records, `backlog.yaml`, the picker, its tests, and `backlog-roll.yml`. Outside Amendment I's 16-PR scope, so this merge is yours. Merge **after #199** (the lane cites Amendment H, which #185 records and #199 operationalises). | A-17 |
+| K-03 | Secret `HC_BACKLOG_URL` | New Healthchecks check, period 1 day, grace ≥ 6h. **The lane fails at STEP 0 without it — by design.** | A-20 |
+| K-04 | Secrets `HC_TRIAGE_URL`, `HC_TOOLWATCH_URL`, `HC_NIGHTLY_URL` | One Healthchecks check each. Unset = a silent skip in those lanes, which is how both prior loops died unnoticed. | B-4, B-5 |
+| K-05 | Dispatch each lane once | Dispatch manually with `acknowledge_write_token_risk=true` (and `max_items=1` for backlog-roll). Confirm green. Do not dispatch during the current merge train. | A-21 |
+| K-06 | Close credential P1 before automation | Provision and red-team a GitHub App or separately scoped producer credential that can be confined to the intended branch namespace. Only then review an automatic-trigger PR. The next observed scheduled fire in Healthchecks = **online**. | A-22 → A-23 |
+
+Everything else in the backlog — backup green, the dark-surface rulings, the theme
+member, F4 calibration, the paper case, the DB-role repoint — is surfaced by the lane's
+click-list on every fire. It is not a prerequisite for the loop; it is what the loop is
+for.
 
 ## How arbi uses it
 

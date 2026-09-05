@@ -345,9 +345,9 @@ framing — the draft-PR ceiling means the whole residual is James spotting it.)
   `--allowedTools` and permissions reduce exposure but do not confine `contents: write` to a ref.
   The real token surface is OAuth plus a repo write token. `unattended-guard.sh` is belt, not
   boundary, until a lane's run log shows it denying something.
-- **Open P1 — write token exposed to untrusted-content agent.** Both producer agents must push a
+- **Open P1 — write token exposed to untrusted-content agent.** All three producer agents must push a
   branch, and GitHub's workflow `permissions:` cannot express a branch/ref scope. Until a GitHub
-  App or separately scoped credential is designed and red-teamed, both workflows remain
+  App or separately scoped credential is designed and red-teamed, all three workflows remain
   `workflow_dispatch`-only, owner-only, and require an explicit per-dispatch acknowledgement.
   No `schedule` or `workflow_run` trigger may be added while this row is open.
 - Security fixes are the highest-judgement class: review loop + fresh-reviewer + guilfoyle
@@ -366,7 +366,7 @@ framing — the draft-PR ceiling means the whole residual is James spotting it.)
 | 7 | Branch-scoped producer credential | ❌ **OPEN P1 / GATED** — requires a GitHub App or separately scoped credential; ordinary `GITHUB_TOKEN` permissions are not ref-scoped |
 
 **Current posture:** merging installs the workflows but does not authorize automatic execution.
-Both remain owner-only `workflow_dispatch` lanes with an explicit write-token-risk acknowledgement.
+All three remain owner-only `workflow_dispatch` lanes with an explicit write-token-risk acknowledgement.
 Do not add `schedule` or `workflow_run` until gate 7 has a reviewed mechanical control.
 
 The historical §10 below is retained as the record of what the Routine substrate required.

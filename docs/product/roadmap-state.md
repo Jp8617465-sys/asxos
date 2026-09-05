@@ -477,6 +477,192 @@ reachable. Programme "done" (`target-architecture.md` §16) is not reachable thi
 
 **Queue placement.** THE ONE THING is unchanged: `H0-B` restore the irreplaceable backup
 (campaign plan Wave 0). H does not reorder the Stages 0→6 table; it authorises working it.
+#### Amendment I — one-train merge grant (James, 2026-09-04)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-04
+instruction during a plan-mode backlog wake ("optimise this that the first action
+is to run a merge train on all open PRs"), confirmed through `AskUserQuestion` as
+**"Grant it — I run the train"**; this block is the queue amendment. Letter **I** —
+**H** is taken (the campaign envelope on the unmerged wake branch, PR #185) and
+**C** stays burned (unenacted force-with-lease, 2026-08-13 pack).
+
+**Ruling.** For **this train only**, arbi may call `mcp__github__merge_pull_request`
+on the open Amendment H PRs without returning to James per PR. This is a narrow,
+expiring override of **Amendment G ruling 3** ("No auto-merge. Keep the click."),
+which otherwise stands unamended for every future PR.
+
+**Precedent — this shape has run before.** `decision-log.md` carries a 2026-08-22
+row, *"Governor ruling: run a merge train on the open PRs if checks are green, in
+the correct sequence"*, executed as #155 → #151 → #154 → #152: four squash-merges,
+each re-verified CI-green and `mergeable_state: clean` on an up-to-date head, no
+`--admin`. Amendment I is the same instrument on a larger stack, and inherits that
+row's two operating lessons — re-verify green on the head you are about to merge
+(not a stale measurement), and a rebase may be needed purely because branch
+protection wants an up-to-date head, with no file overlap implied.
+
+**Scope — the 16 PRs open at 2026-09-04:** #178, #185, #186, #187, #188, #189,
+#190, #191, #192, #193, #194, #195, #196, #197, #198, #199. No PR opened after
+this date is covered.
+
+**What this authorizes.** Merging those PRs, squash, in dependency order.
+The Amendment A rebase repair on each stacked child after its parent
+squash-merges (`--force-with-lease` to its own `claude/**` branch only).
+Reversible branch fixes needed to get a head green — the ruff C416 fix on
+`claude/amendment-h-outcomes` is the only one taken.
+
+**What this does NOT authorize, and what did not move.**
+
+- **Un-drafting.** `pr-draft-guard.sh:60-63` hard-denies `update_pull_request`
+  with `draft:false`. It is a mechanical hook, not prose, so this grant cannot
+  lift it and no attempt was made to route around it. 15 of the 16 PRs are draft
+  and GitHub will not merge a draft, so **James clicks "Ready for review" on each
+  one**; that click stays his and is the train's actual gate.
+- `ARBI_UNATTENDED` stays **off**. `pr-draft-guard.sh:88-96` denies
+  `merge_pull_request` outright under unattended mode; this grant is attended-only
+  and relies on that denial remaining intact.
+- `enable_pr_auto_merge` stays denied in every mode (settings deny + hook).
+- No tier moved. I5/I6 and P5/P6 remain never-promotable per the constitution and
+  the permission model. This is one instructed execution window, not a track
+  record and not a precedent.
+- Untouched: rule #11, capital, `0042`, `0045`, secrets, `.github/**` edits,
+  environment flips, production DB writes, W1-2.
+
+**Expiry.** At the end of the attended session that ratified it, on James saying
+stop, on any permission-model circuit breaker, or on the first merge conflict or
+unexplained red check — whichever comes first.
+
+**Why the train was ranked first.** Not tidiness. Production carries four
+migrations `main` cannot reproduce — `20260902201241 pit_knowledge_tier`,
+`20260902203202 research_registry`, `20260902204920 theme_candidates`,
+`20260903025557 outcome_materialisation` — whose `.sql` files exist only on the
+unmerged branches, while `main`'s `EXPECTED_UNAPPLIED` (`asxos/schema_drift.py`)
+lists only `0025` and `0045`. That is the exact failure `schema_drift.py` was
+written to catch, and `migration-drift` has been red on `main` since 09-03
+(runs `33744214689`, `33862108539`; green 09-02, before 0049 was applied). The
+drift self-clears when the code chain lands.
+
+**Queue placement.** This amendment does not become THE ONE THING and flips no
+Stage cell. The dark surfaces #1/#4 ruling — expired 2026-08-31, decide-by
+2026-08-28 — remains the oldest overdue item in the repo and is still James's.
+
+#### Amendment K — "online" is the loop running; the backlog-roll lane (James, 2026-09-05)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-05
+answers to two `AskUserQuestion` prompts during a plan-mode wake; this block is the
+queue amendment. Letter **K** — **J** is the ready-grant escape, drafted and not
+applied (`docs/proposals/amendment-j-ready-grant-2026-09-05.md`).
+
+**Ruling 1 — what "get online" means.** Asked to choose between (a) the first
+governed paper case delivered and disposed (Stage 4's exit gate, the north-star output),
+(b) a web surface, or (c) the autonomous loop running, James chose **(c): the standing
+agent lanes armed and firing on a schedule.** This is recorded as *his* definition of
+online for this campaign. It does **not** redefine the north-star: `north-star.md:40-43`
+and `target-architecture.md:1093-1112` stand, and the product's output remains a
+governed paper case reaching his disposition — a longer path the loop will surface daily
+but cannot walk.
+
+**Ruling 2 — how much the lane may do unattended.** James answered *"maximum
+automation."* Implemented as **everything up to the mechanical floor, and nothing past
+it**, because the floor is not a choice: `unattended-guard.sh` denies push/merge to
+`main`, force-push, DB writes, migrations, secrets, authority-file writes,
+capital-adjacent code (`asxos/domain/{portfolio,tax,models,theses}/`, the allocator,
+`rebalance.py`, `tax_overlay.py`), unscrubbed `pytest`, and every GitHub-MCP and Supabase
+write; `pr-draft-guard.sh` denies un-drafting always; `Edit(/.github/**)` is denied
+always; I5/I6 and P5/P6 are never promotable. So "maximum" = build any arbi-owned,
+dependency-met item whose files sit outside that set, several per fire on independent
+branches, as draft PRs, nightly, with all three lanes armed. **Standing dispatch was
+granted on 2026-09-03 (Amendment H); standing landing was not and cannot be.** This
+amendment grants nothing new.
+
+**What it adds — the two pieces the loop was missing.** Nothing in the repo picked the
+next backlog item: #199's lanes are reactive and `/arbi-mission` is one-shot.
+
+- `docs/product/backlog.yaml` — the **machine twin** of this file's queues, seeded from
+  the 2026-09-05 74-row inventory. **The Stages 0→6 table above remains the only human
+  queue and the only ranked one.** When the two disagree, this file wins and the YAML is
+  wrong. Every item carries `owner`, `status`, `depends_on`, `route`, `paths`, `source`.
+- `asxos/backlog.py` (+ `scripts/backlog_next.py`) — the **deterministic picker**, no
+  model in the loop. Eligibility is *derived* from an item's `paths` against a denied set
+  copied from the guards; `tests/test_backlog_next.py` parses `unattended-guard.sh` and
+  `settings.json` and fails if the copy drifts. Ranks unblocking-first. Emits `picked`
+  and the **click-list** — every James item unblocked right now — and exits 3 when
+  nothing is buildable, click-list still printed.
+- `.github/workflows/backlog-roll.yml` — lane C, owner-only `workflow_dispatch` while the
+  producer write-token P1 remains open, mirroring `nightly-triage.yml` with two ★
+  departures: the deadman is checked at STEP 0 and an unset `HC_BACKLOG_URL` **fails the
+  run** rather than skipping (both prior loops died of the silent skip); and it builds
+  several independent branches per fire, never stacked, because stacking needs the
+  force-push the guard denies. Placed on the branch via the GitHub API — the drafting
+  route `pr-draft-guard.sh` names as sanctioned. **James's merge is the arming action.**
+
+**What the lane will actually do, stated plainly.** On the seed today the picker returns
+exactly two items — the S3 policy and Dagster cost-sheet drafts he already asked for
+(H-21/H-22) — and a click-list that leads with the un-draft click. Once the train lands,
+most fires will exit 3 with only the click-list. **That is correct.** The lane's first
+product is a daily, mechanical, un-skippable *"here is what is blocked on you"*; its
+second is the residue it may build.
+
+**The click path to online, in order** (backlog ids): A-0 un-draft → A-2…A-16 the
+train (arbi) → A-17 merge #200 → A-20 `HC_BACKLOG_URL` + B-4/B-5 the other deadmen →
+A-21 dispatch each lane once with explicit risk acknowledgement → A-22 provision and red-team
+a branch-scoped producer credential → A-23 review and merge automatic triggers. The next
+scheduled fire appearing in Healthchecks is the observation that means online.
+
+**Queue placement.** Does not become THE ONE THING; flips no Stage cell. Dark surfaces
+#1/#4 remain the oldest overdue item. Rule #11, capital, `0042`, `0045`, W1-2 untouched.
+
+#### Amendment L — promote arbi to standing I3/I4 (James, 2026-09-05)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-05 answer
+to an `AskUserQuestion` disambiguating *"you need to own the dev, this is on you"*; this
+block is the queue amendment. `arbi-permission-model.md` is a deny-listed authority path,
+so its half of this change is a drafted diff on this branch, not a direct edit — see the
+PR for the exact hunk.
+
+**Ruling.** Promote infra-ladder **I3** ("open a docs-only draft PR") and **I4**
+("dispatch to a specialist for a draft code PR") from *"not granted"* to **standing,
+general** — arbi opens draft PRs and dispatches specialists for reversible work on its
+own judgement, not only inside an explicitly invoked command or a condition-gated lane.
+
+**Correction folded in, not a separate decision.** `arbi-permission-model.md`'s
+*"not granted yet"* line for I3/I4 is dated 2026-08-12 — three weeks before **Amendment
+H** (2026-09-02, `harness-profiles.md` §Standing dispatch), which already grants I3/I4's
+exact shape (unattended, draft-PR ceiling, specialist fan-out) to a scheduled workflow
+meeting its seven named conditions. The three lanes built this session (`nightly-triage`,
+`weekly-toolwatch`, `backlog-roll`) **are** that grant, lane-scoped. This amendment does
+not re-grant that; it corrects the stale cross-reference and extends the same shape
+beyond the three defined lanes to arbi's general judgement.
+
+**What is NOT waived silently — named, not glossed over.** The promotion-preconditions
+section (`arbi-permission-model.md:233-254`) lists three gates for I≤4/P≤4. (1) Model A
+dispute — met 2026-07-11. (2) **Read-only DB role scoping — NOT met.** `supabase-ro`
+still authenticates as `supabase_read_only_user`, not migration 0039's `asxos_agent_ro`
+(backlog item `B-7`, 7+ weeks open). (3) **Track record — NOT formally gated.**
+`episode_score` entries exist per session (3.4–3.9 provisional, no Safety fails on
+record) but nothing has evaluated them as the *sustained-window* gate the doc describes.
+James chose the promotion knowing both gaps — they were named in the question he
+answered. This amendment records that as an **explicit governor waiver**, not a false
+"precondition satisfied," so a later reader sees the gap rather than re-discovering it.
+
+**What does not change, and cannot change by this or any future instruction.**
+`arbi-permission-model.md:253-254` — *"Never promotable: I5–I6 (irreversible infra), P5
+(capital-policy change), P6 (execution)... No track record unlocks these."* Untouched.
+Merge, push to `main`, migrations, DB writes, Render mutation, secrets, and capital
+actions remain `always_ask`, attended-only, James's alone — mechanically enforced by
+`pr-draft-guard.sh`, `unattended-guard.sh`, `push-guard.sh`, and the settings deny list,
+none of which this amendment edits. The click-list (`james-inbox.md`) does not shrink
+because of this amendment; it shrinks when James clicks.
+
+**What changes in practice.** In this and future attended sessions, arbi stops treating
+a reversible, in-lane decision — which agent, which backlog item next, whether a PR is
+ready, wording — as needing a fresh confirmation round. It opens draft PRs and
+dispatches specialists continuously, reports outcomes in batches, and reserves
+`AskUserQuestion`/plan-mode escalation for genuine I5/I6/P5/P6 or boundary matters. First
+proof, same session: building backlog items `B-13a`/`B-14a` as draft PRs without a
+further check-in.
+
+**Queue placement.** Does not become THE ONE THING; flips no Stage cell. Rule #11,
+capital, `0042`, `0045`, W1-2 untouched.
 
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 

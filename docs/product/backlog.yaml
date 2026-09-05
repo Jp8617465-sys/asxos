@@ -1,0 +1,940 @@
+# docs/product/backlog.yaml — the machine twin of the live queue.
+#
+# Amendment K (James, 2026-09-05). The Stages 0→6 table in roadmap-state.md stays the
+# HUMAN queue and the only ranked one; this file is what a script can rank. It is read by
+# `asxos/backlog.py` (via `scripts/backlog_next.py`) — the picker for the `backlog-roll`
+# standing lane — and by nobody else. When the two disagree, roadmap-state.md wins and
+# this file is wrong.
+#
+# Seeded 2026-09-05 from the de-duplicated 74-row inventory of that day's /arbi wake
+# (campaign plan H-nodes, the 2026-09-03 click-list, the open PR set, roadmap-state's
+# live/parked/deferred sections, james-inbox open rows, risk-register). Where two sources
+# disagreed, the fresher one was used and is the one cited.
+#
+# Schema (validated by the picker; unknown values exit 2):
+#   id          A-0 … E-99. Stable. Never reuse.
+#   phase       A land-what's-built · B James infra · C live-observation gates ·
+#               D governor rulings · E deferred/parked
+#   owner       arbi | james | both | time
+#   status      done | built-unmerged | open | blocked | parked | void
+#               "built-unmerged" = the artifact exists as a PR; it is NOT done.
+#               Dependencies count as met only when the dependency is done or void.
+#   route       build     one-file reversible, /build
+#               mission   multi-node reversible, /arbi-mission
+#               attended  arbi's, but needs a live session (merge, force-push, capital
+#                         or tax reasoning, DB probes) — never picked by the lane
+#               james     James's click / ruling / secret / apply
+#               observe   nothing to do; wait and read
+#   depends_on  ids that must be done|void first
+#   paths       files the work touches. Eligibility is DERIVED: every path must fall
+#               outside the denied set the picker copies from unattended-guard.sh and
+#               settings.json. This file cannot declare something safe that the guard
+#               would refuse — the drift test pins that.
+#   source      file:line, PR#, or click id — where the claim came from
+#
+# The lane's first product is the click-list — every James item whose dependencies are
+# met. Its second is the residue it may build. Most fires will exit 3 with only the
+# click-list, and that is correct.
+
+version: 1
+updated: 2026-09-05
+
+items:
+
+  # ---------------------------------------------------------------------------
+  # Phase A — land what is built
+  # ---------------------------------------------------------------------------
+
+  - id: A-0
+    title: "Un-draft the 16 open PRs — one command on James's own machine, not 16 clicks"
+    phase: A
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: >-
+      .claude/hooks/pr-draft-guard.sh:59-62 (denies arbi, not James);
+      roadmap-state.md Amendment I. The hook binds the agent's surfaces only —
+      push-guard.sh blocks `gh pr ready` from arbi's Bash, and pr-draft-guard.sh
+      blocks draft:false from arbi's MCP (both confirmed firing live 2026-09-05,
+      see risk-register R16 correction). Neither constrains James's own shell, so
+      the whole gate is one paste:
+      `for n in 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200; do gh pr ready $n; done`
+      Then arbi runs the train on 15 of them; #200 stays James's own merge (A-17).
+
+  - id: A-0b
+    title: "Alternative to A-0: apply Amendment J (ready-grant) patches 1,2,4 then 3, plus the settings.json hooks deny"
+    phase: A
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "docs/proposals/amendment-j-ready-grant-2026-09-05.md §7"
+
+  - id: A-1
+    title: "Merge #178 Dependabot python group (27 bumps)"
+    phase: A
+    owner: arbi
+    status: done
+    depends_on: []
+    route: attended
+    paths: []
+    source: "PR #178, squash 5aee8b4, 2026-09-05; click H-12"
+
+  - id: A-2
+    title: "Merge #185 — 2026-09-02 wake, Amendment H, close records, campaign plan"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-0]
+    route: attended
+    paths: []
+    source: "PR #185; click H-02"
+
+  - id: A-3
+    title: "Merge #186 — backup_irreplaceable.sh dump-before-verify, gzip digest, 0048 tables"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-2]
+    route: attended
+    paths: []
+    source: "PR #186 (stacked on #185); click H-04"
+
+  - id: A-4
+    title: "Merge #187 — check_cron_health per-job window (weekend false positive)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-0]
+    route: attended
+    paths: []
+    source: "PR #187; click H-08"
+
+  - id: A-5
+    title: "Merge #188 — 0044 header records its apply; COMMENT matches live DB (947 not 102)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-0]
+    route: attended
+    paths: []
+    source: "PR #188; click H-10"
+
+  - id: A-6
+    title: "Merge #189 — doc-drift sweep (REQUIRED_MIGRATIONS retirement, ADR §3.5, countdowns)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-3]
+    route: attended
+    paths: []
+    source: "PR #189 (stacked on #186); click H-14"
+
+  - id: A-7
+    title: "Merge #190 — governor-draft pack (dark verdicts, CBA, ledger)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-6]
+    route: attended
+    paths: []
+    source: "PR #190 (stacked on #189); click H-16"
+
+  - id: A-8
+    title: "Merge #191 — dependency audit of #178, C10 ruling drafts"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-0, A-1]
+    route: attended
+    paths: []
+    source: "PR #191; clicks H-12/H-13"
+
+  - id: A-9
+    title: "Merge #192 — PIT knowledge_tier (0049 applied 20260902201241)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-0]
+    route: attended
+    paths: []
+    source: "PR #192; click H-19"
+
+  - id: A-10
+    title: "Merge #193 — replay harness + lineage resolver, asx replay show"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-9]
+    route: attended
+    paths: []
+    source: "PR #193 (stacked on #192); click H-20"
+
+  - id: A-11
+    title: "Merge #194 — research registry, promotion state machine (0050 applied 20260902203202)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-10]
+    route: attended
+    paths: []
+    source: "PR #194 (stacked on #193); click H-25"
+
+  - id: A-12
+    title: "Merge #195 — theme + candidate engine, LLM boundary (0051 applied 20260902204920)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-11]
+    route: attended
+    paths: []
+    source: "PR #195 (stacked on #194); click H-27"
+
+  - id: A-13
+    title: "Merge #196 — Slices 2.5→2→3: challenge layer, sizer, order staging, generalised builder"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-12]
+    route: attended
+    paths: []
+    source: "PR #196 (stacked on #195); click H-29"
+
+  - id: A-14
+    title: "Merge #197 — Stage 4 delivery chain (identical render, DeliveryReceipt, Disposition, paper intent)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-13]
+    route: attended
+    paths: []
+    source: "PR #197 (stacked on #196); click H-33. Do not run --persist on #197 alone (see A-15)"
+
+  - id: A-15
+    title: "Merge #198 — Stage 5 outcomes + t0 (0052 applied 20260903025557) + brief_runs receipt fix"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-14]
+    route: attended
+    paths: []
+    source: "PR #198 (stacked on #197); click H-35; ruff C416 fixed 3ee84de"
+
+  - id: A-16
+    title: "Merge #199 — standing lanes nightly-triage + weekly-toolwatch; THE MERGE IS THE ARMING ACTION"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: [A-2]
+    route: attended
+    paths: []
+    source: "PR #199; roadmap-state.md ranked queue 2026-09-03 item 1. Depends on Amendment H text landing via #185"
+
+  - id: A-17
+    title: "Merge #200 — Amendment I + Amendment J proposal + the backlog-roll lane (this file). Outside Amendment I's 16-PR scope"
+    phase: A
+    owner: james
+    status: built-unmerged
+    depends_on: [A-16]
+    route: james
+    paths: []
+    source: "PR #200; roadmap-state.md Amendment I scope clause"
+
+  - id: A-18
+    title: "Amendment A rebase repair on each stacked child after its parent squash-merges"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: [A-0]
+    route: attended
+    paths: []
+    source: "roadmap-state.md Amendment A mechanical obligations 1-6; force-push is denied unattended"
+
+  - id: A-19
+    title: "Un-xfail test_backup_workflow_arms_the_deadman and update the restore-drill count test"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: [B-2]
+    route: build
+    paths: ["tests/test_backup_script.py"]
+    source: "click H-06"
+
+  - id: A-20
+    title: "Add secret HC_BACKLOG_URL (Healthchecks, period 1 day) — the backlog-roll lane FAILS without it, by design"
+    phase: A
+    owner: james
+    status: open
+    depends_on: [A-17]
+    route: james
+    paths: []
+    source: "Amendment K; .github/workflows/backlog-roll.yml deadman step"
+
+  - id: A-21
+    title: "Dispatch each standing lane once by hand — nightly-triage, weekly-toolwatch, backlog-roll — and confirm green"
+    phase: A
+    owner: james
+    status: open
+    depends_on: [A-16, A-17, A-20, B-4]
+    route: james
+    paths: []
+    source: "harness-profiles.md §Standing dispatch condition 6; roadmap-state.md 2026-09-03 item 1"
+
+  - id: A-22
+    title: "Provision and red-team a branch-scoped producer credential for the three standing lanes"
+    phase: A
+    owner: james
+    status: open
+    depends_on: [A-21]
+    route: james
+    paths: []
+    source: "security-perf-mission-loop.md §9 open P1 / §10-A gate 7"
+
+  - id: A-23
+    title: "After A-22 closes, review and merge the automatic-trigger PR — the next observed scheduled fire is ONLINE"
+    phase: A
+    owner: james
+    status: open
+    depends_on: [A-22]
+    route: james
+    paths: []
+    source: "Amendment K definition of online; blocked while credential-isolation P1 is open"
+
+  # ---------------------------------------------------------------------------
+  # Phase B — James-only infrastructure
+  # ---------------------------------------------------------------------------
+
+  - id: B-1
+    title: "Inspect $BACKUP_REPO signal-evidence-2026-08-16/ digests (ls, sha256sum, MANIFEST, gzip -dc | sha256sum) — unconditional, first"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-03; the only path to backup GREEN"
+
+  - id: B-2
+    title: "Patch .github/workflows/backup.yml — deadman env line; five 0048 tables in restore TRUNCATE + tables array; 14→19 counts"
+    phase: B
+    owner: james
+    status: open
+    depends_on: [A-3]
+    route: james
+    paths: [".github/workflows/backup.yml"]
+    source: "click H-06; exact patch text in PR #186 body"
+
+  - id: B-3
+    title: "Add secret HEALTHCHECK_URL_BACKUP_IRREPLACEABLE (period 1 day, grace >= 6h)"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-05"
+
+  - id: B-4
+    title: "Add secrets HC_TRIAGE_URL + HC_TOOLWATCH_URL — unset means a silent skip, which is how both prior loops died"
+    phase: B
+    owner: james
+    status: open
+    depends_on: [A-16]
+    route: james
+    paths: []
+    source: "roadmap-state.md 2026-09-03 ranked item 1; session-handoff-2026-09-03.md Pending #1"
+
+  - id: B-5
+    title: "Add secret HC_NIGHTLY_URL — nightly-check is on main and unarmed without it"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: ".github/workflows/nightly-check.yml:81-87"
+
+  - id: B-6
+    title: "Apply the deny-listed doc text: docs/README.md:20,39 and .claude/rules/api-conventions.md:16-17,50-51"
+    phase: B
+    owner: james
+    status: open
+    depends_on: [A-6]
+    route: james
+    paths: ["docs/README.md", ".claude/rules/api-conventions.md"]
+    source: "click H-15; exact replacement text in PR #189 body"
+
+  - id: B-7
+    title: "Repoint the supabase-ro MCP principal to asxos_agent_ro (migration 0039's role) — 7b precondition 3"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "roadmap-state.md 2026-09-03 ranked item 3; risk-register R2; docs/proposals/agent-db-role-the-control-is-inert-2026-08-22.md"
+
+  - id: B-8
+    title: "REVOKE SELECT ON signals for the agent role — the only mechanical rule-#11 control"
+    phase: B
+    owner: james
+    status: open
+    depends_on: [B-7]
+    route: james
+    paths: []
+    source: "james-inbox.md postscript 2026-08-22; risk-register R2"
+
+  - id: B-9
+    title: "Apply 0045_segment_map — explicitly not covered by the 2026-09-02 migration grant; nothing runs build_segment_map"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "asxos/schema_drift.py EXPECTED_UNAPPLIED; james-inbox.md campaign status"
+
+  - id: B-10
+    title: "Set defaultMode: auto in ~/.claude/settings.json, then a week of permission-log data (Amendment G ruling 1)"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "james-inbox.md ⚙️ 2026-08-24; docs/product/runbooks/claude-code-user-settings.md"
+
+  - id: B-11
+    title: "Create the GitHub App reviewer, pull-requests: write only (Amendment G ruling 2)"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "james-inbox.md ⚙️ 2026-08-24; docs/product/runbooks/arbi-approver-github-app.md"
+
+  - id: B-12
+    title: "Add Edit(/.claude/hooks/**) to settings.json permissions.deny and .claude/hooks/ to AUTHORITY_FRAGMENTS — close the coverage gap"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: [".claude/settings.json", ".claude/hooks/authority-guard.sh"]
+    source: "docs/proposals/amendment-j-ready-grant-2026-09-05.md §1, §5, §7.3"
+
+  - id: B-13a
+    title: "S3 work order sizing update — DB quantities measured (pg_total_relation_size); AWS rates independently re-confirmed still egress-blocked"
+    phase: B
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: mission
+    paths: ["docs/proposals/s3-object-store-work-order-2026-08-22.md"]
+    source: "campaign plan H2-C; click H-21; ruling F6. The policy itself already existed (P3-02, 2026-08-22) — this closes the DB-sizing half of its own §4 gap rather than drafting a duplicate document. §8a, 2026-09-05."
+
+  - id: B-13
+    title: "Create the S3 bucket + credentials per the drafted policy (F6)"
+    phase: B
+    owner: james
+    status: open
+    depends_on: [B-13a]
+    route: james
+    paths: []
+    source: "click H-21; ruling F6 — not authorised yet"
+
+  - id: B-14a
+    title: "Dagster work order cost re-derivation — closes the 2026-08-18 flag box's own request using its own measured figures"
+    phase: B
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: mission
+    paths: ["docs/proposals/dagster-deployment-cost-cutover-work-order-2026-08-17.md"]
+    source: "campaign plan H2-C; click H-22; ruling F5; G1 note. The work order already existed (P3-01, 2026-08-17) with a flag naming exactly this gap — this does the arithmetic it asked for rather than drafting a duplicate document. §7a, 2026-09-05."
+
+  - id: B-14
+    title: "Approve Dagster deployment and spend (F5)"
+    phase: B
+    owner: james
+    status: open
+    depends_on: [B-14a]
+    route: james
+    paths: []
+    source: "click H-22; ruling F5"
+
+  - id: B-15
+    title: "Rule D10 (GitHub Issues as the queue) vs roadmap-state.md — ratified, not in force (C13)"
+    phase: B
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "roadmap-state.md ranked queue 2026-08-24 candidate (2); architecture-decision-record.md D10"
+
+  # ---------------------------------------------------------------------------
+  # Phase C — Stage gates that need LIVE observation
+  # ---------------------------------------------------------------------------
+
+  - id: C-1
+    title: "Dispatch backup.yml, then backup.yml -f restore_drill=true; paste both run ids — closes live defect #1"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [B-1, B-2, B-3, A-3]
+    route: james
+    paths: []
+    source: "click H-07; backup.yml red 15 consecutive runs to 33897773692"
+
+  - id: C-2
+    title: "Saturday 19:18 UTC derive_fundamentals_pit backfill populates knowledge_tier (NULL today)"
+    phase: C
+    owner: both
+    status: open
+    depends_on: [A-9]
+    route: observe
+    paths: []
+    source: "click H-19"
+
+  - id: C-3
+    title: "asx research run --as-of 2026-09-01 --dry-run from a pooler-reachable machine; paste the two hashes"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [A-11]
+    route: james
+    paths: []
+    source: "click H-25a; sandbox asyncpg timeout recorded in the ledger"
+
+  - id: C-4
+    title: "asx candidates build --theme big-4-banks --symbol CBA.AU --as-of 2026-09-01 --dry-run; paste sha256 + quality_checks — Stage 3 live half"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [A-12]
+    route: james
+    paths: []
+    source: "click H-27a"
+
+  - id: C-5
+    title: "Approve a second big-4-banks theme member (an ordinary ASX equity) — the Stage 4 positive control cannot exist without it; CBA.AU is the NEGATIVE control"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [A-12]
+    route: james
+    paths: []
+    source: "click H-33a; target-architecture.md:1037-1039"
+
+  - id: C-6
+    title: "ASXOS_PERSONAL_USE=1 asx decision build --thesis-id 1 --as-of 2026-09-01 --theme big-4-banks --dry-run; expect abstain + price_detached ≈ 2.62"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [A-14]
+    route: james
+    paths: []
+    source: "click H-33b"
+
+  - id: C-7
+    title: "asx decision dispose --packet-id dpk-cba-1-2026-09-01 --verdict … — persists into decision_dispositions (0052)"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [C-6]
+    route: james
+    paths: []
+    source: "click H-34"
+
+  - id: C-8
+    title: "asx decision record-t0 --persist, then observe once a horizon session arrives"
+    phase: C
+    owner: both
+    status: open
+    depends_on: [A-15, C-7]
+    route: james
+    paths: []
+    source: "click H-37"
+
+  - id: C-9
+    title: "Stage 5 horizons 21/63/126 trading sessions ≈ 1/3/6 months of paper observation"
+    phase: C
+    owner: time
+    status: open
+    depends_on: [C-8]
+    route: observe
+    paths: []
+    source: "campaign plan §6 Honest limits"
+
+  - id: C-10
+    title: "Start the 4-week paper-trade evaluation window (dark surface #4 SHIP condition)"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [D-2]
+    route: james
+    paths: []
+    source: "james-inbox.md:57; dark-launch-exit-plan.md:203-205"
+
+  - id: C-11
+    title: "Two consecutive green SCHEDULED Saturdays for the weekly-research chain (B1; currently 1-for-1)"
+    phase: C
+    owner: time
+    status: open
+    depends_on: []
+    route: observe
+    paths: []
+    source: "campaign plan §3 carried; live defect #2"
+
+  - id: C-13a
+    title: "Draft the P5-01 capital/risk calibration proposal for James (F4) — capital policy is draft-only forever"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["docs/proposals/p5-01-risk-calibration-2026-09.md"]
+    source: "click H-32; target-architecture.md:1856; arbi-permission-model.md P5"
+
+  - id: C-13
+    title: "P5-01 risk calibration ruling (F4) — without it every Stage 4 packet closes at abstain"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [C-13a]
+    route: james
+    paths: []
+    source: "click H-32; ruling F4"
+
+  - id: C-14
+    title: "Real tax feed readiness == pass for an action-state packet"
+    phase: C
+    owner: both
+    status: open
+    depends_on: [A-13]
+    route: attended
+    paths: ["asxos/domain/tax/"]
+    source: "campaign plan H6-A; decision-flow-2026-08-30.md:253-254"
+
+  - id: C-15
+    title: "Rule the Stage 1 cell wording — 'gates (1)(2)(3) met in-repo, F6 carried' vs OPEN; arbi does not flip the cell"
+    phase: C
+    owner: james
+    status: open
+    depends_on: [A-10, C-1]
+    route: james
+    paths: []
+    source: "click H-23"
+
+  # ---------------------------------------------------------------------------
+  # Phase D — governor rulings, several overdue
+  # ---------------------------------------------------------------------------
+
+  - id: D-1
+    title: "Dark surface #1 portfolio brief — EXPIRED 2026-08-31, decide-by 2026-08-28; the oldest overdue item. #190 drafts KEEP-DARK → 2026-11-30 with the ship condition restated"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-16; james-inbox.md:56; dark-launch-exit-plan.md:234-236"
+
+  - id: D-2
+    title: "Dark surface #4 paper-trade evaluator — EXPIRED 2026-08-31; rule together with #1"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-16; james-inbox.md:57"
+
+  - id: D-3
+    title: "Retire CBA thesis #1 — one word. 3.5× price-detached, revisit 67 days overdue, never revised"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-17"
+
+  - id: D-4
+    title: "Drop the orphaned 2026-08-21 wake snapshot — it was a local git stash, never pushed, unrecoverable from a sandbox"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-11 (inbox version is fresher than the campaign plan's 'merge')"
+
+  - id: D-5
+    title: "render.yaml removal"
+    phase: D
+    owner: james
+    status: void
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-09 VOID — file already gone from main; inventory rows B2/B3 were stale"
+
+  - id: D-6
+    title: "Rule C10 — Dependabot follow-ups (verdict MERGE WITH FOLLOW-UPS)"
+    phase: D
+    owner: james
+    status: open
+    depends_on: [A-8]
+    route: james
+    paths: []
+    source: "click H-12"
+
+  - id: D-7
+    title: "Rule H-13 — pip-audit ADOPT (needs a .github edit + --skip-editable); mypy-baseline DECLINE for now"
+    phase: D
+    owner: james
+    status: open
+    depends_on: [A-8]
+    route: james
+    paths: []
+    source: "click H-13"
+
+  - id: D-8
+    title: "Pin price_detached thresholds — blocking ≥ 1.0, material ≥ 0.25 (two Final constants in challenge/rules.py)"
+    phase: D
+    owner: james
+    status: open
+    depends_on: [A-13]
+    route: james
+    paths: []
+    source: "click H-29a"
+
+  - id: D-9a
+    title: "Draft tax-alpha.md §5.5 lot-selection text + the lots.py partial-draw ordering defect, for James's spec amendment"
+    phase: D
+    owner: arbi
+    status: open
+    depends_on: [A-13]
+    route: attended
+    paths: ["docs/foundation/spec/tax-alpha.md"]
+    source: "click H-29b; docs/audit-2026-06-27.md:104; CLAUDE.md rule #8 (tax-spec-conformance consult)"
+
+  - id: D-9
+    title: "Amend tax-alpha.md with §5.5 lot selection + a numeric test case before a staged sell's lot choice is relied on"
+    phase: D
+    owner: james
+    status: open
+    depends_on: [D-9a]
+    route: james
+    paths: []
+    source: "click H-29b; the spec is James's"
+
+  - id: D-10
+    title: "Retention/erasure ruling on delivery_receipts.rendered_html (most PII-dense column, in no backup) and whether decision tables join the irreplaceable set"
+    phase: D
+    owner: james
+    status: open
+    depends_on: [A-15]
+    route: james
+    paths: []
+    source: "click H-38; raised by security-engineer 2026-09-03"
+
+  - id: D-11
+    title: "Schedule detect_theme_stages (C4/D12) — F5 forbids arbi adding schedules; not required for the Stage 3 gate"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: [".github/workflows/daily-brief.yml"]
+    source: "click H-28; james-inbox.md:64; segval-live-validation-2026-08-20.md Patch 1"
+
+  - id: D-12
+    title: "Rule C17 — ThesisProposal agent-authorship boundary"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "campaign plan H6-A; roadmap-state.md m14_candidate_agentic_thesis_drafter"
+
+  - id: D-13
+    title: "Ratify Amendment H itself — reply 'ratified' (superseded in practice by Amendment I, but the row is open)"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "click H-01"
+
+  - id: D-14
+    title: "Watch the first scheduled daily-brief after #178 — resend 2.4.0 → 2.39.0 on the live send path, every test mocks it"
+    phase: D
+    owner: both
+    status: open
+    depends_on: [A-1]
+    route: observe
+    paths: []
+    source: "click H-12; PR #178 merge message"
+
+  - id: D-15
+    title: "Rule dark surface #3 (V2 brief tree) — KEEP-DARK expires 2026-09-30 and auto-re-raises"
+    phase: D
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "dark-launch-exit-plan.md:180,188; live defect #7"
+
+  # ---------------------------------------------------------------------------
+  # Phase E — deferred / parked / carried
+  # ---------------------------------------------------------------------------
+
+  - id: E-1
+    title: "Persist challenge-finding dispositions append-only, keyed to challenge_results.content_hash + finding_key (H-30)"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: [A-13]
+    route: mission
+    paths: ["migrations/", "asxos/domain/decision_engine/"]
+    source: "click H-30 — next migration window"
+
+  - id: E-3
+    title: "m14_candidate_agentic_thesis_drafter — four named gaps; design lives only in the ledger, not a proposal doc"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: [D-12]
+    route: mission
+    paths: ["docs/proposals/", "asxos/domain/theses/"]
+    source: "roadmap-state.md deferred index"
+
+  - id: E-4
+    title: "m14_candidate_beta_cap — crude market-beta cap; v1 allocator is risk-blind by accepted design"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: []
+    route: mission
+    paths: ["asxos/domain/portfolio/"]
+    source: "roadmap-state.md deferred index; risk-register R3; portfolio-conventions.md"
+
+  - id: E-5
+    title: "m14_candidate_security_kind_enum + m14_candidate_espp_employer_concentration (HUBS 10% soft / 20% hard) — build when it matters"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: []
+    route: mission
+    paths: ["migrations/", "asxos/domain/portfolio/"]
+    source: "roadmap-state.md deferred index; james-inbox.md HUBS ruling 2026-07-13"
+
+  - id: E-6
+    title: "m14_candidate_macro_thesis_evidence_staleness_check — join-based staleness check on approve"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: []
+    route: mission
+    paths: ["asxos/domain/macro_theses/"]
+    source: "roadmap-state.md deferred index; portfolio-conventions.md"
+
+  - id: E-7
+    title: "m14_candidate_governance_aware_revisit_cadence + m14_candidate_conviction_weighted_cadence"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: []
+    route: mission
+    paths: ["asxos/domain/theses/"]
+    source: "roadmap-state.md deferred index; portfolio-conventions.md"
+
+  - id: E-8
+    title: "Stage 6 surface cutover — the production brief consumes only admitted packet/monitoring views; legacy paths retired. Only after the first complete learning episode"
+    phase: E
+    owner: james
+    status: parked
+    depends_on: [C-9]
+    route: james
+    paths: []
+    source: "target-architecture.md:1081-1089; roadmap-state.md Stage 6"
+
+  - id: E-9
+    title: "PR #80 rules-integrity PARKED / DO NOT MERGE; migration 0042 must never be applied"
+    phase: E
+    owner: james
+    status: parked
+    depends_on: []
+    route: james
+    paths: []
+    source: "roadmap-state.md Parked / preserved work; CLAUDE.md schema section"
+
+  - id: E-10
+    title: "SB4-01 eval harness — parked with trigger: capture a real /arbi brief as the fixture"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: []
+    route: mission
+    paths: ["tests/", "docs/product/evals/"]
+    source: "roadmap-state.md G1 note"
+
+  - id: E-11
+    title: "Fix the false pip-cache comment on main inside merged #168 (full-check.yml) — three claude-execute attempts denied on Edit(/.github/**)"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: build
+    paths: [".github/workflows/full-check.yml"]
+    source: "roadmap-state.md 2026-08-25 close; decision-log.md 2026-08-25 — a denied path; the picker must never select this row"
+
+  - id: E-12
+    title: "R11 — conviction_level NULL on all 13 theses; a whole discipline dimension is unpopulated"
+    phase: E
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "risk-register.md R11"
+
+  - id: E-13
+    title: "R17 — the Cursor Cloud runtime sits outside every mechanical control in this repo"
+    phase: E
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "risk-register.md R17"
+
+  - id: E-15
+    title: "F1 — benchmark data acquisition; AXJOA.INDX absent so outcomes report unavailable, never a proxy"
+    phase: E
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: []
+    source: "ruling F1; asxos/domain/benchmark/outcome.py:31-33"
+
+  - id: E-16
+    title: "Refresh product-health-scorecard.md — dated 2026-07-14, seven weeks stale; needs live DB probes so it is attended"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["docs/product/product-health-scorecard.md"]
+    source: "docs/product/product-health-scorecard.md:3; scripts/product_health.py needs DATABASE_URL"

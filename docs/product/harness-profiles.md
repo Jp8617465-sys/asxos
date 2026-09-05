@@ -4,9 +4,9 @@
 **Scope:** how Claude Code's official permission modes (`plan` / `auto` / `dontAsk`)
 map onto asxos work; the main-loop fan-out topology; the two-speed command split
 (`/build` vs `/arbi-mission`); the hard owner→agent roster; rejected alternatives
-**Last verified:** 2026-09-02 (Amendment H — standing unattended dispatch permitted on the
-Actions substrate; rejected-item 7 lifted, item 9 unaffected. Amendment G — identity path +
-auto-merge + user `auto` measurement)
+**Last verified:** 2026-09-05 (Amendments H/K — standing dispatch is permitted in principle,
+but all three producer lanes remain owner-only `workflow_dispatch` while the branch-scoped
+credential P1 is open. Amendment G — identity path + auto-merge + user `auto` measurement)
 **Owner:** James (governor) applies local mode; arbi / the main loop obey this file
 **Superseded by:** N/A
 **Supersedes as operating SoT:** the profile / review-ceremony claims in
@@ -27,7 +27,7 @@ uses* and *which command carries the work*. It does not change I0–I6 or P0–P
 | `plan` | Wake, explore, Guilfoyle planning, red-team | I0–I1 | `/arbi`, `arbi-red-team`, `guilfoyle` as planner |
 | `auto` | Attended reversible build | I2–I4 | `/build`, `/arbi-mission` |
 | `dontAsk` | Locked-down CI / `claude-execute` | I0–I4 on the existing allowlist | CI, `claude-execute.yml` |
-| `dontAsk` | **Standing scheduled lanes (Amendment H)** | I0–I4, per-workflow allowlist, `ARBI_UNATTENDED=1` | `nightly-triage.yml`, `weekly-toolwatch.yml`, `weekly-perf.yml` |
+| `dontAsk` | **Standing gated lanes (Amendments H/K)** | I0–I4, per-workflow allowlist, `ARBI_UNATTENDED=1` | `nightly-triage.yml`, `weekly-toolwatch.yml`, `backlog-roll.yml` |
 
 `bypassPermissions` is **forbidden for every launch**. `acceptEdits` is not the
 standing default. `defaultMode: "auto"` in project `settings.json` is inert;
@@ -49,7 +49,7 @@ James → /arbi → arbi-red-team (ONE THING / large envelope only)
       → main loop fans out specialists / reversible-work-builder
       → draft PR → James merges
 
-schedule: (Amendment H) → workflow fires /arbi-mission with a fixed envelope
+owner-only workflow_dispatch (current gated posture) → workflow fires /arbi-mission with a fixed envelope
       → same fan-out, same specialists
       → draft PR → James merges          ← the human gate is unchanged
 ```
@@ -65,7 +65,7 @@ Guilfoyle is a read-only planner. Orchestration and mutation never share a proce
 | Fast | `/build` | One file, same-file refactor, tiny sequential fix |
 | Mission | `/arbi-mission` | Multi-node reversible work, 1–2 PRs |
 | Team | `/arbi-team` | Large parallel only |
-| Standing | scheduled lane → `/arbi-mission` | Unattended, one finding per fire (Amendment H) |
+| Standing | gated lane → `/arbi-mission` | Owner-dispatched, one finding per fire until the credential P1 closes |
 
 Empty `/arbi-mission` arguments wrap arbi's current #1 from `roadmap-state.md`.
 
@@ -132,14 +132,17 @@ unattended, fan out specialists, build on a `claude/**` branch, and open a **dra
 - **Rule #11 untouched** — no Model A output as a basis for capital.
 
 So the two-key property survives by construction: `.claude/settings.json` denies
-`Edit(/.github/**)` and `schedule:` fires only from the default branch, so an agent can neither
-author nor arm a standing lane. It drafts YAML; **James's merge is the arming action.**
+`Edit(/.github/**)` and automatic triggers work only from the default branch, so an agent can
+neither author nor arm one. Merging installs a lane for manual use; a later reviewed change is
+required to add an automatic trigger.
 
 **Conditions every standing lane must meet** (a lane that cannot meet these is not eligible):
 
 1. `ARBI_UNATTENDED=1` in the workflow's job-level `env:` — scoped to that workflow, never the
    shared interactive environment.
-2. **No secrets mounted.** The lane reads code and opens draft PRs; it needs none.
+2. **Credential-free verification.** Agent-authored code runs only in a separate
+   `contents: read` job at a validated immutable SHA, with `persist-credentials: false` and no
+   OAuth, deadman URL, or write token. The producer's repo write token remains the open P1.
 3. **Verification runs as a workflow step, not an agent Bash call.** `unattended-guard.sh:285-287`
    denies unscrubbed `pytest`; running the suite as its own step sidesteps that *and* converts a
    self-report into a CI fact.
@@ -149,8 +152,9 @@ author nor arm a standing lane. It drafts YAML; **James's merge is the arming ac
    their "quality and liveness problems are the same problem." A fire that leaves no commit is
    indistinguishable from a fire that never happened.
 5. **A Healthchecks deadman per lane**, pinged every fire. `nightly-check.yml:77-87` is the pattern.
-6. **`workflow_dispatch` first.** `schedule:` is added only after a green manual run. A scheduled
-   lane that has never succeeded manually is an untested deploy.
+6. **Owner-only `workflow_dispatch` while the producer-token P1 is open.** A green manual run is
+   necessary evidence but is not authority to add `schedule` or `workflow_run`; automatic
+   triggers require the branch-scoped credential control to be designed and red-teamed first.
 7. **A change-detector pre-gate** where the lane's evidence base is commit-driven (skip for
    calendar-driven lanes like production-timing trend, which regress with zero commits).
 
@@ -197,6 +201,39 @@ port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
 | Pin `supabase-ro` alias / OAuth MCP servers | friction proposal §4 |
 | GitHub App reviewer (`asxos-arbi-approver`) | `docs/product/runbooks/arbi-approver-github-app.md` — Amendment G ruling 2; second *account* runbook is the rejected alternative |
 | `supabase-ro` → `asxos_agent_ro` re-point | agent-db-readonly-role design |
-| ~~Standing 7b~~ — **granted 2026-09-02 (Amendment H)**; remaining James steps are merging the lane workflows (the arming action) and providing the per-lane Healthchecks URLs | §Standing dispatch above |
+| ~~Standing 7b~~ — **granted 2026-09-02 (Amendment H)**; lanes are installed for owner-dispatched use. Remaining James steps are providing the per-lane Healthchecks URLs and later ruling on a red-teamed branch-scoped credential before any automatic trigger | §Standing dispatch above |
 | Guilfoyle-as-main-thread | later, on evidence |
 | `docs/README.md` map row for this file | deny-listed; James applies |
+
+---
+
+## Standing dispatch — lane C: `backlog-roll` (Amendment K, 2026-09-05)
+
+Added under the same seven conditions Amendment H (2026-09-02, carried by #199) binds
+every standing lane to; this section is appended here rather than into that section so
+the two PRs merge in either order. Lanes A (`nightly-triage`) and B (`weekly-toolwatch`)
+are **reactive** — a red run, a weekly changelog. Lane C is **proactive**: a deterministic
+picker decides, before any agent runs, which backlog items this fire may build.
+
+| | Lane C |
+|---|---|
+| Workflow | `.github/workflows/backlog-roll.yml` — owner-only `workflow_dispatch` while the producer write-token P1 is open; explicit per-run acknowledgement required |
+| Pre-gate | `scripts/backlog_next.py` over `docs/product/backlog.yaml` — no model. Eligible = arbi-owned, `route` build/mission, `status` open, every `depends_on` done, every `paths` entry outside the denied set copied from `unattended-guard.sh` + `settings.json` (drift-tested). Exit 3 = nothing buildable; the click-list is still emitted and the fire records a heartbeat |
+| Arming | job-scoped `ARBI_UNATTENDED=1` + STEP-0 self-check. The producer receives OAuth, deadman, and repo write tokens; that surface is an explicit gated residual, not a secret-free boundary |
+| Agent | `claude-code-action`, `--allowedTools` identical to lane A — no `pytest`, no `gh pr create`, no MCP. One branch per item off `main`, never stacked; touches only the item's `paths`; sets that item `built-unmerged` in `backlog.yaml` on its own branch only |
+| Verify | separate `contents: read` matrix jobs at validated immutable SHAs, `persist-credentials: false`, no OAuth/deadman/write token. A red matrix opens no PR |
+| PR | separate `pull-requests: write` publisher rechecks each remote SHA, then `gh pr create --draft` |
+| Artifact-per-fire | separate record job, which never checks out agent-authored code, appends one row to `docs/product/backlog-ledger.md` on `claude/backlog-ledger` |
+| Deadman ★ | `HC_BACKLOG_URL`, checked at **STEP 0** — unset **fails the run** (condition 5, hardened). Pings the check on success and `/fail` otherwise |
+
+**Primary product is the click-list.** Once the Amendment H train lands the backlog is
+mostly James's, and most fires will exit at the pre-gate having only re-stated what is
+blocked on him. That is the intended behaviour, not a defect. The builder half earns its
+keep on the residue: proposal drafts, doc-drift sweeps, test hygiene, `m14_candidate_*`
+items as they are un-parked.
+
+**What it cannot do, unchanged from lanes A/B:** merge, un-draft, push to `main`, apply
+a migration, touch a secret, edit `.github/**` or any authority path, touch
+capital-adjacent code, flip a dark surface, approve a theme member, or calibrate risk.
+Standing dispatch was granted; standing landing was not. The workflow remains manually gated.
+Automatic triggers stay blocked until backlog item A-22 closes the branch-scoped credential P1.

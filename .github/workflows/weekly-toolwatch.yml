@@ -11,18 +11,11 @@
 # deleted review-gate, parts of the arbi governance set) sit exactly where
 # first-party features keep appearing.
 #
-# WHY NO `schedule:` YET — this is deliberate, not an omission. Amendment H
-# condition 6: workflow_dispatch first, schedule only after a green manual run. A
-# scheduled lane that has never succeeded manually is an untested deploy, and
-# `schedule:` fires only from the default branch so it cannot be tested on a
-# branch anyway. Once a dispatched run is green, add:
-#
-#   schedule:
-#     - cron: "0 19 * * 0"   # Sunday 19:00 UTC = Monday 06:00 AEDT
-#
-# 19:00 Sunday UTC is staggered well clear of weekly-research.yml (Sat 16:00 UTC,
-# the investment research-store chain — a different thing entirely, despite the
-# similar name) and lands the report before Monday morning in Sydney.
+# WHY NO `schedule:` — the producer agent needs `contents: write` to push its
+# branch, and GitHub workflow permissions cannot scope that token to `claude/**`.
+# Until a GitHub App or separately scoped credential is provisioned and red-teamed,
+# this lane remains owner-only `workflow_dispatch` with an explicit per-run risk
+# acknowledgement. A green manual run is evidence, not authority to automate it.
 #
 # The two-key property: .claude/settings.json denies Edit(/.github/**), so an agent
 # cannot author or arm this file. It drafts YAML; James's merge is the arming

@@ -19,22 +19,11 @@
 # self-report into a CI fact. An agent that says "tests pass" and a CI step that
 # says so are not the same claim.
 #
-# WHY NO `workflow_run:` TRIGGER YET — Amendment H condition 6: dispatch first,
-# automatic trigger only after a green manual run. Both `workflow_run` and
-# `schedule` fire only from the default branch, so neither is testable on a branch.
-# Once a dispatched run is green, add:
-#
-#   workflow_run:
-#     workflows: ["nightly-check"]
-#     types: [completed]
-#
-# ...with `if: github.event.workflow_run.conclusion == 'failure'` on the job. Note
-# claude-execute.yml:22-24 rejects automatic event triggers because "repo events can
-# carry untrusted text" — that rationale genuinely does not bind here, because a
-# workflow_run payload is entirely first-party (our own workflow name, our own
-# conclusion, our own SHA) with no user-controllable string. But it IS a documented
-# boundary, so crossing it is a deliberate decision recorded in decision-log.md,
-# not a side effect.
+# WHY NO `workflow_run:` TRIGGER — the producer agent needs `contents: write` to push
+# its branch, and GitHub workflow permissions cannot scope that token to `claude/**`.
+# Until a GitHub App or separately scoped credential is provisioned and red-teamed,
+# this lane remains owner-only `workflow_dispatch` with an explicit per-run risk
+# acknowledgement. A green manual run is evidence, not authority to automate it.
 
 name: nightly-triage
 
