@@ -112,3 +112,59 @@ async def test_clean_success_rows_produce_no_degraded_issue() -> None:
     issues = await _query_issues(conn)
 
     assert not [i for i in issues if i.startswith("DEGRADED:")]
+
+
+class _FixedMonday:
+    """Stand-in for `datetime` whose now() is a Monday, so check #2 always runs."""
+
+    @staticmethod
+    def now(tz=None):  # type: ignore[no-untyped-def]
+        return datetime(2026, 8, 31, 0, 17, tzinfo=UTC)  # Monday 00:17 UTC
+
+
+@pytest.mark.asyncio
+async def test_weekday_only_job_gets_a_window_that_spans_the_weekend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression for the 2026-08-31 false positive.
+
+    `check_us_positions` runs Mon–Fri 21:30 UTC. A health check early on a
+    Monday saw Friday's success 50h back, outside a flat 36h window, and
+    raised MISSING for a job that was perfectly healthy. The window must be
+    per-job: default 36h, weekend-spanning for weekday-only jobs, and the
+    number must be the one actually bound into the query, not just a label.
+    """
+    import jobs.check_cron_health as mod
+
+    monkeypatch.setattr(mod, "datetime", _FixedMonday)
+
+    conn = MagicMock()
+    conn.fetch = AsyncMock(side_effect=[[], [], []])
+    calls: list[tuple[str, int]] = []
+
+    async def _fetchrow(sql: str, job_name: str, window_hours: int) -> dict[str, object]:
+        calls.append((job_name, window_hours))
+        assert "($2 * INTERVAL '1 hour')" in sql, "window must be bound, not inlined"
+        # Friday 21:30 UTC success is 50.8h before the Monday 00:17 check:
+        # inside an 80h window, outside a 36h one.
+        friday_age_h = 50.8
+        last = (
+            datetime(2026, 8, 28, 21, 30, tzinfo=UTC)
+            if window_hours > friday_age_h
+            else None
+        )
+        return {"last_success": last}
+
+    conn.fetchrow = _fetchrow
+
+    issues = await _query_issues(conn)
+
+    windows = dict(calls)
+    assert windows["check_us_positions"] == 80
+    assert windows["sync_prices"] == 36
+    assert all(w >= 36 for w in windows.values())
+    missing = [i for i in issues if i.startswith("MISSING:")]
+    assert not any("check_us_positions" in i for i in missing), missing
+    # Every default-window job still reports MISSING under this fixture,
+    # proving the per-job window is what changed the outcome, not the check.
+    assert any("sync_prices" in i and "36 hours" in i for i in missing)

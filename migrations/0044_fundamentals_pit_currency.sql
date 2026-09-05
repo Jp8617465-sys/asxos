@@ -1,6 +1,13 @@
 -- 0044_fundamentals_pit_currency.sql
 -- =====================================================================
 --
+-- APPLIED to production 2026-08-21 as ledger version 20260821080458
+-- (`supabase_migrations.schema_migrations`, name `fundamentals_pit_currency`).
+-- The COMMENT text below matches the live database verbatim: the original
+-- draft said "102 symbols observed 2026-08-18", which was wrong by ~9x
+-- against the 947 measured at apply time, and the corrected figure is what
+-- became permanent DB metadata (james-inbox.md, 2026-08-21/22 postscripts).
+--
 -- Segment-valuation architecture doc (docs/proposals/
 -- segment-valuation-portfolio-architecture-2026-08-18.md), defect D1: every
 -- monetary column on rs_fundamentals_pit is a cross-currency ratio today —
@@ -24,6 +31,6 @@ COMMENT ON COLUMN rs_fundamentals_pit.currency IS
     'Reporting currency of the source statement, carried through from '
     'rs_financial_statements.currency. NULL for pre-existing rows written '
     'before this column existed, and for any statement whose own currency '
-    'was unrecorded (102 symbols observed 2026-08-18). Any aggregate that '
+    'was unrecorded (947 symbols measured 2026-08-21). Any aggregate that '
     'sums monetary columns across rows MUST group by this column (or filter '
     'to a single value) rather than assume AUD.';

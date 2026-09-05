@@ -14,6 +14,7 @@ import pytest
 
 from asxos.ingestion.financial_statements import (
     derive_knowledge_date,
+    derive_knowledge_date_tiered,
     refresh_financial_statements,
     to_statement_rows,
 )
@@ -231,3 +232,65 @@ async def test_refresh_tolerates_errors_and_avoids_prod_tables():
         assert "universe" not in low
         assert " prices" not in low
     assert any("rs_financial_statements" in s.lower() for s, _ in conn.executed_many)
+
+
+# --- knowledge_tier: how much the date is worth (2026-09-02, campaign node H2-A) ---
+
+
+def test_tier_is_filed_when_a_real_disclosure_date_was_accepted() -> None:
+    kd, tier = derive_knowledge_date_tiered(
+        D("2025-06-30"), D("2025-08-12"), D("2025-06-30"), D("2026-06-24")
+    )
+    assert kd == D("2025-08-12")
+    assert tier == "filed"
+
+
+def test_tier_is_estimated_when_the_lag_fallback_was_used() -> None:
+    """No usable disclosure date -> period_end + lag_days, which is a convention."""
+    kd, tier = derive_knowledge_date_tiered(
+        D("2025-06-30"), None, None, D("2026-06-24"), lag_days=75
+    )
+    assert kd == D("2025-09-13")
+    assert tier == "estimated"
+
+
+def test_a_filing_date_equal_to_period_end_is_rejected_and_tiers_estimated() -> None:
+    """The live shape: filing_date defaulted to period_end, report_date NULL.
+
+    The `period_end < d` guard rejects the defaulted field, so the fallback runs.
+    This is the exact configuration behind all 326 future-dated production rows.
+    """
+    kd, tier = derive_knowledge_date_tiered(
+        D("2026-06-30"), None, D("2026-06-30"), D("2026-06-30"), lag_days=75
+    )
+    assert tier == "estimated"
+    assert kd == D("2026-09-13")
+
+
+def test_the_estimated_fallback_can_land_in_the_future_and_is_not_clamped() -> None:
+    """Reproduces the production defect, and pins the decision not to hide it.
+
+    Measured 2026-09-02: 326 rows carry knowledge_date 2026-09-13 — every one
+    period_end 2026-06-30 + 75d, derived on as_of 2026-06-30. Clamping to as_of
+    would assert we knew the statement on the period end date itself, which is
+    the look-ahead leak this guard exists to prevent. Recording the tier is the
+    fix; the date stays honest about what it is.
+    """
+    as_of = D("2026-06-30")
+    kd, tier = derive_knowledge_date_tiered(
+        D("2026-06-30"), None, None, as_of, lag_days=75
+    )
+    assert kd > as_of, "the fallback is allowed to be in the future"
+    assert tier == "estimated", "and it must be labelled as an estimate"
+
+
+def test_date_only_wrapper_matches_the_tiered_function() -> None:
+    """derive_knowledge_date() is a view over the tiered one — no drift."""
+    for period_end, report, filing, as_of in (
+        (D("2025-06-30"), D("2025-08-12"), D("2025-06-30"), D("2026-06-24")),
+        (D("2025-06-30"), None, None, D("2026-06-24")),
+        (D("2026-06-30"), None, D("2026-06-30"), D("2026-06-30")),
+    ):
+        assert derive_knowledge_date(period_end, report, filing, as_of) == (
+            derive_knowledge_date_tiered(period_end, report, filing, as_of)[0]
+        )
