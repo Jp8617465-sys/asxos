@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Mapping
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Any, Final, Protocol
 
@@ -50,8 +50,8 @@ _HUNDRED: Final = Decimal("100")
 NEGATIVE_CONTROLS: Final[frozenset[str]] = frozenset({"CBA.AU", "HUBS.NYSE", "HUBS.US", "ESS.AU"})
 
 SQL_SNAPSHOT: Final[str] = (
-    "SELECT as_of, capital_aud, holdings_mv_aud, cash_aud FROM portfolio_daily_snapshots "
-    "WHERE as_of <= $1 ORDER BY as_of DESC LIMIT 1"
+    "SELECT as_of, capital_aud, holdings_mv_aud, cash_aud, ingested_at "
+    "FROM portfolio_daily_snapshots ORDER BY as_of DESC LIMIT 1"
 )
 SQL_HOLDINGS: Final[str] = (
     "SELECT ch.symbol, SUM(ch.quantity) AS quantity, MAX(u.sector) AS sector "
@@ -62,8 +62,15 @@ SQL_CLOSE: Final[str] = "SELECT dt, close FROM prices WHERE symbol = $1 AND dt <
 SQL_CLOSES: Final[str] = "SELECT close FROM prices WHERE symbol = $1 AND dt <= $2 ORDER BY dt DESC LIMIT $3"
 SQL_FX: Final[str] = "SELECT rate FROM fx_rates WHERE pair = 'AUDUSD' AND dt <= $1 ORDER BY dt DESC LIMIT 1"
 SQL_PROFILE: Final[str] = (
-    "SELECT capital_aud, cash_floor_pct, per_name_cap_pct, sector_cap_pct, min_position_aud "
+    "SELECT capital_aud, cash_floor_pct, per_name_cap_pct, sector_cap_pct, min_position_aud, updated_at "
     "FROM profiles WHERE is_active = TRUE LIMIT 1"
+)
+SQL_LAST_HOLDING_CHANGE: Final[str] = (
+    "SELECT MAX(updated_at) AS changed_at FROM holding_lots"
+)
+SQL_LAST_HELD_SECTOR_CHANGE: Final[str] = (
+    "SELECT MAX(u.updated_at) AS changed_at FROM current_holdings ch "
+    "JOIN universe u ON u.symbol = ch.symbol"
 )
 SQL_CANDIDATES: Final[str] = (
     "SELECT payload FROM candidate_snapshots WHERE as_of <= $1 AND expires_at > $2 ORDER BY as_of DESC, symbol"
@@ -96,11 +103,61 @@ def _dec(value: object) -> Decimal:
     return Decimal(str(value))
 
 
+def _as_date(value: object) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
+
+
+def _as_utc(value: object, *, field: str) -> datetime:
+    if isinstance(value, datetime):
+        result = value
+    else:
+        result = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if result.tzinfo is None:
+        raise RuntimeError(f"{field} must be timezone-aware")
+    return result.astimezone(UTC)
+
+
+async def _latest_exact_snapshot(conn: StateConn, as_of: date) -> tuple[Any, datetime]:
+    snap = await conn.fetchrow(SQL_SNAPSHOT)
+    if snap is None:
+        raise RuntimeError("no portfolio_daily_snapshots row exists")
+    snapshot_date = _as_date(snap["as_of"])
+    if snapshot_date != as_of:
+        raise RuntimeError(
+            f"portfolio state is available only for the latest exact snapshot "
+            f"{snapshot_date.isoformat()}; requested {as_of.isoformat()}"
+        )
+    return snap, _as_utc(snap["ingested_at"], field="snapshot ingested_at")
+
+
+def _refuse_post_snapshot_change(row: Any, *, snapshot_at: datetime, label: str) -> None:
+    if row is None or row.get("changed_at") is None:
+        return
+    changed_at = _as_utc(row["changed_at"], field=f"{label} changed_at")
+    if changed_at > snapshot_at:
+        raise RuntimeError(
+            f"{label} changed at {changed_at.isoformat()} after the latest portfolio "
+            f"snapshot was ingested at {snapshot_at.isoformat()}"
+        )
+
+
 async def load_portfolio_state(conn: StateConn, as_of: date) -> PortfolioState:
     require_personal_use()
-    snap = await conn.fetchrow(SQL_SNAPSHOT, as_of)
-    if snap is None:
-        raise RuntimeError(f"no portfolio_daily_snapshots row on or before {as_of}")
+    snap, snapshot_at = await _latest_exact_snapshot(conn, as_of)
+    _refuse_post_snapshot_change(
+        await conn.fetchrow(SQL_LAST_HOLDING_CHANGE),
+        snapshot_at=snapshot_at,
+        label="holding lots",
+    )
+    _refuse_post_snapshot_change(
+        await conn.fetchrow(SQL_LAST_HELD_SECTOR_CHANGE),
+        snapshot_at=snapshot_at,
+        label="held-symbol sectors",
+    )
     capital = _dec(snap["capital_aud"])
     cash = _dec(snap["cash_aud"])
     if capital <= 0:
@@ -138,12 +195,18 @@ async def load_portfolio_state(conn: StateConn, as_of: date) -> PortfolioState:
     )
 
 
-async def load_sizing_policy(conn: StateConn) -> SizingPolicy:
+async def load_sizing_policy(conn: StateConn, as_of: date) -> SizingPolicy:
     """The active profile's caps, never looser than the register."""
     require_personal_use()
+    _, snapshot_at = await _latest_exact_snapshot(conn, as_of)
     row = await conn.fetchrow(SQL_PROFILE)
     if row is None:
         raise RuntimeError("no active profile")
+    _refuse_post_snapshot_change(
+        {"changed_at": row["updated_at"]},
+        snapshot_at=snapshot_at,
+        label="active profile",
+    )
     return SizingPolicy(
         capital_aud=_dec(row["capital_aud"]),
         position_cap_pct=_q(_dec(row["per_name_cap_pct"]) * _HUNDRED),

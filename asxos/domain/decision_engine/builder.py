@@ -116,9 +116,12 @@ from asxos.domain.theses.service import get_thesis
 #: Not in pit_db.py's admissible-table SQL constants (it has no "latest
 #: period" query) — mirrors its query-construction style: SELECT-only,
 #: bound parameters, an admissible table (`rs_financial_statements`).
-SQL_LATEST_YEARLY_PERIOD_END: Final[str] = (
-    "SELECT MAX(period_end) AS period_end FROM rs_financial_statements "
-    "WHERE symbol = $1 AND period_type = 'yearly' AND statement_type = 'income'"
+SQL_YEARLY_INCOME_PERIODS: Final[str] = (
+    "SELECT symbol, period_end, period_type, statement_type, filing_date, "
+    "report_date, currency, total_revenue, net_income "
+    "FROM rs_financial_statements "
+    "WHERE symbol = $1 AND period_end <= $2 AND period_type = 'yearly' "
+    "AND statement_type = 'income' ORDER BY period_end DESC"
 )
 
 _PCT_QUANT: Final[Decimal] = Decimal("0.000001")
@@ -251,19 +254,28 @@ async def build_decision_case(
 
     # -- Fundamentals: mirrors pit_db.py's query construction and known_at
     # rule (see module docstring); NOT pit_db.build_pit_case() itself.
-    assert_sql_admissible(SQL_LATEST_YEARLY_PERIOD_END)
+    assert_sql_admissible(SQL_YEARLY_INCOME_PERIODS)
     assert_sql_admissible(SQL_INCOME)
-    period_row = await conn.fetchrow(SQL_LATEST_YEARLY_PERIOD_END, symbol)
-    period_end = _coerce_date(period_row["period_end"]) if period_row else None
-    if period_end is None:
-        raise ValueError(f"no yearly income statement found for {symbol} in rs_financial_statements")
-
-    current_row = await conn.fetchrow(SQL_INCOME, symbol, period_end, "yearly")
-    current_known = _income_known_at(current_row, period_end=period_end, as_of=as_of, cutoff=cutoff)
-    if current_known is None:
+    period_rows = await conn.fetch(SQL_YEARLY_INCOME_PERIODS, symbol, as_of)
+    current_row: Mapping[str, object] | None = None
+    period_end: date | None = None
+    current_known: datetime | None = None
+    for row in period_rows:
+        candidate_end = _coerce_date(row.get("period_end"))
+        if candidate_end is None:
+            continue
+        candidate_known = _income_known_at(
+            row, period_end=candidate_end, as_of=as_of, cutoff=cutoff
+        )
+        if candidate_known is not None:
+            current_row = row
+            period_end = candidate_end
+            current_known = candidate_known
+            break
+    if current_row is None or period_end is None or current_known is None:
         raise ValueError(
-            f"no admissible yearly income row for {symbol} period_end={period_end.isoformat()} "
-            f"at knowledge cutoff {cutoff.isoformat()}"
+            f"no admissible yearly income row for {symbol} at knowledge cutoff "
+            f"{cutoff.isoformat()}"
         )
     items.append(
         EvidenceItem(

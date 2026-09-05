@@ -52,6 +52,21 @@ def test_buy_is_staged_from_the_maximum_size_and_is_not_executable() -> None:
         StagedOrder.model_validate({**order.model_dump(), "not_executable": False})
 
 
+def test_buy_offset_is_sized_and_recorded_at_the_worst_case_limit() -> None:
+    order = _stage(reference_price=Decimal("100"), limit_offset_pct=Decimal("10"))
+    assert order.limit_price == Decimal("110.000000")
+    assert order.quantity == Decimal("363")
+    assert order.notional_aud == Decimal("39930.000000")
+    assert order.notional_aud <= Decimal("40000")
+    assert order.size_pct == Decimal("7.986000")
+
+
+@pytest.mark.parametrize("offset", [Decimal("-0.1"), Decimal("100"), Decimal("101")])
+def test_limit_offset_is_bounded(offset: Decimal) -> None:
+    with pytest.raises(StagingError, match="limit offset"):
+        _stage(limit_offset_pct=offset)
+
+
 def test_sell_delegates_lot_selection_to_the_tax_module() -> None:
     order = _stage(side="sell", open_lots=LOTS, reference_price=Decimal("160"))
     assert order.quantity == Decimal("250")  # floor(40000/160); held 300

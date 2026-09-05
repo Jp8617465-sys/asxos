@@ -95,7 +95,7 @@ async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bo
             ctx = None
             if with_context:
                 state = await load_portfolio_state(conn, day)
-                policy = await load_sizing_policy(conn)
+                policy = await load_sizing_policy(conn, day)
                 vol = await load_annualised_vol(conn, thesis.symbol, day)
                 peers = await load_peer_vols(conn, state, day)
                 ctx = ChallengeContext(
