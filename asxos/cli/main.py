@@ -25,6 +25,7 @@ from asxos.cli.news import news_app
 from asxos.cli.portfolio import build_portfolio, portfolio_app, propose_trades
 from asxos.cli.position import position_app
 from asxos.cli.profile import profile_app
+from asxos.cli.replay import replay_app
 from asxos.cli.results_review import results_review_app
 from asxos.cli.screen import screen_app
 from asxos.cli.tax import tax_action, tax_view
@@ -59,6 +60,7 @@ app.add_typer(agent_run_app, name="agent-run")
 app.add_typer(arbi_app, name="arbi")
 app.add_typer(screen_app, name="screen")
 app.add_typer(results_review_app, name="results-review")
+app.add_typer(replay_app, name="replay")
 
 
 if __name__ == "__main__":  # pragma: no cover
