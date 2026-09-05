@@ -18,6 +18,7 @@ from asxos.cli.agent_run import agent_run_app
 from asxos.cli.arbi import arbi_app
 from asxos.cli.brief import brief
 from asxos.cli.candidates import candidates_app
+from asxos.cli.decision import decision_app
 from asxos.cli.holdings import import_holdings
 from asxos.cli.journal import journal_app
 from asxos.cli.macro_thesis import macro_thesis_app
@@ -65,6 +66,7 @@ app.add_typer(results_review_app, name="results-review")
 app.add_typer(replay_app, name="replay")
 app.add_typer(research_app, name="research")
 app.add_typer(candidates_app, name="candidates")
+app.add_typer(decision_app, name="decision")
 
 
 if __name__ == "__main__":  # pragma: no cover
