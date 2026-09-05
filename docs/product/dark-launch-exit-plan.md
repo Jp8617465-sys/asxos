@@ -4,7 +4,7 @@
 **Scope:** every code-complete-but-gated-off surface in asxos. For each one: a **ship / delete /
 keep-dark** decision, the reason, an **expiry** if kept dark, and the exact gate that flips it.
 Closes risk R4 (built-but-dark ≠ released) by refusing to let a surface sit dark with no decision.
-**Last verified:** 2026-08-21 (`/arbi-run` — **surface #2 issued a fresh SHIP verdict** on a
+**Last verified:** 2026-09-02 (`/arbi` wake — **surfaces #1 and #4 found EXPIRED since 2026-08-31 and formally re-raised**; countdown block and summary rows corrected; #3 unexpired at 28 days. Verdict drafts are campaign node H1-G, the rulings are James's). Prior: 2026-08-21 (`/arbi-run` — **surface #2 issued a fresh SHIP verdict** on a
 read-only production probe of both restated conditions; the 8-day-old "no fresh verdict exists"
 gap is closed, and two stale claims inside that section were falsified by the same probe and
 corrected in place). Prior: 2026-08-13 (SB0-01 doc-truth sweep — surface #2's verdict reverted to
@@ -209,25 +209,36 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ## Summary
 
-**Expiry countdown as of 2026-08-21 (`/arbi-run`):** surfaces #1 and #4 expire **2026-08-31 —
-10 days out**; surface #3 expires **2026-09-30 — 40 days out**. None has expired yet; all three
-re-raise automatically on those dates per `:216-217`. **Surface #2 is no longer awaiting a
-verdict** — SHIP issued 2026-08-21.
+🔴 **Expiry status as of 2026-09-02 (`/arbi` wake): surfaces #1 and #4 are EXPIRED — two days
+past, verdict overdue, and re-raised.** Their 2026-08-31 expiry passed with no ruling, and the
+"decide by 2026-08-28" date in `james-inbox.md` passed five days ago. Per this file's own rule
+below, an expired KEEP-DARK does **not** roll over: each must earn a fresh SHIP / DELETE /
+KEEP-DARK verdict with a new expiry. Surface #3 expires **2026-09-30** (28 days out, not yet
+expired). Surface #2 is closed — SHIP issued 2026-08-21.
 
-⚠️ **#1 and #4 are James's and are inside their decision window.** Both are flagged in
+The scheduling fact named in the 2026-08-21 countdown below came true exactly as stated: the
+4-week window was never opened, so #1 and #4 re-raise together with no new evidence to decide
+on. A verdict draft for both — recommending KEEP-DARK to 2026-11-30, tied to Stage 4 case
+delivery rather than to a date — is campaign node H1-G; the ruling itself is James's
+(click H-16), because both gates are capital-adjacent.
+
+_Superseded countdown (2026-08-21 `/arbi-run`), kept as the record of what was known then:_
+_surfaces #1 and #4 expire **2026-08-31 — 10 days out**; surface #3 expires **2026-09-30 — 40
+days out**. None has expired yet. **Surface #2 is no longer awaiting a verdict** — SHIP issued
+2026-08-21. ⚠️ #1 and #4 are James's and are inside their decision window; both are flagged in
 `james-inbox.md` with "decide by 2026-08-28" — seven days out. #4's gate ("start the 4-week
 paper-trade run") cannot produce evidence before #1's own 2026-08-31 expiry, so if the window
 is not opened this week the two re-raise together with no new evidence to decide on. That is a
-scheduling fact, not a recommendation.
+scheduling fact, not a recommendation._
 
 _Prior countdown (2026-08-13, SB0-01 sweep): #1/#4 18 days out, #3 48 days out._
 
 | Surface | Verdict | Gate | Expiry / condition | Flip owner |
 |---|---|---|---|---|
-| Portfolio brief | KEEP-DARK | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | 2026-08-31 (**10d** as of 2026-08-21) · re-scope to model-independent cards + 4wk sign-off | James |
+| Portfolio brief | 🔴 **EXPIRED 2026-08-31 — re-raised, awaiting a fresh verdict** (was KEEP-DARK) | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | **EXPIRED 2026-08-31** (was: 10d as of 2026-08-21) · re-scope to model-independent cards + 4wk sign-off | James |
 | News/sentiment brief | ✅ **SHIP — fresh verdict 2026-08-21** (was UN-SHIPPED · RE-RAISED 2026-08-13) | `ASXOS_NEWS_BRIEF_ENABLED=1` already live via `.github/workflows/daily-brief.yml:61` — no flip needed | (a) re-verified 2026-08-21: `rows_written` 3·2·2·1·0·4 all `success`, `holding_news` 9 rows; (b) unchanged | arbi/main loop — **issued** |
-| V2 brief tree | KEEP-DARK | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 (**40d** as of 2026-08-21) · descope to model-independent collectors | arbi / James |
-| Paper-trade evaluator | KEEP-DARK | start the 4wk run (internal) | 2026-08-31 (**10d** as of 2026-08-21) · re-raise with surface #1 | James |
+| V2 brief tree | KEEP-DARK (not expired) | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 (**28d** as of 2026-09-02) · descope to model-independent collectors | arbi / James |
+| Paper-trade evaluator | 🔴 **EXPIRED 2026-08-31 — re-raised, awaiting a fresh verdict** (was KEEP-DARK) | start the 4wk run (internal) | **EXPIRED 2026-08-31** (was: 10d as of 2026-08-21) · re-raised with surface #1 | James |
 
 ## How arbi uses it
 
