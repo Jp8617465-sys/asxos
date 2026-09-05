@@ -221,12 +221,21 @@ def test_none_when_both_statements_absent():
 
 
 class FakeConn:
-    def __init__(self, fin, divs):
+    def __init__(self, fin, divs, *, has_knowledge_tier: bool = True):
         self._fin = fin
         self._divs = divs
+        # Mirrors whether migration 0049 has been applied. The deriver probes
+        # this once per run and picks the matching upsert variant, so a fake
+        # that always answered True would hide the pre-migration path.
+        self._has_knowledge_tier = has_knowledge_tier
         self.fetched: list[tuple[str, tuple[Any, ...]]] = []
         self.executed: list[tuple[str, tuple]] = []
         self.executed_many: list[tuple[str, list[tuple[Any, ...]]]] = []
+
+    async def fetchval(self, sql, *args):
+        if "column_name  = 'knowledge_tier'" in sql:
+            return self._has_knowledge_tier
+        raise AssertionError(f"unexpected fetchval: {sql}")
 
     async def fetch(self, sql, *args):
         self.fetched.append((sql, args))
@@ -325,8 +334,9 @@ async def test_orchestrator_derives_and_upserts():
     args = rows[0]
     assert "ON CONFLICT (symbol, knowledge_date) DO UPDATE" in sql
     assert args[0] == "HUBS.US"
-    assert args[7] == Decimal("0.200000")  # roe in the param list
-    assert args[16] == "USD"  # currency, from _finrow's default
+    assert args[3] == "filed"  # knowledge_tier — a real disclosure date was used
+    assert args[8] == Decimal("0.200000")  # roe in the param list
+    assert args[17] == "USD"  # currency, from _finrow's default
 
 
 @pytest.mark.asyncio
@@ -370,8 +380,8 @@ async def test_dividend_window_excludes_out_of_range():
     await refresh_fundamentals_pit(conn, as_of=D("2026-06-24"))
     _sql, rows = conn.executed_many[0]
     args = rows[0]
-    assert args[14] == Decimal("2")  # dividend_ttm — only the in-window dividend
-    assert args[16] == "USD"  # currency, from _finrow's default
+    assert args[15] == Decimal("2")  # dividend_ttm — only the in-window dividend
+    assert args[17] == "USD"  # currency, from _finrow's default
 
 
 @pytest.mark.asyncio
@@ -632,15 +642,15 @@ async def test_batched_pit_row_remains_compatible_with_factor_score_consumer():
     args = derive_conn.executed_many[0][1][0]
     pit_row = {
         "symbol": args[0],
-        "eps_ttm": args[4],
-        "book_value_ps": args[3],
-        "roe": args[7],
-        "roa": args[8],
-        "gross_margin": args[9],
-        "operating_margin": args[10],
-        "dividend_ttm": args[14],
-        "franking_avg_pct": args[15],
-        "shares_outstanding": args[13],
+        "eps_ttm": args[5],
+        "book_value_ps": args[4],
+        "roe": args[8],
+        "roa": args[9],
+        "gross_margin": args[10],
+        "operating_margin": args[11],
+        "dividend_ttm": args[15],
+        "franking_avg_pct": args[16],
+        "shares_outstanding": args[14],
         "knowledge_date": args[2],
         "sector": "Financials",
     }
@@ -657,3 +667,75 @@ async def test_batched_pit_row_remains_compatible_with_factor_score_consumer():
     _sql, factor_args = factor_conn.factor_writes[0]
     assert factor_args[0] == "CBA.AU"
     assert factor_args[11] == 2  # derived value and quality categories survive
+
+
+def _tier_fixture_rows():
+    """The same shape the orchestrator test uses: one income + balance pair
+    with a real report_date, so the guard tiers it "filed"."""
+    fin = [
+        _finrow(
+            "income",
+            total_revenue=Decimal("1000"),
+            net_income=Decimal("100"),
+            line_items=json.dumps({"grossProfit": "600", "operatingIncome": "200"}),
+        ),
+        _finrow(
+            "balance_sheet",
+            total_assets=Decimal("2000"),
+            total_equity=Decimal("500"),
+            total_debt=Decimal("300"),
+            shares_diluted=Decimal("50"),
+            line_items=json.dumps({"netDebt": "100"}),
+        ),
+    ]
+    divs = [
+        {
+            "symbol": "HUBS.US",
+            "ex_date": D("2025-09-01"),
+            "dividend_amount": Decimal("1.5"),
+            "franking_pct": Decimal("100"),
+        }
+    ]
+    return fin, divs
+
+@pytest.mark.asyncio
+async def test_deriver_omits_the_tier_when_migration_0049_is_unapplied():
+    """Deployable before the migration — the defect this pattern exists to avoid.
+
+    Merging a write path that needs a column which does not exist yet is the
+    "code and migration drafted together but only code could merge" failure
+    already recorded in james-inbox.md. The deriver probes for the column once
+    per run and picks the matching upsert, so merge order does not matter.
+    """
+    fin, divs = _tier_fixture_rows()
+    conn = FakeConn(fin, divs, has_knowledge_tier=False)
+    await refresh_fundamentals_pit(conn, as_of=D("2026-06-24"))
+
+    sql, rows = conn.executed_many[0]
+    assert "knowledge_tier" not in sql
+    args = rows[0]
+    assert len(args) == 17, "pre-0049 arg tuple keeps its original shape"
+
+    # Same data, one fewer column: dropping the tier is the ONLY difference, so
+    # a placeholder/arg mismatch in either variant fails here rather than in
+    # production. Comparing the two runs is what makes that provable.
+    fin2, divs2 = _tier_fixture_rows()
+    applied = FakeConn(fin2, divs2, has_knowledge_tier=True)
+    await refresh_fundamentals_pit(applied, as_of=D("2026-06-24"))
+    _sql2, rows2 = applied.executed_many[0]
+    with_tier = rows2[0]
+    assert len(with_tier) == 18
+    assert with_tier[:3] + with_tier[4:] == args
+
+
+@pytest.mark.asyncio
+async def test_deriver_writes_the_tier_once_migration_0049_is_applied():
+    fin, divs = _tier_fixture_rows()
+    conn = FakeConn(fin, divs, has_knowledge_tier=True)
+    await refresh_fundamentals_pit(conn, as_of=D("2026-06-24"))
+
+    sql, rows = conn.executed_many[0]
+    assert "knowledge_tier" in sql
+    args = rows[0]
+    assert len(args) == 18
+    assert args[3] in {"filed", "estimated"}
