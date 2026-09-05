@@ -114,7 +114,11 @@ def test_renderer_and_template_contain_no_financial_logic() -> None:
         assert not re.search(r"[-+*/]\s*\d|\d\s*[-+*/]|\bround\b|\bsum\b", expr), expr
 
 
-async def test_receipts_persist_into_brief_runs_and_load_back() -> None:
+async def test_receipts_persist_to_their_own_append_only_table() -> None:
+    """W7-0: receipts live in `delivery_receipts` (0052), never in `brief_runs`
+    — a receipt row there was indistinguishable from a composed brief to
+    `asxos/brief/deltas.py`. Round-trip and integrity are covered in depth by
+    tests/test_decision_outcomes.py; this pins the delivery-side contract."""
     case = await _case()
     html = render_decision_case(case, evaluated_at=CUTOFF)
 
@@ -123,21 +127,21 @@ async def test_receipts_persist_into_brief_runs_and_load_back() -> None:
             self.rows: list[tuple[object, ...]] = []
 
         async def execute(self, query: str, *args: object) -> str:
-            assert "INSERT INTO brief_runs" in query
+            assert "INSERT INTO delivery_receipts" in query
             self.rows.append(args)
             return "INSERT 0 1"
 
         async def fetch(self, query: str, *args: object) -> list[Any]:
-            return [{"snapshot_json": r[2]} for r in self.rows if json.loads(str(r[2]))["decision_delivery"]["decision_packet_id"] == args[0]]
+            assert "FROM delivery_receipts" in query
+            return [{"payload": r[10], "rendered_html": r[9]} for r in self.rows if r[2] == args[0]]
 
     conn = Conn()
     r1 = receipt_for(case, html, channel="cli", delivered_at=CUTOFF)
     r2 = receipt_for(case, html, channel="email", delivered_at=CUTOFF + timedelta(seconds=1), resend_message_id="re_9")
-    await persist_receipt(conn, r1, html, as_of=AS_OF)
-    await persist_receipt(conn, r2, html, as_of=AS_OF)
-    assert conn.rows[0][1] == html and conn.rows[1][4] == "re_9"
-    loaded = await load_receipts(conn, case.decision.decision_packet_id)
-    assert loaded == (r1, r2)
+    await persist_receipt(conn, r1, html)
+    await persist_receipt(conn, r2, html)
+    assert conn.rows[0][9] == html and conn.rows[1][8] == "re_9"
+    assert await load_receipts(conn, case.decision.decision_packet_id) == (r1, r2)
     assert await load_receipts(conn, "dpk-other") == ()
 
 
@@ -303,7 +307,8 @@ def test_cli_module_gates_every_command_and_imports_no_model_a() -> None:
     src = (ROOT / "asxos" / "cli" / "decision.py").read_text()
     body = src.split('"""', 2)[2]
     commands = body.count("@decision_app.command(")
-    assert commands == 3 and body.count("_require_personal_use()") == commands
+    assert commands == 5, "build, record-t0, observe, positive-control, dispose"
+    assert body.count("_require_personal_use()") == commands, "every command gates first"
     assert re.search(r"^\s*(?:from|import)\s+asxos\.domain\.models", src, re.MULTILINE) is None
     assert "signals" not in body.lower()
     assert os.environ.get("ASXOS_PERSONAL_USE") == "1"
