@@ -27,6 +27,7 @@ from asxos.domain.decision_engine import repository
 from asxos.domain.decision_engine.builder import ChallengeContext, build_decision_case
 from asxos.domain.decision_engine.challenge import DispositionLog
 from asxos.domain.decision_engine.delivery import (
+    DeliveryReceipt,
     disposition_for,
     load_dispositions,
     now_utc,
@@ -39,6 +40,7 @@ from asxos.domain.decision_engine.delivery import (
     send_decision_case,
 )
 from asxos.domain.decision_engine.outcomes import (
+    ThesisOutcome,
     due_horizons,
     load_outcomes,
     materialise_t0,
@@ -46,12 +48,14 @@ from asxos.domain.decision_engine.outcomes import (
     save_outcome,
 )
 from asxos.domain.decision_engine.portfolio_state import (
+    SQL_CLOSE,
     load_annualised_vol,
     load_peer_vols,
     load_portfolio_state,
     load_sizing_policy,
     select_positive_control,
 )
+from asxos.domain.decision_engine.types import DecisionCase
 from asxos.domain.themes.candidates.builder import build_candidate_snapshot, build_theme_version
 
 decision_app = typer.Typer(help="Governed decision cases (Stage 4).", no_args_is_help=True, add_completion=False)
@@ -78,6 +82,8 @@ def decision_build(
 
 
 async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bool, persist: bool, send: bool) -> None:
+    if send and not persist:
+        raise typer.BadParameter("--send requires --persist so the attempt is recoverable")
     cutoff = _cutoff(as_of)
     day = cutoff.date()
     await init_pool()
@@ -103,23 +109,58 @@ async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bo
                     dispositions=DispositionLog(),
                 )
             case = await build_decision_case(conn, cutoff=cutoff, thesis_id=thesis_id, candidate=candidate, context=ctx)
-            html = render_decision_case(case, evaluated_at=cutoff)
-            receipts = [receipt_for(case, html, channel="cli", delivered_at=now_utc())]
-            if send:
-                message_id = send_decision_case(html, case=case)
-                receipts.append(receipt_for(case, html, channel="email", delivered_at=now_utc(), resend_message_id=message_id))
+            delivery_at = now_utc()
+            html = render_decision_case(case, evaluated_at=delivery_at)
+            receipts = [receipt_for(case, html, channel="cli", delivered_at=delivery_at)]
             if persist:
                 await repository.save(case, conn=conn)
-                for r in receipts:
-                    await persist_receipt(conn, r, html)
+                await persist_receipt(conn, receipts[0], html)
+            if send:
+                receipts.extend(await _send_with_receipts(conn, case, html))
     finally:
         await close_pool()
     typer.echo(html)
     console.print(
         f"[dim]case={case.case_id} packet={case.decision.decision_packet_id} state={case.decision.recommendation_state} "
         f"challenge={case.challenge.outcome} render_sha256={render_sha256(html)} "
-        f"receipts={[r.channel for r in receipts]} persisted={persist}[/dim]"
+        f"receipts={[f'{r.channel}:{r.delivery_status}' for r in receipts]} persisted={persist}[/dim]"
     )
+
+
+async def _send_with_receipts(
+    conn: object, case: DecisionCase, html: str
+) -> tuple[DeliveryReceipt, DeliveryReceipt]:
+    """Persist the attempt before the provider call, then its terminal state."""
+    pending = receipt_for(
+        case,
+        html,
+        channel="email",
+        delivered_at=now_utc(),
+        delivery_status="pending",
+    )
+    await persist_receipt(conn, pending, html)  # type: ignore[arg-type]
+    try:
+        message_id = send_decision_case(html, case=case)
+    except Exception:
+        failed = receipt_for(
+            case,
+            html,
+            channel="email",
+            delivered_at=now_utc(),
+            delivery_status="failed",
+        )
+        await persist_receipt(conn, failed, html)  # type: ignore[arg-type]
+        raise
+    sent = receipt_for(
+        case,
+        html,
+        channel="email",
+        delivered_at=now_utc(),
+        delivery_status="sent",
+        resend_message_id=message_id,
+    )
+    await persist_receipt(conn, sent, html)  # type: ignore[arg-type]
+    return pending, sent
 
 
 @decision_app.command("record-t0")
@@ -172,8 +213,6 @@ def decision_observe(
 
 
 async def _observe(packet_id: str, day: date, persist: bool) -> None:
-    from asxos.domain.decision_engine.portfolio_state import SQL_CLOSE
-
     await init_pool()
     try:
         async with acquire() as conn:
@@ -184,12 +223,7 @@ async def _observe(packet_id: str, day: date, persist: bool) -> None:
             due = due_horizons(rows, cutoff)
             observed = []
             for row in due:
-                price_row = await conn.fetchrow(SQL_CLOSE, row.symbol, day)
-                price = Decimal(str(price_row["close"])) if price_row and price_row["close"] is not None else None
-                # Benchmark levels are deliberately not passed: AXJOA.INDX is
-                # absent from `prices`, so the comparison reports unavailable
-                # (governor ruling F1) rather than being proxied.
-                filled = observe(row, observed_at=day, observed_price=price)
+                filled = await _observe_due_row(conn, row)
                 if persist:
                     await save_outcome(conn, filled)
                 observed.append(filled)
@@ -204,6 +238,21 @@ async def _observe(packet_id: str, day: date, persist: bool) -> None:
             f"benchmark={row.benchmark_return_pct} ({row.benchmark_state}) excess={row.excess_return_pct} "
             f"persisted={persist}[/dim]"
         )
+
+
+async def _observe_due_row(conn: object, row: ThesisOutcome) -> ThesisOutcome:
+    """Observe one promised horizon at its due session, never the catch-up date."""
+    due_day = row.due_at.date()
+    price_row = await conn.fetchrow(SQL_CLOSE, row.symbol, due_day)  # type: ignore[attr-defined]
+    price = Decimal(str(price_row["close"])) if price_row and price_row["close"] is not None else None
+    observed_at = (
+        date.fromisoformat(str(price_row["dt"]))
+        if price_row and price_row.get("dt") is not None
+        else due_day
+    )
+    # Benchmark levels are deliberately not passed: AXJOA.INDX is absent
+    # from `prices`, so the comparison reports unavailable (F1), not proxied.
+    return observe(row, observed_at=observed_at, observed_price=price)
 
 
 @decision_app.command("positive-control")
@@ -234,7 +283,7 @@ def decision_dispose(
     packet_id: str = typer.Option(..., "--packet-id"),
     verdict: str = typer.Option(..., "--verdict", help="accept | request_revision | reject | defer"),
     note: str = typer.Option(..., "--note"),
-    persist: bool = typer.Option(True, "--persist/--dry-run", help="Record into decision_dispositions"),
+    persist: bool = typer.Option(False, "--persist/--dry-run", help="Record into decision_dispositions"),
 ) -> None:
     """Record James's disposition of a persisted packet."""
     _require_personal_use()

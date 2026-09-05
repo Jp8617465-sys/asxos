@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from asxos.cli import decision as decision_cli
 from asxos.domain.decision_engine import builder, repository
 from asxos.domain.decision_engine.builder import ChallengeContext
 from asxos.domain.decision_engine.challenge import PortfolioState
@@ -95,6 +96,38 @@ async def test_cli_and_email_render_are_the_same_bytes_and_receipts_share_the_ha
     assert case.challenge.outcome.upper() in html_cli
     with pytest.raises(ValueError, match="CLI delivery"):
         receipt_for(case, html_cli, channel="cli", delivered_at=CUTOFF, resend_message_id="x")
+    with pytest.raises(ValueError, match="provider message id"):
+        receipt_for(case, html_email, channel="email", delivered_at=CUTOFF)
+    pending = receipt_for(
+        case,
+        html_email,
+        channel="email",
+        delivered_at=CUTOFF,
+        delivery_status="pending",
+    )
+    assert pending.resend_message_id is None and pending.delivery_status == "pending"
+
+
+async def test_email_attempt_is_persisted_before_provider_send(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = await _case()
+    html = render_decision_case(case, evaluated_at=CUTOFF)
+    events: list[str] = []
+
+    async def fake_persist(conn: object, receipt: object, rendered: str) -> None:
+        events.append(receipt.delivery_status)  # type: ignore[attr-defined]
+
+    def fake_send(rendered: str, *, case: object) -> str:
+        events.append("provider")
+        return "re_123"
+
+    monkeypatch.setattr(decision_cli, "persist_receipt", fake_persist)
+    monkeypatch.setattr(decision_cli, "send_decision_case", fake_send)
+    pending, sent = await decision_cli._send_with_receipts(object(), case, html)
+    assert events == ["pending", "provider", "sent"]
+    assert pending.delivery_status == "pending"
+    assert sent.delivery_status == "sent" and sent.resend_message_id == "re_123"
 
 
 async def test_render_is_deterministic_and_changes_with_the_packet() -> None:

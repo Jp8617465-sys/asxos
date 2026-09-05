@@ -54,6 +54,7 @@ _TEMPLATE_DIR: Final = Path(__file__).parent.parent.parent / "brief" / "template
 _TEMPLATE_NAME: Final[str] = "decision_case.html.j2"
 
 Channel = Literal["cli", "email"]
+DeliveryStatus = Literal["pending", "sent", "failed"]
 DispositionVerdict = Literal["accept", "request_revision", "reject", "defer"]
 
 
@@ -65,12 +66,20 @@ class DeliveryReceipt(ContentAddressedContract):
     render_bytes: int = Field(gt=0)
     channel: Channel
     delivered_at: datetime
+    delivery_status: DeliveryStatus = "sent"
     resend_message_id: str | None = Field(default=None, max_length=200)
 
     @model_validator(mode="after")
     def _validate(self) -> Self:
         if self.channel == "cli" and self.resend_message_id is not None:
             raise ValueError("a CLI delivery has no provider message id")
+        if self.channel == "cli" and self.delivery_status != "sent":
+            raise ValueError("a CLI delivery is recorded only after it is shown")
+        if self.channel == "email":
+            if self.delivery_status == "sent" and self.resend_message_id is None:
+                raise ValueError("a sent email delivery requires the provider message id")
+            if self.delivery_status != "sent" and self.resend_message_id is not None:
+                raise ValueError("a pending or failed email has no provider message id")
         return self
 
 
@@ -126,6 +135,7 @@ def receipt_for(
     *,
     channel: Channel,
     delivered_at: datetime,
+    delivery_status: DeliveryStatus = "sent",
     resend_message_id: str | None = None,
 ) -> DeliveryReceipt:
     digest = render_sha256(html)
@@ -136,7 +146,7 @@ def receipt_for(
         # that omitted the time made the second one vanish into ON CONFLICT.
         receipt_id=(
             f"rcpt-{case.decision.decision_packet_id}-{channel}-"
-            f"{delivered_at.strftime('%Y%m%dT%H%M%SZ')}-{digest[:12]}"
+            f"{delivery_status}-{delivered_at.strftime('%Y%m%dT%H%M%SZ')}-{digest[:12]}"
         ),
         decision_packet_id=case.decision.decision_packet_id,
         decision_content_hash=case.decision.content_hash,
@@ -144,6 +154,7 @@ def receipt_for(
         render_bytes=len(html.encode("utf-8")),
         channel=channel,
         delivered_at=require_utc(delivered_at, field_name="delivered_at"),
+        delivery_status=delivery_status,
         resend_message_id=resend_message_id,
     )
 
