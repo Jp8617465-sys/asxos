@@ -199,10 +199,12 @@ git config user.name  "asxos-backup"
 git add "asxos-${DATE}.sql.gz"
 if git diff --cached --quiet; then
   echo "[backup] no changes to commit (dump identical to last run)"
+  BACKUP_WRITE_RESULT="was identical to the last dump, so no push was required"
 else
   git commit -m "backup ${DATE} (${BYTES}b)"
   git push origin HEAD
   echo "[backup] pushed asxos-${DATE}.sql.gz to ${BACKUP_REPO}"
+  BACKUP_WRITE_RESULT="was pushed before this check ran"
 fi
 cd "$WORK"
 
@@ -218,7 +220,7 @@ verify_fail() {
   # The dump above is already pushed — this is an integrity failure, not a
   # backup failure, and the two must never be conflated again.
   echo "$@" >&2
-  echo "[backup] the ${DATE} dump WAS pushed before this check ran; only the frozen-evidence verification failed." >&2
+  echo "[backup] the ${DATE} dump ${BACKUP_WRITE_RESULT}; only the frozen-evidence verification failed." >&2
   ping_deadman "/fail"
   exit 1
 }
@@ -253,14 +255,21 @@ sha256_of_stdin() {
 # Accepting either representation does not weaken the assertion: the bytes
 # must still equal a recorded digest, and a tampered or truncated archive
 # matches under neither.
-ARCHIVE_DIGESTS="$(
-  find "$ARCHIVE_DIR" -type f -print0 | while IFS= read -r -d '' f; do
-    sha256_of "$f"
-    case "$f" in
-      *.gz) gzip -dc "$f" 2>/dev/null | sha256_of_stdin ;;
-    esac
-  done
-)"
+ARCHIVE_DIGESTS_FILE="$WORK/archive-digests.txt"
+: > "$ARCHIVE_DIGESTS_FILE"
+while IFS= read -r -d '' f; do
+  sha256_of "$f" >> "$ARCHIVE_DIGESTS_FILE"
+  case "$f" in
+    *.gz)
+      if ! decompressed_sha="$(gzip -dc "$f" 2>/dev/null | sha256_of_stdin)"; then
+        verify_fail \
+          "[backup] FATAL: frozen-evidence archive member ${f#"$ARCHIVE_DIR/"} cannot be decompressed."
+      fi
+      printf '%s\n' "$decompressed_sha" >> "$ARCHIVE_DIGESTS_FILE"
+      ;;
+  esac
+done < <(find "$ARCHIVE_DIR" -type f -print0)
+ARCHIVE_DIGESTS="$(cat "$ARCHIVE_DIGESTS_FILE")"
 
 for pair in "signals:$SIGNALS_SHA256" "signal_outcomes:$SIGNAL_OUTCOMES_SHA256"; do
   table="${pair%%:*}"
