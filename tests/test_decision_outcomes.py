@@ -234,7 +234,7 @@ def test_no_alpha_claim_or_verdict_surface_exists() -> None:
     body = "\n".join(x for x in ddl.splitlines() if not x.lstrip().startswith("--"))
     body = re.sub(r"COMMENT ON TABLE.*?';", "", body, flags=re.DOTALL)
     for token in ("verdict", "weight", "size", "recommend", "signal"):
-        assert token not in body.lower() or token == "verdict" and "decision_dispositions" in body
+        assert token not in body.lower() or (token == "verdict" and "decision_dispositions" in body)
 
 
 async def test_outcomes_round_trip_through_the_repository() -> None:
