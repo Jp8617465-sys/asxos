@@ -268,6 +268,54 @@ Unchanged, and every one is load-bearing here:
   one-shot-decision framing rests on it.
 - This document does not re-litigate F6. It prices and sequences a ruled decision.
 
+## 8a. Sizing update — 2026-09-05, closing half of §4's stated gap
+
+§4 named two missing factors: rates (`unavailable`, egress blocked) and quantities
+(`unavailable`, needed a `pg_total_relation_size` probe that session couldn't obtain
+approval for). This session has read-only Supabase access; the quantities half is now
+measured.
+
+**Rates: still unavailable, independently re-confirmed today.** `https://aws.amazon.com/s3/pricing/`
+returned the same `EGRESS_BLOCKED` class of failure this session, from a different
+environment than the one that first hit it 2026-08-22. Two independent sessions blocked
+on the same domain is stronger evidence the block is structural (this repo's outbound
+proxy policy), not a one-off. **§4's core finding stands: this document still asserts
+no rate, and must not be approved as a cost case.**
+
+**Quantities: measured.** `pg_total_relation_size` (includes indexes and TOAST, not row
+bytes alone — the honest unit for "how big is this on disk") on the fourteen daily-dump
+tables plus the two frozen-archive tables named in §1:
+
+| Table | Size (`pg_total_relation_size`) |
+|---|---|
+| `signals` (frozen archive) | 159 MB |
+| `signal_outcomes` (frozen archive) | 13 MB |
+| `macro_theses` | 120 kB |
+| `theses` | 112 kB |
+| `agent_evidence` | 112 kB |
+| `governance_events` | 96 kB |
+| `theme_holdings` | 80 kB |
+| `themes` | 80 kB |
+| `agent_runs` | 80 kB |
+| `model_versions`, `screening_rules`, `holding_lots`, `profiles`, `price_revisions` | 64 kB each |
+| `decisions`, `thesis_revisions` | 48 kB each |
+
+**Daily-dump fourteen tables, on-disk total: ≈ 1.1 MB.** A gzipped `pg_dump` of that set
+is smaller still — this is uncompressed, index-inclusive size, an upper bound on the
+compressed dump. **Frozen archive, on-disk total: ≈ 172 MB** (`signals` + `signal_outcomes`,
+indexes included; the sha256-verified dump files in `$BACKUP_REPO` may differ slightly,
+being a `pg_dump` of row data without indexes).
+
+**What this confirms, not what it changes.** §4.1's own framing — *"the backup workload
+is small"* — is now a measured fact (≈1.1 MB) rather than an inference from row counts.
+`raw/`, the actual cost driver, is still sized at zero because it does not exist (§4.1
+unchanged). **This does not fill in a dollar figure**, because no rate exists to multiply
+against — it removes one of the two `unavailable`s §4 named, not both. The
+recommendation at §4.1 (approve with a billing alarm rather than forecasting `raw/`
+pre-emptively) is unaffected and, if anything, reinforced: even the *known* workload
+today is small enough that a billing alarm is a proportionate safeguard, not a
+substitute for a real cost model once `raw/` exists.
+
 ## 9. Provenance
 
 Written 2026-08-22 at base SHA `e4d40ad`. Sources: `target-architecture.md:1809-1814` (F6),

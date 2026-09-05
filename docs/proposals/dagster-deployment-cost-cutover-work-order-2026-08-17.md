@@ -415,6 +415,51 @@ instructions · capital execution · any Model A boundary (rule #11).
 
 ---
 
+## 7a. Cost re-derivation — 2026-09-05, closing the flag box's own request
+
+The 2026-08-18 flag box above says *"The cost case must be re-derived before D1–D9 are
+decided"* and names exactly which line: §3.2's Serverless compute estimate, sized on
+`weekly-research`'s pre-fix 90-minute ceiling. This section does that arithmetic and
+nothing else — no new pricing was fetched (AWS S3 pricing remains `EGRESS_BLOCKED` from
+this environment too, confirmed independently today; unrelated to this section, which
+touches only the Dagster/AWS Lightsail figures already observed at `:238-248`).
+
+**Method:** same formula as §3.2, same $0.010/minute Serverless rate (`:243`, unchanged
+since observation), only the `weekly-research` input swapped for the flag box's own
+measured figure — 24m06s whole-run wall clock (run `32099973966`) in place of the
+~90-minute ceiling. Every other input (`daily-brief` 12.5, the assumed 15+21+35 for
+`us-positions`/`pipeline-health`/`backup`) is unchanged; re-deriving those would need
+their own fresh observation, which is out of scope for this correction.
+
+| | §3.2 original (sized on the 08-15 cancellation) | Re-derived (sized on the 08-18 fix) |
+|---|---|---|
+| `weekly-research` compute | ~90 min/week (stale ceiling) | **24.1 min/week** (measured, `32099973966`) |
+| Total compute | 173.5 min/week ≈ 755 min/month | **107.6 min/week ≈ 468 min/month** |
+| Derived Serverless compute cost | ≈ $7.60/month | **≈ $4.68/month** |
+
+**Propagated to §3.3:**
+
+| Option | §3.3 original | Re-derived |
+|---|---|---|
+| B — Dagster+ Serverless Solo | ≈ $33 | **≈ $29** ($10 base + $14.80 credits + $4.68 compute) |
+| C — Dagster+ Hybrid Solo (recommended) | ≈ $37 | **unchanged, ≈ $37** — compute is $0 on Hybrid regardless of job duration, so this option's total does not move |
+
+**What this does and does not change.** The dollar gap between Option B and Option C
+widens from ≈$4/month to ≈$7/month — Serverless got relatively cheaper, not more
+expensive, when the stale sizing was corrected. **The recommendation (§2, Option C) is
+unchanged**, because its stated reasoning was never primarily cost (§2 point 5 already
+called the cost delta "immaterial; the decision is operational, not financial") — it
+rests on secret custody (point 1) and not operating a stateful orchestrator (point 2),
+neither of which this correction touches. Point 3, "runtime headroom," is explicitly
+weaker now (the flag box's own point 2) since a 24-minute chain has no serverless
+runtime-limit concern to begin with — but that was already a secondary argument, and
+removing it does not flip the recommendation on its own. **This section does not decide
+D2** — it corrects the evidence D2 is decided from. D1–D9 remain James's, unchanged.
+
+Credits (§3.2's other cost line, ≈$14.80/month) are **not** affected by this correction:
+they are counted per-op/asset-materialization, not by wall-clock duration, so PR #128's
+speed fix does not change credit spend.
+
 ## 8. Provenance
 
 - Branch `claude/p3-01-dagster-work-order` from `origin/main` = `4c7406d`; pre-flight

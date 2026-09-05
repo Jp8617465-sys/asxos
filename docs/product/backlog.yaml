@@ -420,14 +420,14 @@ items:
     source: "docs/proposals/amendment-j-ready-grant-2026-09-05.md §1, §5, §7.3"
 
   - id: B-13a
-    title: "Draft the S3 raw-object retention bucket policy (ap-southeast-2, versioning, Object Lock governance, lifecycle, least-privilege IAM)"
+    title: "S3 work order sizing update — DB quantities measured (pg_total_relation_size); AWS rates independently re-confirmed still egress-blocked"
     phase: B
     owner: arbi
-    status: open
+    status: built-unmerged
     depends_on: []
     route: mission
-    paths: ["docs/proposals/s3-raw-object-retention-policy-2026-09.md"]
-    source: "campaign plan H2-C; click H-21; ruling F6"
+    paths: ["docs/proposals/s3-object-store-work-order-2026-08-22.md"]
+    source: "campaign plan H2-C; click H-21; ruling F6. The policy itself already existed (P3-02, 2026-08-22) — this closes the DB-sizing half of its own §4 gap rather than drafting a duplicate document. §8a, 2026-09-05."
 
   - id: B-13
     title: "Create the S3 bucket + credentials per the drafted policy (F6)"
@@ -440,14 +440,14 @@ items:
     source: "click H-21; ruling F6 — not authorised yet"
 
   - id: B-14a
-    title: "Draft the Dagster cost sheet from P3-01 (#117) / P3-02 (#152) — the cost model is missing and must be re-derived"
+    title: "Dagster work order cost re-derivation — closes the 2026-08-18 flag box's own request using its own measured figures"
     phase: B
     owner: arbi
-    status: open
+    status: built-unmerged
     depends_on: []
     route: mission
-    paths: ["docs/proposals/dagster-cost-sheet-2026-09.md"]
-    source: "campaign plan H2-C; click H-22; ruling F5; G1 note"
+    paths: ["docs/proposals/dagster-deployment-cost-cutover-work-order-2026-08-17.md"]
+    source: "campaign plan H2-C; click H-22; ruling F5; G1 note. The work order already existed (P3-01, 2026-08-17) with a flag naming exactly this gap — this does the arithmetic it asked for rather than drafting a duplicate document. §7a, 2026-09-05."
 
   - id: B-14
     title: "Approve Dagster deployment and spend (F5)"

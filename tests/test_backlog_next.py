@@ -344,17 +344,23 @@ class TestSeed:
         )
         assert [i.id for i in click_list(items)] == ["B-5", "B-10", "B-13", "B-13a"]
 
-    def test_seed_first_fire_is_the_two_proposal_drafts(self) -> None:
-        """As seeded, the only eligible arbi work is the two proposals James asked for
-        (H-21 / H-22). Everything else waits on his un-draft click, which the click-list
-        surfaces first. If this changes, the seed changed — re-pin deliberately."""
+    def test_seed_after_the_two_proposal_drafts_landed_is_click_list_only(self) -> None:
+        """B-13a/B-14a (H-21/H-22) were built as dated addenda to the existing P3-01/P3-02
+        work orders on 2026-09-05 and are now built-unmerged, not open — a PR existing is
+        not the same as it being done, by this module's own SATISFIED rule. With no other
+        arbi-owned item both open and guard-safe, the picker correctly exits 3: the
+        click-list, led by the un-draft click, is the whole output. This is the state the
+        docs describe as typical once the initial residue is cleared — re-pin deliberately
+        if a future seed change makes something newly eligible."""
         items = __import__("asxos.backlog", fromlist=["load"]).load(DEFAULT_BACKLOG)
         picked, skipped = pick(items, max_items=10)
-        assert [i.id for i in picked] == ["B-13a", "B-14a"]
+        assert picked == []
         assert skipped == []
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-0", clicks
-        assert "E-11" not in [i.id for i in picked]  # .github path, correctly refused
+        assert "B-13a" not in clicks  # built-unmerged, route arbi — never a click-list row
+        assert "B-14a" not in clicks
+        assert "E-11" not in clicks  # .github path, correctly refused regardless of route
 
 
 # --- drift against the real guards ------------------------------------------------------
