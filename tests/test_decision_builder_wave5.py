@@ -161,7 +161,7 @@ async def test_missing_price_is_a_data_integrity_block() -> None:
 
 async def test_wrapper_and_candidate_symbol_guards() -> None:
     conn = _Conn(thesis_row=_thesis_row(symbol="NAB.AU"), close=Decimal("40"), close_dt=AS_OF)
-    with pytest.raises(ValueError, match="scoped to CBA.AU"):
+    with pytest.raises(ValueError, match=r"scoped to CBA\.AU"):
         await builder.build_cba_decision_case(conn, cutoff=CUTOFF)
     case = await builder.build_decision_case(conn, cutoff=CUTOFF, thesis_id=1)  # generalised: any symbol
     assert case.case_id.startswith("nab-1-")
