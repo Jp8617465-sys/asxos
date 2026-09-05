@@ -22,12 +22,12 @@ import logging
 from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any, TypedDict, TypeVar
+from typing import Any, TypedDict
 
 import asyncpg
 from dateutil.relativedelta import relativedelta
 
-from asxos.ingestion.financial_statements import derive_knowledge_date
+from asxos.ingestion.financial_statements import derive_knowledge_date_tiered
 
 _Q6 = Decimal("0.000001")
 
@@ -45,8 +45,6 @@ MAX_PIT_BATCH_SIZE = 200
 # timeout as one very large ``executemany`` call for history-rich symbols.
 DEFAULT_PIT_WRITE_BATCH_SIZE = 250
 MAX_PIT_WRITE_BATCH_SIZE = 1_000
-
-_T = TypeVar("_T")
 
 log = logging.getLogger(__name__)
 
@@ -158,11 +156,17 @@ def compute_pit_factors(
 
     div_sum, frank_avg = _dividend_summary(dividends)
 
+    knowledge_date, knowledge_tier = derive_knowledge_date_tiered(
+        period_end, report_date, filing_date, as_of, lag_days=lag_days
+    )
+
     return {
         "as_of": period_end,
-        "knowledge_date": derive_knowledge_date(
-            period_end, report_date, filing_date, as_of, lag_days=lag_days
-        ),
+        "knowledge_date": knowledge_date,
+        # Provenance of the date above: "filed" (a real disclosure date) or
+        # "estimated" (period_end + lag_days). A replay that claims to use only
+        # known facts must require "filed" — see migration 0049.
+        "knowledge_tier": knowledge_tier,
         "book_value_ps": _div(equity, shares),
         "eps_ttm": _div(ni, shares),
         "revenue_ttm": rev,
@@ -180,7 +184,33 @@ def compute_pit_factors(
     }
 
 
-_UPSERT = """
+# Two variants, because this module must be deployable BEFORE migration 0049 is
+# applied — the same constraint (and the same shape of answer) as the backup
+# script's `to_regclass` probe for price_revisions. Merging code whose write
+# path needs a column that does not exist yet is the "code and migration
+# drafted together but only code could merge" defect already recorded in
+# james-inbox.md; this avoids repeating it. `_pit_upsert_sql()` picks the
+# variant once per run, so the extra probe costs one query, not one per row.
+
+_UPSERT_WITH_TIER = """
+INSERT INTO rs_fundamentals_pit
+    (symbol, as_of, knowledge_date, knowledge_tier, book_value_ps, eps_ttm, revenue_ttm,
+     net_income_ttm, roe, roa, gross_margin, operating_margin, net_debt, total_equity,
+     shares_outstanding, dividend_ttm, franking_avg_pct, currency, source, computed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+        'eodhd_derived', now())
+ON CONFLICT (symbol, knowledge_date) DO UPDATE SET
+    as_of=EXCLUDED.as_of, knowledge_tier=EXCLUDED.knowledge_tier,
+    book_value_ps=EXCLUDED.book_value_ps, eps_ttm=EXCLUDED.eps_ttm,
+    revenue_ttm=EXCLUDED.revenue_ttm, net_income_ttm=EXCLUDED.net_income_ttm, roe=EXCLUDED.roe,
+    roa=EXCLUDED.roa, gross_margin=EXCLUDED.gross_margin, operating_margin=EXCLUDED.operating_margin,
+    net_debt=EXCLUDED.net_debt, total_equity=EXCLUDED.total_equity,
+    shares_outstanding=EXCLUDED.shares_outstanding, dividend_ttm=EXCLUDED.dividend_ttm,
+    franking_avg_pct=EXCLUDED.franking_avg_pct, currency=EXCLUDED.currency,
+    source='eodhd_derived', computed_at=now()
+"""
+
+_UPSERT_WITHOUT_TIER = """
 INSERT INTO rs_fundamentals_pit
     (symbol, as_of, knowledge_date, book_value_ps, eps_ttm, revenue_ttm, net_income_ttm,
      roe, roa, gross_margin, operating_margin, net_debt, total_equity, shares_outstanding,
@@ -196,6 +226,21 @@ ON CONFLICT (symbol, knowledge_date) DO UPDATE SET
     franking_avg_pct=EXCLUDED.franking_avg_pct, currency=EXCLUDED.currency,
     source='eodhd_derived', computed_at=now()
 """
+
+_TIER_COLUMN_EXISTS = """
+SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name   = 'rs_fundamentals_pit'
+      AND column_name  = 'knowledge_tier'
+)
+"""
+
+
+async def _pit_upsert_sql(conn: asyncpg.Connection) -> tuple[str, bool]:
+    """Pick the upsert variant for this run. Returns (sql, writes_tier)."""
+    has_tier = bool(await conn.fetchval(_TIER_COLUMN_EXISTS))
+    return (_UPSERT_WITH_TIER if has_tier else _UPSERT_WITHOUT_TIER), has_tier
 
 _FIRST_SOURCE_SYMBOL_BATCH = """
 SELECT DISTINCT symbol
@@ -263,7 +308,7 @@ def _normalise_symbols(symbols: list[str]) -> list[str]:
     return normalised
 
 
-def _chunks(values: list[_T], batch_size: int) -> Iterator[list[_T]]:
+def _chunks[T](values: list[T], batch_size: int) -> Iterator[list[T]]:
     for start in range(0, len(values), batch_size):
         yield values[start : start + batch_size]
 
@@ -287,11 +332,16 @@ async def _source_symbol_batches(
         after = batch[-1]
 
 
-def _pit_upsert_args(symbol: str, factors: dict[str, Any]) -> tuple[Any, ...]:
+def _pit_upsert_args(
+    symbol: str, factors: dict[str, Any], *, with_tier: bool
+) -> tuple[Any, ...]:
+    """Positional args for the upsert. Must match the variant `_pit_upsert_sql` chose."""
+    tier: tuple[Any, ...] = (factors["knowledge_tier"],) if with_tier else ()
     return (
         symbol,
         factors["as_of"],
         factors["knowledge_date"],
+        *tier,
         factors["book_value_ps"],
         factors["eps_ttm"],
         factors["revenue_ttm"],
@@ -315,8 +365,13 @@ async def _derive_symbol_batch(
     symbols: list[str],
     as_of: date,
     lag_days: int,
+    with_tier: bool = True,
 ) -> tuple[list[tuple[Any, ...]], set[str], set[str]]:
-    """Read and derive one bounded symbol batch without writing it."""
+    """Read and derive one bounded symbol batch without writing it.
+
+    `with_tier` must match the upsert variant chosen by `_pit_upsert_sql()` —
+    it decides whether each row carries `knowledge_tier`.
+    """
     fin = await conn.fetch(_STATEMENTS_BY_SYMBOL_BATCH, symbols)
     source_symbols = {row["symbol"] for row in fin}
 
@@ -365,7 +420,7 @@ async def _derive_symbol_batch(
         )
         if factors is None:
             continue
-        upsert_rows.append(_pit_upsert_args(symbol, factors))
+        upsert_rows.append(_pit_upsert_args(symbol, factors, with_tier=with_tier))
         derived_symbols.add(symbol)
 
     return upsert_rows, source_symbols, derived_symbols
@@ -406,6 +461,15 @@ async def refresh_fundamentals_pit(
     requested = _normalise_symbols(symbols) if symbols is not None else None
     explicit_batches = _chunks(requested, batch_size) if requested is not None else None
 
+    # Probed once per run, not per row: writes knowledge_tier only where migration
+    # 0049 has been applied, so this module is deployable ahead of it.
+    upsert_sql, writes_tier = await _pit_upsert_sql(conn)
+    if not writes_tier:
+        log.info(
+            "fundamentals PIT: rs_fundamentals_pit.knowledge_tier absent "
+            "(migration 0049 unapplied) — deriving tiers but not persisting them"
+        )
+
     counts = FundamentalsPitCounts(
         rows=0,
         symbols=0,
@@ -422,6 +486,7 @@ async def refresh_fundamentals_pit(
             symbols=batch,
             as_of=as_of,
             lag_days=lag_days,
+            with_tier=writes_tier,
         )
         without_pit = sorted(source_symbols - derived_symbols)
         without_source = sorted(set(batch) - source_symbols)
@@ -430,7 +495,7 @@ async def refresh_fundamentals_pit(
         for write_batch_number, write_batch in enumerate(
             _chunks(upsert_rows, write_batch_size), start=1
         ):
-            await conn.executemany(_UPSERT, write_batch)
+            await conn.executemany(upsert_sql, write_batch)
             counts["rows"] += len(write_batch)
             if on_rows_committed is not None:
                 on_rows_committed(counts["rows"])

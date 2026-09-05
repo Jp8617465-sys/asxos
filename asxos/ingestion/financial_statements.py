@@ -34,7 +34,7 @@ import asyncio
 import json
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import asyncpg
 
@@ -63,20 +63,26 @@ _STMT_MAP = {
 _DEFAULT_LAG_DAYS = 75
 
 
-def derive_knowledge_date(
+#: Tier of evidence behind a `knowledge_date`. `filed` = a real disclosure date the
+#: vendor reported and the guard accepted. `estimated` = no usable disclosure date
+#: existed, so the date is `period_end + lag_days` — a convention, not an event.
+KnowledgeTier = Literal["filed", "estimated"]
+
+
+def derive_knowledge_date_tiered(
     period_end: date,
     report_date: date | None,
     filing_date: date | None,
     as_of: date,
     *,
     lag_days: int = _DEFAULT_LAG_DAYS,
-) -> date:
-    """THE point-in-time leak guard. Returns the date a statement became *usable*.
+) -> tuple[date, KnowledgeTier]:
+    """THE point-in-time leak guard, plus how much the answer is worth.
 
-    Rule (probe-validated 2026-06-24):
+    Rule (probe-validated 2026-06-24), unchanged:
       knowledge_date = max(d for d in (report_date, filing_date)
-                           if d is not None and period_end < d <= as_of)
-                       else period_end + lag_days
+                           if d is not None and period_end < d <= as_of)   -> `filed`
+                       else period_end + lag_days                          -> `estimated`
 
     - `d <= as_of` drops scheduled/future disclosure dates -> no look-ahead. This is
       what removes the e.g. period 2026-06-30 / reportDate 2026-08-11 forecast row.
@@ -86,12 +92,49 @@ def derive_knowledge_date(
     `as_of` is the point-in-time cutoff (today at ingest, or a research test_date when
     re-deriving). NEVER pass a future as_of expecting future dates to survive — they
     are dropped by design.
+
+    **Why the tier exists (2026-09-02).** Stage 1's exit gate is "replay a historical
+    decision date using only facts with `known_at <= cutoff`". That predicate is only
+    meaningful if `knowledge_date` records something we actually knew. The fallback
+    branch does not: `period_end + 75d` is an assumption about how long filing usually
+    takes, and it can even land in the FUTURE when `as_of` is close to `period_end`.
+    Measured live 2026-09-02: 326 rows of `rs_fundamentals_pit` carry
+    `knowledge_date = 2026-09-13`, every one of them `period_end 2026-06-30 + 75d`,
+    with `report_date` NULL and `filing_date` equal to `period_end` (so the guard
+    correctly rejected it) — i.e. **every future row comes from this fallback, not
+    from a scheduled `report_date`.**
+
+    Those rows are harmless to today's readers, which all filter
+    `knowledge_date <= as_of` and therefore just cannot see them. They are not
+    harmless to a replay: a replay that accepts estimated rows can declare itself
+    clean while resting on a date nobody ever observed. So the fix is to record the
+    difference, not to clamp the date — clamping would assert we knew something
+    earlier than we did, which is the look-ahead leak this guard exists to prevent.
+
+    Callers that only need the date can keep using `derive_knowledge_date()`.
     """
     candidates = [
         d for d in (report_date, filing_date)
         if d is not None and period_end < d <= as_of
     ]
-    return max(candidates) if candidates else period_end + timedelta(days=lag_days)
+    if candidates:
+        return max(candidates), "filed"
+    return period_end + timedelta(days=lag_days), "estimated"
+
+
+def derive_knowledge_date(
+    period_end: date,
+    report_date: date | None,
+    filing_date: date | None,
+    as_of: date,
+    *,
+    lag_days: int = _DEFAULT_LAG_DAYS,
+) -> date:
+    """Date-only view of `derive_knowledge_date_tiered()`. Behaviour unchanged."""
+    knowledge_date, _tier = derive_knowledge_date_tiered(
+        period_end, report_date, filing_date, as_of, lag_days=lag_days
+    )
+    return knowledge_date
 
 
 def _dec(x: Any) -> Decimal | None:

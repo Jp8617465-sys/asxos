@@ -7,7 +7,8 @@ runs when the thing it watches got far enough to reach it is not a watchdog.
 
 Detects four failure modes:
   1. Jobs stuck in 'running' for >2 hours (process crash, __aexit__ never ran)
-  2. Expected-daily jobs with no 'success' row in the last 36 hours
+  2. Expected-daily jobs with no 'success' row inside their per-job window
+     (36 hours by default; 80 hours for weekday-only jobs, see _EXPECTED_DAILY)
   3. Jobs that have recorded 'failure' on their last 2+ consecutive runs
   4. Jobs that recorded 'success' but attached a degraded note — a
      partial-success run that cleared its threshold while a source hard-failed
@@ -31,25 +32,40 @@ from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs.utils.job_monitor import JobMonitor
 
-# Jobs that must have a 'success' row within the last 36 hours on weekdays.
-# Format: job_name.  Jobs excluded (weekly/non-daily) are NOT listed here.
-_EXPECTED_DAILY = [
-    "sync_prices",
+# Jobs that must have a 'success' row within their window (hours) on weekdays.
+# Format: job_name -> max hours since the last 'success' before MISSING fires.
+# Jobs excluded (weekly/non-daily) are NOT listed here.
+#
+# Why a per-job window and not one 36h number: the window has to cover the
+# job's own cadence gap, not a generic "daily". `daily-brief.yml` runs Sun–Thu
+# UTC (Mon–Fri AEST), so on any weekday-UTC check the last run is < 26h old
+# and 36h is right. `us-positions.yml` runs Mon–Fri 21:30 UTC, so on a Monday
+# check that fires before 21:30 UTC the last success is Friday's — 50h+ old.
+# Measured 2026-08-31 00:17 UTC: "MISSING: check_us_positions has no 'success'
+# row in the last 36 hours" with a green Friday run at 2026-08-29 03:14 UTC.
+# A structural false positive, self-cleared the next day, and exactly the
+# alert-fatigue failure mode this file exists to prevent. 80h covers
+# Friday 21:30 → Monday 21:30 (72h) plus GitHub's documented cron drift.
+_DEFAULT_WINDOW_HOURS = 36
+_WEEKDAY_ONLY_WINDOW_HOURS = 80
+_EXPECTED_DAILY: dict[str, int] = {
+    "sync_prices": _DEFAULT_WINDOW_HOURS,
     # "generate_signals" — RETIRED 2026-08-08 (governor decision: Model A
     # monitors retired with Render; keeping it here would fire MISSING every
     # weekday forever — the alert-fatigue failure mode this file exists to
     # prevent).
-    "ingest_regulatory",
-    "compose_brief",
-    "snapshot_portfolio",
-    "ingest_market_context",
-    "ingest_underlyings",
-    "check_us_positions",
-    "check_au_positions",
-    "check_thesis_invalidations",
-    "validate_price_data",
+    "ingest_regulatory": _DEFAULT_WINDOW_HOURS,
+    "compose_brief": _DEFAULT_WINDOW_HOURS,
+    "snapshot_portfolio": _DEFAULT_WINDOW_HOURS,
+    "ingest_market_context": _DEFAULT_WINDOW_HOURS,
+    "ingest_underlyings": _DEFAULT_WINDOW_HOURS,
+    # Mon–Fri 21:30 UTC (`us-positions.yml`) — see the note above.
+    "check_us_positions": _WEEKDAY_ONLY_WINDOW_HOURS,
+    "check_au_positions": _DEFAULT_WINDOW_HOURS,
+    "check_thesis_invalidations": _DEFAULT_WINDOW_HOURS,
+    "validate_price_data": _DEFAULT_WINDOW_HOURS,
     # "check_model_staleness" — RETIRED 2026-08-08 (same decision).
-]
+}
 
 
 async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
@@ -80,24 +96,26 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
             f"has been running for >{age_h}h (started {row['started_at'].isoformat()})"
         )
 
-    # 2 — expected-daily jobs missing a success in the last 36 hours
+    # 2 — expected-daily jobs missing a success inside their per-job window
     # Only fire this check on weekdays (Mon-Fri AEST ≈ Sun-Thu UTC)
     today_utc = datetime.now(UTC)
     if today_utc.weekday() < 5:  # Mon-Fri UTC (conservative; misses Fri AEST = Sat UTC edge)
-        for job_name in _EXPECTED_DAILY:
+        for job_name, window_hours in _EXPECTED_DAILY.items():
             row = await conn.fetchrow(
                 """
                 SELECT MAX(started_at) AS last_success
                 FROM job_runs
                 WHERE job_name = $1
                   AND status   = 'success'
-                  AND started_at > NOW() - INTERVAL '36 hours'
+                  AND started_at > NOW() - ($2 * INTERVAL '1 hour')
                 """,
                 job_name,
+                window_hours,
             )
             if row["last_success"] is None:
                 issues.append(
-                    f"MISSING: {job_name} has no 'success' row in the last 36 hours"
+                    f"MISSING: {job_name} has no 'success' row in the last "
+                    f"{window_hours} hours"
                 )
 
     # 3 — consecutive failures (last 2+ runs all failed, no success between them)
