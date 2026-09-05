@@ -610,6 +610,59 @@ next scheduled fire appearing in Healthchecks is the observation that means onli
 **Queue placement.** Does not become THE ONE THING; flips no Stage cell. Dark surfaces
 #1/#4 remain the oldest overdue item. Rule #11, capital, `0042`, `0045`, W1-2 untouched.
 
+#### Amendment L — promote arbi to standing I3/I4 (James, 2026-09-05)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-05 answer
+to an `AskUserQuestion` disambiguating *"you need to own the dev, this is on you"*; this
+block is the queue amendment. `arbi-permission-model.md` is a deny-listed authority path,
+so its half of this change is a drafted diff on this branch, not a direct edit — see the
+PR for the exact hunk.
+
+**Ruling.** Promote infra-ladder **I3** ("open a docs-only draft PR") and **I4**
+("dispatch to a specialist for a draft code PR") from *"not granted"* to **standing,
+general** — arbi opens draft PRs and dispatches specialists for reversible work on its
+own judgement, not only inside an explicitly invoked command or a condition-gated lane.
+
+**Correction folded in, not a separate decision.** `arbi-permission-model.md`'s
+*"not granted yet"* line for I3/I4 is dated 2026-08-12 — three weeks before **Amendment
+H** (2026-09-02, `harness-profiles.md` §Standing dispatch), which already grants I3/I4's
+exact shape (unattended, draft-PR ceiling, specialist fan-out) to a scheduled workflow
+meeting its seven named conditions. The three lanes built this session (`nightly-triage`,
+`weekly-toolwatch`, `backlog-roll`) **are** that grant, lane-scoped. This amendment does
+not re-grant that; it corrects the stale cross-reference and extends the same shape
+beyond the three defined lanes to arbi's general judgement.
+
+**What is NOT waived silently — named, not glossed over.** The promotion-preconditions
+section (`arbi-permission-model.md:233-254`) lists three gates for I≤4/P≤4. (1) Model A
+dispute — met 2026-07-11. (2) **Read-only DB role scoping — NOT met.** `supabase-ro`
+still authenticates as `supabase_read_only_user`, not migration 0039's `asxos_agent_ro`
+(backlog item `B-7`, 7+ weeks open). (3) **Track record — NOT formally gated.**
+`episode_score` entries exist per session (3.4–3.9 provisional, no Safety fails on
+record) but nothing has evaluated them as the *sustained-window* gate the doc describes.
+James chose the promotion knowing both gaps — they were named in the question he
+answered. This amendment records that as an **explicit governor waiver**, not a false
+"precondition satisfied," so a later reader sees the gap rather than re-discovering it.
+
+**What does not change, and cannot change by this or any future instruction.**
+`arbi-permission-model.md:253-254` — *"Never promotable: I5–I6 (irreversible infra), P5
+(capital-policy change), P6 (execution)... No track record unlocks these."* Untouched.
+Merge, push to `main`, migrations, DB writes, Render mutation, secrets, and capital
+actions remain `always_ask`, attended-only, James's alone — mechanically enforced by
+`pr-draft-guard.sh`, `unattended-guard.sh`, `push-guard.sh`, and the settings deny list,
+none of which this amendment edits. The click-list (`james-inbox.md`) does not shrink
+because of this amendment; it shrinks when James clicks.
+
+**What changes in practice.** In this and future attended sessions, arbi stops treating
+a reversible, in-lane decision — which agent, which backlog item next, whether a PR is
+ready, wording — as needing a fresh confirmation round. It opens draft PRs and
+dispatches specialists continuously, reports outcomes in batches, and reserves
+`AskUserQuestion`/plan-mode escalation for genuine I5/I6/P5/P6 or boundary matters. First
+proof, same session: building backlog items `B-13a`/`B-14a` as draft PRs without a
+further check-in.
+
+**Queue placement.** Does not become THE ONE THING; flips no Stage cell. Rule #11,
+capital, `0042`, `0045`, W1-2 untouched.
+
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 
 Amendment D (`:176-180`) makes the product lane rank **above** the packet lane and permits the
