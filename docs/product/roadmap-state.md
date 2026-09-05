@@ -545,6 +545,71 @@ drift self-clears when the code chain lands.
 Stage cell. The dark surfaces #1/#4 ruling — expired 2026-08-31, decide-by
 2026-08-28 — remains the oldest overdue item in the repo and is still James's.
 
+#### Amendment K — "online" is the loop running; the backlog-roll lane (James, 2026-09-05)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-05
+answers to two `AskUserQuestion` prompts during a plan-mode wake; this block is the
+queue amendment. Letter **K** — **J** is the ready-grant escape, drafted and not
+applied (`docs/proposals/amendment-j-ready-grant-2026-09-05.md`).
+
+**Ruling 1 — what "get online" means.** Asked to choose between (a) the first
+governed paper case delivered and disposed (Stage 4's exit gate, the north-star output),
+(b) a web surface, or (c) the autonomous loop running, James chose **(c): the standing
+agent lanes armed and firing on a schedule.** This is recorded as *his* definition of
+online for this campaign. It does **not** redefine the north-star: `north-star.md:40-43`
+and `target-architecture.md:1093-1112` stand, and the product's output remains a
+governed paper case reaching his disposition — a longer path the loop will surface daily
+but cannot walk.
+
+**Ruling 2 — how much the lane may do unattended.** James answered *"maximum
+automation."* Implemented as **everything up to the mechanical floor, and nothing past
+it**, because the floor is not a choice: `unattended-guard.sh` denies push/merge to
+`main`, force-push, DB writes, migrations, secrets, authority-file writes,
+capital-adjacent code (`asxos/domain/{portfolio,tax,models,theses}/`, the allocator,
+`rebalance.py`, `tax_overlay.py`), unscrubbed `pytest`, and every GitHub-MCP and Supabase
+write; `pr-draft-guard.sh` denies un-drafting always; `Edit(/.github/**)` is denied
+always; I5/I6 and P5/P6 are never promotable. So "maximum" = build any arbi-owned,
+dependency-met item whose files sit outside that set, several per fire on independent
+branches, as draft PRs, nightly, with all three lanes armed. **Standing dispatch was
+granted on 2026-09-03 (Amendment H); standing landing was not and cannot be.** This
+amendment grants nothing new.
+
+**What it adds — the two pieces the loop was missing.** Nothing in the repo picked the
+next backlog item: #199's lanes are reactive and `/arbi-mission` is one-shot.
+
+- `docs/product/backlog.yaml` — the **machine twin** of this file's queues, seeded from
+  the 2026-09-05 74-row inventory. **The Stages 0→6 table above remains the only human
+  queue and the only ranked one.** When the two disagree, this file wins and the YAML is
+  wrong. Every item carries `owner`, `status`, `depends_on`, `route`, `paths`, `source`.
+- `asxos/backlog.py` (+ `scripts/backlog_next.py`) — the **deterministic picker**, no
+  model in the loop. Eligibility is *derived* from an item's `paths` against a denied set
+  copied from the guards; `tests/test_backlog_next.py` parses `unattended-guard.sh` and
+  `settings.json` and fails if the copy drifts. Ranks unblocking-first. Emits `picked`
+  and the **click-list** — every James item unblocked right now — and exits 3 when
+  nothing is buildable, click-list still printed.
+- `.github/workflows/backlog-roll.yml` — lane C, `workflow_dispatch`-only until one green
+  manual run (Amendment H condition 6), mirroring `nightly-triage.yml` with two ★
+  departures: the deadman is checked at STEP 0 and an unset `HC_BACKLOG_URL` **fails the
+  run** rather than skipping (both prior loops died of the silent skip); and it builds
+  several independent branches per fire, never stacked, because stacking needs the
+  force-push the guard denies. Placed on the branch via the GitHub API — the drafting
+  route `pr-draft-guard.sh` names as sanctioned. **James's merge is the arming action.**
+
+**What the lane will actually do, stated plainly.** On the seed today the picker returns
+exactly two items — the S3 policy and Dagster cost-sheet drafts he already asked for
+(H-21/H-22) — and a click-list that leads with the un-draft click. Once the train lands,
+most fires will exit 3 with only the click-list. **That is correct.** The lane's first
+product is a daily, mechanical, un-skippable *"here is what is blocked on you"*; its
+second is the residue it may build.
+
+**The click path to online, in order** (backlog ids): A-0 un-draft → A-2…A-16 the
+train (arbi) → A-17 merge #200 → A-20 `HC_BACKLOG_URL` + B-4/B-5 the other deadmen →
+A-21 dispatch each lane once → A-22 arbi drafts `schedule:` → A-23 James merges. The
+next scheduled fire appearing in Healthchecks is the observation that means online.
+
+**Queue placement.** Does not become THE ONE THING; flips no Stage cell. Dark surfaces
+#1/#4 remain the oldest overdue item. Rule #11, capital, `0042`, `0045`, W1-2 untouched.
+
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 
 Amendment D (`:176-180`) makes the product lane rank **above** the packet lane and permits the

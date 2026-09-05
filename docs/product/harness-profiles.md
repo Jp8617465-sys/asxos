@@ -139,3 +139,36 @@ port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
 | `supabase-ro` → `asxos_agent_ro` re-point | agent-db-readonly-role design |
 | Standing 7b / Guilfoyle-as-main-thread | later, on evidence |
 | `docs/README.md` map row for this file | deny-listed; James applies |
+
+---
+
+## Standing dispatch — lane C: `backlog-roll` (Amendment K, 2026-09-05)
+
+Added under the same seven conditions Amendment H (2026-09-02, carried by #199) binds
+every standing lane to; this section is appended here rather than into that section so
+the two PRs merge in either order. Lanes A (`nightly-triage`) and B (`weekly-toolwatch`)
+are **reactive** — a red run, a weekly changelog. Lane C is **proactive**: a deterministic
+picker decides, before any agent runs, which backlog items this fire may build.
+
+| | Lane C |
+|---|---|
+| Workflow | `.github/workflows/backlog-roll.yml` — `workflow_dispatch` only until one green manual run (condition 6) |
+| Pre-gate | `scripts/backlog_next.py` over `docs/product/backlog.yaml` — no model. Eligible = arbi-owned, `route` build/mission, `status` open, every `depends_on` done, every `paths` entry outside the denied set copied from `unattended-guard.sh` + `settings.json` (drift-tested). Exit 3 = nothing buildable; the click-list is still emitted and the fire records a heartbeat |
+| Arming | job-scoped `ARBI_UNATTENDED=1` + STEP-0 self-check (condition 1); no DB/API secrets mounted (condition 2) |
+| Agent | `claude-code-action`, `--allowedTools` identical to lane A — no `pytest`, no `gh pr create`, no MCP. One branch per item off `main`, never stacked; touches only the item's `paths`; sets that item `built-unmerged` in `backlog.yaml` on its own branch only |
+| Verify | a workflow step, per branch: `ruff check . && mypy asxos && python -m pytest -q` (condition 3). A red branch gets no PR and is recorded |
+| PR | `gh pr create --draft` per green branch; the body carries the item's `source` and the click-list |
+| Artifact-per-fire | one row appended to `docs/product/backlog-ledger.md` on the long-lived `claude/backlog-ledger` branch, `if: always()` (condition 4) |
+| Deadman ★ | `HC_BACKLOG_URL`, checked at **STEP 0** — unset **fails the run** (condition 5, hardened). Pings the check on success and `/fail` otherwise |
+
+**Primary product is the click-list.** Once the Amendment H train lands the backlog is
+mostly James's, and most fires will exit at the pre-gate having only re-stated what is
+blocked on him. That is the intended behaviour, not a defect. The builder half earns its
+keep on the residue: proposal drafts, doc-drift sweeps, test hygiene, `m14_candidate_*`
+items as they are un-parked.
+
+**What it cannot do, unchanged from lanes A/B:** merge, un-draft, push to `main`, apply
+a migration, touch a secret, edit `.github/**` or any authority path, touch
+capital-adjacent code, flip a dark surface, approve a theme member, or calibrate risk.
+Standing dispatch was granted; standing landing was not. James's merge of the workflow
+is the arming action; his `schedule:` merge (backlog item A-23) is what makes it standing.
