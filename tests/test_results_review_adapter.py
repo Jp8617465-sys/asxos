@@ -24,7 +24,6 @@ import json
 from collections.abc import Iterator, Mapping
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, Inexact, InvalidOperation
-from typing import TypeVar
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -64,10 +63,8 @@ _CUTOFF = datetime(2025, 8, 21, 23, 59, 59, tzinfo=UTC)
 _PINNED_ARTIFACT_SHA256 = "b10afcf3507fac1e7c561d45c5e005a91d7a1c73253e27dafee1ed356d7dcf5b"
 _PINNED_CASE_SHA256 = "78e016474c3292f155347af7c623374a55337fe7f5834a55fd8686a11767f171"
 
-_M = TypeVar("_M", bound=BaseModel)
 
-
-def _reconstruct(model: _M, **overrides: object) -> _M:
+def _reconstruct[M: BaseModel](model: M, **overrides: object) -> M:
     """Rebuild a contract instance WITHOUT validation (``model_construct``).
 
     Emulates an untrusted, unvalidated case arriving at the adapter — the

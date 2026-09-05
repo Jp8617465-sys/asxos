@@ -33,7 +33,7 @@ import dataclasses
 import json
 import re
 from datetime import date, timedelta
-from typing import Final, TypeVar
+from typing import Final
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -70,10 +70,8 @@ from asxos.domain.results_review.reviewer import (
     review_case,
 )
 
-_M = TypeVar("_M", bound=BaseModel)
 
-
-def _reconstruct(model: _M, **overrides: object) -> _M:
+def _reconstruct[M: BaseModel](model: M, **overrides: object) -> M:
     """Rebuild a contract instance WITHOUT validation (P2-03 test idiom)."""
     fields = dict(model)
     fields.update(overrides)
