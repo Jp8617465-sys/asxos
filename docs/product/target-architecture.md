@@ -1314,7 +1314,21 @@ genuinely missing. Row counts are live as at 2026-08-10.
 2026-09-13 — a date that has not happened.** (Query: `knowledge_date > CURRENT_DATE`; min and
 max are both 2026-09-13; all 60 sit at `as_of` 2026-06-30. Total table size 53,689 rows.)
 
-**Mechanism.** `rs_financial_statements` has **no `knowledge_date` column** — its columns are
+**⚠️ MECHANISM CORRECTED 2026-09-02 (campaign node H2-A) — the paragraph below is wrong.**
+The future dates do **not** come from the vendor's `report_date`. `derive_knowledge_date()`
+already excludes any candidate `> as_of` by construction, and in every case sampled live on
+2026-09-02 `report_date` is **NULL** while `filing_date` equals `period_end` (so the
+`period_end < d` guard correctly rejects it). Both inputs being unusable, the function takes its
+**fallback** — `period_end + lag_days` (75) — and `2026-06-30 + 75d = 2026-09-13`, which is
+exactly the value carried by all **326** future-dated rows (re-measured 2026-09-02; the count
+was 60 when first recorded on 2026-08-18, so it is growing). The defect is real and the
+consequence for Stage 1 is exactly as described below; only the cause is misattributed. The fix
+therefore targets the fallback: migration `0049_pit_knowledge_tier.sql` records
+`knowledge_tier` (`filed` | `estimated`) so a replay can require `filed`, and deliberately does
+**not** clamp the date — clamping would assert we knew a statement earlier than we did, which is
+the look-ahead leak the guard exists to prevent.
+
+**Mechanism (as recorded 2026-08-18 — superseded, retained for the audit trail).** `rs_financial_statements` has **no `knowledge_date` column** — its columns are
 `symbol, period_end, period_type, statement_type, filing_date, report_date, currency, …`
 (verified against `information_schema`). The derive step therefore falls back to the vendor's
 `report_date`, and `report_date` is a *scheduled* announcement date: 10 rows in

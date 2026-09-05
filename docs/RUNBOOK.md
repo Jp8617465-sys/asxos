@@ -68,7 +68,7 @@ a red run. It detects exactly four things — the email names which:
 | Finding | Means | Action |
 |---|---|---|
 | Job stuck `running` >2h | process died before `__aexit__`; the `job_runs` row was never closed | check that job's last Actions run; re-dispatch |
-| Expected-daily job with no `success` in 36h | the job is silently not running | check its workflow's schedule and last run |
+| Expected-daily job with no `success` inside its window (36h; 80h for the weekday-only `check_us_positions`) | the job is silently not running | check its workflow's schedule and last run. A Monday-UTC `MISSING` for a Mon–Fri job was a structural false positive until 2026-09-02 (`jobs/check_cron_health.py` `_EXPECTED_DAILY`) |
 | 2+ consecutive `failure` | a real, persistent break | read that job's log; this is the one that usually needs a code fix |
 | `success` **with a degraded note** | the run cleared its threshold while a source hard-failed | read `job_runs.error_message`; a green cron is hiding a dead feed |
 

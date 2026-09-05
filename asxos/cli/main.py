@@ -17,6 +17,8 @@ import typer
 from asxos.cli.agent_run import agent_run_app
 from asxos.cli.arbi import arbi_app
 from asxos.cli.brief import brief
+from asxos.cli.candidates import candidates_app
+from asxos.cli.decision import decision_app
 from asxos.cli.holdings import import_holdings
 from asxos.cli.journal import journal_app
 from asxos.cli.macro_thesis import macro_thesis_app
@@ -25,6 +27,8 @@ from asxos.cli.news import news_app
 from asxos.cli.portfolio import build_portfolio, portfolio_app, propose_trades
 from asxos.cli.position import position_app
 from asxos.cli.profile import profile_app
+from asxos.cli.replay import replay_app
+from asxos.cli.research import research_app
 from asxos.cli.results_review import results_review_app
 from asxos.cli.screen import screen_app
 from asxos.cli.tax import tax_action, tax_view
@@ -59,6 +63,10 @@ app.add_typer(agent_run_app, name="agent-run")
 app.add_typer(arbi_app, name="arbi")
 app.add_typer(screen_app, name="screen")
 app.add_typer(results_review_app, name="results-review")
+app.add_typer(replay_app, name="replay")
+app.add_typer(research_app, name="research")
+app.add_typer(candidates_app, name="candidates")
+app.add_typer(decision_app, name="decision")
 
 
 if __name__ == "__main__":  # pragma: no cover

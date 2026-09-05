@@ -156,7 +156,8 @@ def test_dump_is_pushed_before_the_frozen_evidence_check_runs() -> None:
     push_at = _TEXT.index("git push origin HEAD")
     loop_at = _TEXT.index('for pair in "signals:$SIGNALS_SHA256"')
     assert cp_at < push_at < loop_at
-    assert "WAS pushed before this check ran" in _TEXT
+    assert "was pushed before this check ran" in _TEXT
+    assert "was identical to the last dump, so no push was required" in _TEXT
 
 
 def test_frozen_evidence_check_accepts_raw_or_gunzipped_bytes() -> None:
@@ -173,6 +174,64 @@ def test_frozen_evidence_check_accepts_raw_or_gunzipped_bytes() -> None:
     ):
         # once in the header, once in the constant — they must not drift apart
         assert _TEXT.count(digest) == 2
+
+
+def test_corrupt_gzip_routes_through_failure_ping(tmp_path: Path) -> None:
+    """A decompressor failure must not escape through `set -e` before `/fail`."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    ping_log = tmp_path / "pings"
+
+    def executable(name: str, body: str) -> None:
+        path = fake_bin / name
+        path.write_text("#!/usr/bin/env bash\nset -eu\n" + body, encoding="utf-8")
+        path.chmod(0o755)
+
+    executable("psql", "printf 't\\n'\n")
+    executable("pg_dump", "printf '%s\\n' '-- fake dump'\n")
+    executable(
+        "gzip",
+        'if [ "${1:-}" = "-dc" ]; then exit 1; fi\nexec /usr/bin/gzip "$@"\n',
+    )
+    executable(
+        "git",
+        """
+work=''
+previous=''
+for arg in "$@"; do
+  if [ "$previous" = '-C' ]; then work="$arg"; fi
+  previous="$arg"
+done
+case " $* " in
+  *' clone '*)
+    mkdir -p "$work/repo/signal-evidence-2026-08-16"
+    printf 'corrupt' > "$work/repo/signal-evidence-2026-08-16/corrupt.gz"
+    ;;
+  *' diff --cached --quiet '*) exit 0 ;;
+esac
+exit 0
+""",
+    )
+    executable("curl", f"printf '%s\\n' \"$*\" >> {ping_log!s}\n")
+
+    env = {
+        "PATH": f"{fake_bin}:/usr/bin:/bin:/usr/sbin:/sbin",
+        "DATABASE_URL": "postgres://unused",
+        "BACKUP_GITHUB_TOKEN": "unused",
+        "BACKUP_REPO": "owner/repo",
+        "HEALTHCHECK_URL_BACKUP_IRREPLACEABLE": "https://health.invalid/job",
+    }
+    proc = subprocess.run(
+        ["bash", str(_SCRIPT)],
+        text=True,
+        capture_output=True,
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 1
+    assert "cannot be decompressed" in proc.stderr
+    assert "no push was required" in proc.stderr
+    assert "/fail" in ping_log.read_text(encoding="utf-8")
 
 
 def test_verification_failure_tells_the_deadman_it_failed() -> None:
