@@ -31,6 +31,7 @@ from asxos.domain.prices.coverage import (
     latest_complete_trading_day,
     latest_observed_price_date,
     select_latest_complete,
+    select_sync_target,
     trailing_median_row_count,
 )
 
@@ -274,3 +275,45 @@ def test_classify_sync_carries_phase_counts_and_target() -> None:
     v = classify_sync_completeness(date(2026, 6, 10), au_rows=1800, us_rows=5, fx_rows=2)
     assert (v.au_rows, v.us_rows, v.fx_rows) == (1800, 5, 2)
     assert v.target == date(2026, 6, 10)
+
+
+# --- select_sync_target (which fetched day the verdict is about) ----------------
+#
+# The scenarios map to the 2026-09-03..05 false-positive incident: after #171
+# made clock.today() the Sydney date, the 06:30 AEST run fetched yesterday's
+# close (2,299 / 2,288 AU rows) plus an empty bulk for today, classified today
+# and wrote "NO_EQUITY_DATA — ASX=0" into job_runs.error_message — which
+# check_cron_health then surfaced as DEGRADED on three consecutive days.
+
+
+def test_select_sync_target_pre_open_run_classifies_yesterday() -> None:
+    # Thursday 2026-09-03 08:45 AEST: Wednesday's close landed, today is empty.
+    counts = {date(2026, 9, 2): 2299, date(2026, 9, 3): 0}
+    assert select_sync_target(counts, today=date(2026, 9, 3)) == date(2026, 9, 2)
+
+
+def test_select_sync_target_after_close_run_classifies_today() -> None:
+    # An evening (or next-day manual) run where today's bulk has rows.
+    counts = {date(2026, 9, 2): 2299, date(2026, 9, 3): 2288}
+    assert select_sync_target(counts, today=date(2026, 9, 3)) == date(2026, 9, 3)
+
+
+def test_select_sync_target_earlier_zero_day_is_still_flagged() -> None:
+    # A holiday (or the 2026-06-14 residue day) BEFORE today keeps its zero: the
+    # helper only excuses today, never a past weekday.
+    counts = {date(2026, 6, 15): 0, date(2026, 6, 16): 0}
+    target = select_sync_target(counts, today=date(2026, 6, 16))
+    assert target == date(2026, 6, 15)
+    verdict = classify_sync_completeness(target, au_rows=counts[target], us_rows=12, fx_rows=0)
+    assert verdict.status is PriceDateStatus.NO_EQUITY_DATA
+
+
+def test_select_sync_target_monday_run_classifies_friday() -> None:
+    # Monday 06:30 AEST: the loop skips the weekend, fetches Friday + empty Monday.
+    counts = {date(2026, 9, 4): 2301, date(2026, 9, 7): 0}
+    assert select_sync_target(counts, today=date(2026, 9, 7)) == date(2026, 9, 4)
+
+
+def test_select_sync_target_only_empty_today_is_nothing_to_classify() -> None:
+    assert select_sync_target({date(2026, 9, 3): 0}, today=date(2026, 9, 3)) is None
+    assert select_sync_target({}, today=date(2026, 9, 3)) is None
