@@ -1,0 +1,15 @@
+--- a/.claude/hooks/authority-guard.sh
++++ b/.claude/hooks/authority-guard.sh
+@@ -36,7 +36,11 @@
+   exit 0
+ }
+ 
+-command -v jq >/dev/null 2>&1 || exit 0
++# jq is required to read the payload at all; without it this guard cannot tell an
++# authority write from any other call. Failing OPEN here meant the always-on fence
++# silently vanished on a machine without jq. Mirrors unattended-guard.sh:49.
++command -v jq >/dev/null 2>&1 \
++  || deny "authority-guard: jq unavailable; cannot verify the tool call is safe, so the authority fence refuses it (fail-closed). Install jq."
+ 
+ payload="$(cat)"
+ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"

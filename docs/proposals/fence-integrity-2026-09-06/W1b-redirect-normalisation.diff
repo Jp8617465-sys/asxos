@@ -1,0 +1,13 @@
+--- a/.claude/hooks/authority-guard.sh
++++ b/.claude/hooks/authority-guard.sh
+@@ -215,6 +215,10 @@
+     cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty')"
+     [ -n "$cmd" ] || exit 0
+     scrub="$(printf '%s' "$cmd" | sed -E 's#[0-9]*>>?[[:space:]]*/dev/(null|stderr)##g')"
++    # Collapse "./" path spellings. $authority_ref's left-boundary class excludes
++    # "/", so ".github/" inside "./.github/" was preceded by "/" and never matched.
++    # The "[^A-Za-z0-9_.~-]" class deliberately excludes "." so "../" is left alone.
++    scrub="$(printf '%s' "$scrub" | sed -E 's#(^|[^A-Za-z0-9_.~-])\./#\1#g; s#/\./#/#g')"
+     authority_ref="(^|[^A-Za-z0-9_./-])($(_authority_regex_alt))"
+     util_verb='(python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|tee\b|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'
+     if printf '%s' "$scrub" | grep -Eiq "$authority_ref" && printf '%s' "$scrub" | grep -Eiq "$util_verb"; then

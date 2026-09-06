@@ -1,0 +1,11 @@
+--- a/.claude/hooks/authority-guard.sh
++++ b/.claude/hooks/authority-guard.sh
+@@ -216,7 +216,7 @@
+     [ -n "$cmd" ] || exit 0
+     scrub="$(printf '%s' "$cmd" | sed -E 's#[0-9]*>>?[[:space:]]*/dev/(null|stderr)##g')"
+     authority_ref="(^|[^A-Za-z0-9_./-])($(_authority_regex_alt))"
+-    util_verb='(python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|tee\b|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'
++    util_verb='(python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|tee\b|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--|(^|[[:space:]])rm[[:space:]]|(^|[[:space:]])rmdir[[:space:]]|(^|[[:space:]])unlink[[:space:]])'
+     if printf '%s' "$scrub" | grep -Eiq "$authority_ref" && printf '%s' "$scrub" | grep -Eiq "$util_verb"; then
+       deny "authority-guard: this Bash command references an authority/boundary path alongside a write-capable interpreter/utility — blocked. arbi may only DRAFT authority changes via a reviewed PR."
+     fi
