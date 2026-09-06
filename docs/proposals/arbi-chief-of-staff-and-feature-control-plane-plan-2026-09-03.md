@@ -9,9 +9,11 @@
 - **Optional secondary execution/review:** Cursor and Codex; never required for liveness
 - **Infrastructure constraint:** GitHub Actions + Supabase only; no AWS CodeBuild,
   self-hosted-runner fleet, or new compute platform
+- **Current runtime truth:** neither Render nor Vercel is active; there is no external
+  application deployment target in scope
 - **Supersedes as advisory design:** the version of this file at `637d310`
 - **Non-scope:** this file does not ratify Amendment M, create infrastructure, bind a
-  secret, activate a workflow, merge, deploy, apply a migration, write production data,
+  secret, activate a workflow, merge, apply a migration, write production data,
   change capital policy, or lift the Model A quarantine
 
 > This is the implementation contract to red-team and ratify, not an authority source.
@@ -32,8 +34,8 @@ The target is not a more elaborate planning ceremony. It is maximum useful auton
 - production code is the default deliverable for an admitted engineering outcome;
 - four bounded lanes may work concurrently in Lab from day one;
 - low-risk production changes can ultimately land without a founder click;
-- workflow activation, additive migrations, deployments, and typed production writes
-  become autonomous one capability at a time behind mechanical fences;
+- workflow activation, scheduled-runtime promotion, additive migrations, and typed
+  production writes become autonomous one capability at a time behind mechanical fences;
 - James owns secret values and their initial bindings, but an approved controller can
   exercise the bound capability without exposing the value or asking on every run;
 - contract migrations may become eligible through an archive-first forward-recovery
@@ -64,12 +66,14 @@ This plan re-derives its execution baseline instead of inheriting the obsolete s
 - The 2026-09-06 dream is a candidate, not promoted memory or authority.
 - Model A remains shelved and mechanically blocked from allocation by the revoked
   approval/production gate as well as `CLAUDE.md` rule #11.
-- Render was deleted on 2026-08-12. Production execution is currently GitHub Actions
-  jobs, so merge-to-runtime coupling must be analysed through scheduled-workflow
-  reachability rather than an obsolete Render/Vercel premise.
+- Render was deleted on 2026-08-12 and Vercel is not active. There is no current external
+  application deployment target. Production execution is GitHub Actions jobs plus their
+  Supabase/Resend/Healthchecks effects, so merge-to-runtime coupling must be analysed
+  through scheduled-workflow reachability. Deployment automation is dormant and out of
+  scope until a real target is adopted by a separate decision.
 
 Live GitHub, repository settings, branch rules, Supabase settings, workflow secrets,
-and deployment/runtime reachability must be re-probed at Phase 0. Any count or setting
+and scheduled-runtime reachability must be re-probed at Phase 0. Any count or setting
 in prose is evidence dated 2026-09-06, not permanent truth.
 
 ## 3. Non-negotiable hard boundaries
@@ -78,7 +82,7 @@ Everything outside these boundaries is eligible to be delegated once its control
 and evidence gate exist.
 
 1. **No model process holds a product production credential.** Product database,
-   GitHub write, deploy, send, billing, or broker credentials never enter Claude,
+   GitHub write, runtime-promotion, send, billing, or broker credentials never enter Claude,
    Cursor, Codex, or repository-code execution. Model-provider authentication is a
    separate bootstrap surface: it is provider-relayed, environment-separated, and
    spend-capped.
@@ -115,7 +119,7 @@ and evidence gate exist.
 | Claude | Primary architecture, implementation, tests, remediation, branches, draft PRs, and operational orchestration | One assigned mutable node within its contract | Hold product credentials, certify its own evidence, bypass controllers |
 | Cursor / Codex | Optional specialist, overflow, recovery, or independent perspective | Only when explicitly assigned the same typed contract | Become required for system liveness or receive greater authority |
 | Fresh reviewer context | Semantic/adversarial review of frozen contract + derived bundle + diff | Findings only | Read mutable PR persuasion as authority; author the implementation under review |
-| Deterministic controllers | Verify, sign, publish, mark ready, land, deploy, migrate, write, send, observe | One allowlisted capability | Interpret open-ended work prose or execute product code in a secret-bearing job |
+| Deterministic controllers | Verify, sign, publish, mark ready, land, promote scheduled runtime, migrate, write, send, observe | One allowlisted capability | Interpret open-ended work prose or execute product code in a secret-bearing job |
 
 Exactly one model-based mutator owns each mutable node. Overlap is deliberate only for
 producer/challenger, implementer/verifier, or independent evidence. The mandatory review
@@ -275,7 +279,11 @@ Examples:
 - migration: schema/telemetry snapshot -> offline preflight -> exact-digest migration
   controller;
 - publication: verified patch -> Git data/API branch writer without code execution;
-- deployment/runtime: exact artifact/ref -> canary/health gate -> promotion or revert.
+- scheduled runtime: exact ref -> canary/health gate -> promotion or revert.
+
+There is no active Render, Vercel, or other application-deployment target. A deployment
+broker is not built speculatively. If hosting is adopted later, it requires a separate
+architecture decision, production-effect class, controller, and capability promotion.
 
 ### 5.6 Credential policy
 
@@ -287,7 +295,7 @@ Examples:
 - No workload uses Supabase `service_role`.
 - Controllers use per-purpose database roles or stored functions with explicit table,
   operation, and row limits.
-- Publisher, reviewer, landing, migration, data, deployment, and send identities are
+- Publisher, reviewer, landing, migration, data, scheduled-runtime, and send identities are
   separate where their capabilities differ.
 - Lab and Live use separate GitHub App installations, Supabase projects, and model API
   keys with independent spend caps.
@@ -310,7 +318,7 @@ infrastructure, not a new compute platform.
 - evidence envelope and signer;
 - branch publisher;
 - ready/landing controller;
-- workflow, deployment, migration, data, fetch, and send brokers;
+- workflow, scheduled-runtime, migration, data, fetch, and send brokers;
 - capability registry and dependency graph;
 - local/dependent/global fuses;
 - cost meter and per-lane/month ceilings;
@@ -345,7 +353,7 @@ changes remain James-owned.
 | Lifecycle, lane, WIP, lease, revision | Transactional control ledger | Projects fields and generated Issue receipt |
 | Execution facts and controller decisions | Append-only control ledger | Issue/PR evidence comment |
 | Code and review boundary | Git branch/commit/PR | Issue links |
-| Runtime identity | Workflow/deployment/release record | Feature observation receipt |
+| Runtime identity | Workflow/release-ref record | Feature observation receipt |
 | Durable architectural decision | ADR | Contract link |
 | Explanations/reference/runbooks | Existing canonical docs | Generated index |
 
@@ -643,7 +651,7 @@ Start with:
 1. classifier decisions;
 2. publisher eligibility.
 
-Add reviewer, ready, landing, workflow, migration, data, send, and deployment decisions
+Add reviewer, ready, landing, workflow, migration, data, and send decisions
 only after those controllers exist. Compare decisions by class with James's actual action,
 including warranted escalations.
 
@@ -671,7 +679,8 @@ This section is a proposal for James to ratify. It cannot amend current I5/I6 it
 | Workflow activation/change | Compiled templates + permission/effect diff controller |
 | Additive migration | Autonomous after migration-controller qualification |
 | Typed production data operation | Autonomous through named function/row-limit broker |
-| Production runtime/deployment promotion | Exact ref/artifact, health gate, observation, automatic revert |
+| Production scheduled-runtime promotion | Exact ref, health gate, observation, automatic revert |
+| External application deployment | Dormant/out of scope until an actual hosting target is separately adopted |
 | Contract migration | Eligible only through two-window archive-first protocol |
 | Send/external communication | Fixed-recipient/schema broker after separate promotion |
 | Non-boundary prompt/routing promotion | Autonomous through immutable eval gate |
@@ -905,7 +914,7 @@ Order by value per engineering hour and containment:
 4. public-data fetch broker;
 5. workflow template/activation controller;
 6. additive migration controller;
-7. deployment/runtime controller expansion;
+7. scheduled-runtime controller expansion;
 8. typed data-operation broker;
 9. fixed-recipient send broker;
 10. archive-first contract migration controller.
