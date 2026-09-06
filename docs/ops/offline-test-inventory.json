@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "summary": {
+    "finding_counts": {
+      "env-gated-integration": 1,
+      "network-client-import": 6,
+      "network-marked": 2,
+      "network-marked-without-env-gate": 1,
+      "subprocess-spawns-process": 13
+    },
+    "flagged_module_count": 18,
+    "network_marked_modules": [
+      "tests/test_network_guard.py",
+      "tests/test_price_revision_migration_integration.py"
+    ],
+    "opt_in_env_vars": [
+      "MIGRATION_TEST_DATABASE_URL"
+    ],
+    "subprocess_modules": [
+      "tests/test_authority_guard_hook.py",
+      "tests/test_backup_script.py",
+      "tests/test_cursor_i56_hooks.py",
+      "tests/test_hook_worktree_scope.py",
+      "tests/test_issue_snapshot.py",
+      "tests/test_network_guard.py",
+      "tests/test_pr_draft_guard_hook.py",
+      "tests/test_pr_draft_guard_mcp.py",
+      "tests/test_push_guard_hook.py",
+      "tests/test_results_review_import_isolation.py",
+      "tests/test_results_review_presentation.py",
+      "tests/test_secondbrain_probes.py",
+      "tests/test_unattended_guard_secperf.py"
+    ]
+  },
+  "tests": [
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_authority_guard_hook.py",
+      "spawned_commands": [
+        "bash"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_backup_script.py",
+      "spawned_commands": [
+        "bash"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_cursor_i56_hooks.py",
+      "spawned_commands": [
+        "bash"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [
+        "httpx"
+      ],
+      "findings": [
+        "network-client-import"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_decision_engine_prototype.py",
+      "spawned_commands": [],
+      "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_hook_worktree_scope.py",
+      "spawned_commands": [
+        "bash",
+        "git"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [
+        "httpx"
+      ],
+      "findings": [
+        "network-client-import"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_ingestion.py",
+      "spawned_commands": [],
+      "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_issue_snapshot.py",
+      "spawned_commands": [
+        "bash"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [
+        "httpx"
+      ],
+      "findings": [
+        "network-client-import"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_job_monitor.py",
+      "spawned_commands": [],
+      "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [
+        "httpx",
+        "socket"
+      ],
+      "findings": [
+        "network-client-import",
+        "network-marked",
+        "network-marked-without-env-gate",
+        "subprocess-spawns-process"
+      ],
+      "network_marked": true,
+      "network_marked_tests": [
+        "test_network_marker_lifts_the_guard"
+      ],
+      "opt_in_env_vars": [],
+      "path": "tests/test_network_guard.py",
+      "spawned_commands": [
+        "sys.executable"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_pr_draft_guard_hook.py",
+      "spawned_commands": [
+        "bash"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_pr_draft_guard_mcp.py",
+      "spawned_commands": [
+        "bash"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [
+        "psycopg2"
+      ],
+      "findings": [
+        "env-gated-integration",
+        "network-client-import",
+        "network-marked"
+      ],
+      "network_marked": true,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [
+        "MIGRATION_TEST_DATABASE_URL"
+      ],
+      "path": "tests/test_price_revision_migration_integration.py",
+      "spawned_commands": [],
+      "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_push_guard_hook.py",
+      "spawned_commands": [
+        "bash",
+        "git"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [
+        "httpx"
+      ],
+      "findings": [
+        "network-client-import"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_redaction.py",
+      "spawned_commands": [],
+      "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_results_review_import_isolation.py",
+      "spawned_commands": [
+        "sys.executable"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_results_review_presentation.py",
+      "spawned_commands": [
+        "sys.executable"
+      ],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_secondbrain_probes.py",
+      "spawned_commands": [],
+      "spawns_subprocess": true
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_unattended_guard_secperf.py",
+      "spawned_commands": [
+        "bash"
+      ],
+      "spawns_subprocess": true
+    }
+  ],
+  "tests_dir": "tests"
+}

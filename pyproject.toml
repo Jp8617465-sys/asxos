@@ -83,4 +83,9 @@ asyncio_default_fixture_loop_scope = "function"
 # broken import degrade into a silent skip.
 # --strict-config turns a typo in THIS block into an error instead of a default.
 addopts = "-ra --strict-markers --strict-config"
+# --strict-markers means this list is the whole registry: an unregistered
+# marker is a collection error, not a silent no-op.
+markers = [
+    "network: test is permitted outbound network access; requires explicit opt-in and an entry in docs/ops/offline-test-inventory.json",
+]
 

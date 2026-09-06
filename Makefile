@@ -1,4 +1,4 @@
-.PHONY: help install dev decision-demo test lint type format check migrate shell logs deploy check-drift clean
+.PHONY: help install dev decision-demo test test-offline lint type format check migrate shell logs deploy check-drift clean
 
 PY ?= /usr/local/bin/python3.12
 VENV ?= .venv
@@ -30,6 +30,14 @@ migrate:  ## Reminder: migrations are applied via Supabase MCP, not this target
 
 test:  ## Run pytest
 	$(VENV)/bin/pytest
+
+# The local stand-in for the ACP verifier's `docker run --network none` lane
+# (plan section 5.4). `env -i` drops every inherited credential and the empty
+# HOME makes asxos/config.py's secrets file unreachable, so this fails if the
+# suite has acquired a dependency on either. The in-process guard in
+# tests/_netguard.py covers egress; this target covers the secretless half.
+test-offline:  ## Run pytest secretless: no inherited env, empty HOME
+	@env -i PATH="$$PATH" HOME="$$(mktemp -d)" $(VENV)/bin/pytest -q
 
 lint:  ## Run ruff lint
 	$(VENV)/bin/ruff check .

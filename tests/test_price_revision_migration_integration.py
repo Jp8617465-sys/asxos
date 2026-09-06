@@ -30,6 +30,13 @@ from psycopg2 import errors
 from psycopg2.extensions import connection as PgConnection
 from psycopg2.extensions import make_dsn
 
+# The suite's only intentional external integration test: it needs a real
+# server, so the outbound-network guard in tests/conftest.py is lifted for this
+# module. Opting in is still two-step — the marker alone grants nothing without
+# MIGRATION_TEST_DATABASE_URL, and the skip below fires during collection.
+# Recorded in docs/ops/offline-test-inventory.json.
+pytestmark = pytest.mark.network
+
 _DATABASE_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
 if _DATABASE_URL is None:
     pytest.skip(
