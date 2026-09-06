@@ -16,6 +16,7 @@ from asxos.domain.prices.coverage import (
     latest_complete_trading_day,
     latest_observed_price_date,
     select_latest_complete,
+    select_sync_target,
     trailing_median_row_count,
 )
 
@@ -31,5 +32,6 @@ __all__ = [
     "latest_complete_trading_day",
     "latest_observed_price_date",
     "select_latest_complete",
+    "select_sync_target",
     "trailing_median_row_count",
 ]
