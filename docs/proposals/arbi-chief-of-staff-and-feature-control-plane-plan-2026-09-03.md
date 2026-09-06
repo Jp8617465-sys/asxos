@@ -84,8 +84,8 @@ and evidence gate exist.
 1. **No model process holds a product production credential.** Product database,
    GitHub write, runtime-promotion, send, billing, or broker credentials never enter Claude,
    Cursor, Codex, or repository-code execution. Model-provider authentication is a
-   separate bootstrap surface: it is provider-relayed, environment-separated, and
-   spend-capped.
+   separate bootstrap surface: prefer short-lived workload identity, isolate it by
+   environment, and enforce spend caps.
 2. **Model-authored and repository-authored code never shares a process with a
    privileged credential.** Repository tests/builds run secretless and offline.
    Secret-bearing jobs run only pinned control code and do not execute a product
@@ -179,7 +179,7 @@ token/config scrub before the model starts
                  |
                  v
 Claude producer sandbox
-  provider relay only
+  short-lived provider identity only
   no GitHub write
   no product secret
   does not execute product code
@@ -214,21 +214,32 @@ observation + reconciliation + fuse result
 ### 5.3 Model producer sandbox
 
 Claude needs network access to a model provider, so the model workspace cannot use
-`--network none`. It runs as non-root in a read-only container attached only to an
-internal Docker network. A **provider-specific TLS-terminating relay** is dual-homed:
+`--network none`. It runs as non-root in a read-only container with an egress allowlist
+limited to the provider API.
 
-- it implements only the required provider API surface;
-- it validates method, path, destination, payload size, response size, and rate;
-- it injects the model API key upstream;
-- it exposes no credential-read or generic CONNECT endpoint;
-- it records usage without recording prompts or source content;
-- the model container receives a relay URL and a non-secret session handle, not the
-  upstream credential.
+The preferred authentication route is **Anthropic workload identity federation**. The
+exact Claude Action commit already pinned in this repository (`a874e9e`) exposes the
+federation rule, organisation, service-account, workspace, and audience inputs. A
+control-repository job uses GitHub OIDC to exchange its exact workflow identity for a
+short-lived Anthropic access token. Federation identifiers are configuration, not
+secrets. The producer receives no static `CLAUDE_CODE_OAUTH_TOKEN` or
+`ANTHROPIC_API_KEY`, no GitHub write token, and no product credential. The federation
+rule binds the control repository, protected workflow/ref, service account, workspace,
+and expected audience; the Anthropic workspace carries the hard spend cap.
 
-A normal HTTPS CONNECT proxy is insufficient because it cannot inject an authentication
-header into opaque TLS. Phase 1 must prove that the chosen Claude automation runtime can
-use the provider-specific relay/base URL. If that proof fails, the design returns to
-James; it does not silently mount the upstream key into a model-controlled shell.
+Phase 1 must prove tenant availability, exact claim matching, token lifetime/revocation,
+egress restriction, and compatibility with the tokenless producer interface. James owns
+the one-time Anthropic organisation/service-account/federation binding. The official
+[Claude Action setup guide](https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md#workload-identity-federation)
+is the current primary source; implementation remains pinned to a reviewed commit.
+
+If the Anthropic account cannot enable federation, a **provider-specific
+TLS-terminating relay** is the fallback, not an assumed Phase-1 component. It must inject
+the upstream key server-side, expose no credential-read or generic CONNECT endpoint,
+validate the provider API surface and limits, and issue only an expiring run-bound
+handle. A normal HTTPS CONNECT proxy is insufficient. Relay unavailability or failure
+to contain the credential returns to James; it never justifies mounting an upstream key
+in a model-controlled process.
 
 The model container may read the exact source snapshot and write only its patch/output
 directory. It has no Docker socket, host environment, production credential, GitHub
@@ -629,7 +640,8 @@ Lab is designed to break safely:
 - separate Supabase Lab project, not a preview branch sharing production integrations;
 - synthetic/seeded data and fake product secrets;
 - separate GitHub App installations;
-- separate model API key/relay and hard spend cap;
+- separate Anthropic workspace/service account/federation rule and hard spend cap (or
+  separately approved relay fallback);
 - all four lanes, WIP one each;
 - autonomous Issue/contract operation within Lab policy;
 - self-modifying non-boundary prompts/routing under immutable holdouts;
@@ -838,7 +850,7 @@ P0 verify account/settings/runtime exposure
  ├─ P3 create separate control Apps
  ├─ P4 create append-only ledger + minimal contract
  ├─ P5 create webhook/polling admission path
- ├─ P6 prove provider-specific Claude relay
+ ├─ P6 prove Anthropic workload federation (relay only as fallback)
  │    └─ P7 tokenless Claude patch producer
  ├─ P8 offline exact-SHA verifier + fixtures
  │    └─ P9 OIDC-bound signer + App-owned check
@@ -968,7 +980,7 @@ parallel queue:
 |---|---|---|---|---|---|---|---|
 | R-ACP-01 | Model can use a GitHub/product credential | Medium | High | High | Tokenless producer; control-owned publisher; product secret evacuation | Control plane | Open |
 | R-ACP-02 | Repository code exfiltrates a secret | Medium | High | High | Separate job, `--network none`, zero secrets/socket | Control plane | Open |
-| R-ACP-03 | Provider relay is infeasible or exposes the model key | Medium | High | High | Phase-1 compatibility proof; provider-specific relay; no generic CONNECT | Control plane/James | Open |
+| R-ACP-03 | Provider identity bootstrap is unavailable, over-broad, or exposes a reusable key | Medium | High | High | Prove Anthropic WIF claim binding first; short lifetime and spend cap; reviewed provider-specific relay only as fallback | Control plane/James | Open |
 | R-ACP-04 | Signer accepts forged verifier evidence | Medium | High | High | Immutable control workflow identity, OIDC/nonce/run binding, App-owned check | Control plane | Open |
 | R-ACP-05 | Broker becomes a confused deputy | Medium | High | High | Typed fixed operations, schema/digest validation, limits, no product execution | Broker owner | Open |
 | R-ACP-06 | Classifier misses production reachability | Medium | High | High | Derived graph, adversarial fixtures, fail-closed highest class | Classifier owner | Open |
@@ -994,7 +1006,7 @@ disposition is part of the audit trail:
 
 | Finding | Disposition in this plan |
 |---|---|
-| B1 model workspace cannot use `--network none` | Accepted; model and verifier sandboxes split; provider-specific relay specified |
+| B1 model workspace cannot use `--network none` | Accepted; model and verifier sandboxes split; Anthropic WIF preferred, constrained relay retained only as fallback |
 | B2 reusable brokers cannot use called-repo secrets | Accepted; execution originates in `asxos-control`; product repo has no broker secret |
 | B3 verifier evidence can be forged by product workflow | Accepted; protected control workflow, signed ledger evidence, App-owned check |
 | B4 Actions settings unhardened | Accepted as live preflight; hardening is Phase 0/1 prerequisite |
@@ -1029,13 +1041,16 @@ Claude must perform this in a fresh repo-connected review context before impleme
       enumerated without exposing values.
 - [ ] Current scheduled jobs and production checkout/ref reachability mapped.
 - [ ] No obsolete Render/Vercel assumption used.
-- [ ] Provider-specific relay is feasible with the chosen Claude automation interface.
+- [ ] Anthropic WIF is available to James's tenant and its exact control-workflow claims,
+      lifetime, revocation, spend cap, and producer compatibility are proven; otherwise
+      the constrained relay fallback is separately threat-modelled.
 - [ ] Cross-repo trigger requires no product credential; polling/webhook path threat-modelled.
 - [ ] Control App can post an identity-bound required check supported by branch rules.
 - [ ] OIDC claims available in the chosen control job are captured and negative-tested.
 - [ ] Control ledger separate-org/project, backup, append-only, signer, and clock assumptions
       verified.
-- [ ] Lab has separate project/integrations/Apps/provider key and hard spend cap.
+- [ ] Lab has a separate project/integrations/Apps and Anthropic
+      workspace/service-account/federation rule with a hard spend cap.
 - [ ] Model A production-gate enforcement re-tested; classifier exclusion added, not
       substituted for the existing gate.
 - [ ] Personal-advice paths and scheduled-runtime roots enumerated.
@@ -1080,7 +1095,7 @@ self-report for CI evidence, or turn an unresolved finding into prose acceptance
 
 Return first with: live-state delta, Amendment M authority diff, Phase-1 task
 graph, control App permission matrix, credential migration inventory (names and
-scopes only), provider-relay feasibility verdict, and exact first two draft-PR
+scopes only), provider-identity feasibility verdict, and exact first two draft-PR
 boundaries. Begin mutation only after those are internally consistent.
 ```
 
