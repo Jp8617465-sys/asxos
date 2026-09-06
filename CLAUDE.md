@@ -37,8 +37,8 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (on disk through 0048; latest APPLIED is
-`0048_decision_packets`) is the canonical schema** — roughly 40
+**`migrations/` (on disk through 0052; latest APPLIED is
+`0052_outcome_materialisation`) is the canonical schema** — roughly 50
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -56,6 +56,11 @@ applied** — `public.segment_map` does not exist in production and nothing runs
 `build_segment_map` yet. `0046_screening_runs_comment_fix.sql` was applied as
 `20260823054040`; `0047_brief_section_gold.sql` was applied as `20260824002827`;
 and `0048_decision_packets.sql` was applied on 2026-09-01 as `20260901062502`.
+Under James's 2026-09-02 I5 grant, `0049_pit_knowledge_tier.sql` (`20260902201241`),
+`0050_research_registry.sql` (`20260902203202`), `0051_theme_candidates.sql`
+(`20260902204920`) and `0052_outcome_materialisation.sql` (`20260903025557`) were
+applied on 2026-09-02/03 — `schema_migrations` held 104 rows when re-verified on
+2026-09-06. So the live ledger ends at 0052 while 0045 is still absent from it.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active
