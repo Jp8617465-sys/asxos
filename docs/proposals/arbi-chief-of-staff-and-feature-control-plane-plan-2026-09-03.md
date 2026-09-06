@@ -1,0 +1,1100 @@
+# Arbi chief of staff and autonomy control plane — final pre-execution plan
+
+- **Status:** final pre-execution proposal; red-team amendments folded in; **not authority**
+- **Plan date:** 2026-09-06 (Australia/Brisbane)
+- **Live baseline:** `origin/main` at `b4c53a1` after PRs #178–#201 landed
+- **Owner / governor:** James
+- **Proposed operating owner:** Arbi
+- **Primary execution layer:** Claude
+- **Optional secondary execution/review:** Cursor and Codex; never required for liveness
+- **Infrastructure constraint:** GitHub Actions + Supabase only; no AWS CodeBuild,
+  self-hosted-runner fleet, or new compute platform
+- **Supersedes as advisory design:** the version of this file at `637d310`
+- **Non-scope:** this file does not ratify Amendment M, create infrastructure, bind a
+  secret, activate a workflow, merge, deploy, apply a migration, write production data,
+  change capital policy, or lift the Model A quarantine
+
+> This is the implementation contract to red-team and ratify, not an authority source.
+> Current I5/I6 and P5/P6 stops continue to bind until James records an explicit
+> amendment. Implementation must not infer permission from the ambition in this plan.
+
+## 1. Executive decision
+
+Build Arbi into the **chief-of-staff control plane** for asxos. Arbi maintains one
+truthful work portfolio, admits and routes work, coordinates delivery, manages
+exceptions, observes outcomes, and promotes autonomy by capability. Claude is the
+normal end-to-end execution layer. Cursor and Codex are optional additional capacity,
+not dependencies. Deterministic controllers—not a model process—perform privileged
+side effects.
+
+The target is not a more elaborate planning ceremony. It is maximum useful autonomy:
+
+- production code is the default deliverable for an admitted engineering outcome;
+- four bounded lanes may work concurrently in Lab from day one;
+- low-risk production changes can ultimately land without a founder click;
+- workflow activation, additive migrations, deployments, and typed production writes
+  become autonomous one capability at a time behind mechanical fences;
+- James owns secret values and their initial bindings, but an approved controller can
+  exercise the bound capability without exposing the value or asking on every run;
+- contract migrations may become eligible through an archive-first forward-recovery
+  protocol;
+- constitutional changes, secret binding, capital execution, and advice-like portfolio
+  output remain James-owned.
+
+The design separates cheap, reversible failure from expensive, irreversible failure.
+Lab is deliberately permissive. Live is mechanically constrained. A valid red-team
+finding strengthens the fence; it does not shrink the intended capability.
+
+## 2. Baseline and truth corrections
+
+This plan re-derives its execution baseline instead of inheriting the obsolete state at
+`637d310`:
+
+- `origin/main` is `b4c53a1` (`fix(decision): restore point-in-time and delivery
+  integrity (#201)`).
+- PRs #178–#201 have landed. The 14-PR merge inventory in the 2026-09-03 handoff is a
+  correct dated record, not current state.
+- Amendment H's decision chain, Amendment H standing lanes, Amendments I/J/K/L, and
+  PR #201's corrective semantics are on `main`.
+- Current Amendment H lanes remain owner-dispatched while their producer write-token
+  exposure is open. Installed workflow files are not proof that the loop is armed.
+- D10 selects GitHub Issues + Projects as the intended work substrate, but operational
+  cutover is incomplete. `roadmap-state.md` and `backlog.yaml` still contain stale
+  executable state.
+- The 2026-09-06 dream is a candidate, not promoted memory or authority.
+- Model A remains shelved and mechanically blocked from allocation by the revoked
+  approval/production gate as well as `CLAUDE.md` rule #11.
+- Render was deleted on 2026-08-12. Production execution is currently GitHub Actions
+  jobs, so merge-to-runtime coupling must be analysed through scheduled-workflow
+  reachability rather than an obsolete Render/Vercel premise.
+
+Live GitHub, repository settings, branch rules, Supabase settings, workflow secrets,
+and deployment/runtime reachability must be re-probed at Phase 0. Any count or setting
+in prose is evidence dated 2026-09-06, not permanent truth.
+
+## 3. Non-negotiable hard boundaries
+
+Everything outside these boundaries is eligible to be delegated once its controller
+and evidence gate exist.
+
+1. **No model process holds a product production credential.** Product database,
+   GitHub write, deploy, send, billing, or broker credentials never enter Claude,
+   Cursor, Codex, or repository-code execution. Model-provider authentication is a
+   separate bootstrap surface: it is provider-relayed, environment-separated, and
+   spend-capped.
+2. **Model-authored and repository-authored code never shares a process with a
+   privileged credential.** Repository tests/builds run secretless and offline.
+   Secret-bearing jobs run only pinned control code and do not execute a product
+   checkout.
+3. **Risk class is derived from the candidate change.** Paths, modes, workflow
+   permissions/triggers, migrations, dependencies, imports reachable from production
+   jobs, database effects, destinations, user-facing output, advice relevance, and
+   authority surfaces determine routing. Builder labels are calibration data only.
+   Ambiguity fails closed to the highest plausible class.
+4. **Ingestion has zero control-plane or repository write authority.** Web pages,
+   filings, announcements, news, PR prose, Issue prose, and agent output are untrusted
+   data. Ingestion emits typed records only.
+5. **Controllers are a separate trust domain.** `asxos-control` owns verification,
+   signing, publishing, landing, fuses, spending, and production-effect brokers.
+   Product PRs cannot edit the controller evaluating them.
+6. **Advice and engineering autonomy are separate.** Anything resembling a personal
+   portfolio recommendation remains human-gated. No controller executes capital.
+   Model A cannot be used as capital evidence.
+7. **Authority cannot self-expand.** Arbi may propose a boundary change; only James can
+   ratify the constitution, capability scope, secret binding, or fuse policy.
+8. **Every privileged action is attributable and recoverable.** It binds to an admitted
+   contract, exact source/artifact identity, controller policy version, ledger event,
+   observation, and rollback or forward-recovery path.
+
+## 4. Target operating model
+
+| Actor | Accountable for | May mutate | Must not do |
+|---|---|---|---|
+| James | Product mandate, risk appetite, secret values/bindings, capital, constitutional changes, root-of-trust exceptions | Authority and explicitly reserved operations | Routine coordination or step-by-step delivery |
+| Arbi | Intake, prioritisation, contracts, WIP, lane routing, commitments, exceptions, observation, promotion packets | Protected work state through a scoped controller | Implement product code, certify itself, handle secrets, execute capital |
+| Claude | Primary architecture, implementation, tests, remediation, branches, draft PRs, and operational orchestration | One assigned mutable node within its contract | Hold product credentials, certify its own evidence, bypass controllers |
+| Cursor / Codex | Optional specialist, overflow, recovery, or independent perspective | Only when explicitly assigned the same typed contract | Become required for system liveness or receive greater authority |
+| Fresh reviewer context | Semantic/adversarial review of frozen contract + derived bundle + diff | Findings only | Read mutable PR persuasion as authority; author the implementation under review |
+| Deterministic controllers | Verify, sign, publish, mark ready, land, deploy, migrate, write, send, observe | One allowlisted capability | Interpret open-ended work prose or execute product code in a secret-bearing job |
+
+Exactly one model-based mutator owns each mutable node. Overlap is deliberate only for
+producer/challenger, implementer/verifier, or independent evidence. The mandatory review
+property is a separate context and evidence chain; it is not a dependency on a second
+model provider. Cursor/Codex review can be measured and used when available.
+
+```text
+James: mandate · secrets · constitution · capital
+                         |
+                         v
+Arbi: contract · priority · lane · WIP · exception
+                         |
+                         v
+Claude: build · test · remediate · propose patch
+              | optional specialist/reviewer
+              +------ Cursor / Codex / fresh Claude
+                         |
+                         v
+Control: verify · attest · publish · land · operate
+                         |
+                         v
+Runtime + ledger: observe · reconcile · fuse · learn
+                         |
+                         +------> Arbi advances, reshapes, or escalates
+```
+
+## 5. Existing-infrastructure trust architecture
+
+### 5.1 Why the execution plane moves to `asxos-control`
+
+A reusable workflow executes in its caller's context and cannot safely obtain a called
+private repository's secrets. A product branch can also change a product workflow. The
+autonomous execution plane therefore originates inside `asxos-control`; the product
+repository does not dispatch a privileged cross-repository workflow.
+
+`asxos-control` discovers admitted work by either:
+
+1. polling the control ledger with a serialized lease; or
+2. receiving a GitHub App webhook through a control Supabase Edge Function and writing
+   a typed admission event to that ledger.
+
+No product-repository credential is needed to start the control run. The control App
+reads the exact product SHA. Branch publication and required checks are performed later
+by separate Apps/jobs.
+
+### 5.2 End-to-end execution path
+
+```text
+admitted immutable contract in control ledger
+                 |
+                 v
+asxos-control execution lease
+                 |
+                 v
+read-only checkout of exact product SHA
+token/config scrub before the model starts
+                 |
+                 v
+Claude producer sandbox
+  provider relay only
+  no GitHub write
+  no product secret
+  does not execute product code
+                 |
+                 v
+patch + declared manifest artifact
+                 |
+                 v
+secretless offline verifier
+  derives paths/modes/effects from patch
+  applies patch to exact base
+  runs tests/policy in prebuilt image
+                 |
+                 v
+OIDC-bound signer + append-only evidence
+                 |
+                 v
+deterministic publisher
+  validates lease, digest, scope, size, modes
+  creates only allowed agent branch/commit
+                 |
+                 v
+control-App required check at exact head
+                 |
+                 v
+ready / landing / runtime controller
+                 |
+                 v
+observation + reconciliation + fuse result
+```
+
+### 5.3 Model producer sandbox
+
+Claude needs network access to a model provider, so the model workspace cannot use
+`--network none`. It runs as non-root in a read-only container attached only to an
+internal Docker network. A **provider-specific TLS-terminating relay** is dual-homed:
+
+- it implements only the required provider API surface;
+- it validates method, path, destination, payload size, response size, and rate;
+- it injects the model API key upstream;
+- it exposes no credential-read or generic CONNECT endpoint;
+- it records usage without recording prompts or source content;
+- the model container receives a relay URL and a non-secret session handle, not the
+  upstream credential.
+
+A normal HTTPS CONNECT proxy is insufficient because it cannot inject an authentication
+header into opaque TLS. Phase 1 must prove that the chosen Claude automation runtime can
+use the provider-specific relay/base URL. If that proof fails, the design returns to
+James; it does not silently mount the upstream key into a model-controlled shell.
+
+The model container may read the exact source snapshot and write only its patch/output
+directory. It has no Docker socket, host environment, production credential, GitHub
+write token, or general outbound route. It does not run project tests, package managers,
+build hooks, or repository executables.
+
+### 5.4 Repository-code verifier
+
+Tests, lint, type checks, builds, and preflights execute separately:
+
+- prebuilt dependency image, identified by digest;
+- rebuilt only by trusted control code from the lockfile;
+- `docker run --network none`;
+- no secret, OIDC token, model key, deadman URL, or GitHub write token;
+- non-root, read-only root filesystem and source mount where possible;
+- dropped Linux capabilities and `no-new-privileges`;
+- no Docker socket;
+- local Postgres inside the test container where DB tests require it;
+- external HTTP replaced by fixtures or a typed fetch artifact.
+
+The Phase-1 inventory must identify tests that currently call live endpoints. Fixture
+conversion is part of the verifier exit gate, not an ignored transition cost.
+
+### 5.5 Fetch and effect brokers
+
+Production work uses broker–compute–broker separation:
+
+```text
+trusted fetch broker -> bounded typed artifact -> offline compute
+offline result -> schema/digest/policy validation -> trusted effect broker
+```
+
+Secret-bearing brokers:
+
+- run only as `asxos-control` workflow jobs or control Supabase functions;
+- never checkout or execute product repository code;
+- use fixed query templates, destinations, recipient classes, stored functions, row
+  limits, timeouts, and idempotency keys;
+- reject free-form shell, SQL, URL, ref, recipient, or workflow input;
+- record capability, caller evidence, result, cost, and recovery identity.
+
+Examples:
+
+- web research: allowlisted fetch -> untrusted content artifact -> offline extraction ->
+  typed findings broker;
+- database computation: named read -> offline calculation -> allowlisted RPC write;
+- email: bounded context -> offline render -> fixed-recipient send broker;
+- migration: schema/telemetry snapshot -> offline preflight -> exact-digest migration
+  controller;
+- publication: verified patch -> Git data/API branch writer without code execution;
+- deployment/runtime: exact artifact/ref -> canary/health gate -> promotion or revert.
+
+### 5.6 Credential policy
+
+- James owns and initially binds every secret.
+- The product repository ultimately holds **zero production or broker credentials** in
+  Actions secrets or variables.
+- During migration, no autonomous product-branch workflow may run until current secret
+  exposure is inventoried and isolated.
+- No workload uses Supabase `service_role`.
+- Controllers use per-purpose database roles or stored functions with explicit table,
+  operation, and row limits.
+- Publisher, reviewer, landing, migration, data, deployment, and send identities are
+  separate where their capabilities differ.
+- Lab and Live use separate GitHub App installations, Supabase projects, and model API
+  keys with independent spend caps.
+- Secret rotation or rebinding remains James-owned. Invoking an already bound capability
+  can become autonomous.
+
+## 6. Control trust domain
+
+Create a private `asxos-control` repository inside the current GitHub provider and a
+separate Supabase control organisation. This is logical isolation within existing
+infrastructure, not a new compute platform.
+
+`asxos-control` owns:
+
+- admission polling/webhook gateway;
+- contract and work-state transaction schemas;
+- production-effect classifier;
+- review-bundle selection;
+- offline verifier definitions;
+- evidence envelope and signer;
+- branch publisher;
+- ready/landing controller;
+- workflow, deployment, migration, data, fetch, and send brokers;
+- capability registry and dependency graph;
+- local/dependent/global fuses;
+- cost meter and per-lane/month ceilings;
+- boundary checksum and immutable eval set;
+- reconciliation and recovery tooling.
+
+Phase 1 rules:
+
+- protected `main`, confirmed available for the owning account before creation;
+- James merges every control-repository change;
+- the product repository consumes an immutable control commit/digest, never a movable
+  tag; changing that value is a boundary change;
+- the landing broker is mandatory. Native GitHub merge queue is not assumed;
+- control workflows are defined at protected control `main`, not supplied by a product
+  PR;
+- the required verification check is created only by the control App and, where GitHub
+  supports it, branch rules bind the required context to that App identity.
+
+After the reviewer/classifier have a pinned released version and self-change tests,
+non-boundary controller maintenance may enter its own promotion track. Credential scope,
+signer, boundary policy, capability definitions, pinned control version, and root-of-trust
+changes remain James-owned.
+
+## 7. Contract and control data model
+
+### 7.1 Canonical ownership
+
+| Information | Canonical source | Projection |
+|---|---|---|
+| Product mandate and constitutional boundary | James-ratified authority document/control record | Linked from programme Issue |
+| Feature intent and current admitted contract | Append-only control-ledger contract row | GitHub Issue summary/comment with digest |
+| Lifecycle, lane, WIP, lease, revision | Transactional control ledger | Projects fields and generated Issue receipt |
+| Execution facts and controller decisions | Append-only control ledger | Issue/PR evidence comment |
+| Code and review boundary | Git branch/commit/PR | Issue links |
+| Runtime identity | Workflow/deployment/release record | Feature observation receipt |
+| Durable architectural decision | ADR | Contract link |
+| Explanations/reference/runbooks | Existing canonical docs | Generated index |
+
+GitHub is the founder-facing interface. Postgres is the concurrency and audit authority.
+GitHub Issues/Projects APIs do not provide the conditional state transitions the control
+plane requires, so leases and compare-and-set occur transactionally in the ledger.
+GitHub fields are idempotent projections written after commit. A projection divergence
+cannot authorize work.
+
+### 7.2 Minimal contract record — required in Phase 1
+
+```yaml
+work_ref: "repo + parent Issue"
+revision: r1
+previous_revision: null
+status: admitted
+outcome: "observable result"
+appetite: "bounded slices / elapsed time / cost"
+no_gos: []
+acceptance:
+  - id: AC-1
+    given: "..."
+    when: "..."
+    then: "..."
+observation:
+  metric: "..."
+  window: "..."
+authority_ceiling:
+  infrastructure: I4
+  portfolio: P2
+production_effect_expectation: []
+dependencies: []
+author_identity: "verified controller/James identity"
+reason: "initial admission"
+content_digest: "sha256:..."
+created_at: "database time"
+```
+
+Each revision is a new row. Update/delete is denied. The Issue comment mirrors the full
+human-readable contract and ledger digest but is not authoritative. Verifier, publisher,
+reviewer, and landing controller read the ledger row.
+
+Revision rules:
+
+- acceptance freezes at admission;
+- builder identity has no revision write path;
+- only the product-controller capability proposes a revision;
+- tightening is recorded without raising risk;
+- loosening/removal raises the contract risk class one step and requires a reason;
+- three revisions maximum; `r4` escalates to James;
+- outcome, appetite, no-go, authority, or subjective acceptance changes require James
+  unless a later explicit amendment delegates that exact field;
+- every candidate binds to the exact revision digest.
+
+### 7.3 Event and evidence records
+
+Every state transition contains:
+
+- work/contract identity and expected revision;
+- prior and requested state;
+- actor and controller identity;
+- authority/capability basis;
+- idempotency key;
+- lease owner and expiry;
+- input and output digests;
+- decision/result/error;
+- cost and elapsed time;
+- source, candidate, merge, release, and runtime identities where applicable;
+- rollback/forward-recovery identity;
+- observation and fuse result.
+
+One serialized mutation queue handles attended and autonomous operations. James override
+invalidates an open lease and forces a fresh read.
+
+## 8. Evidence, review, and attestation
+
+### 8.1 Evidence envelope
+
+```yaml
+schema_version: 1
+work_ref: "..."
+contract_revision: r1
+contract_digest: "sha256:..."
+repository: Jp8617465-sys/asxos
+base_sha: "40 hex"
+candidate_patch_digest: "sha256:..."
+candidate_tree_digest: "sha256:..."
+declared_manifest_digest: "sha256:..."
+derived_effect_manifest_digest: "sha256:..."
+review_bundle_digest: "sha256:..."
+toolchain_image_digest: "sha256:..."
+control_workflow_ref: "asxos-control/...@immutable-sha"
+run_id: "..."
+run_attempt: 1
+derived_risk_class: "..."
+tests: []
+overlays: []
+reviewer_identity: "..."
+review_verdict: READY
+capability_requested: "branch.publish"
+capability_policy_version: "..."
+rollback: "..."
+observation: "..."
+```
+
+The verifier derives changed paths, file modes, imports, and effects from the patch/tree;
+it never trusts the model's manifest for routing. It rejects protected paths, symlinks,
+submodules, unexpected binaries, oversized files/diffs, stale bases, unknown encodings,
+and contract/artifact mismatch.
+
+### 8.2 Signer authenticity
+
+Use a signed DSSE-style envelope stored in the control ledger as the default design.
+Native GitHub artifact attestation may replace only the signing transport after account
+availability and equivalent claim binding are proved.
+
+The signer accepts evidence only from the pinned `asxos-control` verifier identity. If
+GitHub OIDC is used, it verifies at minimum:
+
+- issuer and audience;
+- `repository` / owner;
+- protected control workflow identity and immutable ref;
+- product repository and exact source SHA carried by the verifier result;
+- run ID and attempt;
+- environment/ref restrictions;
+- freshness and nonce/idempotency binding.
+
+The control App posts the trusted required check only after signature and ledger commit.
+An arbitrary product job emitting the same check name or envelope must not satisfy the
+gate.
+
+### 8.3 Review bundle and independence
+
+The deterministic control step selects the base-tree files required by the dependency
+graph. The builder cannot choose or omit review inputs. Reviewer input is limited to:
+
+- frozen contract and digest;
+- derived production-effect manifest;
+- diff;
+- selected base-tree context;
+- test/evidence results.
+
+PR body, Issue prose, code comments, and bundled content are untrusted data, never
+authority. The reviewer runs in a separate context from the producer. A fresh Claude
+review is sufficient for the required semantic lane because deterministic gates are the
+trust substrate. Cursor/Codex or other-provider review is optional measurement. Its
+absence never blocks system liveness or silently changes deterministic policy.
+
+## 9. Deterministic production-effect classification
+
+The manifest computes:
+
+- touched paths, file types, modes, binary/symlink/submodule state;
+- migrations and expand/contract/destructive classification;
+- dependency manifests, lockfiles, registries, package identities, and build hooks;
+- `.github/**` triggers, permissions, actions, environments, and secret references;
+- imports/call paths reachable from scheduled or production jobs;
+- database reads/writes, sensitive tables, stored functions, and row cardinality;
+- network destinations and external providers;
+- user-facing renders, notifications, emails, CLI output, and advice-like paths;
+- tax, portfolio, capital, Model A, authority, controller, and secret surfaces;
+- rollout, observation, and recovery mechanisms.
+
+If static reachability cannot resolve a changed symbol, inherit the highest production
+effect of every candidate path. The builder's proposed class is recorded only to measure
+calibration.
+
+Protected classes include at minimum:
+
+- authority/control-root;
+- secret binding;
+- advice/capital;
+- Model A;
+- supply-chain;
+- workflow/permission;
+- migration expand;
+- migration contract/destructive;
+- sensitive data read/write;
+- send/external effect;
+- scheduled-runtime reachable;
+- low-risk isolated code/docs.
+
+## 10. Work and version-control control plane
+
+### 10.1 Work identity
+
+- One parent GitHub Issue is the feature/outcome identity.
+- One sub-issue is an independently verifiable vertical slice.
+- Do not create a second `FTR/BUG/OPS` identifier sequence.
+- Carry parent/slice and contract digest through branch, commit, PR, evidence, release,
+  runtime, observation, and rollback.
+
+### 10.2 Four operating lanes
+
+| Lane | Purpose | WIP |
+|---|---|---:|
+| Strategic feature | Direct product-outcome advancement | 1 |
+| Reliability | Correctness, security, incidents, data integrity | 1 |
+| Maintenance | Dependencies, refactors, operational hygiene | 1 |
+| Exploration | Experiments, architecture probes, evidence | 1 |
+
+Arbi admits, sequences, and resolves collisions. James changes the standing mandate or
+overrides the selected bet. Lab runs all four immediately. Live authority is granted by
+capability, not by lane.
+
+Specialist overlays—security, system/backend architecture, performance, tax, and
+portfolio invariants—trigger from the manifest. They never become competing mutators.
+Guilfoyle may plan delivery but does not prioritise or certify acceptance.
+
+### 10.3 Lifecycle
+
+```text
+Inbox -> Shaping -> Candidate -> Admitted -> Building -> Verifying
+                                                     |          |
+                                                     v          v
+                                                  Blocked    Observing -> Done
+                                                     |
+                                                Parked/Cancelled
+```
+
+The ledger owns lifecycle and lease state; Projects displays it. Feature completion
+requires an observed outcome or an honest miss, not merely a merge.
+
+### 10.4 Git rules
+
+1. Default each vertical slice to current `main`.
+2. Stack only when the child cannot compile or satisfy its contract without the parent.
+3. Default maximum stack depth is two.
+4. Maximum two active implementation PRs per feature.
+5. One branch and PR per slice; one mutator per node.
+6. Conventional Commit intent plus `Work-Item`, `Contract-Revision`, and
+   `Contract-Digest` trailers.
+7. PR maps every acceptance criterion to a test/evidence item and names effects,
+   overlays, observation, rollback, dependencies, and reserved actions.
+8. Follow-ups are linked Issues with disposition, never prose-only review debris.
+9. Squash/main SHA, runtime/workflow identity, and observation link to the same work.
+10. Use SemVer only if a real public compatibility contract exists.
+
+### 10.5 GitHub cutover and document spiral
+
+GitHub is the attention surface; the ledger is the transactional/audit authority.
+Markdown and YAML are not live work databases.
+
+Before demoting the current queues, export and reconstruct:
+
+- Issues, state, type, authors, labels, timestamps, and current summary;
+- contract mirrors, ledger digests, authors, and permalinks;
+- sub-issues and dependencies;
+- Project fields and active views;
+- admission/authority receipts;
+- pagination/completeness metadata and schema version.
+
+Cutover gates:
+
+1. disposable create/read/scoped-update/read through the intended identity;
+2. restore simulation reproduces James and Arbi active views;
+3. three successful scheduled snapshots plus a deliberately failed alert;
+4. degraded mode reads the snapshot but queues no mutations;
+5. ledger/GitHub reconciliation catches deliberate divergence.
+
+Then migrate only live items, freeze `roadmap-state.md` as historical/product-stage
+reference, and remove queue semantics from `backlog.yaml`. Do not dual-write. Normal Arbi
+operation creates no dated proposal or session-handoff document. Durable policy, ADR,
+reference, runbook, and postmortem documents remain.
+
+## 11. Lab, Shadow, and Live
+
+### 11.1 Lab
+
+Lab is designed to break safely:
+
+- mirror product repository;
+- separate Supabase Lab project, not a preview branch sharing production integrations;
+- synthetic/seeded data and fake product secrets;
+- separate GitHub App installations;
+- separate model API key/relay and hard spend cap;
+- all four lanes, WIP one each;
+- autonomous Issue/contract operation within Lab policy;
+- self-modifying non-boundary prompts/routing under immutable holdouts;
+- autonomous Lab expand/contract migrations;
+- cross-context review on every change and optional cross-model comparison;
+- every fence attempt, error, recovery, cost spike, and wrong decision recorded.
+
+Fence attempts in Lab are useful evidence. A successful escape or unlogged privileged
+action is disqualifying.
+
+Supabase preview branches may still be used for per-PR migration verification, but they
+are not the isolation boundary for the autonomous Lab.
+
+### 11.2 Shadow
+
+Controllers evaluate current real work and log what they would do without acting.
+Start with:
+
+1. classifier decisions;
+2. publisher eligibility.
+
+Add reviewer, ready, landing, workflow, migration, data, send, and deployment decisions
+only after those controllers exist. Compare decisions by class with James's actual action,
+including warranted escalations.
+
+### 11.3 Live
+
+Capabilities flip independently. A class enters Live only after its fence, tests,
+promotion evidence, dependency state, fuse, recovery, and observation exist. One class
+failing does not stop unrelated work unless the capability graph says the failure can
+contaminate it.
+
+## 12. Proposed Amendment M — capability authority
+
+This section is a proposal for James to ratify. It cannot amend current I5/I6 itself.
+
+| Capability | Proposed destination |
+|---|---|
+| Read/classify/deduplicate/link work | Standing after low-risk evidence |
+| Transactional lifecycle/WIP projection | Standing through work controller |
+| Route and dispatch admitted reversible work | Standing; Claude default executor |
+| Tokenless agent-branch publication | Standing after publisher qualification |
+| PR ready transition | Standing after exact-head pilot |
+| Low-risk production landing | New bounded `I6-L` Live pilot |
+| CI remediation outside workflow files | Eligible under `I6-L` classification |
+| Supply-chain change | Separate capability; never folded into low risk |
+| Workflow activation/change | Compiled templates + permission/effect diff controller |
+| Additive migration | Autonomous after migration-controller qualification |
+| Typed production data operation | Autonomous through named function/row-limit broker |
+| Production runtime/deployment promotion | Exact ref/artifact, health gate, observation, automatic revert |
+| Contract migration | Eligible only through two-window archive-first protocol |
+| Send/external communication | Fixed-recipient/schema broker after separate promotion |
+| Non-boundary prompt/routing promotion | Autonomous through immutable eval gate |
+| Secret value/create/rotate/bind | James |
+| Controller root, signer, capability/fuse policy | James |
+| Product mandate/constitution | James |
+| Advice-like portfolio output | Human gate |
+| Capital execution | James permanently; no controller exists |
+
+### 12.1 `I6-L` initial eligibility
+
+Every condition is derived from the manifest:
+
+- no migration;
+- no `.github/**` change;
+- no dependency manifest, lockfile, build hook, or registry change;
+- no new secret reference or external destination;
+- no control/authority/policy path;
+- no sensitive-table write surface;
+- no user-facing portfolio render/notification or advice surface;
+- no Model A relevance;
+- no unresolved production reachability;
+- exact tests, observation, and revert path exist.
+
+Before a scheduled-runtime controller exists, code reachable from a production scheduled
+job is excluded. The preferred unlock is to have production workflows checkout a
+controller-advanced release ref/digest rather than arbitrary new `main`. Then landing and
+runtime activation are separately observable capabilities.
+
+### 12.2 Supply-chain capability
+
+Dependency and lockfile changes require:
+
+- hash-pinned artifacts where the ecosystem supports them;
+- allowlisted registry and package identity;
+- publisher/provenance and package-age policy;
+- vulnerability, licence, name-confusion, and install-script checks;
+- Lab bake window;
+- separate promotion and fuse evidence;
+- no automatic major-version update.
+
+### 12.3 Workflow capability
+
+Workflow changes are compiled from reviewed templates. The controller rejects unapproved
+triggers, permissions, secrets, actions, shell interpolation, artifact flow, environment,
+or destination changes. Full-SHA action pinning and least job permissions are mandatory.
+
+### 12.4 Migration capability
+
+Additive migrations promote first. Contract migration uses two moves:
+
+1. collect production evidence of zero consumers from database/API telemetry across the
+   full observation window;
+2. move/copy the object to an archive schema/table with retention and copy-back metadata;
+3. observe a second window;
+4. drop only after the second gate;
+5. recover forward through table-scoped copy-back.
+
+PITR is disaster recovery, not routine rollback: restoring the whole database would lose
+writes after the restore point. One migration PR may be open at a time.
+
+### 12.5 Governed release controls
+
+Replace the blanket `CLAUDE.md` feature-flag ban only if James explicitly amends it.
+Eligible exposure controls apply to complete code and require owner, expiry, default,
+kill path, telemetry, removal Issue, and tests of both states. They cannot conceal an
+unfinished feature.
+
+## 13. Promotion, scoring, and fuses
+
+Promotion is per capability—not “full autonomy.” Each class pre-registers scope, false
+positive/negative tolerance, evidence, recovery, dependency, cost, and revocation.
+
+Minimum evidence:
+
+- adversarial fixtures and positive controls;
+- zero successful boundary escapes and zero unlogged actions;
+- stale SHA/state, artifact substitution, contract alteration, and scope escape rejected;
+- rollback or forward recovery demonstrated;
+- independent-context evaluation;
+- cost and intervention telemetry;
+- approximately 20 audited decisions may open a narrow low-risk pilot;
+- a strong claim of a sub-5% unseen failure rate needs roughly 60 zero-failure eligible
+  actions rather than 20;
+- higher-risk capabilities run scheduled Live game days through the real queue.
+
+Scoring:
+
+- warranted escalation scores positively;
+- only unwarranted escalation counts against autonomy;
+- silence is not success;
+- measure interventions per accepted outcome, not hours or tokens;
+- cross-model disagreement is evidence, not a veto;
+- weekly pre-traffic sample: James audits five accepted outcomes, counted as intervention;
+- do not reward raw task, PR, agent, or token volume.
+
+Fuse levels:
+
+1. **Local:** suspend one capability after its failure budget is exceeded.
+2. **Dependent:** repeated local trips within a window suspend dependent capabilities.
+3. **Global:** successful hard-boundary escape, credential exposure, unlogged privileged
+   action, signer/publisher integrity failure, advice/capital breach, or Model A breach.
+
+James resets fuses. Reset is logged as an intervention. Revert is a new PR through the
+landing controller; no in-place cross-lane rollback.
+
+## 14. Action settings and runtime prerequisites
+
+Before the first autonomous candidate:
+
+- verify repository visibility/account plan and protection support;
+- require read-only default `GITHUB_TOKEN` permissions;
+- use `permissions: {}` at workflow level and explicit minimal job grants;
+- restrict allowed actions to the smallest GitHub/control allowlist;
+- require or mechanically validate full-SHA action pinning;
+- disable action approval and PR-review permissions on default tokens;
+- verify required checks bind to the control App identity where supported;
+- inventory every product-repository Actions secret/variable and every workflow that can
+  receive it from a branch event;
+- move production/broker secrets to control-owned environments/functions;
+- inventory every workload using `service_role` and replace it;
+- inventory external-network tests and convert them to fixtures/fetch artifacts;
+- confirm production scheduled jobs' checkout/ref behaviour;
+- confirm Supabase backup/log/`pg_stat_statements` retention needed for migration evidence;
+- start nightly GitHub Events-to-ledger reconciliation, acknowledging the Events API
+  retention limit until an organisation audit log is available.
+
+## 15. Implementation programme
+
+Sequence by fence readiness. Tracks A and C start together; the control-plane interface
+lands as soon as the Phase-1 contract substrate exists.
+
+### Phase 0 — ratification and measured baseline
+
+1. Run a repo-connected Claude final verification against current `origin/main`, live
+   GitHub settings, and Supabase settings.
+2. Resolve every verified blocker in this plan; mark false premises as such rather than
+   retaining them as folklore.
+3. James ratifies/rejects Amendment M by capability and records the standing mandate.
+4. Start intervention-per-accepted-outcome and cost baselines immediately.
+5. Record current secrets, Apps, Actions settings, branch rules, scheduled runtime paths,
+   service-role use, and state/queue drift.
+
+**Exit:** one authoritative ruling identifies which capabilities may be built and piloted;
+the baseline is derived; no execution permission is inferred from this proposal.
+
+### Phase 1 — root of trust, tokenless publication, and Lab
+
+Critical graph:
+
+```text
+P0 verify account/settings/runtime exposure
+ ├─ P1 harden product Actions settings
+ ├─ P2 create/protect asxos-control
+ ├─ P3 create separate control Apps
+ ├─ P4 create append-only ledger + minimal contract
+ ├─ P5 create webhook/polling admission path
+ ├─ P6 prove provider-specific Claude relay
+ │    └─ P7 tokenless Claude patch producer
+ ├─ P8 offline exact-SHA verifier + fixtures
+ │    └─ P9 OIDC-bound signer + App-owned check
+ │         └─ P10 leased deterministic publisher
+ └─ P11 isolated Lab repo/project/Apps/API keys
+P12 baseline runs throughout
+```
+
+Phase-1 publication exit:
+
+1. an admitted immutable contract is read from the ledger;
+2. Claude receives exact source without a write/product credential;
+3. Claude produces a patch without executing product code;
+4. product code is verified offline;
+5. signer rejects evidence from an untrusted workflow/run;
+6. publisher independently derives paths/effects and writes only an allowed branch at the
+   leased base;
+7. forged evidence, changed acceptance, stale base, protected paths, symlinks, unexpected
+   binaries, oversize artifacts, and network attempts fail;
+8. an artifact substitution between verification and publication fails;
+9. the run completes without Cursor or Codex.
+
+### Phase 2 — classification, landing, recovery, and Shadow
+
+- complete production-effect/reachability classifier;
+- build deterministic review bundle;
+- add independent-context reviewer;
+- build ready and landing controllers with exact-head leases;
+- build revert-through-queue and post-merge observation;
+- make the landing broker the only autonomous landing mechanism;
+- start classifier and publisher-eligibility Shadow recording;
+- establish per-capability evidence counters and spend fuses.
+
+**Exit:** stale SHA, spoofed check, altered artifact/contract, protected path, ambiguous
+risk, lease race, duplicate action, and failing recovery drill are rejected.
+
+### Phase 3 — GitHub work interface and D10 cutover
+
+- add Issue forms and Project fields as projections of canonical ownership;
+- implement full contract revision workflow and asymmetric revision rules;
+- implement transactional lifecycle/WIP/leases in the ledger;
+- implement projection and reconciliation;
+- prove export, view reconstruction, failure alerts, and degraded read-only mode;
+- migrate only live work;
+- demote Markdown/YAML queues in reversible PRs;
+- refactor Arbi wake to delta, exceptions, commitments, decisions, and observations.
+
+**Exit:** a pilot runs from intake to observation without a roadmap row, backlog row,
+dated plan, or session handoff as live state.
+
+### Phase 4 — first Live capabilities
+
+Promote independently:
+
+1. classify/route/link work;
+2. lifecycle/WIP projection;
+3. tokenless branch publication;
+4. routine secretless CI remediation;
+5. PR ready transition;
+6. bounded `I6-L` landing;
+7. production-ref promotion and automatic revert.
+
+**Exit:** a complete low-risk slice moves from admitted contract to observed production
+outcome without James clicks, while every decision and effect is recoverable.
+
+### Phase 5 — production brokers
+
+Order by value per engineering hour and containment:
+
+1. eliminate `service_role` from workloads;
+2. per-workload read roles;
+3. sensitive writes through constrained functions;
+4. public-data fetch broker;
+5. workflow template/activation controller;
+6. additive migration controller;
+7. deployment/runtime controller expansion;
+8. typed data-operation broker;
+9. fixed-recipient send broker;
+10. archive-first contract migration controller.
+
+Each flips when its own fence and evidence pass; later brokers do not delay earlier safe
+capabilities.
+
+### Phase 6 — autonomy optimisation
+
+- promote non-boundary prompts/routing through immutable holdouts;
+- measure where specialist, fresh-context, and cross-model review changes outcomes;
+- remove review ceremony with no measured value;
+- use Cursor/Codex only where they improve quality, capacity, or recovery;
+- expand Arbi's control scope without exposing secrets or capital execution;
+- continuously reduce James interventions per accepted outcome.
+
+## 16. First Lab work — one item per lane
+
+The programme creates these as contracts after Phase-1 admission exists; these are not a
+parallel queue:
+
+| Lane | First Lab outcome |
+|---|---|
+| Strategic feature | Run one small non-migration product slice through contract -> Claude patch -> verify -> publish -> Lab observation |
+| Reliability | Prove stale-SHA, artifact substitution, forged evidence, and dependency-fuse rejection with positive-control attacks |
+| Maintenance | Inventory/pin Actions and convert one network-dependent test group to offline fixtures |
+| Exploration | Compare fresh-Claude versus optional Cursor/Codex review on the same frozen bundle; measure unique valid findings and cost |
+
+## 17. Metrics
+
+| Outcome | Measure |
+|---|---|
+| Founder leverage | Interventions per accepted outcome, by capability |
+| Escalation quality | Warranted and unwarranted escalation rates separately |
+| Delivery | Admitted-to-merged and admitted-to-observed lead time |
+| Reliability | Change failure rate and MTTR |
+| Safety | Attempted and successful boundary violations; Live success must be zero |
+| Landing truth | Exact-head/check/contract mismatches rejected |
+| Queue truth | Active work represented in one canonical state model |
+| WIP/stack | One per lane; <=2 implementation PRs per feature; stack <=2 |
+| Closure | Observation overdue rate and honest-miss rate |
+| Recovery | Revert/forward-recovery game-day pass rate |
+| Cost | Model/tool/control cost per accepted outcome and per lane |
+| Review value | Unique valid findings and prevented failures per review type |
+| Automation health | Fires, nothing-cycles, deadman alerts, fuse trips, unlogged mutations |
+| Runtime truth | Main, release, workflow, runtime, and observation identity coverage |
+
+## 18. Prioritised risk register
+
+| ID | Description | Likelihood | Impact | Level | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| R-ACP-01 | Model can use a GitHub/product credential | Medium | High | High | Tokenless producer; control-owned publisher; product secret evacuation | Control plane | Open |
+| R-ACP-02 | Repository code exfiltrates a secret | Medium | High | High | Separate job, `--network none`, zero secrets/socket | Control plane | Open |
+| R-ACP-03 | Provider relay is infeasible or exposes the model key | Medium | High | High | Phase-1 compatibility proof; provider-specific relay; no generic CONNECT | Control plane/James | Open |
+| R-ACP-04 | Signer accepts forged verifier evidence | Medium | High | High | Immutable control workflow identity, OIDC/nonce/run binding, App-owned check | Control plane | Open |
+| R-ACP-05 | Broker becomes a confused deputy | Medium | High | High | Typed fixed operations, schema/digest validation, limits, no product execution | Broker owner | Open |
+| R-ACP-06 | Classifier misses production reachability | Medium | High | High | Derived graph, adversarial fixtures, fail-closed highest class | Classifier owner | Open |
+| R-ACP-07 | Builder weakens acceptance | Medium | High | High | Ledger contract, separate identity, asymmetric capped revisions | Arbi/controller | Open |
+| R-ACP-08 | Controller self-review corrupts root of trust | Low | High | Medium | James merges Phase 1; immutable consumed control digest | James | Open |
+| R-ACP-09 | State race dispatches stale work | Medium | High | High | Postgres CAS, leases, serialization, projection after commit | Control plane | Open |
+| R-ACP-10 | Landing silently activates scheduled production code | Medium | High | High | Reachability exclusion then controller-advanced production ref | Runtime controller | Open |
+| R-ACP-11 | Autonomous dependency bump imports malicious code | Medium | High | High | Separate supply-chain class, hashes, provenance, bake, fuse | Supply-chain controller | Open |
+| R-ACP-12 | Contract migration loses later writes on rollback | Low | High | Medium | Archive-first forward recovery; PITR not routine rollback | Migration controller | Open |
+| R-ACP-13 | Lab reaches Live resources or exhausts Live quota | Medium | High | High | Separate project, Apps, keys, caps, environment-bound evidence | James/control plane | Open |
+| R-ACP-14 | GitHub projection is mistaken for transactional truth | Medium | Medium | Medium | Ledger canonical, reconciler, divergence cannot authorize | Arbi/controller | Open |
+| R-ACP-15 | Review depends on Cursor/Codex availability | Low | Medium | Low | Fresh Claude context satisfies required review; others optional | Arbi | Mitigated by design |
+| R-ACP-16 | Advice/capital or Model A boundary is crossed | Low | High | Medium | Path/semantic gates, no capital broker, global fuse | James/control plane | Open |
+| R-ACP-17 | GitHub-hosted container isolation is overstated | Low | High | Medium | No production secrets in untrusted jobs; record container-escape residual | Control plane | Accepted residual |
+| R-ACP-18 | Event history is incomplete on personal account | Medium | Medium | Medium | Nightly Events-to-ledger snapshot; revisit organisation audit log | Control plane | Open |
+| R-ACP-19 | Automation creates cost or retry loop | Medium | Medium | Medium | Per-lane/month caps, idempotency, escalating fuses | Arbi/control plane | Open |
+| R-ACP-20 | Markdown/YAML becomes a competing queue again | High | Medium | High | Recovery-complete cutover, generated exports, no dual-write | Arbi | Open |
+
+## 19. Red-team disposition folded into this plan
+
+The final external red team ran without repository access and returned ten blockers. The
+disposition is part of the audit trail:
+
+| Finding | Disposition in this plan |
+|---|---|
+| B1 model workspace cannot use `--network none` | Accepted; model and verifier sandboxes split; provider-specific relay specified |
+| B2 reusable brokers cannot use called-repo secrets | Accepted; execution originates in `asxos-control`; product repo has no broker secret |
+| B3 verifier evidence can be forged by product workflow | Accepted; protected control workflow, signed ledger evidence, App-owned check |
+| B4 Actions settings unhardened | Accepted as live preflight; hardening is Phase 0/1 prerequisite |
+| B5 native merge queue/account limitations | Partly accepted; custom landing broker mandatory; account protection support re-probed |
+| B6 contract mutable and sequenced too late | Accepted; append-only minimal contract moved to Phase 1 |
+| B7 merge equals Render/Vercel deploy | Premise rejected as stale; underlying GitHub scheduled-runtime coupling accepted and controlled |
+| B8 dependencies misclassified low-risk | Accepted; separate supply-chain capability |
+| B9 GitHub has no CAS state transition | Accepted; Postgres ledger is transaction authority, GitHub projection only |
+| B10 unavailable second provider must escalate | Rejected; contradicts settled non-dependency rule; fresh-context review + deterministic gates remain mandatory |
+
+Non-blocking residuals retained:
+
+- same-provider semantic correlation;
+- injection in previously merged code comments presented to a reviewer;
+- container escape in an ephemeral secretless job;
+- GitHub Events retention/audit limitations;
+- transient database telemetry and log-retention gaps;
+- semantic advice classification;
+- migration-lane serialization;
+- provider/control platform outage.
+
+These are observed, tested, and revisited. None is hidden by claiming a stronger boundary
+than the platform provides.
+
+## 20. Phase-0 final verification checklist
+
+Claude must perform this in a fresh repo-connected review context before implementation:
+
+- [ ] Current `origin/main`, open PRs/Issues, branch rules, repository visibility, plan
+      tier, Actions permissions, allowed-actions policy, and SHA-pin enforcement re-probed.
+- [ ] Current product Actions secrets/variables and every branch-triggered workflow
+      enumerated without exposing values.
+- [ ] Current scheduled jobs and production checkout/ref reachability mapped.
+- [ ] No obsolete Render/Vercel assumption used.
+- [ ] Provider-specific relay is feasible with the chosen Claude automation interface.
+- [ ] Cross-repo trigger requires no product credential; polling/webhook path threat-modelled.
+- [ ] Control App can post an identity-bound required check supported by branch rules.
+- [ ] OIDC claims available in the chosen control job are captured and negative-tested.
+- [ ] Control ledger separate-org/project, backup, append-only, signer, and clock assumptions
+      verified.
+- [ ] Lab has separate project/integrations/Apps/provider key and hard spend cap.
+- [ ] Model A production-gate enforcement re-tested; classifier exclusion added, not
+      substituted for the existing gate.
+- [ ] Personal-advice paths and scheduled-runtime roots enumerated.
+- [ ] External-network tests and local-Postgres feasibility inventoried.
+- [ ] Amendment M text names every changed current authority clause and enforcement point.
+
+**Verdict format:** `READY` or `NOT READY`; concrete blockers only. A conservative
+preference is not a blocker. Every blocker needs a failure sequence, current evidence,
+smallest structural correction, and the phase/capability it blocks.
+
+## 21. Execution handoff after READY + ratification
+
+```text
+Implement the ratified parts of
+docs/proposals/arbi-chief-of-staff-and-feature-control-plane-plan-2026-09-03.md.
+
+Read current CLAUDE.md, docs/product/harness-profiles.md, newest merged session
+handoff, arbi authority/permission/autonomy/eval/risk documents, the live
+Amendment M ruling, and this plan. Re-probe origin/main and GitHub/Supabase state.
+
+Claude is the primary execution layer. Cursor and Codex are optional secondary
+capacity and must never be required for liveness. Arbi owns control-plane
+priority/routing; one model mutator owns each implementation node; deterministic
+controllers own privileged effects.
+
+Execute Phase 0 first. Do not implement a component whose live preflight is
+unverified. Then execute Phase 1 in the dependency order shown, with Track A
+(fence) and Track C (Lab/evaluation) progressing together. Use one programme
+Issue and sub-issues for implementation; do not create another roadmap, backlog,
+dated proposal, or session-handoff system.
+
+This plan grants no authority. Current I5/I6/P5/P6 and rule #11 remain binding
+except where the live James-ratified Amendment M explicitly and mechanically
+changes an action class. No raw secret enters a model process. No product code
+runs in a secret-bearing job. No product-repo workflow supplies the trusted
+verification definition. No builder controls acceptance or risk routing.
+
+Stop at a named gate for a missing James secret binding, root-of-trust merge,
+constitutional decision, capital/advice action, or a live platform fact that
+invalidates the design. Do not route around a hook, weaken a test, substitute a
+self-report for CI evidence, or turn an unresolved finding into prose acceptance.
+
+Return first with: live-state delta, Amendment M authority diff, Phase-1 task
+graph, control App permission matrix, credential migration inventory (names and
+scopes only), provider-relay feasibility verdict, and exact first two draft-PR
+boundaries. Begin mutation only after those are internally consistent.
+```
+
+## 22. Success definition
+
+The programme is complete when:
+
+- Arbi owns one truthful portfolio and founder decision desk;
+- Claude executes the normal delivery lifecycle without depending on Cursor or Codex;
+- James sees bets, secret bindings, constitutional changes, fuse resets, capital, and
+  genuine exceptions rather than routine delivery;
+- low-risk production changes move from admitted contract to observed outcome without a
+  founder click;
+- production capabilities activate independently behind enforced limits and recovery;
+- every privileged action binds to a controller, contract, artifact, exact SHA, ledger
+  event, observation, and rollback/forward-recovery path;
+- no model holds a product production credential;
+- no live work state is duplicated in Markdown or YAML;
+- code throughput rises without hiding change failures, MTTR, cost, or escalations;
+- advice-like output and capital execution remain human-gated;
+- Model A remains quarantined until an entirely new model meets the pre-registered bar.
+
+The desired outcome is not an agent that asks less because it has learned to stay quiet.
+It is an operating system where the safe autonomous path is the easiest path, dangerous
+actions are mechanically bounded, and James's attention is spent only where judgment is
+actually irreplaceable.
