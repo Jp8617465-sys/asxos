@@ -316,8 +316,34 @@ items:
       run 34030294978 (2026-09-06 11:27 UTC) — GH013 "Changes must be made through a
       pull request"; green 09-01→09-05. Patch + four options + verify steps in
       docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md (recommend B:
-      archive branch ops/issue-snapshot). A fresh instance of roadmap-state.md:1254's
-      failure class. Reconciled 2026-09-06.
+      archive branch ops/issue-snapshot). A fresh instance of the failure class the
+      Autonomy-roadmap 7a row records (a scheduled loop that reports and leaves nothing —
+      the file on main is still `[]`). Reconciled 2026-09-06.
+
+  - id: A-25
+    title: "Merge #212 — sync_prices classifies the freshest CLOSED session; ends the check_cron_health false NO_EQUITY_DATA red (09-03/04/05)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: attended
+    paths: ["jobs/sync_prices.py", "asxos/domain/prices/coverage.py", "asxos/domain/prices/__init__.py", "tests/test_price_coverage.py"]
+    source: >-
+      AW-01 THE ONE THING (arbi re-rank + red-team condition (i), 2026-09-06). Mechanism:
+      #171 made clock.today() Sydney, so the 06:30 AEST run's window ends on the not-yet-closed
+      day and jobs/sync_prices.py:353 classified it. pipeline-health scheduled runs FAILED
+      09-02T23:54Z / 09-03T23:51Z / 09-04T23:48Z; prices held 2,299 / 2,288 AU rows for the
+      days flagged. 4,387 passed / 1 skipped on the branch. Recurs every weekday until merged.
+
+  - id: A-26
+    title: "Merge #213 — AW-01 wake + close run record (roadmap-state, backlog.yaml, scorecard, snapshot, inbox, CLAUDE.md paragraph, envelope, patch-for-James)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: attended
+    paths: ["docs/product/roadmap-state.md", "docs/product/backlog.yaml", "docs/product/product-health-scorecard.md", "docs/product/state/latest-snapshot.json", "docs/product/james-inbox.md", "docs/product/decision-log.md", "docs/product/arbi-run-ledger.md", "docs/proposals/", "docs/session-handoff-2026-09-06.md", "tests/test_backlog_next.py"]
+    source: "AW-01 run record, 2026-09-06. CLAUDE.md:40-56 rides in it (CODEOWNERS-flagged, not deny-listed) — split it out if you want the paragraph merged separately."
 
   # ---------------------------------------------------------------------------
   # Phase B — James-only infrastructure
@@ -615,7 +641,7 @@ items:
     depends_on: []
     route: attended
     paths: ["docs/proposals/p5-01-risk-calibration-2026-09.md"]
-    source: "click H-32; target-architecture.md:1856; arbi-permission-model.md P5"
+    source: "click H-32 (inbox row added 2026-09-06); target-architecture.md:1856; arbi-permission-model.md P5. Not built in AW-01 — parked at T+7h with its node spec in docs/session-handoff-2026-09-06.md; the next window's #2 (arbi re-rank 2026-09-06). 'Closes at abstain' is a POLICY gate (portfolio-policy.md:35-37), not a code path."
 
   - id: C-13
     title: "P5-01 risk calibration ruling (F4) — without it every Stage 4 packet closes at abstain"
@@ -739,7 +765,7 @@ items:
     depends_on: [A-13]
     route: attended
     paths: ["docs/foundation/spec/tax-alpha.md"]
-    source: "click H-29b; docs/audit-2026-06-27.md:104; CLAUDE.md rule #8 (tax-spec-conformance consult)"
+    source: "click H-29b; docs/audit-2026-06-27.md:104; CLAUDE.md rule #8 (tax-spec-conformance consult). Not built in AW-01 — parked at T+7h; shape per red-team condition (iii) 2026-09-06: spec §5.5 + numeric TC + the lots.py fix as a proposed diff, merge contingent on D-9."
 
   - id: D-9
     title: "Amend tax-alpha.md with §5.5 lot selection + a numeric test case before a staged sell's lot choice is relied on"

@@ -24,8 +24,10 @@ fix is delivered as a patch, not via an API commit. Backlog row **A-24**. Inbox 
   `GITHUB_TOKEN` with `contents: write` (`issue-snapshot.yml:37-38, 55-62`). The ruleset that
   issue #205 inventoried on 09-06 ("PR use, strict current `full-check`, no bypass actors") applies
   to `refs/heads/main`, so a bot push to `main` can never succeed again. This is a fresh instance
-  of the failure class `roadmap-state.md` names at `:1254` — a scheduled loop failing where nobody
-  is watching — and it will re-fail daily at 07:00 UTC until changed.
+  of the failure class the Autonomy-roadmap **7a** row records — a scheduled loop that reports and
+  leaves nothing: `docs/ops/github-issues-snapshot.json` on `main` is still `[]` (3 bytes), so the
+  five green runs were no-op exits and the first real payload is the failure — and it will re-fail
+  daily at 07:00 UTC until changed.
 
 ## Options (the decision is James's)
 

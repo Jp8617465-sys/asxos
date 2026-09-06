@@ -1334,14 +1334,17 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > pushes to `main` and the ruleset now refuses it (GH013, run 34030294978); `.github/**` is yours —
 > patch + options in `docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md`.
 >
-> **#2 — turn backup "green" into "observed".** **B-3** add `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE`,
-> then **C-1** dispatch `backup.yml` and `backup.yml -f restore_drill=true` and paste both run ids
+> **#2 — turn backup "green" into "observed".** The Sunday cron fired 09-06: run 34045223384 (16:22 UTC,
+> dump) and run 34048829799 (17:30 UTC, dump + **`restore_drill` success**) — the drill half of C-1 is
+> observed without a click. **B-3** add `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE`, then **C-1** paste the run ids
 > (**H-03** archive inspection first if the 08-16 evidence digest is still unresolved). Yours.
 >
 > **#3 — convert the two authoring blockers into rulings-on-drafts** (this window builds the drafts):
 > **D-9a → D-9** tax-alpha §5.5 lot selection + the `lots.py` partial-draw defect
 > (`claude/aw01-tax-lot-selection`); **C-13a → C-13** the P5-01 capital/risk calibration
-> (`claude/aw01-p5-01-risk-calibration`) — "without it every Stage 4 packet closes at abstain".
+> (`claude/aw01-p5-01-risk-calibration`) — until ruled, every Stage 4 packet closes at abstain by
+> **policy** (`portfolio-policy.md:35-37`), not by a code path. **Both parked at T+7h in AW-01 —
+> the next window's first two nodes; specs in `docs/session-handoff-2026-09-06.md`.**
 >
 > **#4 — H-33a / C-5: approve a second governed theme member.** Governance, not code; the only
 > member of the only governed theme is the Stage 4 *negative* control. No amount of building fixes it.
@@ -1773,9 +1776,12 @@ Wake: 2026-09-06 12:21 UTC (window AW-01; session out-of-fence — CLAUDE_PROJEC
   approved macro theses 3.
 - Actions: full-check / targeted-ml-tests / migration-integration / PR Review Agent green on
   every push since 09-05. backup.yml GREEN 09-05 16:09 UTC (run 33976969363, first since 08-22)
-  — restore_drill never dispatched; HEALTHCHECK_URL_BACKUP_IRREPLACEABLE absent → C-1 open.
+  — plus 09-06 runs 34045223384 (dump) and 34048829799 (dump + restore_drill SUCCESS, the first
+  drill since #186); deadman secret absent → C-1 open on the secret only.
   daily-brief green through 09-03 (cron Sun–Thu 20:30 UTC; tonight = first after #178, D-14).
   weekly-research green 08-22 / 08-29 / 09-05 (C-11 observed). nightly-check green 09-03/04/05.
+  pipeline-health RED 09-02/03/04 UTC (the cron-health false positive; a latest-run-only view
+  hides it), green 09-05 (Sunday AEST).
 - NEW RED: issue-snapshot 34030294978 (09-06 11:27 UTC) — direct push to main rejected by the
   ruleset (GH013 PR-required). Green 09-01→09-05. Patch for James in
   docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md; backlog A-24.

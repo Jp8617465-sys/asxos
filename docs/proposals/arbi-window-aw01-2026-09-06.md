@@ -113,9 +113,31 @@ max_repair_attempts: 2
 
 ## Verdicts (filled in-window)
 
-- **arbi (emulated) wake brief:** _pending_
-- **arbi-red-team (emulated) on THE ONE THING:** _pending_
-- **guilfoyle (emulated) task graph + readiness:** _pending_
+- **arbi (emulated) wake brief — delivered 12:34 UTC, addendum 12:36 UTC:** ACCEPT the substance,
+  **RE-RANKED** under "unblock before you build": THE ONE THING = the `sync_prices` Sydney-date
+  false NO_EQUITY_DATA (a #171 regression; `check_cron_health` red 09-03/04/05); C-13a #2; D-9a #3;
+  the truth refresh is Step 4 done first and extended to `backlog.yaml` (the stale twin was
+  suppressing James's real clicks); issue-snapshot = a James ruling on shape (B-15/D10). Two facts it
+  added: `backup.yml:21` carries a Sunday drill cron — it fired today and the `restore_drill` job
+  succeeded (run 34048829799); `docs/ops/github-issues-snapshot.json` on `main` is `[]` — the lane
+  has never archived an issue. Divergence noted, not adopted: it wanted the CLAUDE.md paragraph as
+  its own draft PR (authority-path reading); it rides in #213 with a CODEOWNERS call-out — James can
+  ask for the split.
+- **arbi-red-team (emulated) on THE ONE THING — delivered 12:36 UTC, supplements 12:39/12:41 UTC:**
+  **PASS** with three conditions; challenge 2 (task-switching) came closest. (i) the `sync_prices`
+  fix is the window's first substantive PR, not optional; if the R2 cap is literal it displaces
+  PR-C, never PR-B — **met: #212**. (ii) PR-A re-raises dark surfaces #1/#4 and adds the missing
+  H-32 inbox row — **met** (`dark-launch-exit-plan.md` 09-06 block; `james-inbox.md` H-32). (iii)
+  PR-B's `lots.py` change ships as a proposed diff + numeric case, merge contingent on D-9, with
+  `tax-spec-conformance` on record — **carried to the next window** (PR-B parked at T+7h). Its
+  independent measurement — `pipeline-health` scheduled runs red 09-02/03/04 UTC — corrected the
+  wake snapshot, whose latest-run-only view had shown the lane green.
+- **guilfoyle (emulated) task graph + readiness:** **not run.** Both emulated agents exhausted the
+  account's session limit at 12:42 UTC; the main loop executed the plan's own graph and judged
+  readiness against the pr-readiness eight checks.
+- **Timeline honesty:** the agents' reports sat undelivered from 12:36 UTC until the main loop
+  resumed at 19:15 UTC — six hours of the window lost to a mailbox gap, not to work. That is why
+  PR-B and PR-C are parked rather than built.
 
 ## Must not touch
 

@@ -24,8 +24,10 @@ morning because the `main` ruleset now rejects its push.
    rows. *Inferred from code:* PR #171 (merged 09-02) made `clock.today()` the Sydney date, so
    the 06:30 AEST run's self-heal window now ends on a day that has not closed;
    `jobs/sync_prices.py:353` classified that empty day. The 09-06 run passed only because the
-   weekend rule (#187) expects no `sync_prices` row. **Fix drafted:** the AW-01 window's PR
-   `claude/aw01-sync-prices-completeness` (backlog row added at close) — the verdict now targets
+   weekend rule (#187) expects no `sync_prices` row. At the Actions level the `pipeline-health`
+   scheduled runs were **red 09-02T23:54Z, 09-03T23:51Z, 09-04T23:48Z** (a latest-run-only view
+   shows only the Sunday green — that is how this went unrecorded). **Fix drafted: #212**
+   (backlog **A-25**) — the verdict now targets
    the freshest *closed* session. Until it merges the deadman lane is red every weekday for
    nothing, which is the failure mode that trains the reader to ignore it.
 2. **`issue-snapshot` — scheduled run 34030294978 (09-06 11:27 UTC) FAILED**, and will fail daily
@@ -40,9 +42,10 @@ morning because the `main` ruleset now rejects its push.
 ## 🟢 Recovered / observed since the 2026-07-14 edition
 
 - **`backup.yml` — GREEN 2026-09-05 16:09 UTC** (run 33976969363), the first green since 08-22,
-  after #186's dump-before-verify fix merged 09-05. **Not yet "observed":** the `restore_drill`
-  job has never been dispatched and `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` is absent from the
-  nine repo secrets, so the deadman cannot page — backlog **B-3 / C-1**, both James's.
+  after #186's dump-before-verify fix merged 09-05. **Now observed, too:** two more scheduled greens on 09-06 — run 34045223384 (16:22 UTC, dump only,
+  drill skipped) and run 34048829799 (17:30 UTC, **`restore_drill` job success** — the first drill
+  since #186). `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` is still absent from the nine repo secrets, so
+  the deadman cannot page — backlog **B-3 / C-1** (C-1 now needs only the secret + pasted run ids).
 - **`track_signal_outcomes`** — the 07-14 FAIL cleared (3/4, last success 2026-08-02); the writer
   chain is now retired with Model A, so the row is historical.
 - **`derive_fundamentals_pit`** — ran 2026-09-06 and populated `rs_fundamentals_pit.knowledge_tier`
@@ -120,7 +123,7 @@ morning because the `main` ruleset now rejects its push.
 | paper-trade evaluator | 🔴 dark, **EXPIRED 2026-08-31**, unruled (**D-2**) |
 | V2 brief tree | ⚪ KEEP-DARK to 2026-09-30 (**D-15**) |
 | decision engine, Stages 1→5 machinery (`asx replay / research / candidates / decision`) | 🟡 on `main` since 09-05 (#192–#198, #201); personal-use gated; live halves are James's; no Stage cell flipped |
-| irreplaceable backup | 🟡 green 09-05 · restore drill never run · deadman secret absent (**B-3 / C-1**) |
+| irreplaceable backup | 🟡 green 09-05; dump + **restore drill green 09-06** (run 34048829799) · deadman secret absent (**B-3 / C-1**) |
 | GitHub issues snapshot (D10 mitigation) | 🔴 red since 09-06 (**A-24**) |
 | standing agentic lanes | ⚪ armed, never fired; automatic triggers barred until **A-22** |
 
