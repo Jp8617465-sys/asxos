@@ -45,6 +45,8 @@ jobs:
       EXPECTED_SUPABASE_PROJECT_REF: gxjqezqndltaelmyctnl
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
 
       - name: Install postgresql-client 17 from PGDG
         run: |
@@ -138,6 +140,8 @@ jobs:
       PGUSER: postgres
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
 
       - name: Install postgresql-client 17 from PGDG
         run: |
