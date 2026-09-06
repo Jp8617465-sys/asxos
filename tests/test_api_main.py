@@ -10,31 +10,19 @@ The third (the Model A artefact warm) was removed with the Model A runtime
 dependencies — see docs/product/model-a-reference-manifest.md R1. Removing it
 must not soften the remaining two into warnings (CLAUDE.md #1 and #10).
 
-NB: importing asxos.api.main instantiates BriefSettings() at import time, so the
-brief env vars must be present before the import below.
+NB: importing asxos.api.main instantiates BriefSettings() at import time. The
+brief env vars it needs are seeded by tests/conftest.py before any asxos import,
+so this module no longer carries its own os.environ preamble.
 """
 from __future__ import annotations
 
-import os
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock
 
-# BriefSettings() (asxos/api/main.py import) requires these — set before import.
-for _k, _v in {
-    "SUPABASE_URL": "https://example.supabase.co",
-    "SUPABASE_ANON_KEY": "test-anon",
-    "RESEND_API_KEY": "test-resend",
-    "BRIEF_FROM_EMAIL": "from@example.com",
-    "BRIEF_TO_EMAIL": "to@example.com",
-}.items():
-    os.environ.setdefault(_k, _v)
-os.environ.setdefault("DATABASE_URL", "postgresql://u:p@localhost:5432/db")
+import pytest
 
-from contextlib import asynccontextmanager  # noqa: E402
-from unittest.mock import AsyncMock, MagicMock  # noqa: E402
-
-import pytest  # noqa: E402
-
-import asxos.api.main as main  # noqa: E402
-from asxos.api.routes import health as health_mod  # noqa: E402
+import asxos.api.main as main
+from asxos.api.routes import health as health_mod
 
 
 def _acquire_yielding(conn: object):
