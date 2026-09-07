@@ -1111,3 +1111,96 @@ items:
     paths: ["CLAUDE.md"]
     source: "2026-09-06 window, PR-A commit daf66b1; live schema_migrations = 104 rows through 20260903025557 (supabase-ro list_migrations)"
 
+
+  - id: C-16
+    title: "Legacy-marker the 13 pre-D16 theses — none was ever accepted (0 governance_events, 0 thesis_evidence); exclude them from metrics and from any authoring template"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/theses/", "migrations/"]
+    source: >-
+      Measured 2026-09-08: 13 theses, 13 governance_status='approved', but
+      governance_events WHERE object_type='thesis' = 0, source_run_id = 0,
+      thesis_evidence = 0, conviction_level = 0. All 13 carry the migration-0033
+      column DEFAULT, never a decision. Eleven (ids 3-13) were bulk-opened
+      2026-06-24 with entry_band_lower = entry_band_upper, NULL stop/target/
+      timeline and a thesis_text of exactly 201 characters — identical across all
+      eleven. James's ruling 2026-09-08 alongside ADR D16: marker only, filed not
+      fixed; they must not seed an authoring template or contaminate the S0
+      agreement-rate metric.
+
+  - id: C-17
+    title: "CHECK stop < entry_band_lower <= entry_band_upper < target_price for longs — the active HUBS row would fail it, so the ruling must say what happens to that row"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["migrations/", "asxos/domain/theses/schemas.py"]
+    source: >-
+      Deferred at migrations/0012_theses_and_themes.sql ("Direction-aware sanity
+      CHECK (stop < entry, target > entry) deferred: requires explicit direction
+      column"). ThesisProposal._check_shape (theses/schemas.py:372-394) checks
+      entry_lower <= entry_upper but NOT stop < entry < target. Measured
+      2026-09-08: thesis_id=2 (HUBS.NYSE, status='active') has stop_price 230.00
+      above entry_band_upper 190.00 — incoherent for a long. The constraint cannot
+      land until that row is ruled on: correct it, mark it short, or exempt it.
+      James's ruling 2026-09-08: filed not fixed.
+
+  - id: C-18
+    title: "fundamentals.roe / debt_to_equity / franking_pct / revenue / net_income have no writer — NULL across all 143,715 rows; drop or populate, and list every reader first"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/ingestion/fundamentals.py", "migrations/", "asxos/domain/screening/"]
+    source: >-
+      Measured 2026-09-08 across 143,715 rows / 1,932 symbols: roe, debt_to_equity,
+      franking_pct, revenue and net_income are non-null in ZERO rows. The columns
+      have existed since migration 0001; asxos/ingestion/fundamentals.py's upsert
+      never names them (it writes only EODHD's Valuation block). This is defect D5
+      in docs/proposals/segment-valuation-portfolio-architecture-2026-08-18.md. The
+      read side was already repointed to rs_fundamentals_pit
+      (asxos/domain/screening/evaluator.py:206-220) but the columns remain, so any
+      new reader will silently get NULL. Enumerate every reader BEFORE dropping.
+      James's ruling 2026-09-08: filed not fixed.
+
+  - id: C-19
+    title: "Sector-inapplicable metrics in Screen #1 — net_debt and gross_margin are meaningless for a bank yet feed the quality factor and the screening evaluator for Financials"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/research/factor_scores.py", "asxos/domain/screening/evaluator.py"]
+    source: >-
+      Measured 2026-09-08 on WBC.AU: rs_fundamentals_pit.net_debt = 232.443bn,
+      which for a bank is deposits and wholesale funding, not leverage; gross_margin
+      reads 1.042707 (FY22) and 1.000000 (FY20), arithmetically impossible. Both
+      currently feed the `quality` category z-score in factor_scores.py:173-176 and
+      the derived debt_to_equity in screening/evaluator.py. Related trap:
+      rs_financial_statements.total_revenue changes basis FY22->FY23 for WBC (net vs
+      gross interest), so any revenue-growth or margin series on it is a structural
+      break, not a business event; netInterestIncome is the honest series and is NULL
+      for FY25. James's ruling 2026-09-08: filed not fixed.
+
+  - id: E-19
+    title: "Backfill AXJO.INDX to two years — 72 rows from 2026-05-27 makes a CAPM beta uncomputable; own PR, own grant"
+    phase: E
+    owner: james
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["jobs/ingest_market_context.py", "jobs/sync_prices.py"]
+    source: >-
+      Measured 2026-09-08: prices holds 72 AXJO.INDX rows, first dt 2026-05-27,
+      against 425 rows per equity from 2025-01-02 — about 14 overlapping weeks. A
+      beta regressed on ~72 daily observations is noise, not a measurement.
+      jobs/ingest_market_context.py:172 already fetches AXJO.INDX (latest only).
+      Under ADR D16 the valuation run reports beta as BLOCKED with the row count and
+      publishes the Ke +/-1% sensitivity band as its primary output instead. James's
+      ruling 2026-09-08: separate PR under a separate grant, explicitly NOT part of
+      F-VAL/r0.

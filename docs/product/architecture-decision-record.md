@@ -230,6 +230,37 @@ Scored on the same `signal_outcomes` basis Model A faced (correlation of predict
 
 ---
 
+### 1.9 D16 — Arbi may author and approve a thesis, paper book only
+
+**Ruled by James, 2026-09-08.** Arbi may author, evidence, price, challenge **and approve** an investment thesis without human review, scoped to a thesis whose only sizing surface is the C1 paper book (D15). The human transition is execution, and execution is not in scope here at all.
+
+**What made this necessary — measured 2026-09-08.** The system has never had an accepted thesis:
+
+| | |
+|---|---|
+| `theses` rows | 13 |
+| `governance_status = 'approved'` | 13 |
+| `governance_events` where `object_type='thesis'` | **0** |
+| `theses.source_run_id` non-null | **0** |
+| `thesis_evidence` rows | **0** |
+| `conviction_level` non-null | **0** |
+
+Every one of the 13 carries `approved` from the migration-0033 column `DEFAULT`, never from a decision. Eleven were bulk-opened on 2026-06-24 with a zero-width entry band, NULL stop/target/timeline and a `thesis_text` of exactly 201 characters — identical boilerplate across all eleven. The one `active` row (HUBS, #2) carries a stop of 230 above an entry band of 185–190, which is incoherent for a long. `approve_object()` and `reject_object()` are dead code against every existing row: both require a source state nothing in the codebase can produce.
+
+**Scope, exactly.**
+
+- **Granted:** author a thesis from a reproducible valuation run; write its evidence; set its entry band, stop, target, timeline and conviction; run it through the deterministic challenge layer; and perform all three governance transitions — `draft → evidence_complete → pending_review → approved`, **all with `actor='agent'`**.
+- **Not granted, unchanged:** P6 execution. `portfolio-manager-charter.md:70` — *"There is **no P-tier, and no tool, that lets arbi act on its own recommendation.**"* — **stands unamended for live capital.** This decision does not touch it; it carves a paper-only exception beneath it.
+- **Not granted, unchanged:** P3 sizing. `arbi-permission-model.md:169` records target weights and sizing as *"not granted yet — draft-only"*, and this ruling does not change that. The run emits a **value range** and a thesis. It never emits a target weight.
+
+**Relationship to §3.6.** §3.6 ("The agent-output evidence base — constrains the approval model") concludes that *"the existing L1/L2/L3 tiering is the right defence and should be **tightened** as models improve, not relaxed."* This decision relaxes the approval tier, and the two are reconciled **only by the scope limit**: the surface is a paper book holding no capital, where an agent-approved thesis cannot move a dollar. Extending this grant to a live book would contradict §3.6 directly and requires a separate, co-ordinated amendment across `portfolio-manager-charter.md`, `portfolio-policy.md` and `arbi-permission-model.md` §Portfolio ladder — the charter's own amendment clause (`:116-120`) requires all three in one change.
+
+**Why the approval sits with the agent and not with James.** The measurement this exists to produce is the S0 agreement rate. If James performs the approval, the metric records his override rate on a proposal instead — a different measurement. His datapoint is the **disposition** of the resulting decision packet, downstream of approval.
+
+**Consequence if it cannot be implemented.** `theses/service.py:803-828` does not currently forward an `actor` to `apply_governance_transition`, so every thesis transition would record `actor='human'` by default. If the approval path cannot record an agent actor, the work **stops and reports** rather than routing the approval to James — a human-actor row would silently misdescribe who decided.
+
+---
+
 ## 2. Target-state process
 
 Stage-gated pipeline, idea to exit to learning loop. Annotation: `[EXISTS]` / `[DORMANT]` / `[PARTIAL]` / `[BUILD]`.
