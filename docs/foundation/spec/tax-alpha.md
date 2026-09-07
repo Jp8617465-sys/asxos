@@ -1,6 +1,6 @@
 # Tax alpha specification
 
-Version 1.5. Date 2026-06-29. Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT stacking numeric verification). v1.5 implements TC-20 (Div 296 cost-base reset). See section 13 for the full delta history.
+Version 1.6. Date 2026-09-07 (v1.6 pending governor ratification — D-9; ratified by the merge of the PR that carries it). Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT stacking numeric verification). v1.5 implements TC-20 (Div 296 cost-base reset). v1.6 adds §5.5 (lot selection for a disposal — the min-CGT objective, search space and tie-break) and TC-25. See section 13 for the full delta history.
 
 ## 1. Scope and non-goals
 
@@ -184,6 +184,52 @@ Quantize the result to cents with `ROUND_HALF_UP` (consistent with the CGT ledge
 **TC-22 (individual).** P=100, cost=40, marginal_rate=0.45 → r_eff=0.47, d=0.5, not yet eligible. numerator = 100·(1 − 0.235) − 40·0.47·0.5 = 76.5 − 9.4 = 67.1; /0.53 = **126.60**. Round-trip: sell-later nets 100 − 60·0.5·0.47 = 85.90; sell-now @126.60 nets 126.60 − 86.60·0.47 = 85.90. ✓
 
 **TC-23 (SMSF).** P=100, cost=40, r_eff=0.15, d=1/3, not yet eligible. numerator = 100·(1 − 0.05) − 40·0.15·(2/3) = 95 − 4 = 91; /0.85 = **107.06**. Round-trip: sell-later nets 100 − 60·(1/3)·0.15 = 97.00; sell-now @107.06 nets 107.06 − 67.06·0.15 = 97.00. ✓
+
+### 5.5 Lot selection for a disposal (v1.6 — ratified by D-9)
+
+Governs `select_fifo`, `select_lifo` and `select_min_cgt` in `asxos/domain/tax/lots.py`, and the
+`lot_selector` a staged sell names (`asxos/domain/decision_engine/staging.py`). Lot selection is the
+taxpayer's choice under the specific-identification principle for parcels of shares (ATO guidance
+on identifying which shares are disposed of; s 104-10 applies per CGT asset), so the strategy is a
+**decision**, not a computation, and this section fixes what each strategy promises.
+
+**Inputs.** The open lots for one symbol in one account (`HoldingLot`: `acquired_at`, `quantity`,
+`cost_base_normal` in AUD per §6.4), the quantity to sell, the sale price in AUD, and the sale
+(contract) date. Per-lot realised gain is `(sale_price − cost_base_normal / quantity) × qty_drawn`;
+discount eligibility is per lot under §5.1; the discount fraction `d` is per account type under §2.
+
+**Strategies.**
+
+- **FIFO** draws lots in ascending `acquired_at`; **LIFO** descending. Deterministic baselines.
+- **min-CGT** returns the selection with the smallest **post-discount realised gain**
+  `Σ gain_i × (1 − d · [gain_i > 0 ∧ discountable_i])` — losses count in full (a loss is never
+  discounted), gains on discountable lots at `(1 − d)`, gains on non-discountable lots in full.
+  Exactly one lot may be drawn partially; every other drawn lot is drawn in full.
+
+**min-CGT search space (the v1.6 rule).** The minimum is taken over **both** the subset of lots
+drawn **and** the choice of which lot bears the partial draw. Enumeration: subset sizes ascending
+from one; subsets in the order the lots were supplied; within a subset, each member in turn as the
+partial-bearer (the others drawn in full). A subset whose quantity equals the sale exactly has no
+partial and is evaluated once. **Ties resolve to the first candidate in that enumeration order**,
+so a given input reproduces the same selection — a staged sell's lot list is stable across re-runs.
+
+Why the second dimension matters: with a non-discountable lot A (100 u, gain $40/u) and a
+discountable lot B (200 u, gain $60/u, `d = 0.5`), selling 250, drawing A in full and 150 of B
+realises 4,000 + 9,000 × 0.5 = **8,500**, while drawing B in full and 50 of A realises
+12,000 × 0.5 + 2,000 = **8,000**. Before v1.6 the implementation always placed the partial on the
+last lot of each subset in input order, so it found 8,000 only when B happened to be listed first
+(audit 2026-06-27, LOW #1). TC-25 locks the corrected behaviour and its order-independence.
+
+**Bound.** The search is exhaustive up to six lots. Above six, `select_min_cgt` falls back to FIFO
+as a deterministic baseline; a **capital-facing** caller must refuse rather than accept the
+fallback (the staging layer does — its `MIN_CGT_MAX_LOTS` guard), because a silent baseline would
+present a FIFO draw as a minimised one.
+
+**What this section does not do.** It does not choose the strategy — that is the user's (or the
+staged order's `lot_selector`). It does not apply losses (§5.2), Medicare (§5.3) or Div 296 (§6);
+those consume the realised gains this section produces. Selections made for a *staged* sell are
+provisional until the disposal is recorded (`LotSelection` is re-priced at execution); until then
+they are decision-support, not a tax event.
 
 ## 6. Division 296 (per ss 296-30 to 296-45 ITAA 1997 and Imposition Act 2026)
 
@@ -420,6 +466,7 @@ Each case below must be covered by a unit test referencing the spec section.
 | TC-22 | Break-even: P=100, cost=40, individual marginal 0.45 (r_eff 0.47), not yet eligible | Break-even sale price $126.60 (sell-now nets = sell-later nets = $85.90) | §5.4 |
 | TC-23 | Break-even: P=100, cost=40, SMSF (r_eff 0.15, d=1/3), not yet eligible | Break-even sale price $107.06 (sell-now nets = sell-later nets = $97.00) | §5.4 |
 | TC-24 | $10,000 discountable gain (held > 12 months), SMSF fund_pension_proportion=0.60 | 1/3 CGT discount → net gain $6,666.67. ECPI exempt (60%) → taxable base $2,666.67. Fund tax at 15% = $400.00. Medicare 0. (§5.2: discount and ECPI are independent and stack.) | §5.2, §4.2 |
+| TC-25 | Lots: A 100 u @ $120 acquired 2024-03-01 (not discountable at sale), B 200 u @ $100 acquired 2023-01-01 (discountable); sell 250 @ $160 on 2025-01-15, individual; lots supplied in the order A, B | min-CGT draws **B in full (gain $12,000, discountable) + 50 of A (gain $2,000)**: post-discount $8,000. Drawing A in full + 150 of B would be $8,500. Result identical when the lots are supplied as B, A. | §5.5, §5.1, §2 |
 
 ## 12. Authoritative sources
 
@@ -465,6 +512,18 @@ Each case below must be covered by a unit test referencing the spec section.
 Direct fetching of the ATO franking and CGT pages returned 403 during preparation of v1.0; v1.1 confirms via the AustLII statutory text, the audit's verification against the Parliamentary Library Bills Digest, and the cross-referencing of the practitioner sources above. Before implementation cuts code, the final step is a direct read of the compiled Acts on the Federal Register of Legislation.
 
 ## 13. Change log
+
+**v1.6, 2026-09-07 (pending D-9 ratification).** Adds §5.5 (lot selection for a disposal) so the
+min-CGT strategy has a governing rule now that a staged sell makes lot choice capital-facing
+(`decision_engine/staging.py`, Wave 5 / Slice 3, 2026-09-02; inbox H-29b):
+- Added §5.5: strategies, the post-discount objective (losses in full, discountable gains at `1 − d`),
+  the **two-dimensional search space** (subset × partial-bearer), the deterministic tie-break, the
+  six-lot bound with the capital-facing refuse-not-fallback rule, and the provisional status of a
+  staged selection.
+- Corrects a defect in the existing implementation (audit 2026-06-27, LOW #1): `select_min_cgt`
+  placed the partial draw on the last lot of each subset in input order and so did not minimise
+  when the better full lot was not listed first (8,500 found where 8,000 exists).
+- Added TC-25 to the §11 matrix (worked numbers above; order-independence asserted in the test).
 
 **v1.5, 2026-06-29.** Implements TC-20 — the Div 296 cost-base reset (ITTPA s 296-50, spec §6.4/§6.5). Two additions:
 - §6.4 "Implementation contract" paragraph: defines the `div296_realised_gains: list[CapitalGain] | None` parameter on `tax_view_smsf()`. When the election is made and this list is provided, `net_capital_gain(div296_realised_gains, ...)` derives the Div 296 earnings base (s 115-100 1/3 discount applied identically to the ordinary CGT path). Falls through to §6.2 behaviour when no election or no list supplied.

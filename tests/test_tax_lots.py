@@ -103,3 +103,74 @@ def test_min_cgt_falls_back_to_fifo_above_combo_limit() -> None:
     )
     # FIFO returns lots 1, 2, 3
     assert [s.lot_id for s in sels] == [1, 2, 3]
+
+
+# --- spec §5.5 — the partial-bearing lot is part of the search (v1.6, TC-25) ---
+#
+# Before v1.6 `_draw` always put the partial on the LAST lot of each combination in
+# input order, so the minimum was found only when the caller happened to list the
+# better full lot first (audit 2026-06-27 LOW #1). These pin the defect shape.
+
+
+def _tc25_lots() -> list[HoldingLot]:
+    # Lot A: 100 u @ 120, acquired 2024-03-01 → NOT discountable at 2025-01-15
+    #        (earliest qualifying 2025-03-02, §5.1).
+    # Lot B: 200 u @ 100, acquired 2023-01-01 → discountable.
+    return [
+        _lot(1, date(2024, 3, 1), "100", "12000"),
+        _lot(2, date(2023, 1, 1), "200", "20000"),
+    ]
+
+
+def test_tc25_min_cgt_chooses_which_lot_bears_the_partial() -> None:
+    """spec §5.5 / §11 TC-25. Sell 250 @ 160 on 2025-01-15, individual (d = 0.5).
+
+    Draw A in full + 150 of B: 4,000 + (9,000 × 0.5) = 8,500.
+    Draw B in full + 50 of A:  (12,000 × 0.5) + 2,000 = 8,000  ← the minimum.
+    With A listed first the old search could only produce 8,500."""
+    sels = select_min_cgt(
+        _tc25_lots(), Decimal("250"), Decimal("160"), date(2025, 1, 15), account_type="individual"
+    )
+    by_id = {s.lot_id: s for s in sels}
+    assert by_id[2].qty_sold == Decimal("200") and by_id[2].realised_gain_aud == Decimal("12000")
+    assert by_id[1].qty_sold == Decimal("50") and by_id[1].realised_gain_aud == Decimal("2000")
+    assert by_id[2].discountable is True and by_id[1].discountable is False
+    post_discount = Decimal("12000") * Decimal("0.5") + Decimal("2000")
+    assert post_discount == Decimal("8000")
+
+
+def test_tc25_result_is_independent_of_input_order() -> None:
+    lots = _tc25_lots()
+    a = select_min_cgt(lots, Decimal("250"), Decimal("160"), date(2025, 1, 15), account_type="individual")
+    b = select_min_cgt(
+        list(reversed(lots)), Decimal("250"), Decimal("160"), date(2025, 1, 15), account_type="individual"
+    )
+    assert sorted((s.lot_id, s.qty_sold) for s in a) == sorted((s.lot_id, s.qty_sold) for s in b)
+
+
+def test_min_cgt_three_lots_partial_on_the_middle_lot() -> None:
+    # Three discountable lots, per-unit gains 5 / 1 / 3 at $20; sell 250 of 300.
+    # The 50 units left behind should come from the highest-gain lot (lot 1, 5/u), so the
+    # partial must fall on lot 1 — the middle of neither input order nor combination order.
+    lots = [
+        _lot(3, date(2022, 3, 1), "100", "1700"),  # 17/u → gain 3/u
+        _lot(1, date(2022, 1, 1), "100", "1500"),  # 15/u → gain 5/u
+        _lot(2, date(2022, 2, 1), "100", "1900"),  # 19/u → gain 1/u
+    ]
+    sels = select_min_cgt(lots, Decimal("250"), Decimal("20"), date(2025, 6, 1), account_type="individual")
+    by_id = {s.lot_id: s for s in sels}
+    assert by_id[1].qty_sold == Decimal("50")
+    assert by_id[2].qty_sold == Decimal("100") and by_id[3].qty_sold == Decimal("100")
+    # (3×100 + 1×100 + 5×50) × 0.5 = 325 post-discount; any other partial bearer is higher.
+    total = sum(s.realised_gain_aud for s in sels) * Decimal("0.5")
+    assert total == Decimal("325")
+
+
+def test_min_cgt_exact_fit_has_no_partial_and_is_stable() -> None:
+    lots = [
+        _lot(1, date(2022, 1, 1), "100", "1500"),
+        _lot(2, date(2022, 6, 1), "100", "1900"),
+    ]
+    sels = select_min_cgt(lots, Decimal("200"), Decimal("20"), date(2025, 6, 1), account_type="individual")
+    assert sorted(s.lot_id for s in sels) == [1, 2]
+    assert all(s.qty_sold == Decimal("100") for s in sels)
