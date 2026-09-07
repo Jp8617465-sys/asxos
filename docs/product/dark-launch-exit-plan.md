@@ -209,6 +209,12 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ## Summary
 
+🔴 **Expiry status as of 2026-09-06 (`/arbi` wake, window AW-01): surfaces #1 and #4 are six days
+past their 2026-08-31 expiry and still unruled — re-raised again.** The verdict drafts (KEEP-DARK to
+2026-11-30, tied to Stage 4 case delivery) merged to `main` in #190, so each is a one-word ruling
+(backlog **D-1 / D-2**, inbox H-16). Surface #3 has 24 days to 2026-09-30 (**D-15**). Surface #2
+remains SHIP (2026-08-21).
+
 🔴 **Expiry status as of 2026-09-02 (`/arbi` wake): surfaces #1 and #4 are EXPIRED — two days
 past, verdict overdue, and re-raised.** Their 2026-08-31 expiry passed with no ruling, and the
 "decide by 2026-08-28" date in `james-inbox.md` passed five days ago. Per this file's own rule

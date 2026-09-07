@@ -37,7 +37,7 @@
 # click-list, and that is correct.
 
 version: 1
-updated: 2026-09-05
+updated: 2026-09-06
 
 items:
 
@@ -49,7 +49,7 @@ items:
     title: "Un-draft the 16 open PRs — one command on James's own machine, not 16 clicks"
     phase: A
     owner: james
-    status: open
+    status: done
     depends_on: []
     route: james
     paths: []
@@ -62,16 +62,17 @@ items:
       the whole gate is one paste:
       `for n in 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200; do gh pr ready $n; done`
       Then arbi runs the train on 15 of them; #200 stays James's own merge (A-17).
+      — discharged 2026-09-05: James un-drafted and merged #185–#200 himself (reconciled 2026-09-06)
 
   - id: A-0b
     title: "Alternative to A-0: apply Amendment J (ready-grant) patches 1,2,4 then 3, plus the settings.json hooks deny"
     phase: A
     owner: james
-    status: open
+    status: void
     depends_on: []
     route: james
     paths: []
-    source: "docs/proposals/amendment-j-ready-grant-2026-09-05.md §7"
+    source: "docs/proposals/amendment-j-ready-grant-2026-09-05.md §7 — superseded — A-0 discharged 2026-09-05"
 
   - id: A-1
     title: "Merge #178 Dependabot python group (27 bumps)"
@@ -87,171 +88,171 @@ items:
     title: "Merge #185 — 2026-09-02 wake, Amendment H, close records, campaign plan"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-0]
     route: attended
     paths: []
-    source: "PR #185; click H-02"
+    source: "PR #185; click H-02 — merged #185 @ 855ed35 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-3
     title: "Merge #186 — backup_irreplaceable.sh dump-before-verify, gzip digest, 0048 tables"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-2]
     route: attended
     paths: []
-    source: "PR #186 (stacked on #185); click H-04"
+    source: "PR #186 (stacked on #185); click H-04 — merged #186 @ 9ad9f44 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-4
     title: "Merge #187 — check_cron_health per-job window (weekend false positive)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-0]
     route: attended
     paths: []
-    source: "PR #187; click H-08"
+    source: "PR #187; click H-08 — merged #187 @ 2db93e6 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-5
     title: "Merge #188 — 0044 header records its apply; COMMENT matches live DB (947 not 102)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-0]
     route: attended
     paths: []
-    source: "PR #188; click H-10"
+    source: "PR #188; click H-10 — merged #188 @ 6f5da4d on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-6
     title: "Merge #189 — doc-drift sweep (REQUIRED_MIGRATIONS retirement, ADR §3.5, countdowns)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-3]
     route: attended
     paths: []
-    source: "PR #189 (stacked on #186); click H-14"
+    source: "PR #189 (stacked on #186); click H-14 — merged #189 @ 5632a97 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-7
     title: "Merge #190 — governor-draft pack (dark verdicts, CBA, ledger)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-6]
     route: attended
     paths: []
-    source: "PR #190 (stacked on #189); click H-16"
+    source: "PR #190 (stacked on #189); click H-16 — merged #190 @ 1df8f49 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-8
     title: "Merge #191 — dependency audit of #178, C10 ruling drafts"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-0, A-1]
     route: attended
     paths: []
-    source: "PR #191; clicks H-12/H-13"
+    source: "PR #191; clicks H-12/H-13 — merged #191 @ 03031c5 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-9
     title: "Merge #192 — PIT knowledge_tier (0049 applied 20260902201241)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-0]
     route: attended
     paths: []
-    source: "PR #192; click H-19"
+    source: "PR #192; click H-19 — merged #192 @ 8a26cef on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-10
     title: "Merge #193 — replay harness + lineage resolver, asx replay show"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-9]
     route: attended
     paths: []
-    source: "PR #193 (stacked on #192); click H-20"
+    source: "PR #193 (stacked on #192); click H-20 — merged #193 @ 28eb51c on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-11
     title: "Merge #194 — research registry, promotion state machine (0050 applied 20260902203202)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-10]
     route: attended
     paths: []
-    source: "PR #194 (stacked on #193); click H-25"
+    source: "PR #194 (stacked on #193); click H-25 — merged #194 @ 0bc409b on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-12
     title: "Merge #195 — theme + candidate engine, LLM boundary (0051 applied 20260902204920)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-11]
     route: attended
     paths: []
-    source: "PR #195 (stacked on #194); click H-27"
+    source: "PR #195 (stacked on #194); click H-27 — merged #195 @ 3032944 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-13
     title: "Merge #196 — Slices 2.5→2→3: challenge layer, sizer, order staging, generalised builder"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-12]
     route: attended
     paths: []
-    source: "PR #196 (stacked on #195); click H-29"
+    source: "PR #196 (stacked on #195); click H-29 — merged #196 @ d7c4a4b on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-14
     title: "Merge #197 — Stage 4 delivery chain (identical render, DeliveryReceipt, Disposition, paper intent)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-13]
     route: attended
     paths: []
-    source: "PR #197 (stacked on #196); click H-33. Do not run --persist on #197 alone (see A-15)"
+    source: "PR #197 (stacked on #196); click H-33. Do not run --persist on #197 alone (see A-15) — merged #197 @ cc09851 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-15
     title: "Merge #198 — Stage 5 outcomes + t0 (0052 applied 20260903025557) + brief_runs receipt fix"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-14]
     route: attended
     paths: []
-    source: "PR #198 (stacked on #197); click H-35; ruff C416 fixed 3ee84de"
+    source: "PR #198 (stacked on #197); click H-35; ruff C416 fixed 3ee84de — merged #198 @ f35ef7f on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-16
     title: "Merge #199 — standing lanes nightly-triage + weekly-toolwatch; THE MERGE IS THE ARMING ACTION"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: [A-2]
     route: attended
     paths: []
-    source: "PR #199; roadmap-state.md ranked queue 2026-09-03 item 1. Depends on Amendment H text landing via #185"
+    source: "PR #199; roadmap-state.md ranked queue 2026-09-03 item 1. Depends on Amendment H text landing via #185 — merged #199 @ 7ab652c on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-17
     title: "Merge #200 — Amendment I + Amendment J proposal + the backlog-roll lane (this file). Outside Amendment I's 16-PR scope"
     phase: A
     owner: james
-    status: built-unmerged
+    status: done
     depends_on: [A-16]
     route: james
     paths: []
-    source: "PR #200; roadmap-state.md Amendment I scope clause"
+    source: "PR #200; roadmap-state.md Amendment I scope clause — merged #200 @ 246a930 on 2026-09-05 (James un-drafted + merged the whole stack; reconciled 2026-09-06)"
 
   - id: A-18
     title: "Amendment A rebase repair on each stacked child after its parent squash-merges"
     phase: A
     owner: arbi
-    status: open
+    status: void
     depends_on: [A-0]
     route: attended
     paths: []
-    source: "roadmap-state.md Amendment A mechanical obligations 1-6; force-push is denied unattended"
+    source: "roadmap-state.md Amendment A mechanical obligations 1-6; force-push is denied unattended — no stacked child remained open after the 2026-09-05 merge train; nothing to rebase (reconciled 2026-09-06)"
 
   - id: A-19
     title: "Un-xfail test_backup_workflow_arms_the_deadman and update the restore-drill count test"
@@ -302,6 +303,47 @@ items:
     route: james
     paths: []
     source: "Amendment K definition of online; blocked while credential-isolation P1 is open"
+
+  - id: A-24
+    title: "issue-snapshot.yml pushes straight to main; the main ruleset (PR-required, no bypass actors) now rejects it — red daily since 2026-09-06"
+    phase: A
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: [".github/workflows/issue-snapshot.yml", "tests/test_issue_snapshot.py"]
+    source: >-
+      run 34030294978 (2026-09-06 11:27 UTC) — GH013 "Changes must be made through a
+      pull request"; green 09-01→09-05. Patch + four options + verify steps in
+      docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md (recommend B:
+      archive branch ops/issue-snapshot). A fresh instance of the failure class the
+      Autonomy-roadmap 7a row records (a scheduled loop that reports and leaves nothing —
+      the file on main is still `[]`). Reconciled 2026-09-06.
+
+  - id: A-25
+    title: "Merge #212 — sync_prices classifies the freshest CLOSED session; ends the check_cron_health false NO_EQUITY_DATA red (09-03/04/05)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: attended
+    paths: ["jobs/sync_prices.py", "asxos/domain/prices/coverage.py", "asxos/domain/prices/__init__.py", "tests/test_price_coverage.py"]
+    source: >-
+      AW-01 THE ONE THING (arbi re-rank + red-team condition (i), 2026-09-06). Mechanism:
+      #171 made clock.today() Sydney, so the 06:30 AEST run's window ends on the not-yet-closed
+      day and jobs/sync_prices.py:353 classified it. pipeline-health scheduled runs FAILED
+      09-02T23:54Z / 09-03T23:51Z / 09-04T23:48Z; prices held 2,299 / 2,288 AU rows for the
+      days flagged. 4,387 passed / 1 skipped on the branch. Recurs every weekday until merged.
+
+  - id: A-26
+    title: "Merge #213 — AW-01 wake + close run record (roadmap-state, backlog.yaml, scorecard, snapshot, inbox, CLAUDE.md paragraph, envelope, patch-for-James)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: attended
+    paths: ["docs/product/roadmap-state.md", "docs/product/backlog.yaml", "docs/product/product-health-scorecard.md", "docs/product/state/latest-snapshot.json", "docs/product/james-inbox.md", "docs/product/decision-log.md", "docs/product/arbi-run-ledger.md", "docs/proposals/", "docs/session-handoff-2026-09-06.md", "tests/test_backlog_next.py"]
+    source: "AW-01 run record, 2026-09-06. CLAUDE.md:40-56 rides in it (CODEOWNERS-flagged, not deny-listed) — split it out if you want the paragraph merged separately."
 
   # ---------------------------------------------------------------------------
   # Phase B — James-only infrastructure
@@ -431,11 +473,11 @@ items:
     title: "S3 work order sizing update — DB quantities measured (pg_total_relation_size); AWS rates independently re-confirmed still egress-blocked"
     phase: B
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: []
     route: mission
     paths: ["docs/proposals/s3-object-store-work-order-2026-08-22.md"]
-    source: "campaign plan H2-C; click H-21; ruling F6. The policy itself already existed (P3-02, 2026-08-22) — this closes the DB-sizing half of its own §4 gap rather than drafting a duplicate document. §8a, 2026-09-05."
+    source: "campaign plan H2-C; click H-21; ruling F6. The policy itself already existed (P3-02, 2026-08-22) — this closes the DB-sizing half of its own §4 gap rather than drafting a duplicate document. §8a, 2026-09-05. Merged in #200 @ 246a930 on 2026-09-05 (reconciled 2026-09-06)."
 
   - id: B-13
     title: "Create the S3 bucket + credentials per the drafted policy (F6)"
@@ -451,11 +493,11 @@ items:
     title: "Dagster work order cost re-derivation — closes the 2026-08-18 flag box's own request using its own measured figures"
     phase: B
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: []
     route: mission
     paths: ["docs/proposals/dagster-deployment-cost-cutover-work-order-2026-08-17.md"]
-    source: "campaign plan H2-C; click H-22; ruling F5; G1 note. The work order already existed (P3-01, 2026-08-17) with a flag naming exactly this gap — this does the arithmetic it asked for rather than drafting a duplicate document. §7a, 2026-09-05."
+    source: "campaign plan H2-C; click H-22; ruling F5; G1 note. The work order already existed (P3-01, 2026-08-17) with a flag naming exactly this gap — this does the arithmetic it asked for rather than drafting a duplicate document. §7a, 2026-09-05. Merged in #200 @ 246a930 on 2026-09-05 (reconciled 2026-09-06)."
 
   - id: B-14
     title: "Approve Dagster deployment and spend (F5)"
@@ -495,11 +537,11 @@ items:
     title: "Saturday 19:18 UTC derive_fundamentals_pit backfill populates knowledge_tier (NULL today)"
     phase: C
     owner: both
-    status: open
+    status: done
     depends_on: [A-9]
     route: observe
     paths: []
-    source: "click H-19"
+    source: "click H-19 — observed 2026-09-06: rs_fundamentals_pit.knowledge_tier populated 54,459 / 54,466 rows; derive_fundamentals_pit success as_of 2026-09-06 (supabase-ro probe)"
 
   - id: C-3
     title: "asx research run --as-of 2026-09-01 --dry-run from a pooler-reachable machine; paste the two hashes"
@@ -585,11 +627,11 @@ items:
     title: "Two consecutive green SCHEDULED Saturdays for the weekly-research chain (B1; currently 1-for-1)"
     phase: C
     owner: time
-    status: open
+    status: done
     depends_on: []
     route: observe
     paths: []
-    source: "campaign plan §3 carried; live defect #2"
+    source: "observed 2026-09-06: scheduled weekly-research green on Sat 2026-08-29 (run 33270549838) and Sat 2026-09-05 (run 33982730538) — two consecutive, plus 08-22 before them. Was: campaign plan §3 carried; live defect #2"
 
   - id: C-13a
     title: "Draft the P5-01 capital/risk calibration proposal for James (F4) — capital policy is draft-only forever"
@@ -599,7 +641,7 @@ items:
     depends_on: []
     route: attended
     paths: ["docs/proposals/p5-01-risk-calibration-2026-09.md"]
-    source: "click H-32; target-architecture.md:1856; arbi-permission-model.md P5"
+    source: "click H-32 (inbox row added 2026-09-06); target-architecture.md:1856; arbi-permission-model.md P5. Not built in AW-01 — parked at T+7h with its node spec in docs/session-handoff-2026-09-06.md; the next window's #2 (arbi re-rank 2026-09-06). 'Closes at abstain' is a POLICY gate (portfolio-policy.md:35-37), not a code path."
 
   - id: C-13
     title: "P5-01 risk calibration ruling (F4) — without it every Stage 4 packet closes at abstain"
@@ -723,7 +765,7 @@ items:
     depends_on: [A-13]
     route: attended
     paths: ["docs/foundation/spec/tax-alpha.md"]
-    source: "click H-29b; docs/audit-2026-06-27.md:104; CLAUDE.md rule #8 (tax-spec-conformance consult)"
+    source: "click H-29b; docs/audit-2026-06-27.md:104; CLAUDE.md rule #8 (tax-spec-conformance consult). Not built in AW-01 — parked at T+7h; shape per red-team condition (iii) 2026-09-06: spec §5.5 + numeric TC + the lots.py fix as a proposed diff, merge contingent on D-9."
 
   - id: D-9
     title: "Amend tax-alpha.md with §5.5 lot selection + a numeric test case before a staged sell's lot choice is relied on"
@@ -938,3 +980,29 @@ items:
     route: attended
     paths: ["docs/product/product-health-scorecard.md"]
     source: "docs/product/product-health-scorecard.md:3; scripts/product_health.py needs DATABASE_URL"
+
+  - id: E-17
+    title: "Doc-expiry sweep — 25 dated docs >30d unarchived (check_doc_expiry.sh red); archive each after an inbound-reference grep, or allowlist the canonical ones"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["docs/archive/", "scripts/check_doc_expiry.sh"]
+    source: >-
+      scripts/check_doc_expiry.sh measured 25 EXPIRED on origin/main e058be3, 2026-09-06
+      (PR #202 counted 24 the day before). The script's own contract: it reports, a
+      human moves — so the sweep is a reviewed draft PR from a live session (attended:
+      each move needs an inbound-reference judgement), never a lane pick. Not built in
+      the 2026-09-06 window (Recipe R2 ceiling, James's ruling 1).
+
+  - id: E-18
+    title: "CLAUDE.md:40-56 migration paragraph said the ledger ended at 0048 — corrected to 0052 with the four ledger versions"
+    phase: E
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: build
+    paths: ["CLAUDE.md"]
+    source: "2026-09-06 window, PR-A commit daf66b1; live schema_migrations = 104 rows through 20260903025557 (supabase-ro list_migrations)"
+

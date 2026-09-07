@@ -1,15 +1,16 @@
 # ASXOS Product Health Scorecard
 
-**Generated:** 2026-07-14 (hand-assembled from live read-only queries this run, via the
-read-only Supabase MCP role — `scripts/product_health.py --write` cannot reach the DB directly
-from this sandbox, its own `asyncpg`/`DATABASE_URL` connection times out on this network; the
-queries below mirror `_freshness`/`_cron_reality`/`_investment_readiness`,
-`scripts/product_health.py:53-138`, exactly).
-**Top line:** 🔴 **2 FAIL · 🟡 3 WARN** — the data pipeline is fresh and the monitoring lane
-that was degraded on 2026-07-11 has **substantially recovered** (see below). `track_signal_outcomes`
-still shows FAIL, but that's stale pre-fix data awaiting revalidation, not a new break (corrected
-below — an earlier draft of this doc mis-framed it as new); `retrain_model_a` is still broken
-(mitigated by rule #11, not a live-ops emergency).
+**Generated:** 2026-09-06 12:21 UTC (hand-assembled from live read-only queries this wake, via
+the read-only Supabase MCP role (`supabase-ro`) — the queries mirror `_freshness` /
+`_cron_reality` / `_investment_readiness`, `scripts/product_health.py:53-138`, exactly; the
+Actions-substrate rows come from `gh run list`. Every figure below is **measured** unless marked
+*inferred*. Previous edition: 2026-07-14 — seven weeks stale, backlog E-16.)
+**Top line:** 🔴 **1 FAIL · 🟡 3 WARN · plus 1 live red outside `job_runs`** — the data pipeline
+is fresh and complete; the one FAIL (`retrain_model_a`) is dormant by policy (rule #11); the
+monitoring lane is **red on complete data** because of a false positive introduced on 09-02
+(fix drafted this wake); the two investment-readiness WARNs are the same two thesis rows James
+has a retire ruling waiting on; and the daily `issue-snapshot` workflow has failed since this
+morning because the `main` ruleset now rejects its push.
 
 > Answers *is ASXOS actually working?* — not *did tests pass?*.
 
@@ -17,102 +18,125 @@ below — an earlier draft of this doc mis-framed it as new); `retrain_model_a` 
 
 ## 🔴 What's actually broken today
 
-1. **`track_signal_outcomes` — 0/1, but this is stale pre-fix data, not a new failure.**
-   Its only recorded run was 2026-07-12 and failed; the cast fix (PR #30, commit `db5a3ff`)
-   landed 2026-07-13 11:13:44 UTC — *after* that failure, and the job hasn't run again since.
-   This is exactly the "next Sun 03:00 UTC `track_signal_outcomes` cron" residual watch-item
-   `roadmap-state.md` already tracks as a pending *validation*, not an unfixed bug. Nothing to
-   diagnose here yet — the row will only mean something once it runs again post-fix.
-2. **`retrain_model_a` — still 0/2, last attempt 2026-06-06 (now 5+ weeks stale).** Mitigated
-   by the rule #11 quarantine (Model A is dormant by standing policy since 2026-07-11, not by
-   broken-job accident) — this is a stale job, not a live-ops emergency.
+1. **`check_cron_health` — FAILED 09-03, 09-04, 09-05 on a false positive.** Each failure is
+   `DEGRADED: sync_prices as_of=… NO_EQUITY_DATA — ASX=0`, yet `prices` holds **2,299** AU rows
+   for 2026-09-02 and **2,288** for 2026-09-03, and the two flagged runs wrote 2,383 / 2,373
+   rows. *Inferred from code:* PR #171 (merged 09-02) made `clock.today()` the Sydney date, so
+   the 06:30 AEST run's self-heal window now ends on a day that has not closed;
+   `jobs/sync_prices.py:353` classified that empty day. The 09-06 run passed only because the
+   weekend rule (#187) expects no `sync_prices` row. At the Actions level the `pipeline-health`
+   scheduled runs were **red 09-02T23:54Z, 09-03T23:51Z, 09-04T23:48Z** (a latest-run-only view
+   shows only the Sunday green — that is how this went unrecorded). **Fix drafted: #212**
+   (backlog **A-25**) — the verdict now targets
+   the freshest *closed* session. Until it merges the deadman lane is red every weekday for
+   nothing, which is the failure mode that trains the reader to ignore it.
+2. **`issue-snapshot` — scheduled run 34030294978 (09-06 11:27 UTC) FAILED**, and will fail daily
+   at 07:00 UTC: the workflow pushes `docs/ops/github-issues-snapshot.json` straight to `main`
+   and the ruleset (#205: PR-required, `full-check` required, no bypass actors) rejects it
+   (`GH013`). Green 09-01→09-05. `.github/**` is James-only — patch, options and verify steps in
+   `docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md`; backlog **A-24**.
+3. **`retrain_model_a` — 0/2, last attempt 2026-06-06.** Dormant by standing policy (rule #11,
+   resolved against Model A 2026-07-11); the training chain was deleted in #144. Not a live-ops
+   item — listed because the row still exists.
 
-## 🟢 Recovered since 2026-07-11 (reconciling the last scorecard's three FAILs)
+## 🟢 Recovered / observed since the 2026-07-14 edition
 
-- **`check_cron_health`** — was 0/7 FAIL ("the deadman is blind"); **now last-run SUCCESS**
-  (2026-07-13), though the all-time track record is still thin (1/10) — the monitor just came
-  back online, watch it for a few more days before calling it stable.
-- **`check_model_staleness`** — was 0/7 FAIL; **now last-run SUCCESS** (2026-07-13, 2/10
-  all-time) — same "just recovered, thin track record" caveat.
-- **`sync_financial_statements`** — was stuck in a `running` state since 07-04 (an
-  `oomKilled` orphan); **fixed by PR #32**'s `executemany` batching — last run SUCCESS
-  (2026-07-13, 1/4 all-time).
-- **`signal_outcomes` (24,454 rows, unchanged from 07-11)** — the 2026-07-10 decay analysis
-  question this raised is **answered, not still open**: the P0 Model A decay check ran
-  against these 19,032 matured rows and concluded **RESOLVED, against Model A** (`corr(ml_prob,
-  21d) = −0.03`; see `docs/model-a-decay-analysis-2026-07-11.md`). ML is shelved (rule #11);
-  this table's presence no longer represents an unblock question to chase.
+- **`backup.yml` — GREEN 2026-09-05 16:09 UTC** (run 33976969363), the first green since 08-22,
+  after #186's dump-before-verify fix merged 09-05. **Now observed, too:** two more scheduled greens on 09-06 — run 34045223384 (16:22 UTC, dump only,
+  drill skipped) and run 34048829799 (17:30 UTC, **`restore_drill` job success** — the first drill
+  since #186). `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` is still absent from the nine repo secrets, so
+  the deadman cannot page — backlog **B-3 / C-1** (C-1 now needs only the secret + pasted run ids).
+- **`track_signal_outcomes`** — the 07-14 FAIL cleared (3/4, last success 2026-08-02); the writer
+  chain is now retired with Model A, so the row is historical.
+- **`derive_fundamentals_pit`** — ran 2026-09-06 and populated `rs_fundamentals_pit.knowledge_tier`
+  on **54,459 of 54,466** rows; the 09-03 close recorded it as NULL. Backlog **C-2** observed.
+- **`weekly-research` chain** — scheduled green on three consecutive Saturdays (08-22, 08-29 run
+  33270549838, 09-05 run 33982730538). Backlog **C-11** observed.
+- **`sync_financial_statements`** 9/13, **`sync_fundamentals`** 77/77, **`sync_universe`**
+  16/16 — all success on the 09-06 weekly fire.
+- **`regulatory_events` / `ingest_regulatory`** — 56/90 all-time, 9/9 success in the last 14 days
+  (the 07-14 edition flagged it flaky; the last fortnight is clean).
 
 ---
 
 ## 🟡 Still worth watching
 
-- **`ingest_regulatory` / `regulatory_events`** — the job itself succeeds (last SUCCESS
-  2026-07-13, 12/46 all-time) but the table it feeds is still near-empty: **2 rows, latest
-  2026-07-08** (6 days stale) — unchanged from the 07-11 scorecard. The RSS ingest is flaky
-  enough that job-level success doesn't mean fresh regulatory content is landing.
-- **`revisit overdue`** (Investment readiness): 1 of 2 active/watching theses (CBA) is past
-  its revisit-due date — same CBA thesis flagged in `james-inbox.md` as fix-or-retire.
-- **`conviction_level NULL`** (Investment readiness, R11): both of the 2 live active/watching
-  theses have no `conviction_level` set — the size-vs-conviction coherence check, and the new
-  PR2 discipline digest's conviction-unset summary line, can't run until this is set.
+- **`revisit overdue` = 2 and `conviction_level NULL` = 2** — both active/watching theses. One of
+  them is CBA thesis #1, 3.5× price-detached, revisit 67+ days overdue (backlog **D-3**, one-word
+  ruling); the other is the single active thesis. R11 (backlog **E-12**) is the standing cause.
+- **Daily brief tonight is the first scheduled send after #178** bumped `resend` 2.4.0 → 2.39.0 on
+  the live send path (every test mocks it) — cron `30 20 * * 0-4`, next fire 2026-09-06 20:30
+  UTC. Backlog **D-14**.
+- **The three standing lanes** (`backlog-roll`, `nightly-triage`, `weekly-toolwatch`) are on
+  `main`, `workflow_dispatch`-only with an `acknowledge_write_token_risk` gate, **0 runs each** —
+  correct while gate 7 (backlog **A-22**) is open; `backlog-roll` also fails at step 0 without
+  `HC_BACKLOG_URL` (**A-20**).
+- **Dark surfaces #1 and #4 expired 2026-08-31** and are still unruled (**D-1 / D-2**; drafts in
+  #190); #3 expires 2026-09-30 (**D-15**).
 
 ---
 
-## Data freshness (as of 2026-07-14)
+## Data freshness (as of 2026-09-06 12:21 UTC)
 
 | metric | value | grade | note |
 |---|---|---|---|
-| `prices` | 2026-07-13 (697,034 rows) | 🟢 PASS | 1d old |
-| `signals` | 2026-07-13 (37,301 rows) | 🟢 PASS | 1d old |
-| `market_context` | 2026-07-13 (8 rows) | 🟢 PASS | 1d old — RC3 (RBA/iron/VIX null) already resolved 2026-07-12; row count up from 6 |
-| `portfolio_daily_snapshots` | 2026-07-13 (31 rows) | 🟢 PASS | 1d old |
-| `fundamentals` | 2026-07-14 (94,963 rows) | 🟢 PASS | 0d old |
-| `signal_outcomes` | 24,454 rows | 🟢 PASS | populated — decay check already run (P0 resolved 2026-07-11) |
-| `regulatory_events` | 2 rows, latest 2026-07-08 | 🟡 WARN | RSS ingest flaky; card near-empty (unchanged since 07-11) |
+| `prices` | 2026-09-03 (783,234 rows) | 🟢 PASS | 3d old (warn at 4d). Friday 09-04's close lands with the Monday 06:30 AEST run by design (cron Sun–Thu 20:30 UTC). 09-01/02/03 carry 2,319 / 2,299 / 2,288 AU rows |
+| `market_context` | 2026-09-04 (47 rows) | 🟢 PASS | 2d old |
+| `portfolio_daily_snapshots` | 2026-09-03 (66 rows) | 🟢 PASS | 3d old |
+| `fundamentals` | 2026-09-06 (143,715 rows) | 🟢 PASS | 0d old — weekly fire 09-06 |
+| `signal_outcomes` | 60,072 rows | 🟢 PASS | frozen decay evidence intact (was 24,454 on 07-14; the tracker ran until 08-02) |
+| `signals` | frozen: 64,189 rows, `as_of` 2026-08-05 | ⚪ excluded | no writer since #144; never evidence for capital (rule #11) |
+| `rs_fundamentals_pit.knowledge_tier` | 54,459 / 54,466 populated | 🟢 PASS | 0049 backfill observed 09-06 |
+| `universe` | 2,459 total / 2,396 active | ⚪ INFO | +18 / +12 since the 08-20 snapshot |
 
-## Cron reality (job_runs, all-time, as of 2026-07-14)
+## Cron reality (`job_runs`, all-time · last 14 days, as of 2026-09-06)
 
 | grade | jobs |
 |---|---|
-| 🔴 FAIL | `track_signal_outcomes` (0/1, last failure 07-12 — predates the 07-13 cast fix `db5a3ff`, hasn't re-run since; not a new break); `retrain_model_a` (0/2, last failure 06-06, dormant/expected) |
-| 🟢 PASS (last run succeeded) | `build_portfolio` (6/8), `check_au_positions` (7/7), `check_cron_health` (1/10, just recovered), `check_model_staleness` (2/10, just recovered), `check_thesis_invalidations` (11/11), `check_us_positions` (8/8), `compose_brief` (26/26), `compute_factor_scores` (2/2), `compute_opportunity_cost` (2/2), `derive_fundamentals_pit` (3/3), `detect_theme_stages` (7/7), `generate_signals` (22/32), `ingest_market_context` (8/8), `ingest_news` (26/28), `ingest_regulatory` (12/46, flaky but last run ok), `ingest_sentiment` (21/29), `ingest_underlyings` (8/8), `snapshot_portfolio` (31/38), `sync_corporate_actions` (3/3), `sync_financial_statements` (1/4, just recovered), `sync_fundamentals` (51/51), `sync_prices` (38/38), `sync_security_master` (3/3), `sync_universe` (7/7), `validate_price_data` (3/7) |
+| 🔴 FAIL | `retrain_model_a` (0/2, last 06-06 — dormant, rule #11) |
+| 🟡 WARN | `check_cron_health` (25/61 all-time; **5 of 12 failed in 14d**: 08-28 mid-session `ASX=0`, 08-31 weekend MISSING false positive fixed by #187, **09-03/04/05 the Sydney-date false positive above**; last run 09-06 success) |
+| 🟢 PASS (last run succeeded; clean 14d) | `check_au_positions` 43/43 · `check_thesis_invalidations` 53/53 · `check_us_positions` 44/44 · `compose_brief` 63/63 · `derive_fundamentals_pit` 8/12 · `ingest_market_context` 46/46 · `ingest_news` 63/65 · `ingest_regulatory` 56/90 · `ingest_sentiment` 58/66 · `ingest_underlyings` 46/46 · `materialise_brief_sections` 8/8 · `score_macro_theses` 19/19 · `snapshot_portfolio` 66/73 · `sync_corporate_actions` 12/12 · `sync_financial_statements` 9/13 · `sync_fundamentals` 77/77 · `sync_prices` 76/76 (two runs carry the false degraded note) · `sync_security_master` 12/12 · `sync_universe` 16/16 · `validate_price_data` 41/45 |
+| ⚪ retired / unscheduled (last row is historical, expected) | `build_portfolio` (last `blocked` 08-01 — DROPPED, Amendment F) · `detect_theme_stages` (last 08-05 — KEEP ruled, unscheduled, **D-11**) · `generate_signals` (last 08-05 — deleted with Model A, #144) · `track_signal_outcomes` (last 08-02) · `check_model_staleness` (last 08-05) · `compute_factor_scores` (08-11) · `compute_opportunity_cost` (08-01) |
 
 ## Investment readiness
 
 | metric | value | grade |
 |---|---|---|
-| active theses | 1 (HUBS) | 🟢 PASS |
-| watching theses | 1 (CBA — data-broken ladder + revisit overdue) | ⚪ INFO |
-| open holdings | 1 (HUBS.NYSE) | ⚪ INFO |
+| active theses | 1 | 🟢 PASS |
+| watching theses | 1 (CBA #1 — **D-3** retire ruling pending) | ⚪ INFO |
+| open holdings | 1 | ⚪ INFO |
 | holdings without active thesis | 0 | 🟢 PASS |
 | theses missing stop/target | 0 | 🟢 PASS |
-| revisit overdue | 1 (CBA) | 🟡 WARN |
-| conviction_level NULL | 2 of 2 | 🟡 WARN (R11) |
+| revisit overdue | 2 | 🟡 WARN |
+| conviction_level NULL | 2 of 2 | 🟡 WARN (R11, **E-12**) |
+| governed themes / members | 1 (`big-4-banks`) / 1 (CBA.AU — the Stage 4 *negative* control; a positive control needs a second member, **C-5**) | ⚪ INFO |
+| approved macro theses | 3 | ⚪ INFO |
+| decision packets / outcomes / receipts / dispositions | 1 (`dpk-cba-1-2026-09-01`, abstain) / 0 / 0 / 0 | ⚪ INFO — every Stage 4/5 `renders:` is honestly empty until James's live CLI runs (**C-3 … C-8**) |
 
 ## Product surfaces
 
 | surface | state |
 |---|---|
-| daily brief | 🟢 renders (`compose_brief` 26/26) |
-| portfolio discipline digest | 🟡 **new this session** — PR2a (loader, #40) + PR2b (render, #41) landed as draft PRs; not yet merged/live |
-| thesis cards w/o Model A | 🟢 yes (R9 shipped — best-effort model gate) |
-| portfolio brief | ⚪ dark (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`) |
-| news/sentiment brief | 🟢 **SHIP — fresh verdict 2026-08-21** (`ASXOS_NEWS_BRIEF_ENABLED=1`). *Was 🔴 "shipped but empty … `holding_news` 0 rows … symbol-mapping cause still open" — falsified on all three counts by a read-only production probe:* `holding_news` **9 rows**, `signal_sentiment` **9 rows**, and the symbol-mapping bug is **not** the cause (`jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`; one open lot bounds coverage). `ingest_news` last six runs wrote 3·2·2·1·0·4, all `success`. See `dark-launch-exit-plan.md` surface #2 |
-| ETF/multi-instrument | 🟡 Slice 1 built + `security_kind` live in prod; Slice 2 blocked on James's VGS/VAS holding-lot data |
+| daily brief | 🟢 renders (`compose_brief` 63/63, last 09-04); next scheduled send tonight is the first after the `resend` bump (**D-14**) |
+| news/sentiment brief | 🟢 SHIP (verdict 2026-08-21) |
+| portfolio brief | 🔴 dark, **EXPIRED 2026-08-31**, unruled (**D-1**) |
+| paper-trade evaluator | 🔴 dark, **EXPIRED 2026-08-31**, unruled (**D-2**) |
+| V2 brief tree | ⚪ KEEP-DARK to 2026-09-30 (**D-15**) |
+| decision engine, Stages 1→5 machinery (`asx replay / research / candidates / decision`) | 🟡 on `main` since 09-05 (#192–#198, #201); personal-use gated; live halves are James's; no Stage cell flipped |
+| irreplaceable backup | 🟡 green 09-05; dump + **restore drill green 09-06** (run 34048829799) · deadman secret absent (**B-3 / C-1**) |
+| GitHub issues snapshot (D10 mitigation) | 🔴 red since 09-06 (**A-24**) |
+| standing agentic lanes | ⚪ armed, never fired; automatic triggers barred until **A-22** |
 
 ---
 
 ## The ranked next actions this scorecard surfaces
 
-1. **Watch for `track_signal_outcomes`'s next run (Sun 03:00 UTC)** — its only recorded run
-   predates the 07-13 fix, so there's nothing to diagnose yet; confirm it goes green post-fix
-   rather than re-investigating pre-fix data.
-2. **Keep watching `check_cron_health`/`check_model_staleness`** for a few more days before
-   trusting the "recovered" verdict — both have only 1-2 successful runs so far.
-3. **`retrain_model_a`** stays broken but is correctly dormant under rule #11 — no action
-   needed unless/until a new model version is proposed for the promotion gate.
-4. **`ingest_regulatory`/`regulatory_events`** — still flaky at the data layer even though the
-   job reports success; the RSS-feed-level investigation from 07-11 was never completed.
-5. **CBA thesis (revisit overdue, data-broken ladder)** — `james-inbox.md`'s existing
-   fix-or-retire item; James-owned, not independently actionable.
+1. **Land the `sync_prices` completeness-target fix** (AW-01 PR, drafted 09-06) — the health lane
+   is red on complete data every weekday until it merges.
+2. **A-24 — apply the `issue-snapshot.yml` patch** (James; `.github/**`) — one red scheduled run
+   per day until then.
+3. **B-3 + C-1 — deadman secret, then dispatch `backup.yml` and `restore_drill=true`** (James) —
+   turns "green" into "observed".
+4. **D-3 — retire CBA thesis #1** (one word) — clears half of both WARNs; **E-12** (R11) clears
+   the rest.
+5. **D-14 — read tonight's `daily-brief` run** after it fires at 20:30 UTC.

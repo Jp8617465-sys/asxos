@@ -29,6 +29,7 @@ from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.coverage import (
     classify_sync_completeness,
     latest_observed_price_date,
+    select_sync_target,
 )
 from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.ingestion.eodhd import get_client
@@ -265,9 +266,10 @@ async def main(from_date: date | None) -> None:
 
         # Phase 1 — AU bulk, self-healing. One unified weekday loop from `start`
         # (day after the latest observed price date, or an explicit --from)
-        # through today (UTC), idempotent UPSERT per day. This corrects the prior
-        # "yesterday-only" cadence bug that never ingested Thursday/Friday ASX
-        # sessions and auto-fills any gap (missed cron, holiday, EODHD latency).
+        # through today (Sydney, `clock.today()` since #171), idempotent UPSERT
+        # per day. This corrects the prior "yesterday-only" cadence bug that never
+        # ingested Thursday/Friday ASX sessions and auto-fills any gap (missed
+        # cron, holiday, EODHD latency).
         async with acquire() as conn:
             start = await _resolve_start(from_date, today, conn)
         days = _weekdays_in_range(start, today)
@@ -349,8 +351,13 @@ async def main(from_date: date | None) -> None:
         # exception-driven and rows_written keeps its combined-total value, so no
         # downstream gate (generate_signals / snapshot_portfolio / compose_brief)
         # changes. Skipped when nothing was fetched (already current).
-        if day_counts:
-            latest_day = max(day_counts)
+        # The day under verdict is the freshest fetched day that can have a close:
+        # today only if its fetch returned rows. The scheduled run starts 06:30
+        # AEST, so today's bulk is empty for hours — classifying it flagged
+        # NO_EQUITY_DATA on every weekday from 2026-09-03 (post-#171, Sydney
+        # dates) and turned check_cron_health red on complete data.
+        latest_day = select_sync_target(day_counts, today)
+        if latest_day is not None:
             latest_au = day_counts[latest_day]
             verdict = classify_sync_completeness(
                 latest_day, au_rows=latest_au, us_rows=us_rows, fx_rows=fx_rows
