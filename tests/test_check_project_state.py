@@ -157,13 +157,21 @@ def test_observed_null_leaf_rejected(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------
 
 
-def _snapshot_with_migration_drift() -> dict[str, Any]:
-    """applied_count and required_migrations disagree — the 2026-08-22 defect."""
+def _snapshot_with_critical_contradiction() -> dict[str, Any]:
+    """A leaf and its backing probe disagree on a scalar — `leaf_probe_value_mismatch`,
+    the two-sources-disagree class SB2 exists for. (Until v3 this helper used
+    `migration_drift`; that rule was retired with `REQUIRED_MIGRATIONS`, #189.)"""
     snap = _minimal_snapshot()
-    snap["data"]["migrations"] = {
-        "status": "observed",
-        "value": {"applied_count": 97, "required_migrations": 96},
-    }
+    snap["repository"]["base_sha"] = {"status": "observed", "value": "aaaa"}
+    snap["probes"] = [
+        {
+            "name": "repository.base_sha",
+            "status": "observed",
+            "source": "test",
+            "observed_at": snap["observed_at"],
+            "value": "bbbb",
+        }
+    ]
     return snap
 
 
@@ -171,7 +179,7 @@ def test_critical_contradiction_fails_even_when_schema_and_freshness_pass(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "snap.json"
-    path.write_text(json.dumps(_snapshot_with_migration_drift()), encoding="utf-8")
+    path.write_text(json.dumps(_snapshot_with_critical_contradiction()), encoding="utf-8")
 
     assert check_project_state.main([str(path), "--schema-only"]) == 1
 
@@ -179,7 +187,7 @@ def test_critical_contradiction_fails_even_when_schema_and_freshness_pass(
 def test_contradiction_check_can_be_skipped(tmp_path: Path) -> None:
     """--no-contradictions leaves the pre-SB2 behaviour exactly as it was."""
     path = tmp_path / "snap.json"
-    path.write_text(json.dumps(_snapshot_with_migration_drift()), encoding="utf-8")
+    path.write_text(json.dumps(_snapshot_with_critical_contradiction()), encoding="utf-8")
 
     assert check_project_state.main([str(path), "--schema-only", "--no-contradictions"]) == 0
 

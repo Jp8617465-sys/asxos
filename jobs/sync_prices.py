@@ -8,7 +8,9 @@ Phase 3 (FX):       AUDUSD.FOREX daily rate — fetched from earliest US acquisi
                     date so all historical lots have a rate for Div 775 calculations.
 
 Default (self-healing): fetch every weekday from the day after the latest
-observed price date through today (UTC), skipping weekends, idempotent UPSERT.
+observed price date through today (Sydney, `clock.today()` since #171), skipping
+weekends, idempotent UPSERT. Today's bulk is empty before the close, so the
+completeness verdict targets the freshest CLOSED session (spec: coverage.py).
 This auto-fills any gap (missed cron, holiday, EODHD latency) and corrects the
 prior "yesterday-only" cadence bug that never ingested Thursday/Friday ASX
 sessions. Auto-heal is capped at _MAX_AUTO_BACKFILL_DAYS; deeper gaps need --from.
