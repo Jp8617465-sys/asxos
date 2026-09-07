@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
+from html import escape
 from pathlib import Path
 from typing import Literal, assert_never
 
@@ -11,6 +13,7 @@ import jinja2
 
 from asxos.domain.decision_engine.types import (
     DecisionBrief,
+    DecisionCase,
     DecisionPacket,
     MemoVerdict,
     RecommendationState,
@@ -108,3 +111,141 @@ def render_decision_brief(
     )
     template = environment.get_template(_TEMPLATE_NAME)
     return template.render(brief=admitted, case_views=case_views, rendered_at=rendered_at)
+
+
+def _markdown(value: str) -> str:
+    """Return untrusted contract text safe to embed in a Markdown/HTML render.
+
+    A report contains issuer and provider text.  Escaping HTML here prevents a
+    source string from becoming active markup in a Markdown viewer; it does not
+    rewrite or interpret the financial content.
+    """
+    return escape(value, quote=True)
+
+
+def _pct(value: Decimal) -> str:
+    """Render an exact Decimal percentage without passing through float."""
+    return f"{value.normalize():f}%"
+
+
+def render_broker_report(
+    case: DecisionCase, *, evaluated_at: datetime | None = None
+) -> str:
+    """Render the canonical DecisionCase as a human broker-report view.
+
+    This is deliberately a renderer, not a second recommendation schema.  It
+    revalidates the complete content-addressed chain and derives its verdict,
+    actionability, constraints and evidence solely from that chain.  A caller
+    cannot supply a separate rating, price target, or size to the report.
+    """
+    rendered_at = require_utc(
+        evaluated_at or datetime.now(UTC), field_name="evaluated_at"
+    )
+    admitted = DecisionCase.model_validate(case.model_dump(mode="python"))
+    presentation = presentation_for(admitted.decision, evaluated_at=rendered_at)
+    thesis = admitted.thesis
+    challenge = admitted.challenge
+    portfolio = admitted.portfolio
+    decision = admitted.decision
+
+    evidence_lines = "\n".join(
+        "- "
+        f"**{_markdown(item.evidence_tier)}** · {_markdown(item.title)} — "
+        f"{_markdown(item.claim)} "
+        f"([source]({_markdown(item.source_uri)}); known {item.known_at.isoformat()})"
+        for item in admitted.evidence.items
+    )
+    scenario_lines = "\n".join(
+        "- "
+        f"**{scenario.label.title()}**: {_pct(scenario.return_pct)} "
+        f"at {_pct(scenario.probability_pct)} probability — {_markdown(scenario.rationale)}"
+        for scenario in thesis.scenarios
+    )
+    constraint_lines = "\n".join(
+        "- "
+        f"**{_markdown(constraint.name)}**: {_markdown(constraint.status)} "
+        f"({'blocking' if constraint.blocking else 'reporting'}) — "
+        f"{_markdown(constraint.detail)}"
+        for constraint in portfolio.constraints
+    )
+    finding_lines = "\n".join(
+        "- "
+        f"**{_markdown(finding.severity)}** — {_markdown(finding.finding)} "
+        f"Required response: {_markdown(finding.required_response)}"
+        for finding in challenge.findings
+    ) or "- No challenger findings recorded."
+    catalyst_lines = "\n".join(f"- {_markdown(item)}" for item in thesis.catalysts)
+    falsifier_lines = "\n".join(f"- {_markdown(item)}" for item in thesis.falsifiers)
+    missing_lines = "\n".join(
+        f"- {_markdown(item)}" for item in decision.missing_or_uncertain_inputs
+    ) or "- None declared."
+
+    size = decision.size_range
+    size_line = (
+        f"{_pct(size.minimum_pct)}–{_pct(size.maximum_pct)} paper range"
+        if presentation.actionable
+        else "0% — non-actionable paper state"
+    )
+    return f"""# Broker research report: {_markdown(thesis.symbol)} ({_markdown(thesis.exchange)})
+
+- **Decision packet:** `{_markdown(decision.decision_packet_id)}`
+- **As-of / knowledge cutoff:** {decision.as_of.isoformat()} / {decision.knowledge_cutoff.isoformat()}
+- **Verdict:** **{presentation.status_label}**
+- **Recommendation state:** `{presentation.recommendation_state}`
+- **Paper sizing:** {size_line}
+- **Expiry:** {decision.expires_at.isoformat()} ({_markdown(decision.expiry_reason)})
+
+> This is single-user decision-support, not licensed financial advice. It is not an order and no broker execution occurs. It uses no Model A output.
+
+## Decision
+
+{_markdown(presentation.decision_ask)}
+
+## Investment case
+
+**Question:** {_markdown(thesis.investment_question)}
+
+**Variant view:** {_markdown(thesis.variant_view)}
+
+{_markdown(thesis.thesis_summary)}
+
+### Catalysts
+
+{catalyst_lines}
+
+### Falsifiers
+
+{falsifier_lines}
+
+### Scenarios
+
+{scenario_lines}
+
+## Independent challenge
+
+**Outcome:** `{challenge.outcome}`
+**Strongest bear case:** {_markdown(challenge.strongest_bear_case)}
+
+{finding_lines}
+
+## Portfolio and policy state
+
+- **Marginal risk:** {_markdown(portfolio.marginal_risk)}
+- **Opportunity cost:** {_markdown(portfolio.opportunity_cost)}
+**Tax readiness:** `{decision.tax_assessment_reference.readiness}` / `{decision.tax_assessment_reference.applicability}`
+
+{constraint_lines}
+
+## Missing or uncertain inputs
+
+{missing_lines}
+
+## Evidence manifest
+
+{evidence_lines}
+
+## Integrity
+
+`DecisionCase` and every upstream artifact were revalidated before rendering.
+Decision content hash: `{decision.content_hash}`
+"""
