@@ -69,6 +69,7 @@ async def build_theme_version(
     created_at: datetime | None = None,
     data_mode: DataMode = "real",
     extra_evidence: tuple[EvidenceItem, ...] = (),
+    id_prefix: str = "",
 ) -> ThemeVersion:
     theme = await conn.fetchrow(SQL_THEME, theme_code)
     if theme is None:
@@ -134,7 +135,7 @@ async def build_theme_version(
     breadth = await theme_breadth(conn, list(members), as_of)
     measures: dict[str, Any] = {**breadth, "macro_thesis_id": macro_id}
     return ThemeVersion(
-        theme_version_id=f"tv-{theme_code}-{as_of.isoformat()}",
+        theme_version_id=f"{id_prefix}tv-{theme_code}-{as_of.isoformat()}",
         theme_code=theme_code,
         name=theme["name"],
         description=theme["description"],
@@ -161,6 +162,7 @@ async def build_candidate_snapshot(
     as_of: date,
     created_at: datetime | None = None,
     extra_evidence: tuple[EvidenceItem, ...] = (),
+    id_prefix: str = "",
 ) -> CandidateSnapshot:
     if symbol not in theme.members:
         raise MeasureError(f"{symbol} is not a member of {theme.theme_code}")
@@ -229,7 +231,7 @@ async def build_candidate_snapshot(
             )
         )
     return CandidateSnapshot(
-        candidate_id=f"cand-{theme.theme_code}-{symbol}-{as_of.isoformat()}",
+        candidate_id=f"{id_prefix}cand-{theme.theme_code}-{symbol}-{as_of.isoformat()}",
         symbol=symbol,
         theme_version_id=theme.theme_version_id,
         theme_code=theme.theme_code,

@@ -210,6 +210,22 @@ Scored on the same `signal_outcomes` basis Model A faced (correlation of predict
 
 **Measured consequence:** on C1 a 10% position leaves 90% post-trade cash and clears D1; 95% is still blocked; the boundary is exact to the millionth (92.500000 passes, 92.500001 breaches). The register value is unchanged — the paper book relaxes the *balance*, never D1.
 
+**Fixture rows — ruled 2026-09-07.** The theme and candidate rows written for the first positive control are **listable and inert, not removable**. `theme_versions` and `candidate_snapshots` are append-only (`migrations/0051_theme_candidates.sql:61-62`, `:93-94`) and that ratified guarantee stands: a delete path scoped to fixture ids is still a delete path. The rows are the audit trail of the first positive control and are retained as such.
+
+- **Marked** by an `f-e2e-` prefix on `theme_version_id` and `candidate_id` (`asx candidates build --fixture`). The prefix sits inside the id and the id sits inside the content hash, so a fixture row is a *different identity*, not a production row wearing a label.
+- **`data_mode` stays `'real'`** — the data is live; only the purpose is fixture. `test_fixture_prefix_changes_identity_not_data_mode` fails if the flag ever assigns `data_mode`.
+- **Listing query of record:**
+  ```sql
+  SELECT 'theme_versions' AS table_name, theme_version_id AS id, theme_code AS subject,
+         as_of, data_mode, created_at
+  FROM theme_versions WHERE theme_version_id LIKE 'f-e2e-%'
+  UNION ALL
+  SELECT 'candidate_snapshots', candidate_id, symbol, as_of, data_mode, created_at
+  FROM candidate_snapshots WHERE candidate_id LIKE 'f-e2e-%'
+  ORDER BY table_name, id;
+  ```
+- **Inertness is tested, not asserted:** `tests/test_fixture_rows_f_e2e.py::test_no_live_book_aggregation_reads_fixture_rows` checks that none of the five live-book aggregation queries (`SQL_SNAPSHOT`, `SQL_HOLDINGS`, `SQL_CLOSE`, `SQL_FX`, `SQL_PROFILE`) reads `theme_versions`, `candidate_snapshots` or `paper_book_snapshots`; a companion test refuses any future migration that adds a `DELETE FROM` or drops the append-only trigger on either table.
+
 **Applying 0053 is a production write and is not yet granted.** The standing I5 grant of 2026-09-07 covers only `asx candidates build --persist` for the F-E2E run. Recorded in `schema_drift.EXPECTED_UNAPPLIED` so drift detection stays honest until it is applied.
 
 ---
