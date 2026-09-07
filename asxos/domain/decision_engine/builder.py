@@ -58,7 +58,6 @@ Model A surface — it has no reason to and does not import
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Final
@@ -148,11 +147,24 @@ def _income_known_at(
 ) -> datetime | None:
     """Mirror of `pit_db.py`'s private `_known_at_for_income` + its post-hoc
     `current_known > cutoff` drop — reuses the same public
-    `derive_statement_known_at` rule (G8) rather than re-deriving it."""
-    if not isinstance(row, Mapping):
+    `derive_statement_known_at` rule (G8) rather than re-deriving it.
+
+    The row is accepted on the strength of a callable ``.get``, not on
+    ``isinstance(row, Mapping)``. **`asyncpg.Record` is not a `Mapping`** — it
+    supports ``.get()`` and item access but is not registered on the ABC — so a
+    `Mapping` test rejected every row a real connection returns, and this
+    function returned `None` for all of them. The caller reads that as "no
+    admissible yearly income row" and `build_decision_case` raised, which is why
+    Stage 4 could never run against the live database. Every test fed it `dict`
+    fixtures, so CI was green throughout (found by the first live end-to-end run,
+    2026-09-07). The duck-typed check keeps the fail-closed intent — an object
+    with no ``.get`` is still refused — without coupling this module to asyncpg.
+    """
+    getter = getattr(row, "get", None)
+    if not callable(getter):
         return None
-    report_d = _coerce_date(row.get("report_date"))
-    filing_d = _coerce_date(row.get("filing_date"))
+    report_d = _coerce_date(getter("report_date"))
+    filing_d = _coerce_date(getter("filing_date"))
     known_at = derive_statement_known_at(period_end, report_d, filing_d, as_of)
     if known_at > cutoff:
         return None
@@ -257,11 +269,19 @@ async def build_decision_case(
     assert_sql_admissible(SQL_YEARLY_INCOME_PERIODS)
     assert_sql_admissible(SQL_INCOME)
     period_rows = await conn.fetch(SQL_YEARLY_INCOME_PERIODS, symbol, as_of)
-    current_row: Mapping[str, object] | None = None
+    # Not `Mapping`: a live `asyncpg.Record` is not one (see `_income_known_at`).
+    current_row: object | None = None
     period_end: date | None = None
     current_known: datetime | None = None
     for row in period_rows:
-        candidate_end = _coerce_date(row.get("period_end"))
+        # Duck-typed, not `isinstance(row, Mapping)`: `asyncpg.Record` supports
+        # `.get()` but is not a `Mapping`, so a Mapping test refused every live
+        # row (see `_income_known_at`). Guard at first access so a row of the
+        # wrong shape is skipped rather than raising `AttributeError`.
+        row_get = getattr(row, "get", None)
+        if not callable(row_get):
+            continue
+        candidate_end = _coerce_date(row_get("period_end"))
         if candidate_end is None:
             continue
         candidate_known = _income_known_at(
@@ -405,6 +425,35 @@ async def build_decision_case(
     last_close_dt: date | None = None
     price_evidence_id: str | None = None
     if context is not None:
+        # -- The live book itself is evidence. Five register rules cite
+        # `x.portfolio.evidence_id` (challenge/rules.py:213,235,254,266,328), and
+        # `DecisionCase` refuses a case that "cites evidence outside the frozen
+        # packet" (types.py:610). Without this item every `--context` build failed
+        # that validator, so the live-book path had never produced a case — the
+        # tests supply a context whose state carries an id the fixture packet
+        # already contains — hence the membership check, which mirrors the
+        # candidate-evidence merge below. Found by the first live run, 2026-09-07.
+        pstate = context.portfolio_state
+        if pstate.evidence_id not in {item.evidence_id for item in items}:
+            items.append(
+                EvidenceItem(
+                    evidence_id=pstate.evidence_id,
+                    evidence_type="portfolio_fact",
+                    title=f"Portfolio state at {as_of.isoformat()}",
+                    claim=(
+                        f"Pre-trade book at {as_of.isoformat()}: capital "
+                        f"{pstate.capital_aud} AUD, cash {pstate.cash_pct}%, gross exposure "
+                        f"{pstate.gross_exposure_pct}%, borrowing {pstate.borrowing_aud} AUD, "
+                        f"{len(pstate.position_weights_pct)} position(s) across "
+                        f"{len(pstate.sector_weights_pct)} sector(s)."
+                    ),
+                    source_uri=f"asxos://portfolio_daily_snapshots/{as_of.isoformat()}",
+                    observed_at=as_of,
+                    known_at=cutoff,
+                    evidence_tier="verified",
+                    data_mode="real",
+                )
+            )
         price_row = await conn.fetchrow(SQL_LAST_CLOSE, symbol, as_of)
         if price_row is not None and price_row["close"] is not None:
             last_close = Decimal(str(price_row["close"]))
