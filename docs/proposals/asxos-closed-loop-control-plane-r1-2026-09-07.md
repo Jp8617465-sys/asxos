@@ -473,11 +473,14 @@ conformance assertion. Workflow/settings steps are owner-applied.
 
 ## 11. Item 1 gate packet
 
-Draft PR #230 contains two agent commits:
+Draft PR #230 contains four agent commits:
 
 1. `c6d625a` — failing-first retirement guard;
 2. `03f4bed` — removes the exporter, empty payload, old presence tests, and
-   scheduled-lane inventory entry.
+   scheduled-lane inventory entry;
+3. `4eca0e1` — test-only import formatting caught by the first CI run;
+4. `1d96135` — mechanically refreshes the offline-test inventory after the old
+   snapshot test was removed.
 
 No workflow was changed. The owner must add one isolated commit that:
 
