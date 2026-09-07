@@ -24,11 +24,12 @@ improve with time, so a lot projected non-discountable may be discountable
 at fill.
 
 `select_min_cgt` falls back to FIFO above six lots; staging refuses rather
-than record a selector that was not the one applied. The spec carries no
-section for lot selection itself — min-CGT's objective is
-implementation-defined (`lots.py`) — so a spec amendment (§5.5 + a numeric
-test case) is required before a staged sell's lot choice is relied on for
-capital; recorded as a James item, not fixed here.
+than record a selector that was not the one applied (`MIN_CGT_MAX_LOTS`
+mirrors the spec's bound). Lot selection is governed by **spec §5.5**
+(v1.6) — the objective, the subset × partial-bearer search space and the
+tie-break are spec text, not implementation-defined, and §5.5 names this
+module as the capital-facing caller that must refuse the fallback rather
+than accept it.
 
 There is no broker, no venue, no credential, no network and no write in this
 module. `not_executable` is a `Literal[True]` on every order, and no function

@@ -41,8 +41,26 @@ __all__ = [
     "reduce_snapshots",
 ]
 
-SEMANTICS_VERSION: Final = 2
-"""v2 (2026-08-22): added `duplicate_probe_name` and `stale_freshness`.
+SEMANTICS_VERSION: Final = 3
+"""v3 (2026-09-07): RETIRED `migration_drift` (both forms) and ADDED
+`latest_only_scheduled_lane`.
+
+`REQUIRED_MIGRATIONS` was removed by #189 (2026-09-05) — drift is now the
+migration-name set difference in `asxos/schema_drift.py`, run by the scheduled
+`migration-drift` workflow, whose conclusion the snapshot carries in
+`github.workflow_runs`. A probe named `code.required_migrations` and a leaf key
+`required_migrations` can therefore never exist again, so both rules could only
+mis-fire: on the 2026-09-06 wake the leaf-internal rule compared `applied_count`
+(104) with the retirement note the snapshot carried in the key's place and
+reported a critical. A rule that can only fire on a mistake is retired, not left
+dormant.
+
+`latest_only_scheduled_lane` (info): the same wake's snapshot listed one
+conclusion per workflow — the latest — and so showed `pipeline-health` green
+while its three preceding scheduled runs (09-02/03/04 UTC) were red. See
+`SCHEDULED_LANES`.
+
+v2 (2026-08-22): added `duplicate_probe_name` and `stale_freshness`.
 
 Bumped on an ADDITION, not a redefinition, and deliberately. The version exists so a
 consumer diffing findings across wakes knows the comparison is apples-to-apples; a
@@ -87,20 +105,13 @@ class CrossSourceEquality:
     detail: str
 
 
-CROSS_SOURCE_EQUALITIES: Final[tuple[CrossSourceEquality, ...]] = (
-    CrossSourceEquality(
-        code="migration_drift",
-        left_path="data.migrations",
-        left_key="applied_count",
-        right_probe="code.required_migrations",
-        severity="critical",
-        detail=(
-            "the applied-migration count in the database disagrees with "
-            "REQUIRED_MIGRATIONS in the code"
-        ),
-    ),
-)
-"""Cross-source form: the code constant arrives as its own probe."""
+CROSS_SOURCE_EQUALITIES: Final[tuple[CrossSourceEquality, ...]] = ()
+"""Cross-source form: a code constant arriving as its own probe.
+
+Empty since v3. The only rule it ever held, `migration_drift` against the
+`code.required_migrations` probe, was retired with `REQUIRED_MIGRATIONS` (#189).
+The shape stays so the next constant-vs-database fact has a home; the v2 rule is
+in git history."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,20 +126,14 @@ class LeafInternalEquality:
     detail: str
 
 
-LEAF_INTERNAL_EQUALITIES: Final[tuple[LeafInternalEquality, ...]] = (
-    LeafInternalEquality(
-        code="migration_drift",
-        path="data.migrations",
-        left_key="applied_count",
-        right_key="required_migrations",
-        severity="critical",
-        detail=(
-            "the applied-migration count in the database disagrees with "
-            "REQUIRED_MIGRATIONS in the code"
-        ),
-    ),
-)
-"""Observed 2026-08-22: the DB was at 97 while the constant read 96, and the
+LEAF_INTERNAL_EQUALITIES: Final[tuple[LeafInternalEquality, ...]] = ()
+"""Leaf-internal form: two keys on one leaf that must agree.
+
+Empty since v3 — `migration_drift` (`applied_count` vs `required_migrations`) was
+retired with the constant; see `SEMANTICS_VERSION`. The history below is kept
+because the drift it caught was real and the direction matters.
+
+Observed 2026-08-22: the DB was at 97 while the constant read 96, and the
 startup guard (`count < REQUIRED_MIGRATIONS`) cannot catch drift in that
 direction — it only fires when the DB is BEHIND.
 
@@ -140,6 +145,26 @@ genuinely arrive separately. Found by hand; now mechanical.
 """
 
 _MONOTONIC_COUNTERS: Final[tuple[tuple[str, str], ...]] = (("data.migrations", "applied_count"),)
+
+SCHEDULED_LANES: Final[tuple[str, ...]] = (
+    "backup",
+    "daily-brief",
+    "issue-snapshot",
+    "migration-drift",
+    "nightly-check",
+    "pipeline-health",
+    "us-positions",
+    "weekly-research",
+)
+"""The workflows that carry a `schedule:` trigger — measured from
+`.github/workflows/*.yml` (2026-09-07) and pinned by
+`tests/test_secondbrain_contradictions.py`, which parses the files rather than
+trusting this tuple. A scheduled lane is the one whose reds nobody is watching."""
+
+MIN_SCHEDULED_ROWS: Final = 3
+"""How many conclusions `github.workflow_runs` must carry per scheduled lane before
+"green" means anything. One row is the latest run only; on 2026-09-06 that view
+showed `pipeline-health` green after three consecutive scheduled reds."""
 """Facts that can only increase. A decrease means one of the two readings is wrong."""
 
 
@@ -422,6 +447,35 @@ def _check_leaf_internal(
     return found
 
 
+def _check_scheduled_lane_depth(snapshot: ProjectStateSnapshot) -> list[Contradiction]:
+    """A scheduled lane carried with fewer than `MIN_SCHEDULED_ROWS` conclusions is a
+    latest-run-only view, and a latest-run-only view masks reds. Info, not failure:
+    the wake decides coverage; this names the lanes it covered too thinly."""
+    leaf = leaves(snapshot).get("github.workflow_runs")
+    if leaf is None or leaf.status != "observed" or not isinstance(leaf.value, list):
+        return []
+    counts: dict[str, int] = {}
+    for row in leaf.value:
+        name = row.get("name") if isinstance(row, dict) else None
+        if isinstance(name, str):
+            counts[name] = counts.get(name, 0) + 1
+    return [
+        Contradiction(
+            code="latest_only_scheduled_lane",
+            severity="info",
+            subject=f"github.workflow_runs.{lane}",
+            detail=(
+                "a scheduled lane is carried with too few conclusions to see a red "
+                "behind the latest run"
+            ),
+            left=str(counts[lane]),
+            right=str(MIN_SCHEDULED_ROWS),
+        )
+        for lane in SCHEDULED_LANES
+        if 0 < counts.get(lane, 0) < MIN_SCHEDULED_ROWS
+    ]
+
+
 def _check_freshness_bounds(
     snapshot: ProjectStateSnapshot, bounds: Iterable[FreshnessBound]
 ) -> list[Contradiction]:
@@ -465,6 +519,7 @@ def check_snapshot(
         *_check_leaf_probe_agreement(snapshot),
         *_check_probe_ages(snapshot, max_probe_age=max_probe_age),
         *_check_freshness_bounds(snapshot, freshness_bounds),
+        *_check_scheduled_lane_depth(snapshot),
         *_check_cross_source(snapshot, cross_source),
         *_check_leaf_internal(snapshot, leaf_internal),
     ]

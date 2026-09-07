@@ -17,6 +17,8 @@ from pydantic import JsonValue
 from asxos.secondbrain.contradictions import (
     CROSS_SOURCE_EQUALITIES,
     LEAF_INTERNAL_EQUALITIES,
+    MIN_SCHEDULED_ROWS,
+    SCHEDULED_LANES,
     SEMANTICS_VERSION,
     Contradiction,
     check_snapshot,
@@ -52,11 +54,12 @@ def _codes(found: tuple[Contradiction, ...]) -> set[str]:
 # --------------------------------------------------------------------------
 
 
-def test_migration_drift_is_caught() -> None:
-    """The 2026-08-22 defect: DB at 97, REQUIRED_MIGRATIONS at 96.
-
-    The startup guard cannot catch this direction — it fires on `count <
-    REQUIRED_MIGRATIONS`, i.e. only when the DB is BEHIND the code.
+def test_migration_drift_rule_is_retired_with_its_constant() -> None:
+    """v3 (2026-09-07): `REQUIRED_MIGRATIONS` was removed by #189, so the probe
+    `code.required_migrations` can never be produced again. The 2026-08-22 shape
+    (DB 97, constant 96) must therefore produce NO finding — the rule is gone, not
+    dormant. Drift is now the name-set difference in `asxos/schema_drift.py`, run by
+    the scheduled `migration-drift` workflow the snapshot carries in `workflow_runs`.
     """
     snap = _snapshot(
         [
@@ -64,25 +67,25 @@ def test_migration_drift_is_caught() -> None:
             _spec("code.required_migrations", 96),
         ]
     )
-
-    found = check_snapshot(snap)
-    drift = next(c for c in found if c.code == "migration_drift")
-
-    assert drift.severity == "critical"
-    assert drift.subject == "data.migrations.applied_count"
-    assert drift.left == "97"
-    assert drift.right == "96"
-
-
-def test_migration_drift_silent_when_the_two_agree() -> None:
-    snap = _snapshot(
-        [
-            _spec("data.migrations", {"applied_count": 97}),
-            _spec("code.required_migrations", 97),
-        ]
-    )
     assert "migration_drift" not in _codes(check_snapshot(snap))
 
+def test_a_retirement_note_in_the_migrations_leaf_is_not_a_count_mismatch() -> None:
+    """The 2026-09-06 wake carried the retirement as prose in the migrations leaf and
+    the v2 leaf-internal rule compared `applied_count` (104) with that string and
+    reported a critical. v3 carries no such rule."""
+    snap = _snapshot(
+        [
+            _spec(
+                "data.migrations",
+                {
+                    "applied_count": 104,
+                    "latest_version": "20260903025557",
+                    "required_migrations_note": "retired by #189 — drift is the name-set difference",
+                },
+            )
+        ]
+    )
+    assert not [c for c in check_snapshot(snap) if c.severity == "critical"]
 
 def test_cross_source_rule_needs_both_sides_present() -> None:
     """A missing counterpart is absence of evidence, not a contradiction."""
@@ -206,7 +209,7 @@ def test_reduce_surfaces_both_transition_and_latest_snapshot_findings() -> None:
     late = _snapshot(
         [
             _spec("data.migrations", {"applied_count": 96}),
-            _spec("code.required_migrations", 97),
+            _spec("github.workflow_runs", _runs(("pipeline-health", "success"))),
         ],
         observed_at=T0 + timedelta(hours=1),
         snapshot_id="late",
@@ -215,7 +218,7 @@ def test_reduce_surfaces_both_transition_and_latest_snapshot_findings() -> None:
     _, found = reduce_snapshots([early, late])
 
     assert "counter_went_backwards" in _codes(found)  # from the transition
-    assert "migration_drift" in _codes(found)  # from the latest snapshot
+    assert "latest_only_scheduled_lane" in _codes(found)  # from the latest snapshot
 
 
 def test_reduce_of_nothing_is_not_an_error() -> None:
@@ -237,23 +240,18 @@ def test_findings_are_deterministically_ordered() -> None:
 
 def test_a_finding_is_frozen() -> None:
     found = check_snapshot(
-        _snapshot(
-            [
-                _spec("data.migrations", {"applied_count": 97}),
-                _spec("code.required_migrations", 96),
-            ]
-        )
+        _snapshot([_spec("github.workflow_runs", _runs(("pipeline-health", "success")))])
     )
     with pytest.raises(Exception, match=r"frozen|Instance is frozen"):
         found[0].code = "tampered"  # type: ignore[misc]
 
 
 def test_semantics_version_is_pinned() -> None:
-    """Changing what a check MEANS is a version bump — consumers diff across wakes."""
-    assert SEMANTICS_VERSION == 2
-    assert {r.code for r in CROSS_SOURCE_EQUALITIES} == {"migration_drift"}
-    assert {r.code for r in LEAF_INTERNAL_EQUALITIES} == {"migration_drift"}
-
+    """Changing what a check MEANS is a version bump — consumers diff across wakes.
+    v3 retired `migration_drift` (both forms) and added `latest_only_scheduled_lane`."""
+    assert SEMANTICS_VERSION == 3
+    assert CROSS_SOURCE_EQUALITIES == ()
+    assert LEAF_INTERNAL_EQUALITIES == ()
 
 # --------------------------------------------------------------------------
 # Regression: shapes taken from the REAL checked-in snapshot
@@ -318,25 +316,18 @@ def test_a_shared_key_that_actually_disagrees_is_still_critical() -> None:
     assert (hit.left, hit.right) == ("'2026-08-18'", "'2026-08-11'")
 
 
-def test_migration_drift_detected_from_one_leaf_as_the_real_snapshot_carries_it() -> None:
-    """latest-snapshot.json holds applied_count and required_migrations together."""
+def test_the_old_one_leaf_migration_shape_no_longer_fires() -> None:
+    """Even a snapshot still carrying the pre-#189 `required_migrations` key gets no
+    `migration_drift`: the constant it compared against does not exist."""
     snap = _snapshot(
         [
             _spec(
                 "data.migrations",
-                {
-                    "applied_count": 97,
-                    "latest_version": "20260821080458",
-                    "required_migrations": 96,
-                },
+                {"applied_count": 97, "latest_version": "20260821080458", "required_migrations": 96},
             )
         ]
     )
-
-    drift = next(c for c in check_snapshot(snap) if c.code == "migration_drift")
-    assert drift.severity == "critical"
-    assert (drift.left, drift.right) == ("97", "96")
-
+    assert "migration_drift" not in _codes(check_snapshot(snap))
 
 def test_unbacked_leaf_is_info_not_a_failure() -> None:
     """Probe linkage is a convention (sb1_02_deferred_probe_linkage), not a contract —
@@ -484,3 +475,56 @@ def test_freshness_ignores_non_integer_and_boolean_payloads() -> None:
     for payload in ({"age_days": "13"}, {"age_days": True}, {"age_days": None}, {"other": 99}):
         snap = _snapshot([ProbeSpec("data.freshness", "t", lambda: 1, payload)])
         assert "stale_freshness" not in _codes(check_snapshot(snap)), payload
+
+
+# --------------------------------------------------------------------------
+# v3: a latest-run-only view of a scheduled lane masks reds (2026-09-06)
+# --------------------------------------------------------------------------
+
+
+def _runs(*rows: tuple[str, str]) -> list[dict[str, str]]:
+    return [{"name": n, "branch": "main", "conclusion": c, "started": "2026-09-06T00:00:00Z"} for n, c in rows]
+
+
+def test_a_scheduled_lane_with_one_conclusion_is_flagged_as_latest_only() -> None:
+    """The real 2026-09-06 shape: one green pipeline-health row hid three scheduled reds."""
+    snap = _snapshot([_spec("github.workflow_runs", _runs(("pipeline-health", "success")))])
+    found = [c for c in check_snapshot(snap) if c.code == "latest_only_scheduled_lane"]
+    assert [c.subject for c in found] == ["github.workflow_runs.pipeline-health"]
+    assert found[0].severity == "info"
+    assert (found[0].left, found[0].right) == ("1", str(MIN_SCHEDULED_ROWS))
+
+
+def test_a_scheduled_lane_with_enough_conclusions_is_silent() -> None:
+    rows = _runs(("pipeline-health", "success"), ("pipeline-health", "failure"), ("pipeline-health", "failure"))
+    snap = _snapshot([_spec("github.workflow_runs", rows)])
+    assert "latest_only_scheduled_lane" not in _codes(check_snapshot(snap))
+
+
+def test_only_scheduled_lanes_are_held_to_the_depth_rule() -> None:
+    """A push-triggered check appears once per push by nature; only lanes with a
+    `schedule:` trigger have reds nobody is watching."""
+    snap = _snapshot([_spec("github.workflow_runs", _runs(("full-check", "success")))])
+    assert "latest_only_scheduled_lane" not in _codes(check_snapshot(snap))
+
+
+def test_an_absent_scheduled_lane_is_the_wakes_choice_not_a_finding() -> None:
+    snap = _snapshot([_spec("github.workflow_runs", _runs(("backup", "success"), ("backup", "success"), ("backup", "success")))])
+    assert "latest_only_scheduled_lane" not in _codes(check_snapshot(snap))
+
+
+def test_scheduled_lanes_mirror_the_workflows_that_carry_a_schedule_trigger() -> None:
+    """Measured, not declared: parse every workflow and collect the `name:` of each one
+    whose `on:` block has a `schedule:` key. PyYAML reads a bare `on` as the boolean
+    True, so both spellings are accepted. Adding or removing a `schedule:` trigger
+    without updating SCHEDULED_LANES fails here."""
+    import yaml
+
+    workflows = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+    scheduled: set[str] = set()
+    for path in sorted(workflows.glob("*.yml")):
+        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        on_block = doc.get("on", doc.get(True))
+        if isinstance(on_block, dict) and "schedule" in on_block:
+            scheduled.add(str(doc["name"]))
+    assert scheduled == set(SCHEDULED_LANES)
