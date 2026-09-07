@@ -248,3 +248,55 @@ async def test_paper_book_is_behind_the_personal_use_firewall(
     monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
     with pytest.raises(RuntimeError):
         await load_paper_book_state(_conn(_row()), C1_SNAPSHOT_ID)
+
+
+# ---------------------------------------------------------------------------
+# CLI: `asx decision build --paper-book`
+# ---------------------------------------------------------------------------
+
+async def test_book_state_reads_the_paper_book_when_asked() -> None:
+    from asxos.cli import decision as decision_mod
+
+    conn = _conn(_row())
+    state = await decision_mod._book_state(conn, date(2026, 9, 7), C1_SNAPSHOT_ID)
+
+    assert state.cash_pct == Decimal("100.000000")
+    assert state.evidence_id == f"paper-book-{C1_SNAPSHOT_ID}"
+
+
+async def test_book_state_defaults_to_the_live_book() -> None:
+    from unittest.mock import patch
+
+    from asxos.cli import decision as decision_mod
+
+    conn = _conn(_row())
+    with (
+        patch.object(decision_mod, "load_portfolio_state", new=AsyncMock()) as live,
+        patch.object(decision_mod, "load_paper_book_state", new=AsyncMock()) as paper,
+    ):
+        await decision_mod._book_state(conn, date(2026, 9, 7), "")
+
+    live.assert_awaited_once()
+    paper.assert_not_awaited()
+
+
+def test_paper_book_without_context_is_refused() -> None:
+    from typer.testing import CliRunner
+
+    from asxos.cli import decision as decision_mod
+
+    result = CliRunner().invoke(
+        decision_mod.decision_app,
+        [
+            "build",
+            "--thesis-id",
+            "1",
+            "--as-of",
+            "2026-09-07",
+            "--paper-book",
+            C1_SNAPSHOT_ID,
+            "--no-context",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "--paper-book needs --context" in result.output

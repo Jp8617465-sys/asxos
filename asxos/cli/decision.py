@@ -19,6 +19,7 @@ import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -27,6 +28,7 @@ from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.decision_engine import repository
 from asxos.domain.decision_engine.builder import ChallengeContext, build_decision_case
 from asxos.domain.decision_engine.challenge import DispositionLog
+from asxos.domain.decision_engine.challenge.rules import PortfolioState
 from asxos.domain.decision_engine.delivery import (
     DeliveryReceipt,
     disposition_for,
@@ -48,6 +50,7 @@ from asxos.domain.decision_engine.outcomes import (
     observe,
     save_outcome,
 )
+from asxos.domain.decision_engine.paper_book import load_paper_book_state
 from asxos.domain.decision_engine.portfolio_state import (
     SQL_CLOSE,
     load_annualised_vol,
@@ -74,18 +77,38 @@ def decision_build(
     thesis_id: int = typer.Option(..., "--thesis-id"),
     as_of: str = typer.Option(..., "--as-of", help="Knowledge cutoff YYYY-MM-DD"),
     theme: str | None = typer.Option(None, "--theme", help="theme_code; builds a CandidateSnapshot for the thesis symbol"),
+    paper_book: str = typer.Option(
+        "", "--paper-book", help="paper_book_snapshots.snapshot_id; challenge against the paper book (C1/D15) instead of the live book"
+    ),
     context: bool = typer.Option(True, "--context/--no-context", help="Challenge against the live book (default)"),
     persist: bool = typer.Option(False, "--persist/--dry-run", help="Save the case (0048) and receipts (0052)"),
     send: bool = typer.Option(False, "--send", help="Email the identical render via Resend"),
 ) -> None:
     """Build, challenge, render and (optionally) deliver one governed case."""
     _require_personal_use()
-    asyncio.run(_build(thesis_id, as_of, theme, context, persist, send))
+    asyncio.run(_build(thesis_id, as_of, theme, context, persist, send, paper_book))
 
 
-async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bool, persist: bool, send: bool) -> None:
+async def _book_state(conn: Any, day: date, paper_book: str) -> PortfolioState:
+    """Load exactly one book.
+
+    One or the other, never a blend: the paper book is a separate table with a
+    separate loader precisely so a case cannot be challenged against paper cash
+    and live positions at the same time.
+    """
+    if paper_book:
+        return await load_paper_book_state(conn, paper_book)
+    return await load_portfolio_state(conn, day)
+
+
+async def _build(
+    thesis_id: int, as_of: str, theme: str | None, with_context: bool, persist: bool,
+    send: bool, paper_book: str = "",
+) -> None:
     if send and not persist:
         raise typer.BadParameter("--send requires --persist so the attempt is recoverable")
+    if paper_book and not with_context:
+        raise typer.BadParameter("--paper-book needs --context; without it no book is read at all")
     cutoff = _cutoff(as_of)
     day = cutoff.date()
     await init_pool()
@@ -102,7 +125,7 @@ async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bo
                 candidate = await build_candidate_snapshot(conn, symbol=thesis.symbol, theme=tv, as_of=day)
             ctx = None
             if with_context:
-                state = await load_portfolio_state(conn, day)
+                state = await _book_state(conn, day, paper_book)
                 policy = await load_sizing_policy(conn, day)
                 vol = await load_annualised_vol(conn, thesis.symbol, day)
                 peers = await load_peer_vols(conn, state, day)
@@ -124,7 +147,7 @@ async def _build(thesis_id: int, as_of: str, theme: str | None, with_context: bo
     typer.echo(html)
     console.print(
         f"[dim]case={case.case_id} packet={case.decision.decision_packet_id} state={case.decision.recommendation_state} "
-        f"challenge={case.challenge.outcome} render_sha256={render_sha256(html)} "
+        f"challenge={case.challenge.outcome} book={paper_book or 'live'} render_sha256={render_sha256(html)} "
         f"receipts={[f'{r.channel}:{r.delivery_status}' for r in receipts]} persisted={persist}[/dim]"
     )
 
