@@ -145,6 +145,7 @@ def _refuse_post_snapshot_change(row: Any, *, snapshot_at: datetime, label: str)
         )
 
 
+
 async def load_portfolio_state(conn: StateConn, as_of: date) -> PortfolioState:
     require_personal_use()
     snap, snapshot_at = await _latest_exact_snapshot(conn, as_of)

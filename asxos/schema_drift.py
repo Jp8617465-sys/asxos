@@ -91,6 +91,11 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "paper_book_snapshots": (
+        "0053 — C1 paper book (ADR D15). Drafted in this session; applying it is a "
+        "production write and needs James's I5 grant, which covers only "
+        "`asx candidates build --persist` for the F-E2E run"
+    ),
     # 0052 outcome_materialisation was here from draft to apply. APPLIED
     # 2026-09-03 as 20260903025557 under the same in-session I5 grant (H7-A).
     # 0051 theme_candidates was here from draft to apply. APPLIED 2026-09-02
