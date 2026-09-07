@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -97,6 +97,29 @@ def test_identifier_types_are_preserved_in_fingerprint() -> None:
     )
 
     assert numeric != textual
+
+
+@pytest.mark.parametrize(
+    ("probe", "failure_class", "identifiers"),
+    [
+        ("Bad-Probe", "lint_failure", {"check_id": "ruff:F401"}),
+        ("full_check", "Bad-Failure", {"check_id": "ruff:F401"}),
+        ("full_check", "lint_failure", {"Bad-Key": "value"}),
+        ("full_check", "lint_failure", {"ratio": 0.1}),
+        ("full_check", "lint_failure", {"token": "ghp_1234567890abcdef"}),
+    ],
+)
+def test_fingerprint_helper_rejects_noncanonical_identity_inputs(
+    probe: str,
+    failure_class: str,
+    identifiers: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError):
+        finding_fingerprint(
+            probe=probe,
+            failure_class=failure_class,
+            identifiers=identifiers,  # type: ignore[arg-type]
+        )
 
 
 def test_missing_stable_identity_produces_null_non_actionable_finding() -> None:
@@ -327,6 +350,22 @@ def test_contract_rejects_extra_fields_float_identifiers_and_wrong_schema() -> N
     payload = _finding().model_dump(mode="json")
     payload["schema_version"] = 2
     with pytest.raises(ValidationError):
+        Finding.model_validate(payload)
+
+
+def test_direct_contract_requires_utc_observation_time() -> None:
+    payload = _finding().model_dump(mode="python")
+    payload["observed_at"] = datetime(
+        2026,
+        9,
+        8,
+        4,
+        2,
+        11,
+        tzinfo=timezone(timedelta(hours=10)),
+    )
+
+    with pytest.raises(ValidationError, match="UTC offset"):
         Finding.model_validate(payload)
 
 

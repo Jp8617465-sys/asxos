@@ -135,6 +135,25 @@ def canonical_json(value: object) -> str:
     )
 
 
+def _validate_identifier_mapping(identifiers: Mapping[str, object]) -> None:
+    if len(identifiers) > 32:
+        raise ValueError("identifiers must contain at most 32 entries")
+    for key, item in identifiers.items():
+        if not _IDENTIFIER_KEY_RE.fullmatch(key):
+            raise ValueError(f"identifier key is not canonical: {key!r}")
+        if item is not None and type(item) not in {str, int, bool}:
+            raise ValueError(f"identifier {key!r} has unsupported type {type(item).__name__}")
+        if isinstance(item, str):
+            if not item or item != item.strip() or len(item) > 256:
+                raise ValueError(f"identifier {key!r} must be 1-256 unpadded characters")
+            if unicodedata.normalize("NFC", item) != item:
+                raise ValueError(f"identifier {key!r} must use NFC-normalized Unicode")
+            if redact_secrets(item) != item:
+                raise ValueError(f"identifier {key!r} contains recognized credential material")
+        elif isinstance(item, int) and not isinstance(item, bool) and abs(item) > 2**63 - 1:
+            raise ValueError(f"identifier {key!r} is outside the signed 64-bit range")
+
+
 def finding_fingerprint(
     *,
     probe: str,
@@ -143,6 +162,9 @@ def finding_fingerprint(
 ) -> str | None:
     """Return the stable Finding identity, or ``None`` without stable identifiers."""
 
+    if not _SLUG_RE.fullmatch(probe) or not _SLUG_RE.fullmatch(failure_class):
+        raise ValueError("probe and failure_class must be lowercase snake_case identifiers")
+    _validate_identifier_mapping(identifiers)
     if not identifiers:
         return None
     identity = {
@@ -319,16 +341,7 @@ class Finding(_FrozenModel):
     def _identifiers_are_canonical(
         cls, value: dict[str, IdentifierValue]
     ) -> dict[str, IdentifierValue]:
-        for key, item in value.items():
-            if not _IDENTIFIER_KEY_RE.fullmatch(key):
-                raise ValueError(f"identifier key is not canonical: {key!r}")
-            if isinstance(item, str):
-                if not item or item != item.strip() or len(item) > 256:
-                    raise ValueError(f"identifier {key!r} must be 1-256 unpadded characters")
-                if unicodedata.normalize("NFC", item) != item:
-                    raise ValueError(f"identifier {key!r} must use NFC-normalized Unicode")
-            elif isinstance(item, int) and not isinstance(item, bool) and abs(item) > 2**63 - 1:
-                raise ValueError(f"identifier {key!r} is outside the signed 64-bit range")
+        _validate_identifier_mapping(value)
         return value
 
     @field_validator("file_hints")
@@ -338,6 +351,14 @@ class Finding(_FrozenModel):
             raise ValueError("file_hints must be sorted and unique")
         for path in value:
             _validate_repo_path(path)
+        return value
+
+    @field_validator("observed_at")
+    @classmethod
+    def _observed_at_is_utc(cls, value: datetime) -> datetime:
+        offset = value.utcoffset()
+        if offset is None or offset.total_seconds() != 0:
+            raise ValueError("observed_at must carry a UTC offset")
         return value
 
     @model_validator(mode="after")
