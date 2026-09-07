@@ -1,6 +1,6 @@
 # Production sprint — feature F-E2E, contract revision r1 (2026-09-07)
 
-**Status:** proposal for James's admission — **not authority, not a second queue.** Every slice
+**Status:** **admitted by James 2026-09-07** (cadence and identity rulings in §3/§4) — **not authority, not a second queue.** Every slice
 below maps to a `roadmap-state.md` Stage and a `backlog.yaml` id; `roadmap-state.md` wins on
 disagreement. **Prompted by:** James, 2026-09-07 — "plan the next sprint of production" in the
 frame we discussed: *version control and building out features within those versions to build
@@ -116,7 +116,10 @@ parallel queue" rule the plan states.
 
 ---
 
-## 3. Windows and gates (proposed cadence — James sets the calendar)
+## 3. Windows and gates — RULED 2026-09-07: three attended R2 windows, in-fence
+
+**James, 2026-09-07:** three attended R2 windows, each launched from the repo root so the four hooks
+and the real `arbi` / `guilfoyle` / `tax-spec-conformance` agents load; the gates below hold.
 
 Attended R2 windows, **in-fence** (launched from the repo root so the four hooks and the real
 `arbi` / `guilfoyle` / `tax-spec-conformance` agents run natively — AW-01's emulation and
@@ -134,7 +137,11 @@ adds no `schedule:` trigger anywhere (gate 7 open).
 
 ---
 
-## 4. Work identity — Issues or this file?
+## 4. Work identity — RULED 2026-09-07: this file + `backlog.yaml` until B-15
+
+**James, 2026-09-07:** keep the plan file and `backlog.yaml` as the identity until B-15 rules D10 in
+force; the trailers are adopted now; the Issue tree cuts over in one batch with D10. The two options
+are retained below for the record.
 
 D10 (GitHub Issues as the system of record) is **ratified, not in force** (B-15;
 `architecture-decision-record.md` §5.4; `roadmap-state.md` "do not treat GitHub Issues as the live
