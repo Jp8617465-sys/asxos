@@ -6,7 +6,11 @@ sale price (AUD), and the sale date, and returns a list of LotSelection
 records — one per lot drawn down.
 
 min-CGT brute-forces small subsets to minimise post-discount realised gain;
-account-type matters because the discount differs (spec §2).
+account-type matters because the discount differs (spec §2). The search covers
+both WHICH lots are drawn and WHICH ONE bears the partial draw (spec §5.5) —
+before v1.6 the partial always fell on the last lot of each combination in input
+order, so the minimum was only found when the input happened to be ordered
+favourably (audit 2026-06-27 LOW #1; TC-25).
 """
 from __future__ import annotations
 
@@ -79,32 +83,54 @@ def select_min_cgt(
     account_type: AccountType,
     max_combo_size: int = 6,
 ) -> list[LotSelection]:
-    """Brute-force search over subsets of `lots` (up to max_combo_size at a
-    time) for the combination whose post-discount realised gain is smallest.
+    """Spec §5.5 — brute-force search for the selection whose post-discount
+    realised gain is smallest.
 
-    For larger portfolios the user should pre-filter the candidate lot pool;
-    above max_combo_size lots, we fall back to FIFO (deterministic baseline)."""
+    Search space: every subset of `lots` (sizes 1..N, N ≤ max_combo_size)
+    whose quantity covers `qty_to_sell`, and within each subset every choice
+    of the lot that bears the partial draw (the others are drawn in full).
+    A subset whose quantity equals the sale exactly has no partial and is
+    evaluated once. Ties resolve to the first candidate in enumeration order:
+    fewer lots first, then the order the lots were supplied, then the partial
+    on the earliest-listed lot — deterministic, so a staged sell reproduces.
+
+    Above max_combo_size lots the function falls back to FIFO (deterministic
+    baseline); capital-facing callers refuse rather than accept the fallback
+    (`decision_engine/staging.py` MIN_CGT_MAX_LOTS)."""
     if len(lots) > max_combo_size:
         return select_fifo(lots, qty_to_sell, sale_price_aud, sale_date)
 
     discount = cgt_discount_rate(account_type)
     best: tuple[Decimal, list[LotSelection]] | None = None
 
-    # Try every combination size from 1..N and every order within (we always
-    # take full lots first, partial last to maximise flexibility).
     for r in range(1, len(lots) + 1):
         for combo in combinations(lots, r):
             available = sum((lot.quantity for lot in combo), Decimal("0"))
             if available < qty_to_sell:
                 continue
-            sels = _draw(list(combo), qty_to_sell, sale_price_aud, sale_date)
-            cost = _post_discount_gain(sels, discount)
-            if best is None or cost < best[0]:
-                best = (cost, sels)
+            for order in _partial_bearer_orders(list(combo), available, qty_to_sell):
+                sels = _draw(order, qty_to_sell, sale_price_aud, sale_date)
+                cost = _post_discount_gain(sels, discount)
+                if best is None or cost < best[0]:
+                    best = (cost, sels)
 
     if best is None:
         raise ValueError(f"no lot combination can supply {qty_to_sell} units")
     return best[1]
+
+
+def _partial_bearer_orders(
+    combo: list[HoldingLot], available: Decimal, qty: Decimal
+) -> list[list[HoldingLot]]:
+    """Every draw order that differs in WHICH lot bears the partial (spec §5.5).
+
+    `_draw` takes lots in order and the last lot drawn absorbs the remainder,
+    so moving each candidate to the end enumerates the partial-bearer choice
+    without permuting the full lots (their order cannot change the gain). An
+    exact-fit combination has no partial: one order suffices."""
+    if available == qty or len(combo) == 1:
+        return [combo]
+    return [[*combo[:i], *combo[i + 1 :], combo[i]] for i in range(len(combo))]
 
 
 def _draw(
