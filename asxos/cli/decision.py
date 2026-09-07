@@ -311,10 +311,23 @@ async def _dispose(packet_id: str, verdict: str, note: str, persist: bool) -> No
     )
 
 
+def _artifact_path(out_dir: Path, packet_id: str, render_sha256: str) -> Path:
+    """Content-addressed location for one rendered report.
+
+    The digest is in the name, so the artifact is addressed by what it says
+    rather than by when it was written: the same bytes always land on the same
+    path, and a render that differs by one character cannot overwrite an
+    earlier one.
+    """
+    return out_dir / packet_id / f"{render_sha256}.md"
+
+
 @decision_app.command("report")
 def decision_report(
     packet_id: str = typer.Option(..., "--packet-id", help="decision_packets.decision_packet_id"),
-    out: str = typer.Option(..., "--out", help="Path to write the broker-report Markdown artifact"),
+    out: str = typer.Option(
+        ..., "--out", help="Directory for the content-addressed broker-report artifact"
+    ),
     persist: bool = typer.Option(
         False, "--persist/--dry-run", help="Record one delivery_receipts row for the rendered bytes"
     ),
@@ -344,12 +357,15 @@ async def _report(packet_id: str, out: Path, persist: bool) -> None:
                 await persist_receipt(conn, receipt, report)
     finally:
         await close_pool()
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(report, encoding="utf-8")
+    artifact = _artifact_path(out, case.decision.decision_packet_id, receipt.render_sha256)
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    # Write-once by construction: the name IS the digest, so re-rendering the
+    # same bytes rewrites the same path and differing bytes can never clobber.
+    artifact.write_text(report, encoding="utf-8")
     console.print(
         f"[dim]packet={case.decision.decision_packet_id} "
         f"state={case.decision.recommendation_state} "
-        f"written={out} bytes={receipt.render_bytes} "
+        f"written={artifact} bytes={receipt.render_bytes} "
         f"render_sha256={receipt.render_sha256} "
         f"receipt={receipt.receipt_id if persist else 'not persisted (--dry-run)'}[/dim]"
     )

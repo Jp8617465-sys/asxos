@@ -33,6 +33,13 @@ def _make_conn() -> MagicMock:
     return conn
 
 
+def _only_artifact(root: Path) -> Path:
+    """The single Markdown artifact written under a content-addressed store."""
+    found = sorted(root.rglob("*.md"))
+    assert len(found) == 1, f"expected exactly one artifact, got {found}"
+    return found[0]
+
+
 @asynccontextmanager
 async def _acquire_ctx(conn: MagicMock) -> Any:
     yield conn
@@ -56,10 +63,10 @@ def test_report_without_personal_use_exits_nonzero(
     monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
     result = runner.invoke(
         decision_mod.decision_app,
-        ["report", "--packet-id", "dpk-x-1", "--out", str(tmp_path / "r.md")],
+        ["report", "--packet-id", "dpk-x-1", "--out", str(tmp_path)],
     )
     assert result.exit_code != 0
-    assert not (tmp_path / "r.md").exists()
+    assert list(tmp_path.rglob("*.md")) == []
 
 
 def test_report_writes_the_markdown_artifact_from_the_persisted_case(
@@ -67,7 +74,7 @@ def test_report_writes_the_markdown_artifact_from_the_persisted_case(
 ) -> None:
     monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
     case = build_demo_brief().cases[1]
-    out = tmp_path / "reports" / "case.md"
+    out = tmp_path / "reports"
 
     with patch.object(
         decision_mod.repository, "load_case", new=AsyncMock(return_value=case)
@@ -87,7 +94,7 @@ def test_report_writes_the_markdown_artifact_from_the_persisted_case(
     load_case.assert_awaited_once()
     assert load_case.await_args.args[0] == case.decision.decision_packet_id
 
-    written = out.read_text(encoding="utf-8")
+    written = _only_artifact(out).read_text(encoding="utf-8")
     assert written.startswith("# Broker research report: ")
     assert case.decision.decision_packet_id in written
     assert case.decision.content_hash in written
@@ -99,7 +106,7 @@ def test_report_creates_the_parent_directory(
 ) -> None:
     monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
     case = build_demo_brief().cases[1]
-    out = tmp_path / "does" / "not" / "exist" / "case.md"
+    out = tmp_path / "does" / "not" / "exist"
 
     with patch.object(
         decision_mod.repository, "load_case", new=AsyncMock(return_value=case)
@@ -110,14 +117,14 @@ def test_report_creates_the_parent_directory(
         )
 
     assert result.exit_code == 0, result.output
-    assert out.is_file()
+    assert _only_artifact(out).is_file()
 
 
 def test_report_surfaces_a_missing_packet_rather_than_writing_an_empty_file(
     monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
-    out = tmp_path / "case.md"
+    out = tmp_path
 
     with patch.object(
         decision_mod.repository,
@@ -132,7 +139,7 @@ def test_report_surfaces_a_missing_packet_rather_than_writing_an_empty_file(
         )
 
     assert result.exit_code != 0
-    assert not out.exists()
+    assert list(out.rglob("*.md")) == []
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +158,7 @@ def test_report_dry_run_writes_no_receipt(
     ):
         result = runner.invoke(
             decision_mod.decision_app,
-            ["report", "--packet-id", "p", "--out", str(tmp_path / "r.md")],
+            ["report", "--packet-id", "p", "--out", str(tmp_path)],
         )
 
     assert result.exit_code == 0, result.output
@@ -163,7 +170,7 @@ def test_report_persist_records_a_receipt_over_the_exact_artifact_bytes(
 ) -> None:
     monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
     case = build_demo_brief().cases[1]
-    out = tmp_path / "r.md"
+    out = tmp_path / "store"
 
     with (
         patch.object(decision_mod.repository, "load_case", new=AsyncMock(return_value=case)),
@@ -178,7 +185,7 @@ def test_report_persist_records_a_receipt_over_the_exact_artifact_bytes(
     persist.assert_awaited_once()
     _conn, receipt, html = persist.await_args.args
 
-    written = out.read_text(encoding="utf-8")
+    written = _only_artifact(out).read_text(encoding="utf-8")
     # The receipt must attest to the bytes that actually reached the artifact,
     # not to a second render.
     assert html == written
@@ -187,3 +194,45 @@ def test_report_persist_records_a_receipt_over_the_exact_artifact_bytes(
     assert receipt.decision_packet_id == case.decision.decision_packet_id
     assert receipt.decision_content_hash == case.decision.content_hash
     assert receipt.channel == "cli"
+
+
+# ---------------------------------------------------------------------------
+# Content addressing
+# ---------------------------------------------------------------------------
+
+def test_artifact_is_named_by_its_digest_under_the_packet_id(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    case = build_demo_brief().cases[1]
+    out = tmp_path / "store"
+
+    with (
+        patch.object(decision_mod.repository, "load_case", new=AsyncMock(return_value=case)),
+        patch.object(decision_mod, "persist_receipt", new=AsyncMock()) as persist,
+    ):
+        result = runner.invoke(
+            decision_mod.decision_app,
+            ["report", "--packet-id", "p", "--out", str(out), "--persist"],
+        )
+
+    assert result.exit_code == 0, result.output
+    artifact = _only_artifact(out)
+    _conn, receipt, _html = persist.await_args.args
+
+    assert artifact.parent.name == case.decision.decision_packet_id
+    assert artifact.name == f"{receipt.render_sha256}.md"
+    # The name is derivable from the bytes alone.
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    assert artifact.stem == digest
+
+
+def test_artifact_path_is_a_pure_function_of_packet_and_digest(tmp_path: Path) -> None:
+    digest = "a" * 64
+    first = decision_mod._artifact_path(tmp_path, "dpk-1", digest)
+    second = decision_mod._artifact_path(tmp_path, "dpk-1", digest)
+    assert first == second
+
+    # Bytes that differ by one character cannot land on the same path.
+    other = decision_mod._artifact_path(tmp_path, "dpk-1", "b" + "a" * 63)
+    assert other != first
