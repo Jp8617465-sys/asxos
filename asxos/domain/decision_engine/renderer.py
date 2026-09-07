@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from html import escape
 from pathlib import Path
-from typing import Literal, assert_never
+from typing import Final, Literal, assert_never
 
 import jinja2
 
@@ -123,6 +123,34 @@ def _markdown(value: str) -> str:
     return escape(value, quote=True)
 
 
+# Only these become clickable. `EvidenceItem.source_uri` is an unrestricted
+# string (types.py), and HTML-escaping does not make `javascript:` or `data:`
+# safe — escaping protects the surrounding markup, not the scheme a viewer
+# will execute. Everything else is rendered inert, which is also more honest:
+# `asxos://`, `db://`, `agent://` and `synthetic://` are identifiers, not
+# addresses a reader can follow.
+_LINKABLE_URI_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
+
+# A closing paren would terminate the Markdown link target early and let the
+# remainder escape into document text; whitespace and angle brackets likewise
+# break out of the target. Any of them disqualifies the URI from linking.
+_URI_BREAKOUT_CHARS: Final[str] = "()<>\"'"
+
+
+def _is_linkable(uri: str) -> bool:
+    scheme, separator, _rest = uri.partition(":")
+    if separator != ":" or scheme.lower() not in _LINKABLE_URI_SCHEMES:
+        return False
+    return not any(char.isspace() or char in _URI_BREAKOUT_CHARS for char in uri)
+
+
+def _source(uri: str) -> str:
+    """Render one evidence source, clickable only under an approved scheme."""
+    if _is_linkable(uri):
+        return f"[source]({_markdown(uri)})"
+    return f"source `{_markdown(uri)}`"
+
+
 def _pct(value: Decimal) -> str:
     """Render an exact Decimal percentage without passing through float."""
     return f"{value.normalize():f}%"
@@ -152,7 +180,7 @@ def render_broker_report(
         "- "
         f"**{_markdown(item.evidence_tier)}** · {_markdown(item.title)} — "
         f"{_markdown(item.claim)} "
-        f"([source]({_markdown(item.source_uri)}); known {item.known_at.isoformat()})"
+        f"({_source(item.source_uri)}; known {item.known_at.isoformat()})"
         for item in admitted.evidence.items
     )
     scenario_lines = "\n".join(
