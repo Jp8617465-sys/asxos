@@ -192,6 +192,28 @@ Scored on the same `signal_outcomes` basis Model A faced (correlation of predict
 
 ---
 
+### 1.8 D15 — C1, the paper book
+
+**Ruled by James, 2026-09-07.** 25,000.000000 AUD at 100% cash, its own snapshot id, flagged paper so no live-book query can read it.
+
+**Why it exists.** The live book's cash is **0.00** [measured, 2026-09-07], so `rule_cash_floor` (`challenge/rules.py:229`) blocks every proposal at the D1 floor and `headroom_max_pct` (`sizer.py:112`) clamps every size to zero. No calibration changes that. The sizing gates therefore cannot be exercised against the live book at all, and an evidence-positive case cannot be distinguished from an evidence-negative one — both end in a zero size. C1 is the book on which a 10% position produces a real, non-zero answer.
+
+**What it is not.** It is not capital, not an intent to deploy, and not a claim that any position should be taken. A case built against C1 is a paper case; the execution boundary (P6) is untouched.
+
+**Implementation — `migrations/0053_paper_book_snapshots.sql`, drafted 2026-09-07, NOT YET APPLIED.**
+
+- **A separate table, not a `book` flag on `portfolio_daily_snapshots`.** With a flag, invisibility becomes a property of every SELECT ever written against that table, and one forgotten `WHERE book = 'live'` mixes paper money into the live cash floor, the sizer's headroom and the brief. Separate tables make it structural: a live query cannot read the paper book because it does not name it. The cost is a second loader; the benefit is that the failure mode requires an act of commission rather than an omission.
+- **`asxos/domain/decision_engine/paper_book.py` is the only module that queries it**, and it queries no live table. Two tests hold that line: `test_no_module_issues_sql_against_both_books` and `test_exactly_one_module_queries_the_paper_book`.
+- **Append-only** (`BEFORE UPDATE OR DELETE`), like the 13 decision/research tables — a paper book editable after a case was challenged against it is not evidence of anything.
+- **CHECK constraints** pin `book = 'paper'`, that the book balances (`capital = holdings_mv + cash`), and that a book with no holdings is all cash.
+- **`asx decision build --paper-book <snapshot_id>`** challenges against it. One book or the other, never a blend.
+
+**Measured consequence:** on C1 a 10% position leaves 90% post-trade cash and clears D1; 95% is still blocked; the boundary is exact to the millionth (92.500000 passes, 92.500001 breaches). The register value is unchanged — the paper book relaxes the *balance*, never D1.
+
+**Applying 0053 is a production write and is not yet granted.** The standing I5 grant of 2026-09-07 covers only `asx candidates build --persist` for the F-E2E run. Recorded in `schema_drift.EXPECTED_UNAPPLIED` so drift detection stays honest until it is applied.
+
+---
+
 ## 2. Target-state process
 
 Stage-gated pipeline, idea to exit to learning loop. Annotation: `[EXISTS]` / `[DORMANT]` / `[PARTIAL]` / `[BUILD]`.
