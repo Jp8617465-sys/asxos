@@ -61,11 +61,79 @@ ARCHIVE_PREFIX="docs/archive/"
 
 # Dated docs that are canonical rather than event records. Basenames only —
 # a doc keeps its identity if it moves directory.
+#
+# GROWN 4 -> 23 on 2026-09-07 (E-17 sweep). Each entry below was added on
+# measured evidence of an inbound reference that treats the doc as a standing
+# source, not on a wish to make this check green. Two groups, and the second is
+# the finding worth acting on:
+#
+#   CITED AS CURRENT by CLAUDE.md / docs/README.md / a .claude rule:
+#     ml-engine-shelf            CLAUDE.md:7 read-first block; docs/README.md:32.
+#                                Its sibling model-a-decay-analysis is already here.
+#     db-shared-project-audit    docs/README.md names §2 as the mandatory pg_depend
+#                                pre-apply check; cited by migrations/0030.
+#     executable-roadmap         docs/README.md: "§H is the single source" for stack
+#                                strategy; .claude/commands/arbi.md.
+#     model-a-audit-and-extension-plan  three authoritative rows in docs/README.md;
+#                                scripts/perf_report.py:108 prints ":119-124".
+#     pr2a-supabase-ro-provisioning-plan  docs/README.md authoritative row.
+#     live-readiness-audit-plan  docs/README.md: agent DB role scoping "+ §7".
+#     thesis-coverage-framework  .claude/rules/screening-conventions.md:12 and :105;
+#                                asxos/domain/screening/evaluator.py:8; migrations/0038.
+#
+#   PINNED BY CODE, MIGRATIONS OR TESTS as design rationale — archiving any of
+#   these silently breaks a source citation, so the script's own archive
+#   precondition ("no inbound reference from outside docs/") fails for them:
+#     market-trends-report       8 pins incl. asxos/brief/compose.py:872,912 and
+#                                jobs/ingest_news.py; cited by SECTION = live spec.
+#     2026-06-24-eodhd-gate-closure  asxos/ingestion/corporate_actions.py:8;
+#                                security_master.py:10; migrations/0027:16.
+#     2026-07-14-pr-transaction-discipline  arbi-permission-model.md:90;
+#                                .claude/commands/arbi-team.md:59 "binding on every".
+#     2026-07-12-scope-reversible-without-asking  reversible-work-window SKILL.md:60,69.
+#     macro-thesis-learning-loop asxos/domain/theses/schemas.py; migrations/0041.
+#     portfolio-team-visibility  asxos/domain/theses/discipline.py;
+#                                tests/test_thesis_discipline.py:4 (fixture rationale).
+#     design-med                 opportunity_cost.py:24 "See ... Item 2"; migrations/0029.
+#     agent-db-readonly-role-design   migrations/0039_agent_readonly_role.sql.
+#     multi-instrument-expansion migrations/0037_security_kind.sql.
+#     orchestrator-mode          .claude/agents/reversible-work-builder.md:13.
+#     arbi-full-auto-activation  .claude/commands/arbi-close.md:47 cites §3.4 as an
+#                                operative computation.
+#     audit-2026-06-27           backlog.yaml D-9a and james-inbox H-29b both cite
+#                                ":104" by line on a LIVE row.
+#
+# WHAT THIS SAYS ABOUT THE CHECK: 19 of the 25 it flagged are load-bearing
+# references, not stale event records. The rule "dated basename + >30d" does not
+# match this repo's convention, which uses dated basenames for standing sources
+# too. Growing the allowlist is the sanctioned escape hatch and is used here as
+# designed — but needing 19 entries means the hatch is doing the rule's job.
+# Retuning that rule (e.g. exempt a doc with an inbound reference from outside
+# docs/) is a governor call, raised in the E-17 sweep PR and not taken here.
 ALLOWLIST="
 model-a-decay-analysis-2026-07-11.md
 scheduler-inventory-2026-08-13.md
 finance-capability-matrix-2026-08-13.md
 governance-first-architecture-2026-06-30.md
+ml-engine-shelf-2026-07-11.md
+db-shared-project-audit-2026-06-28.md
+executable-roadmap-2026-07-04.md
+model-a-audit-and-extension-plan-2026-07-04.md
+pr2a-supabase-ro-provisioning-plan-2026-07-05.md
+live-readiness-audit-plan-2026-07-04.md
+thesis-coverage-framework-2026-07-11.md
+market-trends-report-2026-08-05.md
+2026-06-24-eodhd-gate-closure.md
+2026-07-14-pr-transaction-discipline.md
+2026-07-12-scope-reversible-without-asking.md
+macro-thesis-learning-loop-2026-07-21.md
+portfolio-team-visibility-2026-07-12.md
+design-med-2026-06-28.md
+agent-db-readonly-role-design-2026-07-11.md
+multi-instrument-expansion-2026-07-11.md
+orchestrator-mode-2026-07-13.md
+arbi-full-auto-activation-2026-07-15.md
+audit-2026-06-27.md
 "
 
 command -v git >/dev/null 2>&1 || { echo "[doc-expiry] git not found" >&2; exit 2; }

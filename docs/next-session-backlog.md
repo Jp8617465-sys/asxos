@@ -319,7 +319,7 @@ break-even fix + spec §5.4, 4 Design-MED items, shared-project audit, migration
 0029/0030). Grouped by priority. Each line: what + why + governing file / owner.
 
 Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
-`docs/design-med-2026-06-28.md`, `docs/proposals/cgt-break-even-amendment-2026-06-28.md`,
+`docs/design-med-2026-06-28.md`, `docs/archive/proposals/cgt-break-even-amendment-2026-06-28.md`,
 `docs/backlog-test-coverage.md`, and CLAUDE.md "Known coverage gaps" /
 "Known test environment gaps".
 
@@ -390,7 +390,7 @@ Source docs: `docs/db-shared-project-audit-2026-06-28.md`,
 - **break-even: thread the user's real marginal rate into the position monitor** —
   currently the disclosed `0.45` default flows through `cgt_break_even_price()`. Real
   per-user rate is **out of v1 scope**, noted only. Governing:
-  `docs/proposals/cgt-break-even-amendment-2026-06-28.md` + spec §5.4.
+  `docs/archive/proposals/cgt-break-even-amendment-2026-06-28.md` + spec §5.4.
 
 ---
 
