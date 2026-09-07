@@ -1,6 +1,10 @@
 # Paper broker research reports — VAS and WES
 
 **Status:** research input / not a canonical `DecisionPacket`
+**Provenance:** hand-authored exploratory research. This document did **not** come through
+`render_broker_report()` and is not evidence that the render surface produced it. The only
+renderer output that counts is an artifact written by `asx decision report` from a persisted
+`DecisionCase`, carrying a `delivery_receipts` row whose `render_sha256` matches its bytes.
 
 **As-of:** 7 September 2026 (unless an individual source says otherwise)
 **Purpose:** exercise the broker-report render surface with one ETF and one ordinary ASX equity, while making every missing decision input explicit.
