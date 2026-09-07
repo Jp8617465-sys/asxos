@@ -185,7 +185,7 @@ Quantize the result to cents with `ROUND_HALF_UP` (consistent with the CGT ledge
 
 **TC-23 (SMSF).** P=100, cost=40, r_eff=0.15, d=1/3, not yet eligible. numerator = 100·(1 − 0.05) − 40·0.15·(2/3) = 95 − 4 = 91; /0.85 = **107.06**. Round-trip: sell-later nets 100 − 60·(1/3)·0.15 = 97.00; sell-now @107.06 nets 107.06 − 67.06·0.15 = 97.00. ✓
 
-### 5.5 Lot selection for a disposal (v1.6 — ratified by D-9)
+### 5.5 Lot selection for a disposal (v1.6 — **pending D-9 ratification**)
 
 Governs `select_fifo`, `select_lifo` and `select_min_cgt` in `asxos/domain/tax/lots.py`, and the
 `lot_selector` a staged sell names (`asxos/domain/decision_engine/staging.py`). Lot selection is the
@@ -200,17 +200,30 @@ discount eligibility is per lot under §5.1; the discount fraction `d` is per ac
 
 **Strategies.**
 
-- **FIFO** draws lots in ascending `acquired_at`; **LIFO** descending. Deterministic baselines.
+- **FIFO** draws lots in ascending `acquired_at`; **LIFO** descending. Lots sharing an
+  `acquired_at` keep the order they were supplied in (a stable sort). Deterministic baselines.
 - **min-CGT** returns the selection with the smallest **post-discount realised gain**
   `Σ gain_i × (1 − d · [gain_i > 0 ∧ discountable_i])` — losses count in full (a loss is never
   discounted), gains on discountable lots at `(1 − d)`, gains on non-discountable lots in full.
   Exactly one lot may be drawn partially; every other drawn lot is drawn in full.
 
+**The objective is a proxy for §5.2, and can diverge from it.** It counts a loss at 100 %,
+whereas §5.2 applies losses *before* the discount — so a $1 loss absorbed by a discountable gain
+reduces the net capital gain by only $(1 − d). At `d = 0.5`, `{−1,000 loss, +2,000 discountable}`
+scores 0 here and `{+1,000 discountable}` scores 500, yet §5.2 gives a net gain of 500 for both,
+and the first has spent a loss that could otherwise have offset a non-discount gain 1:1. The
+objective therefore **overvalues losses against discountable gains by `1/(1 − d)`**. Selecting a
+loss lot to minimise this objective is a decision about *which parcel to dispose of*, not a
+computation of the year's tax; where both a loss lot and a discountable gain lot are candidates,
+prefer FIFO/LIFO or an explicit choice and let §5.2 do the loss ordering.
+
 **min-CGT search space (the v1.6 rule).** The minimum is taken over **both** the subset of lots
 drawn **and** the choice of which lot bears the partial draw. Enumeration: subset sizes ascending
 from one; subsets in the order the lots were supplied; within a subset, each member in turn as the
 partial-bearer (the others drawn in full). A subset whose quantity equals the sale exactly has no
-partial and is evaluated once. **Ties resolve to the first candidate in that enumeration order**,
+partial and is evaluated once; a bearer order whose full companions already cover the sale collapses
+to the smaller subset that supplied them, which is enumerated in its own right, so the duplicate
+changes no outcome. **Ties resolve to the first candidate in that enumeration order**,
 so a given input reproduces the same selection — a staged sell's lot list is stable across re-runs.
 
 Why the second dimension matters: with a non-discountable lot A (100 u, gain $40/u) and a
@@ -220,7 +233,8 @@ realises 4,000 + 9,000 × 0.5 = **8,500**, while drawing B in full and 50 of A r
 last lot of each subset in input order, so it found 8,000 only when B happened to be listed first
 (audit 2026-06-27, LOW #1). TC-25 locks the corrected behaviour and its order-independence.
 
-**Bound.** The search is exhaustive up to six lots. Above six, `select_min_cgt` falls back to FIFO
+**Bound.** The search is exhaustive up to six lots — the sanctioned value; a caller that narrows it
+narrows the search and must say so. Above the bound, `select_min_cgt` falls back to FIFO
 as a deterministic baseline; a **capital-facing** caller must refuse rather than accept the
 fallback (the staging layer does — its `MIN_CGT_MAX_LOTS` guard), because a silent baseline would
 present a FIFO draw as a minimised one.
@@ -228,8 +242,11 @@ present a FIFO draw as a minimised one.
 **What this section does not do.** It does not choose the strategy — that is the user's (or the
 staged order's `lot_selector`). It does not apply losses (§5.2), Medicare (§5.3) or Div 296 (§6);
 those consume the realised gains this section produces. Selections made for a *staged* sell are
-provisional until the disposal is recorded (`LotSelection` is re-priced at execution); until then
-they are decision-support, not a tax event.
+**provisional**: they are computed at a reference price on a date, and **must be re-evaluated at the
+contract date and fill price before any tax figure is relied on**. No execution path exists in this
+system (James transacts in his own broker), so nothing re-prices them automatically — the staged
+record carries the marker, and the re-evaluation is the caller's obligation. Until then they are
+decision-support, not a tax event.
 
 ## 6. Division 296 (per ss 296-30 to 296-45 ITAA 1997 and Imposition Act 2026)
 
@@ -466,7 +483,8 @@ Each case below must be covered by a unit test referencing the spec section.
 | TC-22 | Break-even: P=100, cost=40, individual marginal 0.45 (r_eff 0.47), not yet eligible | Break-even sale price $126.60 (sell-now nets = sell-later nets = $85.90) | §5.4 |
 | TC-23 | Break-even: P=100, cost=40, SMSF (r_eff 0.15, d=1/3), not yet eligible | Break-even sale price $107.06 (sell-now nets = sell-later nets = $97.00) | §5.4 |
 | TC-24 | $10,000 discountable gain (held > 12 months), SMSF fund_pension_proportion=0.60 | 1/3 CGT discount → net gain $6,666.67. ECPI exempt (60%) → taxable base $2,666.67. Fund tax at 15% = $400.00. Medicare 0. (§5.2: discount and ECPI are independent and stack.) | §5.2, §4.2 |
-| TC-25 | Lots: A 100 u @ $120 acquired 2024-03-01 (not discountable at sale), B 200 u @ $100 acquired 2023-01-01 (discountable); sell 250 @ $160 on 2025-01-15, individual; lots supplied in the order A, B | min-CGT draws **B in full (gain $12,000, discountable) + 50 of A (gain $2,000)**: post-discount $8,000. Drawing A in full + 150 of B would be $8,500. Result identical when the lots are supplied as B, A. | §5.5, §5.1, §2 |
+| TC-25 | Lots: A 100 u @ $120 acquired 2024-03-01 (not discountable at sale), B 200 u @ $100 acquired 2023-01-01 (discountable); sell 250 @ $160 on 2025-01-15, individual; lots supplied in the order A, B | min-CGT draws **B in full (gain $12,000, discountable) + 50 of A (gain $2,000)**: post-discount $8,000. Drawing A in full + 150 of B would be $8,500. The minimum is unique, so the result is identical when the lots are supplied as B, A. | §5.5, §5.1, §2 |
+| TC-25(b) | The TC-25 lots and sale, but **SMSF** (`d = 1/3`, §2) | **An exact tie**: A-full + 150 B = 4,000 + 9,000 × 2/3 = **10,000**; B-full + 50 A = 12,000 × 2/3 + 2,000 = **10,000**. The tie-break (§5.5) decides: the first candidate in enumeration order wins, so with the lots supplied as A, B the bearer enumeration reaches `[B, A]` first and draws **B in full + 50 of A**; supplied as B, A it draws **A in full + 150 of B**. §5.5 guarantees *determinism for a given input*, not order-independence — order-independence follows only when the minimum is unique. | §5.5, §2 |
 
 ## 12. Authoritative sources
 
@@ -523,7 +541,13 @@ min-CGT strategy has a governing rule now that a staged sell makes lot choice ca
 - Corrects a defect in the existing implementation (audit 2026-06-27, LOW #1): `select_min_cgt`
   placed the partial draw on the last lot of each subset in input order and so did not minimise
   when the better full lot was not listed first (8,500 found where 8,000 exists).
-- Added TC-25 to the §11 matrix (worked numbers above; order-independence asserted in the test).
+- Added **TC-25** (individual, unique minimum — order-independence asserted) and **TC-25(b)**
+  (SMSF `d = 1/3`, an exact tie — pins the tie-break and documents that order-independence follows
+  only from uniqueness, while determinism always holds).
+- States that the objective is a **proxy for §5.2** and overvalues losses against discountable
+  gains by `1/(1 − d)`; that a staged selection must be **re-evaluated before reliance** (no
+  execution path re-prices it); that same-day FIFO/LIFO ties keep supplied order; and that the
+  six-lot bound is the sanctioned value a caller may only narrow explicitly.
 
 **v1.5, 2026-06-29.** Implements TC-20 — the Div 296 cost-base reset (ITTPA s 296-50, spec §6.4/§6.5). Two additions:
 - §6.4 "Implementation contract" paragraph: defines the `div296_realised_gains: list[CapitalGain] | None` parameter on `tax_view_smsf()`. When the election is made and this list is provided, `net_capital_gain(div296_realised_gains, ...)` derives the Div 296 earnings base (s 115-100 1/3 discount applied identically to the ordinary CGT path). Falls through to §6.2 behaviour when no election or no list supplied.
