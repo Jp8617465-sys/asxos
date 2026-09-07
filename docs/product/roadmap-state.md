@@ -1058,6 +1058,13 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > _2026-09-06 wake: every campaign entry below **merged on 2026-09-05** (#185–#201). Live in-flight
 > is PR #202 (dream candidate) plus the AW-01 window's draft PRs — see the Last wake snapshot._
 
+> _2026-09-07 close: the AW-01 draft PRs have landed — #212 (sync_prices) and #213 (window record)
+> merged 09-07 00:0x UTC. This session added and landed #209 and #211. **Live in-flight is now
+> PR #202 (draft) plus dependabot #214/#215 (READY).** One item is parked deliberately: the
+> fence-integrity diffs at `docs/proposals/fence-integrity-2026-09-06/` are staged for James to
+> apply — an agent must not edit its own permission surface (ADR §10.2 D7), so they are not "in
+> flight" in the usual sense and will not move without him._
+
 > ⚠️ **2026-09-03 `/arbi-close` — read this first. The Amendment H campaign ran Waves 2→7.**
 > **`main` is UNCHANGED @ `55f2619`.** Everything below is on branches: **fourteen draft PRs,
 > #185–#198, none merged.** One stack — #185 → #186 → #189 → #190 (docs), and
@@ -1741,6 +1748,32 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_2026-09-07 `/arbi-close` (no wake this session — James named the work directly, so there is no
+arbi-ranked "one thing" for this entry). Records the end-state; the 2026-09-06 wake snapshot below
+is **not** superseded as a wake record and is retained in full._
+
+```
+Close: 2026-09-07 (in-fence; every write target probed through authority-guard.sh before use)
+- main @ fd6172c (#211). Merged since the 09-06 wake snapshot (e058be3): #209, #212, #213, #211.
+- tests: 4404 passed / 1 skipped (fresh [dev] venv, no [ml]); ruff + mypy clean. 09-06: 4382
+  (+22 — 13 workflow-inventory, 4 fence-drift, 5 from #212). Skip unchanged (opt-in).
+- migrations: 51 files on disk, highest 0052_outcome_materialisation.sql, 0042 absent (reserved).
+  None authored or applied this session. (The 09-06 snapshot's "52 on disk" counts the numbering
+  range 0001..0052; the file count is 51 because 0042 is deliberately absent.)
+- open PRs: #202 (dream candidate, draft) · #214 + #215 (dependabot, READY, not draft).
+  open issues: #204 (ACP programme), #205 (ACP Phase 0).
+- workflow exposure (tools/workflow_inventory.py, new in #211): 16 workflows · 5 PR-head ·
+  2 exposed to an agent-authored PR (migration-drift.yml — its pull_request paths filter names
+  its own file; pr-review-agent.yml — skips on draft, runs at head with OPENAI_API_KEY +
+  issues: write once a PR is marked ready). Both controlled use while .github/** stays fenced.
+- actions policy (gh api, measured): default_workflow_permissions=read,
+  can_approve_pull_request_reviews=false, sha_pinning_required=true, allowed_actions="all".
+- ACP Phase 1 test-readiness gate (§5.4): ANSWERED. Zero live-endpoint tests existed; the
+  deliverable was enforcement, shipped in #209. Verifier + caller staged at
+  docs/proposals/asxos-control/ — no .github/** unfence required, and none was made.
+- No DB write, migration, deploy, dispatch, or push to main this session.
+```
 
 _Recorded by the 2026-09-06 `/arbi` wake (interactive, James-invoked: "I authorise you to execute
 this" — attended window AW-01, Recipe R2). Supersedes the 2026-09-03 close snapshot below._
