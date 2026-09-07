@@ -10,6 +10,7 @@ the fixture pattern in `tests/test_cli_macro_thesis.py`.
 """
 from __future__ import annotations
 
+import hashlib
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -132,3 +133,57 @@ def test_report_surfaces_a_missing_packet_rather_than_writing_an_empty_file(
 
     assert result.exit_code != 0
     assert not out.exists()
+
+
+# ---------------------------------------------------------------------------
+# Delivery receipt
+# ---------------------------------------------------------------------------
+
+def test_report_dry_run_writes_no_receipt(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    case = build_demo_brief().cases[1]
+
+    with (
+        patch.object(decision_mod.repository, "load_case", new=AsyncMock(return_value=case)),
+        patch.object(decision_mod, "persist_receipt", new=AsyncMock()) as persist,
+    ):
+        result = runner.invoke(
+            decision_mod.decision_app,
+            ["report", "--packet-id", "p", "--out", str(tmp_path / "r.md")],
+        )
+
+    assert result.exit_code == 0, result.output
+    persist.assert_not_awaited()
+
+
+def test_report_persist_records_a_receipt_over_the_exact_artifact_bytes(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    case = build_demo_brief().cases[1]
+    out = tmp_path / "r.md"
+
+    with (
+        patch.object(decision_mod.repository, "load_case", new=AsyncMock(return_value=case)),
+        patch.object(decision_mod, "persist_receipt", new=AsyncMock()) as persist,
+    ):
+        result = runner.invoke(
+            decision_mod.decision_app,
+            ["report", "--packet-id", "p", "--out", str(out), "--persist"],
+        )
+
+    assert result.exit_code == 0, result.output
+    persist.assert_awaited_once()
+    _conn, receipt, html = persist.await_args.args
+
+    written = out.read_text(encoding="utf-8")
+    # The receipt must attest to the bytes that actually reached the artifact,
+    # not to a second render.
+    assert html == written
+    assert receipt.render_sha256 == hashlib.sha256(written.encode("utf-8")).hexdigest()
+    assert receipt.render_bytes == len(written.encode("utf-8"))
+    assert receipt.decision_packet_id == case.decision.decision_packet_id
+    assert receipt.decision_content_hash == case.decision.content_hash
+    assert receipt.channel == "cli"

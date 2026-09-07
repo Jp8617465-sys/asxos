@@ -315,6 +315,9 @@ async def _dispose(packet_id: str, verdict: str, note: str, persist: bool) -> No
 def decision_report(
     packet_id: str = typer.Option(..., "--packet-id", help="decision_packets.decision_packet_id"),
     out: str = typer.Option(..., "--out", help="Path to write the broker-report Markdown artifact"),
+    persist: bool = typer.Option(
+        False, "--persist/--dry-run", help="Record one delivery_receipts row for the rendered bytes"
+    ),
 ) -> None:
     """Render a persisted decision packet as the canonical broker report.
 
@@ -323,21 +326,30 @@ def decision_report(
     so a report can never show a number the stored chain does not carry.
     """
     _require_personal_use()
-    asyncio.run(_report(packet_id, Path(out)))
+    asyncio.run(_report(packet_id, Path(out), persist))
 
 
-async def _report(packet_id: str, out: Path) -> None:
+async def _report(packet_id: str, out: Path, persist: bool) -> None:
+    # One instant for both the render and the receipt: the receipt attests to
+    # the exact bytes produced at that moment, so a second `now_utc()` here
+    # would date the receipt to a render that never happened.
+    delivered_at = now_utc()
     await init_pool()
     try:
         async with acquire() as conn:
             case = await repository.load_case(packet_id, conn=conn)
+            report = render_broker_report(case, evaluated_at=delivered_at)
+            receipt = receipt_for(case, report, channel="cli", delivered_at=delivered_at)
+            if persist:
+                await persist_receipt(conn, receipt, report)
     finally:
         await close_pool()
-    report = render_broker_report(case, evaluated_at=now_utc())
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
     console.print(
         f"[dim]packet={case.decision.decision_packet_id} "
         f"state={case.decision.recommendation_state} "
-        f"written={out} bytes={len(report.encode('utf-8'))}[/dim]"
+        f"written={out} bytes={receipt.render_bytes} "
+        f"render_sha256={receipt.render_sha256} "
+        f"receipt={receipt.receipt_id if persist else 'not persisted (--dry-run)'}[/dim]"
     )
