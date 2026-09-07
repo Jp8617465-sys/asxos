@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -311,6 +311,20 @@ async def _dispose(packet_id: str, verdict: str, note: str, persist: bool) -> No
     )
 
 
+def _evaluated_at(raw: str) -> datetime | None:
+    """Parse the optional --evaluated-at, insisting it is explicit UTC.
+
+    A naive or offset instant would silently change what the report says about
+    expiry, so it is refused rather than coerced.
+    """
+    if not raw:
+        return None
+    parsed = datetime.fromisoformat(raw)
+    if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+        raise typer.BadParameter("--evaluated-at must be an explicit UTC instant, e.g. 2026-09-07T00:00:00+00:00")
+    return parsed
+
+
 def _artifact_path(out_dir: Path, packet_id: str, render_sha256: str) -> Path:
     """Content-addressed location for one rendered report.
 
@@ -331,6 +345,12 @@ def decision_report(
     persist: bool = typer.Option(
         False, "--persist/--dry-run", help="Record one delivery_receipts row for the rendered bytes"
     ),
+    evaluated_at: str = typer.Option(
+        "",
+        "--evaluated-at",
+        help="ISO-8601 UTC instant to evaluate expiry against; omit for now. "
+        "Supplying it makes the render byte-reproducible.",
+    ),
 ) -> None:
     """Render a persisted decision packet as the canonical broker report.
 
@@ -339,19 +359,24 @@ def decision_report(
     so a report can never show a number the stored chain does not carry.
     """
     _require_personal_use()
-    asyncio.run(_report(packet_id, Path(out), persist))
+    asyncio.run(_report(packet_id, Path(out), persist, _evaluated_at(evaluated_at)))
 
 
-async def _report(packet_id: str, out: Path, persist: bool) -> None:
-    # One instant for both the render and the receipt: the receipt attests to
-    # the exact bytes produced at that moment, so a second `now_utc()` here
-    # would date the receipt to a render that never happened.
+async def _report(
+    packet_id: str, out: Path, persist: bool, evaluated_at: datetime | None
+) -> None:
+    # Two instants with different jobs. `evaluated_at` decides what the report
+    # SAYS (expiry, actionability) and is therefore what the bytes are a
+    # function of; `delivered_at` records WHEN those bytes were handed over.
+    # With no --evaluated-at they are the same instant, which is the behaviour
+    # a receipt-only render had.
     delivered_at = now_utc()
+    evaluated_at = evaluated_at or delivered_at
     await init_pool()
     try:
         async with acquire() as conn:
             case = await repository.load_case(packet_id, conn=conn)
-            report = render_broker_report(case, evaluated_at=delivered_at)
+            report = render_broker_report(case, evaluated_at=evaluated_at)
             receipt = receipt_for(case, report, channel="cli", delivered_at=delivered_at)
             if persist:
                 await persist_receipt(conn, receipt, report)

@@ -236,3 +236,75 @@ def test_artifact_path_is_a_pure_function_of_packet_and_digest(tmp_path: Path) -
     # Bytes that differ by one character cannot land on the same path.
     other = decision_mod._artifact_path(tmp_path, "dpk-1", "b" + "a" * 63)
     assert other != first
+
+
+# ---------------------------------------------------------------------------
+# Deterministic re-render
+# ---------------------------------------------------------------------------
+
+def _render_once(case: Any, out: Path, evaluated_at: str) -> Path:
+    with (
+        patch.object(decision_mod.repository, "load_case", new=AsyncMock(return_value=case)),
+        patch.object(decision_mod, "persist_receipt", new=AsyncMock()),
+    ):
+        result = runner.invoke(
+            decision_mod.decision_app,
+            [
+                "report",
+                "--packet-id",
+                "p",
+                "--out",
+                str(out),
+                "--evaluated-at",
+                evaluated_at,
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    return _only_artifact(out)
+
+
+def test_same_packet_and_instant_render_byte_identical_artifacts(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    case = build_demo_brief().cases[1]
+    instant = case.decision.knowledge_cutoff.isoformat()
+
+    first = _render_once(case, tmp_path / "a", instant).read_bytes()
+    second = _render_once(case, tmp_path / "b", instant).read_bytes()
+
+    assert first == second
+    assert hashlib.sha256(first).hexdigest() == hashlib.sha256(second).hexdigest()
+
+
+def test_repeat_render_into_one_store_stays_a_single_artifact(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    case = build_demo_brief().cases[1]
+    instant = case.decision.knowledge_cutoff.isoformat()
+    store = tmp_path / "store"
+
+    _render_once(case, store, instant)
+    _render_once(case, store, instant)
+
+    # Content addressing means the second render reoccupies the same path.
+    assert len(list(store.rglob("*.md"))) == 1
+
+
+def test_evaluated_at_must_be_explicit_utc(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    case = build_demo_brief().cases[1]
+
+    for bad in ("2026-09-07T00:00:00", "2026-09-07T00:00:00+10:00"):
+        with patch.object(
+            decision_mod.repository, "load_case", new=AsyncMock(return_value=case)
+        ):
+            result = runner.invoke(
+                decision_mod.decision_app,
+                ["report", "--packet-id", "p", "--out", str(tmp_path), "--evaluated-at", bad],
+            )
+        assert result.exit_code != 0, bad
+    assert list(tmp_path.rglob("*.md")) == []
