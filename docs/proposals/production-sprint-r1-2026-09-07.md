@@ -1,6 +1,6 @@
 # Production sprint — feature F-E2E, contract revision r1 (2026-09-07)
 
-**Status:** **admitted by James 2026-09-07** (cadence and identity rulings in §3/§4) — **not authority, not a second queue.** Every slice
+**Status:** **admitted by James 2026-09-07**; **W1 executed 2026-09-07 — see §4a** (cadence and identity rulings in §3/§4) — **not authority, not a second queue.** Every slice
 below maps to a `roadmap-state.md` Stage and a `backlog.yaml` id; `roadmap-state.md` wins on
 disagreement. **Prompted by:** James, 2026-09-07 — "plan the next sprint of production" in the
 frame we discussed: *version control and building out features within those versions to build
@@ -158,6 +158,41 @@ ACP programme. Two honest options:
 Either way the trailers are adopted now, so the commit history carries the identity regardless.
 
 ---
+
+## 4a. W1 — executed 2026-09-07 (record)
+
+**Authority:** James, "execute with autonomy" (2026-09-07). That instruction superseded the §3
+in-fence ruling **for W1 only**: this window ran **out-of-fence** (launched outside the repo root,
+so `CLAUDE_PROJECT_DIR` was unset and the four PreToolUse hooks never loaded — R17-class), under the
+`AGENTS.md` prompt-layer stops, with every write path pre-checked through `authority-guard.sh` by
+synthetic payload and the repo's agents emulated. W2/W3 revert to the in-fence ruling.
+
+| Slice | PR | State | Evidence |
+|---|---|---|---|
+| **S1** — tax §5.5 + the `lots.py` partial-bearer fix | **#218** | draft | new tests fail on `main`'s `lots.py` (3 failed / 8 passed), pass on the branch (11); suite **4,413 / 1 skipped**; `tax-spec-conformance` consult recorded as a PR comment, all ten routed items applied |
+| **R4** — monitoring truth | **#219** | draft, CI green | `SEMANTICS_VERSION` 2→3; `check_project_state.py` PASS with 7 INFO rows naming thin lanes; targeted 51 passed |
+| **S2** — P5-01 calibration draft | **#220** | draft | eight parameters, the `portfolio-policy.md` diff, one ruling; negative control still `abstain` |
+
+**What the window found that the plan did not anticipate**
+
+1. **The live book cannot produce a non-zero size at all.** Cash is `0.00` on an 8,249.90 AUD book,
+   so `sizer.headroom_max_pct`'s D1 term (`cash_pct − 7.5`) clamps every candidate to
+   `SizeRange(0,0)` — independent of any calibration. The Stage 4 positive control therefore needs a
+   **declared paper book** (S2 C1), which §16's "one governed *paper* investment case" implies but no
+   document had stated as a number. This is the plan's r1 acceptance clause made concrete.
+2. **`select_min_cgt` under SMSF `d = 1/3` has an exact tie on the TC-25 lots** (10,000 either way),
+   so the fix's order-independence property holds only where the minimum is unique; the spec now
+   guarantees *determinism for a given input* and TC-25(b) pins the tie-break. Found by the
+   conformance consult, not by the build.
+3. **`staging.py`'s docstring denied the section that now governs it** — the class of stale claim the
+   09-06 window's lessons name. Corrected in S1.
+
+**Carried to W2** (unchanged from §3): S3a needs **C-5**; the fence patch set (#211's staged diffs)
+is still James's under D7; S1 merges only on **D-9**, S2's ruling is **C-13**.
+
+**Not built, by ceiling:** the C2/C3 code changes S2 implies (a `capital_at_risk` clamp in
+`sizer.py`, a `stop_distance` challenge rule) — they are S3-class slices *after* the ruling, named in
+S2 §5 rather than pre-built.
 
 ## 5. Definition of done for the sprint
 

@@ -37,7 +37,7 @@
 # click-list, and that is correct.
 
 version: 1
-updated: 2026-09-06
+updated: 2026-09-07
 
 items:
 
@@ -344,6 +344,54 @@ items:
     route: attended
     paths: ["docs/product/roadmap-state.md", "docs/product/backlog.yaml", "docs/product/product-health-scorecard.md", "docs/product/state/latest-snapshot.json", "docs/product/james-inbox.md", "docs/product/decision-log.md", "docs/product/arbi-run-ledger.md", "docs/proposals/", "docs/session-handoff-2026-09-06.md", "tests/test_backlog_next.py"]
     source: "AW-01 run record, 2026-09-06. CLAUDE.md:40-56 rides in it (CODEOWNERS-flagged, not deny-listed) — split it out if you want the paragraph merged separately."
+
+  - id: A-27
+    title: "Merge #218 — tax-alpha §5.5 lot selection (v1.6) + the lots.py partial-bearer fix; the merge IS the D-9 ratification"
+    phase: A
+    owner: james
+    status: built-unmerged
+    depends_on: []
+    route: james
+    paths: ["docs/foundation/spec/tax-alpha.md", "asxos/domain/tax/lots.py", "tests/test_tax_lots.py", "asxos/domain/decision_engine/staging.py"]
+    source: >-
+      Sprint r1 slice S1 (F-E2E/S1), 2026-09-07. Closes D-9a and, on merge, D-9 —
+      CLAUDE.md rule #8 makes James's merge of the spec the ratification. Defect:
+      audit-2026-06-27.md:104 LOW #1, verified live. tax-spec-conformance consult
+      recorded on the PR; all ten routed items applied.
+
+  - id: A-28
+    title: "Merge #219 — retire the REQUIRED_MIGRATIONS contradiction rules; flag latest-only scheduled lanes"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: attended
+    paths: ["asxos/secondbrain/contradictions.py", "tests/test_secondbrain_contradictions.py", "tests/test_check_project_state.py", "jobs/sync_prices.py"]
+    source: "Sprint r1 slice R4 (F-E2E/R4), 2026-09-07. The retired rule reported a false critical on the 09-06 wake; the latest-run-only view hid three pipeline-health reds. SEMANTICS_VERSION 2 -> 3."
+
+  - id: A-29
+    title: "Merge #220 — P5-01 capital/risk calibration draft; then rule C-13 (accept / amend by row / reject)"
+    phase: A
+    owner: james
+    status: built-unmerged
+    depends_on: []
+    route: james
+    paths: ["docs/proposals/p5-01-risk-calibration-2026-09.md"]
+    source: >-
+      Sprint r1 slice S2 (F-E2E/S2), 2026-09-07. Ruling-ready: eight parameters with
+      recommended defaults, the exact portfolio-policy.md diff, one enumerated ruling.
+      Measured consequence: cash 0.00 means the D1 clamp zeroes every size regardless
+      of calibration, so the Stage 4 positive control needs a declared paper book.
+
+  - id: A-30
+    title: "Merge #216 — the r1 sprint plan and its W1 record (feature F-E2E, contract revision r1)"
+    phase: A
+    owner: arbi
+    status: built-unmerged
+    depends_on: []
+    route: attended
+    paths: ["docs/proposals/production-sprint-r1-2026-09-07.md"]
+    source: "Sprint r1 identity per James's 2026-09-07 ruling: the plan file + this backlog are the work identity until B-15 rules D10 in force."
 
   # ---------------------------------------------------------------------------
   # Phase B — James-only infrastructure

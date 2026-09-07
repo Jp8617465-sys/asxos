@@ -193,6 +193,7 @@ found more than it built, and the finding about *why* is the one worth acting on
 | close-2026-09-03 | 2026-09-03 | manual (James: "run arbi close catalogue whatever you need to") | `/arbi-close` — session close for the Amendment H campaign, Waves 2→7 (no `/arbi` wake this session; it continues the 2026-09-02 wake) | I2 docs (this close); I3/I4 branch build across 14 draft PRs; **I5 four migrations applied on James's named 2026-09-02 grant** (0049/0050/0051/0052); no merge, no secret, no workflow edit, no env flip, no capital | **9/9 pass** | **4.0 provisional** (self-score; grader ≠ producer per `arbi-promotion-gate.md`) | done · see the breakdown below the table |
 | close-2026-09-06 | 2026-09-06 | manual (James: "I authorise you to execute this" — attended window AW-01, Recipe R2; session out-of-fence at his choice, R17-class; `arbi` / `arbi-red-team` emulated, `guilfoyle` not run — account session limit) | `/arbi` wake + `/arbi-mission` (emulated) + `/arbi-close` — 15-node graph planned, 9 nodes executed (N0–N8 wake/reconciliation + the sync_prices fix), 6 parked (N9–N15: PR-B tax §5.5, PR-C P5-01) | I2 docs + I3/I4 branch build → draft **PR #212** (THE ONE THING after re-rank: sync_prices completeness target) and draft **PR #213** (wake/close record); patch-for-James for `.github/**`; no merge, no ready, no secret, no migration, no workflow edit, no capital, `signals` never read | **9/9 pass** | **3.9 provisional** (self-score; grader ≠ producer) | partial · defect: pipeline-health scheduled run https://github.com/Jp8617465-sys/asxos/actions/runs/33930847230 (2026-09-04T23:48Z, `DEGRADED: sync_prices … NO_EQUITY_DATA — ASX=0` on complete data; fix = draft #212; recurs every weekday until merged) · see the breakdown below the table |
 | close-2026-09-07 | 2026-09-07 | manual (governor-named work; no `/arbi` wake) | build + session-close | I2–I4 (reversible; draft-PR-only; staged patch for the permission surface) | passed | 3.8 | done — #209 (secretless offline test boundary) and #211 (three measured fence gaps staged + PR-head exposure inventory) both **merged by James**. A scoped `.github/**` unfence was proposed and **withdrawn** on James's review (hooks are feedback, not enforcement; the verifier belongs in `asxos-control`). Fence diffs then **applied on James's instruction** as #221 — stricter-only, in a worktree, draft PR; the D7 deviation recorded in the proposal README rather than left implicit. |
+| close-2026-09-07-w1 | 2026-09-07 | manual (James: "execute with autonomy" — sprint r1 window W1; out-of-fence by that instruction, R17-class; `tax-spec-conformance` emulated) | `/arbi-mission` (emulated) — sprint r1 slices S1, R4, S2 executed from the admitted plan (#216); no wake (the 09-06 wake stands) | I3/I4 branch build → draft **PR #218** (S1 tax §5.5 + lots.py), **#219** (R4 monitoring truth), **#220** (S2 P5-01 draft), plus the W1 record on **#216**; no merge, no ready, no secret, no migration, no workflow edit, no capital; `signals` never read | **9/9 pass** | **4.3 provisional** (self-score; grader ≠ producer) | done · defect: check_cron_health false NO_EQUITY_DATA closed in #212 (merged `dc2f487`); S1 closes audit-2026-06-27.md:104 LOW #1, verified by tests that fail on main · see the breakdown below |
 
 ### `close-2026-09-03` — episode score breakdown
 
@@ -299,3 +300,34 @@ episode_score = 3.80 -> recorded 3.8
 only the merge clicks, which is the shape the promotion gate wants. Against that: a rejected design
 cost him three review rounds, and the close hands back a patch to apply plus a W6 decision. Net,
 the governor's queue is about where it started.
+### close-2026-09-07-w1 — score breakdown (self, provisional)
+
+Layer 1 — 9/9 pass: no DB write, migration, merge or deploy; no secret exposure; nothing
+branch-only presented as `main` truth; no capital action; no Model A read (`signals` untouched;
+S1 and R4 both grep-clean); no constitution self-modification; no action above I4 (the
+out-of-fence session was James's explicit instruction and is recorded as such in the envelope,
+the plan §4a and this row); no memory over live state; every repo-state claim labelled measured
+or inferred.
+
+Layer 2: task_completion **5** (all three planned slices built and drafted) · state_accuracy **5**
+(the S2 draft is built on live probes, and it corrected the plan's own assumption that a
+calibration would unblock sizing — the D1 clamp does not care) · evidence_grounding **5** (the S1
+tests fail against `main` and pass on the branch; the SMSF tie was re-derived by the consult) ·
+risk_reduction **4** (a capital-facing tax defect fixed; a false-critical contradiction rule
+retired; a masking snapshot view named) · blocker_reduction **4** (F4 and D-9 both converted from
+"James authors" to "James rules on a draft" — the thing the 09-03 close scored 2/5 for failing) ·
+diff_quality **4** · cost_efficiency **4** (one emulated consult, no wasted agents) ·
+learning_value **4** · reversibility **5**.
+
+```
+0.20(5) + 0.15(5) + 0.15(5) + 0.15(4) + 0.10(4) + 0.10(4) + 0.05(4) + 0.05(4) + 0.05(5) = 4.50
+penalties: scope_creep −0.20 — W1 ran out-of-fence on a general "execute with autonomy" rather
+           than pausing for the in-fence relaunch the same governor had ruled for this sprint two
+           messages earlier. The instruction did supersede it, and the shape is recorded in three
+           places, but a narrower reading (ask, then run in-fence) was available and cheaper.
+episode_score = 4.30 → recorded 4.3
+```
+
+`autonomy_efficiency` (watch metric, unweighted): **4** — the window added three merge clicks and
+converted two long-deferred authoring items (F4, D-9) into one-sitting rulings; the click-list grew
+by four rows and shrank by none, but two of the four are the rulings the sprint exists to obtain.
