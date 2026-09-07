@@ -18,6 +18,7 @@ import asyncio
 import json
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import typer
 
@@ -55,6 +56,7 @@ from asxos.domain.decision_engine.portfolio_state import (
     load_sizing_policy,
     select_positive_control,
 )
+from asxos.domain.decision_engine.renderer import render_broker_report
 from asxos.domain.decision_engine.types import DecisionCase
 from asxos.domain.themes.candidates.builder import build_candidate_snapshot, build_theme_version
 
@@ -306,4 +308,36 @@ async def _dispose(packet_id: str, verdict: str, note: str, persist: bool) -> No
     console.print(
         f"[dim]paper_intent={'none (non-action state)' if intent is None else intent.intent_id} "
         f"persisted={persist} dispositions_on_packet={recorded}[/dim]"
+    )
+
+
+@decision_app.command("report")
+def decision_report(
+    packet_id: str = typer.Option(..., "--packet-id", help="decision_packets.decision_packet_id"),
+    out: str = typer.Option(..., "--out", help="Path to write the broker-report Markdown artifact"),
+) -> None:
+    """Render a persisted decision packet as the canonical broker report.
+
+    Reads only what was persisted: `load_case` reconstructs the five contracts
+    from their `payload` columns and every one is re-validated on the way out,
+    so a report can never show a number the stored chain does not carry.
+    """
+    _require_personal_use()
+    asyncio.run(_report(packet_id, Path(out)))
+
+
+async def _report(packet_id: str, out: Path) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            case = await repository.load_case(packet_id, conn=conn)
+    finally:
+        await close_pool()
+    report = render_broker_report(case, evaluated_at=now_utc())
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(report, encoding="utf-8")
+    console.print(
+        f"[dim]packet={case.decision.decision_packet_id} "
+        f"state={case.decision.recommendation_state} "
+        f"written={out} bytes={len(report.encode('utf-8'))}[/dim]"
     )

@@ -386,7 +386,7 @@ def test_cli_module_gates_every_command_and_imports_no_model_a() -> None:
     src = (ROOT / "asxos" / "cli" / "decision.py").read_text()
     body = src.split('"""', 2)[2]
     commands = body.count("@decision_app.command(")
-    assert commands == 5, "build, record-t0, observe, positive-control, dispose"
+    assert commands == 6, "build, record-t0, observe, positive-control, dispose, report"
     assert body.count("_require_personal_use()") == commands, "every command gates first"
     assert re.search(r"^\s*(?:from|import)\s+asxos\.domain\.models", src, re.MULTILINE) is None
     assert "signals" not in body.lower()
