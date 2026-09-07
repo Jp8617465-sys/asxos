@@ -430,3 +430,81 @@ async def test_builder_persists_through_the_repository() -> None:
     loaded = await repository.load(case.decision.decision_packet_id, conn=repo_conn)
 
     assert loaded == case.decision
+
+
+class _RecordLike:
+    """A row that behaves like `asyncpg.Record`: item access and `.get()`, but
+    deliberately **not** registered on `collections.abc.Mapping`.
+
+    `asyncpg.Record` is exactly this shape (verified against asyncpg 0.31:
+    `issubclass(asyncpg.Record, collections.abc.Mapping)` is `False`). Every
+    builder fixture used `dict`, so `_income_known_at`'s former
+    `isinstance(row, Mapping)` guard passed in CI and rejected *every* row a live
+    connection returned — `build_decision_case` then raised "no admissible yearly
+    income row" against the real database while the suite stayed green. Found by
+    the first live end-to-end run, 2026-09-07.
+    """
+
+    __slots__ = ("_d",)
+
+    def __init__(self, d: Mapping[str, object]) -> None:
+        self._d = dict(d)
+
+    def __getitem__(self, k: str) -> object:
+        return self._d[k]
+
+    def get(self, k: str, default: object = None) -> object:
+        return self._d.get(k, default)
+
+    def keys(self):  # type: ignore[no-untyped-def]
+        return self._d.keys()
+
+
+def test_record_like_rows_are_not_mappings() -> None:
+    """Guards the guard: if this ever becomes a Mapping the regression below is
+    silently no longer testing anything."""
+    assert not isinstance(_RecordLike({"a": 1}), Mapping)
+    assert _RecordLike({"a": 1}).get("a") == 1
+
+
+async def test_builder_admits_rows_that_are_not_mappings() -> None:
+    """The live-database regression: a builder fed `asyncpg.Record`-shaped rows
+    must produce the same case it produces from dicts."""
+    cutoff = datetime(2026, 8, 21, 23, 59, 59, tzinfo=UTC)
+    last_revisited_at = datetime(2026, 8, 1, tzinfo=UTC)
+    period_end = date(2025, 6, 30)
+    prior_end = date(2024, 6, 30)
+
+    rows = {
+        period_end: _income_row(period_end=period_end, report_date=date(2025, 8, 11)),
+        prior_end: _income_row(period_end=prior_end, report_date=date(2024, 8, 12)),
+    }
+    record_conn = _FakeBuilderConn(
+        thesis_row=_RecordLike(_cba_thesis_row(last_revisited_at=last_revisited_at)),  # type: ignore[arg-type]
+        income_rows={k: _RecordLike(v) for k, v in rows.items()},  # type: ignore[misc]
+    )
+    dict_conn = _FakeBuilderConn(
+        thesis_row=_cba_thesis_row(last_revisited_at=last_revisited_at),
+        income_rows=dict(rows),
+    )
+
+    from_records = await builder.build_cba_decision_case(record_conn, cutoff=cutoff)
+    from_dicts = await builder.build_cba_decision_case(dict_conn, cutoff=cutoff)
+
+    # The whole point: Record-shaped input must not change the answer.
+    assert from_records.decision.content_hash == from_dicts.decision.content_hash
+    assert from_records.evidence.data_mode == "real"
+
+
+async def test_builder_still_refuses_a_row_with_no_get() -> None:
+    """The fail-closed half: duck-typing must not admit arbitrary objects."""
+    cutoff = datetime(2026, 8, 21, 23, 59, 59, tzinfo=UTC)
+    last_revisited_at = datetime(2026, 8, 1, tzinfo=UTC)
+
+    conn = _FakeBuilderConn(
+        thesis_row=_cba_thesis_row(last_revisited_at=last_revisited_at),
+        income_rows={date(2025, 6, 30): object()},  # type: ignore[dict-item]
+    )
+    with pytest.raises(ValueError, match="no admissible yearly income row"):
+        await builder.build_cba_decision_case(conn, cutoff=cutoff)
+
