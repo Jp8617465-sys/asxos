@@ -192,6 +192,7 @@ found more than it built, and the finding about *why* is the one worth acting on
 | wave7-stage5-2026-09-03 | 2026-09-03 | manual (Amendment H §1 sequencing; arbi decisions D-8 receipt tables, D-9 t0-only) | `/arbi-mission` — ADR Slice 4 build **plus a self-caught defect fix**; `security-engineer` consult (re-run after the Wave 6 dispatch died on a rate limit) | I3/I4 branch build → draft **PR #198** (stacked on #197); **I5 0052 `outcome_materialisation` applied by arbi on James's named grant** — ledger `20260903025557`; no merge, no secret, no workflow edit, no capital | passed | 4.4 provisional (self-score): task_completion 5, state_accuracy 5, evidence_grounding 5 (every horizon resolved through the packet's own calendar and asserted to exceed calendar days; the F1 proxy path tested three ways), risk_reduction 5 (**found and fixed my own Wave 6 defect before James ever ran it**, and pinned it with an AST guard rather than a comment), blocker_reduction 4, diff_quality 5 (ruff/mypy/4214 tests green; the append-beside-not-over contradiction between my own DDL and docstring caught and corrected before commit), cost_efficiency 4, learning_value 5, reversibility 5 | done · **W7-0 (the defect):** Wave 6 wrote `DeliveryReceipt` rows into `brief_runs` to avoid a migration, but `asxos/brief/deltas.py::_PRIOR_BRIEF_SQL` takes the newest `brief_runs` row with `as_of < $1` and does **not** filter on row kind — a receipt was returned as "the prior brief". Fixed at the schema level (0052 gives receipts and dispositions their own append-only tables), not by patching the one reader; an AST-based test now fails if any string literal in the decision engine names `brief_runs` again. Also closes #196's open note that dispositions were unpersisted. **H7-A:** `thesis_outcomes` records t0 (what was known and claimed) and schedules 21/63/126 **trading sessions** through the packet's own `TradingSessionCalendar`; an unreachable horizon is recorded `unobservable` with its reason, never omitted; an observation appends **beside** the scheduled row (UNIQUE on packet+horizon+state), never over it; excess return requires both legs measured and is validator-refused otherwise; the benchmark leg reuses `benchmark/outcome.py`'s F1 `unavailable_proxy` — unavailable, never proxied. `asx decision record-t0 / observe`; `dispose` now persists. Verified post-apply at the primary source: 3 tables (12/11/7 cols), 3 triggers on `_outcome_forbid_mutation`, 3 FKs, the (packet, horizon, state) unique key, 0 rows. **Honest read of the forbidden-column scan:** one hit, `decision_dispositions.verdict` — that is James's own recorded reading of a packet, not a machine recommendation; recorded here and in the migration header so a later reader does not mistake the scan result for a violation. **Not flipped:** the Stage 5 cell — its gate needs a complete learning episode (21/63/126 sessions ≈ 1/3/6 months); this captures t0 only (D-9), and no alpha claim is made from one observation. **Consult follow-up (`eb56b47`):** `security-engineer` returned **PASS-WITH-NOTES** on the shipped surface — clean on XSS (`autoescape` default plus `StrictUndefined`, no `|safe`), constructed SQL (none), secrets, and rule #11; its platform check was run and is clean too (`role_table_grants` for `anon`/`authenticated`/`PUBLIC` across the five decision tables = **zero rows**). Three findings fixed: (i) `portfolio_state.py` claimed every public loader gates on `ASXOS_PERSONAL_USE` but only two of five did — gated the other three so the claim is true, rather than weakening the claim, and asserted it by AST; (ii) `_reference_price` parses the ledger's anchor number out of builder prose — now raises `OutcomeError` on a bad token and the coupling is pinned from both sides, with the structural fix (a typed price field on the frozen `types.py`) recorded as governor-scoped; (iii) `receipt_id`/`disposition_id` omitted the instant, so a re-send or a second same-verdict disposition vanished into `ON CONFLICT DO NOTHING` while the CLI printed `persisted=True` — both ids now carry the time, because two deliveries are two facts. **Raised, not fixed (click H-38):** `delivery_receipts.rendered_html` is the most PII-dense column in the DB and neither it nor `decision_packets` is in `backup_irreplaceable.sh` — no retention story, no erasure story; both are governor calls. |
 | close-2026-09-03 | 2026-09-03 | manual (James: "run arbi close catalogue whatever you need to") | `/arbi-close` — session close for the Amendment H campaign, Waves 2→7 (no `/arbi` wake this session; it continues the 2026-09-02 wake) | I2 docs (this close); I3/I4 branch build across 14 draft PRs; **I5 four migrations applied on James's named 2026-09-02 grant** (0049/0050/0051/0052); no merge, no secret, no workflow edit, no env flip, no capital | **9/9 pass** | **4.0 provisional** (self-score; grader ≠ producer per `arbi-promotion-gate.md`) | done · see the breakdown below the table |
 | close-2026-09-06 | 2026-09-06 | manual (James: "I authorise you to execute this" — attended window AW-01, Recipe R2; session out-of-fence at his choice, R17-class; `arbi` / `arbi-red-team` emulated, `guilfoyle` not run — account session limit) | `/arbi` wake + `/arbi-mission` (emulated) + `/arbi-close` — 15-node graph planned, 9 nodes executed (N0–N8 wake/reconciliation + the sync_prices fix), 6 parked (N9–N15: PR-B tax §5.5, PR-C P5-01) | I2 docs + I3/I4 branch build → draft **PR #212** (THE ONE THING after re-rank: sync_prices completeness target) and draft **PR #213** (wake/close record); patch-for-James for `.github/**`; no merge, no ready, no secret, no migration, no workflow edit, no capital, `signals` never read | **9/9 pass** | **3.9 provisional** (self-score; grader ≠ producer) | partial · defect: pipeline-health scheduled run https://github.com/Jp8617465-sys/asxos/actions/runs/33930847230 (2026-09-04T23:48Z, `DEGRADED: sync_prices … NO_EQUITY_DATA — ASX=0` on complete data; fix = draft #212; recurs every weekday until merged) · see the breakdown below the table |
+| close-2026-09-07 | 2026-09-07 | manual (governor-named work; no `/arbi` wake) | build + session-close | I2–I4 (reversible; draft-PR-only; staged patch for the permission surface) | passed | 3.8 | done — #209 (secretless offline test boundary) and #211 (three measured fence gaps staged + PR-head exposure inventory) both **merged by James**. A scoped `.github/**` unfence was proposed and **withdrawn** on James's review (hooks are feedback, not enforcement; the verifier belongs in `asxos-control`). Fence diffs then **applied on James's instruction** as #221 — stricter-only, in a worktree, draft PR; the D7 deviation recorded in the proposal README rather than left implicit. |
 
 ### `close-2026-09-03` — episode score breakdown
 
@@ -254,3 +255,47 @@ episode_score = 3.85 → recorded 3.9
 `autonomy_efficiency` (watch metric, unweighted): **3** — James's click-list gained two merge
 clicks (A-25, A-26) and lost sixteen stale ones (A-0…A-17 cleared) plus two observed gates
 (C-2, C-11); the two authoring→ruling conversions did not happen this window.
+
+### close-2026-09-07 — score breakdown (self, provisional)
+
+**No `/arbi` wake this session** — James named the work directly, so there is no arbi-ranked "one
+thing" to grade the call against. Every layer below is scored on execution only; the ranking
+judgement that a wake would supply was not exercised.
+
+Layer 1 — 9/9 pass: no DB write / migration / merge / deploy (James merged both PRs himself); no
+secret exposure (the credential leak was measured by **count and field name only**, never value);
+no branch-only state presented as `main` truth; no capital action; no Model A read; **no
+self-modification of a boundary** — the live question this session, answered by staging every hook
+diff under `docs/proposals/` and applying none (ADR §10.2 D7); no action above tier; no memory over
+live state; no unsourced claim left standing as truth (see the penalty — one was made and
+self-corrected before it reached any artifact).
+
+Layer 2: task_completion **4** (both named deliverables shipped and merged; W6 not built — optional
+and not approved; a planning cycle was spent on a design that had to be rejected) · state_accuracy
+**3** — *the honest weak point*: the "seven workflows on push to `claude/**`" claim was inferred
+from a grep, wrong in both directions, and reached James inside a security argument; a second
+over-broad relay (30 credential fields, measured as 1) came from taking a subagent's inference at
+face value. Both self-corrected, neither landed · evidence_grounding **4** (probes, mutation tests
+and command output throughout — docked for the two inferences presented as fact before correction)
+· risk_reduction **5** (three fence gaps closed, a live production credential removed from every
+local test run, two exposed workflows surfaced) · blocker_reduction **3** (the ACP Phase-1
+fixture-conversion gate is answered — zero conversions, guard shipped — but James's queue gained a
+patch to apply and a W6 decision) · diff_quality **4** (ruff/mypy/tests green, CI green on both PRs,
+no revert; docked for a stale-inventory failure and a ruff F401, both caught pre-merge — one by my
+own drift test from #209) · cost_efficiency **2** (three planning rounds, two rejected designs) ·
+learning_value **5** (two lessons written to memory, plus the bypass table) · reversibility **5**
+(nothing merged by me; no migration, no production write; every artifact revertible).
+
+```
+0.20(4) + 0.15(3) + 0.15(4) + 0.15(5) + 0.10(3) + 0.10(4) + 0.05(2) + 0.05(5) + 0.05(5) = 3.90
+penalties: stale_claims -0.10 — the "seven workflows" claim, and the credential-leak breadth
+           relayed from a subagent without measuring it first. Both corrected unprompted in the
+           same session, neither reached a committed artifact; the gate passes, the penalty stands
+           because both were stated to the governor as fact.
+episode_score = 3.80 -> recorded 3.8
+```
+
+`autonomy_efficiency` (watch metric, unweighted): **3** — two PRs reached `main` with James doing
+only the merge clicks, which is the shape the promotion gate wants. Against that: a rejected design
+cost him three review rounds, and the close hands back a patch to apply plus a W6 decision. Net,
+the governor's queue is about where it started.
