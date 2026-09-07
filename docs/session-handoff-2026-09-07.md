@@ -26,6 +26,8 @@ one proposal James rejected on architectural grounds.
 | **#209** `e058be3` | 09-06 11:29 UTC | Secretless offline test boundary |
 | **#211** `fd6172c` | 09-07 04:26 UTC | Three measured fence gaps closed (staged), PR-head exposure inventory |
 
+**Open, awaiting James:** **#221** — the fence-integrity patch *applied* (see below).
+
 **Withdrawn:** a scoped `.github/**` unfence (Option B, then "B-hardened"). James rejected both.
 Recorded below because the reasoning is the reusable part.
 
@@ -81,8 +83,11 @@ Deletion and the `./` prefix affect **every** authority path, not only `.github/
 meant the always-on fence silently vanished on a machine without jq, where
 `unattended-guard.sh:49` already failed closed.
 
-Per ADR §10.2 D7 — *"an agent must not edit its own permission surface"* — these are **staged, not
-applied**, in `docs/proposals/fence-integrity-2026-09-06/`.
+Staged in `docs/proposals/fence-integrity-2026-09-06/` under ADR §10.2 D7 — *"an agent must not
+edit its own permission surface"* — and then **applied on James's instruction later the same day**
+as **#221** (draft, CI green). The D7 deviation is recorded in that directory's README rather than
+left implicit: the change is strictly stricter, was applied in a worktree so nothing running was
+modified, and reaches `main` only through a draft PR James merges.
 
 ### The withdrawn unfence — why it was wrong
 
@@ -113,7 +118,8 @@ main @ fd6172c (#211). Merged since the 09-06 wake snapshot (e058be3): #209, #21
   Skip = MIGRATION_TEST_DATABASE_URL opt-in, unchanged.
 - migrations: 51 files on disk, highest 0052_outcome_materialisation.sql, 0042 absent
   (reserved, correct). No migration authored or applied this session.
-- open PRs: #202 (dream candidate, draft), #214 + #215 (dependabot, both READY, not draft).
+- open PRs: #202 (dream candidate, draft) · #214 + #215 (dependabot, READY, not draft) ·
+  #217 (this close) · #221 (fence patch applied).
 - open issues: #204 (ACP programme), #205 (ACP Phase 0).
 - workflow exposure (tools/workflow_inventory.py, shipped in #211):
   16 workflows · 5 PR-head · 2 exposed to an authored PR.
@@ -124,11 +130,21 @@ main @ fd6172c (#211). Merged since the 09-06 wake snapshot (e058be3): #209, #21
 
 ## Pending, requiring James
 
-1. **Apply the staged fence patch** — `docs/proposals/fence-integrity-2026-09-06/`. One command:
-   `git apply .../fence-integrity-all.patch && cp .../tests-staged/test_fence_integrity.py tests/`.
-   ⚠️ The three `authority-guard.sh` diffs are individually clean but **not sequentially
-   composable** (W1b shifts the context W1c anchors on) — use the combined patch. **W1b and W1c are
-   separable** from the W1 you named; taking W1 + W2 alone is coherent.
+1. **Merge #221 — the fence patch is applied, not pending.** James instructed "apply the patch"
+   after this handoff was first written; all four items (W1, W1b, W1c, W2) landed together via
+   `fence-integrity-all.patch` on `claude/fence-integrity-apply`, and
+   `tests-staged/test_fence_integrity.py` moved into `tests/`. 4429 passed / 1 skipped, CI green.
+   Every gap in the table above re-probed as `deny` after the patch; the must-stay-allowed set
+   unchanged.
+   **The live fence has not changed yet** — the hooks that run come from `$CLAUDE_PROJECT_DIR`
+   (`~/Desktop/asxos/.claude/hooks/`), which is on `claude/arbi-close-2026-08-25`, 30+ commits
+   behind with unmerged paths in `asxos/domain/decision_engine/`. Merging #221 is necessary but
+   **not sufficient**: that checkout has to pick up `main` before the hardening is live for any
+   session launched from it. *(Measured at close: `rm .env` still returns ALLOW there.)*
+   On D7 — an agent must not edit its own permission surface — the deviation is recorded in
+   `docs/proposals/fence-integrity-2026-09-06/README.md` rather than left implicit: the patch is
+   strictly stricter, was applied in a worktree so nothing running was modified, and reaches `main`
+   only through a draft PR James merges.
 2. **Decide W6 (the workflow-content lint).** Optional in the approved work order; not built
    without a yes. It is the artifact that encodes the bypass table at the enforcement-correct
    point — one script, consumed by `asxos-control` as a required status and optionally by the hook

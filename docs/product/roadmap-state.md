@@ -1761,7 +1761,9 @@ Close: 2026-09-07 (in-fence; every write target probed through authority-guard.s
 - migrations: 51 files on disk, highest 0052_outcome_materialisation.sql, 0042 absent (reserved).
   None authored or applied this session. (The 09-06 snapshot's "52 on disk" counts the numbering
   range 0001..0052; the file count is 51 because 0042 is deliberately absent.)
-- open PRs: #202 (dream candidate, draft) · #214 + #215 (dependabot, READY, not draft).
+- open PRs: #202 (dream candidate, draft) · #214 + #215 (dependabot, READY, not draft) ·
+  #217 (this close) · #221 (fence patch APPLIED — W1/W1b/W1c/W2 landed together; the live
+  fence stays unpatched until it merges AND the primary checkout picks up main).
   open issues: #204 (ACP programme), #205 (ACP Phase 0).
 - workflow exposure (tools/workflow_inventory.py, new in #211): 16 workflows · 5 PR-head ·
   2 exposed to an agent-authored PR (migration-drift.yml — its pull_request paths filter names
