@@ -49,7 +49,7 @@ from statistics import median
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     import asyncpg
 
@@ -342,3 +342,26 @@ def classify_sync_completeness(
         us_rows=us_rows,
         fx_rows=fx_rows,
     )
+
+
+def select_sync_target(day_counts: Mapping[date, int], today: date) -> date | None:
+    """Pick the fetched day whose AU count the completeness verdict classifies.
+
+    ``sync_prices`` self-heals *through* ``today`` — and since the runner's
+    clock resolves in Sydney (PR #171, 2026-09-02) the 06:30 AEST scheduled run
+    reaches today's date hours before the session closes. EODHD has nothing to
+    publish yet, so a zero for ``today`` means "not yet available", not "no
+    equity data". Classifying it anyway produced a NO_EQUITY_DATA note on every
+    weekday run from 2026-09-03 and turned ``check_cron_health`` red for a data
+    set that was in fact complete (2,299 / 2,288 AU rows for 09-02 / 09-03,
+    measured 2026-09-06).
+
+    Rule: ``today`` is the target only when its fetch returned rows (a run
+    after the close); otherwise the freshest *earlier* day. A zero-row fetch
+    for any earlier weekday still classifies as NO_EQUITY_DATA — the 2026-06-14
+    residue detection this helper must not weaken. ``None`` when nothing but an
+    empty ``today`` was fetched, so the caller logs nothing rather than a
+    verdict about a day that does not exist yet.
+    """
+    candidates = [d for d, n in day_counts.items() if d < today or n > 0]
+    return max(candidates) if candidates else None
