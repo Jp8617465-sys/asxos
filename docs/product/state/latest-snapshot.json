@@ -1,15 +1,15 @@
 {
-  "snapshot_id": "snap-2026-08-20-wake",
+  "snapshot_id": "snap-2026-09-06-wake",
   "schema_version": 1,
-  "observed_at": "2026-08-20T04:40:00Z",
+  "observed_at": "2026-09-06T19:20:00Z",
   "repository": {
     "base_sha": {
       "status": "observed",
-      "value": "56596fc5d0b4139dec523bb2e3cf49b685198a82"
+      "value": "e058be3937c31f41f67d2d28f0ff1ea243db1476"
     },
     "branch": {
       "status": "observed",
-      "value": "claude/asx-stock-evaluation-p0hxx2"
+      "value": "claude/arbi-wake-close-2026-09-06"
     },
     "dirty_state": {
       "status": "observed",
@@ -20,108 +20,398 @@
     "open_prs": {
       "status": "observed",
       "value": [
-        {"number": 144, "title": "fix(model-a): retire the training chain, artifacts, and dead-table readers", "draft": true, "head": "claude/delete-model-a-2026-08-19"},
-        {"number": 143, "title": "docs: reconcile Cursor session + ratify product rulings", "draft": true, "head": "claude/reconciliation-2026-08-19"},
-        {"number": 142, "title": "docs: segment valuation -> selection -> exposure architecture", "draft": true, "head": "cursor/segment-valuation-architecture-da6b"},
-        {"number": 141, "title": "chore(stage-a): retire Render from the repo", "draft": true, "head": "cursor/retire-render-stage-a-da6b"},
-        {"number": 140, "title": "docs(arbi): post-Render/Model-A reconciliation work order + arbi autonomy plan", "draft": true, "head": "cursor/arbi-autonomy-and-reconciliation-plan-da6b"},
-        {"number": 134, "title": "chore(env): add Cursor Cloud Agent development environment", "draft": true, "head": "cursor/setup-cloud-dev-environment-da6b"},
-        {"number": 124, "title": "Second Brain execution loop wave 1", "draft": true, "head": "claude/sb-execution-loop-wave1"},
-        {"number": 105, "title": "docs: plan Supabase evidence-store alignment", "draft": true, "head": "claude/supabase-evidence-store-plan"},
-        {"number": 80, "title": "PARKED / DO NOT MERGE - rules-integrity core slice", "draft": true, "head": "claude/rules-integrity-build"}
+        {
+          "number": 202,
+          "title": "docs(memory): dream candidate — autonomy acceleration",
+          "draft": true,
+          "head": "claude/arbi-mem/2026-09-06"
+        }
       ]
     },
     "recent_merges": {
       "status": "observed",
       "value": [
-        {"number": 139, "title": "docs: session handoff 2026-08-18", "merged_sha": "56596fc5d0b4139dec523bb2e3cf49b685198a82"}
+        {
+          "number": 209,
+          "title": "test(offline): enforce the secretless offline test boundary",
+          "merged_sha": "e058be3937c31f41f67d2d28f0ff1ea243db1476"
+        },
+        {
+          "number": 208,
+          "title": "ci: make scheduled checkouts explicitly target main",
+          "merged_sha": "5a1d129368fe8d1cea76ae8c5bf556c6b3948b7e"
+        },
+        {
+          "number": 207,
+          "title": "chore(harness): restore Cursor authority mirror",
+          "merged_sha": "017984299c896a73925342f29f03945cec3f38e3"
+        },
+        {
+          "number": 206,
+          "title": "feat(control): inventory workflow production effects",
+          "merged_sha": "4b6da937d644f02fbeacc2cb3909c685c0f167e5"
+        },
+        {
+          "number": 203,
+          "title": "docs(arbi): final autonomy control-plane plan",
+          "merged_sha": "e615472548a6d5645472eef3dbdbe8ef8ba802b3"
+        },
+        {
+          "number": 201,
+          "title": "fix(decision): restore point-in-time and delivery integrity",
+          "merged_sha": "b4c53a18ee3fb4067501864e365583ea9d174662"
+        },
+        {
+          "number": 200,
+          "title": "Amendments I/J/K + the backlog-roll standing lane",
+          "merged_sha": "246a930b834720dd9e1cef343142605cbc61c191"
+        },
+        {
+          "number": 199,
+          "title": "Amendment H: standing agentic lanes on the Actions substrate",
+          "merged_sha": "7ab652ce50f6cc472a2d8cee92a8c70df7e4217b"
+        },
+        {
+          "number": 198,
+          "title": "Stage 5 outcome materialisation + t0 (H7-A, W7-0)",
+          "merged_sha": "f35ef7f82545cc36e4e2147cfd41e20654f3fc77"
+        },
+        {
+          "number": 197,
+          "title": "Stage 4 delivery chain (H6-A)",
+          "merged_sha": "cc09851aa9a17f2176d14b6556a8961e470a6379"
+        },
+        {
+          "number": 196,
+          "title": "Slices 2.5 -> 2 -> 3: challenge layer, sizer, order staging (Wave 5)",
+          "merged_sha": "d7c4a4baa3d14922ab02d4012f3b8ef6eb617673"
+        },
+        {
+          "number": 195,
+          "title": "Stage 3 theme + candidate engine (H4-A)",
+          "merged_sha": "303294458a98d6c9c5c5578399a74a274a88a1b2"
+        },
+        {
+          "number": 194,
+          "title": "Stage 2 research registry (0050 applied)",
+          "merged_sha": "0bc409bf6e55a929fb7d248ca9d7d7fc1dee513a"
+        },
+        {
+          "number": 193,
+          "title": "feat(replay): point-in-time replay + lineage",
+          "merged_sha": "28eb51c79ad9d54f4d36c9608ffb9786bf552424"
+        },
+        {
+          "number": 192,
+          "title": "feat(pit): record whether a knowledge_date was filed or estimated",
+          "merged_sha": "8a26cef70c9ea5af35a271aeebd8ff2fc1d3ee91"
+        },
+        {
+          "number": 191,
+          "title": "docs(deps): audit PR #178 against the suppression checks",
+          "merged_sha": "03031c5239e603bb6e30e33a6345480228908dd8"
+        },
+        {
+          "number": 190,
+          "title": "docs(governance): draft the four overdue governor rulings",
+          "merged_sha": "1df8f49b2481128fea6b5a73f9dbe14992afc559"
+        },
+        {
+          "number": 189,
+          "title": "docs: retire the REQUIRED_MIGRATIONS instructions",
+          "merged_sha": "5632a97baf788bb15c9139118917b5ffc038d538"
+        },
+        {
+          "number": 188,
+          "title": "docs(migrations): record 0044's apply",
+          "merged_sha": "6f5da4d93331e638247abcdb42a45e39a79283ac"
+        },
+        {
+          "number": 187,
+          "title": "fix(check_cron_health): per-job MISSING window",
+          "merged_sha": "2db93e6f89e419d77bf0d38602e33a22ebea1857"
+        },
+        {
+          "number": 186,
+          "title": "fix(backup): push the dump before verifying the frozen archive",
+          "merged_sha": "9ad9f447b49770d8dbcbe702f41b06861a8fcbfb"
+        },
+        {
+          "number": 185,
+          "title": "docs(arbi): /arbi wake 2026-09-02 + Amendment H",
+          "merged_sha": "855ed354008e78dc37bc8974e36d42719aaa4b57"
+        },
+        {
+          "number": 178,
+          "title": "chore: bump the python group (27 updates)",
+          "merged_sha": "5aee8b4d5c1dbea0c3bf0eaf6cab6b8b78a0112d"
+        }
       ]
     },
     "workflow_runs": {
       "status": "observed",
       "value": [
-        {"name": "full-check", "branch": "cursor/segment-valuation-architecture-da6b", "conclusion": "success", "started": "2026-08-20T04:23:33Z"},
-        {"name": "targeted-ml-tests", "branch": "cursor/segment-valuation-architecture-da6b", "conclusion": "success", "started": "2026-08-20T04:23:33Z"},
-        {"name": "migration-integration", "branch": "cursor/segment-valuation-architecture-da6b", "conclusion": "success", "started": "2026-08-20T04:23:33Z"},
-        {"name": "full-check", "branch": "cursor/retire-render-stage-a-da6b", "conclusion": "success", "started": "2026-08-20T04:22:09Z"},
-        {"name": "targeted-ml-tests", "branch": "cursor/retire-render-stage-a-da6b", "conclusion": "success", "started": "2026-08-20T04:22:09Z"},
-        {"name": "migration-integration", "branch": "cursor/retire-render-stage-a-da6b", "conclusion": "success", "started": "2026-08-20T04:22:09Z"}
+        {
+          "name": "backup",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-06T17:30:47Z"
+        },
+        {
+          "name": "backup (Sunday restore-drill cron)",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-06T16:22:22Z"
+        },
+        {
+          "name": "full-check",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-06T11:29:53Z"
+        },
+        {
+          "name": "targeted-ml-tests",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-06T11:29:53Z"
+        },
+        {
+          "name": "migration-integration",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-06T11:29:53Z"
+        },
+        {
+          "name": "issue-snapshot",
+          "branch": "main",
+          "conclusion": "failure",
+          "started": "2026-09-06T11:27:15Z"
+        },
+        {
+          "name": "migration-drift",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-06T09:56:38Z"
+        },
+        {
+          "name": "backup",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-05T16:09:18Z"
+        },
+        {
+          "name": "pipeline-health",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-05T23:37:35Z"
+        },
+        {
+          "name": "nightly-check",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-05T17:22:59Z"
+        },
+        {
+          "name": "weekly-research",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-05T18:01:00Z"
+        },
+        {
+          "name": "us-positions",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-04T23:09:18Z"
+        },
+        {
+          "name": "daily-brief",
+          "branch": "main",
+          "conclusion": "success",
+          "started": "2026-09-03T22:42:19Z"
+        },
+        {
+          "name": "pipeline-health",
+          "branch": "main",
+          "conclusion": "failure",
+          "started": "2026-09-04T23:48:27Z"
+        },
+        {
+          "name": "pipeline-health",
+          "branch": "main",
+          "conclusion": "failure",
+          "started": "2026-09-03T23:51:02Z"
+        },
+        {
+          "name": "pipeline-health",
+          "branch": "main",
+          "conclusion": "failure",
+          "started": "2026-09-02T23:54:33Z"
+        }
       ]
     }
   },
   "production": {
     "release_identity": {
       "status": "observed",
-      "value": {"main_head": "56596fc5d0b4139dec523bb2e3cf49b685198a82", "note": "scheduled jobs execute from main via GitHub Actions"}
+      "value": {
+        "main_head": "e058be3937c31f41f67d2d28f0ff1ea243db1476",
+        "note": "scheduled jobs execute from main via GitHub Actions; #208 made every scheduled checkout ref explicit"
+      }
     },
     "scheduler_owners": {
       "status": "observed",
-      "value": {"owner": "github-actions", "authority": "docs/product/scheduler-inventory-2026-08-13.md", "note": "Render deleted 2026-08-12 (governor ruling)"}
+      "value": {
+        "owner": "github-actions",
+        "authority": "docs/product/scheduler-inventory-2026-08-13.md",
+        "note": "Render deleted 2026-08-12 (governor ruling); three standing lanes are workflow_dispatch-only pending A-22"
+      }
     }
   },
   "data": {
     "migrations": {
       "status": "observed",
-      "value": {"applied_count": 96, "latest_version": "20260812092925", "required_migrations": 96}
+      "value": {
+        "applied_count": 104,
+        "latest_version": "20260903025557",
+        "latest_name": "outcome_materialisation",
+        "on_disk_through": "0052",
+        "unapplied_by_design": [
+          "0042 (reserved)",
+          "0045_segment_map"
+        ],
+        "required_migrations_note": "retired by #189 — drift is the name-set difference in asxos/schema_drift.py"
+      }
     },
     "freshness": {
       "status": "observed",
       "value": {
-        "prices_max_dt": "2026-08-18",
+        "prices_max_dt": "2026-09-03",
         "signals_max_as_of": "2026-08-05",
-        "signals_note": "frozen by design - writer deleted 2026-08-13 (PR #100)",
-        "evening_pipeline_last_green": "2026-08-18"
+        "signals_note": "frozen by design - writer deleted 2026-08-13 (PR #100); 64,189 rows",
+        "evening_pipeline_last_green": "2026-09-04",
+        "knowledge_tier_populated": "54459/54466"
       }
     },
     "coverage": {
       "status": "observed",
-      "value": {"universe_total": 2441, "universe_active": 2384, "au_equity": 1921}
+      "value": {
+        "universe_total": 2459,
+        "universe_active": 2396,
+        "au_equity": 2457,
+        "au_equity_active": 2396,
+        "au_equity_definition": "symbol LIKE '%.AU' (the 08-20 figure 1921 used an unrecorded narrower definition)"
+      }
     }
   },
   "probes": [
     {
       "name": "repository.base_sha",
       "status": "observed",
-      "source": "git fetch origin main && git log origin/main -1",
-      "observed_at": "2026-08-20T03:35:00Z",
-      "value": "56596fc5d0b4139dec523bb2e3cf49b685198a82"
+      "source": "git fetch --prune origin && git rev-parse origin/main (worktree asxos-wt-aw01 at origin/main)",
+      "observed_at": "2026-09-06T12:21:00Z",
+      "value": "e058be3937c31f41f67d2d28f0ff1ea243db1476"
+    },
+    {
+      "name": "repository.branch",
+      "status": "observed",
+      "source": "git status -sb in /Users/jpcino/Desktop/asxos-wt-aw01",
+      "observed_at": "2026-09-06T12:21:00Z",
+      "value": "claude/arbi-wake-close-2026-09-06"
+    },
+    {
+      "name": "repository.dirty_state",
+      "status": "observed",
+      "source": "git status --porcelain (empty at probe time)",
+      "observed_at": "2026-09-06T12:21:00Z",
+      "value": "clean"
     },
     {
       "name": "github.open_prs",
       "status": "observed",
-      "source": "github-mcp list_pull_requests state=open",
-      "observed_at": "2026-08-20T03:40:00Z",
-      "value": {"count": 9, "all_mergeable_state": "clean", "all_draft": true}
+      "source": "gh pr list --state open --json number,title,isDraft,headRefName,mergeable",
+      "observed_at": "2026-09-06T12:21:00Z",
+      "value": {
+        "count": 1,
+        "all_draft": true,
+        "all_mergeable_state": "MERGEABLE"
+      }
+    },
+    {
+      "name": "github.recent_merges",
+      "status": "observed",
+      "source": "git log origin/main 55f2619..origin/main (23 merged PRs since the 2026-09-03 close)",
+      "observed_at": "2026-09-06T12:21:00Z",
+      "value": {
+        "count": 23,
+        "oldest": "#178",
+        "newest": "#209"
+      }
     },
     {
       "name": "github.workflow_runs",
       "status": "observed",
-      "source": "github-mcp actions_list list_workflow_runs",
-      "observed_at": "2026-08-20T04:35:00Z",
-      "value": {"latest_full_check": "success", "latest_targeted_ml": "success"}
+      "source": "gh run list --limit 25; gh run list --workflow=<w>.yml --event schedule --limit 1 per scheduled workflow; gh run list --workflow=pipeline-health.yml --limit 7 (re-probed 19:15 UTC after the red-team measured the reds)",
+      "observed_at": "2026-09-06T19:15:00Z",
+      "value": {
+        "latest_full_check": "success",
+        "latest_targeted_ml": "success",
+        "scheduled_red": [
+          "issue-snapshot 34030294978 (09-06)",
+          "pipeline-health 33697194052 / 33819350618 / 33930847230 (09-02/03/04 UTC — the sync_prices false NO_EQUITY_DATA; latest-run-only views hide these)"
+        ]
+      }
+    },
+    {
+      "name": "production.release_identity",
+      "status": "observed",
+      "source": "git rev-parse origin/main; .github/workflows/*.yml checkout refs (#208)",
+      "observed_at": "2026-09-06T12:21:00Z",
+      "value": {
+        "main_head": "e058be3937c31f41f67d2d28f0ff1ea243db1476"
+      }
+    },
+    {
+      "name": "production.scheduler_owners",
+      "status": "observed",
+      "source": "gh workflow list --all (18 workflows; backlog-roll/nightly-triage/weekly-toolwatch dispatch-only, 0 runs)",
+      "observed_at": "2026-09-06T12:21:00Z",
+      "value": {
+        "owner": "github-actions"
+      }
     },
     {
       "name": "data.migrations",
       "status": "observed",
-      "source": "supabase-mcp execute_sql (SELECT-only): supabase_migrations.schema_migrations",
-      "observed_at": "2026-08-20T03:45:00Z",
-      "value": {"applied_count": 96, "latest_version": "20260812092925"}
+      "source": "supabase-ro list_migrations; execute_sql (SELECT-only): count(*) FROM supabase_migrations.schema_migrations",
+      "observed_at": "2026-09-06T12:28:00Z",
+      "value": {
+        "applied_count": 104,
+        "latest_version": "20260903025557"
+      }
     },
     {
       "name": "data.freshness",
       "status": "observed",
-      "source": "supabase-mcp execute_sql (SELECT-only): MAX(prices.dt), MAX(signals.as_of), job_runs last 3d",
-      "observed_at": "2026-08-20T03:45:00Z",
-      "value": {"prices_max_dt": "2026-08-18", "signals_max_as_of": "2026-08-05", "job_runs_last_3d": "all green except check_cron_health 08-17 failure, recovered 08-18"},
-      "freshness": "job_runs window 2026-08-17..2026-08-18"
+      "source": "supabase-ro execute_sql (SELECT-only): MAX(prices.dt), MAX(signals.as_of), job_runs 14d, rs_fundamentals_pit.knowledge_tier",
+      "observed_at": "2026-09-06T12:28:00Z",
+      "value": {
+        "prices_max_dt": "2026-09-03",
+        "signals_max_as_of": "2026-08-05",
+        "job_runs_last_14d": "all daily jobs success-only except check_cron_health 5/12 failed (08-28, 08-31, 09-03, 09-04, 09-05 — the last three a sync_prices false NO_EQUITY_DATA after #171)"
+      },
+      "freshness": "job_runs window 2026-08-24..2026-09-06"
     },
     {
       "name": "data.coverage",
       "status": "observed",
-      "source": "supabase-mcp execute_sql (SELECT-only): universe counts",
-      "observed_at": "2026-08-18T22:00:00Z",
-      "value": {"universe_total": 2441, "universe_active": 2384, "au_equity": 1921},
-      "freshness": "probed 2026-08-18 during the sandbox walkthrough, not re-probed at the 2026-08-20 wake"
+      "source": "supabase-ro execute_sql (SELECT-only): universe counts by is_active and symbol suffix",
+      "observed_at": "2026-09-06T12:28:00Z",
+      "value": {
+        "universe_total": 2459,
+        "universe_active": 2396,
+        "au_equity": 2457,
+        "au_equity_active": 2396
+      }
     }
   ]
 }

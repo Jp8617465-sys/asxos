@@ -2,7 +2,8 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-09-03 (`/arbi-close`, Amendment H campaign Waves 2→7 — `main` **unchanged @ `55f2619`**: fourteen draft PRs open (#185–#198), **none merged**. Four migrations applied under James's I5 grant: 0049 `20260902201241`, 0050 `20260902203202`, 0051 `20260902204920`, 0052 `20260903025557`; **0045 still deliberately unapplied**. **`backup.yml` still red — still THE ONE THING**, and nothing this session could touch it: every remaining step is a James click (H-03 inspect the archive, H-05 secret, H-06 workflow patch, H-07 dispatch). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
+**Last verified:** 2026-09-06 (`/arbi` wake opening the attended window AW-01 — `main` @ `e058be3` (#209): the entire Amendment H stack **merged on 2026-09-05** (#185–#201, plus #178, #203, #206–#209 — 23 PRs), so the 09-03 block's "fourteen draft PRs open, none merged" is history. `backup.yml` **green** 09-05 (run 33976969363, first since 08-22) but the restore drill has never been dispatched and `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` is absent, so C-1 stays open. **Two live-ops reds:** `issue-snapshot` rejected by the `main` ruleset since 09-06 (A-24, James) and `check_cron_health` red 09-03/04/05 on a `sync_prices` **false** NO_EQUITY_DATA after #171 (fix drafted, PR-D). 0049–0052 applied; **0045 still deliberately unapplied.** `knowledge_tier` populated (C-2). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. Session was out-of-fence with emulated agents (R17-class, James's call). See Last wake snapshot.)
+**Prior verification:** 2026-09-03 (`/arbi-close`, Amendment H campaign Waves 2→7 — `main` **unchanged @ `55f2619`**: fourteen draft PRs open (#185–#198), **none merged**. Four migrations applied under James's I5 grant: 0049 `20260902201241`, 0050 `20260902203202`, 0051 `20260902204920`, 0052 `20260903025557`; **0045 still deliberately unapplied**. **`backup.yml` still red — still THE ONE THING**, and nothing this session could touch it: every remaining step is a James click (H-03 inspect the archive, H-05 secret, H-06 workflow patch, H-07 dispatch). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
 **Prior verification:** 2026-09-02 (`/arbi` wake — `main` @ `55f2619` after #184. 0048 applied as `20260901062502`. `backup.yml` red 12 consecutive scheduled runs since 2026-08-23 — THE ONE THING.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
 **reversed** this file's standing "Model A has NOT been deleted" correction. Dated point-in-time
@@ -1054,6 +1055,9 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## In flight
 
+> _2026-09-06 wake: every campaign entry below **merged on 2026-09-05** (#185–#201). Live in-flight
+> is PR #202 (dream candidate) plus the AW-01 window's draft PRs — see the Last wake snapshot._
+
 > ⚠️ **2026-09-03 `/arbi-close` — read this first. The Amendment H campaign ran Waves 2→7.**
 > **`main` is UNCHANGED @ `55f2619`.** Everything below is on branches: **fourteen draft PRs,
 > #185–#198, none merged.** One stack — #185 → #186 → #189 → #190 (docs), and
@@ -1319,7 +1323,46 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
-> **Live as of the 2026-09-03 `/arbi-close`.** The Stages 0→6 table at the top of this file
+> **Live as of the 2026-09-06 `/arbi` wake (attended window AW-01).** The Stages 0→6 table at the top
+> of this file remains the only ranked queue. The 09-03 block's **#2 (merge the stack) is discharged** —
+> James un-drafted and merged everything on 09-05 — and its #1 is narrower than "red" now.
+>
+> **#1 — keep the monitoring lane truthful (unblock before build).** (a) `sync_prices` classifies the
+> empty pre-open "today" since #171 made `clock.today()` Sydney; `check_cron_health` has been red
+> 09-03/04/05 on complete data (2,299 / 2,288 AU rows landed). Fix drafted this window —
+> `claude/aw01-sync-prices-completeness` — arbi's, one merge click. (b) **A-24** `issue-snapshot.yml`
+> pushes to `main` and the ruleset now refuses it (GH013, run 34030294978); `.github/**` is yours —
+> patch + options in `docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md`.
+>
+> **#2 — turn backup "green" into "observed".** The Sunday cron fired 09-06: run 34045223384 (16:22 UTC,
+> dump) and run 34048829799 (17:30 UTC, dump + **`restore_drill` success**) — the drill half of C-1 is
+> observed without a click. **B-3** add `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE`, then **C-1** paste the run ids
+> (**H-03** archive inspection first if the 08-16 evidence digest is still unresolved). Yours.
+>
+> **#3 — convert the two authoring blockers into rulings-on-drafts** (this window builds the drafts):
+> **D-9a → D-9** tax-alpha §5.5 lot selection + the `lots.py` partial-draw defect
+> (`claude/aw01-tax-lot-selection`); **C-13a → C-13** the P5-01 capital/risk calibration
+> (`claude/aw01-p5-01-risk-calibration`) — until ruled, every Stage 4 packet closes at abstain by
+> **policy** (`portfolio-policy.md:35-37`), not by a code path. **Both parked at T+7h in AW-01 —
+> the next window's first two nodes; specs in `docs/session-handoff-2026-09-06.md`.**
+>
+> **#4 — H-33a / C-5: approve a second governed theme member.** Governance, not code; the only
+> member of the only governed theme is the Stage 4 *negative* control. No amount of building fixes it.
+>
+> **#5 — the rulings, ~15 minutes:** D-1/D-2 dark surfaces (expired 08-31, drafts merged in #190),
+> D-3 CBA thesis #1, D-8 `price_detached` thresholds, D-10 retention/erasure, D-13 ratify H, C-15
+> Stage 1 wording, B-15 D10-vs-this-file.
+>
+> **#6 — the live CLI runs** C-3 / C-4 / C-6 / C-7 / C-8 from a pooler-reachable machine — each fills
+> a `renders:` that is honestly empty today (every 0049–0052 table but `decision_packets` holds 0
+> rows); and **D-14** — read tonight's `daily-brief` (20:30 UTC), the first scheduled send after #178.
+>
+> Carried unchanged: A-20/A-21/A-22/A-23 (arm the lanes; **no `schedule:` trigger while A-22 is
+> open**), B-7/B-8 (agent DB role + `REVOKE SELECT ON signals`), B-9 (0045 — still deliberately
+> unapplied), B-10/B-11 (Amendment G), B-12 (hooks deny), E-17 (doc-expiry sweep, attended).
+> **Do not** flip a Stage cell because a work order landed. **Do not** treat W1-2 as #1.
+>
+> **Superseded — 2026-09-03 `/arbi-close` (the live block is above).** The Stages 0→6 table at the top of this file
 > remains the only ranked queue. **Almost every entry below is now a James click, because the
 > campaign built everything that could be built without one.**
 >
@@ -1698,6 +1741,62 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_Recorded by the 2026-09-06 `/arbi` wake (interactive, James-invoked: "I authorise you to execute
+this" — attended window AW-01, Recipe R2). Supersedes the 2026-09-03 close snapshot below._
+
+```
+Wake: 2026-09-06 12:21 UTC (window AW-01; session out-of-fence — CLAUDE_PROJECT_DIR unset,
+  measured — repo hooks not loaded, agents/commands emulated; James chose this over a relaunch)
+- main @ e058be3 (#209). Worktree claude/arbi-wake-close-2026-09-06 == origin/main; clean at probe.
+- Merged since the 09-03 close (55f2619): 23 PRs on 09-05/06 — #178, #185–#201, #203, #206–#209.
+  The whole Amendment H stack landed in order; Amendments I/J/K/L recorded (#200, #185).
+- Open PRs: #202 only (dream candidate 2026-09-06, draft, CI green, MERGEABLE, ladder 7).
+  Issues: #204 (ACP programme), #205 (ACP Phase 0 — 2/10 boxes ticked, the rest James-owned).
+- tests: 4382 passed / 1 skipped (fresh pip venv, no [ml]; ruff + mypy clean). 09-03: 4219
+  (+163). Skip = MIGRATION_TEST_DATABASE_URL opt-in, unchanged.
+- migrations: 52 on disk (0001..0052, 0042 absent). schema_migrations 104 rows, latest
+  20260903025557 outcome_materialisation; 0049–0052 verified live. 0045 STILL UNAPPLIED,
+  deliberately (B-9). migration-drift green 09-06 09:56 UTC. CLAUDE.md:40-56 corrected (said 0048).
+- freshness: prices max dt 09-03 (783,234; 09-01/02/03 = 2,319 / 2,299 / 2,288 AU rows);
+  market_context 09-04 (47); portfolio_daily_snapshots 09-03 (66); fundamentals 09-06
+  (143,715); signals frozen 64,189 / as_of 08-05 (rule #11); signal_outcomes 60,072; universe
+  2,459 / 2,396 active. rs_fundamentals_pit.knowledge_tier 54,459 / 54,466 — C-2 observed.
+- new tables: decision_packets 1 (dpk-cba-1-2026-09-01); thesis_outcomes / delivery_receipts /
+  decision_dispositions / research_runs / theme_versions / candidate_snapshots / price_revisions 0.
+- job_runs (14d): every daily job success-only except check_cron_health 5/12 failed — 08-28
+  (mid-session ASX=0), 08-31 (weekend MISSING, fixed by #187), 09-03/04/05 "DEGRADED:
+  sync_prices NO_EQUITY_DATA — ASX=0" = a FALSE POSITIVE: #171 made clock.today() Sydney, so
+  the 06:30 AEST run's window ends on the not-yet-closed day and jobs/sync_prices.py:353
+  classified it. Fix drafted: claude/aw01-sync-prices-completeness (select_sync_target).
+  Weekly chain 09-06 all success (universe, security_master, corporate_actions,
+  financial_statements, fundamentals, derive_fundamentals_pit).
+- readiness: theses 1 active / 1 watching (CBA #1 — D-3); holdings 1; revisit overdue 2;
+  conviction_level NULL 2 (R11 / E-12); themes 1 / members 1 (CBA.AU — negative control, C-5);
+  approved macro theses 3.
+- Actions: full-check / targeted-ml-tests / migration-integration / PR Review Agent green on
+  every push since 09-05. backup.yml GREEN 09-05 16:09 UTC (run 33976969363, first since 08-22)
+  — plus 09-06 runs 34045223384 (dump) and 34048829799 (dump + restore_drill SUCCESS, the first
+  drill since #186); deadman secret absent → C-1 open on the secret only.
+  daily-brief green through 09-03 (cron Sun–Thu 20:30 UTC; tonight = first after #178, D-14).
+  weekly-research green 08-22 / 08-29 / 09-05 (C-11 observed). nightly-check green 09-03/04/05.
+  pipeline-health RED 09-02/03/04 UTC (the cron-health false positive; a latest-run-only view
+  hides it), green 09-05 (Sunday AEST).
+- NEW RED: issue-snapshot 34030294978 (09-06 11:27 UTC) — direct push to main rejected by the
+  ruleset (GH013 PR-required). Green 09-01→09-05. Patch for James in
+  docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md; backlog A-24.
+- lanes: backlog-roll / nightly-triage / weekly-toolwatch dispatch-only, 0 runs (correct while
+  A-22 is open). Picker over backlog.yaml after this wake's re-seed: eligible 0, picked [].
+- Dark surfaces #1/#4 EXPIRED 08-31, still unruled (D-1/D-2); #3 expires 09-30 (D-15).
+  Rule #11 stands; signals never read as evidence this wake.
+- Doc truth this wake: backlog.yaml A-0 / A-2…A-17 / B-13a / B-14a / C-2 / C-11 → done, A-24 /
+  E-17 / E-18 added; product-health-scorecard.md regenerated (E-16); latest-snapshot.json
+  refreshed (check_project_state green). check_doc_expiry: 25 expired (E-17, attended).
+- Probe gaps: Healthchecks.io not read; $BACKUP_REPO not inspectable; no live CLI run (James's
+  C-3…C-8). Window plan: docs/proposals/arbi-window-aw01-2026-09-06.md.
+```
+
+_Prior snapshot (2026-09-03 close) retained below for diffing._
 
 _Recorded by the 2026-09-03 `/arbi-close` (Amendment H campaign, Waves 2→7). **No `/arbi` wake
 this session** — it is the continuation of the 2026-09-02 wake, whose snapshot is retained below
