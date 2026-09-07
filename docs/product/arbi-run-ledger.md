@@ -194,6 +194,7 @@ found more than it built, and the finding about *why* is the one worth acting on
 | close-2026-09-06 | 2026-09-06 | manual (James: "I authorise you to execute this" — attended window AW-01, Recipe R2; session out-of-fence at his choice, R17-class; `arbi` / `arbi-red-team` emulated, `guilfoyle` not run — account session limit) | `/arbi` wake + `/arbi-mission` (emulated) + `/arbi-close` — 15-node graph planned, 9 nodes executed (N0–N8 wake/reconciliation + the sync_prices fix), 6 parked (N9–N15: PR-B tax §5.5, PR-C P5-01) | I2 docs + I3/I4 branch build → draft **PR #212** (THE ONE THING after re-rank: sync_prices completeness target) and draft **PR #213** (wake/close record); patch-for-James for `.github/**`; no merge, no ready, no secret, no migration, no workflow edit, no capital, `signals` never read | **9/9 pass** | **3.9 provisional** (self-score; grader ≠ producer) | partial · defect: pipeline-health scheduled run https://github.com/Jp8617465-sys/asxos/actions/runs/33930847230 (2026-09-04T23:48Z, `DEGRADED: sync_prices … NO_EQUITY_DATA — ASX=0` on complete data; fix = draft #212; recurs every weekday until merged) · see the breakdown below the table |
 | close-2026-09-07 | 2026-09-07 | manual (governor-named work; no `/arbi` wake) | build + session-close | I2–I4 (reversible; draft-PR-only; staged patch for the permission surface) | passed | 3.8 | done — #209 (secretless offline test boundary) and #211 (three measured fence gaps staged + PR-head exposure inventory) both **merged by James**. A scoped `.github/**` unfence was proposed and **withdrawn** on James's review (hooks are feedback, not enforcement; the verifier belongs in `asxos-control`). Fence diffs then **applied on James's instruction** as #221 — stricter-only, in a worktree, draft PR; the D7 deviation recorded in the proposal README rather than left implicit. |
 | close-2026-09-07-w1 | 2026-09-07 | manual (James: "execute with autonomy" — sprint r1 window W1; out-of-fence by that instruction, R17-class; `tax-spec-conformance` emulated) | `/arbi-mission` (emulated) — sprint r1 slices S1, R4, S2 executed from the admitted plan (#216); no wake (the 09-06 wake stands) | I3/I4 branch build → draft **PR #218** (S1 tax §5.5 + lots.py), **#219** (R4 monitoring truth), **#220** (S2 P5-01 draft), plus the W1 record on **#216**; no merge, no ready, no secret, no migration, no workflow edit, no capital; `signals` never read | **9/9 pass** | **4.3 provisional** (self-score; grader ≠ producer) | done · defect: check_cron_health false NO_EQUITY_DATA closed in #212 (merged `dc2f487`); S1 closes audit-2026-06-27.md:104 LOW #1, verified by tests that fail on main · see the breakdown below |
+| close-2026-09-07-w2 | 2026-09-07 | manual (James: "make the plan and execute" — sprint r1 window W2; out-of-fence **by explicit ruling this window**, not by inference) | `/arbi-mission` (emulated) — sprint r1 slices S3a, M1, M2 + M3 in this record; two Explore scoping agents; one review comment on another session's PR | I2/I3/I4 branch build → draft **PR #222** (S3a G12 design), **#223** (M1 dependency audit), **#224** (M2 doc sweep), W2 record on **#216**; review comment on **#221**; no merge, no ready, no secret, no migration, no workflow edit, no capital; `signals` never read | **9/9 pass** | **4.4 provisional** (self-score; grader ≠ producer) | done · defect: two backlog rows (A-25/A-26) sat `built-unmerged` on merged PRs #212/#213, which `tests/test_backlog_next.py:219` proves **gates dependents** in the ranker — the queue was suppressing work behind closed items; corrected here · see the breakdown below |
 
 ### `close-2026-09-03` — episode score breakdown
 
@@ -331,3 +332,37 @@ episode_score = 4.30 → recorded 4.3
 `autonomy_efficiency` (watch metric, unweighted): **4** — the window added three merge clicks and
 converted two long-deferred authoring items (F4, D-9) into one-sitting rulings; the click-list grew
 by four rows and shrank by none, but two of the four are the rulings the sprint exists to obtain.
+
+### close-2026-09-07-w2 — score breakdown (self, provisional)
+
+Layer 1 — 9/9 pass: no DB write, migration, merge or deploy; no secret exposure; nothing branch-only
+presented as `main` truth; no capital action; no Model A read; no constitution self-modification —
+notably the window **declined** to patch `.claude/hooks/**` on another session's branch and reviewed
+it by comment instead, per the standing instruction; no action above I4 (out-of-fence was ruled
+explicitly this window); no memory over live state; every repo-state claim labelled measured or
+inferred.
+
+Layer 2: task_completion **5** (all three ruled slices built and drafted, plus the review) ·
+state_accuracy **5** (three plan assumptions corrected against measurement: "no franking source" was
+wrong, C-5 was not actually a gate on S3a, and the W2 preconditions did not bind) ·
+evidence_grounding **5** (suppression baseline, franking coverage, the 36-hour window and the
+guard probes all re-measured rather than carried) · risk_reduction **4** (a queue-suppressing
+backlog defect fixed; four uncovered guard spellings surfaced; the tonight-still-red prediction
+recorded before it happens) · blocker_reduction **4** (three more "James authors" items converted to
+"James rules on a draft"; E-17 taken as far as the fence allows) · diff_quality **4** ·
+cost_efficiency **4** (two scoping agents, one consult reused from W1, no wasted spawns) ·
+learning_value **5** (the deny-listed-index limit on the doc lane, and the allowlist-is-doing-the-
+rule's-job finding, both generalise) · reversibility **5**.
+
+```
+0.20(5) + 0.15(5) + 0.15(5) + 0.15(4) + 0.10(4) + 0.10(4) + 0.05(4) + 0.05(5) + 0.05(5) = 4.55
+penalties: unnecessary_diff −0.15 — the allowlist grew 4 → 23 in one commit. Each entry is
+           evidenced and the alternative (leaving the check red on load-bearing docs) is worse,
+           but a 19-entry growth to make a check pass is the shape that deserves a penalty even
+           when it is the sanctioned mechanism, and the retuning question it raises is left open.
+episode_score = 4.40 → recorded 4.4
+```
+
+`autonomy_efficiency` (watch metric, unweighted): **4** — three merge clicks added, but two of them
+carry rulings the sprint exists to obtain (S3a's three decisions, M1's three follow-ups), and the
+window closed one observation gate (D-14) and one queue defect without a click.

@@ -255,14 +255,22 @@ items:
     source: "roadmap-state.md Amendment A mechanical obligations 1-6; force-push is denied unattended — no stacked child remained open after the 2026-09-05 merge train; nothing to rebase (reconciled 2026-09-06)"
 
   - id: A-19
-    title: "Un-xfail test_backup_workflow_arms_the_deadman and update the restore-drill count test"
+    title: "Write the deadman-arming assertion (HEALTHCHECK_URL_BACKUP_IRREPLACEABLE in backup.yml env:) and update the restore-drill count test 14 -> 19 tables"
     phase: A
     owner: arbi
     status: open
     depends_on: [B-2]
     route: build
     paths: ["tests/test_backup_script.py"]
-    source: "click H-06"
+    source: >-
+      click H-06. CORRECTED 2026-09-07 (M3): the row said "un-xfail
+      test_backup_workflow_arms_the_deadman" — that test does not exist anywhere in
+      tests/ [measured], and tests/test_backup_script.py contains zero xfail/skip
+      markers, so there was nothing to un-xfail. The nearest real assertions are
+      test_verification_failure_tells_the_deadman_it_failed (:237-245, an ordering
+      assertion about the script's failure ping) and
+      test_backup_workflow_declares_expected_env_vars (:96), which is where the
+      arming assertion belongs. The false phrasing came from james-inbox.md:86.
 
   - id: A-20
     title: "Add secret HC_BACKLOG_URL (Healthchecks, period 1 day) — the backlog-roll lane FAILS without it, by design"
@@ -321,10 +329,10 @@ items:
       the file on main is still `[]`). Reconciled 2026-09-06.
 
   - id: A-25
-    title: "Merge #212 — sync_prices classifies the freshest CLOSED session; ends the check_cron_health false NO_EQUITY_DATA red (09-03/04/05)"
+    title: "#212 MERGED dc2f487 — sync_prices classifies the freshest CLOSED session; ends the check_cron_health false NO_EQUITY_DATA red (09-03/04/05)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: []
     route: attended
     paths: ["jobs/sync_prices.py", "asxos/domain/prices/coverage.py", "asxos/domain/prices/__init__.py", "tests/test_price_coverage.py"]
@@ -333,17 +341,17 @@ items:
       #171 made clock.today() Sydney, so the 06:30 AEST run's window ends on the not-yet-closed
       day and jobs/sync_prices.py:353 classified it. pipeline-health scheduled runs FAILED
       09-02T23:54Z / 09-03T23:51Z / 09-04T23:48Z; prices held 2,299 / 2,288 AU rows for the
-      days flagged. 4,387 passed / 1 skipped on the branch. Recurs every weekday until merged.
+      days flagged. 4,387 passed / 1 skipped on the branch. MERGED 2026-09-06T23:59:17Z as dc2f487. NOTE: the lane stays red one more night — the last false DEGRADED row was written 22:12:47Z, 107 minutes before the merge, and check_cron_health reads a 36-hour window (jobs/check_cron_health.py:156), so the first run that can be green is 2026-09-08 ~23:37Z.
 
   - id: A-26
-    title: "Merge #213 — AW-01 wake + close run record (roadmap-state, backlog.yaml, scorecard, snapshot, inbox, CLAUDE.md paragraph, envelope, patch-for-James)"
+    title: "#213 MERGED 87e5d12 — AW-01 wake + close run record (roadmap-state, backlog.yaml, scorecard, snapshot, inbox, CLAUDE.md paragraph, envelope, patch-for-James)"
     phase: A
     owner: arbi
-    status: built-unmerged
+    status: done
     depends_on: []
     route: attended
     paths: ["docs/product/roadmap-state.md", "docs/product/backlog.yaml", "docs/product/product-health-scorecard.md", "docs/product/state/latest-snapshot.json", "docs/product/james-inbox.md", "docs/product/decision-log.md", "docs/product/arbi-run-ledger.md", "docs/proposals/", "docs/session-handoff-2026-09-06.md", "tests/test_backlog_next.py"]
-    source: "AW-01 run record, 2026-09-06. CLAUDE.md:40-56 rides in it (CODEOWNERS-flagged, not deny-listed) — split it out if you want the paragraph merged separately."
+    source: "MERGED 2026-09-07T00:02:09Z as 87e5d12. AW-01 run record, 2026-09-06. CLAUDE.md:40-56 rides in it (CODEOWNERS-flagged, not deny-listed) — split it out if you want the paragraph merged separately."
 
   - id: A-27
     title: "Merge #218 — tax-alpha §5.5 lot selection (v1.6) + the lots.py partial-bearer fix; the merge IS the D-9 ratification"
@@ -392,6 +400,55 @@ items:
     route: attended
     paths: ["docs/proposals/production-sprint-r1-2026-09-07.md"]
     source: "Sprint r1 identity per James's 2026-09-07 ruling: the plan file + this backlog are the work identity until B-15 rules D10 in force."
+
+  - id: A-31
+    title: "Merge #222 — G12 tax-feed design spike; then rule its three decisions (what a pass asserts, the franking rule, tax_settings)"
+    phase: A
+    owner: james
+    status: built-unmerged
+    depends_on: []
+    route: james
+    paths: ["docs/proposals/g12-tax-feed-design-2026-09-07.md"]
+    source: >-
+      Sprint r1 slice S3a (F-E2E/S3a), 2026-09-07 — the design half of C-14. Found
+      three gates between a pass and an action state (types.py:514, types.py:506-507
+      seeded by builder.py:494, gates.py:281-289), that pass+watch is legal so r1
+      needs no action state, that tax_settings has had every needed column and zero
+      readers since migration 0004, and a spec-vs-schema collision on missing
+      franking (tax-alpha.md:49 "treat as 0" vs migrations/0027:57 "NULL is NOT 0").
+
+  - id: A-32
+    title: "Merge #223 — dependency audit of #214/#215 (MERGE WITH NAMED FOLLOW-UPS); then merge #214 and #215 themselves"
+    phase: A
+    owner: james
+    status: built-unmerged
+    depends_on: []
+    route: james
+    paths: ["docs/proposals/dependency-audit-2026-09-07.md"]
+    source: >-
+      Sprint r1 slice M1 (F-E2E/M1), 2026-09-07. #214 is four .github/** lines
+      (yours by path); #215 is pyproject.toml alone, including resend 2.39.0 ->
+      2.42.0 on the live send path, which no test exercises. Three named follow-ups:
+      watch the first scheduled daily-brief after merge; fix the click comment
+      (carry-forward defect from the #178 audit, never executed); split
+      dependabot.yml's pip group. Also records that D-7 (pip-audit ADOPT) is ruled
+      but unexecuted.
+
+  - id: A-33
+    title: "Merge #224 — E-17 doc-expiry sweep (25 expired -> 4); then apply the patch for the remaining four"
+    phase: A
+    owner: james
+    status: built-unmerged
+    depends_on: []
+    route: james
+    paths: ["scripts/check_doc_expiry.sh", "docs/archive/proposals/", "docs/next-session-backlog.md", "docs/proposals/claude-config-patches-2026-09-07/"]
+    source: >-
+      Sprint r1 slice M2 (F-E2E/M2), 2026-09-07 — closes E-17 to the limit an agent
+      can reach. Only 6 of the 25 flagged docs are event records; 19 are load-bearing
+      (7 cited as current, 12 pinned by code/migrations/tests) and are allowlisted
+      with their citations. 2 archived; the other 4 are indexed by docs/README.md,
+      which is deny-listed, so their moves plus three repoints are staged as a patch.
+      Raises that needing 19 allowlist entries means the check's rule is mis-tuned.
 
   # ---------------------------------------------------------------------------
   # Phase B — James-only infrastructure
@@ -672,7 +729,7 @@ items:
     source: "james-inbox.md:57; dark-launch-exit-plan.md:203-205"
 
   - id: C-11
-    title: "Two consecutive green SCHEDULED Saturdays for the weekly-research chain (B1; currently 1-for-1)"
+    title: "Two consecutive green SCHEDULED Saturdays for the weekly-research chain (B1)"
     phase: C
     owner: time
     status: done
@@ -869,11 +926,11 @@ items:
     title: "Watch the first scheduled daily-brief after #178 — resend 2.4.0 → 2.39.0 on the live send path, every test mocks it"
     phase: D
     owner: both
-    status: open
+    status: done
     depends_on: [A-1]
     route: observe
     paths: []
-    source: "click H-12; PR #178 merge message"
+    source: "OBSERVED DONE 2026-09-07: the first scheduled daily-brief after #178 ran 2026-09-06 22:11:55Z SUCCESS (run 34063310527); compose_brief wrote 7 rows, materialise_brief_sections 9. The live send path works on resend 2.39.0. Was: click H-12; PR #178 merge message"
 
   - id: D-15
     title: "Rule dark surface #3 (V2 brief tree) — KEEP-DARK expires 2026-09-30 and auto-re-raises"

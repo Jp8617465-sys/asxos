@@ -1,6 +1,6 @@
 # Production sprint — feature F-E2E, contract revision r1 (2026-09-07)
 
-**Status:** **admitted by James 2026-09-07**; **W1 executed 2026-09-07 — see §4a** (cadence and identity rulings in §3/§4) — **not authority, not a second queue.** Every slice
+**Status:** **admitted by James 2026-09-07**; **W1 and W2 executed 2026-09-07 — see §4a, §4b** (cadence and identity rulings in §3/§4) — **not authority, not a second queue.** Every slice
 below maps to a `roadmap-state.md` Stage and a `backlog.yaml` id; `roadmap-state.md` wins on
 disagreement. **Prompted by:** James, 2026-09-07 — "plan the next sprint of production" in the
 frame we discussed: *version control and building out features within those versions to build
@@ -93,7 +93,7 @@ the Stage 4 policy gate — both land in the first window.
 |---|---|---|---|---|
 | **R1** | apply the fence-integrity patch set staged in #211 (`fence-integrity-all.patch` + `tests-staged/test_fence_integrity.py`) — `rm` / `./` / `jq`-absent / unattended `.github` gaps all measured **ALLOW → deny** | **James** (D7: an agent must not edit its own permission surface) | `tests/test_fence_integrity.py` 25 passed on `main` | new row owed |
 | **R2** | `issue-snapshot.yml` archive route (recommend B — unprotected `ops/issue-snapshot` branch); the file on `main` is still `[]` | **James** (`.github/**`) | the next scheduled run green and `git ls-remote origin ops/issue-snapshot` non-empty | A-24 |
-| **R3** | backup observed on both: **B-3** deadman secret, **C-1** paste run ids (drill already green 09-06, run 34048829799), **B-2** patch (drill asserts 14 tables; 0048–0052 tables outside it) | **James** | Healthchecks shows the check; A-19 un-xfails | B-2 / B-3 / C-1 → A-19 |
+| **R3** | backup observed on both: **B-3** deadman secret, **C-1** paste run ids (drill already green 09-06, run 34048829799), **B-2** patch (drill asserts 14 tables; 0048–0052 tables outside it) | **James** | Healthchecks shows the check; A-19's assertion can then be written (it does not exist yet — see §4b) | B-2 / B-3 / C-1 → A-19 |
 | **R4** | **monitoring truth**: (a) `contradictions.py` still carries a rule for the retired `REQUIRED_MIGRATIONS` constant; (b) the snapshot's `workflow_runs` keeps one row per workflow, which hid three red `pipeline-health` runs — carry last-N conclusions (or a `last_failure`) per scheduled lane; (c) `sync_prices.py:9-11` module docstring still says "through today (UTC)" | arbi · `/build`-sized, Tier A (`asxos/secondbrain/`, `jobs/`) | tests pin both; `check_project_state.py` PASS on a snapshot carrying reds | new row owed |
 | **R5** | `check_ledger_coverage.sh` is red on six **pre-existing** close rows (2026-08-20/21/22 and the three 08-22 sub-rows: no or multiple Amendment E fields). The ledger is append-only — annotate or waive is a ruling | **James** | script exit 0 | new row owed |
 
@@ -193,6 +193,57 @@ is still James's under D7; S1 merges only on **D-9**, S2's ruling is **C-13**.
 **Not built, by ceiling:** the C2/C3 code changes S2 implies (a `capital_at_risk` clamp in
 `sizer.py`, a `stop_distance` challenge rule) — they are S3-class slices *after* the ruling, named in
 S2 §5 rather than pre-built.
+
+## 4b. W2 — executed 2026-09-07 (record)
+
+**Authority:** James, "make the plan and execute" (2026-09-07), with three rulings taken before the
+build: slices **S3a + M1 + M2** (M3 rides this record); **continue out-of-fence** in the same session
+— explicitly ruled this time, so unlike W1 it carries no scope-creep penalty; and **review #221 by
+comment, don't patch**.
+
+| Slice | PR | State | Evidence |
+|---|---|---|---|
+| **S3a** — G12 tax-feed design spike | **#222** | draft | three gates found, not one; `tax_settings` orphan measured; franking coverage 82.5 % measured; spec-vs-schema collision surfaced |
+| **M1** — dependency audit #214/#215 | **#223** | draft | suppression baseline re-measured at `fd6172c`; `resend` 2.42.0 named as the one unexercised line; carry-forward `click` defect |
+| **M2** — doc-expiry sweep | **#224** | draft | 25 → 4; 2 archived, 19 allowlisted with citations, 4 blocked by a deny-listed index and staged as a patch |
+| **#221** review | — | comment posted | four uncovered spellings + the jq fail-closed confirmed stronger than claimed |
+
+**What the window found that the plan did not anticipate**
+
+1. **`docs/README.md` is deny-listed, and it is the docs index.** Four of the six genuine event
+   records in M2 are indexed by it, so their archive moves cannot be made by an agent without
+   shipping a broken index. This is a *structural* limit on the doc-sweep lane, not a one-off: any
+   future archive of an indexed doc has the same shape. Staged as a patch instead.
+2. **19 of 25 "expired" docs are load-bearing references, not stale records.** The check's rule
+   ("dated basename + >30 days") does not match this repo's convention, which uses dated basenames
+   for standing sources too. The allowlist is the sanctioned hatch and was used as designed — but
+   needing 19 entries means the hatch is doing the rule's job. **Retuning it is a governor call**,
+   raised in #224 and not taken.
+3. **Two backlog rows were actively wrong, not merely stale.** A-25 and A-26 sat at
+   `built-unmerged` while #212 and #213 are merged on `main`. That is not cosmetic:
+   `tests/test_backlog_next.py:219` pins that `built-unmerged` **gates dependents** in the ranker, so
+   the queue was suppressing work behind two closed items. Corrected in this record.
+4. **A-19 named a test that has never existed.** `test_backup_workflow_arms_the_deadman` appears
+   nowhere in `tests/` [measured], and `tests/test_backup_script.py` has zero xfail/skip markers, so
+   "un-xfail" had no referent either. The phrasing came from `james-inbox.md:86` and propagated into
+   the row and this plan's own R3 line. Rewritten to the real work.
+5. **The `sync_prices` fix does not turn the lane green tonight.** #212 merged 23:59:17Z; the last
+   false `DEGRADED` row was written **22:12:47Z, 107 minutes earlier**, and
+   `jobs/check_cron_health.py:156` reads a **36-hour** window. So tonight's ~23:37Z run still sees it
+   and stays red; the row ages out 2026-09-08 10:12Z and **the first run that can be green is
+   2026-09-08 ~23:37Z**. Recorded so tomorrow's red is not misread as a failed fix.
+
+**Also observed:** **D-14 closes** — the first scheduled `daily-brief` after #178's `resend`
+2.4.0 → 2.39.0 bump ran 2026-09-06 22:11:55Z **success** (run 34063310527; `compose_brief` 7 rows).
+The live send path works on 2.39.0, which is precisely why #223 flags 2.42.0 as unproven.
+
+**Merge-order note.** #216 and #217 (another session's close) append at the **same anchors** in
+`arbi-run-ledger.md` and `decision-log.md` (`@@ -192`, `@@ -254`, `@@ -109`). They will conflict;
+whichever merges second needs a rebase. Suggested order: **#219 → #218 (= the D-9 ratification) →
+#220 → #222 → #223 → #224 → #217 → #216**.
+
+**Carried to W3:** S3b remains blocked on S3a's three decisions; C-5 still gates the Stage 4 positive
+control; the M2 patch and the #214/#215 merges are yours.
 
 ## 5. Definition of done for the sprint
 
