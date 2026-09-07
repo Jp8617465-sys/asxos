@@ -11,10 +11,12 @@
 
 | Instrument | Role being tested | Model recommendation | Why it stops there |
 |---|---|---|---|
-| VAS | Australian-equity core / benchmark sleeve | **REVIEW — eligible for portfolio-policy assessment, zero paper size** | The fund design is clear, but portfolio overlap, whole-portfolio allocation, tax treatment, risk mandate and a licensed price series are absent. |
-| WES | Ordinary-equity satellite positive control | **REVIEW — research case worth maintaining, zero paper size** | FY26 facts support both an operating-strength case and a meaningful execution/cash/debt bear case. No governed valuation, portfolio or tax input exists. |
+| VAS | Australian-equity core / benchmark sleeve | **Constructive vehicle; REVIEW portfolio fit** | It is the clean default implementation for a deliberately chosen Australian-equity sleeve. It is not a reason to increase Australian-equity exposure or a substitute for global diversification. |
+| WES | Ordinary-equity satellite positive control | **WATCH, not immediate ADD** | The business quality is evident, but the current price appears to require sustained earnings delivery while debt, capex and lithium execution are rising. |
 
 `REVIEW` is the canonical human-memo verdict for a `watch`, `avoid`, or `abstain` state. It is not a disguised buy rating. The correct autonomous action is to keep evidence current and raise a paper case only when the missing gates are supplied.
+
+The useful investment conclusion is therefore asymmetric: **VAS is a sensible instrument if the portfolio first decides it wants more Australian-market beta; WES is a company to watch for a better risk/reward entry or a clearer growth inflection.** Neither conclusion is a personal recommendation or broker instruction.
 
 ## 1. VAS — Vanguard Australian Shares Index ETF
 
@@ -33,6 +35,14 @@
 **Constructive case.** It is a low-cost, rules-based way to obtain broad ASX exposure. The objective, benchmark, fee and underlying market are legible. Its value proposition is therefore implementation discipline—not insight into whether the Australian market will rise.
 
 **Bear case.** Buying VAS can duplicate an existing Australian equity book, especially large financials and resources. It adds market-cap-weighted Australian equity risk, not global diversification. It also retains equity drawdown risk, distribution variability, index changes, tracking difference, bid/ask spread, brokerage and tax consequences.
+
+### Investment stance and price context
+
+**Research stance: constructive on the vehicle; neutral on adding exposure today.** VAS is attractive because it is a simple, low-cost method of obtaining the intended exposure. It has no proprietary earnings catalyst or valuation edge: its return will be the Australian market return less costs, subject to tracking and implementation frictions.
+
+The delayed 7 September market close was about A$112.63, versus an official 28 August month-end NAV of A$113.1066. Those dates differ, so the comparison is **not** a premium/discount conclusion; it is a reminder that a real report needs same-time NAV and executable-price captures. [Delayed VAS market history](https://twelvedata.com/markets/186123/etf/asx/vas/historical-data) [Official NAV page](https://www.vanguard.com.au/adviser/invest/funds-and-etfs?productType=etf&tab=prices)
+
+**What would make it an ADD in a general model portfolio?** Not a lower headline price alone. The model needs evidence that the portfolio is underweight its deliberate Australian-equity sleeve, that direct shares do not already recreate the same bank/resources exposure, and that the global sleeve remains intentional. If those conditions are true, VAS is preferable to trying to choose the next individual Australian winner for the core allocation.
 
 **Falsifiers / monitor conditions.** Re-open the instrument assessment if the benchmark objective, management fee, PDS, index methodology, creation/redemption mechanics, tracking difference, liquidity or distribution-tax character changes. The PDS/document page recorded changes affecting VAS on 1 September 2026; a real pipeline must capture and diff those documents rather than assume an old product description remains true. [Vanguard PDS and offer documents](https://www.vanguard.com.au/personal/support/pds-and-offer-documents)
 
@@ -61,6 +71,16 @@
 **Constructive case.** The FY26 release evidences broad operating contributions, with Bunnings and Kmart delivering earnings growth and positive operating leverage despite cost pressure. The company also reported free cash flow growth, an increased ordinary dividend and stated continued capacity to invest. These are evidence-backed operating observations, not a forecast.
 
 **Bear case.** The same result shows higher debt, lower operating cash flow, a materially higher FY27 investment programme, Officeworks transformation pressure and refinery ramp risk. A tougher household/mortgage backdrop is relevant: the RBA held the cash rate at 4.35% on 11 August, described policy as somewhat restrictive and said inflation remained high with downside growth risks. [RBA decision](https://www.rba.gov.au/media-releases/2026/mr-26-19.html)
+
+### Investment stance and price context
+
+**Research stance: WATCH, rather than immediate ADD.** WES is a strong collection of Australian operating businesses, and the FY26 result supports that quality assessment. The issue is not whether Bunnings and Kmart are good businesses; it is whether the current share price already assumes that their resilience, operating leverage and newer growth platforms will keep delivering while the capital programme and lithium ramp absorb cash.
+
+At a delayed 7 September reference price around A$77.44–78.15, FY26 basic EPS of A$2.534 implies a trailing P/E of roughly **30.5–30.8×**. The A$2.22 fully franked ordinary dividend implies roughly **2.8–2.9% cash yield** before an investor-specific tax treatment. These are mechanical observations, not a target price. [Wesfarmers FY26 results](https://www.wesfarmers.com.au/docs/default-source/asx-announcements/2026-full-year-results-20260826214539.pdf?sfvrsn=5483afbb_0) [Delayed WES market data](https://au.marketscreener.com/quote/stock/WESFARMERS-LIMITED-6491330/consensus/)
+
+An external consensus feed, which is not yet a permitted production source, reported FY27 average EPS of A$2.72 and an average target near A$77.09. At a price around A$77.44 that is approximately **28.5×** that consensus EPS: the market is not pricing WES as a distressed or neglected business. Treat this only as a cross-check, since the rights, timestamps and contributor methodology must be made explicit before ASXOS admits consensus to a packet. [Consensus source and methodology note](https://stockanalysis.com/quote/asx/WES/forecast/)
+
+**What changes the stance to ADD?** One of two things: (1) a meaningful valuation reset without damage to the core Bunnings/Kmart earnings thesis, producing an agreed margin of safety; or (2) evidence that FY27 earnings/cash conversion and the lithium ramp are exceeding the growth/capital assumptions already embedded in the valuation. **What changes it to AVOID?** Persistent cash/debt deterioration, a material refinery delay, or retail earnings slowing while the high valuation remains.
 
 **Falsifiers / monitor conditions.** The paper thesis fails or must be revised if: (a) Bunnings/Kmart earnings quality deteriorates across two reported periods; (b) working-capital or debt growth is not explained by reversible investment and outpaces operating cash generation; (c) refinery remediation/ramp milestones slip materially; (d) capex, borrowing cost or capital allocation changes invalidate the declared cash-flow assumptions; or (e) a valuation using a pre-declared method no longer clears the required return.
 
