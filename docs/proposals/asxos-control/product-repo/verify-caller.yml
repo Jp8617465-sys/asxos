@@ -1,0 +1,36 @@
+# DESTINATION: asxos/.github/workflows/verify.yml  (this repo)
+#
+# The thin caller. It holds no logic, so a pull request that edits it cannot
+# change what verification means — that lives in asxos-control, which a product
+# PR cannot reach.
+#
+# NOT YET APPLIED. Moving this into .github/workflows/ is James's step:
+# `.github/**` is deny-fenced and stays that way (an agent authoring a workflow
+# that runs at PR head with repository secrets is the thing the fence prevents).
+name: verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # Pin the reusable workflow by SHA, not by branch: @main would let a change in
+    # asxos-control silently alter what this repo's required status means.
+    uses: Jp8617465-sys/asxos-control/.github/workflows/verify.yml@REPLACE_WITH_COMMIT_SHA
+    with:
+      product-repo: ${{ github.repository }}
+      # The PR HEAD sha, not github.sha — on a pull_request event github.sha is the
+      # merge commit, which is not what a reviewer read.
+      product-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      image-digest: sha256:REPLACE_WITH_IMAGE_DIGEST
+      run-db-tests: false
+    # NO `secrets:` block, and specifically NOT `secrets: inherit`. The verifier
+    # declares no secrets, so nothing can be passed to it; this line is the
+    # reviewable statement of that intent at the call site.

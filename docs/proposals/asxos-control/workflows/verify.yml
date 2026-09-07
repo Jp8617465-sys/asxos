@@ -1,0 +1,147 @@
+# DESTINATION: asxos-control/.github/workflows/verify.yml
+#
+# The Phase-1 repository-code verifier (ACP plan section 5.4). Reusable workflow:
+# the product repo calls it and passes an exact SHA; nothing here trusts a branch
+# name, and nothing here receives a secret.
+#
+# Why it lives in asxos-control, not in the product repo: the product checkout is
+# untrusted code. A verifier that sits in the same repo it verifies can be edited
+# by the same pull request it is verifying, at the PR head, which is not a
+# verifier. Only control code that a PR cannot reach can produce a trustworthy
+# status.
+#
+# NOT YET APPLIED. asxos-control does not exist. Authored here for James to move.
+name: verify
+
+on:
+  workflow_call:
+    inputs:
+      product-repo:
+        description: "owner/repo of the product checkout to verify"
+        required: true
+        type: string
+      product-ref:
+        description: "exact 40-hex commit SHA; a branch or tag is refused"
+        required: true
+        type: string
+      image-digest:
+        description: "sha256:<64 hex> of the prebuilt dependency image"
+        required: true
+        type: string
+      run-db-tests:
+        description: "start Postgres on loopback inside the test container"
+        required: false
+        default: false
+        type: boolean
+    # There is deliberately NO `secrets:` block. A reusable workflow that declares
+    # no secrets cannot be passed one, and `secrets: inherit` at a call site is
+    # inert against it. This is the mechanical half of "tests run secretless".
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Refuse a non-SHA ref
+        env:
+          PRODUCT_REF: ${{ inputs.product-ref }}
+          IMAGE_DIGEST: ${{ inputs.image-digest }}
+        run: |
+          set -euo pipefail
+          # A branch or tag can move between the decision to verify and the
+          # verification, so the result would attest to something other than what
+          # was reviewed. Only an immutable ref is verifiable.
+          [[ "$PRODUCT_REF" =~ ^[0-9a-f]{40}$ ]] \
+            || { echo "product-ref must be a 40-hex SHA, got: $PRODUCT_REF"; exit 1; }
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] \
+            || { echo "image-digest must be sha256:<64 hex>, got: $IMAGE_DIGEST"; exit 1; }
+
+      - name: Checkout product code at the exact SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: ${{ inputs.product-repo }}
+          ref: ${{ inputs.product-ref }}
+          path: product
+          # The job's GITHUB_TOKEN is read-only, but the product tree is untrusted
+          # code about to be executed: leaving a credential in its .git/config
+          # would hand it one.
+          persist-credentials: false
+
+      - name: Prove the sandbox has no egress
+        env:
+          IMAGE_DIGEST: ${{ inputs.image-digest }}
+        run: |
+          set -euo pipefail
+          # POSITIVE CONTROL. `--network none` is asserted everywhere below; this
+          # step is the only thing that shows it is actually in force. Without it a
+          # misconfiguration turns the whole lane into a green light that proves
+          # nothing — the failure mode is silent, which is why this runs FIRST and
+          # fails the job outright rather than warning.
+          cat > /tmp/egress-probe.sh <<'PROBE'
+          set -u
+          fail=0
+          # 1. DNS. Must not resolve.
+          if getent hosts github.com >/dev/null 2>&1; then
+            echo "EGRESS LEAK: DNS resolved github.com"; fail=1
+          else
+            echo "ok: DNS resolution refused"
+          fi
+          # 2. Raw TCP to a routable literal, so no DNS is involved and a stubbed
+          #    resolver cannot produce a false pass.
+          if timeout 5 bash -c 'exec 3<>/dev/tcp/1.1.1.1/443' 2>/dev/null; then
+            echo "EGRESS LEAK: TCP connect to 1.1.1.1:443 succeeded"; fail=1
+          else
+            echo "ok: TCP connect refused"
+          fi
+          exit "$fail"
+          PROBE
+          docker run --rm --network none \
+            --user 65534:65534 \
+            --read-only --tmpfs /tmp \
+            --cap-drop ALL --security-opt no-new-privileges \
+            -v /tmp/egress-probe.sh:/probe.sh:ro \
+            "$IMAGE_DIGEST" bash /probe.sh \
+            || { echo "::error::sandbox is not network-isolated; no test result from this run is trustworthy"; exit 1; }
+
+      - name: Run the product suite offline and secretless
+        env:
+          IMAGE_DIGEST: ${{ inputs.image-digest }}
+          RUN_DB_TESTS: ${{ inputs.run-db-tests }}
+        run: |
+          set -euo pipefail
+          # --network none            : no egress, enforced by the daemon
+          # --user 65534              : non-root
+          # --read-only + --tmpfs     : no writes outside the mount and /tmp
+          # --cap-drop ALL            : no Linux capabilities
+          # --security-opt no-new-privileges : no setuid escalation
+          # (no -v /var/run/docker.sock : no Docker socket, so no escape to the host daemon)
+          #
+          # `env -i` inside the container is the same secretless proof `make
+          # test-offline` runs locally: an empty HOME makes asxos/config.py's
+          # secrets file unreachable rather than merely outranked.
+          docker run --rm --network none \
+            --user 65534:65534 \
+            --read-only --tmpfs /tmp --tmpfs /home/nobody \
+            --cap-drop ALL --security-opt no-new-privileges \
+            -v "$PWD/product:/src:ro" -w /src \
+            -e RUN_DB_TESTS \
+            "$IMAGE_DIGEST" bash -lc '
+              set -euo pipefail
+              if [ "${RUN_DB_TESTS}" = "true" ]; then
+                # Postgres runs INSIDE this container on loopback. A service
+                # sidecar would be unreachable under --network none, and reaching
+                # one would mean egress existed.
+                pg_ctlcluster 16 main start
+                export MIGRATION_TEST_DATABASE_URL="postgresql://postgres@127.0.0.1:5432/asxos_migration_test"
+              fi
+              env -i PATH="$PATH" HOME=/home/nobody \
+                ${MIGRATION_TEST_DATABASE_URL:+MIGRATION_TEST_DATABASE_URL="$MIGRATION_TEST_DATABASE_URL"} \
+                ruff check . && \
+              env -i PATH="$PATH" HOME=/home/nobody mypy asxos && \
+              env -i PATH="$PATH" HOME=/home/nobody \
+                ${MIGRATION_TEST_DATABASE_URL:+MIGRATION_TEST_DATABASE_URL="$MIGRATION_TEST_DATABASE_URL"} \
+                python -m pytest -q
+            '
