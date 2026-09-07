@@ -10,7 +10,6 @@ from pathlib import Path
 
 from asxos.secondbrain.contradictions import SCHEDULED_LANES
 
-
 _ROOT = Path(__file__).parent.parent
 _RETIRED_PATHS = (
     _ROOT / ".github" / "workflows" / "issue-snapshot.yml",
