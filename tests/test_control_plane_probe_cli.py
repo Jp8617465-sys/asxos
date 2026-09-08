@@ -16,6 +16,8 @@ def _environment() -> dict[str, str]:
         "GITHUB_RUN_ID": "34100000003",
         "GITHUB_REPOSITORY": "Jp8617465-sys/asxos",
         "GITHUB_REF": "refs/heads/main",
+        "GITHUB_REF_PROTECTED": "true",
+        "GITHUB_EVENT_NAME": "schedule",
         "GITHUB_WORKFLOW_REF": (
             "Jp8617465-sys/asxos/.github/workflows/"
             "nightly-check.yml@refs/heads/main"

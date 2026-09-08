@@ -152,6 +152,8 @@ def test_pipeline_job_writes_reparseable_redacted_finding_artifact(
         "GITHUB_RUN_ID": "34100000005",
         "GITHUB_REPOSITORY": "Jp8617465-sys/asxos",
         "GITHUB_REF": "refs/heads/main",
+        "GITHUB_REF_PROTECTED": "true",
+        "GITHUB_EVENT_NAME": "schedule",
         "GITHUB_WORKFLOW_REF": (
             "Jp8617465-sys/asxos/.github/workflows/"
             "pipeline-health.yml@refs/heads/main"

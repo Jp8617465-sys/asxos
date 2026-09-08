@@ -74,6 +74,8 @@ class ProbeRunContext(_FrozenModel):
     run_url: StrictStr
     repository: Literal["Jp8617465-sys/asxos"]
     ref: Literal["refs/heads/main"]
+    ref_protected: Literal["true"]
+    event_name: Literal["schedule", "workflow_dispatch"]
     workflow: Literal["nightly_check", "pipeline_health"]
     workflow_ref: StrictStr
     head_sha: StrictStr
@@ -243,12 +245,14 @@ def context_from_github_environment(
     environment: Mapping[str, str],
     observed_at: datetime,
 ) -> ProbeRunContext:
-    """Build context from the five non-secret GitHub runner identity variables."""
+    """Build context from the seven non-secret GitHub runner identity variables."""
 
     required = (
         "GITHUB_RUN_ID",
         "GITHUB_REPOSITORY",
         "GITHUB_REF",
+        "GITHUB_REF_PROTECTED",
+        "GITHUB_EVENT_NAME",
         "GITHUB_WORKFLOW_REF",
         "GITHUB_SHA",
     )
@@ -260,11 +264,21 @@ def context_from_github_environment(
     ref = environment["GITHUB_REF"]
     if repository != _REPOSITORY or ref != _PROTECTED_MAIN_REF:
         raise ValueError("probe must run in the asxos repository on refs/heads/main")
+    if environment["GITHUB_REF_PROTECTED"] != "true":
+        raise ValueError("probe main ref must be protected")
+    raw_event_name = environment["GITHUB_EVENT_NAME"]
+    if raw_event_name not in {"schedule", "workflow_dispatch"}:
+        raise ValueError("probe event must be schedule or workflow_dispatch")
+    event_name: Literal["schedule", "workflow_dispatch"] = (
+        "schedule" if raw_event_name == "schedule" else "workflow_dispatch"
+    )
     return ProbeRunContext(
         run_id=run_id,
         run_url=f"https://github.com/{repository}/actions/runs/{run_id}",
         repository="Jp8617465-sys/asxos",
         ref="refs/heads/main",
+        ref_protected="true",
+        event_name=event_name,
         workflow=workflow,
         workflow_ref=environment["GITHUB_WORKFLOW_REF"],
         head_sha=environment["GITHUB_SHA"],

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+import pytest
+
 from asxos.control_plane.probe_adapters import (
     NightlyCheckFailure,
     PipelineHealthFailure,
@@ -11,6 +13,7 @@ from asxos.control_plane.probe_adapters import (
     adapt_nightly_check,
     adapt_nightly_junit,
     adapt_pipeline_health,
+    context_from_github_environment,
     findings_jsonl,
 )
 
@@ -23,6 +26,8 @@ def test_no_equity_data_fixture_yields_one_non_actionable_finding() -> None:
         ),
         repository="Jp8617465-sys/asxos",
         ref="refs/heads/main",
+        ref_protected="true",
+        event_name="schedule",
         workflow="pipeline_health",
         workflow_ref=(
             "Jp8617465-sys/asxos/.github/workflows/"
@@ -63,6 +68,8 @@ def _nightly_context() -> ProbeRunContext:
         ),
         repository="Jp8617465-sys/asxos",
         ref="refs/heads/main",
+        ref_protected="true",
+        event_name="schedule",
         workflow="nightly_check",
         workflow_ref=(
             "Jp8617465-sys/asxos/.github/workflows/"
@@ -81,6 +88,8 @@ def _pipeline_context() -> ProbeRunContext:
         ),
         repository="Jp8617465-sys/asxos",
         ref="refs/heads/main",
+        ref_protected="true",
+        event_name="schedule",
         workflow="pipeline_health",
         workflow_ref=(
             "Jp8617465-sys/asxos/.github/workflows/"
@@ -220,3 +229,54 @@ def test_successful_nightly_junit_emits_no_findings() -> None:
         )
         == ()
     )
+
+
+def _github_environment() -> dict[str, str]:
+    return {
+        "GITHUB_RUN_ID": "34100000006",
+        "GITHUB_REPOSITORY": "Jp8617465-sys/asxos",
+        "GITHUB_REF": "refs/heads/main",
+        "GITHUB_REF_PROTECTED": "true",
+        "GITHUB_EVENT_NAME": "schedule",
+        "GITHUB_WORKFLOW_REF": (
+            "Jp8617465-sys/asxos/.github/workflows/"
+            "nightly-check.yml@refs/heads/main"
+        ),
+        "GITHUB_SHA": "f" * 40,
+    }
+
+
+def test_context_requires_github_to_report_main_as_protected() -> None:
+    environment = _github_environment()
+    environment["GITHUB_REF_PROTECTED"] = "false"
+
+    with pytest.raises(ValueError, match="must be protected"):
+        context_from_github_environment(
+            workflow="nightly_check",
+            environment=environment,
+            observed_at=datetime(2026, 9, 8, 15, 17, tzinfo=UTC),
+        )
+
+
+def test_context_requires_protection_claim_to_be_present() -> None:
+    environment = _github_environment()
+    del environment["GITHUB_REF_PROTECTED"]
+
+    with pytest.raises(ValueError, match="missing variables"):
+        context_from_github_environment(
+            workflow="nightly_check",
+            environment=environment,
+            observed_at=datetime(2026, 9, 8, 15, 17, tzinfo=UTC),
+        )
+
+
+def test_context_rejects_unexpected_workflow_trigger() -> None:
+    environment = _github_environment()
+    environment["GITHUB_EVENT_NAME"] = "push"
+
+    with pytest.raises(ValueError, match="event must be"):
+        context_from_github_environment(
+            workflow="nightly_check",
+            environment=environment,
+            observed_at=datetime(2026, 9, 8, 15, 17, tzinfo=UTC),
+        )
