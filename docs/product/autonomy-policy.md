@@ -38,13 +38,15 @@ APPROVED review from James has `commit_id == current head SHA`. It re-runs on
 The authority check is not implemented by mutable product-branch code. A thin
 product caller is pinned to an immutable `asxos-control` verifier commit. The
 verifier computes the result without a GitHub write credential; a separate
-publisher identity posts the required check through the Checks API against the
-exact PR head SHA. Activation tests prove that ordinary event or merge-ref SHAs
-cannot satisfy the required check.
+check-publisher job uses a reduced Verifier App token to post the required check
+through the Checks API against the exact PR head SHA. Activation tests prove
+that ordinary event or merge-ref SHAs cannot satisfy the required check.
 
-**Every production migration is Amber.** A Git revert does not undo an applied
-migration, so migrations cannot meet the Green definition. SQL keyword scanning
-is retained as a hint only.
+**Migration merge and application are separate.** A migration-file PR is Amber,
+but merging the definition is git-revertible and does not apply it in this repo.
+Application is the irreversible I5 action and remains owner-only behind a role
+that the agent identity cannot assume. SQL keyword scanning is retained as a hint
+only.
 
 **Investment output is banded, not blanket Red.** A blanket "could read as
 advice" rule would make the product's core work permanently non-delegable.
@@ -87,7 +89,7 @@ identities and retains fail-closed client guards.
 | Required checks green on current head | Ruleset required checks | Repository or org ruleset | **Partial** — strict `full-check` exists; `risk-classify` does not |
 | Green has no global approval gate | Ruleset has no required approving-review count; conditional approval is enforced only by `risk-classify` | Repository or org ruleset | **Yes** — approval count 0 and last-push approval false |
 | Tier assignment; unlabelled cannot merge | Thin product caller pinned by immutable SHA to the `asxos-control` verifier; path allowlist defaults to Amber and fails closed | Product caller + `asxos-control` | **No** |
-| Check publication is separated from verification | Verifier has no GitHub write credential; publisher App posts `risk-classify` through the Checks API against the exact PR head SHA | `asxos-control` verifier/publisher boundary | **No** |
+| Check publication is separated from verification | Verifier has no GitHub write credential; a credential-isolated check-publisher job uses the Verifier App's exact checks-only token to post `risk-classify` against the exact PR head SHA | `asxos-control` verifier/check-publisher boundary | **No** |
 | Amber needs James's approval on current head | Verifier evaluates `pull_request` (`opened`, `synchronize`, `reopened`) and `pull_request_review` evidence; passes only when James's APPROVED review has `commit_id == head SHA` | `asxos-control` verifier | **No** |
 | Existing sensitive code protected | Classifier path list includes `asxos/brief/**`, `asxos/domain/decision_engine/**`, `asxos/brief/email.py`, `asxos/jobs/utils/fallback_email.py`, `migrations/**` | same | **No** |
 | Red paths cannot merge | Classifier fails outright on `asxos/insights/personal/**`, `asxos/capital/**` | same | **No** |
@@ -124,16 +126,18 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    require an approving review or most-recent-push approval globally; either
    would disable Green autonomy. Verify with a disposable branch that direct
    push, force push and an admin-style bypass all fail.
-3. **`risk-classify` verifier and publisher.** Implement the authoritative
+3. **`risk-classify` verifier and check publisher.** Implement the authoritative
    verifier in `asxos-control`, with no GitHub write credential. Implement the
-   separate publisher App path. The product caller is pinned to the verifier's
-   immutable commit SHA. Green allowlist; protected existing and reserved
-   paths; Red paths fail outright; Amber requires James's APPROVED review with
-   `commit_id == current head SHA`; relocation handling; content-addressed AC
-   freeze and explicit-yes checks. First let the Publisher App post one green
-   check, then bind that exact check name and App as the required source. Tests
-   prove stale heads, merge refs, stale AC approvals, mutable verifier refs,
-   skipped/neutral conclusions and missing results fail closed.
+   separate credential-isolated check-publisher path using the Verifier App.
+   The distinct branch Publisher App has no checks permission and is outside
+   this merge-gate path. The product caller is pinned to the verifier's immutable
+   commit SHA. Green allowlist; protected existing and reserved paths; Red paths
+   fail outright; Amber requires James's APPROVED review with `commit_id ==
+   current head SHA`; relocation handling; content-addressed AC freeze and
+   explicit-yes checks. First let the Verifier App post one green check, then
+   bind that exact check name and App as the required source. Tests prove stale
+   heads, merge refs, stale AC approvals, mutable verifier refs, skipped/neutral
+   conclusions and missing results fail closed.
 4. **CODEOWNERS** per the table above, used for routing. The verifier remains
    the conditional approval enforcement point. Add a drift test that fails if
    its path list and CODEOWNERS disagree.
@@ -141,7 +145,9 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    every spend `workflow_dispatch` job.
 6. **Database roles.** Confirm per the table above.
 7. **Deny rules and hook.** Per the table above. Deny writes to `.claude/**`
-   from within the harness.
+   from within the harness. Keep `unattended-guard.sh`'s merge deny until the
+   activation path can verify ledger attestation independently of mutable product
+   code or a repository variable; `AUTONOMY=STANDING` alone is not a key.
 8. **State Controller.** Create the dedicated metadata-read/variables-write App
    and bind it only to the attested activation, breaker and restore workflows.
    The verifier, publisher and ordinary agent identities cannot assume it.
@@ -170,9 +176,10 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
     the always-on Claude push/PR guards only; `ARBI_UNATTENDED=1` remains
     mechanically draft-only. Standing scheduled merge therefore remains an
     open part of this activation item and needs a separate explicit ruling.
-14. **Relocations.** Optional but recommended before activation: one
-    relocation PR moving email logic to `asxos/comms/`. Investment-output code
-    stays where it is; protect it in place.
+14. **Relocations.** Decide explicitly before activation: either land one
+    relocation PR moving email logic to `asxos/comms/`, or record a deferral and
+    prove the existing email paths are protected. Investment-output code stays
+    where it is; protect it in place.
 15. **Revert drill.** Ship a harmless, observable Green canary, confirm its
     production revision, revert it through a second Green PR, and confirm the
     prior revision is restored unattended with no data mutation or manual
@@ -181,8 +188,12 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
     trip an operational breaker, exercise the evidence sequence, and prove a
     third restore inside seven days is refused. Do not consume the live restore
     allowance merely to test it.
-17. **Activate.** Owner approves one activation dispatch while `ATTENDED`.
-    The workflow re-verifies items 1–16, matches the policy/ledger/verifier
+17. **Migration authority split.** The Amber gate permits a migration-file PR to
+    merge, but the ordinary agent, verifier and publisher identities cannot call
+    `apply_migration` or assume the production migration role. Prove the denial
+    with the ordinary agent identity. Migration `0042` remains reserved.
+18. **Activate.** Owner approves one activation dispatch while `ATTENDED`.
+    The workflow re-verifies items 1–17, matches the policy/ledger/verifier
     digests and uses the State Controller to flip `AUTONOMY` to `STANDING`.
     A partial checklist or digest mismatch refuses activation.
 18. **Migration merge authority and application authority are separate.**
@@ -219,8 +230,9 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
 
 - **Spend is always-ask.** After a month of digests, set a daily A$ ceiling
   under which spend becomes ordinary Amber.
-- **Migrations are Amber indefinitely.** Promotion to Green requires a tested
-  forward-recovery model. Do not shortcut this.
+- **Migration-file PRs are Amber indefinitely.** Application is not part of that
+  grant and remains owner-only. Reconsider application only after a tested
+  forward-recovery model and mechanically scoped production role exist.
 - **Personalisation is a human call.** The classifier cannot distinguish
   impersonal from personalised output. The explicit-yes AC gate is the
   control; the agent's declared estimate is input, not decision.

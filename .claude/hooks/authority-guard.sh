@@ -36,10 +36,13 @@ deny() {
   exit 0
 }
 
-command -v jq >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 \
+  || deny "authority-guard: jq is unavailable; refusing because the tool payload cannot be validated."
 
 payload="$(cat)"
-tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
+tool="$(printf '%s' "$payload" \
+  | jq -er '.tool_name | select(type == "string" and length > 0)' 2>/dev/null)" \
+  || deny "authority-guard: payload omitted a valid tool_name; refusing an unbound operation."
 
 # Single source of truth for the authority-path set — mirrors the narrowed `Edit(...)`
 # entries in .claude/settings.json's deny array (same set; this hook's job is the residual,
@@ -59,10 +62,11 @@ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
 # files are INTENTIONALLY absent from this list and MUST remain writable.
 AUTHORITY_FRAGMENTS=(
   ".env"
+  "AGENTS.md"
   ".claude/settings.local.json"
   ".claude/agents/" ".claude/commands/" ".claude/rules/" ".claude/skills/"
   ".github/" "docs/product/rubrics/"
-  "render.yaml" "docs/README.md"
+  "render.yaml" "docs/README.md" "docs/product/autonomy-policy.md"
   "docs/product/north-star.md" "docs/product/arbi-constitution.md" "docs/product/arbi-authority.md"
   "docs/product/arbi-permission-model.md" "docs/product/arbi-harness.md" "docs/product/arbi-scorecard.md"
   "docs/product/arbi-promotion-gate.md" "docs/product/arbi-memory-policy.md" "docs/product/arbi-dream-policy.md"

@@ -75,6 +75,7 @@
     ],
     "deny": [
       "mcp__github__enable_pr_auto_merge",
+      "Edit(/AGENTS.md)",
       "Edit(/.claude/settings.local.json)",
       "Edit(/.claude/agents/**)",
       "Edit(/.claude/commands/**)",
@@ -83,6 +84,7 @@
       "Edit(/.github/**)",
       "Edit(/render.yaml)",
       "Edit(/docs/README.md)",
+      "Edit(/docs/product/autonomy-policy.md)",
       "Edit(/docs/product/north-star.md)",
       "Edit(/docs/product/arbi-constitution.md)",
       "Edit(/docs/product/arbi-authority.md)",

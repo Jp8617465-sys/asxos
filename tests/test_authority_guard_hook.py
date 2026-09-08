@@ -39,9 +39,11 @@ def repo(tmp_path: Path) -> Path:
     (tmp_path / "tests").mkdir()
     (tmp_path / ".claude" / "settings.json").write_text("{}")
     (tmp_path / ".env").write_text("secret")
+    (tmp_path / "AGENTS.md").write_text("x")
     (tmp_path / "CLAUDE.md").write_text("x")
     (tmp_path / "render.yaml").write_text("x")
     (tmp_path / "docs" / "product" / "arbi-constitution.md").write_text("x")
+    (tmp_path / "docs" / "product" / "autonomy-policy.md").write_text("x")
     (tmp_path / "docs" / "product" / "rubrics" / "arbi-safety-boundary.md").write_text("x")
     (tmp_path / "docs" / "product" / "memory" / "approved-lessons.md").write_text("x")
     (tmp_path / "docs" / "product" / "roadmap-state.md").write_text("x")
@@ -99,6 +101,36 @@ def _is_deny(decision: dict) -> bool:
     return decision.get("permissionDecision") == "deny"
 
 
+def test_deny_when_jq_is_unavailable(repo: Path) -> None:
+    bash = shutil.which("bash")
+    assert bash is not None
+    proc = subprocess.run(
+        [bash, str(HOOK)],
+        cwd=repo,
+        input=json.dumps(
+            {
+                "cwd": str(repo),
+                "tool_name": "Edit",
+                "tool_input": {"file_path": "asxos/domain/foo.py"},
+            }
+        ),
+        capture_output=True,
+        text=True,
+        env={"CLAUDE_PROJECT_DIR": str(repo), "PATH": "/nonexistent"},
+    )
+    assert proc.returncode == 0
+    decision = json.loads(proc.stdout)["hookSpecificOutput"]
+    assert _is_deny(decision)
+    assert "jq is unavailable" in decision["permissionDecisionReason"]
+
+
+@pytest.mark.parametrize("payload", ["{}", "not-json"])
+def test_deny_payload_without_valid_tool_name(repo: Path, payload: str) -> None:
+    decision = run_raw_hook(repo, payload)
+    assert _is_deny(decision)
+    assert "valid tool_name" in decision["permissionDecisionReason"]
+
+
 def test_deny_file_operation_without_cwd_binding(repo: Path) -> None:
     control = repo.parent / f"{repo.name}-control-no-cwd"
     control.mkdir()
@@ -113,7 +145,9 @@ def test_deny_file_operation_without_cwd_binding(repo: Path) -> None:
 
 AUTHORITY_PATHS = [
     ".env",
+    "AGENTS.md",
     "render.yaml",
+    "docs/product/autonomy-policy.md",
     "docs/product/arbi-constitution.md",
     "docs/product/rubrics/arbi-safety-boundary.md",
     "docs/product/memory/approved-lessons.md",
@@ -376,4 +410,3 @@ def test_allow_bash_authority_false_positives(repo, command):
 )
 def test_deny_bash_redirect_to_authority_after_scrub(repo, command):
     assert _is_deny(run_hook(repo, "Bash", {"command": command}))
-
