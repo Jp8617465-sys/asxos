@@ -14,7 +14,7 @@ terminal excess return may be added to close the gap.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Final
+from typing import Final, Literal
 
 from asxos.domain.valuation.numeric import compound, q6, valuation_context
 
@@ -26,6 +26,26 @@ COMPANY_TAX_RATE: Final[Decimal] = Decimal("0.30")
 FRANKING_GROSS_UP: Final[Decimal] = COMPANY_TAX_RATE / (Decimal("1") - COMPANY_TAX_RATE)
 
 DEFAULT_HORIZON_YEARS: Final[int] = 10
+
+#: The two terminal-value conventions. Both are ALWAYS run; neither replaces the
+#: other (ADR: migration 0054's discriminator exists for exactly this comparison).
+#:
+#: `zero_excess`   ROE fades to exactly Ke; terminal value = book; no excess
+#:                 return survives the horizon. The conservative convention.
+#: `fading_excess` A declared fraction of the initial excess return survives to
+#:                 the horizon and then decays at that same rate forever
+#:                 (Ohlson persistence). At persistence = 0 this reduces EXACTLY
+#:                 to `zero_excess` — proven by test, not asserted — so the
+#:                 second convention is a strict generalisation of the first and
+#:                 the pair cannot silently disagree at the boundary.
+TerminalConvention = Literal["zero_excess", "fading_excess"]
+
+#: The base the return and the book must SHARE. If book is tangible common
+#: equity the return input is ROTE, never reported-book ROE. Mixing them is worth
+#: roughly 1.9x vs 2.35x book on a major bank — most of the spread in any sizing
+#: estimate — and it is an error a model carries silently, so the base is a
+#: required field on the contract rather than a convention in a docstring.
+ReturnBase = Literal["tangible_common_equity", "reported_book_equity"]
 
 
 def fade_path(roe_start: Decimal, ke: Decimal, horizon_years: int) -> tuple[Decimal, ...]:
@@ -107,6 +127,24 @@ def franking_credit_pv(
         return present_value(tuple(d * rate for d in dividends), ke)
 
 
+def terminal_value(
+    *, final_residual_income: Decimal, ke: Decimal, persistence: Decimal
+) -> Decimal:
+    """Continuing value of the residual-income stream beyond the horizon.
+
+        CV = RI_H * w / (1 + Ke - w)      (Ohlson persistence)
+
+    At `persistence = 0` this is exactly zero, which is what makes terminal value
+    equal book under `zero_excess`.
+    """
+    if not (Decimal("0") <= persistence < Decimal("1")):
+        raise ValueError("persistence must be in [0, 1)")
+    with valuation_context():
+        if persistence == 0:
+            return Decimal("0")
+        return final_residual_income * persistence / (Decimal("1") + ke - persistence)
+
+
 def value_per_share(
     *,
     book_start: Decimal,
@@ -115,17 +153,30 @@ def value_per_share(
     payout_ratio: Decimal,
     horizon_years: int = DEFAULT_HORIZON_YEARS,
     franking_pct: Decimal | None = None,
+    persistence: Decimal = Decimal("0"),
 ) -> tuple[Decimal, tuple[Decimal, ...], tuple[Decimal, ...]]:
     """Return (value_per_share, roe_by_year, book_by_year).
 
     `franking_pct=None` is the unadjusted convention; a value grosses the
     dividend stream up for an Australian resident holder.
+
+    `persistence` (w) selects the terminal convention. w = 0 is `zero_excess`:
+    ROE fades to exactly Ke and terminal value is book. w > 0 is `fading_excess`:
+    ROE fades only to `Ke + w * (roe_start - Ke)`, and that surviving excess then
+    decays at w forever. The single parameter governs both the fade endpoint and
+    the post-horizon decay, so the conventions cannot drift apart.
     """
+    if not (Decimal("0") <= persistence < Decimal("1")):
+        raise ValueError("persistence must be in [0, 1)")
     with valuation_context():
-        roe_by_year = fade_path(roe_start, ke, horizon_years)
+        terminal_roe = ke + persistence * (roe_start - ke)
+        roe_by_year = fade_path(roe_start, terminal_roe, horizon_years)
         book_by_year = book_path(book_start, roe_by_year, payout_ratio)
         ri = residual_income_series(book_start, roe_by_year, book_by_year, ke)
         value = book_start + present_value(ri, ke)
+        cv = terminal_value(final_residual_income=ri[-1], ke=ke, persistence=persistence)
+        if cv:
+            value += cv / compound(Decimal("1") + ke, horizon_years)
         if franking_pct is not None:
             dividends = dividend_series(book_start, roe_by_year, book_by_year, payout_ratio)
             value += franking_credit_pv(dividends, franking_pct, ke)
