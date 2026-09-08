@@ -22,13 +22,24 @@ On clean pipeline: records 'success' and pings Healthchecks.io.
 """
 from __future__ import annotations
 
+import argparse
 import asyncio
 import html
 import os
+import re
 import textwrap
+from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 from asxos import clock
+from asxos.control_plane.probe_adapters import (
+    PipelineHealthFailure,
+    PipelineHealthKind,
+    adapt_pipeline_health,
+    context_from_github_environment,
+    findings_jsonl,
+)
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs.utils.job_monitor import JobMonitor
 
@@ -66,10 +77,53 @@ _EXPECTED_DAILY: dict[str, int] = {
     "validate_price_data": _DEFAULT_WINDOW_HOURS,
     # "check_model_staleness" — RETIRED 2026-08-08 (same decision).
 }
+_SYNC_DATA_ABSENCE = re.compile(
+    r"^sync_prices degraded: (?P<as_of>[0-9]{4}-[0-9]{2}-[0-9]{2}) "
+    r"(?P<contract>NO_EQUITY_DATA) — ASX=[0-9]+$"
+)
 
 
-async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
-    issues: list[str] = []
+def _failure(
+    kind: PipelineHealthKind,
+    job_name: str,
+    message: str,
+    *,
+    as_of: date | None = None,
+) -> PipelineHealthFailure:
+    return PipelineHealthFailure(
+        kind=kind,
+        job_name=job_name,
+        as_of=as_of,
+        log_excerpt=message,
+    )
+
+
+def _degraded_failure(
+    *, job_name: str, as_of: date | None, error_message: str
+) -> PipelineHealthFailure:
+    match = _SYNC_DATA_ABSENCE.fullmatch(error_message)
+    if job_name == "sync_prices" and match is not None:
+        return PipelineHealthFailure(
+            kind=PipelineHealthKind.DATA_ABSENCE,
+            job_name=job_name,
+            contract=match.group("contract"),
+            market="ASX",
+            as_of=date.fromisoformat(match.group("as_of")),
+            log_excerpt=(
+                f"DEGRADED: {job_name} as_of={as_of} succeeded but reported: "
+                f"{error_message}"
+            ),
+        )
+    return _failure(
+        PipelineHealthKind.DEGRADED_SUCCESS,
+        job_name,
+        f"DEGRADED: {job_name} as_of={as_of} succeeded but reported: {error_message}",
+        as_of=as_of,
+    )
+
+
+async def _query_issues(conn) -> list[PipelineHealthFailure]:  # type: ignore[type-arg]
+    issues: list[PipelineHealthFailure] = []
 
     # 1 — stuck running rows
     stuck = await conn.fetch(
@@ -92,8 +146,14 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
         # running 56.5h and this line reported ">8h", identically, for three days.
         age_h = int((datetime.now(UTC) - row["started_at"]).total_seconds() // 3600)
         issues.append(
-            f"STUCK: {row['job_name']} as_of={row['as_of']} "
-            f"has been running for >{age_h}h (started {row['started_at'].isoformat()})"
+            _failure(
+                PipelineHealthKind.STUCK_JOB,
+                row["job_name"],
+                f"STUCK: {row['job_name']} as_of={row['as_of']} "
+                f"has been running for >{age_h}h "
+                f"(started {row['started_at'].isoformat()})",
+                as_of=row["as_of"],
+            )
         )
 
     # 2 — expected-daily jobs missing a success inside their per-job window
@@ -114,8 +174,12 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
             )
             if row["last_success"] is None:
                 issues.append(
-                    f"MISSING: {job_name} has no 'success' row in the last "
-                    f"{window_hours} hours"
+                    _failure(
+                        PipelineHealthKind.MISSING_SUCCESS,
+                        job_name,
+                        f"MISSING: {job_name} has no 'success' row in the last "
+                        f"{window_hours} hours",
+                    )
                 )
 
     # 3 — consecutive failures (last 2+ runs all failed, no success between them)
@@ -137,8 +201,13 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
         # Two or more consecutive failures with no success in front
         if len(statuses) >= 2 and all(s == "failure" for s in statuses[:2]):
             issues.append(
-                f"CONSECUTIVE FAILURES: {jn} last {len([s for s in statuses if s == 'failure'])} "
-                f"runs all failed (statuses: {statuses})"
+                _failure(
+                    PipelineHealthKind.CONSECUTIVE_FAILURES,
+                    jn,
+                    f"CONSECUTIVE FAILURES: {jn} last "
+                    f"{len([s for s in statuses if s == 'failure'])} "
+                    f"runs all failed (statuses: {statuses})",
+                )
             )
 
     # 4 — 'success' runs carrying a degraded note: a partial-success job that
@@ -157,14 +226,21 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
     )
     for row in degraded:
         issues.append(
-            f"DEGRADED: {row['job_name']} as_of={row['as_of']} "
-            f"succeeded but reported: {row['error_message']}"
+            _degraded_failure(
+                job_name=row["job_name"],
+                as_of=row["as_of"],
+                error_message=row["error_message"],
+            )
         )
 
     return issues
 
 
-def _send_alert(issues: list[str]) -> None:
+def _issue_text(issue: str | PipelineHealthFailure) -> str:
+    return issue if isinstance(issue, str) else issue.log_excerpt
+
+
+def _send_alert(issues: Sequence[str | PipelineHealthFailure]) -> None:
     """Best-effort Resend alert. Never raises — if email fails, the job still
     hard-fails via RuntimeError so Healthchecks.io catches it."""
     try:
@@ -181,7 +257,7 @@ def _send_alert(issues: list[str]) -> None:
         # into this email, so a future note carrying external text can't break
         # out of the markup (defense-in-depth; today all interpolated content is
         # hardcoded). Escaping the controlled #1-#3 lines is a harmless no-op.
-        body = "\n".join(f"• {html.escape(i)}" for i in issues)
+        body = "\n".join(f"• {html.escape(_issue_text(i))}" for i in issues)
         html_body = f"<pre>{body}</pre>"
         resend.api_key = api_key
         resend.Emails.send(
@@ -196,7 +272,24 @@ def _send_alert(issues: list[str]) -> None:
         pass  # alert failure never masks the primary failure
 
 
-async def _run(as_of: date) -> None:
+def _write_finding_artifact(
+    *,
+    failures: Sequence[PipelineHealthFailure],
+    output: Path,
+    environment: Mapping[str, str],
+    observed_at: datetime,
+) -> None:
+    context = context_from_github_environment(
+        workflow="pipeline_health",
+        environment=environment,
+        observed_at=observed_at,
+    )
+    findings = adapt_pipeline_health(context=context, failures=failures)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(findings_jsonl(findings), encoding="utf-8")
+
+
+async def _run(as_of: date, *, findings_output: Path | None = None) -> None:
     healthcheck_url = os.environ.get("HEALTHCHECK_URL_CHECK_CRON_HEALTH", "")
     await init_pool()
     try:
@@ -204,13 +297,30 @@ async def _run(as_of: date) -> None:
             async with acquire() as conn:
                 issues = await _query_issues(conn)
 
+            if findings_output is not None:
+                _write_finding_artifact(
+                    failures=issues,
+                    output=findings_output,
+                    environment=os.environ,
+                    observed_at=datetime.now(UTC),
+                )
             if issues:
                 _send_alert(issues)
-                summary = textwrap.indent("\n".join(issues), "  ")
+                summary = textwrap.indent(
+                    "\n".join(_issue_text(issue) for issue in issues), "  "
+                )
                 raise RuntimeError(f"Pipeline issues detected:\n{summary}")
     finally:
         await close_pool()
 
 
 if __name__ == "__main__":
-    asyncio.run(_run(clock.today()))
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--findings-output",
+        type=Path,
+        default=None,
+        help="write canonical Finding JSONL for the Sentinel artifact",
+    )
+    options = parser.parse_args()
+    asyncio.run(_run(clock.today(), findings_output=options.findings_output))
