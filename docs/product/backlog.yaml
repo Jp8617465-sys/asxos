@@ -1206,7 +1206,7 @@ items:
       F-VAL/r0.
 
   - id: C-20
-    title: "rs_financial_statements.currency is NULL on 70,393 rows (10.07%) across 1,091 symbols, current through period_end 2026-06-30 — not the one CBA row it was first seen on"
+    title: "currency missing on 72,904 rs_financial_statements rows (10.4%) across 1,177 symbols — blank string as well as NULL; fix the ingest path before any backfill"
     phase: C
     owner: both
     status: open
@@ -1214,19 +1214,35 @@ items:
     route: attended
     paths: ["asxos/ingestion/financial_statements.py", "asxos/ingestion/fundamentals_pit.py"]
     source: >-
-      Found 2026-09-08 while valuing CBA.AU: its FY26 (period_end 2026-06-30) row
-      carries currency = NULL, which the valuation reports as the named gap
-      `currency_null`. Scoped before filing, per James: it is NOT one row.
-      Measured: rs_financial_statements 70,393 of 699,316 rows NULL (10.07%),
-      1,091 distinct symbols; rs_fundamentals_pit 5,094 of 54,466 (9.35%), 1,111
-      symbols. All .AU. It is CURRENT, not historical residue — the newest
-      affected period_end is 2026-06-30 and 1,060 symbols carry a NULL on a
-      period_end >= 2025-01-01. Write side is
-      asxos/ingestion/financial_statements.py:212-231. Consequence: any
-      consumer that gates on currency (the valuation does) blocks on a tenth of
-      the store, including the largest ASX listing at its most recent period.
-      Decide whether the gate is right and the data must be fixed, or whether an
-      AU-only store should default the currency and record that it did.
+      Found 2026-09-08 valuing CBA.AU (FY26 row, currency NULL). Rescoped twice.
+      FIRST COUNT WAS WRONG: `currency IS NULL` finds 70,393 rows, but 2,511 more
+      carry an EMPTY STRING, which that predicate misses. True total 72,904 rows
+      (10.4%) across 1,177 symbols. financial_statements.py:222-231 already warns
+      about exactly this: the correct predicate on THIS table is
+      `WHERE (currency IS NULL OR btrim(coalesce(currency,'')) = '')`.
+      (a) ROOT CAUSE, established before proposing any backfill: the loader is NOT
+      dropping the field. financial_statements.py:231 reads
+      `st.get("currency_symbol") or block.get("currency_symbol") or None` — it
+      tries statement level, then the fundamentals block, then records absence
+      honestly. The provider supplies blank or nothing for these rows. The `or
+      None` guard already converts '' to NULL for rows written FROM NOW ON;
+      legacy blank rows were never backfilled, and whitespace-only values are
+      still not caught (documented limits 1 and 2 at :222-230).
+      (b) BACKFILL SCOPE, measured: of the 1,177 affected symbols, 954 report
+      exactly one currency on some other period and are safely propagatable
+      (62,386 rows) — recorded as INFERRED, never as reported, in a separate
+      column, never written into the currency field. 101 symbols have no currency
+      on any period (3,394 rows) and stay NULL under (c).
+      (b2) NOT ANTICIPATED, NEEDS A RULE: 122 symbols report MORE THAN ONE
+      currency across their periods. Propagation is ambiguous for these — a
+      genuine reporting-currency change is indistinguishable from a data error
+      without a rule. Do not include them in the (b) sweep.
+      (c) Whatever remains stays NULL and keeps blocking. A blocked valuation is a
+      correct outcome; a valuation on an assumed currency is not.
+      REJECTED (James, 2026-09-08): a blanket AUD default. ASX-listed is not
+      AUD-reporting — measured, 329 symbols report USD and 84 NZD, plus EUR/CAD/
+      CNY/INR/GBP across 20 distinct currencies. A default true for most rows is
+      silently false for exactly the rows where currency matters most.
 
   - id: C-21
     title: "A dated third-party beta band belongs in the provenance record alongside rf and ERP, not as a bare module constant"
