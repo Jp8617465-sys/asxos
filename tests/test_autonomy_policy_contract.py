@@ -52,6 +52,18 @@ def test_standing_requires_variable_and_ledger_attestation() -> None:
     assert "`ARBI_UNATTENDED=1` remains\n    mechanically draft-only" in policy
 
 
+def test_activation_binds_a_distinct_ledger_writer_identity() -> None:
+    agents = _read("AGENTS.md")
+    policy = _read("docs/product/autonomy-policy.md")
+    permission_model = _read("docs/product/arbi-permission-model.md")
+    assert "Ledger Writer identity" in agents
+    assert "distinct Ledger Writer App identity" in agents
+    assert "State Controller and Ledger Writer" in policy
+    assert "metadata-read/contents-write Ledger Writer App" in policy
+    assert "neither controller App can assume the\n   other" in policy
+    assert "distinct Ledger Writer App identity" in permission_model
+
+
 def test_only_attested_state_workflows_may_write_autonomy() -> None:
     agents = _read("AGENTS.md")
     policy = _read("docs/product/autonomy-policy.md")

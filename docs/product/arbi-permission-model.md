@@ -105,8 +105,8 @@ The agent may use the server-gated Green/Amber merge path only when both of thes
 facts are current:
 
 1. the repository variable is exactly `AUTONOMY=STANDING`; and
-2. the control ledger attests the current `AGENTS.md` digest and authoritative
-   verifier commit.
+2. the control ledger attests the current `AGENTS.md` digest, authoritative
+   verifier commit and distinct Ledger Writer App identity.
 
 The external `risk-classify` check and protected-branch rules are the enforcement
 boundary. A local hook result is feedback, not proof.
