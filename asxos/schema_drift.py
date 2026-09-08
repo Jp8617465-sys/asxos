@@ -91,6 +91,10 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "equity_valuation": (
+        "0054 — F-VAL/r0 valuation store. Drafted 2026-09-08; applying it is a "
+        "production write and needs James's grant, same as 0053"
+    ),
     "paper_book_snapshots": (
         "0053 — C1 paper book (ADR D15). Drafted in this session; applying it is a "
         "production write and needs James's I5 grant, which covers only "
