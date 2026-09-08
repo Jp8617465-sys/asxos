@@ -76,6 +76,8 @@ def test_landing_identity_is_distinct_and_refuses_self_amendment() -> None:
     assert "Landing Controller App is the only non-human merge identity" in policy
     assert "Amber with an additional\nowner-only landing flag" in agents
     assert "refuses Red and the owner-only landing flag" in policy
+    assert "owner-only landing registry" in policy
+    assert "Ordinary `docs/product/**`, `.github/workflows/**`" in policy
     assert "Distinct Landing Controller" in permission_model
 
 

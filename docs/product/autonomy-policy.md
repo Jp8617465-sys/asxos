@@ -91,8 +91,8 @@ hashes the latest frozen AC. James approves with
 that exact ledger-recorded digest, so an approval cannot survive an AC change.
 
 **Publication is not landing.** The Branch Publisher App can update an agent
-branch and PR but never receives a landing request or Landing Controller credential. A distinct
-Landing Controller App is the only non-human merge identity. Its fixed,
+branch and PR but never receives a landing request or Landing Controller
+credential. A distinct Landing Controller App is the only non-human merge identity. Its fixed,
 credential-isolated adapter re-observes the exact head, App-bound classifier
 result, complete required-check set, review state, base branch and ruleset
 evidence; it requests squash only and verifies the installed `main` commit.
@@ -125,7 +125,7 @@ identities and retains fail-closed client guards.
 | Red paths cannot merge | Classifier fails outright on `asxos/insights/personal/**`, `asxos/capital/**` | same | **No** |
 | Relocation PRs | Label `relocation`; classifier requires James approval and a diff that is a pure move (`git diff --stat -M100%`) | same | **No** |
 | Spend ask | `workflow_dispatch` jobs under `production` environment with James as required reviewer | Repo environments | **No** |
-| Policy self-amendment | CODEOWNERS routes to James; `risk-classify` emits Amber plus owner-only landing and requires James's current-head approval for `AGENTS.md`, `CLAUDE.md`, `docs/product/**`, `.github/**`, `.claude/**` and Control's classifier/lease/landing/restore surfaces | `.github/CODEOWNERS` + `asxos-control` verifier + Landing Controller refusal | **No** (file exists, coverage does not) |
+| Policy self-amendment | CODEOWNERS routes to James; `risk-classify` emits Amber plus owner-only landing for the exact authority registry below and requires James's current-head approval | `.github/CODEOWNERS` + `asxos-control` verifier + Landing Controller refusal | **No** (file exists, coverage does not) |
 | Autonomous landing | Distinct Landing Controller App; exact-head re-observation; squash-only request; post-write read-back; Red and self-amendment refusal | `asxos-control` + product credential-isolated landing caller | **No** |
 | Secret values | Actions secret scoping, push protection, no plaintext in repo | GitHub + Supabase | Verify |
 | Capital orders | Broker credentials never issued to any agent identity or agent-reachable workflow | Broker + secret store | Verify |
@@ -141,6 +141,20 @@ identities and retains fail-closed client guards.
 
 Deny rules and hooks are enforced by the harness, not the model, and apply
 even in bypass-permissions modes. They are a good second layer, not the first.
+
+The **owner-only landing registry** is deliberately narrower than CODEOWNERS or
+the Amber path registry: `AGENTS.md`, `CLAUDE.md`, `.github/CODEOWNERS`,
+`.claude/settings.json`, `.claude/hooks/**`, `.cursor/hooks.json`,
+`docs/product/autonomy-policy.md`, `docs/product/harness-profiles.md`,
+`docs/product/arbi-permission-model.md`, `docs/product/arbi-constitution.md`,
+`docs/product/arbi-authority.md`, `docs/product/arbi-scorecard.md`,
+`docs/product/arbi-promotion-gate.md`, and the exact product workflow callers
+for `risk-classify`, `activation`, `breaker`, `restore`, `landing-controller`
+and `ledger-writer`. Ordinary `docs/product/**`, `.github/workflows/**` and
+`.claude/**` changes remain Amber rather than silently becoming owner-only;
+they still need current-head approval, but the Landing Controller may execute
+the approved merge. `asxos-control` maintains its separate owner-only registry
+for classifier, lease, landing, state and restore code.
 
 ---
 
