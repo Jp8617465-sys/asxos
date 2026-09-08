@@ -238,6 +238,23 @@ class SentinelProjection(_FrozenModel):
         return self
 
 
+def bind_created_issue(projection: SentinelProjection, *, issue_number: int) -> SentinelProjection:
+    """Bind the GitHub Issue created for a new stable projection.
+
+    The pure projector cannot know the provider-assigned number when it emits a
+    ``create_issue`` command.  The adapter must feed that number back exactly
+    once before a later run can mutate the Issue.
+    """
+
+    if projection.issue_number is not None:
+        raise ValueError("a Sentinel projection's issue_number can be bound only once")
+    if type(issue_number) is not int or issue_number < 1:
+        raise ValueError("issue_number must be a positive integer")
+    return SentinelProjection.model_validate(
+        projection.model_dump() | {"issue_number": issue_number}
+    )
+
+
 class SentinelCommand(_FrozenModel):
     """One deterministic instruction for the future GitHub adapter."""
 
@@ -259,6 +276,10 @@ class SentinelCommand(_FrozenModel):
         if self.kind in {"create_issue", "create_diagnostic_issue"}:
             if not self.title or not self.body or not self.labels:
                 raise ValueError("create commands require title, body, and labels")
+            if self.issue_number is not None:
+                raise ValueError("create commands must not claim a provider issue_number")
+        elif self.issue_number is None:
+            raise ValueError("non-create commands require a bound issue_number")
         elif self.kind in {"comment_occurrence", "comment_recovery"}:
             if not self.body or self.title is not None or self.labels:
                 raise ValueError("comment commands require only a body payload")
@@ -352,6 +373,8 @@ def _present_transition(
         raise ValueError("probe runs must be projected in completion order")
     if finding.observed_at < prior.last_seen:
         raise ValueError("Finding observation time must not move backwards")
+    if prior.issue_number is None:
+        raise ValueError("bind the created issue_number before projecting a later run")
 
     commands: list[SentinelCommand] = []
     cutoff = run.completed_at - FLAKY_WINDOW
@@ -427,6 +450,8 @@ def _absent_transition(
         raise ValueError("probe runs must be projected in completion order")
     if not prior.issue_open:
         return prior, ()
+    if prior.issue_number is None:
+        raise ValueError("bind the created issue_number before projecting a later run")
 
     run_ids = (*prior.recovery_run_ids, run.run_id)
     run_urls = (*prior.recovery_run_urls, run.run_url)

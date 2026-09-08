@@ -13,6 +13,7 @@ from asxos.control_plane.finding import build_finding
 from asxos.control_plane.sentinel import (
     ProbeRunEvidence,
     SentinelProjection,
+    bind_created_issue,
     project_probe_run,
     sentinel_machine_block,
 )
@@ -73,6 +74,16 @@ def _run(
     )
 
 
+def _bind_result(result, *, first_issue_number: int = 42):
+    """Model the adapter feeding provider-assigned numbers back to Sentinel."""
+
+    bound = tuple(
+        bind_created_issue(projection, issue_number=first_issue_number + index)
+        for index, projection in enumerate(result.projections)
+    )
+    return result.model_copy(update={"projections": bound})
+
+
 def test_failed_or_missing_probe_runs_do_not_advance_recovery_streak() -> None:
     opened = project_probe_run(
         prior=(),
@@ -122,9 +133,11 @@ def test_machine_block_is_versioned_canonical_json() -> None:
 
 
 def test_reappearance_comments_once_and_resets_partial_recovery() -> None:
-    opened = project_probe_run(
-        prior=(),
-        run=_run("100", "success", findings=(_finding(),), output_valid=True),
+    opened = _bind_result(
+        project_probe_run(
+            prior=(),
+            run=_run("100", "success", findings=(_finding(),), output_valid=True),
+        )
     )
     one_clear = project_probe_run(
         prior=opened.projections,
@@ -163,9 +176,11 @@ def test_replaying_same_occurrence_run_is_idempotent() -> None:
 
 
 def test_three_distinct_successful_absences_close_with_all_run_urls() -> None:
-    result = project_probe_run(
-        prior=(),
-        run=_run("100", "success", findings=(_finding(),), output_valid=True),
+    result = _bind_result(
+        project_probe_run(
+            prior=(),
+            run=_run("100", "success", findings=(_finding(),), output_valid=True),
+        )
     )
     for offset, run_id in enumerate(("101", "102", "103"), start=1):
         result = project_probe_run(
@@ -190,12 +205,15 @@ def test_three_distinct_successful_absences_close_with_all_run_urls() -> None:
     recovery_body = result.commands[0].body
     assert recovery_body is not None
     assert all(f"/runs/{run_id}" in recovery_body for run_id in ("101", "102", "103"))
+    assert all(command.issue_number == 42 for command in result.commands)
 
 
 def test_duplicate_success_run_does_not_advance_recovery_twice() -> None:
-    opened = project_probe_run(
-        prior=(),
-        run=_run("100", "success", findings=(_finding(),), output_valid=True),
+    opened = _bind_result(
+        project_probe_run(
+            prior=(),
+            run=_run("100", "success", findings=(_finding(),), output_valid=True),
+        )
     )
     clear_run = _run(
         "101",
@@ -345,9 +363,11 @@ def _close_projection(projections, *, first_run_id: int, start_day: int):
 
 
 def test_third_reopen_inside_rolling_thirty_days_marks_flaky_and_removes_ready() -> None:
-    result = project_probe_run(
-        prior=(),
-        run=_run("100", "success", findings=(_finding(),), output_valid=True),
+    result = _bind_result(
+        project_probe_run(
+            prior=(),
+            run=_run("100", "success", findings=(_finding(),), output_valid=True),
+        )
     )
     for cycle in range(3):
         close_start = 101 + cycle * 10
@@ -376,6 +396,32 @@ def test_third_reopen_inside_rolling_thirty_days_marks_flaky_and_removes_ready()
     assert "flaky" in projection.labels
     assert "arbi-ready" not in projection.labels
     assert "update_labels" in [command.kind for command in result.commands]
+
+
+def test_created_issue_must_be_bound_once_before_a_later_transition() -> None:
+    opened = project_probe_run(
+        prior=(),
+        run=_run("100", "success", findings=(_finding(),), output_valid=True),
+    )
+
+    assert opened.projections[0].issue_number is None
+    with pytest.raises(ValueError, match="bind the created issue_number"):
+        project_probe_run(
+            prior=opened.projections,
+            run=_run(
+                "101",
+                "success",
+                output_valid=True,
+                completed_at=START + timedelta(days=1),
+            ),
+        )
+
+    bound = bind_created_issue(opened.projections[0], issue_number=42)
+    assert bound.issue_number == 42
+    with pytest.raises(ValueError, match="only once"):
+        bind_created_issue(bound, issue_number=43)
+    with pytest.raises(ValueError, match="positive integer"):
+        bind_created_issue(opened.projections[0], issue_number=0)
 
 
 def test_issue_bodies_never_use_github_closing_keywords() -> None:
@@ -421,8 +467,10 @@ def test_batch_projection_is_stable_under_finding_and_prior_permutation() -> Non
 
     assert reverse == forward
 
+    bound_forward = _bind_result(forward)
+    bound_reverse = _bind_result(reverse)
     absent_forward = project_probe_run(
-        prior=forward.projections,
+        prior=bound_forward.projections,
         run=_run(
             "101",
             "success",
@@ -431,7 +479,7 @@ def test_batch_projection_is_stable_under_finding_and_prior_permutation() -> Non
         ),
     )
     absent_reverse = project_probe_run(
-        prior=reversed(forward.projections),
+        prior=reversed(bound_reverse.projections),
         run=_run(
             "101",
             "success",
