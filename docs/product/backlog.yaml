@@ -1264,3 +1264,23 @@ items:
       would have shown the disagreement. Move the band, its source string and its
       as-of into CostOfEquityInputs so a run states which band it used, and make a
       band change a data change rather than a code change.
+
+  - id: C-22
+    title: "Reporting-currency changepoints break multi-period comparability — 122 symbols have series (growth, ROE, margins) that cross a currency boundary and are wrong un-translated, NULL rows or not"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/research/factor_scores.py", "asxos/ingestion/fundamentals_pit.py"]
+    source: >-
+      Filed 2026-09-08 by James's ruling, deliberately SEPARATE from the C-20
+      backfill and not blocking it. Measured: 122 symbols report more than one
+      currency across their periods in rs_financial_statements. Any such symbol
+      has multi-period series — revenue growth, ROE, margin trend — computed
+      across a reporting-currency change. Those series are wrong un-translated
+      WHETHER OR NOT any row is NULL, so filling the gaps does not fix them and
+      a symbol with complete currency data can still be affected. Consumers at
+      risk are anything deriving a multi-period ratio or trend, starting with
+      factor_scores.raw_factors. Decide whether such series are translated at a
+      stated rate, or refused with a named gap the way a NULL currency now is.

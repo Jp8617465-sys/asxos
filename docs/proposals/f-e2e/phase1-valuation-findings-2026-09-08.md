@@ -27,10 +27,35 @@ Probability-weighted value at Ke mid, both conventions:
 
 | sym | close | franking-adjusted (primary) | ÷ price | unadjusted | ÷ price |
 |---|---|---|---|---|---|
-| CBA | 160.42 | 63.54 | 0.396 | 51.65 | 0.322 |
+| CBA | 160.42 | **WITHDRAWN — see below** | — | **WITHDRAWN** | — |
 | NAB | 39.25 | 24.66 | 0.628 | 20.21 | 0.515 |
 | ANZ | 37.95 | 23.95 | 0.631 | 20.68 | 0.545 |
 | WBC | 34.96 | 22.27 | 0.637 | 18.23 | 0.521 |
+
+### CBA is withdrawn, and the gate that should have caught it did not exist
+
+CBA's `rs_fundamentals_pit` row for FY26 carries a **NULL reporting currency**. Its
+originally published figures (63.54 franking-adjusted, 51.65 unadjusted) were computed on
+that row and **must not be relied on**.
+
+This is recorded rather than quietly fixed because the mechanism matters. An earlier
+version of this document stated that "the valuation gates on currency". **It did not.**
+The Phase 1 run collected gaps into a list and printed them as a footnote beside the
+numbers; it contained no `raise`, and in shipped code `ValuationBlocked` was defined and
+called by nothing. There was no gate to bypass — there was no gate.
+
+Re-running the four with the gate actually firing reconciles exactly:
+
+| sym | gated outcome | value | as published | delta |
+|---|---|---|---|---|
+| CBA | **BLOCKED** `currency_null` | — | 63.538253 | **withdrawn** |
+| NAB | valued | 24.663218 | 24.663218 | `0.000000` |
+| ANZ | valued | 23.950255 | 23.950255 | `0.000000` |
+| WBC | valued | 22.272550 | 22.272550 | `0.000000` |
+
+NAB, ANZ and WBC are byte-identical — they were never gated out and their numbers stand
+unchanged. Only CBA is affected. A gate that was silently passable is worth recording even
+where the surviving output is unchanged.
 
 Franking is adjusted for an **Australian resident holder** — the reason is investor
 residency, not the result. Both conventions are published side by side because the
@@ -57,7 +82,8 @@ only input in the model that has not been tested.
 
 ## The calibration metric is not yet a calibration metric
 
-"Share of research-queue names valued above market" currently reads **0 of 4**.
+"Share of research-queue names valued above market" reads **0 of 3 valued, 1 blocked** —
+CBA is withdrawn on `currency_null`, not counted as "not above market".
 
 **This number cannot be interpreted until a second terminal-value convention exists.**
 0-of-4 is equally consistent with the market being wrong and with the method being
@@ -79,8 +105,11 @@ both persisted and compared — which is what the 0054 discriminator is for.
   the "common" in tangible common equity is a stated convention, not a verified one.
 - **NAB**: `intangibleAssets` (3,552) **exceeds** `goodWill` (2,070), so the disjointness
   assumed by `TSE − goodwill − intangibles` is unsafe for that name specifically.
-- **CBA** carries `currency_null` on its FY26 row — one instance of backlog **C-20**
-  (70,393 rows, 10.07%, 1,091 symbols; current through period_end 2026-06-30).
+- **CBA** is BLOCKED on `currency_null` at its FY26 row — one instance of backlog **C-20**,
+  whose true scope is **72,904 rows (10.4%) across 1,177 symbols**, current through
+  period_end 2026-06-30. The first count of that ticket said 70,393 because it tested
+  `currency IS NULL`; 2,511 further rows carry an empty string. The correct predicate on
+  the raw table is NULL-or-blank-after-strip.
 - **ANZ**'s `franking_avg_pct` is **70**, not 100, which is why its franking uplift is
   visibly smaller than its peers'.
 - The vendor `rs_fundamentals_pit.roe` field is **net income / period-end equity** on all
