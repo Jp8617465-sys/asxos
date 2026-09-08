@@ -106,7 +106,9 @@ facts are current:
 
 1. the repository variable is exactly `AUTONOMY=STANDING`; and
 2. the control ledger attests the current `AGENTS.md` digest, authoritative
-   verifier commit and distinct Ledger Writer App identity.
+   verifier commit, distinct Ledger Writer App identity and exact protected
+   ledger parent, after reconstructing an append-only commit chain from the
+   owner-approved genesis.
 
 The external `risk-classify` check and protected-branch rules are the enforcement
 boundary. A local hook result is feedback, not proof.

@@ -2,8 +2,9 @@
 
 > **ACTIVATION GATE.** This policy grants standing autonomy only when the
 > control ledger attests this policy's exact digest, authoritative verifier and
-> Ledger Writer identity, and the repository variable `AUTONOMY` is `STANDING`.
-> A missing, malformed or unattested state is
+> Ledger Writer identity and append-only protected Git history, and the
+> repository variable `AUTONOMY` is `STANDING`. A missing, malformed or
+> unattested state is
 > `ATTENDED`. Until every item in `docs/product/autonomy-policy.md` §3 passes,
 > §0 is the ceiling and nothing later in this file is an autonomy grant.
 
@@ -330,7 +331,9 @@ evidence, or conceal a failed check, rollback or material finding.
 
 There is a **standing grant** only while repo variable `AUTONOMY` is `STANDING`
 and the control ledger's activation record binds the current policy digest,
-authoritative verifier commit and distinct Ledger Writer App identity. No
+authoritative verifier commit, distinct Ledger Writer App identity and exact
+protected-ledger parent commit. The reader reconstructs every ledger commit
+from the owner-approved genesis and rejects any non-append blob change. No
 per-PR, per-train or per-deploy grant exists.
 No time expiry. Do not re-ask for a grant you hold. Missing or stale attestation
 means `ATTENDED`, regardless of the variable's text.

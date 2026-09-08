@@ -121,7 +121,7 @@ identities and retains fail-closed client guards.
 | `.env` reads and writes to Red paths or `.claude/**` | Deny rules + PreToolUse hooks; agent runtime receives no production secret values | `.claude/settings.json`, `.claude/hooks/`, runner credential boundary | **No** |
 | Autonomy state | `AUTONOMY` repo variable; agent identity lacks `variables: write` | Repo variables + App permissions | **No** |
 | Autonomy-state mutation | Dedicated State Controller App has metadata read + variables write only; only attested breaker/restore/activation workflows may assume it | `asxos-control` + GitHub App permissions | **No** |
-| Durable ledger mutation | Dedicated product-only Ledger Writer App has metadata read + contents write only; only the immutable writer workflow may assume it, and it can update only the protected ledger ref through the validated append contract | `asxos-control` + product ledger-branch ruleset + GitHub App permissions | **No** |
+| Durable ledger mutation | Dedicated product-only Ledger Writer App has metadata read + contents write only; only the immutable writer workflow may assume it, and it can update only the protected ledger ref through the validated append contract. Readers reconstruct every commit from an owner-approved genesis and reject a fast-forward blob rewrite as non-append. | `asxos-control` + product ledger-branch ruleset + GitHub App permissions | **No** |
 | Breaker trips | `breaker` workflow flips to `ATTENDED`, opens incident issue, records event in ledger | `.github/workflows/breaker.yml` | **No** |
 | Restore | `restore` workflow (`workflow_dispatch`), runs under its own identity, verifies fix merged, checks green, 60 min clean, incident updated, restore count < 2 in 7 days, then flips to `STANDING`; refuses otherwise | `.github/workflows/restore.yml` | **No** |
 | Breaker thresholds | Checked-in registry names each monitored workflow, metric, threshold, evaluation window and evidence query; required missing/stale telemetry trips | `asxos-control` breaker registry | **No** |
@@ -187,7 +187,10 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
 9. **`AUTONOMY` variable and attestation.** Create it as `ATTENDED`. Record an
    activation entry that binds the exact `AGENTS.md` digest, verifier commit,
    check- and branch-publisher identities, State Controller identity, Ledger
-   Writer identity and checklist evidence. A mismatched record fails closed.
+   Writer identity, exact protected-ledger parent commit and checklist evidence.
+   The reader reconstructs the commit chain from the owner-approved genesis;
+   internal event hashes without that Git-history proof are insufficient. A
+   mismatched record fails closed.
 10. **Breaker registry and workflow.** Check in a registry naming each monitored
    workflow, metric, threshold, evaluation window and evidence query. Missing,
    malformed or stale required telemetry trips. The workflow monitors `main`,

@@ -62,6 +62,9 @@ def test_activation_binds_a_distinct_ledger_writer_identity() -> None:
     assert "metadata-read/contents-write Ledger Writer App" in policy
     assert "neither controller App can assume the\n   other" in policy
     assert "distinct Ledger Writer App identity" in permission_model
+    assert "exact protected-ledger parent commit" in policy
+    assert "rejects any non-append blob change" in agents
+    assert "owner-approved genesis" in permission_model
 
 
 def test_only_attested_state_workflows_may_write_autonomy() -> None:
