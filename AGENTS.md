@@ -265,6 +265,13 @@ trading and analysis are Green when they do not generate a recommendation.
 User-facing or recommendation-generating investment output follows the bands
 below. The order is James only, permanently.
 
+**Model A quarantine.** Never use Model A output—signals, candidate scans,
+allocator runs or thesis proposals—as evidence for a real capital decision.
+Its v1_5 decay finding is resolved against the model and remains standing rule
+#11. This changes only after a new model version passes the pre-registered
+positive, monotonic conviction-to-21-day-return bar and separately earns
+`approved_for_allocation`. `STANDING` does not relax this rule.
+
 **Investment output.** Three bands:
 
 - *Impersonal*: general research, factual comparisons, scenario analysis,

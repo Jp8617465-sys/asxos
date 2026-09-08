@@ -21,10 +21,13 @@
 # mechanically hard-blocked regardless of how a human answers the prompt.
 #
 # Scope: `git push` destined at a protected ref (main/master) with force or delete, any
-# repo-wide push (--mirror/--all/--tags), and the `gh` CLI shapes that would let a Bash
-# command bypass the MCP-level PR/merge denies (gh pr merge/ready, gh pr create without
-# --draft, gh api POST/PUT/PATCH/DELETE to pulls/merge, non-allowlisted gh workflow
-# mutation, release mutation). Dispatchable workflows are allowlisted per segment below:
+# repo-wide push (--mirror/--all/--tags), and the `gh` CLI shapes that would bypass the
+# server-gated PR lifecycle. PR create/ready/squash-merge may fall through only when this
+# hook resolves the exact ASXOS origin and reads remote repository variable
+# `AUTONOMY=STANDING`. Lookup failure is ATTENDED. This state read is feedback, not the
+# enforcement boundary: `risk-classify` and branch protection remain authoritative.
+# Direct PR API mutation, non-allowlisted workflow mutation, and release mutation remain
+# denied. Dispatchable workflows are allowlisted per segment below:
 # the validation lanes (full-check.yml, targeted-ml-tests.yml, migration-integration.yml)
 # plus — James's 2026-08-12 guard-carveouts decision — backup.yml (reads prod, restores
 # into a disposable container) and claude-execute.yml (the governed harness, which
@@ -54,9 +57,10 @@ deny() {
   exit 0
 }
 
-# Fail-open on a missing jq: this is a speed-bump layered on top of the real backstop
-# (branch protection), not itself the boundary — consistent with review-gate.sh's contract.
-command -v jq >/dev/null 2>&1 || exit 0
+# PR lifecycle commands are project-allowlisted, so silence can execute without another
+# prompt. Payload classification must fail closed when jq is unavailable.
+command -v jq >/dev/null 2>&1 \
+  || deny "push-guard: jq unavailable; refusing GitHub/push classification (fail-closed)."
 
 payload="$(cat)"
 tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
@@ -64,6 +68,39 @@ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
 
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty')"
 [ -n "$cmd" ] || exit 0
+
+EXPECTED_REPO="Jp8617465-sys/asxos"
+
+autonomy_is_standing() {
+  local root="${CLAUDE_PROJECT_DIR:-}"
+  local origin state gh_bin
+  [ -n "$root" ] && [ -d "$root" ] || return 1
+  origin="$(git -C "$root" remote get-url origin 2>/dev/null || true)"
+  case "$origin" in
+    https://github.com/Jp8617465-sys/asxos|https://github.com/Jp8617465-sys/asxos.git|git@github.com:Jp8617465-sys/asxos|git@github.com:Jp8617465-sys/asxos.git) ;;
+    *) return 1 ;;
+  esac
+  gh_bin="$(command -v gh 2>/dev/null || true)"
+  [ -n "$gh_bin" ] || return 1
+  case "$gh_bin" in "$root"/*) return 1 ;; esac
+  state="$("$gh_bin" variable get AUTONOMY --repo "$EXPECTED_REPO" 2>/dev/null || true)"
+  [ "$state" = "STANDING" ]
+}
+
+pr_context_is_asxos() {
+  local root="${CLAUDE_PROJECT_DIR:-}"
+  local call_cwd root_real cwd_real
+  [ -n "$root" ] && [ -d "$root" ] || return 1
+  root_real="$(realpath "$root" 2>/dev/null || true)"
+  call_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty')"
+  [ -n "$call_cwd" ] || call_cwd="$root"
+  cwd_real="$(realpath "$call_cwd" 2>/dev/null || true)"
+  case "$cwd_real" in "$root_real"|"$root_real"/*) ;; *) return 1 ;; esac
+  case "${GH_REPO:-}" in ""|"$EXPECTED_REPO") ;; *) return 1 ;; esac
+  # A lifecycle call must resolve from this checkout. Explicit repo/host overrides,
+  # URLs and command substitution could redirect the pre-allowed command elsewhere.
+  ! printf '%s' "$cmd" | grep -Eiq '(^|[[:space:]])(-R|--repo|--hostname)([=[:space:]]|$)|GH_REPO=|github\.com/|\$\(|`|<\('
+}
 
 # --- git push shapes -----------------------------------------------------------------
 
@@ -118,7 +155,7 @@ if targets_main; then
   if is_force; then
     deny "push-guard: force-push to main/master is blocked (this is the #29-incident shape — branch reconstruction must never force-push a protected ref)."
   fi
-  deny "push-guard: push to main/master is blocked here. Push a claude/** branch and open a draft PR — merging to main is James's step."
+  deny "push-guard: direct push to main/master is blocked in every autonomy state. Push an agent branch and use the server-gated PR path."
 fi
 
 # Any push while the checked-out branch IS main/master, regardless of the refspec argument
@@ -152,18 +189,28 @@ fi
 
 # --- gh CLI shapes that bypass the MCP-level PR/merge denies -------------------------
 
-if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge'; then
-  deny "push-guard: 'gh pr merge' is blocked — merge is James's step, never the agent's, via any surface."
+# The target policy is squash-only and forbids auto/admin merge in every state.
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[^|;&]*(--merge\b|--rebase\b|--auto\b|--admin\b)'; then
+  deny "push-guard: non-squash, auto, and admin merge modes are blocked in every autonomy state."
 fi
-if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[^|;&]*(--merge\b|--auto\b|--admin\b)'; then
-  deny "push-guard: gh pr auto-merge/admin-merge flags are blocked."
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge'; then
+  pr_context_is_asxos && autonomy_is_standing \
+    || deny "push-guard: 'gh pr merge' requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED stops at a draft PR."
 fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+ready'; then
-  deny "push-guard: 'gh pr ready' un-drafts a PR — blocked. Draft PRs are the ceiling; James marks ready."
+  pr_context_is_asxos && autonomy_is_standing \
+    || deny "push-guard: 'gh pr ready' requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED stops at a draft PR."
 fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+create' \
    && ! printf '%s' "$cmd" | grep -Eiq -- '--draft\b'; then
-  deny "push-guard: 'gh pr create' without --draft is blocked — every agent-opened PR must be draft:true."
+  pr_context_is_asxos && autonomy_is_standing \
+    || deny "push-guard: a non-draft PR requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED PRs must use --draft."
+fi
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+variable[[:space:]]+(set|delete)[[:space:]]+AUTONOMY\b'; then
+  deny "push-guard: direct AUTONOMY mutation is blocked; only the attested State Controller workflow may change it."
+fi
+if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+api[^|;&]*(--method|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)[^|;&]*/actions/variables/AUTONOMY\b'; then
+  deny "push-guard: direct AUTONOMY API mutation is blocked; only the attested State Controller workflow may change it."
 fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+api[^|;&]*(--method|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)[^|;&]*/(pulls|merge)\b'; then
   deny "push-guard: 'gh api' mutating a pulls/merge endpoint directly is blocked — the same PR/merge policy applies regardless of surface."

@@ -156,10 +156,19 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
     or refuses. Runs under a workflow identity that agents cannot assume.
 12. **Digest workflow** at 07:00 AEST.
 13. **Harness alignment.** Import `AGENTS.md` from `CLAUDE.md` using the
-    documented `@AGENTS.md` syntax; remove conflicting old I5/I6 prose; update
-    Claude and Cursor hooks so Green merge is possible only through the
-    attested control path while every §8 stop remains denied. Confirm the
-    commands in `AGENTS.md` §3 against the Makefile.
+    documented `@AGENTS.md` syntax; remove conflicting old I5/I6 prose. Claude's
+    PR guards resolve the exact product repository from `origin`, read its live
+    `AUTONOMY` repository variable through `gh`, and fail closed on a missing
+    CLI, wrong repository, lookup failure, malformed state, or any value other
+    than `STANDING`. Only then may PR creation, readying and server-gated squash
+    merge fall through. Direct/force push to `main`, non-squash, auto/admin
+    merge, direct mutation of `AUTONOMY`, and every §8 stop remain denied. This
+    remote state read is feedback, not attestation: the external required check
+    and ruleset remain the enforcement boundary. Test both states and confirm
+    the commands in `AGENTS.md` §3 against the Makefile. This policy PR relaxes
+    the always-on Claude push/PR guards only; `ARBI_UNATTENDED=1` remains
+    mechanically draft-only. Standing scheduled merge therefore remains an
+    open part of this activation item and needs a separate explicit ruling.
 14. **Relocations.** Optional but recommended before activation: one
     relocation PR moving email logic to `asxos/comms/`. Investment-output code
     stays where it is; protect it in place.
