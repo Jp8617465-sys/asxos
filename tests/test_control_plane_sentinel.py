@@ -102,6 +102,67 @@ def test_failed_or_missing_probe_runs_do_not_advance_recovery_streak() -> None:
     assert missing.projections[0].recovery_run_ids == ()
 
 
+def test_failed_probe_with_valid_output_projects_its_finding() -> None:
+    finding = _finding()
+
+    result = project_probe_run(
+        prior=(),
+        run=_run(
+            "100",
+            "failure",
+            findings=(finding,),
+            output_valid=True,
+        ),
+    )
+
+    assert len(result.projections) == 1
+    assert [command.kind for command in result.commands] == ["create_issue"]
+
+
+def test_failed_probe_projects_finding_without_advancing_other_omissions() -> None:
+    first = _finding(
+        identifiers={"test_id": "tests/test_prices.py::test_first"},
+    )
+    second = _finding(
+        "102",
+        observed_at=START + timedelta(days=2),
+        identifiers={"test_id": "tests/test_prices.py::test_second"},
+    )
+    opened = _bind_result(
+        project_probe_run(
+            prior=(),
+            run=_run("100", "success", findings=(first,), output_valid=True),
+        )
+    )
+    one_clear = project_probe_run(
+        prior=opened.projections,
+        run=_run(
+            "101",
+            "success",
+            output_valid=True,
+            completed_at=START + timedelta(days=1),
+        ),
+    )
+
+    failed = project_probe_run(
+        prior=one_clear.projections,
+        run=_run(
+            "102",
+            "failure",
+            findings=(second,),
+            output_valid=True,
+            completed_at=START + timedelta(days=2, hours=1),
+        ),
+    )
+
+    prior_by_fingerprint = {
+        projection.fingerprint: projection for projection in failed.projections
+    }
+    assert prior_by_fingerprint[first.fingerprint].recovery_run_ids == ("101",)
+    assert prior_by_fingerprint[second.fingerprint].recovery_run_ids == ()
+    assert [command.kind for command in failed.commands] == ["create_issue"]
+
+
 def test_new_stable_finding_creates_one_issue_with_owned_labels_and_machine_block() -> None:
     finding = _finding()
     result = project_probe_run(

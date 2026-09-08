@@ -121,14 +121,18 @@ class ProbeRunEvidence(_FrozenModel):
         return self
 
     @property
-    def is_trusted_success(self) -> bool:
+    def has_trusted_output(self) -> bool:
         return (
-            self.conclusion == "success"
+            self.conclusion in {"success", "failure"}
             and self.output_valid
             and self.provenance_valid
             and self.run_id is not None
             and self.run_url is not None
         )
+
+    @property
+    def is_trusted_success(self) -> bool:
+        return self.has_trusted_output and self.conclusion == "success"
 
 
 def projected_labels(
@@ -617,7 +621,7 @@ def project_probe_run(
     """Apply L1-L8 to one probe run without performing an external mutation."""
 
     projections = _prior_index(prior)
-    if not run.is_trusted_success:
+    if not run.has_trusted_output:
         return SentinelResult(
             projections=tuple(sorted(projections.values(), key=lambda item: item.fingerprint)),
             commands=(),
@@ -676,13 +680,14 @@ def project_probe_run(
         projections[finding.fingerprint] = updated
         commands.extend(occurrence_commands)
 
-    for fingerprint in sorted(projections):
-        projection = projections[fingerprint]
-        if projection.probe != run.probe or fingerprint in present:
-            continue
-        updated, recovery_commands = _absent_transition(projection, run)
-        projections[fingerprint] = updated
-        commands.extend(recovery_commands)
+    if run.is_trusted_success:
+        for fingerprint in sorted(projections):
+            projection = projections[fingerprint]
+            if projection.probe != run.probe or fingerprint in present:
+                continue
+            updated, recovery_commands = _absent_transition(projection, run)
+            projections[fingerprint] = updated
+            commands.extend(recovery_commands)
 
     return SentinelResult(
         projections=tuple(sorted(projections.values(), key=lambda item: item.fingerprint)),
