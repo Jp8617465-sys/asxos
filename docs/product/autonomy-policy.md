@@ -38,9 +38,9 @@ APPROVED review from James has `commit_id == current head SHA`. It re-runs on
 The authority check is not implemented by mutable product-branch code. A thin
 product caller is pinned to an immutable `asxos-control` verifier commit. The
 verifier computes the result without a GitHub write credential; a separate
-publisher identity posts the required check through the Checks API against the
-exact PR head SHA. Activation tests prove that ordinary event or merge-ref SHAs
-cannot satisfy the required check.
+check-publisher job uses a reduced Verifier App token to post the required check
+through the Checks API against the exact PR head SHA. Activation tests prove
+that ordinary event or merge-ref SHAs cannot satisfy the required check.
 
 **Migration merge and application are separate.** A migration-file PR is Amber,
 but merging the definition is git-revertible and does not apply it in this repo.
@@ -89,7 +89,7 @@ identities and retains fail-closed client guards.
 | Required checks green on current head | Ruleset required checks | Repository or org ruleset | **Partial** — strict `full-check` exists; `risk-classify` does not |
 | Green has no global approval gate | Ruleset has no required approving-review count; conditional approval is enforced only by `risk-classify` | Repository or org ruleset | **Yes** — approval count 0 and last-push approval false |
 | Tier assignment; unlabelled cannot merge | Thin product caller pinned by immutable SHA to the `asxos-control` verifier; path allowlist defaults to Amber and fails closed | Product caller + `asxos-control` | **No** |
-| Check publication is separated from verification | Verifier has no GitHub write credential; publisher App posts `risk-classify` through the Checks API against the exact PR head SHA | `asxos-control` verifier/publisher boundary | **No** |
+| Check publication is separated from verification | Verifier has no GitHub write credential; a credential-isolated check-publisher job uses the Verifier App's exact checks-only token to post `risk-classify` against the exact PR head SHA | `asxos-control` verifier/check-publisher boundary | **No** |
 | Amber needs James's approval on current head | Verifier evaluates `pull_request` (`opened`, `synchronize`, `reopened`) and `pull_request_review` evidence; passes only when James's APPROVED review has `commit_id == head SHA` | `asxos-control` verifier | **No** |
 | Existing sensitive code protected | Classifier path list includes `asxos/brief/**`, `asxos/domain/decision_engine/**`, `asxos/brief/email.py`, `asxos/jobs/utils/fallback_email.py`, `migrations/**` | same | **No** |
 | Red paths cannot merge | Classifier fails outright on `asxos/insights/personal/**`, `asxos/capital/**` | same | **No** |
@@ -125,16 +125,18 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    require an approving review or most-recent-push approval globally; either
    would disable Green autonomy. Verify with a disposable branch that direct
    push, force push and an admin-style bypass all fail.
-3. **`risk-classify` verifier and publisher.** Implement the authoritative
+3. **`risk-classify` verifier and check publisher.** Implement the authoritative
    verifier in `asxos-control`, with no GitHub write credential. Implement the
-   separate publisher App path. The product caller is pinned to the verifier's
-   immutable commit SHA. Green allowlist; protected existing and reserved
-   paths; Red paths fail outright; Amber requires James's APPROVED review with
-   `commit_id == current head SHA`; relocation handling; content-addressed AC
-   freeze and explicit-yes checks. First let the Publisher App post one green
-   check, then bind that exact check name and App as the required source. Tests
-   prove stale heads, merge refs, stale AC approvals, mutable verifier refs,
-   skipped/neutral conclusions and missing results fail closed.
+   separate credential-isolated check-publisher path using the Verifier App.
+   The distinct branch Publisher App has no checks permission and is outside
+   this merge-gate path. The product caller is pinned to the verifier's immutable
+   commit SHA. Green allowlist; protected existing and reserved paths; Red paths
+   fail outright; Amber requires James's APPROVED review with `commit_id ==
+   current head SHA`; relocation handling; content-addressed AC freeze and
+   explicit-yes checks. First let the Verifier App post one green check, then
+   bind that exact check name and App as the required source. Tests prove stale
+   heads, merge refs, stale AC approvals, mutable verifier refs, skipped/neutral
+   conclusions and missing results fail closed.
 4. **CODEOWNERS** per the table above, used for routing. The verifier remains
    the conditional approval enforcement point. Add a drift test that fails if
    its path list and CODEOWNERS disagree.

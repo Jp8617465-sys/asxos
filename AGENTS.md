@@ -137,8 +137,9 @@ required check. Until activation item 3 is live, tier labels are estimates and
 §0 remains the ceiling. The authoritative verifier will run in `asxos-control`;
 this repository will contain only a thin caller pinned to an immutable verifier
 commit. The verifier computes
-the tier from diff paths and content, and a separate publisher identity posts
-the result against the exact PR head SHA. You may not declare or argue down
+the tier from diff paths and content without a GitHub credential; a separate
+check-publisher job uses a reduced Verifier App token to post the result against
+the exact PR head SHA. You may not declare or argue down
 your tier. You may raise it (§7). If the check errors, is missing, cannot
 classify, or reports against any other SHA, it does not pass. An unlabelled PR
 does not merge.
@@ -302,12 +303,12 @@ check or ruleset, direct or force push to `main`, or merging a head different
 from the approved one.
 
 **Self-amendment.** You may draft, test and open a PR against this file,
-`CLAUDE.md`, harness profiles, rulesets, `risk-classify`, `breaker`,
-`restore` or hooks. You may not merge one. It needs James's approval and is
-inactive until landed.
+`CLAUDE.md`, harness profiles, rulesets, `risk-classify`, `activation`,
+`breaker`, `restore` or hooks. You may not merge one. It needs James's approval
+and is inactive until landed.
 
 **Autonomy state.** Never edit the `AUTONOMY` variable directly. Only the
-`breaker` and `restore` workflows write it (§9).
+attested `activation`, `breaker` and `restore` workflows may write it (§9).
 
 **Migration application.** You may author and, through the Amber gate, merge a
 migration definition. Never apply it to production, invoke a write-capable

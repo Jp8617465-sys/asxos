@@ -52,6 +52,27 @@ def test_standing_requires_variable_and_ledger_attestation() -> None:
     assert "`ARBI_UNATTENDED=1` remains\n    mechanically draft-only" in policy
 
 
+def test_only_attested_state_workflows_may_write_autonomy() -> None:
+    agents = _read("AGENTS.md")
+    policy = _read("docs/product/autonomy-policy.md")
+    assert (
+        "attested `activation`, `breaker` and `restore` workflows may write it"
+        in agents
+    )
+    assert "`risk-classify`, `activation`,\n`breaker`, `restore`" in agents
+    assert "attested activation, breaker and restore workflows" in policy
+    assert "Owner approves one activation dispatch" in policy
+
+
+def test_check_and_branch_publishers_are_distinct() -> None:
+    agents = _read("AGENTS.md")
+    policy = _read("docs/product/autonomy-policy.md")
+    assert "check-publisher job uses a reduced Verifier App token" in agents
+    assert "check-publisher job uses a reduced Verifier App token" in policy
+    assert "branch Publisher App has no checks permission" in policy
+    assert "publisher App posts `risk-classify`" not in policy
+
+
 def test_codeowners_routes_all_declared_sensitive_surfaces() -> None:
     codeowners = _read(".github/CODEOWNERS")
     expected = {
