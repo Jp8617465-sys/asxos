@@ -176,8 +176,8 @@ def test_erp_outside_the_ruled_five_to_six_percent_is_refused() -> None:
 def test_ke_band_spans_the_stated_beta_range_and_is_ordered() -> None:
     low, mid, high = capm.ke_band(risk_free=Decimal("0.04831"), erp=Decimal("0.055"))
     assert low < mid < high
-    assert low == Decimal("0.097810")   # beta 0.90
-    assert high == Decimal("0.114310")  # beta 1.20
+    assert low == Decimal("0.078560")   # beta 0.55
+    assert high == Decimal("0.095060")  # beta 0.85
 
 
 def test_ke_sensitivity_is_exactly_minus_one_zero_plus_one_percent() -> None:
@@ -193,3 +193,17 @@ def test_the_risk_free_label_never_claims_to_be_an_acgb_quote() -> None:
 
 def test_beta_floor_is_one_trading_year() -> None:
     assert capm.MIN_BETA_SESSIONS == 250
+
+
+def test_the_beta_band_declares_itself_third_party_and_dated() -> None:
+    """A cited band and a measured one are different claims; the module says which.
+
+    Beta cannot be measured here (AXJO.INDX = 71 return pairs against a 250
+    floor), so the band is third-party. The constant that carries it must carry
+    its source and date with it, or shipped output and stated provenance drift
+    apart — backlog C-21.
+    """
+    assert capm.BETA_LOW == Decimal("0.55")
+    assert capm.BETA_HIGH == Decimal("0.85")
+    assert "CITED, not measured" in capm.BETA_SOURCE
+    assert capm.BETA_SOURCE_AS_OF == "2026-09-08"

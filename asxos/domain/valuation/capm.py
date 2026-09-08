@@ -17,8 +17,26 @@ from asxos.domain.valuation.numeric import q6, valuation_context
 MIN_BETA_SESSIONS: Final[int] = 250
 
 #: The stated beta band. NOT measured — see the module docstring.
-BETA_LOW: Final[Decimal] = Decimal("0.90")
-BETA_HIGH: Final[Decimal] = Decimal("1.20")
+#:
+#: SOURCE: third-party five-year beta estimates for CBA/WBC/NAB/ANZ published by
+#: Finbox, Simply Wall St and Yahoo Finance, reviewed by James on 2026-09-08.
+#: These are CITED third-party figures, not a measurement made from our own price
+#: data, and the distinction is why `beta_provenance` on any run must record
+#: which of the two it is.
+#:
+#: Superseded 0.90-1.20, which was a prior instruction corrected on 2026-09-08
+#: after that review. Backlog C-21: a dated third-party band belongs alongside rf
+#: and ERP in whatever carries provenance, not as a bare module constant —
+#: constants that disagree with shipped output are a failure mode this project
+#: has already paid for once.
+BETA_SOURCE: Final[str] = (
+    "third-party five-year estimates (Finbox, Simply Wall St, Yahoo Finance) for "
+    "the four Australian majors; reviewed 2026-09-08; CITED, not measured from "
+    "asxos price data"
+)
+BETA_SOURCE_AS_OF: Final[str] = "2026-09-08"
+BETA_LOW: Final[Decimal] = Decimal("0.55")
+BETA_HIGH: Final[Decimal] = Decimal("0.85")
 
 #: Equity risk premium. James's ruling constrains this to [5%, 6%].
 ERP_MIN: Final[Decimal] = Decimal("0.05")
