@@ -9,12 +9,20 @@ from __future__ import annotations
 
 import sys
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from jobs.check_cron_health import _query_issues, _send_alert
+from asxos.control_plane.finding import parse_finding_json
+from asxos.control_plane.probe_adapters import PipelineHealthKind
+from jobs.check_cron_health import (
+    _degraded_failure,
+    _query_issues,
+    _send_alert,
+    _write_finding_artifact,
+)
 
 
 def test_send_alert_does_not_shadow_html_module(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -59,7 +67,7 @@ async def test_degraded_success_row_surfaces_as_issue() -> None:
 
     issues = await _query_issues(conn)
 
-    degraded = [i for i in issues if i.startswith("DEGRADED:")]
+    degraded = [i.log_excerpt for i in issues if i.log_excerpt.startswith("DEGRADED:")]
     assert len(degraded) == 1
     assert "ingest_regulatory" in degraded[0]
     assert "Treasury" in degraded[0]
@@ -95,7 +103,7 @@ async def test_stuck_age_counts_whole_days_not_the_sub_day_remainder() -> None:
 
     issues = await _query_issues(conn)
 
-    stuck = [i for i in issues if i.startswith("STUCK:")]
+    stuck = [i.log_excerpt for i in issues if i.log_excerpt.startswith("STUCK:")]
     assert len(stuck) == 1
     assert "sync_financial_statements" in stuck[0]
     # The whole point: 56, not 8.
@@ -111,7 +119,57 @@ async def test_clean_success_rows_produce_no_degraded_issue() -> None:
 
     issues = await _query_issues(conn)
 
-    assert not [i for i in issues if i.startswith("DEGRADED:")]
+    assert not [i for i in issues if i.log_excerpt.startswith("DEGRADED:")]
+
+
+def test_sync_no_equity_note_becomes_typed_data_absence() -> None:
+    failure = _degraded_failure(
+        job_name="sync_prices",
+        as_of=date(2026, 9, 8),
+        error_message="sync_prices degraded: 2026-09-08 NO_EQUITY_DATA — ASX=0",
+    )
+
+    assert failure.kind is PipelineHealthKind.DATA_ABSENCE
+    assert failure.contract == "NO_EQUITY_DATA"
+    assert failure.market == "ASX"
+    assert failure.as_of == date(2026, 9, 8)
+
+
+def test_pipeline_job_writes_reparseable_redacted_finding_artifact(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "pipeline-health.findings.jsonl"
+    failure = _degraded_failure(
+        job_name="sync_prices",
+        as_of=date(2026, 9, 8),
+        error_message=(
+            "sync_prices degraded: 2026-09-08 NO_EQUITY_DATA — ASX=0"
+        ),
+    ).model_copy(
+        update={"log_excerpt": "token=ghp_abcdefghijklmnopqrstuvwxyz1234567890"}
+    )
+    environment = {
+        "GITHUB_RUN_ID": "34100000005",
+        "GITHUB_REPOSITORY": "Jp8617465-sys/asxos",
+        "GITHUB_REF": "refs/heads/main",
+        "GITHUB_WORKFLOW_REF": (
+            "Jp8617465-sys/asxos/.github/workflows/"
+            "pipeline-health.yml@refs/heads/main"
+        ),
+        "GITHUB_SHA": "e" * 40,
+    }
+
+    _write_finding_artifact(
+        failures=(failure,),
+        output=output,
+        environment=environment,
+        observed_at=datetime(2026, 9, 8, 22, 0, tzinfo=UTC),
+    )
+
+    payload = output.read_text()
+    finding = parse_finding_json(payload.removesuffix("\n"))
+    assert finding.failure_class == "data_absence"
+    assert "ghp_" not in payload
 
 
 class _FixedMonday:
@@ -163,7 +221,7 @@ async def test_weekday_only_job_gets_a_window_that_spans_the_weekend(
     assert windows["check_us_positions"] == 80
     assert windows["sync_prices"] == 36
     assert all(w >= 36 for w in windows.values())
-    missing = [i for i in issues if i.startswith("MISSING:")]
+    missing = [i.log_excerpt for i in issues if i.log_excerpt.startswith("MISSING:")]
     assert not any("check_us_positions" in i for i in missing), missing
     # Every default-window job still reports MISSING under this fixture,
     # proving the per-job window is what changed the outcome, not the check.
