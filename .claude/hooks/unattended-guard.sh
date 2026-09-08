@@ -57,9 +57,9 @@ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
 
 is_authority_path() {
   case "$1" in
-    CLAUDE.md|.claude/settings.json|.claude/settings.local.json|.claude/agents/arbi.md) return 0 ;;
+    AGENTS.md|CLAUDE.md|.claude/settings.json|.claude/settings.local.json|.claude/agents/arbi.md) return 0 ;;
     .claude/hooks/*) return 0 ;;
-    docs/product/north-star.md|docs/product/arbi-constitution.md|docs/product/arbi-authority.md) return 0 ;;
+    docs/product/north-star.md|docs/product/autonomy-policy.md|docs/product/arbi-constitution.md|docs/product/arbi-authority.md) return 0 ;;
     docs/product/arbi-permission-model.md|docs/product/arbi-scorecard.md|docs/product/arbi-promotion-gate.md) return 0 ;;
     docs/product/memory/approved-lessons.md|docs/product/memory/authority-lessons.md|docs/product/memory/project-facts.md) return 0 ;;
   esac
@@ -259,7 +259,7 @@ case "$tool" in
       && deny "unattended-guard: env/set/printenv can expose secrets held in the environment; blocked."
     # A4 — authority-file writes via Bash (belt for the Edit/Write category). Write verbs now
     # include interpreters (python/perl/ruby/node/ed/ex/sponge) that open a file directly.
-    if printf '%s' "$cmd" | grep -Eq 'CLAUDE\.md|\.claude/settings(\.local)?\.json|\.claude/hooks/|\.claude/agents/arbi\.md|docs/product/(north-star|arbi-constitution|arbi-authority|arbi-permission-model|arbi-scorecard|arbi-promotion-gate)\.md|docs/product/memory/(approved-lessons|authority-lessons|project-facts)\.md' \
+    if printf '%s' "$cmd" | grep -Eq 'AGENTS\.md|CLAUDE\.md|\.claude/settings(\.local)?\.json|\.claude/hooks/|\.claude/agents/arbi\.md|docs/product/(north-star|autonomy-policy|arbi-constitution|arbi-authority|arbi-permission-model|arbi-scorecard|arbi-promotion-gate)\.md|docs/product/memory/(approved-lessons|authority-lessons|project-facts)\.md' \
        && printf '%s' "$cmd" | grep -Eq '(>>?|tee|sed[[:space:]]+-i|perl[[:space:]]|python[0-9.]*[[:space:]]|ruby[[:space:]]|node[[:space:]]|awk[^|;&]*inplace|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'; then
       deny "unattended-guard: writing an authority/boundary file via Bash is blocked. arbi may only DRAFT these via a PR for James."
     fi
