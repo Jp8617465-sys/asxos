@@ -102,6 +102,7 @@ class ProbeRunEvidence(_FrozenModel):
                 raise ValueError("run_url must identify the same asxos Actions run as run_id")
 
         stable_fingerprints: set[str] = set()
+        finding_digests: set[str] = set()
         for finding in self.findings:
             if finding.probe != self.probe:
                 raise ValueError("every Finding must come from the named originating probe")
@@ -113,17 +114,25 @@ class ProbeRunEvidence(_FrozenModel):
                 if finding.fingerprint in stable_fingerprints:
                     raise ValueError("a run must not repeat a stable fingerprint")
                 stable_fingerprints.add(finding.fingerprint)
+            digest = finding_digest(finding)
+            if digest in finding_digests:
+                raise ValueError("a run must not repeat a complete Finding digest")
+            finding_digests.add(digest)
         return self
 
     @property
-    def is_trusted_success(self) -> bool:
+    def has_trusted_output(self) -> bool:
         return (
-            self.conclusion == "success"
+            self.conclusion in {"success", "failure"}
             and self.output_valid
             and self.provenance_valid
             and self.run_id is not None
             and self.run_url is not None
         )
+
+    @property
+    def is_trusted_success(self) -> bool:
+        return self.has_trusted_output and self.conclusion == "success"
 
 
 def projected_labels(
@@ -260,10 +269,18 @@ class SentinelCommand(_FrozenModel):
 
     kind: CommandKind
     fingerprint: str | None
+    idempotency_key: str
     issue_number: StrictInt | None = None
     title: str | None = None
     body: str | None = None
     labels: tuple[str, ...] = ()
+
+    @field_validator("idempotency_key")
+    @classmethod
+    def _idempotency_key_is_pinned(cls, value: str) -> str:
+        if not _SHA256_RE.fullmatch(value):
+            raise ValueError("idempotency_key must be lowercase sha256:<64 hex>")
+        return value
 
     @model_validator(mode="after")
     def _payload_matches_command_kind(self) -> SentinelCommand:
@@ -300,6 +317,27 @@ def finding_digest(finding: Finding) -> str:
     return "sha256:" + hashlib.sha256(finding.canonical_json().encode("utf-8")).hexdigest()
 
 
+def command_idempotency_key(
+    kind: CommandKind,
+    *,
+    fingerprint: str | None,
+    run_id: str,
+    finding_digest_value: str | None = None,
+) -> str:
+    """Bind one external command to its immutable lifecycle transition."""
+
+    payload = canonical_json(
+        {
+            "finding_digest": finding_digest_value,
+            "fingerprint": fingerprint,
+            "kind": kind,
+            "run_id": run_id,
+            "schema_version": SENTINEL_SCHEMA_VERSION,
+        }
+    )
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def sentinel_machine_block(finding: Finding, *, run_id: str) -> str:
     """Return the exact first-line machine block for an occurrence."""
 
@@ -324,6 +362,27 @@ def _occurrence_body(finding: Finding, *, run_id: str) -> str:
 def _recovery_body(run_urls: tuple[str, ...]) -> str:
     joined = "\n".join(f"- {url}" for url in run_urls)
     return f"Recovered after three consecutive successful originating-probe runs:\n{joined}"
+
+
+def _create_stable_issue_command(
+    finding: Finding,
+    *,
+    run_id: str,
+    labels: tuple[str, ...],
+) -> SentinelCommand:
+    assert finding.fingerprint is not None
+    return SentinelCommand(
+        kind="create_issue",
+        fingerprint=finding.fingerprint,
+        idempotency_key=command_idempotency_key(
+            "create_issue",
+            fingerprint=finding.fingerprint,
+            run_id=run_id,
+        ),
+        title=finding.title,
+        body=_occurrence_body(finding, run_id=run_id),
+        labels=labels,
+    )
 
 
 def _projection_from_finding(finding: Finding, run: ProbeRunEvidence) -> SentinelProjection:
@@ -368,6 +427,16 @@ def _present_transition(
     assert finding.fingerprint is not None
     assert run.run_id is not None
     if prior.last_evaluated_run_id == run.run_id:
+        if finding_digest(finding) != prior.last_finding_digest:
+            raise ValueError("a replayed run must carry the original Finding digest")
+        if prior.issue_number is None:
+            return prior, (
+                _create_stable_issue_command(
+                    finding,
+                    run_id=run.run_id,
+                    labels=prior.labels,
+                ),
+            )
         return prior, ()
     if run.completed_at <= prior.last_evaluated_at:
         raise ValueError("probe runs must be projected in completion order")
@@ -385,6 +454,11 @@ def _present_transition(
             SentinelCommand(
                 kind="reopen_issue",
                 fingerprint=prior.fingerprint,
+                idempotency_key=command_idempotency_key(
+                    "reopen_issue",
+                    fingerprint=prior.fingerprint,
+                    run_id=run.run_id,
+                ),
                 issue_number=prior.issue_number,
             )
         )
@@ -422,6 +496,11 @@ def _present_transition(
         SentinelCommand(
             kind="comment_occurrence",
             fingerprint=prior.fingerprint,
+            idempotency_key=command_idempotency_key(
+                "comment_occurrence",
+                fingerprint=prior.fingerprint,
+                run_id=run.run_id,
+            ),
             issue_number=prior.issue_number,
             body=_occurrence_body(finding, run_id=run.run_id),
         )
@@ -431,6 +510,11 @@ def _present_transition(
             SentinelCommand(
                 kind="update_labels",
                 fingerprint=prior.fingerprint,
+                idempotency_key=command_idempotency_key(
+                    "update_labels",
+                    fingerprint=prior.fingerprint,
+                    run_id=run.run_id,
+                ),
                 issue_number=prior.issue_number,
                 labels=updated.labels,
             )
@@ -484,12 +568,22 @@ def _absent_transition(
         SentinelCommand(
             kind="comment_recovery",
             fingerprint=prior.fingerprint,
+            idempotency_key=command_idempotency_key(
+                "comment_recovery",
+                fingerprint=prior.fingerprint,
+                run_id=run.run_id,
+            ),
             issue_number=prior.issue_number,
             body=_recovery_body(run_urls),
         ),
         SentinelCommand(
             kind="close_issue",
             fingerprint=prior.fingerprint,
+            idempotency_key=command_idempotency_key(
+                "close_issue",
+                fingerprint=prior.fingerprint,
+                run_id=run.run_id,
+            ),
             issue_number=prior.issue_number,
         ),
     ]
@@ -498,6 +592,11 @@ def _absent_transition(
             SentinelCommand(
                 kind="update_labels",
                 fingerprint=prior.fingerprint,
+                idempotency_key=command_idempotency_key(
+                    "update_labels",
+                    fingerprint=prior.fingerprint,
+                    run_id=run.run_id,
+                ),
                 issue_number=prior.issue_number,
                 labels=labels,
             )
@@ -522,7 +621,7 @@ def project_probe_run(
     """Apply L1-L8 to one probe run without performing an external mutation."""
 
     projections = _prior_index(prior)
-    if not run.is_trusted_success:
+    if not run.has_trusted_output:
         return SentinelResult(
             projections=tuple(sorted(projections.values(), key=lambda item: item.fingerprint)),
             commands=(),
@@ -549,6 +648,12 @@ def project_probe_run(
                 SentinelCommand(
                     kind="create_diagnostic_issue",
                     fingerprint=None,
+                    idempotency_key=command_idempotency_key(
+                        "create_diagnostic_issue",
+                        fingerprint=None,
+                        run_id=run.run_id,
+                        finding_digest_value=finding_digest(finding),
+                    ),
                     title=finding.title,
                     body=_occurrence_body(finding, run_id=run.run_id),
                     labels=labels,
@@ -562,11 +667,9 @@ def project_probe_run(
             created = _projection_from_finding(finding, run)
             projections[finding.fingerprint] = created
             commands.append(
-                SentinelCommand(
-                    kind="create_issue",
-                    fingerprint=finding.fingerprint,
-                    title=finding.title,
-                    body=_occurrence_body(finding, run_id=run.run_id),
+                _create_stable_issue_command(
+                    finding,
+                    run_id=run.run_id,
                     labels=created.labels,
                 )
             )
@@ -577,13 +680,14 @@ def project_probe_run(
         projections[finding.fingerprint] = updated
         commands.extend(occurrence_commands)
 
-    for fingerprint in sorted(projections):
-        projection = projections[fingerprint]
-        if projection.probe != run.probe or fingerprint in present:
-            continue
-        updated, recovery_commands = _absent_transition(projection, run)
-        projections[fingerprint] = updated
-        commands.extend(recovery_commands)
+    if run.is_trusted_success:
+        for fingerprint in sorted(projections):
+            projection = projections[fingerprint]
+            if projection.probe != run.probe or fingerprint in present:
+                continue
+            updated, recovery_commands = _absent_transition(projection, run)
+            projections[fingerprint] = updated
+            commands.extend(recovery_commands)
 
     return SentinelResult(
         projections=tuple(sorted(projections.values(), key=lambda item: item.fingerprint)),
