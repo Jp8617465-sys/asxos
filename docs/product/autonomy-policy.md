@@ -96,7 +96,8 @@ identities and retains fail-closed client guards.
 | Policy self-amendment | CODEOWNERS routes to James; `risk-classify` mechanically requires James's current-head approval for `AGENTS.md`, `CLAUDE.md`, `docs/product/**`, `.github/**`, `.claude/**`, `asxos/capital/**`, `asxos/insights/**`, `asxos/brief/**`, `asxos/domain/decision_engine/**`, `migrations/**` | `.github/CODEOWNERS` + `asxos-control` verifier | **No** (file exists, coverage does not) |
 | Secret values | Actions secret scoping, push protection, no plaintext in repo | GitHub + Supabase | Verify |
 | Capital orders | Broker credentials never issued to any agent identity or agent-reachable workflow | Broker + secret store | Verify |
-| Destructive prod SQL | Agent-reachable Supabase role has no DDL and no unbounded write on user tables; migration role only in the migrate workflow's secrets | Supabase roles | Verify |
+| Destructive prod SQL | Agent-reachable Supabase role has no DDL and no unbounded write on user tables; migration role only in the migrate workflow's secrets | Supabase roles | **Partial** — `db-write-guard.sh` (always-on) denies a write/DDL-shaped query reaching the read-only connection, client-side; the role itself is unverified — the role, not the hook, is the real backstop |
+| Migration application (item 18) | Merging a migration-bearing PR is ordinary Amber merge authority — a merged migration sits unapplied. Applying one is denied to the agent identity unconditionally | `db-write-guard.sh` (always-on, not `ARBI_UNATTENDED`-gated) | **Partial** — client-side deny exists today; no attested application workflow exists yet, so applying a migration remains manual, by James |
 | `.env` reads and writes to Red paths or `.claude/**` | Deny rules + PreToolUse hooks; agent runtime receives no production secret values | `.claude/settings.json`, `.claude/hooks/`, runner credential boundary | **No** |
 | Autonomy state | `AUTONOMY` repo variable; agent identity lacks `variables: write` | Repo variables + App permissions | **No** |
 | Autonomy-state mutation | Dedicated State Controller App has metadata read + variables write only; only attested breaker/restore/activation workflows may assume it | `asxos-control` + GitHub App permissions | **No** |
@@ -184,6 +185,33 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
     The workflow re-verifies items 1–16, matches the policy/ledger/verifier
     digests and uses the State Controller to flip `AUTONOMY` to `STANDING`.
     A partial checklist or digest mismatch refuses activation.
+18. **Migration merge authority and application authority are separate.**
+    Amber merge authority *includes* `migrations/**` — agents merge
+    migration-bearing PRs under their normal tier. Measured: no
+    `.github/workflows/*.yml` calls `apply_migration`, and the Makefile's
+    `migrate:` target says migrations are applied "using
+    `mcp__supabase__apply_migration`", by hand — so a merged migration sits
+    unapplied and the merge itself is revert-able. Application stays
+    `always_ask` per `arbi-permission-model.md:46`, enforced at the role
+    rather than in prose: `db-write-guard.sh` (always-on, not
+    `ARBI_UNATTENDED`-gated) denies any `*apply_migration` call
+    unconditionally, regardless of `AUTONOMY`. The same hook denies a
+    write/DDL-shaped query reaching the read-only DB connection, always — a
+    second absolute exclusion, for the same reason: neither is undone by a
+    `git revert`. Revisit the application grant when PITR is enabled and a
+    restore has been rehearsed against real data.
+
+    **Note on §0 and this checklist's own framing.** `push-guard.sh` and
+    `pr-draft-guard.sh` already implement the `AUTONOMY=STANDING` gate this
+    section describes building — `gh pr merge`, `gh pr ready`, non-draft
+    `gh pr create`, and MCP-level PR un-drafting are already conditional on
+    it today, mechanically, with no code change required for that grant.
+    What changed in this revision is narrower: which absolute exclusions
+    hold regardless of `AUTONOMY` (destructive DDL and migration
+    application, above), and which additional production-facing workflows
+    (`daily-brief.yml`, `us-positions.yml`, `weekly-research.yml`) become
+    dispatchable once `STANDING` — a second, narrower allowlist tier in
+    `push-guard.sh`, not a rewrite of its enforcement model.
 
 ---
 
