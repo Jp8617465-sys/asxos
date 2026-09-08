@@ -245,7 +245,9 @@ def test_actionability_rejects_unparsed_identity_shapes(
     [
         ".github/workflows/full-check.yml",
         ".claude/settings.json",
+        "asxos/capital/orders.py",
         "asxos/control_plane/finding.py",
+        "asxos/insights/personal/report.py",
         "docs/product/arbi-authority.md",
         "migrations/0053_example.sql",
         "tests/test_prices.py",
