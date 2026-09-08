@@ -1227,3 +1227,24 @@ items:
       the store, including the largest ASX listing at its most recent period.
       Decide whether the gate is right and the data must be fixed, or whether an
       AU-only store should default the currency and record that it did.
+
+  - id: C-21
+    title: "A dated third-party beta band belongs in the provenance record alongside rf and ERP, not as a bare module constant"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/valuation/capm.py", "asxos/domain/valuation/types.py"]
+    source: >-
+      Filed 2026-09-08 by James's ruling. capm.BETA_LOW/BETA_HIGH carry a cited
+      third-party band (Finbox/Simply Wall St/Yahoo Finance five-year estimates,
+      reviewed 2026-09-08) as module constants with the source in a comment. rf
+      comes from market_context with an as_of, and ERP is a required CLI argument
+      with a required citation — beta is the only one of the three CAPM inputs
+      whose source and date are not carried on the artifact itself. The failure
+      this prevents already happened once in this project: the band shipped at
+      0.90-1.20 while the reviewed figure was 0.55-0.85, and nothing in the output
+      would have shown the disagreement. Move the band, its source string and its
+      as-of into CostOfEquityInputs so a run states which band it used, and make a
+      band change a data change rather than a code change.
