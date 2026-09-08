@@ -1,3 +1,23 @@
+"""Text-level pins on the standing-lane workflow definitions.
+
+READ THIS BEFORE TRUSTING A GREEN RUN HERE. Every assertion below is a
+substring match against the workflow YAML *as text*. That is appropriate for
+the policy pins — "these lanes are still manual", "the agent's code runs only
+in the read-only job" — because those are statements about the definition.
+
+It is NOT evidence that any guard works. Measured 2026-09-08: all ten substring
+assertions in this module are satisfied by text whose live branch-name check is
+``[[ ! "$name" =~ .* ]]``, which accepts every branch name, including
+``claude/triage-20260908-x; rm -rf /``. These tests could not distinguish a
+working validator from a destroyed one, per
+``docs/session-handoff-2026-09-07.md`` Lesson 1 — "a grep hit proves a string
+exists, never what it does".
+
+Behavioural coverage now lives in ``tests/test_nightly_triage_shell.py``, which
+executes the byte-exact ``run:`` blocks. When a guard's behaviour matters, add
+the case there, not here.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
