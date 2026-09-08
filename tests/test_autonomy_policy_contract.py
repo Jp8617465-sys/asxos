@@ -21,8 +21,8 @@ def test_activation_checklist_is_complete_and_contiguous() -> None:
         int(value)
         for value in re.findall(r"(?m)^(\d+)\. \*\*", policy)
     ]
-    assert numbers == list(range(1, 19))
-    assert "re-verifies items 1–17" in policy
+    assert numbers == list(range(1, 20))
+    assert "re-verifies items 1–18" in policy
 
 
 def test_cross_harness_contract_is_on_the_authority_ladder() -> None:
@@ -65,6 +65,18 @@ def test_activation_binds_a_distinct_ledger_writer_identity() -> None:
     assert "exact protected-ledger parent commit" in policy
     assert "rejects any non-append blob change" in agents
     assert "owner-approved genesis" in permission_model
+
+
+def test_landing_identity_is_distinct_and_refuses_self_amendment() -> None:
+    agents = _read("AGENTS.md")
+    policy = _read("docs/product/autonomy-policy.md")
+    permission_model = _read("docs/product/arbi-permission-model.md")
+    assert "Landing Controller is the only non-human" in agents
+    assert "Landing Controller refuses it" in agents
+    assert "Landing Controller App is the only non-human merge identity" in policy
+    assert "Amber with an additional\nowner-only landing flag" in agents
+    assert "refuses Red and the owner-only landing flag" in policy
+    assert "Distinct Landing Controller" in permission_model
 
 
 def test_only_attested_state_workflows_may_write_autonomy() -> None:

@@ -60,10 +60,14 @@ policy and mechanical implementation.
 ### I6 is integration-classified
 
 - Green PR: while attested `STANDING`, the agent may mark it ready and request a
-  squash merge after current-head required checks pass.
+  squash merge through the distinct Landing Controller after current-head
+  required checks pass.
 - Amber PR: the same path is available only after James has approved the current
   head and the external classifier accepts that exact review.
 - Red PR: never merges through agent authority.
+- Owner-only landing: an Amber self-amendment may pass the required check after
+  James approves its current head, but the Landing Controller refuses it and
+  James performs the squash merge manually.
 - Direct or force push to `main`, `--admin`, auto-merge, merge/rebase merge methods,
   protection bypass and merging a different head are always forbidden.
 
@@ -106,9 +110,9 @@ facts are current:
 
 1. the repository variable is exactly `AUTONOMY=STANDING`; and
 2. the control ledger attests the current `AGENTS.md` digest, authoritative
-   verifier commit, distinct Ledger Writer App identity and exact protected
-   ledger parent, after reconstructing an append-only commit chain from the
-   owner-approved genesis.
+   verifier commit, distinct Landing Controller App identity,
+   distinct Ledger Writer App identity and exact protected ledger parent, after reconstructing
+   an append-only commit chain from the owner-approved genesis.
 
 The external `risk-classify` check and protected-branch rules are the enforcement
 boundary. A local hook result is feedback, not proof.
@@ -129,6 +133,7 @@ change names and implements scheduled landing.
 |---|---|
 | State and policy identity | `AUTONOMY` plus control-ledger attestation |
 | Tier and current-head review | App-bound `risk-classify` required check |
+| Non-human merge | Distinct Landing Controller; exact-head re-observation, squash-only request and post-write read-back; Red/owner-only refusal |
 | Main history and merge shape | active ruleset: PR-only, squash-only, linear, current checks, no bypass |
 | Authority and sensitive-path routing | CODEOWNERS plus classifier registry and drift test |
 | Claude feedback | `.claude/settings.json` and fail-closed PreToolUse hooks |

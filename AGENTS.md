@@ -1,8 +1,9 @@
 # AGENTS.md — ASXOS
 
 > **ACTIVATION GATE.** This policy grants standing autonomy only when the
-> control ledger attests this policy's exact digest, authoritative verifier and
-> Ledger Writer identity and append-only protected Git history, and the
+> control ledger attests this policy's exact digest, authoritative verifier,
+> distinct Landing Controller identity, distinct Ledger Writer identity and
+> append-only protected Git history, and the
 > repository variable `AUTONOMY` is `STANDING`. A missing, malformed or
 > unattested state is
 > `ATTENDED`. Until every item in `docs/product/autonomy-policy.md` §3 passes,
@@ -141,7 +142,9 @@ this repository will contain only a thin caller pinned to an immutable verifier
 commit. The verifier computes
 the tier from diff paths and content without a GitHub credential; a separate
 check-publisher job uses a reduced Verifier App token to post the result against
-the exact PR head SHA. You may not declare or argue down
+the exact PR head SHA. A distinct Landing Controller is the only non-human
+identity allowed to request a merge; it consumes that exact result but cannot
+publish or certify it. You may not declare or argue down
 your tier. You may raise it (§7). If the check errors, is missing, cannot
 classify, or reports against any other SHA, it does not pass. An unlabelled PR
 does not merge.
@@ -170,11 +173,15 @@ cadence; dependency major bumps; secret names and scopes (never values);
 anything that increases variable spend (§8); anything the classifier could
 not place.
 
-**Red:** the Red rows in the protected paths table and everything in §8. These
-are change-risk tiers, not the Amber investment-thesis traffic light.
+**Red:** the Red rows in the protected paths table and actions that §8 names
+Red or permanently forbidden. A self-amendment is Amber with an additional
+owner-only landing flag: the required check may pass after James's exact-head
+approval, but the Landing Controller must refuse it. These are change-risk
+tiers, not the Amber investment-thesis traffic light.
 
 **`asxos-control`:** no Green tier. Everything is Amber minimum. Fence,
-classifier, lease and restore paths are Red for self-amendment (§8).
+classifier, lease, landing-controller and restore paths are owner-only for
+self-amendment (§8); no controller may land them.
 
 ---
 
@@ -245,8 +252,14 @@ PRs. CODEOWNERS is review routing, not approval enforcement; the external
 push and every review event, passes Green without review, and passes Amber only
 when James's APPROVED review has `commit_id == current head SHA`. The publisher
 must post the result against that same SHA; a check on a merge ref or stale head
-does not satisfy the gate. **Do not restate these in PR bodies as things you
-verified.**
+does not satisfy the gate. A credential-isolated Landing Controller is the only
+non-human merge caller. It independently re-observes the PR and required checks,
+uses squash only, refuses Red and self-amendment, and verifies the resulting
+`main` commit before recording the landing. The ordinary agent, Branch
+Publisher, Verifier, check publisher, State Controller and Ledger Writer cannot
+assume its credential. James may still perform the owner-only merge of a
+self-amendment after the same current-head checks and approval gate pass.
+**Do not restate these in PR bodies as things you verified.**
 
 Your pre-merge job is only what CI cannot do:
 
@@ -306,8 +319,10 @@ from the approved one.
 
 **Self-amendment.** You may draft, test and open a PR against this file,
 `CLAUDE.md`, harness profiles, rulesets, `risk-classify`, `activation`,
-`breaker`, `restore` or hooks. You may not merge one. It needs James's approval
-and is inactive until landed.
+`breaker`, `restore`, landing-controller or hooks. You may not merge one. It
+is classified Amber with an owner-only landing flag, needs James's current-head
+approval and James's manual merge. The Landing Controller refuses it. It is
+inactive until landed.
 
 **Autonomy state.** Never edit the `AUTONOMY` variable directly. Only the
 attested `activation`, `breaker` and `restore` workflows may write it (§9).
@@ -331,10 +346,10 @@ evidence, or conceal a failed check, rollback or material finding.
 
 There is a **standing grant** only while repo variable `AUTONOMY` is `STANDING`
 and the control ledger's activation record binds the current policy digest,
-authoritative verifier commit, distinct Ledger Writer App identity and exact
-protected-ledger parent commit. The reader reconstructs every ledger commit
-from the owner-approved genesis and rejects any non-append blob change. No
-per-PR, per-train or per-deploy grant exists.
+authoritative verifier commit, distinct Landing Controller App identity,
+distinct Ledger Writer App identity and exact protected-ledger parent commit.
+The reader reconstructs every ledger commit from the owner-approved genesis and
+rejects any non-append blob change. No per-PR, per-train or per-deploy grant exists.
 No time expiry. Do not re-ask for a grant you hold. Missing or stale attestation
 means `ATTENDED`, regardless of the variable's text.
 

@@ -90,6 +90,17 @@ hashes the latest frozen AC. James approves with
 `APPROVE-AC sha256:<digest>`. A verifier accepts only James's comment matching
 that exact ledger-recorded digest, so an approval cannot survive an AC change.
 
+**Publication is not landing.** The Branch Publisher App can update an agent
+branch and PR but never receives a landing request or Landing Controller credential. A distinct
+Landing Controller App is the only non-human merge identity. Its fixed,
+credential-isolated adapter re-observes the exact head, App-bound classifier
+result, complete required-check set, review state, base branch and ruleset
+evidence; it requests squash only and verifies the installed `main` commit.
+It refuses Red and the owner-only landing flag even when James has approved the
+underlying Amber change, leaving
+those owner-only merges possible without making a passing check an agent merge
+capability.
+
 ---
 
 ## 2. Where each rule will live
@@ -114,7 +125,8 @@ identities and retains fail-closed client guards.
 | Red paths cannot merge | Classifier fails outright on `asxos/insights/personal/**`, `asxos/capital/**` | same | **No** |
 | Relocation PRs | Label `relocation`; classifier requires James approval and a diff that is a pure move (`git diff --stat -M100%`) | same | **No** |
 | Spend ask | `workflow_dispatch` jobs under `production` environment with James as required reviewer | Repo environments | **No** |
-| Policy self-amendment | CODEOWNERS routes to James; `risk-classify` mechanically requires James's current-head approval for `AGENTS.md`, `CLAUDE.md`, `docs/product/**`, `.github/**`, `.claude/**`, `asxos/capital/**`, `asxos/insights/**`, `asxos/brief/**`, `asxos/domain/decision_engine/**`, `migrations/**` | `.github/CODEOWNERS` + `asxos-control` verifier | **No** (file exists, coverage does not) |
+| Policy self-amendment | CODEOWNERS routes to James; `risk-classify` emits Amber plus owner-only landing and requires James's current-head approval for `AGENTS.md`, `CLAUDE.md`, `docs/product/**`, `.github/**`, `.claude/**` and Control's classifier/lease/landing/restore surfaces | `.github/CODEOWNERS` + `asxos-control` verifier + Landing Controller refusal | **No** (file exists, coverage does not) |
+| Autonomous landing | Distinct Landing Controller App; exact-head re-observation; squash-only request; post-write read-back; Red and self-amendment refusal | `asxos-control` + product credential-isolated landing caller | **No** |
 | Secret values | Actions secret scoping, push protection, no plaintext in repo | GitHub + Supabase | Verify |
 | Capital orders | Broker credentials never issued to any agent identity or agent-reachable workflow | Broker + secret store | Verify |
 | Destructive prod SQL | Agent-reachable Supabase role has no DDL and no unbounded write on user tables; migration role only in the migrate workflow's secrets | Supabase roles | Verify |
@@ -176,7 +188,17 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    from within the harness. Keep `unattended-guard.sh`'s merge deny until the
    activation path can verify ledger attestation independently of mutable product
    code or a repository variable; `AUTONOMY=STANDING` alone is not a key.
-8. **State Controller and Ledger Writer.** Create the dedicated
+8. **Landing Controller.** Create a distinct metadata-read/pull-requests-read/
+   contents-write App and expose its credential only to the immutable,
+   credential-isolated landing adapter. The adapter executes no PR content,
+   accepts no caller-selected repository/base/ref/method, re-observes every
+   current-head gate immediately before a squash request, refuses Red and the
+   owner-only landing flag, and verifies the installed `main` commit before recording
+   success. The branch Publisher can update agent branches and PRs but cannot
+   invoke or assume this credential. Prove head changes between ready and merge,
+   stale or non-App checks, skipped/neutral checks, forks, merge refs, ruleset
+   drift, method substitution and partial writes all fail closed.
+9. **State Controller and Ledger Writer.** Create the dedicated
    metadata-read/variables-write State Controller App and bind it only to the
    attested activation, breaker and restore workflows. Create the distinct,
    product-only metadata-read/contents-write Ledger Writer App and bind it only
@@ -184,22 +206,23 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    verifier, branch publisher, check publisher and ordinary agent identities
    cannot assume either credential; neither controller App can assume the
    other.
-9. **`AUTONOMY` variable and attestation.** Create it as `ATTENDED`. Record an
+10. **`AUTONOMY` variable and attestation.** Create it as `ATTENDED`. Record an
    activation entry that binds the exact `AGENTS.md` digest, verifier commit,
-   check- and branch-publisher identities, State Controller identity, Ledger
-   Writer identity, exact protected-ledger parent commit and checklist evidence.
+   check- and branch-publisher identities, Landing Controller identity, State
+   Controller identity, Ledger Writer identity,
+   exact protected-ledger parent commit and checklist evidence.
    The reader reconstructs the commit chain from the owner-approved genesis;
    internal event hashes without that Git-history proof are insufficient. A
    mismatched record fails closed.
-10. **Breaker registry and workflow.** Check in a registry naming each monitored
+11. **Breaker registry and workflow.** Check in a registry naming each monitored
    workflow, metric, threshold, evaluation window and evidence query. Missing,
    malformed or stale required telemetry trips. The workflow monitors `main`,
    rollbacks and the registry, flips to `ATTENDED`, opens the incident issue,
    and records the event.
-11. **`restore` workflow.** Verifies evidence and count, flips to `STANDING`
+12. **`restore` workflow.** Verifies evidence and count, flips to `STANDING`
     or refuses. Runs under a workflow identity that agents cannot assume.
-12. **Digest workflow** at 07:00 AEST.
-13. **Harness alignment.** Import `AGENTS.md` from `CLAUDE.md` using the
+13. **Digest workflow** at 07:00 AEST.
+14. **Harness alignment.** Import `AGENTS.md` from `CLAUDE.md` using the
     documented `@AGENTS.md` syntax; remove conflicting old I5/I6 prose. Claude's
     PR guards resolve the exact product repository from `origin`, read its live
     `AUTONOMY` repository variable through `gh`, and fail closed on a missing
@@ -213,24 +236,24 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
     the always-on Claude push/PR guards only; `ARBI_UNATTENDED=1` remains
     mechanically draft-only. Standing scheduled merge therefore remains an
     open part of this activation item and needs a separate explicit ruling.
-14. **Relocations.** Decide explicitly before activation: either land one
+15. **Relocations.** Decide explicitly before activation: either land one
     relocation PR moving email logic to `asxos/comms/`, or record a deferral and
     prove the existing email paths are protected. Investment-output code stays
     where it is; protect it in place.
-15. **Revert drill.** Ship a harmless, observable Green canary, confirm its
+16. **Revert drill.** Ship a harmless, observable Green canary, confirm its
     production revision, revert it through a second Green PR, and confirm the
     prior revision is restored unattended with no data mutation or manual
     deployment step. Time it. If it does not work end to end, stay `ATTENDED`.
-16. **Restore drill.** In an isolated test repository or workflow dry-run mode,
+17. **Restore drill.** In an isolated test repository or workflow dry-run mode,
     trip an operational breaker, exercise the evidence sequence, and prove a
     third restore inside seven days is refused. Do not consume the live restore
     allowance merely to test it.
-17. **Migration authority split.** The Amber gate permits a migration-file PR to
+18. **Migration authority split.** The Amber gate permits a migration-file PR to
     merge, but the ordinary agent, verifier and publisher identities cannot call
     `apply_migration` or assume the production migration role. Prove the denial
     with the ordinary agent identity. Migration `0042` remains reserved.
-18. **Activate.** Owner approves one activation dispatch while `ATTENDED`.
-    The workflow re-verifies items 1–17, matches the policy/ledger/verifier
+19. **Activate.** Owner approves one activation dispatch while `ATTENDED`.
+    The workflow re-verifies items 1–18, matches the policy/ledger/verifier
     digests and uses the State Controller to flip `AUTONOMY` to `STANDING`.
     A partial checklist or digest mismatch refuses activation.
 
