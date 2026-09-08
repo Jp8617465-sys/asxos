@@ -1,0 +1,32 @@
+# DESTINATION: asxos-control/.github/workflows/digest.yml
+# 07:00 AEST == 21:00 UTC (Australia/Brisbane, no DST).
+name: autonomy-digest
+
+on:
+  schedule:
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Render digest template only until issue destination is bound
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from datetime import date
+          import sys
+          sys.path.insert(0, ".")
+          from asxos_control.digest import DIGEST_CRON_UTC, digest_template
+          assert DIGEST_CRON_UTC == "0 21 * * *"
+          print(digest_template(date.today(), "ATTENDED"))
+          PY

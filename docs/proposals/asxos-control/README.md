@@ -52,3 +52,29 @@ This complements the in-process guard on `main` (PR #209): that one catches a te
 - Replace `sha256:REPLACE_WITH_IMAGE_DIGEST` with the built image digest.
 - The image must contain the `[dev]` extras, `bash`, and — if `run-db-tests: true` —
   a Postgres 16 cluster.
+
+
+## Standing-autonomy cores staged 2026-09-08
+
+These files are the credential-free classifier, publisher contract, activation,
+breaker, restore and digest cores. They are **not live**. This token cannot see
+or push `Jp8617465-sys/asxos-control`; James copies this tree into that
+repository (P2) after review.
+
+| File | Destination |
+|---|---|
+| `asxos_control/` | `asxos-control/asxos_control/` |
+| `registries/classifier-paths.json` | `asxos-control/registries/classifier-paths.json` |
+| `registries/breaker-registry.json` | `asxos-control/registries/breaker-registry.json` |
+| `workflows/risk-classify-verify.yml` | `asxos-control/.github/workflows/risk-classify-verify.yml` |
+| `workflows/risk-classify-publish.yml` | `asxos-control/.github/workflows/risk-classify-publish.yml` |
+| `workflows/activate.yml` | `asxos-control/.github/workflows/activate.yml` |
+| `workflows/breaker.yml` | `asxos-control/.github/workflows/breaker.yml` |
+| `workflows/restore.yml` | `asxos-control/.github/workflows/restore.yml` |
+| `workflows/digest.yml` | `asxos-control/.github/workflows/digest.yml` |
+| `product-repo/risk-classify-caller.yml` | `asxos/.github/workflows/risk-classify.yml` after a live pin |
+| `fixtures/ruleset-spec.json` | applied by James to the product ruleset, not by an agent |
+| `fixtures/production-environment.json` | applied by James as the `production` environment |
+
+Do not bind `risk-classify` as a required check until the Publisher App posts one
+green result against a disposable exact-head PR. Do not create secret values here.

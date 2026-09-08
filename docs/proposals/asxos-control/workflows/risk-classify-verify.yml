@@ -1,0 +1,69 @@
+# DESTINATION: asxos-control/.github/workflows/risk-classify-verify.yml
+#
+# Authoritative verifier. No GitHub write credential. No secrets block.
+# A skipped or neutral conclusion is not a legal output of the Python core.
+name: risk-classify-verify
+
+on:
+  workflow_call:
+    inputs:
+      product-repo:
+        required: true
+        type: string
+      product-ref:
+        description: "exact 40-hex PR head SHA"
+        required: true
+        type: string
+      pr-number:
+        required: true
+        type: string
+    outputs:
+      conclusion:
+        description: "success or failure"
+        value: ${{ jobs.verify.outputs.conclusion }}
+      head-sha:
+        value: ${{ jobs.verify.outputs.head-sha }}
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      conclusion: ${{ steps.classify.outputs.conclusion }}
+      head-sha: ${{ steps.classify.outputs.head_sha }}
+    steps:
+      - name: Refuse a mutable ref
+        env:
+          PRODUCT_REF: ${{ inputs.product-ref }}
+          PRODUCT_REPO: ${{ inputs.product-repo }}
+        run: |
+          set -euo pipefail
+          [[ "$PRODUCT_REF" =~ ^[0-9a-f]{40}$ ]] \
+            || { echo "product-ref must be a 40-hex SHA"; exit 1; }
+          [[ "$PRODUCT_REPO" == "Jp8617465-sys/asxos" ]] \
+            || { echo "wrong repository"; exit 1; }
+
+      - name: Checkout control code at this workflow SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Classify without posting a check
+        id: classify
+        env:
+          PRODUCT_REF: ${{ inputs.product-ref }}
+          PRODUCT_REPO: ${{ inputs.product-repo }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          # The live observer is bound later. This job fails closed until then.
+          print("verifier has no GitHub write and does not post checks")
+          raise SystemExit("observation path not bound; fail closed")
+          PY
+        # No GITHUB_TOKEN write scopes are granted. Do not add checks: write.

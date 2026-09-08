@@ -1,0 +1,17 @@
+# CODEOWNERS — routing for ASXOS authority and protected effects.
+#
+# The external risk-classify check, not CODEOWNERS alone, enforces conditional
+# current-head approval.
+
+/AGENTS.md                                  @Jp8617465-sys
+/CLAUDE.md                                  @Jp8617465-sys
+/docs/product/**                            @Jp8617465-sys
+/.github/**                                 @Jp8617465-sys
+/.claude/**                                 @Jp8617465-sys
+/asxos/brief/**                             @Jp8617465-sys
+/asxos/domain/decision_engine/**            @Jp8617465-sys
+/asxos/jobs/utils/fallback_email.py         @Jp8617465-sys
+/asxos/comms/**                             @Jp8617465-sys
+/asxos/insights/**                          @Jp8617465-sys
+/asxos/capital/**                           @Jp8617465-sys
+/migrations/**                              @Jp8617465-sys

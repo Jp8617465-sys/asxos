@@ -1,0 +1,60 @@
+{
+  "green_prefixes": [
+    "tests/",
+    "docs/",
+    "scripts/",
+    "tools/",
+    "asxos/"
+  ],
+  "green_exact": [
+    "README.md",
+    "Makefile",
+    "ruff.toml",
+    "mypy.ini",
+    ".gitignore"
+  ],
+  "amber_prefixes": [
+    "docs/product/",
+    "migrations/",
+    ".github/",
+    ".claude/",
+    ".cursor/",
+    "asxos/brief/",
+    "asxos/domain/decision_engine/",
+    "asxos/comms/",
+    "jobs/"
+  ],
+  "amber_exact": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "asxos/jobs/utils/fallback_email.py",
+    "asxos/brief/email.py",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "red_prefixes": [
+    "asxos/insights/",
+    "asxos/capital/"
+  ],
+  "red_exact": [
+    ".env"
+  ],
+  "investment_output_prefixes": [
+    "asxos/brief/",
+    "asxos/domain/decision_engine/"
+  ],
+  "codeowners_patterns": [
+    "/AGENTS.md",
+    "/CLAUDE.md",
+    "/docs/product/**",
+    "/.github/**",
+    "/.claude/**",
+    "/asxos/brief/**",
+    "/asxos/domain/decision_engine/**",
+    "/asxos/jobs/utils/fallback_email.py",
+    "/asxos/comms/**",
+    "/asxos/insights/**",
+    "/asxos/capital/**",
+    "/migrations/**"
+  ]
+}

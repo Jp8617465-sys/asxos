@@ -1,0 +1,15 @@
+# DESTINATION: asxos/.github/workflows/autonomy-digest.yml
+name: autonomy-digest
+on:
+  schedule:
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  point-at-control:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "07:00 AEST digest is owned by asxos-control. Product does not hold the issue-write credential."
+          exit 1

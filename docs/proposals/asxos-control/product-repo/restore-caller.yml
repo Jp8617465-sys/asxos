@@ -1,0 +1,20 @@
+# DESTINATION: asxos/.github/workflows/autonomy-restore.yml
+name: autonomy-restore
+on:
+  workflow_dispatch:
+    inputs:
+      incident-issue:
+        required: true
+        type: string
+      dry-run:
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  refuse-product-side-flip:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Restore evidence checks and AUTONOMY writes belong in asxos-control."
+          exit 1

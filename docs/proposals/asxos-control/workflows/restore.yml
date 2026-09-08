@@ -1,0 +1,36 @@
+# DESTINATION: asxos-control/.github/workflows/restore.yml
+# Verifies restore evidence and count; refuses the third restore in seven days.
+name: restore
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident-issue:
+        required: true
+        type: string
+      dry-run:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Refuse live restore while unbound; document the evidence gate
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          echo "Restore requires: fix merged, required checks green, 60 clean minutes, incident updated, restores_in_7d < 2."
+          if [ "$DRY_RUN" != "true" ]; then
+            echo "Live restore requires STATE_CONTROLLER_APP_ID / STATE_CONTROLLER_APP_PRIVATE_KEY."
+            exit 1
+          fi

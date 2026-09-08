@@ -1,0 +1,50 @@
+# DESTINATION: asxos-control/.github/workflows/risk-classify-publish.yml
+#
+# Distinct publisher identity. Posts only the binary risk-classify result
+# against the exact PR head SHA. Secret slot names only; no values.
+name: risk-classify-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      product-repo:
+        required: true
+        type: string
+        default: Jp8617465-sys/asxos
+      product-ref:
+        required: true
+        type: string
+      conclusion:
+        required: true
+        type: string
+      dry-run:
+        required: false
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Refuse skipped, neutral, merge refs, and live posts while dry-run
+        env:
+          PRODUCT_REF: ${{ inputs.product-ref }}
+          CONCLUSION: ${{ inputs.conclusion }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          PRODUCT_REPO: ${{ inputs.product-repo }}
+        run: |
+          set -euo pipefail
+          [[ "$PRODUCT_REPO" == "Jp8617465-sys/asxos" ]] || { echo wrong_repository; exit 1; }
+          [[ "$PRODUCT_REF" =~ ^[0-9a-f]{40}$ ]] || { echo mutable_ref; exit 1; }
+          [[ "$CONCLUSION" == "success" || "$CONCLUSION" == "failure" ]] \
+            || { echo skipped_or_neutral_forbidden; exit 1; }
+          if [ "$DRY_RUN" != "true" ]; then
+            echo "Live publish requires the Publisher App secret slots to be bound by James."
+            echo "This workflow names RISK_CLASSIFY_PUBLISHER_APP_ID and RISK_CLASSIFY_PUBLISHER_APP_PRIVATE_KEY only."
+            exit 1
+          fi
+          echo "dry-run accepted for $PRODUCT_REF conclusion=$CONCLUSION"
+        # Do not read or print secret values. Do not post while dry-run is true.

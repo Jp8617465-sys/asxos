@@ -1,0 +1,41 @@
+# DESTINATION: asxos-control/.github/workflows/activate.yml
+# Owner-approved activation. Refuses an incomplete or mismatched checklist.
+# Never edit AUTONOMY from an agent identity. State Controller App only.
+name: activate-autonomy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type ACTIVATE"
+        required: true
+        type: string
+      dry-run:
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout control code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Refuse unless owner, exact phrase, and dry-run until bound
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          [[ "$ACTOR" == "Jp8617465-sys" ]] || { echo owner_only; exit 1; }
+          [[ "$CONFIRM" == "ACTIVATE" ]] || { echo confirm_mismatch; exit 1; }
+          if [ "$DRY_RUN" != "true" ]; then
+            echo "Live activation needs STATE_CONTROLLER_APP_ID and STATE_CONTROLLER_APP_PRIVATE_KEY bound by James."
+            exit 1
+          fi
+          echo "dry-run activation dispatch accepted; AUTONOMY is not written"

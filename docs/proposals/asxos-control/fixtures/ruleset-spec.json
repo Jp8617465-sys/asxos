@@ -1,0 +1,29 @@
+{
+  "name": "asxos-main-standing",
+  "target": "branch",
+  "ref": "~DEFAULT_BRANCH",
+  "enforcement": "active",
+  "required_pull_request": true,
+  "allowed_merge_methods": [
+    "squash"
+  ],
+  "linear_history": true,
+  "allow_force_push": false,
+  "allow_deletions": false,
+  "bypass_actors": [],
+  "strict_required_status_checks": true,
+  "require_code_owner_review": false,
+  "required_approving_review_count": 0,
+  "require_last_push_approval": false,
+  "required_checks": [
+    {
+      "context": "full-check",
+      "app_slug": "github-actions"
+    },
+    {
+      "context": "risk-classify",
+      "app_slug": "asxos-risk-classify-publisher"
+    }
+  ],
+  "do_not_apply_until": "publisher_posted_green_check_on_disposable_exact_head_pr"
+}

@@ -1,0 +1,13 @@
+# DESTINATION: asxos/.github/workflows/autonomy-breaker.yml
+name: autonomy-breaker
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  refuse-product-side-flip:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Breaker evaluation and AUTONOMY writes belong in asxos-control."
+          exit 1

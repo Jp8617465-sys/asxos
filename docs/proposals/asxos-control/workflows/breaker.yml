@@ -1,0 +1,36 @@
+# DESTINATION: asxos-control/.github/workflows/breaker.yml
+# Evaluates the checked-in registry and would flip AUTONOMY to ATTENDED.
+name: breaker
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        type: boolean
+        default: true
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Fail closed when telemetry or credentials are unbound
+        env:
+          DRY_RUN: ${{ inputs.dry-run || 'true' }}
+        run: |
+          set -euo pipefail
+          echo "Breaker registry is checked in. Live telemetry queries and State Controller writes remain unbound."
+          echo "Missing telemetry is itself a trip; this job refuses a live flip while dry-run/unbound."
+          if [ "$DRY_RUN" != "true" ]; then
+            echo "Live breaker flip requires STATE_CONTROLLER_APP_ID / STATE_CONTROLLER_APP_PRIVATE_KEY."
+            exit 1
+          fi

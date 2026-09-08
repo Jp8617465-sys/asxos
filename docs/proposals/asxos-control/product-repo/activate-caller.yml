@@ -1,0 +1,26 @@
+# DESTINATION: asxos/.github/workflows/autonomy-activate.yml
+name: autonomy-activate
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        required: true
+        type: string
+      dry-run:
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  refuse-unpinned:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Do not dispatch live activation from the product repository
+        run: |
+          set -euo pipefail
+          echo "Activation originates in asxos-control under the State Controller identity."
+          echo "This product caller exists so the workflow name is reviewable; it must not write AUTONOMY."
+          exit 1

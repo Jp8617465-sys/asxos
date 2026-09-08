@@ -1,0 +1,17 @@
+{
+  "name": "production",
+  "prevent_self_review": true,
+  "required_reviewers": [
+    "Jp8617465-sys"
+  ],
+  "wait_timer_minutes": 0,
+  "deployment_branch_policy": "protected_main_only",
+  "attached_to_spend_jobs": [
+    "daily-brief",
+    "us-positions",
+    "weekly-research",
+    "pipeline-health",
+    "backup"
+  ],
+  "notes": "James is the required reviewer for every spend workflow_dispatch job. Do not create the live environment until supporting code is reviewed."
+}

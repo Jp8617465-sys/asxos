@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asxos-control"
+version = "0.0.1"
+description = "Fail-closed ASXOS control-plane cores (staged; not live)"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.1.1",
+  "ruff==0.16.4",
+  "mypy==2.3.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["asxos_control*"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["asxos_control"]

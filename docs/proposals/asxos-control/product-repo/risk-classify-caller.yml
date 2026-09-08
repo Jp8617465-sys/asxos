@@ -1,0 +1,49 @@
+# DESTINATION: asxos/.github/workflows/risk-classify.yml
+#
+# Thin product caller. Holds no classification logic. Pin must be a 40-hex
+# asxos-control commit. Do not bind this check as required until the Publisher
+# App has posted one green result against a disposable exact-head PR.
+name: risk-classify-caller
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed, edited]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pin-or-skip:
+    runs-on: ubuntu-latest
+    outputs:
+      live: ${{ steps.pin.outputs.live }}
+      sha: ${{ steps.pin.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - id: pin
+        run: |
+          set -euo pipefail
+          pin="$(python -c 'import json; print(json.load(open("docs/proposals/asxos-control/fixtures/control-pin.json"))["verifier_commit"])')"
+          if [[ "$pin" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "live=true" >> "$GITHUB_OUTPUT"
+            echo "sha=$pin" >> "$GITHUB_OUTPUT"
+          else
+            echo "Control pin is not an immutable SHA; skipping until James pins a control commit."
+            echo "live=false" >> "$GITHUB_OUTPUT"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+          fi
+
+  verify:
+    needs: pin-or-skip
+    if: needs.pin-or-skip.outputs.live == 'true'
+    uses: Jp8617465-sys/asxos-control/.github/workflows/risk-classify-verify.yml@REPLACE_WITH_COMMIT_SHA
+    with:
+      product-repo: ${{ github.repository }}
+      product-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      pr-number: ${{ github.event.pull_request.number || 0 }}
+    # Do not inherit secrets. The verifier declares none.

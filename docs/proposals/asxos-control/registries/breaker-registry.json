@@ -1,0 +1,74 @@
+{
+  "workflows": [
+    {
+      "workflow": "full-check",
+      "metric": "main_red_minutes",
+      "threshold": ">=30",
+      "window": "30m",
+      "evidence_query": "github.actions.runs(workflow=full-check,branch=main,conclusion=failure).duration_red_minutes"
+    },
+    {
+      "workflow": "daily-brief",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "1d",
+      "evidence_query": "github.actions.runs(workflow=daily-brief,branch=main,conclusion in [failure,cancelled,timed_out],since=24h).count"
+    },
+    {
+      "workflow": "us-positions",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "1d",
+      "evidence_query": "github.actions.runs(workflow=us-positions,branch=main,conclusion in [failure,cancelled,timed_out],since=24h).count"
+    },
+    {
+      "workflow": "weekly-research",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "7d",
+      "evidence_query": "github.actions.runs(workflow=weekly-research,branch=main,conclusion in [failure,cancelled,timed_out],since=7d).count"
+    },
+    {
+      "workflow": "pipeline-health",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "1d",
+      "evidence_query": "github.actions.runs(workflow=pipeline-health,branch=main,conclusion in [failure,cancelled,timed_out],since=24h).count"
+    },
+    {
+      "workflow": "backup",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "1d",
+      "evidence_query": "github.actions.runs(workflow=backup,branch=main,conclusion in [failure,cancelled,timed_out],since=24h).count"
+    },
+    {
+      "workflow": "nightly-check",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "1d",
+      "evidence_query": "github.actions.runs(workflow=nightly-check,branch=main,conclusion in [failure,cancelled,timed_out],since=24h).count"
+    },
+    {
+      "workflow": "migration-drift",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "1d",
+      "evidence_query": "github.actions.runs(workflow=migration-drift,branch=main,conclusion in [failure,cancelled,timed_out],since=24h).count"
+    },
+    {
+      "workflow": "issue-snapshot",
+      "metric": "terminal_failure_count",
+      "threshold": "nonzero",
+      "window": "1d",
+      "evidence_query": "github.actions.runs(workflow=issue-snapshot,branch=main,conclusion in [failure,cancelled,timed_out],since=24h).count"
+    },
+    {
+      "workflow": "rollback-detector",
+      "metric": "rollback_count",
+      "threshold": ">=1",
+      "window": "24h",
+      "evidence_query": "github.repos.commits(main).reverts_or_rollbacks(since=24h).count"
+    }
+  ]
+}

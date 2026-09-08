@@ -1,0 +1,8 @@
+{
+  "product_repo": "Jp8617465-sys/asxos",
+  "verifier_commit": "UNPINNED",
+  "publisher_app_slug": "asxos-risk-classify-publisher",
+  "check_name": "risk-classify",
+  "state_controller_app_slug": "asxos-state-controller",
+  "james_login": "Jp8617465-sys"
+}
