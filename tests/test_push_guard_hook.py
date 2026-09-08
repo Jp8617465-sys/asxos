@@ -306,3 +306,109 @@ def test_allow_detached_head_bare_push_falls_through(repo: Path) -> None:
     normal prompt rather than being silently allowed."""
     _git(repo, "checkout", "--detach")
     assert run_hook(repo, "git push") == {}
+
+
+# --- workflow_dispatch ref pinning (Codex P1, 2026-09-08) ----------------------------
+#
+# A workflow_dispatch runs the workflow DEFINITION from the dispatched ref, so a
+# caller-chosen --ref runs that branch's version of the job with whatever credentials
+# it can reach. Validation lanes carry none and stay ref-flexible; credentialed and
+# production lanes are pinned to protected main. These cases are the review's named
+# bypass spellings — space, `=`, short flag, refs/heads/, duplicates, quoting.
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh workflow run daily-brief.yml --ref topic",
+        "gh workflow run daily-brief.yml --ref=topic",
+        "gh workflow run daily-brief.yml -r topic",
+        "gh workflow run daily-brief.yml -r=topic",
+        "gh workflow run us-positions.yml --ref refs/heads/topic",
+        "gh workflow run weekly-research.yml --ref claude/attacker",
+        # Duplicated flag: any non-main value in the segment must fail rather than
+        # being masked by a good one sitting beside it.
+        "gh workflow run daily-brief.yml --ref main --ref topic",
+        "gh workflow run daily-brief.yml --ref topic --ref main",
+        # Quoted spellings are over-denied deliberately (the hook compares the raw
+        # token); a quoted `main` is denied too, which is the safe direction.
+        "gh workflow run daily-brief.yml --ref 'topic'",
+        "gh workflow run daily-brief.yml -f force=1 --ref topic",
+    ],
+)
+def test_deny_production_lane_off_main_even_when_standing(repo: Path, command: str) -> None:
+    assert _is_deny(run_hook(repo, command, autonomy="STANDING"))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh workflow run backup.yml --ref topic",
+        "gh workflow run backup.yml --ref=claude/x",
+        "gh workflow run claude-execute.yml --ref topic",
+        "gh workflow run claude-execute.yml -r claude/x",
+    ],
+)
+@pytest.mark.parametrize("autonomy", ["ATTENDED", "STANDING"])
+def test_deny_credentialed_lane_off_main_in_every_state(
+    repo: Path, command: str, autonomy: str
+) -> None:
+    """backup.yml and claude-execute.yml reach production data / model credentials.
+    They are dispatchable without STANDING, but only ever from main."""
+    assert _is_deny(run_hook(repo, command, autonomy=autonomy))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh workflow run daily-brief.yml",  # absent ref: gh uses the default branch
+        "gh workflow run daily-brief.yml --ref main",
+        "gh workflow run daily-brief.yml --ref=main",
+        "gh workflow run us-positions.yml --ref refs/heads/main",
+        "gh workflow run weekly-research.yml -f x=1 --ref main",
+    ],
+)
+def test_allow_production_lane_from_main_when_standing(repo: Path, command: str) -> None:
+    assert run_hook(repo, command, autonomy="STANDING") == {}
+
+
+def test_short_ref_flag_denied_on_production_lane_by_repo_redirect_guard(
+    repo: Path,
+) -> None:
+    """`-r main` is denied even though the ref is legitimate — and not by the ref pin.
+
+    `pr_context_is_asxos` matches `-R|--repo|--hostname` case-INSENSITIVELY, so gh's
+    short ref flag `-r` is indistinguishable from its repo-redirect flag `-R` there.
+    That predates this tier and is left alone: narrowing it to case-sensitive would
+    weaken a repo-redirection guard to buy a spelling convenience. Use `--ref main`
+    on production lanes. Pinned so the over-denial is a recorded decision, not a
+    surprise the next person 'fixes'.
+    """
+    decision = run_hook(repo, "gh workflow run us-positions.yml -r main", autonomy="STANDING")
+    assert _is_deny(decision)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh workflow run daily-brief.yml --ref main",
+        "gh workflow run us-positions.yml",
+    ],
+)
+def test_deny_production_lane_when_attended_even_from_main(repo: Path, command: str) -> None:
+    """The ref pin is additive to the STANDING gate, not a replacement for it."""
+    assert _is_deny(run_hook(repo, command, autonomy="ATTENDED"))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh workflow run full-check.yml --ref topic",
+        "gh workflow run targeted-ml-tests.yml --ref=claude/x",
+        "gh workflow run migration-integration.yml -r claude/x",
+    ],
+)
+def test_allow_validation_lane_any_ref(repo: Path, command: str) -> None:
+    """Validation lanes hold no production or model credential, so a reviewed PR ref
+    remains selectable — that is the point of running them against a branch."""
+    assert run_hook(repo, command, autonomy="ATTENDED") == {}
