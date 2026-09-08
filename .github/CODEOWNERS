@@ -11,10 +11,15 @@
 /.github/**                                 @Jp8617465-sys
 /.claude/**                                 @Jp8617465-sys
 
-# Existing and reserved protected product paths
+# Existing and reserved protected product paths (AGENTS.md §4).
+# Reserved Red is asxos/insights/personal/**; /asxos/insights/** is a
+# conservative routing superset so any future insights code still pages James.
 /asxos/brief/**                             @Jp8617465-sys
-/asxos/domain/decision_engine/**            @Jp8617465-sys
+/asxos/brief/email.py                       @Jp8617465-sys
 /asxos/jobs/utils/fallback_email.py         @Jp8617465-sys
+/asxos/comms/**                             @Jp8617465-sys
+/asxos/domain/decision_engine/**            @Jp8617465-sys
+/asxos/insights/personal/**                 @Jp8617465-sys
 /asxos/insights/**                          @Jp8617465-sys
 /asxos/capital/**                           @Jp8617465-sys
 /migrations/**                              @Jp8617465-sys
