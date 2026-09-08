@@ -40,7 +40,8 @@ def test_migration_merge_and_application_are_separate() -> None:
     assert "merging its definition is not\n  permission to apply it" in agents
     assert "Migration application." in agents
     assert "Migration authority split." in policy
-    assert "Definition PR: Amber. Application/write/secret: never standing." in permission_model
+    assert "Merging the definition is not\n  permission to apply it." in permission_model
+    assert "Production migration application remains owner-only." in permission_model
 
 
 def test_standing_requires_variable_and_ledger_attestation() -> None:
@@ -56,21 +57,17 @@ def test_codeowners_routes_all_declared_sensitive_surfaces() -> None:
     expected = {
         "/AGENTS.md",
         "/CLAUDE.md",
-        "/.github/",
-        "/.claude/hooks/",
-        "/docs/product/autonomy-policy.md",
-        "/docs/product/arbi-constitution.md",
-        "/docs/product/arbi-authority.md",
-        "/docs/product/arbi-permission-model.md",
-        "/docs/product/harness-profiles.md",
-        "/docs/product/arbi-harness.md",
-        "/asxos/brief/",
+        "/.github/**",
+        "/.claude/**",
+        "/.cursor/**",
+        "/docs/product/**",
+        "/asxos/brief/**",
         "/asxos/jobs/utils/fallback_email.py",
-        "/asxos/domain/decision_engine/",
-        "/asxos/comms/",
-        "/asxos/insights/personal/",
-        "/asxos/capital/",
-        "/migrations/",
+        "/asxos/domain/decision_engine/**",
+        "/asxos/comms/**",
+        "/asxos/insights/personal/**",
+        "/asxos/capital/**",
+        "/migrations/**",
     }
     declared = {
         line.split()[0]

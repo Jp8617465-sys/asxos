@@ -88,4 +88,5 @@ def test_cross_harness_authority_is_covered_by_unattended_guard_and_codeowners()
     codeowners = (ROOT / ".github" / "CODEOWNERS").read_text()
     for path in ("AGENTS.md", "docs/product/autonomy-policy.md"):
         assert path in unattended, path
-        assert f"/{path}" in codeowners, path
+    assert "/AGENTS.md" in codeowners
+    assert "/docs/product/**" in codeowners
