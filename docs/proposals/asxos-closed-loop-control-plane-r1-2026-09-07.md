@@ -59,22 +59,23 @@ retired by draft PR #230.
 
 The stable observation broker is merged in Control PR #12 at
 `2bc394d888759d90d82c95afbfcbf94bb66b0ac8`. The concrete authenticated and
-replay transport is **not merged**. It is Control draft PR #15, pinned for this
-design to:
+projection-only replay transport is **not merged**. Consolidated Control draft
+PR #24 supersedes #15 and #21 and is pinned for this design to:
 
 ```text
-728e7b9c6b1943ce36743012e3f2fec5dfbe9d4d
+4eef4ac281a460b8e8cd914911593532e0fc2524
 ```
 
-Items labelled **blocked on #15 merge** must not execute against a live GitHub
+Items labelled **blocked on #24 merge** must not execute against a live GitHub
 credential until that exact reviewed content, or a reviewed descendant, merges.
 They must pin the merged commit rather than a moving branch. No r1 change may
-modify a path owned by #15.
+modify a path owned by #24.
 
-At the time of this document, #15 is not merge-ready: its third residual risk
-lacks the required linked Issue, ambient `SSLKEYLOGFILE` can activate TLS key
-logging, and a committed stale `build/lib/asxos_control` tree sits outside its
-source-only guards. Those are #15-owner fixes, not r1 work.
+At the time of this update, #24 is draft with fresh green Control CI. It contains
+the reviewed fixed-origin/TLS transport plus the schema-v2 projection that
+removes raw Issue/PR prose, unrelated Issue metadata and check output from the
+portable recording. It still requires exact-head owner/independent review before
+its draft state changes; those are #24-owner gates, not r1 work.
 
 ### 2.3 Existing control primitives to reuse
 
@@ -102,7 +103,7 @@ ASXOS PRODUCT REPOSITORY                     ASXOS-CONTROL
               v
        GitHub Issue work state  <------ [C] observer + Intake
                                          reader token only
-                                         #15 transport
+                                         #24 transport
                                          control-ledger CAS lease
                                                    |
                                                    v
@@ -143,7 +144,7 @@ mutate the product repository with its own token.
 |---|---|---|---|
 | Probe | existing job-specific secrets, when already required | read product/provider state; upload Finding artifact | Issues, PRs, checks, git writes |
 | Sentinel projector | product `GITHUB_TOKEN` | issue create/comment/label/close; read trusted run metadata | contents write, PR write, checks write |
-| Observer/Intake | reduced observer token | bounded GETs defined by #15 | every mutation |
+| Observer/Intake | reduced observer token | bounded GETs defined by #24 | every mutation |
 | WIF producer | Anthropic WIF token only | model call; unsigned patch artifact | any GitHub credential or mutation |
 | Secretless verifier | none | local checkout/apply/test/diff | network and every external mutation |
 | Check publisher | Verifier App `4847298` | create/update the one named check run | checkout, artifact execution, contents/PR/issues write |
@@ -463,12 +464,12 @@ conformance assertion. Workflow/settings steps are owner-applied.
 | 3 | Pure Sentinel lifecycle and label projection, including three-success closure | `test_failed_or_missing_probe_runs_do_not_advance_recovery_streak` | Can proceed after item 2. |
 | 4 | `nightly-check` and `pipeline-health` adapters producing Finding artifacts | `test_no_equity_data_fixture_yields_one_non_actionable_finding` | Code first; owner applies the minimal protected-main workflow patch. |
 | 5 | Verifier V1–V10, relative coverage, protected manifest, adversarial fixtures | `test_v6_rejects_deleting_one_parameterized_test_case` | Must land before producer. No live transport required. |
-| 6 | Pinned product caller plus isolated verifier check publisher; first disposable green check | `test_product_caller_pins_control_workflow_to_full_sha` | **Blocked on #15 merge.** Owner binds App secret/workflow. Must post one green before item 7. |
+| 6 | Pinned product caller plus isolated verifier check publisher; first disposable green check | `test_product_caller_pins_control_workflow_to_full_sha` | **Blocked on #24 merge.** Owner binds App secret/workflow. Must post one green before item 7. |
 | 7 | Bind exact verifier context/App to product `asxos-main` | `ruleset_has_app_bound_verifier` executable API assertion | Owner-only; after item 6 green. Query must show `full-check` and verifier together. |
-| 8 | Persistent append-only control ledger, deterministic Intake, CAS lease, effective-stage calculation | `test_metrics_can_lower_but_never_raise_owner_ceiling` | Pure/replay work can start earlier; live activation waits for #15. |
-| 9 | Live two-pass observer and scheduled Intake issuing one producer envelope | `test_live_intake_refuses_snapshot_without_transport_provenance` | **Blocked on #15 merge** and #13 provenance disposition. |
-| 10 | WIF producer runner returning only an unsigned patch/diagnosis | `test_producer_runtime_has_no_github_credential_input` | **Blocked on #15 merge** for live admitted work; verifier already live. |
-| 11 | Publisher App adapter reconstructing verified tree and opening a draft PR | `test_publisher_rejects_tree_digest_mismatch_before_any_mutation` | **Blocked on #15 merge**; item 7 required; owner binds publisher key. Human merge remains. |
+| 8 | Persistent append-only control ledger, deterministic Intake, CAS lease, effective-stage calculation | `test_metrics_can_lower_but_never_raise_owner_ceiling` | Pure/replay work can start earlier; live activation waits for #24. |
+| 9 | Live two-pass observer and scheduled Intake issuing one producer envelope | `test_live_intake_refuses_snapshot_without_transport_provenance` | **Blocked on #24 merge** and #13 provenance disposition. |
+| 10 | WIF producer runner returning only an unsigned patch/diagnosis | `test_producer_runtime_has_no_github_credential_input` | **Blocked on #24 merge** for live admitted work; verifier already live. |
+| 11 | Publisher App adapter reconstructing verified tree and opening a draft PR | `test_publisher_rejects_tree_digest_mismatch_before_any_mutation` | **Blocked on #24 merge**; item 7 required; owner binds publisher key. Human merge remains. |
 | 12 | Metrics, deny-only demotion, annual calendar-refresh Issue, and D10 cleanup of legacy backlog lanes | `test_effective_stage_demotion_files_owner_issue_without_mutating_ceiling` | After first S1/S2 evidence; workflow deletions owner-applied. |
 
 ## 11. Item 1 gate packet
@@ -516,10 +517,10 @@ were run against `origin/main` at
 
 | Claim resolved | Query/evidence | Result used by r1 |
 |---|---|---|
-| Observer transport state | `gh pr view 12` and `gh pr view 15 --repo Jp8617465-sys/asxos-control --json state,isDraft,headRefOid,body` | #12 broker merged; #15 transport open/draft at pinned head. |
+| Observer transport state | `gh pr view 12` and `gh pr view 24 --repo Jp8617465-sys/asxos-control --json state,isDraft,headRefOid,body` | #12 broker merged; consolidated #24 transport open/draft at pinned head, superseding #15/#21. |
 | Dependency release | PyPI JSON `https://pypi.org/pypi/cryptography/50.0.1/json` | `cryptography 50.0.1`, 46 release files, Python ≥3.9 with two exclusions. |
-| Identifier sources | PR #15 body provenance table; `gh api repos/Jp8617465-sys/asxos` | repository/owner measured; App/installation owner-asserted and runtime-verified before use. |
-| Residual Issues | `gh issue view 13`, `gh issue view 14`, Issue search for `ObserverGitHubSession` | #13/#14 open; third residual has no Issue. |
+| Identifier sources | PR #15 provenance table inherited by #24; `gh api repos/Jp8617465-sys/asxos` | repository/owner measured; App/installation owner-asserted and runtime-verified before use. |
+| Residual Issues | `gh issue view 13`, `gh issue view 14`; PR #24 body and inherited PR #15 evidence | #13/#14 are open and linked; the consolidated transport also records deferred follow-ups #16–#20. |
 | Snapshot consumers | `git grep -n -I -E 'issue-snapshot|github-issues-snapshot|ops/issue-snapshot' origin/main` | writer/workflow/CI exception/tests/inventory/docs only; no payload reader. |
 | Probe workflow names | `rg -n 'name:|schedule:' .github/workflows/{nightly-check,pipeline-health}.yml` | `nightly-check` and `pipeline-health`, both scheduled. |
 | Data-contract implementation | `rg -n 'FRESHNESS|contract' scripts/product_health.py docs/product/data-contracts.md` | read-only `scripts/product_health.py`; contract table in `docs/product/data-contracts.md`. |
@@ -548,8 +549,8 @@ There are no unresolved verification markers in this document.
 | Credentialed job executes candidate code | Check publisher has no checkout; branch publisher uses Git Data API and never executes blobs. |
 | Prompt injection in Issue prose becomes authority | Exact `sentinel:v1` block, trusted run lookup, two-pass observer, ledger binding; prose ignored. |
 | Replay is treated as live | #13 disposition plus required transport provenance and recording digest. |
-| Proxy/redirect exfiltrates observer token | #15 fixed-origin `http.client`, exact target allowlist, no redirect following; #15 security gate must pass first. |
-| Ambient TLS key logging captures traffic | #15 merge gate must add a test proving `SSLKEYLOGFILE` cannot activate key logging. |
+| Proxy/redirect exfiltrates observer token | #24 fixed-origin `http.client`, exact target allowlist, no redirect following; #24 security gate must pass first. |
+| Ambient TLS key logging captures traffic | #24 builds its TLS context without consulting `SSLKEYLOGFILE` and pins the behaviour in a test. |
 | Secret reaches Finding or error output | Product redactor, residual-pattern rejection, fixed credential-boundary errors. |
 | Publisher pushes a different tree | Base SHA + patch + candidate-tree digests; publisher recomputation before ref creation. |
 | Direct or forced `main` update | Publisher exact ref allowlist; active no-bypass product rulesets; human PR path. |
