@@ -23,6 +23,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -32,20 +33,35 @@ HOOK = REPO_ROOT / ".claude" / "hooks" / "pr-draft-guard.sh"
 SETTINGS = REPO_ROOT / ".claude" / "settings.json"
 
 
-def run_hook(payload: dict, *, unattended: bool = False) -> str:
+def run_hook(
+    payload: dict, *, unattended: bool = False, autonomy: str = "ATTENDED"
+) -> str:
     """Run the hook with `payload` on stdin; return raw stdout ('' = silent)."""
-    env = dict(os.environ)
-    env.pop("ARBI_UNATTENDED", None)
-    if unattended:
-        env["ARBI_UNATTENDED"] = "1"
-    proc = subprocess.run(
-        ["bash", str(HOOK)],
-        input=json.dumps(payload),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
+    with tempfile.TemporaryDirectory() as tmp:
+        gh = Path(tmp) / "gh"
+        gh.write_text(
+            "#!/bin/sh\n"
+            "if [ \"$1 $2 $3\" = \"variable get AUTONOMY\" ]; then\n"
+            f"  printf '%s\\n' {autonomy!r}\n"
+            "  exit 0\n"
+            "fi\n"
+            "exit 1\n"
+        )
+        gh.chmod(0o755)
+        env = dict(os.environ)
+        env.pop("ARBI_UNATTENDED", None)
+        env["CLAUDE_PROJECT_DIR"] = str(REPO_ROOT)
+        env["PATH"] = f"{tmp}{os.pathsep}{env.get('PATH', '')}"
+        if unattended:
+            env["ARBI_UNATTENDED"] = "1"
+        proc = subprocess.run(
+            ["bash", str(HOOK)],
+            input=json.dumps(payload),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
     assert proc.returncode == 0, proc.stderr
     return proc.stdout.strip()
 
@@ -83,6 +99,16 @@ class TestPrLifecycle:
         )
         assert out == ""
 
+    def test_create_ready_silent_only_when_remote_standing(self):
+        out = run_hook(
+            {
+                "tool_name": "mcp__github__create_pull_request",
+                "tool_input": {"draft": False},
+            },
+            autonomy="STANDING",
+        )
+        assert out == ""
+
     def test_undraft_denied(self):
         # The exact 2026-08-21 incident shape.
         out = run_hook(
@@ -92,6 +118,16 @@ class TestPrLifecycle:
             }
         )
         assert_denied(out, "un-drafts")
+
+    def test_undraft_silent_only_when_remote_standing(self):
+        out = run_hook(
+            {
+                "tool_name": "mcp__github__update_pull_request",
+                "tool_input": {"pullNumber": 147, "draft": False},
+            },
+            autonomy="STANDING",
+        )
+        assert out == ""
 
     def test_update_without_draft_field_silent(self):
         # An edit not touching `draft` must NOT be denied — the jq has()
@@ -113,16 +149,14 @@ class TestPrLifecycle:
         )
         assert_denied(out, "lifecycle")
 
-    def test_merge_attended_falls_through_silently(self):
-        # Attended: no hook-level allow OR deny — the normal permission
-        # prompt / James-instructed flow applies (deny-only contract).
+    def test_merge_attended_denied(self):
         out = run_hook(
             {
                 "tool_name": "mcp__github__merge_pull_request",
                 "tool_input": {"pullNumber": 1},
             }
         )
-        assert out == ""
+        assert_denied(out, "AUTONOMY=STANDING")
 
     def test_merge_unattended_denied(self):
         out = run_hook(
@@ -132,7 +166,17 @@ class TestPrLifecycle:
             },
             unattended=True,
         )
-        assert_denied(out, "unattended")
+        assert_denied(out, "AUTONOMY=STANDING")
+
+    def test_merge_remote_standing_falls_through_silently(self):
+        out = run_hook(
+            {
+                "tool_name": "mcp__github__merge_pull_request",
+                "tool_input": {"pullNumber": 1, "merge_method": "squash"},
+            },
+            autonomy="STANDING",
+        )
+        assert out == ""
 
     def test_auto_merge_denied_both_modes(self):
         payload = {
