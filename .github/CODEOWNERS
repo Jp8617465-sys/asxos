@@ -1,8 +1,8 @@
 # CODEOWNERS — arbi's authoritative memory + governance boundaries
 #
-# James (governor) is the required reviewer of the files that carry arbi's authority.
-# This is the mechanical "grader ≠ producer" / promotion-gate enforcement: arbi may open a
-# PR that touches these, but its GitHub identity cannot self-approve — a merge needs James.
+# James (governor) is routed review for authority and protected product surfaces.
+# CODEOWNERS is routing, not the conditional approval boundary; `risk-classify` enforces
+# current-head approval for Amber and rejects Red once the autonomy policy is activated.
 #
 # NOTE: CODEOWNERS only *enforces* when branch protection on `main` requires CODEOWNER
 # review (Settings → Branches → require review from Code Owners). Setting that is a
@@ -14,15 +14,30 @@
 /docs/product/memory/project-facts.md       @Jp8617465-sys
 
 # arbi governance / boundaries — arbi may draft via PR, never self-merge
+/AGENTS.md                                  @Jp8617465-sys
 /docs/product/north-star.md                 @Jp8617465-sys
+/docs/product/autonomy-policy.md            @Jp8617465-sys
 /docs/product/arbi-constitution.md          @Jp8617465-sys
 /docs/product/arbi-authority.md             @Jp8617465-sys
 /docs/product/arbi-permission-model.md      @Jp8617465-sys
+/docs/product/harness-profiles.md            @Jp8617465-sys
+/docs/product/arbi-harness.md                @Jp8617465-sys
 /docs/product/arbi-scorecard.md             @Jp8617465-sys
 /docs/product/arbi-promotion-gate.md        @Jp8617465-sys
 
 # The non-negotiables + the enforcement machinery itself
 /CLAUDE.md                                  @Jp8617465-sys
+/.github/                                   @Jp8617465-sys
+/.cursor/                                   @Jp8617465-sys
 /.claude/settings.json                      @Jp8617465-sys
 /.claude/hooks/                             @Jp8617465-sys
 /.claude/agents/arbi.md                     @Jp8617465-sys
+
+# Existing and reserved sensitive product surfaces
+/asxos/brief/                               @Jp8617465-sys
+/asxos/jobs/utils/fallback_email.py         @Jp8617465-sys
+/asxos/domain/decision_engine/              @Jp8617465-sys
+/asxos/comms/                               @Jp8617465-sys
+/asxos/insights/personal/                   @Jp8617465-sys
+/asxos/capital/                             @Jp8617465-sys
+/migrations/                                @Jp8617465-sys

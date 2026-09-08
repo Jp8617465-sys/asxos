@@ -39,9 +39,11 @@ def repo(tmp_path: Path) -> Path:
     (tmp_path / "tests").mkdir()
     (tmp_path / ".claude" / "settings.json").write_text("{}")
     (tmp_path / ".env").write_text("secret")
+    (tmp_path / "AGENTS.md").write_text("x")
     (tmp_path / "CLAUDE.md").write_text("x")
     (tmp_path / "render.yaml").write_text("x")
     (tmp_path / "docs" / "product" / "arbi-constitution.md").write_text("x")
+    (tmp_path / "docs" / "product" / "autonomy-policy.md").write_text("x")
     (tmp_path / "docs" / "product" / "rubrics" / "arbi-safety-boundary.md").write_text("x")
     (tmp_path / "docs" / "product" / "memory" / "approved-lessons.md").write_text("x")
     (tmp_path / "docs" / "product" / "roadmap-state.md").write_text("x")
@@ -113,7 +115,9 @@ def test_deny_file_operation_without_cwd_binding(repo: Path) -> None:
 
 AUTHORITY_PATHS = [
     ".env",
+    "AGENTS.md",
     "render.yaml",
+    "docs/product/autonomy-policy.md",
     "docs/product/arbi-constitution.md",
     "docs/product/rubrics/arbi-safety-boundary.md",
     "docs/product/memory/approved-lessons.md",
@@ -376,4 +380,3 @@ def test_allow_bash_authority_false_positives(repo, command):
 )
 def test_deny_bash_redirect_to_authority_after_scrub(repo, command):
     assert _is_deny(run_hook(repo, "Bash", {"command": command}))
-

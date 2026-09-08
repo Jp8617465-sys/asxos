@@ -42,9 +42,11 @@ publisher identity posts the required check through the Checks API against the
 exact PR head SHA. Activation tests prove that ordinary event or merge-ref SHAs
 cannot satisfy the required check.
 
-**Every production migration is Amber.** A Git revert does not undo an applied
-migration, so migrations cannot meet the Green definition. SQL keyword scanning
-is retained as a hint only.
+**Migration merge and application are separate.** A migration-file PR is Amber,
+but merging the definition is git-revertible and does not apply it in this repo.
+Application is the irreversible I5 action and remains owner-only behind a role
+that the agent identity cannot assume. SQL keyword scanning is retained as a hint
+only.
 
 **Investment output is banded, not blanket Red.** A blanket "could read as
 advice" rule would make the product's core work permanently non-delegable.
@@ -140,7 +142,9 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    every spend `workflow_dispatch` job.
 6. **Database roles.** Confirm per the table above.
 7. **Deny rules and hook.** Per the table above. Deny writes to `.claude/**`
-   from within the harness.
+   from within the harness. Keep `unattended-guard.sh`'s merge deny until the
+   activation path can verify ledger attestation independently of mutable product
+   code or a repository variable; `AUTONOMY=STANDING` alone is not a key.
 8. **State Controller.** Create the dedicated metadata-read/variables-write App
    and bind it only to the attested activation, breaker and restore workflows.
    The verifier, publisher and ordinary agent identities cannot assume it.
@@ -169,9 +173,10 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
     the always-on Claude push/PR guards only; `ARBI_UNATTENDED=1` remains
     mechanically draft-only. Standing scheduled merge therefore remains an
     open part of this activation item and needs a separate explicit ruling.
-14. **Relocations.** Optional but recommended before activation: one
-    relocation PR moving email logic to `asxos/comms/`. Investment-output code
-    stays where it is; protect it in place.
+14. **Relocations.** Decide explicitly before activation: either land one
+    relocation PR moving email logic to `asxos/comms/`, or record a deferral and
+    prove the existing email paths are protected. Investment-output code stays
+    where it is; protect it in place.
 15. **Revert drill.** Ship a harmless, observable Green canary, confirm its
     production revision, revert it through a second Green PR, and confirm the
     prior revision is restored unattended with no data mutation or manual
@@ -180,8 +185,12 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
     trip an operational breaker, exercise the evidence sequence, and prove a
     third restore inside seven days is refused. Do not consume the live restore
     allowance merely to test it.
-17. **Activate.** Owner approves one activation dispatch while `ATTENDED`.
-    The workflow re-verifies items 1–16, matches the policy/ledger/verifier
+17. **Migration authority split.** The Amber gate permits a migration-file PR to
+    merge, but the ordinary agent, verifier and publisher identities cannot call
+    `apply_migration` or assume the production migration role. Prove the denial
+    with the ordinary agent identity. Migration `0042` remains reserved.
+18. **Activate.** Owner approves one activation dispatch while `ATTENDED`.
+    The workflow re-verifies items 1–17, matches the policy/ledger/verifier
     digests and uses the State Controller to flip `AUTONOMY` to `STANDING`.
     A partial checklist or digest mismatch refuses activation.
 
@@ -191,8 +200,9 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
 
 - **Spend is always-ask.** After a month of digests, set a daily A$ ceiling
   under which spend becomes ordinary Amber.
-- **Migrations are Amber indefinitely.** Promotion to Green requires a tested
-  forward-recovery model. Do not shortcut this.
+- **Migration-file PRs are Amber indefinitely.** Application is not part of that
+  grant and remains owner-only. Reconsider application only after a tested
+  forward-recovery model and mechanically scoped production role exist.
 - **Personalisation is a human call.** The classifier cannot distinguish
   impersonal from personalised output. The explicit-yes AC gate is the
   control; the agent's declared estimate is input, not decision.

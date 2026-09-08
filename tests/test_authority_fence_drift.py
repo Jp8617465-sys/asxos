@@ -71,6 +71,21 @@ def test_github_is_fenced_in_both_grammars() -> None:
 
 
 def test_env_and_claude_surfaces_are_fenced_in_both_grammars() -> None:
-    for fragment in (".env", ".claude/agents/", ".claude/rules/", "render.yaml"):
+    for fragment in (
+        ".env",
+        "AGENTS.md",
+        ".claude/agents/",
+        ".claude/rules/",
+        "docs/product/autonomy-policy.md",
+        "render.yaml",
+    ):
         assert fragment in _fragments_from_hook(), fragment
         assert fragment in _fragments_from_settings(), fragment
+
+
+def test_cross_harness_authority_is_covered_by_unattended_guard_and_codeowners() -> None:
+    unattended = (ROOT / ".claude" / "hooks" / "unattended-guard.sh").read_text()
+    codeowners = (ROOT / ".github" / "CODEOWNERS").read_text()
+    for path in ("AGENTS.md", "docs/product/autonomy-policy.md"):
+        assert path in unattended, path
+        assert f"/{path}" in codeowners, path

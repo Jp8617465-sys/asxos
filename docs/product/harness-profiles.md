@@ -4,7 +4,8 @@
 **Scope:** how Claude Code's official permission modes (`plan` / `auto` / `dontAsk`)
 map onto asxos work; the main-loop fan-out topology; the two-speed command split
 (`/build` vs `/arbi-mission`); the hard owner→agent roster; rejected alternatives
-**Last verified:** 2026-09-05 (Amendments H/K — standing dispatch is permitted in principle,
+**Last verified:** 2026-09-08 (Green/Amber/Red activation overlay; ATTENDED until attested) ·
+2026-09-05 (Amendments H/K — standing dispatch is permitted in principle,
 but all three producer lanes remain owner-only `workflow_dispatch` while the branch-scoped
 credential P1 is open. Amendment G — identity path + auto-merge + user `auto` measurement)
 **Owner:** James (governor) applies local mode; arbi / the main loop obey this file
@@ -16,7 +17,9 @@ stay as the measured evidence and six-point record; they are not the operating
 map. The blast-radius ladder stays `arbi-permission-model.md`.
 
 This file is the source of truth for *which official Claude Code mode a session
-uses* and *which command carries the work*. It does not change I0–I6 or P0–P6.
+uses* and *which command carries the work*. `AGENTS.md` and
+`arbi-permission-model.md` own authority. Until the activation checklist passes,
+the repo is `ATTENDED`; afterward the external Green/Amber/Red gate decides landing.
 
 ---
 
@@ -28,6 +31,7 @@ uses* and *which command carries the work*. It does not change I0–I6 or P0–P
 | `auto` | Attended reversible build | I2–I4 | `/build`, `/arbi-mission` |
 | `dontAsk` | Locked-down CI / `claude-execute` | I0–I4 on the existing allowlist | CI, `claude-execute.yml` |
 | `dontAsk` | **Standing gated lanes (Amendments H/K)** | I0–I4, per-workflow allowlist, `ARBI_UNATTENDED=1` | `nightly-triage.yml`, `weekly-toolwatch.yml`, `backlog-roll.yml` |
+| `dontAsk` | **Attested standing execution** | mechanically Green, or Amber through current-head owner approval | protected product workflow + external verifier/publisher |
 
 `bypassPermissions` is **forbidden for every launch**. `acceptEdits` is not the
 standing default. `defaultMode: "auto"` in project `settings.json` is inert;
@@ -47,11 +51,11 @@ A Claude Code **subagent cannot spawn subagents**
 James → /arbi → arbi-red-team (ONE THING / large envelope only)
       → /build  XOR  /arbi-mission  XOR  /arbi-team
       → main loop fans out specialists / reversible-work-builder
-      → draft PR → James merges
+      → PR → ATTENDED: draft stop; STANDING: Green gate or current-head-approved Amber gate
 
 owner-only workflow_dispatch (current gated posture) → workflow fires /arbi-mission with a fixed envelope
       → same fan-out, same specialists
-      → draft PR → James merges          ← the human gate is unchanged
+      → legacy lane draft PR; it stays draft-only until rebuilt on the standing gate
 ```
 
 Guilfoyle is a read-only planner. Orchestration and mutation never share a process.
@@ -96,7 +100,9 @@ If a command's copy diverges, **this file wins**.
 | live-portfolio evidence | the 5 investment-analysis agents | no |
 | mutation on `claude/**` or `cursor/**` | `reversible-work-builder` | **code/docs** |
 
-Only reversible work is dispatched. I5/I6 / P5/P6 STOP for James.
+Work is dispatched inside its classified envelope. Migration application, production writes,
+secrets, protection bypass, self-amendment landing and P5/P6 stop for James. Green merge is
+standing only after attestation; Amber merge requires his approval on the current head.
 
 ---
 
@@ -121,20 +127,19 @@ run on a schedule. This supersedes the "Attended only" sections in `.claude/agen
 **What was granted:** standing *dispatch* — a scheduled workflow may fire `/arbi-mission`
 unattended, fan out specialists, build on a `claude/**` branch, and open a **draft** PR.
 
-**What was NOT granted, and is not grantable:**
+**What Amendment H did not grant (later policy may supersede only the merge portion):**
 
-- **I5/I6 remain never-standing** — `arbi-permission-model.md:203-204` states they are
-  *"permanently `always_ask`/disabled/not-held by design."* No merge, no deploy, no push to
-  `main`, no migration, no DB write, no secret handling.
-- **No auto-merge, any path** — rejected-item 9, widened 2026-08-24 (Amendment G ruling 3).
-  Keep the click.
+- **No landing grant came from Amendment H.** The later autonomy policy may grant Green and
+  current-head-approved Amber squash merge after attestation. It does not grant migration
+  application, production DB writes, secret handling, direct push or bypass.
+- **No GitHub auto-merge, any path.** Server-gated agent merge is an active decision after
+  checks, not GitHub auto-merge; `--auto` remains forbidden.
 - **P5/P6 untouched** — no capital-policy change, no execution. s766B firewall stands.
 - **Rule #11 untouched** — no Model A output as a basis for capital.
 
-So the two-key property survives by construction: `.claude/settings.json` denies
-`Edit(/.github/**)` and automatic triggers work only from the default branch, so an agent can
-neither author nor arm one. Merging installs a lane for manual use; a later reviewed change is
-required to add an automatic trigger.
+The target two-key property is server-side: product code cannot publish its own verdict, and
+the publisher cannot change the verifier. Existing H/K workflows remain on their narrower
+legacy conditions until separately migrated; this amendment does not silently widen them.
 
 **Conditions every standing lane must meet** (a lane that cannot meet these is not eligible):
 
@@ -167,10 +172,10 @@ their objections that survived the ruling as mechanical requirements.
 
 ## Cursor / R17
 
-Cursor Cloud Agents do not honour `.claude/settings.json` allow/deny or this
-repo's Claude hook fence (`risk-register.md` R17). `AGENTS.md` plus
-`.cursor/hooks.json` (I5/I6, failClosed, no cwd-fail-closed) are the prepared
-port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
+Cursor Cloud Agents do not honour Claude's local hook fence (`risk-register.md` R17).
+`AGENTS.md` is the common contract and `.cursor/hooks.json` is feedback; rulesets plus the
+external verifier/publisher are the cross-harness enforcement boundary. An out-of-fence
+red-team PASS is not a vet (`arbi-evals.md` G8).
 
 ---
 
@@ -182,12 +187,11 @@ port. An out-of-fence red-team PASS is not a vet (`arbi-evals.md` G8).
 4. `/arbi-run` as the live dispatch bridge
 5. Mandatory three-agent review on every change
 6. `defaultMode: "auto"` in project settings
-7. ~~Standing / unattended mission dispatch~~ — **LIFTED 2026-09-02 (Amendment H).** Now
-   permitted on the Actions substrate under the conditions in §Standing dispatch below. The
-   draft-PR ceiling is unchanged and item 9 is unaffected: standing *dispatch* was granted,
-   standing *landing* was not.
+7. ~~Standing / unattended mission dispatch~~ — **LIFTED 2026-09-02 (Amendment H).** Standing
+   landing remains off until the later autonomy activation is attested.
 8. Allowlisting rotating MCP UUIDs
-9. Docs-only auto-merge of `docs/product/**` — **widened 2026-08-24 (Amendment G ruling 3):** no auto-merge of any path. Keep the click. Not earned until the check suite is trustworthy and a CFR/MTTR baseline exists.
+9. GitHub auto-merge of any path — still rejected. This does not prohibit an attested agent
+   from making a fresh, server-gated squash-merge decision on a Green PR.
 10. Session lift-and-reinstate guards
 11. `gh run rerun`
 
@@ -232,8 +236,8 @@ blocked on him. That is the intended behaviour, not a defect. The builder half e
 keep on the residue: proposal drafts, doc-drift sweeps, test hygiene, `m14_candidate_*`
 items as they are un-parked.
 
-**What it cannot do, unchanged from lanes A/B:** merge, un-draft, push to `main`, apply
-a migration, touch a secret, edit `.github/**` or any authority path, touch
-capital-adjacent code, flip a dark surface, approve a theme member, or calibrate risk.
-Standing dispatch was granted; standing landing was not. The workflow remains manually gated.
-Automatic triggers stay blocked until backlog item A-22 closes the branch-scoped credential P1.
+**Legacy lane ceiling:** this workflow cannot merge, un-draft, push to `main`, apply a
+migration, touch a secret, edit `.github/**` or any authority path, touch capital-adjacent
+code, flip a dark surface, approve a theme member, or calibrate risk. It remains manually
+gated until rebuilt against the external standing gate; the general policy does not widen a
+credential-bearing legacy workflow by implication.

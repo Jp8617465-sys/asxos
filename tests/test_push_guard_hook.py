@@ -152,6 +152,7 @@ def test_deny_dangerous_push_shape(repo: Path, command: str) -> None:
         "gh pr merge 5 --rebase",
         "gh pr merge --auto",
         "gh pr merge 5 --admin",
+        "gh pr merge 5",
         "gh pr ready 5",
         "gh pr create --title x",  # no --draft
         "gh api -X PUT /repos/o/r/pulls/5/merge",
@@ -243,6 +244,10 @@ def test_deny_non_squash_or_bypass_merge_even_when_standing(
     repo: Path, flag: str
 ) -> None:
     assert _is_deny(run_hook(repo, f"gh pr merge 5 {flag}", autonomy="STANDING"))
+
+
+def test_deny_bare_merge_even_when_standing(repo: Path) -> None:
+    assert _is_deny(run_hook(repo, "gh pr merge 5", autonomy="STANDING"))
 
 
 def test_deny_standing_claim_for_wrong_origin(repo: Path) -> None:

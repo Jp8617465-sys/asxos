@@ -59,10 +59,11 @@ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
 # files are INTENTIONALLY absent from this list and MUST remain writable.
 AUTHORITY_FRAGMENTS=(
   ".env"
+  "AGENTS.md"
   ".claude/settings.local.json"
   ".claude/agents/" ".claude/commands/" ".claude/rules/" ".claude/skills/"
   ".github/" "docs/product/rubrics/"
-  "render.yaml" "docs/README.md"
+  "render.yaml" "docs/README.md" "docs/product/autonomy-policy.md"
   "docs/product/north-star.md" "docs/product/arbi-constitution.md" "docs/product/arbi-authority.md"
   "docs/product/arbi-permission-model.md" "docs/product/arbi-harness.md" "docs/product/arbi-scorecard.md"
   "docs/product/arbi-promotion-gate.md" "docs/product/arbi-memory-policy.md" "docs/product/arbi-dream-policy.md"

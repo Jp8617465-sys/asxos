@@ -96,6 +96,25 @@ def test_allow_edit_non_capital_path_unattended(repo, tool, path):
     assert run_hook(repo, tool, {"file_path": path}) == {}
 
 
+@pytest.mark.parametrize("tool", ["Edit", "Write", "MultiEdit"])
+@pytest.mark.parametrize(
+    "path", ["AGENTS.md", "docs/product/autonomy-policy.md"]
+)
+def test_deny_cross_harness_authority_path_unattended(repo, tool, path):
+    assert _is_deny(run_hook(repo, tool, {"file_path": path}))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo x > AGENTS.md",
+        "python3 tools/rewrite.py docs/product/autonomy-policy.md",
+    ],
+)
+def test_deny_bash_write_to_cross_harness_authority_unattended(repo, command):
+    assert _is_deny(run_hook(repo, "Bash", {"command": command}))
+
+
 @pytest.mark.parametrize("command", [
     "sed -i s/a/b/ asxos/domain/tax/positions.py",
     "cp /tmp/x asxos/domain/portfolio/allocator.py",

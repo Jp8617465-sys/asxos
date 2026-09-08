@@ -78,7 +78,7 @@ is a new Amber PR.
 make lint           # ruff
 make type           # mypy over asxos/
 make test           # full pytest suite
-make test-offline   # full suite without inherited credentials or network
+make test-offline   # full suite without inherited credentials; netguard still applies
 make check          # lint + type + full test; required local PR gate
 make migrate        # instructions only; does not apply a migration
 ```
@@ -97,8 +97,10 @@ not a substitute.
 
 - Conventional commits. PR title becomes the squash commit message.
 - Migrations are expand-only by default. Contracting changes are a separate
-  later PR. **Every migration that reaches production is Amber** (§5).
-- No feature flags. Incomplete user-visible behaviour stays on its branch.
+  later PR. A migration-file PR is Amber; **merging its definition is not
+  permission to apply it**. Application remains a hard stop (§8).
+- No ad-hoc feature flags. Governed dark launches named in the architecture
+  record are allowed; incomplete behaviour without such a gate stays on its branch.
 - A behaviour change with no test delta is incomplete.
 - No dependency for fewer than ~50 lines you could write and test yourself.
 - No new Markdown trackers, plans or status docs (§11).
@@ -107,8 +109,8 @@ not a substitute.
 
 The classifier tiers these by path. **Existing** rows are where sensitive code
 lives today. **Reserved** rows do not exist yet; when code of that kind is
-first written, it lands there. A drift test keeps this table, CODEOWNERS and
-the classifier registry aligned.
+first written, it lands there. Activation item 4 adds the drift test that keeps
+this table, CODEOWNERS and the classifier registry aligned.
 
 | Path | Status | Contains | Tier |
 |---|---|---|---|
@@ -130,9 +132,11 @@ protects; do not treat the reserved path as the only protected surface.
 
 ## 5. Risk tiers
 
-Tier is assigned **mechanically** by the `risk-classify` required check. The
-authoritative verifier runs in `asxos-control`; this repository contains only
-a thin caller pinned to an immutable verifier commit. The verifier computes
+While `STANDING`, tier is assigned **mechanically** by the `risk-classify`
+required check. Until activation item 3 is live, tier labels are estimates and
+§0 remains the ceiling. The authoritative verifier will run in `asxos-control`;
+this repository will contain only a thin caller pinned to an immutable verifier
+commit. The verifier computes
 the tier from diff paths and content, and a separate publisher identity posts
 the result against the exact PR head SHA. You may not declare or argue down
 your tier. You may raise it (§7). If the check errors, is missing, cannot
@@ -155,14 +159,16 @@ Red trigger. Authoring and locally testing a migration is Green; any PR that
 adds or changes a migration file is Amber.
 
 **Amber:** every file under `migrations/`; overwriting backfills; any change
-to stored user records; auth, authz, RLS, sessions; new or changed external
+to stored user records; auth, authz, RLS, sessions **only after the current
+single-user/no-auth product invariant in `CLAUDE.md` is amended**; new or changed external
 egress; every Amber row in the protected paths table; **editing any workflow
 definition** under `.github/workflows/`; scheduled workflow enable, disable or
 cadence; dependency major bumps; secret names and scopes (never values);
 anything that increases variable spend (§8); anything the classifier could
 not place.
 
-**Red:** the Red rows in the protected paths table and everything in §8.
+**Red:** the Red rows in the protected paths table and everything in §8. These
+are change-risk tiers, not the Amber investment-thesis traffic light.
 
 **`asxos-control`:** no Green tier. Everything is Amber minimum. Fence,
 classifier, lease and restore paths are Red for self-amendment (§8).
@@ -224,11 +230,14 @@ AC digest. A changed or replacement AC requires a new digest and approval.
 
 ## 7. Merge gate and reversibility
 
-Ruleset and required checks enforce: PR required on `main`, no direct or force
-push, linear history, required checks on current head, empty bypass list, and
-secret scanning with push protection. The ruleset does **not** impose a global
+Activation requires the ruleset and required checks to enforce: PR required on
+`main`, squash-only linear history, no direct or force push, required checks on
+the current head, and an empty bypass list. Secret scanning and push protection
+are separate repository controls and must be evidenced independently. Until the
+activation checklist records those facts, do not claim they exist. The ruleset
+does **not** impose a global
 human-approval requirement, because that would also block unattended Green
-PRs. CODEOWNERS routes protected changes to James; the external
+PRs. CODEOWNERS is review routing, not approval enforcement; the external
 `risk-classify` verifier is the mechanical approval gate. It re-runs on every
 push and every review event, passes Green without review, and passes Amber only
 when James's APPROVED review has `commit_id == current head SHA`. The publisher
@@ -299,6 +308,13 @@ inactive until landed.
 
 **Autonomy state.** Never edit the `AUTONOMY` variable directly. Only the
 `breaker` and `restore` workflows write it (§9).
+
+**Migration application.** You may author and, through the Amber gate, merge a
+migration definition. Never apply it to production, invoke a write-capable
+migration tool, or treat merge as application. Application remains James-only
+until a separately ratified recovery model and mechanically scoped database
+role make a narrower grant possible. Migration `0042` remains specifically
+reserved and must not be applied.
 
 **Destructive production data.** No `DROP`, `TRUNCATE`, unbounded `DELETE` or
 `UPDATE`, or restore over live data, under any grant.

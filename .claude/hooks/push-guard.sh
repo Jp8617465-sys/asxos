@@ -194,6 +194,8 @@ if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[^|;&]*(--merge\b|--rebase\b|
   deny "push-guard: non-squash, auto, and admin merge modes are blocked in every autonomy state."
 fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge'; then
+  printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge[^|;&]*--squash([[:space:]]|$)' \
+    || deny "push-guard: 'gh pr merge' requires an explicit --squash flag; the repository default is not trusted."
   pr_context_is_asxos && autonomy_is_standing \
     || deny "push-guard: 'gh pr merge' requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED stops at a draft PR."
 fi

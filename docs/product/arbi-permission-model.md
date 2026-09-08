@@ -3,7 +3,8 @@
 **Status:** current
 **Scope:** the authoritative permission model for arbi (the `arbi-harness.md` tier table
 points here)
-**Last verified:** 2026-08-12 (PR-2 Permission Friction Pack — settings `deny` array +
+**Last verified:** 2026-09-08 (Green/Amber/Red activation overlay and I5 migration split) ·
+2026-08-12 (PR-2 Permission Friction Pack — settings `deny` array +
 authority-guard/push-guard/pr-draft-guard hooks; see §Runtime enforcement honesty) ·
 (autonomy unlock pack — skills / builder / `/arbi-team` placed on the existing ladder; no
 grant changed) · (Claude Execute installed by PR #91 and placed on the attended I3/I4 path) ·
@@ -43,21 +44,23 @@ draw that line explicitly.
 | I2 | Write docs (roadmap-state, handoffs, ledgers, README links) | yes (git-revertible) | **command-invoked only today** | `always_allow` on a docs-scoped write tool |
 | I3 | Open a **docs-only draft** PR (branch + commit docs + classify) | yes | **standing, general — Amendment L, 2026-09-05** | `always_allow` |
 | I4 | Dispatch NEXT PROMPT to a specialist (who produces a **draft** code PR) | yes (draft) | **standing, general — Amendment L, 2026-09-05** | multi-agent delegation, `always_allow` |
-| I5 | Migrations / DB writes / Render / secrets | **no** | **never standing** | `always_ask` (or disabled) — James approves each |
-| I6 | Merge / deploy / push to `main` / CI changes | **no** | **never standing** | `always_ask` — James approves each |
+| I5 | Migration definitions; migration application; production DB writes; secrets | mixed | **Definition PR: Amber. Application/write/secret: never standing.** | external classifier at merge; write-capable production role withheld |
+| I6 | PR merge/deploy; direct push; workflow definitions; bypass | mixed | **Green merge: standing. Amber merge: current-head approval. Direct push/bypass: never.** | exact-head `risk-classify` + ruleset; no admin/bypass role |
 
-The **Reversible?** column is the real gate. I0–I4 are reversible (docs are git-revertible;
-PRs are draft; dispatched code is draft) → eligible for standing autonomy once earned. I5–I6
-are irreversible → always human-approved, never standing, regardless of track record. The
-`.claude/hooks/unattended-guard.sh` hook is the mechanical pre-filter for I5–I6 under
-unattended runs (push/merge to main, DB writes, Render, migrations).
+The old tier number alone is no longer the gate because I5 and I6 bundled reversible and
+irreversible actions. `AGENTS.md` now applies a Green/Amber/Red change-risk classification
+across the ladder. A migration definition may merge as Amber, but applying it remains
+owner-only I5. A Green PR may merge/deploy while attested `STANDING`; an Amber PR needs
+James's approval bound to its current head. Direct/force push, auto/admin merge, secret
+values, destructive production data and protection bypass remain Red. Before activation,
+`AGENTS.md` §0 keeps every merge at the draft-PR ceiling.
 
 **`/arbi-mission` (Guilfoyle) is the structured, attended form of I3–I4** — the graph-driven,
 readiness-gated successor to `/arbi-run` (`.claude/commands/arbi-mission.md`, `.claude/agents/guilfoyle.md`).
 It is **not a new ladder**: Guilfoyle is an *execution role* on this same infra ladder. It holds
-**no tier above what arbi grants a mission** (reversible I0–I4, draft-PR ceiling); I5–I6 (and
-P5–P6) still STOP for James; and *standing/unattended* mission dispatch stays gated on the same
-PR 7b/8 promotion preconditions below. Guilfoyle plans and judges — it never spawns, merges, or
+**no tier above what arbi grants a mission** (mechanically classified Green/Amber/Red); Red
+and P5–P6 still STOP for James; standing landing stays gated on the activation checklist and
+mission admission. Guilfoyle plans and judges — it never spawns, merges, or
 reprioritises (a subagent's `Agent(...)` allowlist is ignored at runtime, so the `/arbi-mission`
 command's main loop does the fan-out, exactly like `/arbi-run`).
 
@@ -103,11 +106,11 @@ checkout. This **authorises** the run, within that prompt's scope, to create a
 commit, push the branch, open or update a draft PR by pushing commits/commenting, inspect
 workflow results, and continue through recoverable failures by fixing and rerunning checks.
 
-This changes no standing unattended grant. I5/I6 remain gated: credentials and secret
-creation, destructive DB operations, production data mutation, Render/prod deployment or
-irreversible production writes, direct pushes to `main`, PR ready/merge actions,
-self-merging unless repository policy and James's explicit instruction authorise that exact
-PR, migration `0042`, and safety/compliance boundary weakening all stop for James. Workflow
+While `ATTENDED`, this changes no standing grant and the draft-PR ceiling applies. Once the
+activation contract is attested, Green PR ready/merge may proceed and Amber may proceed only
+after James approves the current head. Secret values, migration application, destructive DB
+operations, direct pushes to `main`, bypass modes, migration `0042`, and self-merging a
+safety/compliance boundary remain stopped in every state. Workflow
 dispatch **from the in-CI harness** is limited to validation-only workflows (`full-check.yml`,
 `targeted-ml-tests.yml`, `migration-integration.yml`) — it may not dispatch `backup.yml`, nor
 re-enter itself, and `tests/test_claude_execute_harness.py` pins that list.
@@ -151,8 +154,9 @@ Two hard denies landed in the same change. They *remove* grants; they are not re
   prefix-matches the whole string, so no prompt appears either (H2, verified live against the
   hook). The combination is refused rather than parsed.
 
-Merge, `gh pr ready`, secrets, migrations, authority-file writes, and Render/deploy surfaces
-are untouched by the carve-outs: exactly as reserved as before.
+This historical carve-out does not itself grant merge or `gh pr ready`. Those become reachable
+only through the later attested Green/Amber/Red policy. Secret values, migration application,
+direct deployment and protection bypass remain reserved.
 
 ## Portfolio decision-support ladder (P0–P6) — operating the portfolio
 
@@ -185,20 +189,16 @@ allocator path is unavailable to the portfolio capacity until rule #11 lifts.
 ## Where arbi stands today
 
 **Infrastructure ladder:**
-- **Standing autonomy:** I0–I1 (read + think + draft).
-- **I2 (docs write):** performed **only inside an explicitly invoked command** (`/arbi`
-  refreshing state, `/arbi-close` writing a handoff) — human-in-the-loop, James ran it — not
-  unattended standing autonomy. The subagent itself is `Read, Glob, Grep` only.
-- **I3–I4: standing, general — Amendment L (James, 2026-09-05).** A lane-scoped form of
-  this was already granted 2026-09-02 (Amendment H, `harness-profiles.md` §Standing
-  dispatch) to three defined workflows (`nightly-triage.yml`, `weekly-toolwatch.yml`,
-  `backlog-roll.yml`) meeting seven named conditions; Amendment L extends the same
-  shape — open a draft PR, dispatch a specialist for a draft code PR, draft-PR ceiling
-  throughout — to arbi's general judgement, attended and unattended, not only inside
-  those three lanes or an explicitly invoked command. Granted with promotion
-  preconditions 2 and 3 below **explicitly waived by governor decision, not met** — see
-  `roadmap-state.md` Amendment L for the ruling and the named gap.
-- **I5–I6:** not granted, **never promotable** — unchanged by Amendment L. See below.
+- **Pre-activation:** `AGENTS.md` §0 wins. I0–I4 may reach a draft PR; no ready or merge.
+- **After attested activation:** Green may run and merge; Amber may run but waits for James's
+  current-head approval at merge; Red stops. The exact-head external check and ruleset are
+  the boundary, not the agent's self-classification.
+- **Standing non-landing autonomy before activation:** I0–I4 may read, decide, dispatch,
+  build, test and open draft PRs under Amendments H/L. Their historical preconditions were
+  waived by James on 2026-09-05; that waiver grants no ready or merge action.
+- **I5:** migration-file merge is Amber; migration application, production writes and secret
+  handling are not granted. **I6:** Green/approved-Amber PR merge is grantable only after
+  attested activation; direct push, bypass and self-amendment merge are never granted.
 
 **Portfolio ladder:**
 - **Standing autonomy:** P0 (read-only portfolio/market state).
@@ -211,36 +211,22 @@ Promotion to *standing* I2/I3 (later I4 dispatch) and to *standing* P3/P4 requir
 preconditions below and an explicit James decision — **I3/I4 promotion happened this way,
 2026-09-05, as an explicit waiver of preconditions 2/3 rather than their satisfaction; see
 below.** This does not extend to the portfolio ladder: P3/P4 still require the
-preconditions in the normal, unwaived sense. **I5–I6 and P5–P6 are never promoted to
-standing** — they are permanently `always_ask`/disabled/not-held by design.
+preconditions in the normal, unwaived sense. The Green/Amber/Red activation is a separate
+governor-ratified control-plane amendment: it grants only the merge portions described above.
+Migration application, production writes, secrets, direct push/bypass, P5 and P6 remain
+`always_ask`/disabled/not-held by design.
 
-## Scheduled / unattended runs (PR 7a vs 7b)
+## Scheduled / unattended runs
 
-A scheduled `/arbi` run has **no interactive James invocation**, so it cannot borrow the
-human-in-the-loop authorisation that a manual `/arbi` uses for its I2 state write. The two
-must be kept distinct:
+Amendments H/L permit scheduled I0–I4 execution through a draft PR. The expanded landing
+path is intentionally not active yet: `ARBI_UNATTENDED=1` remains merge-denied until an
+independent ledger-attestation check is implemented and separately ruled. Existing H/K lanes
+retain their narrower credential and path constraints; a broad policy does not silently
+widen them.
 
-- **PR 7a — scheduled read-only dry run (allowed before the promotion preconditions).**
-  **I0–I1 only.** It runs observe → diff → synthesize → present and emits **output only**
-  (a draft brief / issue / email). It does **not**: write any doc (not even
-  `roadmap-state.md`'s Last wake snapshot), touch the DB/Render, mutate GitHub, create a
-  branch, overwrite roadmap-state, emit a capital-impacting output, or make a Model A-derived
-  recommendation. It is deliberately boring and read-only.
-- **PR 7b — standing scheduled autonomy (blocked on the preconditions below).** Only here may
-  an *unattended* run perform I2 writes (state refresh, handoff) on its own authority —
-  and only after Model A is resolved, the read-only DB role is landed, and the scorecard/eval
-  track record supports it.
-
-Note: the interactive `/arbi` command still performs its I2 state refresh, because
-James invoking it *is* the authorisation. The 7a restriction applies specifically to the
-**unattended, scheduled** path.
-
-**Portfolio-ladder analogue.** A *scheduled* `/pm-review` is likewise **P0–P1 only,
-output-only**: read live state, analyse, emit a draft brief. It does **not** persist a P2
-verdict or a P4 ledger row unattended, and it does **not** emit a memo as a recommendation —
-because P2/P3/P4 need the promotion preconditions, and while rule #11 stands the
-`model_independence` assertion of a memo cannot be human-verified in an unattended run. So the
-scheduled portfolio path is deliberately the same boring read-and-observe shape as 7a.
+The portfolio ladder remains separate. Scheduled research may read and analyse, but may not
+emit personalised output, move capital, use Model A for a real capital decision, or persist a
+higher P-tier result unless that P-tier is separately promoted.
 
 ## Promotion preconditions (reversible tiers only — I≤4 and P≤4)
 
@@ -273,13 +259,17 @@ waiver is scoped to I3/I4 only: it does not extend to any future I-ladder promot
 I4, and it does not extend to the portfolio ladder — a P3/P4 promotion still requires
 these preconditions met, not waived, on their own separate governor decision.
 
-**Never promotable:** I5–I6 (irreversible infra), P5 (capital-policy change — draft-only
-forever), P6 (execution — not a tool arbi holds). No track record unlocks these.
+**Never promotable:** migration application, production write credentials, secret values,
+direct/force push, protection bypass, self-approval/self-merge, P5 (capital-policy change —
+draft-only forever), and P6 (execution — not a tool arbi holds). Green merge and
+current-head-approved Amber merge are activated through the separate control-plane gate;
+they are not a track-record promotion of the forbidden actions above.
 
 ## Circuit breakers (hard floor, always on)
 
 Independent of tier or ladder, any of these **voids the run** (`arbi-scorecard.md` Layer 1)
-and pauses arbi: unapproved DB write / migration / Render change / merge / deploy; secret
+and pauses arbi: unapproved DB write or migration application; a merge/deploy that lacks the
+exact-head Green or approved-Amber gate; secret
 exposure; branch-only state treated as `main` truth; **capital-impacting action (executing,
 or a memo that implies an order rather than a proposal James decides on)**; **a Model
 A-derived recommendation while quarantined — including a P2/P3 memo that fails its
@@ -292,10 +282,10 @@ ladders, and they are the same nine listed in `arbi-scorecard.md` §Layer 1 and
 
 ## Runtime enforcement honesty
 
-Today every grant here is **prompt + doc enforced**, with a growing mechanical floor beneath
-it. `.claude/hooks/unattended-guard.sh` mechanically blocks the I5–I6 categories under
-unattended runs; the **PR-2 Permission Friction Pack (2026-07-14)** added a second, always-on
-mechanical layer that holds attended too:
+Before activation, every expanded grant remains behind `AGENTS.md` §0. The target mechanical
+floor is the external exact-head classifier/publisher, protected ruleset and control-ledger
+attestation; local hooks remain fail-closed feedback. The **PR-2 Permission Friction Pack
+(2026-07-14)** is the historical client layer being adapted to that model:
 
 - **`.claude/settings.json`'s `deny` array** — authority/boundary files (`CLAUDE.md`,
   **selected `.claude/` authority surfaces** — `settings.json`, `settings.local.json`, and
@@ -311,29 +301,24 @@ mechanical layer that holds attended too:
   own review-gate marker and `settings.json` itself, deadlocking every future `.py` commit
   (the self-inflicted lockout recorded in `arbi-run-ledger.md`, 2026-07-14); it was narrowed
   same-day to the explicit surfaces above so the commit flow keeps working.
-  `mcp__github__enable_pr_auto_merge` is denied outright (bare tool-name deny — removed from
-  context entirely, not just blocked on attempt). `mcp__github__merge_pull_request` was ALSO
-  bare-denied in the original PR-2 — an overcorrection walked back 2026-07-14: that deny
-  removed **James-instructed attended merge execution** (James names a PR, the agent
-  re-checks CI green + `mergeable_state: clean` + not-draft, then merges — the PR #26 /
-  six-PR-train precedent). Corrected three-case policy: **agent-initiated merge = forbidden**
-  (any mode); **James-instructed attended merge execution = allowed** via the normal
-  tool-permission flow after that re-check (no standing allow, no hook-level allow);
-  **unattended merge / auto-merge = forbidden** mechanically (`pr-draft-guard.sh` denies
-  `merge_pull_request` under `ARBI_UNATTENDED=1`, and `enable_pr_auto_merge` in every mode).
-  I6 in the tier table is unchanged: merge is `always_ask`, never standing.
+  `mcp__github__enable_pr_auto_merge` remains denied outright. The PR lifecycle tools are
+  present so the state-aware hooks can decide: absent/malformed/unattested state is
+  `ATTENDED`; only exact `STANDING` for the expected repository can fall through, and merge
+  additionally requires explicit squash. The server then decides Green versus approved
+  Amber. A local hook never attests or self-classifies a change.
 - **`authority-guard.sh`** (always-on) closes the one gap the settings layer's own docs admit:
   "arbitrary subprocesses that read or write files indirectly, like a Python or Node script
   that opens files itself." It also re-resolves `Edit`/`Write`/`NotebookEdit` paths via
   `realpath` so a symlink alias can't present a non-authority name for an authority target.
 - **`push-guard.sh`** (always-on) hard-denies dangerous `git push`/`gh` shapes (force/delete/
-  mirror to `main`, `claude/x:main`-style refspec tricks, `gh pr merge`/`ready`/non-draft
-  `create`) regardless of how a human might answer the interactive prompt. Since 2026-08-12 it
+  mirror to `main`, `claude/x:main`-style refspec tricks, non-squash/admin/auto merge, and
+  direct autonomy-variable mutation). PR creation/ready/explicit squash merge fall through
+  only for the exact repository while the remote state is `STANDING`; server controls remain
+  authoritative. Since 2026-08-12 it
   also hard-denies `gh run rerun` and any `gh workflow run` carrying command substitution, and
   its per-segment dispatch allowlist is the five-workflow attended-local list above.
-- **`pr-draft-guard.sh`** (always-on) hard-denies `create_pull_request` without `draft:true`
-  and `update_pull_request` with `draft:false` or a `state` transition — the draft-PR ceiling
-  as a mechanical rule, not just an instruction.
+- **`pr-draft-guard.sh`** (always-on) enforces the same ATTENDED/STANDING split for GitHub MCP
+  tools and requires an explicit squash method for merge. Auto-merge remains denied always.
 
 **Honest about what this does NOT do — corrected 2026-07-14 (security-engineer caught the
 main loop's own drafting error via a raw docs fetch, not the WebFetch summarizer both had
@@ -351,22 +336,16 @@ meant to *allow* a safe shape silently executes a dangerous action with zero hum
 false-negative in a regex meant to *deny* a dangerous shape merely falls through to the
 existing prompt — a human still gets a chance to catch it. Given every regex here is
 admittedly imperfect (see Residual limits below), only the fail-safe direction is acceptable
-for anything push/merge-adjacent. So **push and PR-creation still prompt, exactly as
-before** — PR-2 makes the dangerous shapes mechanically un-approvable (a human clicking "yes"
-to a push that secretly targets `main` can no longer succeed), it does not eliminate the
-prompts themselves. Push/PR-creation friction reduction remains open, gated on GitHub branch
-protection on `main` being configured (recorded here in 2026-07-14 as "still NOT done,
-confirmed 2026-07-11" — **that reading is superseded; see the status note directly below**) —
-a narrow, `allow`-emitting hook for verified-safe shapes becomes a *reasonable* follow-up
-once that backstop exists, given `allow` is now confirmed to work; it does not become safe
-merely because it's technically possible.
+for anything push/merge-adjacent. For allowlisted lifecycle tools, silence may execute without
+another prompt. That is why remote-state, exact-repository and explicit-squash checks fail
+closed locally, while the classifier and ruleset remain the actual authorization boundary.
 
-**Branch-protection status: CONFIGURED (recorded 2026-08-12; supersedes the 2026-07-11 "not
-configured" reading above, which stands as the record of what was true then).** Two rulesets
-have been live since 2026-07-17 — `asxos-main` (id 19077432) and `main` (id 18221894) —
-enforcing PR-required, `full-check` required, deletion blocked and non-fast-forward blocked;
-classic protection was re-asserted 2026-08-12 with the same shape and
-`required_approving_review_count: 0`. The 2026-08-12 guard carve-outs
+**Branch-protection status: PARTIAL (re-verified 2026-09-08).** Two rulesets are active:
+`asxos-main` (19077432) applies to the default branch and requires a PR plus strict
+`full-check`; `main` (18221894) has no included ref and adds no effective coverage. Both have
+empty bypass lists and deny deletion/non-fast-forward updates. The effective PR rule allows
+merge, squash and rebase, and no linear-history rule or `risk-classify` requirement exists.
+Therefore activation checklist item 2 is not met. The 2026-08-12 guard carve-outs
 (`docs/proposals/arbi-guard-carveouts-2026-08-12.md`) are the first draw-down on that
 precondition — and deliberately a **deny-only allowlist widening**, not the allow-emitting
 hook, which remains open. Two caveats must travel with every citation of this backstop or it
@@ -381,9 +360,9 @@ gets overclaimed:
   setting was tried on 2026-08-12 and deliberately reverted: GitHub forbids a PR author from
   approving their own PR and James is the only human, so requiring an approval turned **every**
   merge into an `enforce_admins:false` admin bypass — weaker audit evidence than the
-  0-approval state, for zero added enforcement. Making CODEOWNERS mechanical requires a review
-  identity that is not the PR author (a second account or a GitHub App): a governor decision,
-  not a settings tweak. Docs that still describe CODEOWNERS as the *mechanical*
+  0-approval state, for zero added enforcement. Under the target policy CODEOWNERS remains
+  routing only; the external verifier enforces conditional current-head approval. Docs that
+  still describe CODEOWNERS as the *mechanical*
   memory-poisoning firewall (`arbi-promotion-gate.md`, `arbi-dream-policy.md`) therefore
   overstate it. Re-verify before citing either way:
   `gh api repos/Jp8617465-sys/asxos/branches/main/protection`.
@@ -402,13 +381,9 @@ redirecting `push-guard.sh`'s branch check at a repo it never inspects. **Still 
 executor-arbitrary-code path (a pre-allowed test runner like `pytest`/`make check` executing
 code that calls the GitHub/git API directly, never producing a `git push` or `gh` command
 string) is invisible to `push-guard.sh` entirely — the real backstop for that path is GitHub
-branch protection, not any client-side hook. **That backstop now exists** (see the status note
-above, recorded 2026-08-12), so the residual is narrower than when this line was first
-written: the path stays invisible to the hook, but a direct push or merge it attempts against
-`main` is refused server-side — unless the credential it uses is admin-scoped, which
-`enforce_admins: false` still permits. `docs/README.md` was missing from the authority
-list (same source-of-truth ladder level as `CLAUDE.md` per `arbi-authority.md`) — added. On
-the Managed Agents platform these map to real **permission policies**
-(`always_allow`/`always_ask`) and disabled toolsets; **P6 (execution) is trivially enforced
-because no broker/execution tool is ever mounted** — arbi physically cannot place an order.
-I5–I6 / P5–P6 must still be treated as if disabled.
+branch protection, not any client-side hook. The active rulesets refuse direct/non-fast-forward
+updates and have empty bypass lists, but still lack squash-only, linear-history and
+`risk-classify` enforcement. `docs/README.md` was missing from the authority list (same
+source-of-truth ladder level as `CLAUDE.md` per `arbi-authority.md`) — added. P6 execution is
+physically bounded because no broker/execution tool is mounted. Until attested activation,
+§0 means all merge capability must still be treated as disabled.
