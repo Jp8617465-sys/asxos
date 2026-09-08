@@ -1,0 +1,43 @@
+--- a/.github/workflows/migration-drift.yml
++++ b/.github/workflows/migration-drift.yml
+@@ -4,9 +4,10 @@
+ #
+ #   1. The failure this exists to catch is a migration applied to production
+ #      with no repo change. That produces no PR by definition, so a PR-only
+-#      trigger cannot see it. The schedule is the real trigger; the
+-#      pull_request paths filter only catches the inverse (a file committed
+-#      without being applied).
++#      trigger cannot see it. The schedule is the real trigger. The inverse
++#      (a file committed without being applied) is caught by the next daily
++#      run after merge, and migration-integration.yml exercises the file
++#      itself at PR time without a production credential.
+ #
+ #   2. full-check runs on every push to claude/**. Coupling that lane to
+ #      production DB reachability would turn a brief Supabase blip into a red
+@@ -14,6 +15,12 @@
+ #      still a red scheduled run — that is the accepted cost of paging on
+ #      genuine drift. It is not an accepted cost of the whole PR gate.
+ #
++# NO pull_request TRIGGER (ACP P1, 2026-09-08). The previous paths filter
++# named this file, so a PR editing it ran the *edited* definition at the PR
++# head with DATABASE_URL in scope — the one shape the P1 gate exists to
++# close. A PR can still validate a migration through migration-integration;
++# it cannot reach a production secret from here.
++#
+ # Exit codes from scripts/check_migration_drift.py: 0 agree · 1 drift ·
+ # 2 DATABASE_URL missing. The script opens a read-only session
+ # (default_transaction_read_only=on) and issues one SELECT against
+@@ -27,13 +34,6 @@
+ on:
+   schedule:
+     - cron: "0 6 * * *"          # daily; the drift this exists to catch produces no PR
+-  pull_request:
+-    branches: [main]
+-    paths:
+-      - "migrations/**"
+-      - "asxos/schema_drift.py"
+-      - "scripts/check_migration_drift.py"
+-      - ".github/workflows/migration-drift.yml"
+   workflow_dispatch:
+
+ permissions:

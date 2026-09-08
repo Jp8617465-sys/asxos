@@ -1,0 +1,28 @@
+--- a/.github/workflows/pr-review-agent.yml
++++ b/.github/workflows/pr-review-agent.yml
+@@ -1,8 +1,15 @@
+ name: PR Review Agent
+
++# NO pull_request TRIGGER (ACP P1, 2026-09-08). On ready_for_review /
++# synchronize this ran scripts/pr_review_agent.py from the PR head with
++# OPENAI_API_KEY and issues:write in scope — an authored PR could edit the
++# script and exfiltrate the key. pull_request_target is not the fix (it
++# would still check out and run PR-authored code next to the secret). PR
++# review of agent branches moves to asxos-control (ACP §5.5 fetch/effect
++# brokers); until then this reviews main-branch commits only, where the
++# code that runs is the code James merged.
++
+ on:
+-  pull_request:
+-    types: [opened, reopened, synchronize, ready_for_review]
+   push:
+     branches: [main]
+
+@@ -15,7 +22,6 @@
+   review:
+     name: Comment-only automated review
+     runs-on: ubuntu-latest
+-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+     env:
+       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

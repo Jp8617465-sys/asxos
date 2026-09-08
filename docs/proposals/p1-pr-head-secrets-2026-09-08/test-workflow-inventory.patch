@@ -1,0 +1,24 @@
+--- a/tests/test_workflow_inventory.py
++++ b/tests/test_workflow_inventory.py
+@@ -331,16 +331,12 @@
+
+
+ def test_live_repo_exposure_set_is_pinned() -> None:
+-    """Exactly two workflows run at PR head with a secret. Any third is a
+-    deliberate expansion of the exposure surface and must be reviewed here.
+-
+-    Both are controlled use while `.github/**` stays fenced — the steps that run
+-    are the reviewed ones. The flag records reachability, not a defect.
++    """No workflow runs at PR head with a repository secret (ACP P1, staged
++    2026-09-08). Any entry here is a deliberate expansion of the exposure
++    surface and must be reviewed here — it is no longer tolerated as
++    "controlled use": the definition that runs at PR head is the PR's own.
+     """
+     inventory = inv.build_inventory(_ROOT / ".github" / "workflows", root=_ROOT)
+-    assert inventory["summary"]["exposed_to_authored_pr"] == [
+-        ".github/workflows/migration-drift.yml",
+-        ".github/workflows/pr-review-agent.yml",
+-    ]
++    assert inventory["summary"]["exposed_to_authored_pr"] == []
+     assert inventory["summary"]["secrets_inherit_workflows"] == []
+     assert inventory["summary"]["unsafe_pin_workflows"] == []
