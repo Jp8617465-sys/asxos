@@ -37,7 +37,7 @@
 # click-list, and that is correct.
 
 version: 1
-updated: 2026-09-07
+updated: 2026-09-08
 
 items:
 
@@ -624,6 +624,42 @@ items:
     paths: []
     source: "roadmap-state.md ranked queue 2026-08-24 candidate (2); architecture-decision-record.md D10"
 
+  - id: B-16
+    title: "Replace the blanket AGENTS I5/I6 stop with a bounded attended landing grant backed by protected-main evidence"
+    phase: B
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths:
+      - "AGENTS.md"
+      - "docs/product/harness-profiles.md"
+      - "docs/product/arbi-permission-model.md"
+      - ".claude/hooks/push-guard.sh"
+      - ".claude/hooks/pr-draft-guard.sh"
+      - ".cursor/hooks/i56-shell-guard.sh"
+      - ".cursor/hooks/i56-mcp-guard.sh"
+      - "tests/test_push_guard_hook.py"
+      - "tests/test_pr_draft_guard_hook.py"
+      - "tests/test_cursor_i56_hooks.py"
+    source: >-
+      James ruling in the 2026-09-08 open-PR merge-train session: GitHub's active
+      protected-main rules should support a narrow attended exception for marking
+      named PRs ready and squash-merging them after fresh CI and final review. Design
+      and red-team one non-self-authorisable grant shared by AGENTS.md, the operating
+      harness SoT and both Claude/Cursor guards. Acceptance: the owner scopes the
+      repository, exact PR set and expiry; the agent pins the reviewed head OID;
+      main has an active PR-required ruleset with no bypass actors, strict required
+      checks and review-thread resolution; every required check succeeds on that
+      head; and only `gh pr ready` plus ordinary `gh pr merge --squash` become
+      eligible. Tests must prove that absent/expired/wrong-repo/wrong-PR/head-moved,
+      red-or-missing-check and unresolved-thread grants fail closed. `--admin`,
+      auto-merge, direct or force push to main, unattended landing, secrets,
+      migration application, production writes/deploys, capital action and
+      authority-file self-enactment remain unconditionally denied. Start with a
+      one-train pilot, record every attempted action, and require James to promote
+      or retire the exception after reviewing the evidence.
+
   # ---------------------------------------------------------------------------
   # Phase C — Stage gates that need LIVE observation
   # ---------------------------------------------------------------------------
@@ -1110,4 +1146,3 @@ items:
     route: build
     paths: ["CLAUDE.md"]
     source: "2026-09-06 window, PR-A commit daf66b1; live schema_migrations = 104 rows through 20260903025557 (supabase-ro list_migrations)"
-
