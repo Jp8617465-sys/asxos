@@ -36,10 +36,13 @@ deny() {
   exit 0
 }
 
-command -v jq >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 \
+  || deny "authority-guard: jq is unavailable; refusing because the tool payload cannot be validated."
 
 payload="$(cat)"
-tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
+tool="$(printf '%s' "$payload" \
+  | jq -er '.tool_name | select(type == "string" and length > 0)' 2>/dev/null)" \
+  || deny "authority-guard: payload omitted a valid tool_name; refusing an unbound operation."
 
 # Single source of truth for the authority-path set — mirrors the narrowed `Edit(...)`
 # entries in .claude/settings.json's deny array (same set; this hook's job is the residual,

@@ -4,9 +4,8 @@
 **Scope:** how Claude Code's official permission modes (`plan` / `auto` / `dontAsk`)
 map onto asxos work; the main-loop fan-out topology; the two-speed command split
 (`/build` vs `/arbi-mission`); the hard owner→agent roster; rejected alternatives
-**Last verified:** 2026-09-05 (Amendments H/K — standing dispatch is permitted in principle,
-but all three producer lanes remain owner-only `workflow_dispatch` while the branch-scoped
-credential P1 is open. Amendment G — identity path + auto-merge + user `auto` measurement)
+**Last verified:** 2026-09-08 (`AGENTS.md` state and risk contract; Amendments H/K remain
+the narrower scheduled-producer profile and stay draft-only)
 **Owner:** James (governor) applies local mode; arbi / the main loop obey this file
 **Superseded by:** N/A
 **Supersedes as operating SoT:** the profile / review-ceremony claims in
@@ -16,7 +15,8 @@ stay as the measured evidence and six-point record; they are not the operating
 map. The blast-radius ladder stays `arbi-permission-model.md`.
 
 This file is the source of truth for *which official Claude Code mode a session
-uses* and *which command carries the work*. It does not change I0–I6 or P0–P6.
+uses* and *which command carries the work*. `AGENTS.md` is the authority source;
+`arbi-permission-model.md` maps the legacy I0–I6/P0–P6 names to it.
 
 ---
 
@@ -47,11 +47,15 @@ A Claude Code **subagent cannot spawn subagents**
 James → /arbi → arbi-red-team (ONE THING / large envelope only)
       → /build  XOR  /arbi-mission  XOR  /arbi-team
       → main loop fans out specialists / reversible-work-builder
-      → draft PR → James merges
+      → draft PR
+          ATTENDED: James merges
+          attested STANDING: risk-classify gates agent-requested squash merge
+            Green: checks pass
+            Amber: checks pass + James approves current head
 
 owner-only workflow_dispatch (current gated posture) → workflow fires /arbi-mission with a fixed envelope
       → same fan-out, same specialists
-      → draft PR → James merges          ← the human gate is unchanged
+      → draft PR → James merges          ← ARBI_UNATTENDED remains draft-only
 ```
 
 Guilfoyle is a read-only planner. Orchestration and mutation never share a process.
@@ -96,7 +100,9 @@ If a command's copy diverges, **this file wins**.
 | live-portfolio evidence | the 5 investment-analysis agents | no |
 | mutation on `claude/**` or `cursor/**` | `reversible-work-builder` | **code/docs** |
 
-Only reversible work is dispatched. I5/I6 / P5/P6 STOP for James.
+Only reversible work is dispatched. Scheduled `ARBI_UNATTENDED=1` remains at the
+draft-PR ceiling. Interactive standing landing follows `AGENTS.md` §5–§9;
+P5/P6 and every Red boundary remain James-only or permanently unavailable.
 
 ---
 
@@ -121,11 +127,12 @@ run on a schedule. This supersedes the "Attended only" sections in `.claude/agen
 **What was granted:** standing *dispatch* — a scheduled workflow may fire `/arbi-mission`
 unattended, fan out specialists, build on a `claude/**` branch, and open a **draft** PR.
 
-**What was NOT granted, and is not grantable:**
+**What was NOT granted to these scheduled producer lanes:**
 
-- **I5/I6 remain never-standing** — `arbi-permission-model.md:203-204` states they are
-  *"permanently `always_ask`/disabled/not-held by design."* No merge, no deploy, no push to
-  `main`, no migration, no DB write, no secret handling.
+- **No scheduled landing** — `ARBI_UNATTENDED=1` cannot ready or merge a PR,
+  deploy, push to `main`, apply a migration, write production data or handle a
+  secret. The interactive attested-`STANDING` merge path in `AGENTS.md` is a
+  separate profile and does not flow into these workflows.
 - **No auto-merge, any path** — rejected-item 9, widened 2026-08-24 (Amendment G ruling 3).
   Keep the click.
 - **P5/P6 untouched** — no capital-policy change, no execution. s766B firewall stands.
@@ -235,5 +242,7 @@ items as they are un-parked.
 **What it cannot do, unchanged from lanes A/B:** merge, un-draft, push to `main`, apply
 a migration, touch a secret, edit `.github/**` or any authority path, touch
 capital-adjacent code, flip a dark surface, approve a theme member, or calibrate risk.
-Standing dispatch was granted; standing landing was not. The workflow remains manually gated.
+Standing dispatch was granted to the lane; scheduled standing landing was not.
+The workflow remains manually gated. Interactive landing, when activated, follows
+the separate `AGENTS.md` contract.
 Automatic triggers stay blocked until backlog item A-22 closes the branch-scoped credential P1.
