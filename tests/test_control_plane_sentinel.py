@@ -168,11 +168,38 @@ def test_reappearance_comments_once_and_resets_partial_recovery() -> None:
 
 def test_replaying_same_occurrence_run_is_idempotent() -> None:
     run = _run("100", "success", findings=(_finding(),), output_valid=True)
-    opened = project_probe_run(prior=(), run=run)
+    opened = _bind_result(project_probe_run(prior=(), run=run))
     replayed = project_probe_run(prior=opened.projections, run=run)
 
     assert replayed.projections == opened.projections
     assert replayed.commands == ()
+
+
+def test_unbound_create_replay_reemits_the_same_idempotent_command() -> None:
+    run = _run("100", "success", findings=(_finding(),), output_valid=True)
+    opened = project_probe_run(prior=(), run=run)
+    replayed = project_probe_run(prior=opened.projections, run=run)
+
+    assert len(opened.commands) == 1
+    assert replayed.commands == opened.commands
+    assert replayed.projections == opened.projections
+    assert replayed.projections[0].issue_number is None
+
+
+def test_bound_replay_with_changed_finding_digest_fails_closed() -> None:
+    opened = _bind_result(
+        project_probe_run(
+            prior=(),
+            run=_run("100", "success", findings=(_finding(),), output_valid=True),
+        )
+    )
+    changed = _finding(severity="L1")
+
+    with pytest.raises(ValueError, match="original Finding digest"):
+        project_probe_run(
+            prior=opened.projections,
+            run=_run("100", "success", findings=(changed,), output_valid=True),
+        )
 
 
 def test_three_distinct_successful_absences_close_with_all_run_urls() -> None:
@@ -318,6 +345,33 @@ def test_unfingerprinted_finding_creates_run_scoped_diagnostic_only() -> None:
         "unfingerprinted",
     )
     assert "arbi-ready" not in result.commands[0].labels
+
+
+def test_duplicate_unfingerprinted_finding_in_one_run_is_rejected() -> None:
+    finding = _finding(
+        identifiers={},
+        failure_class="ambiguous_traceback",
+        file_hints=(),
+    )
+
+    with pytest.raises(ValidationError, match="complete Finding digest"):
+        _run("100", "success", findings=(finding, finding), output_valid=True)
+
+
+def test_unfingerprinted_replay_reemits_same_adapter_idempotency_key() -> None:
+    finding = _finding(
+        identifiers={},
+        failure_class="ambiguous_traceback",
+        file_hints=(),
+    )
+    run = _run("100", "success", findings=(finding,), output_valid=True)
+
+    first = project_probe_run(prior=(), run=run)
+    replayed = project_probe_run(prior=first.projections, run=run)
+
+    assert first.projections == replayed.projections == ()
+    assert first.commands == replayed.commands
+    assert first.commands[0].idempotency_key.startswith("sha256:")
 
 
 @pytest.mark.parametrize(
