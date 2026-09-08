@@ -101,6 +101,16 @@ underlying Amber change, leaving
 those owner-only merges possible without making a passing check an agent merge
 capability.
 
+Landing is event-driven, not owner-click-driven. The Branch Publisher marks an
+eligible attended-path PR ready; a base-owned product caller wakes on that
+`ready_for_review` event, the external Verifier App's check completion, and the
+named `full-check` workflow's completion. The redundant `workflow_run` wake-up
+is required because GitHub suppresses `check_run` workflow triggers for checks
+associated with GitHub Actions. Every event is only a wake-up signal: the
+immutable Control job re-reads all current provider state and produces no
+intent unless every gate is simultaneously true. Producer schedules do not
+receive a ready or landing capability.
+
 ---
 
 ## 2. Where each rule will live
@@ -212,6 +222,11 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    invoke or assume this credential. Prove head changes between ready and merge,
    stale or non-App checks, skipped/neutral checks, forks, merge refs, ruleset
    drift, method substitution and partial writes all fail closed.
+   The product caller is base-owned and reacts only to Branch-Publisher
+   `ready_for_review`, external-Verifier `check_run` completion and named
+   `full-check` `workflow_run` completion. Treat all three as untrusted wake-up
+   signals and re-query the complete authorization packet; never pass a
+   serialized decision or execute PR-head code in the privileged job.
 9. **State Controller and Ledger Writer.** Create the dedicated
    metadata-read/variables-write State Controller App and bind it only to the
    attested activation, breaker and restore workflows. Create the distinct,
