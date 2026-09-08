@@ -1,0 +1,125 @@
+--- a/docs/product/arbi-goal-recipes.md
++++ b/docs/product/arbi-goal-recipes.md
+@@ -1,8 +1,8 @@
+ # arbi goal recipes — long-window autonomy prompts
+
+-**Status:** current (autonomy unlock pack, 2026-07-14)
++**Status:** current (autonomy unlock pack, 2026-07-14; R3 added 2026-09-08)
+ **Scope:** the vetted prompt recipes for long reversible-work windows (`/goal`, overnight/12-hour runs)
+-**Last verified:** 2026-07-14
++**Last verified:** 2026-09-08 (R3 added; R1/R2 wording unchanged — see rule 6)
+ **Owner:** James launches; arbi/Guilfoyle execute; changes to a recipe's *boundaries* are boundary changes (James approves)
+ **Superseded by:** N/A
+
+@@ -89,6 +89,104 @@
+ red-team-gated before build · JAMES_NEEDED pivot rule · stop early at the PR ceiling. Use
+ when the queue has one clear lane rather than a broad target.
+
++## Recipe R3 — the autonomy-evidence window (ACP programme, Issue #204)
++
++**Added 2026-09-08.** The standing goal for every window launched under the Arbi
++chief-of-staff / autonomy control plane programme — "the plan" below is
++`docs/proposals/arbi-chief-of-staff-and-feature-control-plane-plan-2026-09-03.md`; the
++programme Issue is `#204`, its Phase-0 sub-issue `#205`.
++
++### The goal — one counter
++
++> **20 consecutive low-risk product slices move from admitted contract → Claude patch →
++> external exact-SHA check → landing → observed product outcome, with zero James clicks,
++> zero boundary escapes, and zero fuse trips.**
++
++This is the plan's own promotion bar (§13) and `AGENTS.md` §10's Green-earning evidence,
++stated as an observed outcome with a counter rather than as a capability to build. Each
++success is the evidence that unlocks the next capability. The count is never the point:
++a window that raises the count while raising James's interventions per accepted outcome
++has not advanced the goal.
++
++**Counter rules** (all must hold for a slice to count):
++
++1. **Admitted contract.** The slice is a `#204` sub-issue with frozen acceptance criteria
++   (`AGENTS.md` §6 block) naming a product-facing outcome — brief, tax, thesis discipline,
++   theme/ETF coverage. Harness, docs and control-plane work advance the *preconditions*; it
++   does not count as a slice.
++2. **External landing.** The head landed through the App-owned exact-SHA check (`P9` /
++   `risk-classify`) at the exact SHA, classified Green. A James-merged PR is a precondition
++   landing — it advances the programme and never increments the counter.
++3. **Observed.** An observation row records the outcome or an honest miss (plan §10.3);
++   merge alone is not completion.
++4. **Zero clicks.** No human merge, ready, approval, dispatch or fuse reset on the slice's
++   path. A warranted escalation is not a click against the goal; an unwarranted one is
++   (plan §13).
++5. **Consecutive.** Any breaker trip, rollback, AC drift or unlogged privileged action resets
++   the count to 0 (`AGENTS.md` §9–§10).
++6. **Where the count lives.** On Issue `#204` (body or one pinned comment), updated at each
++   window's close by the morning report — never in this file, `roadmap-state.md`,
++   `backlog.yaml` or a handoff (`AGENTS.md` §11).
++
++### Honest state at the time of adding (measured 2026-09-08)
++
++The counter is **0/20 and cannot yet increment**: `AUTONOMY` is absent (attended ceiling,
++`AGENTS.md` §0), `asxos-control` does not exist, and no App-owned exact-SHA check exists
++(`#205` findings). Until `P9` is observed and `AUTONOMY=STANDING` is attested, every R3
++window advances the preconditions in the plan's §23.8 order. Reporting a count before that
++is an integrity breaker (`AGENTS.md` §8 Integrity), not an optimistic rounding.
++
++### Launch
++
++```
++/goal Run an asxos autonomy-evidence window under Recipe R3
++(docs/product/arbi-goal-recipes.md).
++
++Goal: 20 consecutive low-risk product slices from admitted contract to observed
++outcome with zero James clicks, zero boundary escapes, zero fuse trips. The
++current count is on Issue #204; do not increment it unless a slice met every
++counter rule in R3.
++
++Order of work (plan §23.8; skip a step only if James has explicitly closed or
++reprioritised it — record which):
++1. F-E2E r1 — observed outcome or honest miss recorded.
++2. Phase-0 verdict under #205 — READY / NOT READY per plan §20; concrete
++   blockers only, each with failure sequence, evidence, smallest correction.
++3. Read-only harness doctor — only if James has activated a #204 sub-issue.
++4. P1 — stage, do not apply, whatever removes repository secrets from PR-head
++   workflows (migration-drift.yml, pr-review-agent.yml); .github/** is fenced.
++5. SB3-02 manifest compiler + report-only context budget.
++6. SB4-01 / SB4-02 public regression cases and the eval receipt contract.
++Then: one low-risk pilot slice, once P9 is observed at the exact SHA.
++
++Wake arbi to reconcile live state and confirm which step is open; arbi may not
++reorder the steps without James. Run arbi-red-team on that call. Hand execution
++to Guilfoyle (plans and judges); the main loop executes via /build or
++/arbi-mission. Draft PRs only.
++
++Hard floor (AGENTS.md §0 and §8, binding whatever the window is told):
++- draft PRs on claude/** are the stopping point — no ready, merge, auto-merge,
++  or main push
++- no migration apply, production write, secret read/create/bind, .env read
++- no edit to .github/**, asxos-control, AUTONOMY, or any authority path —
++  stage a patch under docs/proposals/ for James to apply
++- no scheduled-workflow enable/disable/cadence change; no spend above baseline
++- no capital or advice-like output; Model A output is never evidence (rule #11)
++- no count increment without every counter rule met; no self-report
++  substituted for CI or check evidence
++
++PR transaction discipline: as Recipe R1, binding on every branch touch.
++
++If a James boundary is hit: log JAMES_NEEDED, preserve the artifact, pivot to
++the next open step.
++
++Close: ledger row (arbi-run-ledger.md) + morning report —
++- counter state and exactly why it did or did not move
++- decisions needed (JAMES_NEEDED items first)
++- PRs opened (all draft), skipped/deferred, risks found
++- recommended merge order
++```
++
+ ## Recipe rules (all recipes)
+
+ 1. **arbi decides, red-team challenges, Guilfoyle orchestrates, builders mutate** — the roles
+@@ -101,3 +199,6 @@
+ 5. Recipes are launched by James (attended grant for the window). A *scheduled* unattended
+    window remains gated on the PR 7b preconditions (`arbi-permission-model.md`) — no recipe
+    overrides that.
++6. **`AGENTS.md` wins.** R1/R2 predate `AGENTS.md` (2026-09-08) and still name Render, which
++   was deleted 2026-08-12. Where a recipe's wording and `AGENTS.md` §0/§8 differ, `AGENTS.md`
++   binds; a recipe can only narrow it.
