@@ -54,8 +54,9 @@ command -v jq >/dev/null 2>&1 \
   || deny "db-write-guard: jq unavailable; cannot verify the DB call is safe, so it is refused (fail-closed)."
 
 payload="$(cat)"
-tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
-[ -n "$tool" ] || exit 0
+if ! tool="$(printf '%s' "$payload" | jq -er '.tool_name | select(type == "string" and length > 0)')"; then
+  deny "db-write-guard: malformed hook input or missing tool name; cannot classify the DB call, so it is refused (fail-closed)."
+fi
 
 case "$tool" in
   *apply_migration)
@@ -64,7 +65,9 @@ case "$tool" in
   *execute_sql)
     case "$tool" in
       *supabase-ro*|*Supabase-ro*)
-        q="$(printf '%s' "$payload" | jq -r '.tool_input.query // empty' | sed -E 's/--[^\n]*//g; s#/\*.*\*/##g')"
+        if ! q="$(printf '%s' "$payload" | jq -er '.tool_input.query | select(type == "string")' | sed -E 's/--[^\n]*//g; s#/\*.*\*/##g')"; then
+          deny "db-write-guard: read-only execute_sql input has no string query; cannot classify it, so it is refused (fail-closed)."
+        fi
         if printf '%s' "$q" | grep -Eiq '\b(INSERT|UPDATE|DELETE|MERGE|UPSERT|TRUNCATE|ALTER|DROP|CREATE|GRANT|REVOKE|REFRESH|COPY|CALL|DO|LOCK|SET[[:space:]]+(ROLE|SESSION)|SELECT\b.*\bINTO\b)\b|\b(approve_object|reject_object|set_active_profile|nextval|setval)\b'; then
           deny "db-write-guard: a write/DDL-shaped query against the read-only DB connection is blocked, always — the connection should reject it regardless, this is the client-side net."
         fi

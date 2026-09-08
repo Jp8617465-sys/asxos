@@ -220,31 +220,13 @@ fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+workflow[[:space:]]+(enable|disable)'; then
   deny "push-guard: enabling/disabling workflows via gh is blocked (I6), reserved to James."
 fi
-# Per-segment dispatch allowlist, two tiers. Extended 2026-08-12 (James,
-# guard-carveouts decision): backup.yml and claude-execute.yml join the
-# validation lanes, UNCONDITIONALLY dispatchable regardless of AUTONOMY —
+# Per-segment dispatch allowlist. Extended 2026-08-12 (James, guard-carveouts
+# decision): backup.yml and claude-execute.yml join the validation lanes —
 # backup.yml only reads prod (pg_dump) and restores into a disposable CI
 # container; claude-execute.yml is the governed harness whose own workflow
 # definition carries the tool ceiling, and the action's anti-tamper check
-# refuses to run any non-main modification of it.
-#
-# Extended again 2026-09-08 (James, default-allow inversion): daily-brief.yml,
-# us-positions.yml and weekly-research.yml become dispatchable once
-# AUTONOMY=STANDING — they write production data, send email, and spend paid
-# API quota, so they're a second, narrower tier gated on the same switch that
-# gates merge, not folded into the unconditional base tier. This is a
-# knowing, named acceptance of a narrow irreversibility (a sent email can't be
-# unsent; committed quota spend can't be refunded) — production DB writes
-# themselves are the PITR-gated case this PR's own merge requires James to
-# confirm. All other dispatches stay denied in every state.
-#
-# This allowlist is the patch, not the design: it is client-side only (one
-# harness of three — Codex and Cursor do not run push-guard.sh), name-based
-# (a workflow renamed or added here silently falls outside it, failing safe —
-# denied — until this list is updated by hand), and superseded once item 5
-# (a `production` GitHub environment with environment-scoped secrets) makes
-# credential reachability itself the server-side gate, regardless of who
-# dispatches. See the follow-up issue for that replacement design.
+# refuses to run any non-main modification of it. All other dispatches
+# (daily-brief, us-positions, production/secret-bearing jobs) stay denied.
 # Command substitution is NOT a segment separator, so the loop below would swallow an
 # inner dispatch into an allowlisted outer segment — `gh workflow run backup.yml
 # $(gh workflow run daily-brief.yml)` fires the DENIED workflow first, and the settings
@@ -265,18 +247,11 @@ if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+run[[:space:]]+rerun'; then
   deny "push-guard: 'gh run rerun' re-executes a prior run with its secrets re-injected — blocked (I6). Re-dispatch an allowlisted workflow explicitly instead."
 fi
 workflow_run_segments="$(printf '%s' "$cmd" | grep -Eio 'gh[[:space:]]+workflow[[:space:]]+run[^|;&]*' || true)"
-WORKFLOW_BASE_ALLOW='^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(full-check\.yml|targeted-ml-tests\.yml|migration-integration\.yml|backup\.yml|claude-execute\.yml)([[:space:]]|$)'
-WORKFLOW_STANDING_ALLOW='^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(daily-brief\.yml|us-positions\.yml|weekly-research\.yml)([[:space:]]|$)'
 if [ -n "$workflow_run_segments" ]; then
   while IFS= read -r workflow_run_segment; do
     [ -n "$workflow_run_segment" ] || continue
-    if printf '%s' "$workflow_run_segment" | grep -Eiq "$WORKFLOW_BASE_ALLOW"; then
-      : # unconditionally allowed, unchanged
-    elif printf '%s' "$workflow_run_segment" | grep -Eiq "$WORKFLOW_STANDING_ALLOW"; then
-      pr_context_is_asxos && autonomy_is_standing \
-        || deny "push-guard: this workflow writes production data, sends email, or spends paid API quota — it requires remote AUTONOMY=STANDING for the exact ASXOS origin. ATTENDED-without-STANDING stops here."
-    else
-      deny "push-guard: workflow_dispatch is allowed only for the allowlisted workflows (full-check.yml, targeted-ml-tests.yml, migration-integration.yml, backup.yml, claude-execute.yml unconditionally; daily-brief.yml, us-positions.yml, weekly-research.yml once AUTONOMY=STANDING). Other workflow runs are reserved to James."
+    if ! printf '%s' "$workflow_run_segment" | grep -Eiq '^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(full-check\.yml|targeted-ml-tests\.yml|migration-integration\.yml|backup\.yml|claude-execute\.yml)([[:space:]]|$)'; then
+      deny "push-guard: workflow_dispatch is allowed only for the allowlisted workflows (full-check.yml, targeted-ml-tests.yml, migration-integration.yml, backup.yml, claude-execute.yml). Other workflow runs are reserved to James."
     fi
   done <<EOF
 $workflow_run_segments
