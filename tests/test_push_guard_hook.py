@@ -1,13 +1,10 @@
 """Tests for ``.claude/hooks/push-guard.sh`` — the always-on PreToolUse(Bash) push/gh guard.
 
-DENY-only by design (see the hook's header): whether a PreToolUse hook's
-``permissionDecision:"allow"`` reliably suppresses Claude Code's interactive prompt is not
-confirmed in the platform's documented behavior, so this hook never attempts to pre-approve
-anything — it only ever emits ``deny`` or stays silent (silence falls through to the normal
-permission flow). These tests therefore only assert two outcomes: an explicit deny for
-dangerous shapes, and ``{}`` (no-op) for everything else — including the reversible cases a
-naive glob would wrongly treat as dangerous (a `claude/**`-to-`claude/**` push, a force-push
-to one's own `claude/**` branch).
+DENY-only by design (see the hook's header): the hook only emits ``deny`` or stays silent.
+For project-allowlisted PR lifecycle commands, silence can execute without a prompt, so those
+paths first require remote repository variable ``AUTONOMY=STANDING`` for the exact ASXOS
+origin. Direct/force pushes to ``main`` and merge-bypass modes remain denied in every state.
+These tests assert the attended/standing split as well as reversible branch pushes.
 
 The deny set is driven by real bugs this hook exists to catch: a `claude/x:main` refspec
 defeats a source-prefix glob (the R13-class false-boundary the autonomy-unlock-pack's
@@ -48,16 +45,48 @@ def repo(tmp_path: Path) -> Path:
     _git(tmp_path, "add", "seed.py")
     _git(tmp_path, "commit", "-qm", "seed")
     _git(tmp_path, "checkout", "-b", "claude/work")
+    _git(tmp_path, "remote", "add", "origin", "https://github.com/Jp8617465-sys/asxos.git")
     return tmp_path
 
 
-def run_hook(repo: Path, command: str) -> dict:
+def run_hook(
+    repo: Path,
+    command: str,
+    *,
+    autonomy: str = "ATTENDED",
+    gh_repo: str | None = None,
+    payload_cwd: str | None = None,
+) -> dict:
+    gh_bin = repo.parent / f"{repo.name}-fake-gh"
+    gh_bin.mkdir(exist_ok=True)
+    gh = gh_bin / "gh"
+    gh.write_text(
+        "#!/bin/sh\n"
+        "if [ \"$1 $2 $3\" = \"variable get AUTONOMY\" ]; then\n"
+        f"  printf '%s\\n' {autonomy!r}\n"
+        "  exit 0\n"
+        "fi\n"
+        "exit 1\n"
+    )
+    gh.chmod(0o755)
+    env = {
+        "CLAUDE_PROJECT_DIR": str(repo),
+        "PATH": f"{gh_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+    }
+    if gh_repo is not None:
+        env["GH_REPO"] = gh_repo
     proc = subprocess.run(
         ["bash", str(HOOK)],
         cwd=repo,
-        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
+        input=json.dumps(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+                **({"cwd": payload_cwd} if payload_cwd is not None else {}),
+            }
+        ),
         capture_output=True, text=True,
-        env={"CLAUDE_PROJECT_DIR": str(repo), "PATH": os.environ.get("PATH", "")},
+        env=env,
     )
     assert proc.returncode == 0, f"hook exited {proc.returncode}: {proc.stderr}"
     out = proc.stdout.strip()
@@ -66,6 +95,18 @@ def run_hook(repo: Path, command: str) -> dict:
 
 def _is_deny(decision: dict) -> bool:
     return decision.get("permissionDecision") == "deny"
+
+
+def test_missing_jq_fails_closed() -> None:
+    proc = subprocess.run(
+        [shutil.which("bash") or "/bin/bash", str(HOOK)],
+        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "git status"}}),
+        capture_output=True,
+        text=True,
+        env={"PATH": ""},
+    )
+    assert proc.returncode == 0
+    assert _is_deny(json.loads(proc.stdout)["hookSpecificOutput"])
 
 
 # --- DENY: dangerous git-push shapes -------------------------------------------------
@@ -108,10 +149,15 @@ def test_deny_dangerous_push_shape(repo: Path, command: str) -> None:
     "command",
     [
         "gh pr merge 5 --merge",
+        "gh pr merge 5 --rebase",
         "gh pr merge --auto",
+        "gh pr merge 5 --admin",
         "gh pr ready 5",
         "gh pr create --title x",  # no --draft
         "gh api -X PUT /repos/o/r/pulls/5/merge",
+        "gh variable set AUTONOMY --body STANDING",
+        "gh variable delete AUTONOMY",
+        "gh api -X PATCH /repos/Jp8617465-sys/asxos/actions/variables/AUTONOMY -f value=STANDING",
         "gh workflow run deploy.yml",
         "gh workflow run daily-brief.yml",
         "gh workflow run us-positions.yml",
@@ -171,6 +217,74 @@ def test_deny_dangerous_gh_shape(repo: Path, command: str) -> None:
 )
 def test_allow_reversible_shape(repo: Path, command: str) -> None:
     assert run_hook(repo, command) == {}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr create --base main --head claude/x --title x",
+        "gh pr ready 5",
+        "gh pr merge 5 --squash",
+    ],
+)
+def test_allow_server_gated_pr_lifecycle_only_when_remote_standing(
+    repo: Path, command: str
+) -> None:
+    assert run_hook(repo, command, autonomy="STANDING") == {}
+
+
+@pytest.mark.parametrize("state", ["", "ATTENDED", "standing", "BROKEN"])
+def test_deny_merge_without_exact_remote_standing(repo: Path, state: str) -> None:
+    assert _is_deny(run_hook(repo, "gh pr merge 5 --squash", autonomy=state))
+
+
+@pytest.mark.parametrize("flag", ["--merge", "--rebase", "--auto", "--admin"])
+def test_deny_non_squash_or_bypass_merge_even_when_standing(
+    repo: Path, flag: str
+) -> None:
+    assert _is_deny(run_hook(repo, f"gh pr merge 5 {flag}", autonomy="STANDING"))
+
+
+def test_deny_standing_claim_for_wrong_origin(repo: Path) -> None:
+    _git(repo, "remote", "set-url", "origin", "https://github.com/example/other.git")
+    assert _is_deny(run_hook(repo, "gh pr merge 5 --squash", autonomy="STANDING"))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr merge 5 --squash --repo example/other",
+        "gh pr merge https://github.com/example/other/pull/5 --squash",
+        "gh pr merge $(printf 5) --squash",
+    ],
+)
+def test_deny_standing_pr_lifecycle_repo_redirection(repo: Path, command: str) -> None:
+    assert _is_deny(run_hook(repo, command, autonomy="STANDING"))
+
+
+def test_deny_standing_pr_lifecycle_gh_repo_override(repo: Path) -> None:
+    assert _is_deny(
+        run_hook(
+            repo,
+            "gh pr merge 5 --squash",
+            autonomy="STANDING",
+            gh_repo="example/other",
+        )
+    )
+
+
+def test_deny_standing_pr_lifecycle_outside_project_cwd(
+    repo: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    outside = tmp_path_factory.mktemp("outside-pr-context")
+    assert _is_deny(
+        run_hook(
+            repo,
+            "gh pr merge 5 --squash",
+            autonomy="STANDING",
+            payload_cwd=str(outside),
+        )
+    )
 
 
 # --- current-branch-is-main: any push denied regardless of explicit destination -------
