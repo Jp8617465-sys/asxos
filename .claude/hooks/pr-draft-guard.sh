@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# pr-draft-guard.sh — PreToolUse guard, always-on. Enforces the draft-PR ceiling on the
-# GitHub MCP PR-write tools.
+# pr-draft-guard.sh — PreToolUse guard, always-on. Enforces the attended draft-PR
+# ceiling and the standing server-gated PR lifecycle on GitHub MCP write tools.
 #
 # ⚠️ WIRING IS THE CONTROL (2026-08-21). This hook's cases match MCP tool names
 # (mcp__github__*), so it only fires if `.claude/settings.json` registers it under a
@@ -35,10 +35,46 @@ deny() {
   exit 0
 }
 
-command -v jq >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 \
+  || deny "pr-draft-guard: jq unavailable; refusing PR lifecycle classification (fail-closed)."
 
 payload="$(cat)"
 tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty')"
+
+EXPECTED_REPO="Jp8617465-sys/asxos"
+
+autonomy_is_standing() {
+  local root="${CLAUDE_PROJECT_DIR:-}"
+  local origin state gh_bin
+  [ -n "$root" ] && [ -d "$root" ] || return 1
+  origin="$(git -C "$root" remote get-url origin 2>/dev/null || true)"
+  case "$origin" in
+    https://github.com/Jp8617465-sys/asxos|https://github.com/Jp8617465-sys/asxos.git|git@github.com:Jp8617465-sys/asxos|git@github.com:Jp8617465-sys/asxos.git) ;;
+    *) return 1 ;;
+  esac
+  gh_bin="$(command -v gh 2>/dev/null || true)"
+  [ -n "$gh_bin" ] || return 1
+  case "$gh_bin" in "$root"/*) return 1 ;; esac
+  case "${GH_REPO:-}" in ""|"$EXPECTED_REPO") ;; *) return 1 ;; esac
+  state="$("$gh_bin" variable get AUTONOMY --repo "$EXPECTED_REPO" 2>/dev/null || true)"
+  [ "$state" = "STANDING" ]
+}
+
+pr_payload_targets_asxos() {
+  local owner repo
+  owner="$(printf '%s' "$payload" | jq -r '.tool_input.owner // .tool_input.repository_owner // empty')"
+  repo="$(printf '%s' "$payload" | jq -r '.tool_input.repo // .tool_input.repository // empty')"
+  if [ -n "$owner" ] || [ -n "$repo" ]; then
+    case "$repo" in
+      "$EXPECTED_REPO")
+        { [ -z "$owner" ] || [ "$owner" = "Jp8617465-sys" ]; } || return 1
+        ;;
+      asxos) [ "$owner" = "Jp8617465-sys" ] || return 1 ;;
+      *) return 1 ;;
+    esac
+  fi
+  return 0
+}
 
 # Presence-aware read: yields exactly "true" / "false" / "absent" — never conflates
 # false with absent the way `// empty` would.
@@ -52,17 +88,24 @@ state_field() {
 case "$tool" in
   *create_pull_request)
     d="$(draft_state)"
-    [ "$d" = "true" ] \
-      || deny "pr-draft-guard: create_pull_request must be called with draft:true. Every agent-opened PR is draft-only — James marks it ready."
+    if [ "$d" != "true" ]; then
+      pr_payload_targets_asxos && autonomy_is_standing \
+        || deny "pr-draft-guard: a non-draft PR requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED PRs require draft:true."
+    fi
     exit 0
     ;;
   *update_pull_request)
     d="$(draft_state)"
-    [ "$d" = "false" ] \
-      && deny "pr-draft-guard: update_pull_request with draft:false un-drafts a PR — blocked. Draft PRs are the ceiling; James marks ready."
+    if [ "$d" = "false" ]; then
+      pr_payload_targets_asxos && autonomy_is_standing \
+        || deny "pr-draft-guard: draft:false un-drafts a PR and requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED stops at draft."
+    fi
     s="$(state_field)"
     case "$s" in
-      open|closed) deny "pr-draft-guard: update_pull_request with state:$s (close/reopen) is blocked. That lifecycle action is James's." ;;
+      open|closed)
+        pr_payload_targets_asxos && autonomy_is_standing \
+          || deny "pr-draft-guard: PR lifecycle state:$s requires remote AUTONOMY=STANDING for the exact ASXOS origin."
+        ;;
     esac
     exit 0
     ;;
@@ -75,16 +118,13 @@ case "$tool" in
     deny "pr-draft-guard: enable_pr_auto_merge is blocked in every mode. Auto-merge removes James's per-PR merge decision."
     ;;
   *merge_pull_request)
-    # Attended/unattended split (2026-07-14 follow-up: PR #39 overcorrected by denying
-    # merge everywhere, which also removed James-INSTRUCTED merge execution in live
-    # attended sessions — re-check green/clean, confirm not draft, James names the PR,
-    # agent calls the tool). Policy: agent-INITIATED merge stays forbidden (an
-    # instruction-level rule — the agent only calls this when James explicitly named
-    # the PR and said merge); unattended merge stays mechanically denied here. In an
-    # attended session this falls through SILENTLY — no hook-level allow is emitted,
-    # so the normal tool-permission prompt / user-instruction flow still applies.
-    [ "${ARBI_UNATTENDED:-0}" = "1" ] \
-      && deny "pr-draft-guard: merge_pull_request is blocked in unattended mode (ARBI_UNATTENDED=1). Merges happen only in live attended sessions on James's explicit per-PR instruction."
+    # The protected server decides Green versus current-head-approved Amber. The local
+    # hook only keeps the pre-activation ceiling fail-closed.
+    pr_payload_targets_asxos && autonomy_is_standing \
+      || deny "pr-draft-guard: merge_pull_request requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED cannot merge."
+    method="$(printf '%s' "$payload" | jq -r '.tool_input.merge_method // .tool_input.mergeMethod // empty' | tr '[:upper:]' '[:lower:]')"
+    [ "$method" = "squash" ] \
+      || deny "pr-draft-guard: merge_pull_request must explicitly use squash; merge, rebase, or an omitted method is blocked."
     exit 0
     ;;
   *create_or_update_file|*push_files|*delete_file)

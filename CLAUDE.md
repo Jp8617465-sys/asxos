@@ -1,5 +1,12 @@
 # asxos — Claude Code project guide
 
+@AGENTS.md
+
+`AGENTS.md` is the cross-harness authority and autonomy contract. This file adds ASXOS domain
+facts and Claude-specific operating detail; it does not narrow authority granted by an attested
+`AUTONOMY=STANDING` state or widen any hard stop in `AGENTS.md` §8. On conflict, `AGENTS.md`
+wins.
+
 Personal investment intelligence OS for ASX equities. Single user. Python 3.12 + FastAPI + Supabase Postgres. CLI + daily email; no frontend in v1.
 
 ## Read first
@@ -91,19 +98,23 @@ No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 ## Claude-driven GitHub execution
 
-`.github/workflows/claude-execute.yml` is an attended, manually dispatched GitHub
-Actions harness for scoped repo work. When James triggers it with a task prompt,
-Claude may create a `claude/<short-slug>` branch, edit code/docs/configuration
-inside that task scope, run tests and validation, commit, push the branch, open
-or update a draft PR by pushing commits/commenting, inspect workflow results, and
-continue through recoverable failures such as test, lint, type, or merge-base
-failures by fixing and rerunning the relevant checks.
+Claude's GitHub authority comes from imported `AGENTS.md`, the attested `AUTONOMY` state, and the
+server-side ruleset plus `risk-classify` check. `.github/workflows/claude-execute.yml` remains the
+scoped Actions harness.
 
-It must stop and report the exact blocker for credentials or secret creation,
-destructive DB work or production data mutation, production deployment or
-irreversible production writes, direct pushes to `main`, PR ready/merge actions,
-self-merging unless repository policy and James's explicit instruction authorize
-that exact PR, migration `0042`, and any Model A or capital-execution boundary.
+While `AUTONOMY` is absent, malformed, unattested, or `ATTENDED`, Claude may create a
+`claude/<short-slug>` branch, edit within scope, test, commit, push that branch, and open or update
+a draft PR. The draft PR is the stopping point.
+
+Only while `AUTONOMY=STANDING` is attested may Claude ready a PR and ask the server to merge it:
+Green may merge when required checks pass; Amber may merge only after James's approval is bound to
+the current head; Red never merges. The external classifier and branch rules decide, not Claude or
+a local hook. Direct or force push to `main`, auto/admin merge, secret access, destructive
+production data, protection bypass, real capital action, and the Model A rule #11 boundary remain
+hard stops in every state.
+
+Continue through recoverable test, lint, type, merge-base, or check failures by fixing and rerunning
+the relevant evidence. A missing or stale autonomy signal is `ATTENDED`, never an implied grant.
 
 ## Known test environment gaps — RESOLVED 2026-08-22 (retained as a standing lesson)
 
@@ -298,4 +309,4 @@ run a flat three-agent loop on every change.
 
 ## Custom slash commands
 
-`.claude/commands/` has 31 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out four of the five investment-analysis agents (all but `thesis-coherence-guard`, dropped 2026-08-21 — see the delegation section) and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `/build` (added 2026-08-22) is the one-file reversible path. `/arbi-run` is a deprecated stub that redirects to `/arbi-mission`. `arbi-mission` (added 2026-07-13, strengthened 2026-08-22) is the multi-node dispatcher: **`guilfoyle`** (mission-control, read-only planner under arbi) turns an arbi-approved mission envelope into a task graph + specialist assignments + one readiness verdict, and the main loop executes the reversible fan-out to a draft PR — attended only, draft-PR ceiling, Guilfoyle plans/judges but never prioritises, spawns, or merges. `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via a CODEOWNER-reviewed merge (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/` (`.github/CODEOWNERS` lists the paths that carry arbi's authority — `docs/product/memory/`, the `arbi-*` governance set, `north-star.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/arbi.md`. **It is currently advisory, not enforced.** Branch protection requires `full-check` and zero approving reviews; `require_code_owner_reviews` is on but inert, because the sole code owner authors every PR and GitHub cannot request a review from a PR's own author — verified 2026-08-18, when PR #137 touching `CLAUDE.md` reached `CLEAN` and merged with no review. With one identity the only reachable states are gate-everything (`required_approving_review_count: 1`, forcing `--admin` on every merge) or gate-nothing; path-scoped gating needs a separate GitHub identity for agent-authored PRs, tracked as R2/R5. Treat the CODEOWNERS list as a statement of which files deserve a second look, not as a control that will stop you.); `.claude/hooks/unattended-guard.sh` mechanically blocks the irreversible tiers for scheduled unattended runs (`ARBI_UNATTENDED=1`); the self-driving loop is `docs/product/arbi-autonomy-loop.md`. See `.claude/agents/arbi.md` and `docs/product/`.
+`.claude/commands/` has 31 domain and lifecycle commands. 20 are carried verbatim from the previous repo; the seven original domain commands (`signal-pipeline`, `model-experiment`, `regime-detection`, `tax-optimise`, `dashboard-component`, `feature-add`, `prompt-compose`) are the most-used. `pm-review` (added 2026-06-29) is the portfolio-manager synthesizer: `/pm-review [SYMBOL]` fans out four of the five investment-analysis agents (all but `thesis-coherence-guard`, dropped 2026-08-21 — see the delegation section) and returns a GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE verdict with cited evidence. `discover-macro` (added 2026-07-01, Phase 2b) dispatches the `macro-economist` discovery agent and logs its proposals into `agent_runs` via `asx agent-run log` for human review. `arbi` + `arbi-close` (added 2026-07-10) are the program-manager loop: `/arbi` ("wake up") reconciles the roadmaps + live state into one brief with the single next action (brief-only); `/arbi-close` records what got built and writes the session handoff. `/build` (added 2026-08-22) is the one-file reversible path. `/arbi-run` is a deprecated stub that redirects to `/arbi-mission`. `arbi-mission` (added 2026-07-13, strengthened 2026-08-22) is the multi-node dispatcher: **`guilfoyle`** (mission-control, read-only planner under arbi) turns an arbi-approved mission envelope into a task graph + specialist assignments + one readiness verdict, and the main loop executes the reversible fan-out to a PR governed by imported `AGENTS.md` — draft-only while `ATTENDED`; Green or current-head-approved Amber may proceed through the external merge gate only while attested `STANDING`. Guilfoyle plans/judges but never prioritises, spawns, or decides its own tier. `arbi-dream` + `arbi-promote` (added 2026-07-10) are the git-native memory loop: `/arbi-dream` consolidates the week's committed artifacts into a dream-candidate PR; `/arbi-promote` gates a candidate into `docs/product/memory/approved-lessons.md` via the external policy gate (arbi never self-approves). arbi's persistent memory / "second brain" is git-native under `docs/product/memory/`; the protected path/classifier contract in `AGENTS.md` and `docs/product/autonomy-policy.md` is authoritative. Local hooks are fail-closed feedback; the protected `asxos-control` verifier, publisher identity, and branch rules are the enforcement boundary. See `.claude/agents/arbi.md` and `docs/product/`.
