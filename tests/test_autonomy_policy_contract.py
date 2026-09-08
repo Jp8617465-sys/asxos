@@ -68,9 +68,23 @@ def test_check_and_branch_publishers_are_distinct() -> None:
     agents = _read("AGENTS.md")
     policy = _read("docs/product/autonomy-policy.md")
     assert "check-publisher job uses a reduced Verifier App token" in agents
-    assert "check-publisher job uses a reduced Verifier App token" in policy
+    assert "check-publisher job references the Verifier App private key" in policy
+    assert "mints an exact checks-only token" in policy
     assert "branch Publisher App has no checks permission" in policy
     assert "publisher App posts `risk-classify`" not in policy
+
+
+def test_risk_check_transport_and_bootstrap_are_bounded() -> None:
+    policy = _read("docs/product/autonomy-policy.md")
+    assert "base-owned `pull_request_target` product caller" in policy
+    assert "never checks out or executes the PR head" in policy
+    assert "read-only `GITHUB_TOKEN`" in policy
+    assert "verifier process runs network-disabled" in policy
+    assert "`risk-classify-publisher` product environment" in policy
+    assert "No `secrets: inherit` is permitted" in policy
+    assert "neither `main` nor the head of any open PR" in policy
+    assert "deleted immediately\nafter source binding" in policy
+    assert "same-repository head ID" in policy
 
 
 def test_codeowners_routes_all_declared_sensitive_surfaces() -> None:

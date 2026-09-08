@@ -36,11 +36,30 @@ APPROVED review from James has `commit_id == current head SHA`. It re-runs on
 `pull_request` `synchronize` and every `pull_request_review` event.
 
 The authority check is not implemented by mutable product-branch code. A thin
-product caller is pinned to an immutable `asxos-control` verifier commit. The
-verifier computes the result without a GitHub write credential; a separate
-check-publisher job uses a reduced Verifier App token to post the required check
-through the Checks API against the exact PR head SHA. Activation tests prove
-that ordinary event or merge-ref SHAs cannot satisfy the required check.
+base-owned `pull_request_target` product caller is pinned to an immutable
+`asxos-control` verifier commit. It never checks out or executes the PR head;
+the pinned workflow's observation job uses only a read-only `GITHUB_TOKEN` to
+query the PR head, policy bytes, CODEOWNERS, reviews and changed paths through
+provider APIs. A following verifier process runs network-disabled with only the
+content-addressed observation mounted and no credential environment. A separate
+check-publisher job references the Verifier App private key only through a
+`risk-classify-publisher` product environment restricted to protected `main`,
+mints an exact checks-only token, and posts the
+required check against the provider-observed PR head SHA. Its ordinary
+`GITHUB_TOKEN` has no permissions. No `secrets: inherit` is permitted. This
+placement is explicit because cross-repository reusable workflows execute in
+the caller context and do not inherit secrets automatically. Activation tests
+prove that ordinary event or merge-ref SHAs cannot satisfy the required check.
+
+**Required-check source bootstrap is not an authority bypass.** While
+`AUTONOMY=ATTENDED`, the real classifier correctly cannot emit a passing
+decision, yet GitHub must observe one App-owned green check before its source can
+be selected in the ruleset. A temporary owner-dispatched bootstrap workflow may
+therefore post `risk-classify` exactly once to a dedicated disposable commit
+that is neither `main` nor the head of any open PR. It verifies those exclusions
+through the API, records the check and target digests, and is deleted immediately
+after source binding. The bootstrap path cannot target a PR and is not present
+at activation. A failure check is the only outcome on ambiguity.
 
 **Migration merge and application are separate.** A migration-file PR is Amber,
 but merging the definition is git-revertible and does not apply it in this repo.
@@ -88,8 +107,8 @@ identities and retains fail-closed client guards.
 | No `--admin`, no bypass | Agent identity has no repository-admin role; ruleset has an empty bypass list | GitHub App permissions + repository or org ruleset | **Partial** — both active rulesets have empty bypass lists; agent identity still needs proof |
 | Required checks green on current head | Ruleset required checks | Repository or org ruleset | **Partial** — strict `full-check` exists; `risk-classify` does not |
 | Green has no global approval gate | Ruleset has no required approving-review count; conditional approval is enforced only by `risk-classify` | Repository or org ruleset | **Yes** — approval count 0 and last-push approval false |
-| Tier assignment; unlabelled cannot merge | Thin product caller pinned by immutable SHA to the `asxos-control` verifier; path allowlist defaults to Amber and fails closed | Product caller + `asxos-control` | **No** |
-| Check publication is separated from verification | Verifier has no GitHub write credential; a credential-isolated check-publisher job uses the Verifier App's exact checks-only token to post `risk-classify` against the exact PR head SHA | `asxos-control` verifier/check-publisher boundary | **No** |
+| Tier assignment; unlabelled cannot merge | Base-owned `pull_request_target` caller pinned by immutable SHA to the `asxos-control` verifier; it never checks out or runs PR code; path allowlist defaults to Amber and fails closed | Product caller + `asxos-control` | **No** |
+| Check publication is separated from verification | Read-only observer emits content-addressed input; network-disabled verifier receives no credential environment; a credential-isolated publisher job uses the product `risk-classify-publisher` environment to mint the Verifier App's exact checks-only token; ordinary `GITHUB_TOKEN` permissions are empty | Product environment + `asxos-control` observer/verifier/check-publisher boundary | **No** |
 | Amber needs James's approval on current head | Verifier evaluates `pull_request` (`opened`, `synchronize`, `reopened`) and `pull_request_review` evidence; passes only when James's APPROVED review has `commit_id == head SHA` | `asxos-control` verifier | **No** |
 | Existing sensitive code protected | Classifier path list includes `asxos/brief/**`, `asxos/domain/decision_engine/**`, `asxos/brief/email.py`, `asxos/jobs/utils/fallback_email.py`, `migrations/**` | same | **No** |
 | Red paths cannot merge | Classifier fails outright on `asxos/insights/personal/**`, `asxos/capital/**` | same | **No** |
@@ -126,17 +145,26 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    would disable Green autonomy. Verify with a disposable branch that direct
    push, force push and an admin-style bypass all fail.
 3. **`risk-classify` verifier and check publisher.** Implement the authoritative
-   verifier in `asxos-control`, with no GitHub write credential. Implement the
-   separate credential-isolated check-publisher path using the Verifier App.
+   verifier in `asxos-control`. A read-only observation job emits a canonical,
+   content-addressed input; the verifier runs network-disabled with no credential
+   environment. Implement the separate credential-isolated check-publisher path
+   using the Verifier App.
    The distinct branch Publisher App has no checks permission and is outside
-   this merge-gate path. The product caller is pinned to the verifier's immutable
-   commit SHA. Green allowlist; protected existing and reserved paths; Red paths
-   fail outright; Amber requires James's APPROVED review with `commit_id ==
-   current head SHA`; relocation handling; content-addressed AC freeze and
-   explicit-yes checks. First let the Verifier App post one green check, then
-   bind that exact check name and App as the required source. Tests prove stale
-   heads, merge refs, stale AC approvals, mutable verifier refs, skipped/neutral
-   conclusions and missing results fail closed.
+   this merge-gate path. Use a base-owned `pull_request_target` caller pinned to
+   the verifier's immutable commit SHA; never check out or execute PR content.
+   The publisher job alone references the Verifier App key from the
+   `risk-classify-publisher` product environment, whose deployment branch policy
+   admits protected `main` only; it mints a checks-only token and has an empty
+   ordinary `GITHUB_TOKEN`. Do not inherit secrets into the reusable workflow.
+   Green allowlist; protected existing and reserved paths; Red paths fail
+   outright; same-repository head ID; Amber requires James's APPROVED review
+   with `commit_id == current head SHA`; relocation handling; content-addressed
+   AC freeze and explicit-yes checks. Before binding, run the temporary
+   owner-only bootstrap once against a dedicated non-main, non-PR commit, record
+   its evidence, bind the exact check name and App, then delete the bootstrap
+   workflow. Tests prove a bootstrap cannot target `main` or any PR head, and
+   stale heads, fork heads, merge refs, stale AC approvals, mutable verifier
+   refs, skipped/neutral conclusions and missing results fail closed.
 4. **CODEOWNERS** per the table above, used for routing. The verifier remains
    the conditional approval enforcement point. Add a drift test that fails if
    its path list and CODEOWNERS disagree.
