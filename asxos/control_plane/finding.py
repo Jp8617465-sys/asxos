@@ -65,7 +65,9 @@ _PROTECTED_EXACT_PATHS: Final = frozenset({"AGENTS.md", "CLAUDE.md", ".mcp.json"
 _PROTECTED_PREFIXES: Final = (
     ".claude/",
     ".github/",
+    "asxos/capital/",
     "asxos/control_plane/",
+    "asxos/insights/personal/",
     "docs/product/",
     "migrations/",
     "tests/",
