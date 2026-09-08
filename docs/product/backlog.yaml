@@ -1204,3 +1204,26 @@ items:
       publishes the Ke +/-1% sensitivity band as its primary output instead. James's
       ruling 2026-09-08: separate PR under a separate grant, explicitly NOT part of
       F-VAL/r0.
+
+  - id: C-20
+    title: "rs_financial_statements.currency is NULL on 70,393 rows (10.07%) across 1,091 symbols, current through period_end 2026-06-30 — not the one CBA row it was first seen on"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/ingestion/financial_statements.py", "asxos/ingestion/fundamentals_pit.py"]
+    source: >-
+      Found 2026-09-08 while valuing CBA.AU: its FY26 (period_end 2026-06-30) row
+      carries currency = NULL, which the valuation reports as the named gap
+      `currency_null`. Scoped before filing, per James: it is NOT one row.
+      Measured: rs_financial_statements 70,393 of 699,316 rows NULL (10.07%),
+      1,091 distinct symbols; rs_fundamentals_pit 5,094 of 54,466 (9.35%), 1,111
+      symbols. All .AU. It is CURRENT, not historical residue — the newest
+      affected period_end is 2026-06-30 and 1,060 symbols carry a NULL on a
+      period_end >= 2025-01-01. Write side is
+      asxos/ingestion/financial_statements.py:212-231. Consequence: any
+      consumer that gates on currency (the valuation does) blocks on a tenth of
+      the store, including the largest ASX listing at its most recent period.
+      Decide whether the gate is right and the data must be fixed, or whether an
+      AU-only store should default the currency and record that it did.
