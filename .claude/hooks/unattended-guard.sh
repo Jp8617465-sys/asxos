@@ -60,6 +60,10 @@ is_authority_path() {
   case "$1" in
     AGENTS.md|CLAUDE.md|.claude/settings.json|.claude/settings.local.json|.claude/agents/arbi.md) return 0 ;;
     .claude/hooks/*) return 0 ;;
+    # .github/ carries the CI substrate and every secret-bearing job definition.
+    # It was absent here, so the whole .github/ fence rested on authority-guard.sh
+    # alone; an unattended run had no second layer behind it.
+    .github/*) return 0 ;;
     docs/product/north-star.md|docs/product/autonomy-policy.md|docs/product/arbi-constitution.md|docs/product/arbi-authority.md) return 0 ;;
     docs/product/arbi-permission-model.md|docs/product/arbi-scorecard.md|docs/product/arbi-promotion-gate.md) return 0 ;;
     docs/product/memory/approved-lessons.md|docs/product/memory/authority-lessons.md|docs/product/memory/project-facts.md) return 0 ;;

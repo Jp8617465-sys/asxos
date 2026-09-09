@@ -36,6 +36,9 @@ deny() {
   exit 0
 }
 
+# jq is required to read the payload at all; without it this guard cannot tell an
+# authority write from any other call. Failing OPEN here meant the always-on fence
+# silently vanished on a machine without jq. Mirrors unattended-guard.sh:49.
 command -v jq >/dev/null 2>&1 \
   || deny "authority-guard: jq is unavailable; refusing because the tool payload cannot be validated."
 
@@ -219,8 +222,12 @@ case "$tool" in
     cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty')"
     [ -n "$cmd" ] || exit 0
     scrub="$(printf '%s' "$cmd" | sed -E 's#[0-9]*>>?[[:space:]]*/dev/(null|stderr)##g')"
+    # Collapse "./" path spellings. $authority_ref's left-boundary class excludes
+    # "/", so ".github/" inside "./.github/" was preceded by "/" and never matched.
+    # The "[^A-Za-z0-9_.~-]" class deliberately excludes "." so "../" is left alone.
+    scrub="$(printf '%s' "$scrub" | sed -E 's#(^|[^A-Za-z0-9_.~-])\./#\1#g; s#/\./#/#g')"
     authority_ref="(^|[^A-Za-z0-9_./-])($(_authority_regex_alt))"
-    util_verb='(python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|tee\b|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--)'
+    util_verb='(python[0-9.]*[[:space:]]|perl[[:space:]]|ruby[[:space:]]|node[[:space:]]|npx[[:space:]]+node[[:space:]]|tee\b|dd[^|;&]*of=|cp[[:space:]]|mv[[:space:]]|install[[:space:]]|ln[[:space:]]+-sf|awk[^|;&]*inplace|patch\b|truncate\b|sponge\b|(^|[[:space:]])(ed|ex)[[:space:]]|git[[:space:]]+(checkout|restore)[^|;&]*--|(^|[[:space:]])rm[[:space:]]|(^|[[:space:]])rmdir[[:space:]]|(^|[[:space:]])unlink[[:space:]])'
     if printf '%s' "$scrub" | grep -Eiq "$authority_ref" && printf '%s' "$scrub" | grep -Eiq "$util_verb"; then
       deny "authority-guard: this Bash command references an authority/boundary path alongside a write-capable interpreter/utility — blocked. arbi may only DRAFT authority changes via a reviewed PR."
     fi
