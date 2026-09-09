@@ -260,7 +260,19 @@ fi
 # Client-side half only. The server-side half — the workflow asserting
 # github.ref_protected and the expected repository id before secrets resolve, plus item 5's
 # production environment — still has to land (#243). Do not read this as that.
-WORKFLOW_CREDENTIALED_ALLOW='^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(backup\.yml|claude-execute\.yml)([[:space:]]|$)'
+# NOTE the file extension is factored OUT of the alternation deliberately, and must
+# stay out. tests/test_claude_execute_harness.py finds the dispatch allowlist by
+# searching this file for the first parenthesised alternation that sits directly
+# between the dispatch verb and a trailing word-boundary group, then compares that set
+# against settings.json. Spelling this line the obvious way — extensions inside the
+# group, boundary group immediately after — made it match that search first, so the
+# drift test silently began policing THIS two-entry set instead of the real five-entry
+# allowlist below: green check, nothing guarded. Keeping the extension between the
+# group and the boundary makes the search skip this line and find the allowlist it is
+# meant to police. Same matching behaviour, different shape. Do not "tidy" it back.
+# (And do not quote that search pattern literally in a comment here — a verbatim copy
+# is itself matched, which is exactly how this was first mis-fixed.)
+WORKFLOW_CREDENTIALED_ALLOW='^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(backup|claude-execute)\.yml([[:space:]]|$)'
 
 # dispatch_ref_is_main_or_absent <segment> — false if the segment carries any
 # --ref/-r (space- or =-separated, repeatable) whose value is not main/refs/heads/main.
