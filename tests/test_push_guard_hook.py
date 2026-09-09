@@ -239,6 +239,22 @@ def test_deny_merge_without_exact_remote_standing(repo: Path, state: str) -> Non
     assert _is_deny(run_hook(repo, "gh pr merge 5 --squash", autonomy=state))
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh workflow run daily-brief.yml",
+        "gh workflow run daily-brief.yml --ref main",
+        "gh workflow run daily-brief.yml --ref=topic",
+        "gh workflow run us-positions.yml -r topic",
+        "gh workflow run weekly-research.yml --ref topic -f force=true",
+    ],
+)
+def test_deny_production_dispatch_even_when_standing(
+    repo: Path, command: str
+) -> None:
+    assert _is_deny(run_hook(repo, command, autonomy="STANDING"))
+
+
 @pytest.mark.parametrize("flag", ["--merge", "--rebase", "--auto", "--admin"])
 def test_deny_non_squash_or_bypass_merge_even_when_standing(
     repo: Path, flag: str

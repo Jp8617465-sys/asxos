@@ -23,8 +23,9 @@
 # HONEST LIMITS (docs/product/arbi-permission-model.md §Runtime enforcement honesty):
 # this is a same-process pre-filter, NOT a boundary. Bash is not fully parseable — string
 # indirection (r=main; git push $r), interpreter file writes, and curl-to-API calls cannot
-# all be caught in-band; the execute_sql classifier is best-effort and the RO writer-function
-# leak (SELECT some_writer_fn()) is only partially blacklisted. The REAL mechanical backstops
+# all be caught in-band; the execute_sql classifier (now in db-write-guard.sh, always-on —
+# see its header) is best-effort and the RO writer-function leak (SELECT some_writer_fn())
+# is only partially blacklisted. The REAL mechanical backstops
 # are GitHub branch protection (merge/deploy/push-to-main) and the R2 read-only Postgres role
 # (DB writes). This reduces risk R5 (prompt-only enforcement) from total to partial; it does
 # not close it. The A6 pytest / A7 interpreter checks are belt-only (a wrapper like `make
@@ -310,15 +311,19 @@ case "$tool" in
       && deny "unattended-guard: capital/portfolio/tax/model/thesis code is human-only for this loop; draft nothing here."
     exit 0
     ;;
-  *apply_migration)
-    deny "unattended-guard: DB migration is blocked (I5), reserved to James."
-    ;;
+  # apply_migration: the unconditional deny formerly here now lives in
+  # db-write-guard.sh, always-on rather than ARBI_UNATTENDED-gated (James,
+  # 2026-09-08) — one copy instead of two drifting apart. An unattended
+  # apply_migration call still denies: it falls through to the
+  # mcp__supabase__*/mcp__Supabase__* catch-all below.
   *execute_sql)
-    q="$(printf '%s' "$payload" | jq -r '.tool_input.query // empty' | sed -E 's/--[^\n]*//g; s#/\*.*\*/##g')"
+    # The read-only-server keyword paranoia check formerly here also moved to
+    # db-write-guard.sh, always-on — it was dead code in every attended session,
+    # which was every session run so far (measured, 2026-09-08). This case keeps
+    # only the rule that's still unattended-specific: no access to the
+    # write-capable server at all, regardless of query content.
     case "$tool" in
       *supabase-ro*|*Supabase-ro*)
-        printf '%s' "$q" | grep -Eiq '\b(INSERT|UPDATE|DELETE|MERGE|UPSERT|TRUNCATE|ALTER|DROP|CREATE|GRANT|REVOKE|REFRESH|COPY|CALL|DO|LOCK|SET[[:space:]]+(ROLE|SESSION)|SELECT\b.*\bINTO\b)\b|\b(approve_object|reject_object|set_active_profile|nextval|setval)\b' \
-          && deny "unattended-guard: write/DDL on the read-only DB server is blocked (I5)."
         exit 0
         ;;
       *)
