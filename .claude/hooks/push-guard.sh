@@ -194,6 +194,8 @@ if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[^|;&]*(--merge\b|--rebase\b|
   deny "push-guard: non-squash, auto, and admin merge modes are blocked in every autonomy state."
 fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge'; then
+  printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+pr[[:space:]]+merge[^|;&]*--squash([[:space:]]|$)' \
+    || deny "push-guard: 'gh pr merge' requires an explicit --squash flag; the repository default is not trusted."
   pr_context_is_asxos && autonomy_is_standing \
     || deny "push-guard: 'gh pr merge' requires remote AUTONOMY=STANDING for the exact ASXOS origin; ATTENDED stops at a draft PR."
 fi
@@ -218,31 +220,13 @@ fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+workflow[[:space:]]+(enable|disable)'; then
   deny "push-guard: enabling/disabling workflows via gh is blocked (I6), reserved to James."
 fi
-# Per-segment dispatch allowlist, two tiers. Extended 2026-08-12 (James,
-# guard-carveouts decision): backup.yml and claude-execute.yml join the
-# validation lanes, UNCONDITIONALLY dispatchable regardless of AUTONOMY —
+# Per-segment dispatch allowlist. Extended 2026-08-12 (James, guard-carveouts
+# decision): backup.yml and claude-execute.yml join the validation lanes —
 # backup.yml only reads prod (pg_dump) and restores into a disposable CI
 # container; claude-execute.yml is the governed harness whose own workflow
 # definition carries the tool ceiling, and the action's anti-tamper check
-# refuses to run any non-main modification of it.
-#
-# Extended again 2026-09-08 (James, default-allow inversion): daily-brief.yml,
-# us-positions.yml and weekly-research.yml become dispatchable once
-# AUTONOMY=STANDING — they write production data, send email, and spend paid
-# API quota, so they're a second, narrower tier gated on the same switch that
-# gates merge, not folded into the unconditional base tier. This is a
-# knowing, named acceptance of a narrow irreversibility (a sent email can't be
-# unsent; committed quota spend can't be refunded) — production DB writes
-# themselves are the PITR-gated case this PR's own merge requires James to
-# confirm. All other dispatches stay denied in every state.
-#
-# This allowlist is the patch, not the design: it is client-side only (one
-# harness of three — Codex and Cursor do not run push-guard.sh), name-based
-# (a workflow renamed or added here silently falls outside it, failing safe —
-# denied — until this list is updated by hand), and superseded once item 5
-# (a `production` GitHub environment with environment-scoped secrets) makes
-# credential reachability itself the server-side gate, regardless of who
-# dispatches. See the follow-up issue for that replacement design.
+# refuses to run any non-main modification of it. All other dispatches
+# (daily-brief, us-positions, production/secret-bearing jobs) stay denied.
 # Command substitution is NOT a segment separator, so the loop below would swallow an
 # inner dispatch into an allowlisted outer segment — `gh workflow run backup.yml
 # $(gh workflow run daily-brief.yml)` fires the DENIED workflow first, and the settings
@@ -262,27 +246,28 @@ fi
 if printf '%s' "$cmd" | grep -Eiq 'gh[[:space:]]+run[[:space:]]+rerun'; then
   deny "push-guard: 'gh run rerun' re-executes a prior run with its secrets re-injected — blocked (I6). Re-dispatch an allowlisted workflow explicitly instead."
 fi
-# A workflow_dispatch runs the workflow DEFINITION taken from the dispatched ref,
-# so a caller-chosen --ref runs THAT branch's version of the workflow with whatever
-# credentials the job can reach (P1, Codex review 2026-09-08). Three tiers, not two:
-#   - validation lanes hold no production/model credential → any reviewed ref is fine;
-#   - credentialed lanes (backup/claude-execute) reach prod data / model creds → main only;
-#   - production lanes (daily-brief/us-positions/weekly-research) write prod, send email,
-#     spend quota → require AUTONOMY=STANDING AND main only.
-# "main only" means the ref is absent (gh dispatches from the default branch, main) or
-# exactly main/refs/heads/main. This is the client-side half; the server-side half — the
-# workflow asserting github.ref_protected and the repo id before secrets resolve, plus the
-# production environment of item 5 — still has to land (#243). Do not treat this as that.
-WORKFLOW_VALIDATION_ALLOW='^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(full-check\.yml|targeted-ml-tests\.yml|migration-integration\.yml)([[:space:]]|$)'
+# Ref pinning for the credentialed lanes (P1, Codex review 2026-09-08). A
+# workflow_dispatch runs the workflow DEFINITION taken from the dispatched ref, so a
+# caller-chosen --ref runs THAT branch's version of the job with whatever credentials it
+# can reach. The production lanes (daily-brief/us-positions/weekly-research) are held
+# dormant above — removed from the allowlist entirely, per the review's "keep the expanded
+# production dispatch tier dormant until all activation prerequisites are live" — so the
+# residual exposure is the two allowlisted lanes that DO reach credentials:
+# backup.yml (prod pg_dump, DATABASE_URL) and claude-execute.yml (model credentials).
+# Those two are pinned to protected main; the three validation lanes hold no production or
+# model credential and stay ref-flexible, which is the point of running them on a branch.
+#
+# Client-side half only. The server-side half — the workflow asserting
+# github.ref_protected and the expected repository id before secrets resolve, plus item 5's
+# production environment — still has to land (#243). Do not read this as that.
 WORKFLOW_CREDENTIALED_ALLOW='^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(backup\.yml|claude-execute\.yml)([[:space:]]|$)'
-WORKFLOW_STANDING_ALLOW='^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(daily-brief\.yml|us-positions\.yml|weekly-research\.yml)([[:space:]]|$)'
 
 # dispatch_ref_is_main_or_absent <segment> — false if the segment carries any
 # --ref/-r (space- or =-separated, repeatable) whose value is not main/refs/heads/main.
 # An absent ref is safe: gh dispatches from the default branch, which is main. Any
 # non-main value — including quoted spellings, which this over-denies deliberately —
 # fails. A reordered form (name not immediately after `run`) never reaches here: it
-# fails the tier regexes above and hits the final deny. Safe direction throughout.
+# fails the allowlist regex below and hits the deny. Safe direction throughout.
 dispatch_ref_is_main_or_absent() {
   local seg="$1" toks tok val
   toks="$(printf '%s' "$seg" | grep -Eio -- '(--ref|-r)(=|[[:space:]]+)[^[:space:]]+' || true)"
@@ -301,18 +286,12 @@ workflow_run_segments="$(printf '%s' "$cmd" | grep -Eio 'gh[[:space:]]+workflow[
 if [ -n "$workflow_run_segments" ]; then
   while IFS= read -r workflow_run_segment; do
     [ -n "$workflow_run_segment" ] || continue
-    if printf '%s' "$workflow_run_segment" | grep -Eiq "$WORKFLOW_VALIDATION_ALLOW"; then
-      : # validation lane, no production/model credential — any reviewed ref is fine
-    elif printf '%s' "$workflow_run_segment" | grep -Eiq "$WORKFLOW_CREDENTIALED_ALLOW"; then
+    if ! printf '%s' "$workflow_run_segment" | grep -Eiq '^gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+(full-check\.yml|targeted-ml-tests\.yml|migration-integration\.yml|backup\.yml|claude-execute\.yml)([[:space:]]|$)'; then
+      deny "push-guard: workflow_dispatch is allowed only for the allowlisted workflows (full-check.yml, targeted-ml-tests.yml, migration-integration.yml, backup.yml, claude-execute.yml). Other workflow runs are reserved to James."
+    fi
+    if printf '%s' "$workflow_run_segment" | grep -Eiq "$WORKFLOW_CREDENTIALED_ALLOW"; then
       dispatch_ref_is_main_or_absent "$workflow_run_segment" \
-        || deny "push-guard: backup.yml/claude-execute.yml reach production data or model credentials — they may run only from protected main. A --ref to another branch runs that branch's workflow definition with those credentials; blocked."
-    elif printf '%s' "$workflow_run_segment" | grep -Eiq "$WORKFLOW_STANDING_ALLOW"; then
-      pr_context_is_asxos && autonomy_is_standing \
-        || deny "push-guard: this workflow writes production data, sends email, or spends paid API quota — it requires remote AUTONOMY=STANDING for the exact ASXOS origin. ATTENDED-without-STANDING stops here."
-      dispatch_ref_is_main_or_absent "$workflow_run_segment" \
-        || deny "push-guard: this production lane may run only from protected main. A --ref to another branch runs that branch's workflow definition with production credentials/quota; blocked (Codex P1, 2026-09-08)."
-    else
-      deny "push-guard: workflow_dispatch is allowed only for the allowlisted workflows (full-check.yml, targeted-ml-tests.yml, migration-integration.yml as validation lanes; backup.yml, claude-execute.yml and — once AUTONOMY=STANDING — daily-brief.yml, us-positions.yml, weekly-research.yml, all from main only). Other workflow runs are reserved to James."
+        || deny "push-guard: backup.yml and claude-execute.yml reach production data or model credentials — they may run only from protected main. A --ref to another branch runs that branch's workflow definition with those credentials; blocked."
     fi
   done <<EOF
 $workflow_run_segments

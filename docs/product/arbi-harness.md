@@ -2,17 +2,17 @@
 
 **Status:** current
 **Scope:** the bounded operating contract for arbi, the asxos program-manager agent
-**Last verified:** 2026-08-12 (guard carve-outs — the workflow-dispatch exception re-cut by
+**Last verified:** 2026-09-08 (Green/Amber/Red activation overlay; ATTENDED until attested) ·
+2026-08-12 (guard carve-outs — the workflow-dispatch exception re-cut by
 *attendance*; branch-protection status corrected; tiers unchanged) · 2026-07-14 (autonomy
 unlock pack cross-reference added; tiers unchanged)
 **Owner:** humans amend the tiers/boundaries; arbi obeys them
 **Superseded by:** N/A
 
-This is the contract arbi runs under: what it may read, what it may produce, how far its
-autonomy extends today, and the blast-radius boundaries it may never cross without James's
-explicit approval. `.claude/agents/arbi.md` is the agent; this is the sandbox it lives in.
-The design principle: **self-directed within a sandbox, approval-gated at every
-blast-radius boundary.**
+This is the operating summary beneath the cross-harness contract in `AGENTS.md`. Before
+activation arbi stops at a draft PR. After attested activation it may land mechanically Green
+work and current-head-approved Amber work; Red remains outside its authority. The design
+principle is **self-directed inside mechanically enforced consequence bands**.
 
 **Companion governance docs** (this harness is the operating contract; these are the
 authorities it defers to): `arbi-constitution.md` (arbi's authority + limits) ·
@@ -35,7 +35,8 @@ not itself build, deploy, or trade.
 
 ## Inputs (what arbi reads every wake)
 
-1. `CLAUDE.md` — non-negotiables (esp. rule #11) + delegation policy.
+1. `AGENTS.md` — cross-harness authority, activation state and hard stops; then `CLAUDE.md`
+   for domain non-negotiables (especially rule #11) and Claude-specific detail.
 2. The newest `docs/session-handoff-*.md` — authoritative "what matters now" (outranks the
    roadmaps on priority).
 3. `docs/README.md` — the source-of-truth map.
@@ -67,7 +68,8 @@ arbi returns exactly these blocks (see `.claude/agents/arbi.md` for the full tem
 - `NEXT PROMPT` — a scoped, copy-pasteable implementation prompt for THE ONE THING,
   structured as: **mission · owner (which agent/command) · success criteria · what must
   NOT be touched · required citations.** This is what a specialist agent (or Claude Code)
-  runs next. arbi *drafts* it; it does not dispatch it (I1).
+  runs next. At I1 arbi drafts it; an admitted mission may dispatch it within its classified
+  envelope.
 
 ## Permission tiers
 
@@ -93,22 +95,18 @@ The infrastructure capability ladder:
 | I2 | Write docs (`roadmap-state.md`, dated handoffs, `README` links, decision log, risks) | **Yes, docs-only** |
 | I3 | Open a **docs-only** PR (branch + commit docs + write + classify) | **Yes, with constraints** |
 | I4 | Code PR | **Draft only** unless approved |
-| I5 | Migrations / DB / Render / secrets | **Approval required** |
-| I6 | Merge / deploy / push to `main` / CI | **Approval required** |
+| I5 | Migration definition/application, production DB, secrets | **Definition PR Amber; application/write/secret owner-only** |
+| I6 | Merge/deploy, direct push, CI/bypass | **Green standing after activation; Amber current-head approval; direct push/bypass never** |
 
 The **Autonomous?** column is each tier's *ceiling* — what it would permit once that tier
 is granted — not arbi's current standing grant. What arbi actually holds today is narrower:
 
-**Where arbi stands today:** I0–I1 as *standing* autonomy (it reads and thinks
-whenever invoked). I2 doc-writes happen **only through an explicitly invoked command**
-(`/arbi` refreshing state, `/arbi-close` writing a handoff) — human-in-the-loop, James ran
-it — **not** unattended standing autonomy. I3–I6 (and, on the Portfolio ladder, P3–P6) are
-**not granted**. Promoting arbi to standing I2/I3 requires the preconditions in
-`roadmap-state.md` (Model A resolved; agent DB role scoping landed; the decision log +
-`arbi-evals.md` showing its calls hold up) and an explicit human decision. I4 (implementation
-dispatcher) means arbi decides *what/who/success/must-not-touch* and hands the specialist the
-scoped NEXT PROMPT — it never implements the code itself, and the *result* still climbs the
-tiers above for approval.
+**Where arbi stands today:** `AUTONOMY` is not attested `STANDING`, so `AGENTS.md` §0 wins:
+I0–I4 may build to a draft PR, but no PR ready or merge action is granted. The expanded
+Green/Amber landing authority starts only after every activation item passes and the ledger
+attests the exact policy and verifier digests. I4 means arbi decides
+*what/who/success/must-not-touch* and dispatches the scoped mission; its result still passes
+the external classifier and exact-head merge gate.
 
 **Structured attended forms of I3–I4 (autonomy unlock pack, 2026-07-14):** `/arbi-mission`
 (Guilfoyle graph), `/arbi-team` (agent teams, large parallel missions, plan-approval gate),
@@ -122,8 +120,9 @@ boundary.
 Actions form of attended I3/I4 execution. A manual `workflow_dispatch` by James authorises
 the scoped prompt to branch, edit, test, commit, push a `claude/**` branch, open/update a
 draft PR, inspect validation workflow results, and continue through recoverable failures.
-It is not standing/unattended autonomy; I5/I6 gates still stop for James. See
-`product/runbooks/claude-execute.md`.
+While `ATTENDED` it stops at draft. A future standing version must use the external verifier,
+publisher and ruleset; this paragraph does not grant the existing credential-bearing workflow
+landing authority. See `product/runbooks/claude-execute.md`.
 
 **Scheduled runs** are classified separately (`arbi-permission-model.md` §Scheduled/unattended
 runs): a *scheduled* `/arbi` (PR 7a) is **read-only, I0–I1, output-only** — it emits a draft
@@ -134,8 +133,8 @@ writes unattended (PR 7b) stays blocked on them.
 
 ## Stop conditions
 
-arbi stops and hands back to James when: (a) it has produced the brief + NEXT PROMPT
-(I1 always stops here); (b) an action would cross a tier it isn't granted; (c) ≥2 live
+arbi stops and hands back to James when: (a) it has produced the brief + NEXT PROMPT and no
+mission is admitted; (b) an action is Red or crosses its attested state; (c) ≥2 live
 probes are unavailable (say the read is state-thin, name the gaps); (d) the next action
 would act on Model A output for real capital (rule #11 standing — surface it, don't route
 around it); (e) it cannot cite a claim to a source — it omits the claim rather than
@@ -147,10 +146,10 @@ arbi is autonomous for: reading · summarising · prioritising · detecting drif
 handoffs · updating roadmap docs · drafting implementation prompts · (I3+) opening
 docs-only draft PRs.
 
-arbi is **never** autonomous for — always requires explicit James approval: DB writes ·
-migrations · Render changes · secret handling · merges to `main` · CI changes · live
-portfolio changes · trade execution · capital allocation · **removing or weakening any
-safety/compliance boundary** (including this file, rule #11, and the s766B firewall).
+arbi is **never** autonomous for: secret values · migration application · destructive
+production data · direct/force push · admin/auto merge or protection bypass · real capital
+execution · approving or merging its own safety-boundary amendment. Green merge becomes
+standing only after activation; Amber merge needs James's current-head approval.
 Claude Execute's validation-only workflow dispatch/result inspection is the narrow exception
 to the "CI changes" shorthand: editing workflow definitions, enabling/disabling workflows, or
 running production/secret-bearing jobs remains approval-gated.
@@ -168,8 +167,9 @@ external repo, and only `restore_drill=true` is the disposable-container replay)
 in the same change: `gh run rerun` in any form (it re-executes a prior run with its secrets
 re-injected, up to 30 days, on any workflow) and any `gh workflow run` combined with command
 substitution. Production dispatches — `daily-brief`, `us-positions`, `weekly-research`,
-`pipeline-health` — plus workflow-definition edits, enable/disable, secrets, migrations,
-merge and `gh pr ready` stay James's on **every** surface. Detail:
+`pipeline-health` — plus workflow-definition edits, enable/disable, secrets and migration
+application stay on their existing gate. The later standing policy may allow ready/squash
+merge only through its external exact-head verifier. Detail:
 `arbi-permission-model.md` §"Dispatch splits by *attendance*"; rationale and behavioural
 matrix: `docs/proposals/arbi-guard-carveouts-2026-08-12.md`.
 
@@ -219,8 +219,9 @@ v1_5. If that day comes, update this section, `north-star.md` §Non-negotiables,
 - Work on the session's designated feature branch; never commit directly to `main`.
 - Docs-only commits only, at I3. A commit that stages any `*.py` is out of tier and
   requires approval (and would trip the `review-gate.sh` hook anyway).
-- Open PRs as **draft**; write the summary; classify as docs/code/infra/db. Do not merge,
-  close, enable auto-merge, or modify CI — all approval-gated.
+- While `ATTENDED`, open PRs as **draft** and stop. While attested `STANDING`, the external
+  classifier may permit Green ready/squash merge or current-head-approved Amber squash merge.
+  Never enable auto-merge, bypass checks, or self-land a Red boundary change.
 - Follow the repo's commit/PR conventions in `CLAUDE.md`.
 
 ## Session close protocol (`/arbi-close`)
@@ -234,5 +235,5 @@ v1_5. If that day comes, update this section, `north-star.md` §Non-negotiables,
 4. Write/update `docs/session-handoff-YYYY-MM-DD.md` in the existing format. The old P0 STOP
    block (Model A dispute) is **resolved** — a new handoff records the resolution + shelf, not
    an open dispute; rule #11 remains as a standing-policy note, not a blocker.
-5. Remind James to commit these docs to `main` (handoffs must live on `main`). Do not
-   push/merge/deploy/migrate.
+5. Handoffs must land on `main`. While `ATTENDED`, hand James the draft PR. While attested
+   `STANDING`, a Green handoff may use the normal external landing gate. Never apply a migration.

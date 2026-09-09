@@ -135,7 +135,7 @@ def test_unrelated_tool_falls_through() -> None:
     assert decision == {}
 
 
-def test_missing_tool_name_falls_through() -> None:
+def test_missing_tool_name_fails_closed() -> None:
     proc = subprocess.run(
         ["bash", str(HOOK)],
         input=json.dumps({"tool_input": {}}),
@@ -143,4 +143,21 @@ def test_missing_tool_name_falls_through() -> None:
         text=True,
     )
     assert proc.returncode == 0
-    assert proc.stdout.strip() == ""
+    assert _is_deny(json.loads(proc.stdout)["hookSpecificOutput"])
+
+
+def test_malformed_payload_fails_closed() -> None:
+    proc = subprocess.run(
+        ["bash", str(HOOK)],
+        input="not-json",
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0
+    assert _is_deny(json.loads(proc.stdout)["hookSpecificOutput"])
+
+
+@pytest.mark.parametrize("tool_input", [{}, {"query": None}, {"query": {}}])
+def test_unclassifiable_ro_query_fails_closed(tool_input: dict[str, object]) -> None:
+    decision = run_hook("mcp__supabase-ro__execute_sql", tool_input)
+    assert _is_deny(decision)

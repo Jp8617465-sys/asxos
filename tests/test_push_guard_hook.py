@@ -152,6 +152,7 @@ def test_deny_dangerous_push_shape(repo: Path, command: str) -> None:
         "gh pr merge 5 --rebase",
         "gh pr merge --auto",
         "gh pr merge 5 --admin",
+        "gh pr merge 5",
         "gh pr ready 5",
         "gh pr create --title x",  # no --draft
         "gh api -X PUT /repos/o/r/pulls/5/merge",
@@ -238,11 +239,31 @@ def test_deny_merge_without_exact_remote_standing(repo: Path, state: str) -> Non
     assert _is_deny(run_hook(repo, "gh pr merge 5 --squash", autonomy=state))
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh workflow run daily-brief.yml",
+        "gh workflow run daily-brief.yml --ref main",
+        "gh workflow run daily-brief.yml --ref=topic",
+        "gh workflow run us-positions.yml -r topic",
+        "gh workflow run weekly-research.yml --ref topic -f force=true",
+    ],
+)
+def test_deny_production_dispatch_even_when_standing(
+    repo: Path, command: str
+) -> None:
+    assert _is_deny(run_hook(repo, command, autonomy="STANDING"))
+
+
 @pytest.mark.parametrize("flag", ["--merge", "--rebase", "--auto", "--admin"])
 def test_deny_non_squash_or_bypass_merge_even_when_standing(
     repo: Path, flag: str
 ) -> None:
     assert _is_deny(run_hook(repo, f"gh pr merge 5 {flag}", autonomy="STANDING"))
+
+
+def test_deny_bare_merge_even_when_standing(repo: Path) -> None:
+    assert _is_deny(run_hook(repo, "gh pr merge 5", autonomy="STANDING"))
 
 
 def test_deny_standing_claim_for_wrong_origin(repo: Path) -> None:
@@ -336,7 +357,12 @@ def test_allow_detached_head_bare_push_falls_through(repo: Path) -> None:
         "gh workflow run daily-brief.yml -f force=1 --ref topic",
     ],
 )
-def test_deny_production_lane_off_main_even_when_standing(repo: Path, command: str) -> None:
+def test_deny_production_lane_in_every_state(repo: Path, command: str) -> None:
+    """The production lanes are dormant: removed from the allowlist entirely by the
+    hardening pass, per the review's "keep the expanded production dispatch tier
+    dormant until all activation prerequisites are live". They deny on the allowlist
+    before any ref check applies — asserted under STANDING because that is the state
+    in which a name-only allowlist would have let these through."""
     assert _is_deny(run_hook(repo, command, autonomy="STANDING"))
 
 
@@ -361,31 +387,15 @@ def test_deny_credentialed_lane_off_main_in_every_state(
 @pytest.mark.parametrize(
     "command",
     [
-        "gh workflow run daily-brief.yml",  # absent ref: gh uses the default branch
-        "gh workflow run daily-brief.yml --ref main",
-        "gh workflow run daily-brief.yml --ref=main",
-        "gh workflow run us-positions.yml --ref refs/heads/main",
-        "gh workflow run weekly-research.yml -f x=1 --ref main",
+        "gh workflow run backup.yml",  # absent ref: gh uses the default branch
+        "gh workflow run backup.yml --ref main",
+        "gh workflow run backup.yml --ref=main",
+        "gh workflow run claude-execute.yml --ref refs/heads/main",
+        "gh workflow run backup.yml -f restore_drill=true --ref main",
     ],
 )
-def test_allow_production_lane_from_main_when_standing(repo: Path, command: str) -> None:
-    assert run_hook(repo, command, autonomy="STANDING") == {}
-
-
-def test_short_ref_flag_denied_on_production_lane_by_repo_redirect_guard(
-    repo: Path,
-) -> None:
-    """`-r main` is denied even though the ref is legitimate — and not by the ref pin.
-
-    `pr_context_is_asxos` matches `-R|--repo|--hostname` case-INSENSITIVELY, so gh's
-    short ref flag `-r` is indistinguishable from its repo-redirect flag `-R` there.
-    That predates this tier and is left alone: narrowing it to case-sensitive would
-    weaken a repo-redirection guard to buy a spelling convenience. Use `--ref main`
-    on production lanes. Pinned so the over-denial is a recorded decision, not a
-    surprise the next person 'fixes'.
-    """
-    decision = run_hook(repo, "gh workflow run us-positions.yml -r main", autonomy="STANDING")
-    assert _is_deny(decision)
+def test_allow_credentialed_lane_from_main(repo: Path, command: str) -> None:
+    assert run_hook(repo, command) == {}
 
 
 @pytest.mark.parametrize(
@@ -395,7 +405,7 @@ def test_short_ref_flag_denied_on_production_lane_by_repo_redirect_guard(
         "gh workflow run us-positions.yml",
     ],
 )
-def test_deny_production_lane_when_attended_even_from_main(repo: Path, command: str) -> None:
+def test_deny_production_lane_when_attended(repo: Path, command: str) -> None:
     """The ref pin is additive to the STANDING gate, not a replacement for it."""
     assert _is_deny(run_hook(repo, command, autonomy="ATTENDED"))
 

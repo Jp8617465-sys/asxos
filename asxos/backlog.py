@@ -73,6 +73,7 @@ _REQUIRED = ("id", "title", "phase", "owner", "status", "depends_on", "route", "
 # ``Edit(/<file>)`` in ``.claude/settings.json`` ``permissions.deny``.
 DENIED_FILES: frozenset[str] = frozenset(
     {
+        "AGENTS.md",
         "CLAUDE.md",
         ".env",
         "render.yaml",
@@ -81,6 +82,7 @@ DENIED_FILES: frozenset[str] = frozenset(
         ".claude/agents/arbi.md",
         "docs/README.md",
         "docs/product/north-star.md",
+        "docs/product/autonomy-policy.md",
         "docs/product/arbi-constitution.md",
         "docs/product/arbi-authority.md",
         "docs/product/arbi-permission-model.md",

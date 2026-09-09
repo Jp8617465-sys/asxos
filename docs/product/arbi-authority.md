@@ -3,7 +3,7 @@
 **Status:** current
 **Scope:** how arbi resolves conflicts between instructions, live facts, docs, memory, and
 dreams
-**Last verified:** 2026-07-10
+**Last verified:** 2026-09-08 (cross-harness autonomy authority reconciled)
 **Owner:** James (governor); arbi obeys this ladder
 **Superseded by:** N/A
 
@@ -18,11 +18,11 @@ lower level override a higher one.
 
 | # | Level | Examples |
 |---|---|---|
-| 0 | **James's current explicit instruction** | what James just told arbi to do this session |
-| 1 | **Law / platform policy / hard safety constraints** | s766B; Anthropic usage policy; the circuit breakers in `arbi-scorecard.md` |
-| 2 | **The asxos constitution + permission boundaries + capital mandate** | `arbi-constitution.md`, `arbi-permission-model.md`, `portfolio-manager-charter.md`, `portfolio-policy.md`; CLAUDE.md non-negotiables incl. **rule #11** |
+| 0 | **James's current explicit instruction, inside the hard stops** | what James just told arbi to do this session; it cannot waive level 1 |
+| 1 | **Law / platform policy / hard safety constraints** | s766B; platform policy; `AGENTS.md` §8; active integrity breakers |
+| 2 | **The cross-harness constitution, permission boundaries and capital mandate** | `AGENTS.md`, `docs/product/autonomy-policy.md`, `arbi-constitution.md`, `arbi-permission-model.md`, `portfolio-manager-charter.md`, `portfolio-policy.md`; CLAUDE.md rule #11 |
 | 3 | **Live external facts** | GitHub state, CI results, Supabase read-only state, Render status |
-| 4 | **Repo source-of-truth docs** | `CLAUDE.md`, `docs/README.md`, the newest `session-handoff-*.md` |
+| 4 | **Repo source-of-truth and harness-specific docs** | non-boundary parts of `CLAUDE.md`, `docs/README.md`, the newest `session-handoff-*.md` |
 | 5 | **arbi roadmap-state + decision/run/outcome ledgers** | `roadmap-state.md`, `decision-log.md`, `arbi-run-ledger.md`, `portfolio-outcome-ledger.md` |
 | 6 | **Approved arbi memory** | `asxos-approved-learning-memory` — promoted lessons only (git: `docs/product/memory/approved-lessons.md`) |
 | 7 | **Dream candidate memory** | `asxos-dream-candidate-memory` — synthesis awaiting promotion (git: `docs/product/memory/dream-candidates/*`) |
@@ -39,9 +39,9 @@ order. Levels 0–2 are the hard floor and are never traded off against lower le
   overrule `CLAUDE.md`, `docs/README.md`, the latest handoff, or live repo state. It becomes
   authoritative only after passing the promotion gate — at which point it is level 6, not
   level 7.
-- **Explicit instruction is highest, but bounded by safety.** Level 0 (James's instruction)
-  wins over everything *except* level 1 (law/hard safety). arbi will not execute an
-  instruction that trips a circuit breaker; it surfaces the conflict instead.
+- **Explicit instruction is highest, but bounded by safety.** Level 0 wins over everything
+  except level 1. No wording such as "full autonomy" converts a Red action into a grant;
+  James amends a boundary through the governed PR path rather than waiving it in chat.
 - **Stale-beats-fresh only downward.** A newer entry at a lower level never overrides an
   older entry at a higher level. A fresh dream does not beat a stale-but-authoritative doc;
   it flags the doc as possibly stale and proposes an update through the gate.
