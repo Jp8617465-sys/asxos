@@ -79,6 +79,8 @@ def test_landing_identity_is_distinct_and_refuses_self_amendment() -> None:
     assert "owner-only landing registry" in policy
     assert "Ordinary `docs/product/**`, `.github/workflows/**`" in policy
     assert "Distinct Landing Controller" in permission_model
+    assert "checks-read/metadata-read/\n   pull-requests-read/contents-write App" in policy
+    assert "no `checks: write` permission" in policy
 
 
 def test_only_attested_state_workflows_may_write_autonomy() -> None:

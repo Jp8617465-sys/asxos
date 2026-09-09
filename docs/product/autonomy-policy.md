@@ -213,8 +213,8 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    from within the harness. Keep `unattended-guard.sh`'s merge deny until the
    activation path can verify ledger attestation independently of mutable product
    code or a repository variable; `AUTONOMY=STANDING` alone is not a key.
-8. **Landing Controller.** Create a distinct metadata-read/pull-requests-read/
-   contents-write App and expose its credential only to the immutable,
+8. **Landing Controller.** Create a distinct checks-read/metadata-read/
+   pull-requests-read/contents-write App and expose its credential only to the immutable,
    credential-isolated landing adapter. The adapter executes no PR content,
    accepts no caller-selected repository/base/ref/method, re-observes every
    current-head gate immediately before a squash request, refuses Red and the
@@ -223,6 +223,9 @@ every item passes. Do 1 to 5 first; nothing else is load-bearing without them.
    invoke or assume this credential. Prove head changes between ready and merge,
    stale or non-App checks, skipped/neutral checks, forks, merge refs, ruleset
    drift, method substitution and partial writes all fail closed.
+   `checks: read` is required because GitHub's private-repository check-runs
+   endpoint does not permit a metadata-only installation token; it adds no
+   publication capability and the App still has no `checks: write` permission.
    The product caller is base-owned and reacts only to Branch-Publisher
    `ready_for_review`, external-Verifier `check_run` completion and named
    `full-check` `workflow_run` completion. Treat all three as untrusted wake-up
