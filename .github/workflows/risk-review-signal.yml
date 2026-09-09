@@ -1,0 +1,21 @@
+name: Risk Review Signal
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions: {}
+
+jobs:
+  signal:
+    name: Credential-free review wake-up
+    if: >-
+      github.repository == 'Jp8617465-sys/asxos' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.base.repo.id == 1243449658 &&
+      github.event.pull_request.head.repo.id == 1243449658
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Emit no authority
+        run: /usr/bin/true

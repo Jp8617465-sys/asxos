@@ -1,0 +1,35 @@
+name: Risk Classify
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    workflows: [Risk Review Signal]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  classify:
+    name: Immutable Control authority
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+       github.event.pull_request.base.ref == 'main' &&
+       github.event.pull_request.base.repo.id == 1243449658 &&
+       github.event.pull_request.head.repo.id == 1243449658) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'pull_request_review' &&
+       github.event.workflow_run.pull_requests[0].base.ref == 'main' &&
+       github.event.workflow_run.pull_requests[0].base.repo.id == 1243449658 &&
+       github.event.workflow_run.pull_requests[0].head.repo.id == 1243449658)
+    uses: Jp8617465-sys/asxos-control/.github/workflows/risk-classify.yml@c0ada5074aca902afb514958f6e041f2f7afe305
+    with:
+      pull-request-number: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
+      event-head-sha: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.workflow_run.pull_requests[0].head.sha }}
+      # Fail-closed bootstrap placeholder. Replace in one owner-reviewed commit
+      # with the actual parent of the protected ledger bootstrap commit.
+      ledger-genesis-parent-sha: "0000000000000000000000000000000000000000"
