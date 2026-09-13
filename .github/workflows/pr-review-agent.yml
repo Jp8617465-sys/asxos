@@ -1,8 +1,9 @@
 name: PR Review Agent
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+  # No pull_request trigger, for the same reason as migration-drift.yml: this
+  # workflow is secret-bearing (OPENAI_API_KEY) and must not run at the head of
+  # an agent-authored PR (ACP phase P1). Post-merge on main only.
   push:
     branches: [main]
 

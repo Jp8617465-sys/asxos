@@ -116,5 +116,27 @@ Both are named rather than glossed, because both fail *silently*:
    at a draft, which is the exact symptom this whole change exists to remove. It outranks
    nothing — `AGENTS.md` wins — but it will be read.
    `.claude/skills/pr-readiness` needs only a citation fix.
-3. Retired-doc citations survive in `docs/proposals/**` and `docs/archive/**`. Those are
+3. **The citation residue is much larger than the rollout's rewrite list implies — measured,
+   not estimated.** The directive named about ten files to rewrite. A sweep for references to
+   the deleted set (the `arbi-*` governance docs, `autonomy-policy`, `harness-profiles`, the
+   four guard hooks, `approved-lessons`/`authority-lessons`, `dream-candidates`, CODEOWNERS)
+   finds **359 occurrences across 39 live files** under `docs/product/`, excluding
+   `proposals/`, `archive/`, handoffs, and the two append-only ledgers:
+
+   ```
+   rg -c "harness-profiles|arbi-permission-model|arbi-constitution|arbi-scorecard|..." docs/product
+   ```
+
+   The heaviest are `sb0-02-wording-drafts-2026-08-13.md` (78), `decision-flow-2026-08-30.md`
+   (23), `security-perf-mission-loop.md` (18) and `model-a-reference-manifest.md` (15).
+   `memory/lessons.md` carries 27, which is mostly *correct* — lessons are historical records
+   and cite the governance that was live when learned.
+
+   **None of it is load-bearing** and nothing in this PR depends on it, which is why the PR
+   lands without it. But it is a bigger cleanup than "a few stale links", and some of those
+   docs are live enough to mislead a future wake: `security-perf-mission-loop.md` is cited by
+   the workflow headers this PR kept, and `guilfoyle-mission-control.md` still narrates the
+   old stack. Triage by whether a doc is *read as current* rather than by reference count.
+
+4. Retired-doc citations also survive in `docs/proposals/**` and `docs/archive/**`. Those are
    history and were deliberately left alone.
