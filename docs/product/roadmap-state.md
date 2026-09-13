@@ -665,6 +665,69 @@ further check-in.
 **Queue placement.** Does not become THE ONE THING; flips no Stage cell. Rule #11,
 capital, `0042`, `0045`, W1-2 untouched.
 
+#### Amendment N — arbi as technical chief of staff (James, 2026-09-10)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-10 upload of
+a four-file directive (`AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`,
+`.claude/commands/arbi.md`, plus `secrets-guard.sh` and a `ROLLOUT.md` procedure) with the
+instruction that it "should be implemented completely unedited"; this block is the queue
+amendment. Letter **N** — **M** was proposed in the ACP plan
+(`arbi-chief-of-staff-and-feature-control-plane-plan-2026-09-03.md` §12) and is now moot,
+so it is skipped rather than reused.
+
+**Ruling.** arbi is James's technical chief of staff. Everything in this repository that is
+not named in `AGENTS.md` §2 is arbi's to decide, build, merge and run. arbi classifies every
+PR itself by reversal cost (Green / Amber / Red), and the class changes what arbi does
+*before* merging, not *whether* it merges. arbi's standing is identical in every context —
+interactive session, scheduled workflow, headless run.
+
+**Supersedes.** Amendments **G**, **H**, **K** and **L**, and the ACP activation plan.
+G/H/K/L each granted a slice of autonomy under a condition (a lane, a window, a draft-PR
+ceiling, an attended/unattended split); this amendment removes the conditions rather than
+widening them, so the slices no longer describe anything. The ACP activation plan —
+`AGENTS.md` §0's pre-activation ceiling, the `AUTONOMY` repo variable and its attestation,
+the `risk-classify` required check, the `asxos-control` control plane, the verifier and
+publisher identities, and the 17-item activation checklist in the retired
+`autonomy-policy.md` §3 — is withdrawn undelivered. None of it was ever live: as verified
+on 2026-09-08, live GitHub had no `AUTONOMY` variable, no `risk-classify`, and no
+`breaker`/`restore` workflows. The plan is not paused; it is dropped.
+
+**What is reserved, and it is the whole list.** `AGENTS.md` §2 — (1) what the product is
+for: `north-star.md` and the personal-use invariant (`_require_personal_use()` /
+`ASXOS_PERSONAL_USE`, the s766B firewall in `.claude/rules/portfolio-conventions.md`);
+(2) capital — placing, modifying or cancelling a real order, moving funds, enabling live
+trading; (3) spend above **A$50/day** over the running baseline. arbi drafts changes to
+(1) as PRs and James merges them. Secret *values* still pass through James because only he
+holds the consoles: arbi names the slot, scopes it, wires it and confirms it exists.
+
+**Rule #11 is untouched and standing does not relax it.** The Model A quarantine survives
+this amendment verbatim (`AGENTS.md` §8, `CLAUDE.md` rule 11). It changes only when a new
+model version passes the pre-registered positive, monotonic conviction-to-21-day-return bar
+AND separately earns `approved_for_allocation`. `0042` stays reserved; `0045` stays
+unapplied.
+
+**What replaces the mechanism.** Four guard hooks, 33 `Edit(...)` deny rules, CODEOWNERS
+and the two-key `.github/**` fence are deleted. What remains mechanical: the `main` ruleset
+(PR required, `full-check` on the current head, squash, linear history, no force push, empty
+bypass list), secret scanning with push protection, the absence of any broker credential
+anywhere an agent can reach, the two `.env` deny rules, and `secrets-guard.sh` — one
+deny-only hook refusing the three shapes that leak a secret value into a transcript.
+Everything else is prose that arbi honours by judgement, which is the trade this amendment
+makes explicit rather than pretending otherwise.
+
+**Migrations.** No longer James's. arbi authors expand-only on the branch, runs
+`migration-integration.yml` green, dispatches `backup.yml` and waits for `success`, applies
+via `mcp__supabase__apply_migration`, verifies `schema_drift.py` clean and the version
+present in `supabase_migrations.schema_migrations`, then merges with the applied version and
+the backup run id in the PR body (`AGENTS.md` §8).
+
+**Queue placement.** Does not become THE ONE THING and flips no Stage cell. The first wake
+under this amendment picks up whatever of the rollout's rewrite list remains — the two named
+in the 2026-09-10 handoff are `asxos/backlog.py`'s `DENIED_FILES` (it still encodes the
+retired fence, which blocks the `backlog-roll` lane) and
+`.claude/skills/reversible-work-window` (it still instructs draft-only behaviour) — then the
+thesis-in-the-same-sitting pairing. The thesis numbers are still James's.
+
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 
 Amendment D (`:176-180`) makes the product lane rank **above** the packet lane and permits the

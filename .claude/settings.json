@@ -1,115 +1,68 @@
 {
   "permissions": {
     "allow": [
-      "mcp__supabase-ro__execute_sql",
-      "mcp__github__get_me",
-      "mcp__github__list_pull_requests",
-      "mcp__github__pull_request_read",
-      "mcp__github__list_commits",
-      "mcp__github__list_branches",
-      "mcp__github__get_job_logs",
-      "mcp__github__create_pull_request",
-      "mcp__github__update_pull_request",
-      "mcp__github__merge_pull_request",
-      "Bash(git status:*)",
-      "Bash(git log:*)",
-      "Bash(git branch:*)",
-      "Bash(git rev-list:*)",
-      "Bash(git merge-base:*)",
-      "Bash(git fetch:*)",
-      "Bash(git diff:*)",
-      "Bash(git show:*)",
-      "Bash(git remote -v)",
-      "Bash(git add:*)",
-      "Bash(git checkout:*)",
-      "Bash(git switch:*)",
-      "Bash(git stash:*)",
-      "Bash(git rebase:*)",
-      "Bash(git merge:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
+      "Read",
+      "Edit",
+      "Write",
+      "MultiEdit",
+      "NotebookEdit",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Agent",
+      "Bash",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(make:*)",
       "Bash(pytest:*)",
+      "Bash(.venv/bin/pytest:*)",
       "Bash(python -m pytest:*)",
-      "Bash(python -m py_compile:*)",
       "Bash(python3 -m pytest:*)",
-      "Bash(python3 -m ruff:*)",
       "Bash(ruff:*)",
       "Bash(mypy:*)",
-      "Bash(make check:*)",
-      "Bash(gh workflow run full-check.yml:*)",
-      "Bash(gh workflow run targeted-ml-tests.yml:*)",
-      "Bash(gh workflow run migration-integration.yml:*)",
-      "Bash(gh workflow run backup.yml:*)",
-      "Bash(gh workflow run claude-execute.yml:*)",
-      "Bash(gh run list:*)",
-      "Bash(gh run view:*)",
-      "Bash(gh run watch:*)",
-      "Bash(gh pr create:*)",
-      "Bash(gh pr ready:*)",
-      "Bash(gh pr merge:*)",
-      "Bash(gh pr view:*)",
-      "Bash(gh pr comment:*)",
-      "Bash(gh issue create:*)",
-      "Bash(gh issue list:*)",
-      "Bash(gh issue view:*)",
-      "Bash(gh issue edit:*)",
+      "Bash(uv:*)",
+      "Bash(pip install:*)",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(head:*)",
       "Bash(tail:*)",
       "Bash(wc:*)",
       "Bash(grep:*)",
-      "Bash(echo:*)",
-      "Bash(date:*)",
-      "Bash(which:*)",
-      "Bash(mkdir:*)",
-      "Bash(sed -n:*)",
-      "Bash(find:*)",
       "Bash(rg:*)",
-      "Bash(cut:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
       "Bash(sort:*)",
       "Bash(uniq:*)",
+      "Bash(cut:*)",
       "Bash(diff:*)",
+      "Bash(jq:*)",
+      "Bash(echo:*)",
+      "Bash(printf:*)",
+      "Bash(date:*)",
+      "Bash(which:*)",
       "Bash(realpath:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(chmod:*)",
+      "mcp__github__*",
+      "mcp__supabase__*",
+      "mcp__supabase-ro__*"
     ],
     "deny": [
-      "mcp__github__enable_pr_auto_merge",
-      "Edit(/.claude/settings.local.json)",
-      "Edit(/.claude/agents/**)",
-      "Edit(/.claude/commands/**)",
-      "Edit(/.claude/rules/**)",
-      "Edit(/.claude/skills/**)",
-      "Edit(/.github/**)",
-      "Edit(/render.yaml)",
-      "Edit(/docs/README.md)",
-      "Edit(/docs/product/north-star.md)",
-      "Edit(/docs/product/arbi-constitution.md)",
-      "Edit(/docs/product/arbi-authority.md)",
-      "Edit(/docs/product/arbi-permission-model.md)",
-      "Edit(/docs/product/arbi-harness.md)",
-      "Edit(/docs/product/arbi-scorecard.md)",
-      "Edit(/docs/product/arbi-promotion-gate.md)",
-      "Edit(/docs/product/arbi-memory-policy.md)",
-      "Edit(/docs/product/arbi-dream-policy.md)",
-      "Edit(/docs/product/arbi-managed-agent-spec.md)",
-      "Edit(/docs/product/arbi-autonomy-loop.md)",
-      "Edit(/docs/product/arbi-goal-recipes.md)",
-      "Edit(/docs/product/arbi-evals.md)",
-      "Edit(/docs/product/guilfoyle-mission-control.md)",
-      "Edit(/docs/product/portfolio-manager-charter.md)",
-      "Edit(/docs/product/portfolio-policy.md)",
-      "Edit(/docs/product/recommendation-schema.md)",
-      "Edit(/docs/product/data-contracts.md)",
-      "Edit(/docs/product/rubrics/**)",
-      "Edit(/docs/product/memory/approved-lessons.md)",
-      "Edit(/docs/product/memory/authority-lessons.md)",
-      "Edit(/docs/product/memory/project-facts.md)",
-      "Edit(/docs/product/memory/promotion-log.md)",
-      "Edit(/docs/product/memory/rejected-candidates.md)",
-      "Read(.env)",
-      "Edit(.env)"
-    ]
+      "Read(./.env)",
+      "Edit(./.env)"
+    ],
+    "ask": []
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "GIT_AUTHOR_NAME": "arbi",
+    "GIT_COMMITTER_NAME": "arbi"
   },
   "hooks": {
     "PreToolUse": [
@@ -118,84 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/push-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/pr-draft-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/pr-draft-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/authority-guard.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/unattended-guard.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/secrets-guard.sh"
           }
         ]
       }

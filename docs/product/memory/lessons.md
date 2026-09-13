@@ -889,3 +889,22 @@ promotion gate that silently graded "evals: not run" is not.
 > classifies evidence, it does not restore a writer or feed the archive into a capital
 > decision. L39 treats a spoken grant as intent, not config. L23's amendment grants
 > no window and no standing I5/I6.
+
+---
+
+## Authority pointers (folded in from the retired `authority-lessons.md`, 2026-09-10)
+
+This section replaces the old separate pointer index. It holds **no original content** — it
+points at the real authority so there is exactly one source of truth. The real files win over
+this list.
+
+- **The operating contract — authority, James's domain (§2), reversal-cost classes, landing
+  work, delegation, the source-of-truth ladder (§10):** `../../../AGENTS.md`
+- **Non-negotiables + rule #11 (Model A quarantine), domain facts, schema:** `../../../CLAUDE.md`
+- **The Output / non-negotiable firewall:** `../north-star.md`
+- **Portfolio decision-support charter + capital mandate:** `../portfolio-manager-charter.md` + `../portfolio-policy.md`
+- **Personal-advice firewall + portfolio invariants:** `../../../.claude/rules/portfolio-conventions.md`
+- **Specialist roster and the owner→agent table:** `../../../.claude/agents/README.md`
+
+If a lesson in this file ever conflicts with any file above, the file above wins: flag the
+lesson stale and correct it in place with a `decision-log.md` row (`AGENTS.md` §10).
