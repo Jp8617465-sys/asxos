@@ -26,13 +26,31 @@ that cannot happen unnoticed a third time.
 
 | Routine | Fires (UTC) | AEST | Model | Connectors | Budget | Trigger id | First fire | Last measured cost |
 |---|---|---|---|---|---|---|---|---|
-| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | `supabase-ro` | 120 min | pending (rollout step 3) | pending | — |
-| `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | `supabase-ro` | 45 min | pending (rollout step 3) | pending | — |
-| `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | `supabase-ro` | 60 min | pending (rollout step 3) | pending | — |
+| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | GitHub + Supabase read-only (UI-attached; see below) | 120 min | **not yet live** — `trig_01VdKtzM45HxEay8eDYxmrkz` is an agent-minted trigger with no repo or connectors, **disabled 2026-09-14 21:28 UTC**; recreate in the UI | pending | — |
+| `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 45 min | **not yet live** — `trig_01Bta5CS6CQigZEGEXDL4buA`, same, **disabled**; recreate in the UI | 2 trigger fires + 2 repo-attached test sessions, 2026-09-14 — see "First-fire findings" | US$0.26–0.45 per short fire |
+| `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 60 min | **not yet live** — creation from a session was refused by the auto-mode classifier; create in the UI | pending | — |
 
 AEST = UTC+10 fixed, the repo's convention; AEDT states see each time an hour later from
 2026-10-04. Crons are UTC and do not move. Environment: `Default`
 (`env_01BsLzNwdBvLVg8BBYL654BH`). Notifications: push + email to James on every completion.
+
+**The `connectors` column is declared intent, not a grant.** The scheduler tool available to
+an arbi session refuses the `connectors` parameter for this organisation, and a trigger it
+creates stores no repository and no MCP connections (`sources: []`, `mcp_servers: []`), so
+the session it fires wakes without the repo and without GitHub or Supabase tools. Routines
+therefore have to be created in the claude.ai Routines UI (below), where James attaches the
+repo and the connectors. Whatever the UI attaches is what the session has; the preamble's §2
+rule against Supabase write tools is prompt-level either way.
+
+## Scheduler setup — James, in the claude.ai Routines UI
+
+One Routine per row above. Fields: **name** `arbi routine — <name>`; **repository**
+`Jp8617465-sys/asxos` at `main`; **environment** `Default`; **connectors** GitHub and Supabase
+read-only (`supabase-ro`) — never the Supabase write connector; **model** as in the table;
+**schedule** the cron in the table (UTC); **notifications** push + email; **prompt** the
+three-line pointer at the top of this file with `<name>` filled in. Then fire it once by hand
+and check the ledger (#270) for a START and an END comment. Until this is done, no routine
+fires; nothing in the repo is waiting on it except this registry row.
 
 **Pinned issues:** ledger **#270** (`arbi — routines ledger`: START/END per fire, weekly
 security summaries); digest **#271** (`arbi — daily digest`: the `AGENTS.md` §12 block,
@@ -81,9 +99,9 @@ spawned session (`list_triggers` → `last_run.session_id` → `get_session`) an
 - [ ] The session transcript shows the permission mode it ran in (a fallback to a mode that
       denies without prompting "succeeds" having done nothing — `docs/product/decision-log.md`,
       2026-09-14 governor row).
-- [ ] `secrets-guard.sh` is armed: a Bash command that echoes an unset variable whose name
-      ends in `_TOKEN` is refused by the hook (the value is empty; the refusal is the proof);
-      no `exit 127` and no `CLAUDE_PROJECT_DIR` error appears in the transcript.
+- [ ] No `exit 127` and no `CLAUDE_PROJECT_DIR` error appears in the transcript (the
+      `secrets-guard.sh` hook resolved). Do **not** ask the session to probe the guard with a
+      token-shaped command — see "First-fire findings" item 2.
 - [ ] Env presence as booleans only: `python -c "import os;print({k:k in os.environ for k in
       ['ASXOS_PERSONAL_USE','DATABASE_URL','HC_ROUTINE_STEWARD_URL']})"` — `ASXOS_PERSONAL_USE`
       expected **False**.
@@ -92,6 +110,32 @@ spawned session (`list_triggers` → `last_run.session_id` → `get_session`) an
 - [ ] START and END both on #270; today's block on #271 (steward).
 - [ ] `get_session` from the launching session: `configured_model` and `last_served_model` match
       the registry; `usage.cost_usd` recorded here.
+
+## First-fire findings (2026-09-14, four sessions, ≈US$1.40, zero ledger comments)
+
+Recorded so the next attempt does not repeat them:
+
+1. **Agent-minted triggers fire repo-less sessions.** Two `fire_trigger` runs of the steward
+   (21:19 and 21:24 UTC, Sonnet 5, `auto` mode confirmed via `get_session`) each went idle in
+   under two minutes with no comment, no branch and no issue. Their session records carry no
+   checked-out branch; the trigger config shows `sources: []`. The pointer prompt's first
+   step, `git fetch origin`, had nothing to act on. Fix: create Routines in the UI (above).
+2. **A verification prompt that asks for secret-shaped actions is refused as injection.** A
+   repo-attached test session given a checklist that included "echo an unset token-named
+   variable to prove the guard refuses it" and "curl the GitHub API with a bearer header
+   built from GH_TOKEN" stopped with *"detected injected instruction; stopping before
+   acting"*. That is the preamble §2 rule working. Lesson: a first-fire check asks only for
+   what the preamble itself prescribes (START/END on the ledger, presence booleans) and
+   never for a token-shaped probe. The README checklist below is written that way now.
+3. **A session with no human will still stop to ask.** A second repo-attached test session,
+   asked only for the START/END pair, ended its turn with *"Actually proceed with posting…?"*
+   — a question nobody could answer. Preamble §0 now states that the session is unattended,
+   that a turn ending on a question is the silent failure, and what to do instead. That line
+   is why the next first fire should be run against `origin/main` after this file merges,
+   not before.
+4. **What did verify:** permission mode `auto` and the intended model, in all four sessions
+   (`get_session`); this environment carries `GH_TOKEN`, `GITHUB_TOKEN` and `DATABASE_URL`
+   and not `ASXOS_PERSONAL_USE` (presence only, checked from the interactive session).
 
 ## Adding a routine
 
