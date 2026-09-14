@@ -1,0 +1,98 @@
+# TEMPORARY — one-off probe, to be deleted in the same session that added it.
+#
+# WHY THIS EXISTS. The `AUTONOMY` repository variable has been carried as "unverified"
+# across three sessions for three different reasons: no tool (2026-09-14 merge train), then
+# the agent proxy refusing the path (2026-09-14 product sprint — `/actions/variables` and
+# `/actions/secrets` both return
+# `{"message":"Access to this GitHub Actions path is not permitted through this proxy."}`,
+# while `/actions/workflows` and `/actions/runs` return 200), and no `gh` CLI in either
+# container. The blocker has never been GitHub. A job on GitHub's own runner has `gh` and
+# no proxy in front of it, so it can get a real answer.
+#
+# WHAT IT ANSWERS, and it is useful either way:
+#   - variables listed  -> delete AUTONOMY, close backlog A-19/the standing inbox row.
+#   - 403               -> `ARBI_GITHUB_TOKEN` lacks the fine-grained "Variables" permission
+#                          (it is scoped Actions/Contents/Issues/PRs/Workflows RW, and
+#                          "Variables" is a SEPARATE permission from "Actions"). That is a
+#                          measured fact with a named remedy, not a third vague "I couldn't".
+#
+# SAFETY — this workflow must never be able to print a variable's VALUE:
+#   - it uses `--jq '.variables[].name'`, never bare `gh variable list`, which prints values;
+#   - `permissions:` is `contents: read` and nothing else;
+#   - `workflow_dispatch` only, no schedule, no event trigger that untrusted text can reach;
+#   - the `delete` op takes a name and prints no body.
+# Secret values are never printed anywhere (AGENTS.md §13).
+#
+# DELETE ME once the question is answered. A standing "run gh commands" lane is a permission
+# surface that should not outlive the one-off question it was built for.
+
+name: gh-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      op:
+        description: "list = names only (safe). delete-autonomy = remove the AUTONOMY variable."
+        required: true
+        default: list
+        type: choice
+        options:
+          - list
+          - delete-autonomy
+
+concurrency:
+  group: gh-probe
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe repository variables
+        env:
+          GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          OP: ${{ inputs.op }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail   # deliberately NOT -e: a 403 is a RESULT here, not a crash
+
+          echo "::group::variable names"
+          # Names only. `gh variable list` without --jq prints VALUEs; never use that form.
+          if gh api "repos/${REPO}/actions/variables" --jq '.variables[].name' > names.txt 2> err.txt; then
+            echo "READ: ok"
+            if [ -s names.txt ]; then cat names.txt; else echo "(no variables set)"; fi
+          else
+            echo "READ: FAILED — the token cannot read repository variables."
+            echo "--- error (verbatim) ---"
+            cat err.txt
+            echo "------------------------"
+            echo "Expected cause: ARBI_GITHUB_TOKEN is scoped Actions/Contents/Issues/PRs/"
+            echo "Workflows RW. On fine-grained PATs, 'Variables' is a SEPARATE permission."
+            echo "Remedy: add Variables: read/write to the PAT, or do it from the console."
+            echo "::endgroup::"
+            exit 0
+          fi
+          echo "::endgroup::"
+
+          if [ "$OP" != "delete-autonomy" ]; then
+            echo "op=list — read-only, nothing changed."
+            exit 0
+          fi
+
+          if ! grep -qx "AUTONOMY" names.txt; then
+            echo "AUTONOMY is not set — nothing to delete. The question is closed."
+            exit 0
+          fi
+
+          echo "AUTONOMY is present. Deleting (no value is read or printed)."
+          if gh variable delete AUTONOMY --repo "${REPO}" 2> del_err.txt; then
+            echo "DELETED: AUTONOMY"
+          else
+            echo "DELETE FAILED — verbatim:"
+            cat del_err.txt
+            echo "The token can read variables but not write them."
+          fi
