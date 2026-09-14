@@ -67,10 +67,10 @@ proceed under full arbi authority with the mitigations in `_preamble.md`. That r
 ## Known stale, not fixed here
 
 - `.claude/commands/ship.md` step 4 says "merging is James's action" — `AGENTS.md` §2/§8 say
-  merges are arbi's. `.claude/**` is James's to merge; a draft PR carries the fix.
+  merges are arbi's. `.claude/**` is James's to merge; PR #273 carries the one-line fix.
 - `.claude/skills/reversible-work-window/SKILL.md` still describes a draft-only, cannot-merge
-  window. It is `disable-model-invocation: true`, so a routine session does not load it unless
-  invoked; same draft PR.
+  window. PR #264 (open, James's) rewrites it in full. It is `disable-model-invocation: true`,
+  so a routine session does not load it unless invoked.
 
 ## First-fire checklist (rollout step 4; result recorded in the registry row)
 

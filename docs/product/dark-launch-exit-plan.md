@@ -388,10 +388,10 @@ _Prior countdown (2026-08-13, SB0-01 sweep): #1/#4 18 days out, #3 48 days out._
 
 | Surface | Verdict | Gate | Expiry / condition | Flip owner |
 |---|---|---|---|---|
-| Portfolio brief | 🔴 **EXPIRED 2026-08-31 — re-raised, awaiting a fresh verdict** (was KEEP-DARK) | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | **EXPIRED 2026-08-31** (was: 10d as of 2026-08-21) · re-scope to model-independent cards + 4wk sign-off | arbi (dark-launch verdicts are arbi's — `AGENTS.md` §2, 2026-09-14; the `ASXOS_PERSONAL_USE` gate itself stays James's) |
+| Portfolio brief | 🔴 **EXPIRED 2026-08-31 — re-raised, awaiting a fresh verdict** (was KEEP-DARK) | `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` + `ASXOS_PERSONAL_USE=1` | **EXPIRED 2026-08-31** (was: 10d as of 2026-08-21) · re-scope to model-independent cards + 4wk sign-off | James |
 | News/sentiment brief | ✅ **SHIP — fresh verdict 2026-08-21** (was UN-SHIPPED · RE-RAISED 2026-08-13) | `ASXOS_NEWS_BRIEF_ENABLED=1` already live via `.github/workflows/daily-brief.yml:61` — no flip needed | (a) re-verified 2026-08-21: `rows_written` 3·2·2·1·0·4 all `success`, `holding_news` 9 rows; (b) unchanged | arbi/main loop — **issued** |
-| V2 brief tree | KEEP-DARK (not expired) | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 (**28d** as of 2026-09-02) · descope to model-independent collectors | arbi (`AGENTS.md` §2, 2026-09-14) |
-| Paper-trade evaluator | 🔴 **EXPIRED 2026-08-31 — re-raised, awaiting a fresh verdict** (was KEEP-DARK) | start the 4wk run (internal) | **EXPIRED 2026-08-31** (was: 10d as of 2026-08-21) · re-raised with surface #1 | arbi (dark-launch verdicts are arbi's — `AGENTS.md` §2, 2026-09-14; the `ASXOS_PERSONAL_USE` gate itself stays James's) |
+| V2 brief tree | KEEP-DARK (not expired) | `ASXOS_V2_BRIEF_ENABLED` (unplumbed) | 2026-09-30 (**28d** as of 2026-09-02) · descope to model-independent collectors | arbi / James |
+| Paper-trade evaluator | 🔴 **EXPIRED 2026-08-31 — re-raised, awaiting a fresh verdict** (was KEEP-DARK) | start the 4wk run (internal) | **EXPIRED 2026-08-31** (was: 10d as of 2026-08-21) · re-raised with surface #1 | James |
 
 ## How arbi uses it
 
