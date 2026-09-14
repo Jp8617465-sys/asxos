@@ -26,9 +26,9 @@ that cannot happen unnoticed a third time.
 
 | Routine | Fires (UTC) | AEST | Model | Connectors | Budget | Trigger id | First fire | Last measured cost |
 |---|---|---|---|---|---|---|---|---|
-| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | GitHub + Supabase read-only (UI-attached; see below) | 120 min | **not yet live** — `trig_01VdKtzM45HxEay8eDYxmrkz` is an agent-minted trigger with no repo or connectors, **disabled 2026-09-14 21:28 UTC**; recreate in the UI | pending | — |
-| `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 45 min | **not yet live** — `trig_01Bta5CS6CQigZEGEXDL4buA`, same, **disabled**; recreate in the UI | 2 trigger fires + 2 repo-attached test sessions, 2026-09-14 — see "First-fire findings" | US$0.26–0.45 per short fire |
-| `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 60 min | **not yet live** — creation from a session was refused by the auto-mode classifier; create in the UI | pending | — |
+| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | GitHub + Supabase read-only (UI-attached; see below) | 120 min | **not yet live** — the agent-minted trigger (no repo, no connectors) was deleted 2026-09-14; create in the UI | pending — first fire after UI creation | — |
+| `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 45 min | **not yet live** — same, deleted; create in the UI | **doc proven 2026-09-14 21:42 UTC** in a repo-attached test session: START/END on #270, HEALTHY, digest on #271, 5 min of a 45-min budget (see "First-fire findings" 5) | US$2.22 (Sonnet 5, full body) |
+| `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 60 min | **not yet live** — creation from a session was refused by the auto-mode classifier; create in the UI | pending — first fire after UI creation | — |
 
 AEST = UTC+10 fixed, the repo's convention; AEDT states see each time an hour later from
 2026-10-04. Crons are UTC and do not move. Environment: `Default`
@@ -136,6 +136,16 @@ Recorded so the next attempt does not repeat them:
 4. **What did verify:** permission mode `auto` and the intended model, in all four sessions
    (`get_session`); this environment carries `GH_TOKEN`, `GITHUB_TOKEN` and `DATABASE_URL`
    and not `ASXOS_PERSONAL_USE` (presence only, checked from the interactive session).
+5. **The fifth session proved the doc.** After the preamble §0 fix merged (#274), a fresh
+   repo-attached session given only the three-line pointer ran `nightly-steward.md` end to
+   end: START at 21:43 UTC and END at 21:47 UTC on #270 (`outcome=ran`), health HEALTHY over
+   all seven workflows, the §12 digest written to #271 (nine merges with classes, five
+   Yours items, four risks, one contained incident — the earlier silent trigger fire, which
+   it found on the ledger itself), one duplicate issue closed, `pg_stat_statements`
+   recorded as unavailable to `supabase-ro`, `deadman=unset`. Five minutes of a 45-minute
+   budget; US$2.22 on Sonnet 5. The GitHub tools were present in that session because a
+   session created from an arbi session inherits its GitHub access; a Routine created in
+   the UI gets whatever connectors James attaches.
 
 ## Adding a routine
 
