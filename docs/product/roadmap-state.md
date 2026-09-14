@@ -1866,6 +1866,66 @@ dev/ops side.
 
 ## Last wake snapshot
 
+_2026-09-14 `/arbi` wake + product sprint (James: a `/loop` mission -- clear the substrate in
+Hour 1, then product on the model-independent moat, one concern per PR. Prior 09-14 merge-train
+and grants snapshots below are retained in full)._
+
+```
+Close: 2026-09-14 third session (remote; auto mode). The first genuinely ranked wake since 09-06.
+- main @ b321759. Merged this session, in order: #261 ced2092 (.claude/ grant removed from the
+  lanes' user settings, Green) - #262 5a5f712 (DENIED_FILES re-derived from AGENTS.md, Green) -
+  #263 f7c858c (--permission-prompts none on all four lanes + pin v1.0.222->v1.0.223, Amber) -
+  #265 9d4b002 (lane-arming trigger + AUTONOMY blocker, Green) - #267 45727f8 (dark-launch
+  verdicts, Green) - #266 b321759 (#228 cash reported unmeasured, Amber).
+- open at close: PR #264 (.claude/skills/reversible-work-window -- JAMES'S to merge, AGENTS.md
+  section 8) and issue #228 (deliberately: #266 closed the live harm, the authoritative source
+  is PRs 2 and 3 of backend-architect's split).
+- tests: 4322 passed / 1 skipped (was 4294 at the merge-train close; +28). ruff clean, mypy
+  clean on 218 source files. Verified on every branch before push and on each PR head.
+- migrations: UNCHANGED. 106 rows, head 20260914123930 (0054). None authored, none applied.
+  0045 still deliberately unapplied; 0042 still reserved.
+- live state: all 21 jobs with a run in the last 4 days are success -- no reds. prices.dt and
+  portfolio_daily_snapshots.as_of both 2026-09-11 (Friday, correct for a Monday). backup.yml
+  ran on schedule, run 34882922972, success. approved_for_allocation = 0 (rule #11 holding).
+  1 open lot, 1 active thesis, 1 theme, 2 theme_holdings, 1 paper_book_snapshots row.
+- DARK-LAUNCH QUEUE IS EMPTY for the first time since that file was written. #1 portfolio brief
+  -> DELETE (the flag was never what kept it dark: build_portfolio last succeeded 2026-08-01
+  against a 2-day freshness gate, and approved_for_allocation=0 hard-fails the allocator by
+  design; compose.py:1163 says the discipline digest is "deliberately not" behind this flag, so
+  the cards it claimed to protect already ship). #3 V2 brief tree -> DELETE the dark rendering
+  path, ruled 16 days early because two of its premises were falsified: the gate IS plumbed
+  (composer.py:94) and its ten collectors are ALREADY in production (composer.py:28-36). #4
+  paper-trade evaluator -> KEEP-DARK re-scoped, new expiry 2026-11-30, kept because its code
+  has live callers, not because it earns #1's sign-off. #1 and #4 were mis-assigned to James
+  and are closed in james-inbox.md with the reason (AGENTS.md section 2 reserves three things;
+  these gates sit BEHIND ASXOS_PERSONAL_USE).
+- #228: PR 1 of 3 landed. Reproduced live first (2026-09-11 snapshot cash_aud 0.000000 = the
+  policy-derived 0.000000). Deviated from the issue's red test with the reason stated --
+  snapshot_portfolio is step 3 of 12 in daily-brief.yml, so its hard-fail would kill the brief
+  daily and manufacture a section 7 incident out of paperwork. Before-image measured for the
+  follow-up migration: 72 rows, 26 with NON-ZERO cash_aud, max 25000.000000 -- which falsifies
+  "they're all zero anyway". security-engineer Tier A: PASS on all five safety questions, two
+  Medium findings fixed before merge.
+- substrate findings: DENIED_FILES was 17/30 dead (the handoff said three), which is why every
+  prior pin of the seed test asserted picked == [] -- read as a property of the backlog, it was
+  a property of that list. After the trim the picker yields E-11 plus a 42-row click-list.
+  .github/runner/claude-user-settings.json is NOT under .claude/ yet its autoMode.allow array
+  IS the lanes' permission surface; it is now in DENIED_FILES. And #259's toolwatch premise was
+  already stale when read -- #214 had landed CC 2.1.269 hours earlier in the same session, so
+  both capabilities it asked for were already in the bundle; what was missing was using the flag.
+- lane arming: trigger SET, not met. (a) >=10 click-list rows MET at 42 (~8 name PRs the merge
+  train closed, so the live count is nearer 34); (b) a week of product PRs NOT met -- day one.
+  Earliest re-check 2026-09-21. REVERSAL: one workflow PR.
+- blocked and named: AUTONOMY variable UNVERIFIED (agent proxy 403s /actions/variables and
+  /actions/secrets; no gh CLI) -- second session, second distinct cause. Item 9's paper-book
+  clock blocked on three measured blockers. Item 10 does not exist as a specified item.
+- item 11 (first daily-brief after the resend bump) had not fired by close -- the cron reads
+  30 20 but the last four scheduled runs were created 22:31/22:42/22:40/22:51 UTC. Self
+  check-in armed for 23:00 UTC, trig_01EaYV49f4dx2G8zUVNi5NCt. Red is a section 7 incident.
+- No capital, no north-star change, no spend over cap, no migration, no Model A output used.
+```
+
+
 _2026-09-14 merge-train close (James: "run a triage of all open PR's… create the plan to execute
 a merge train" — the triage and its red-teamed plan are this session's one thing; prior 09-14
 grants-session and 09-07/09-06 snapshots below are retained in full)._
