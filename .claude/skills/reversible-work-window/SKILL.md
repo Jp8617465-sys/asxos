@@ -85,6 +85,15 @@ behaviour-bearing tests; Tier B for docs and config. There is no PreToolUse revi
   merges. *This file is one of them* — a change to this skill is drafted, never
   self-landed.
 
+  > **Provenance of this rewrite, recorded so the file states its own history rather than
+  > looking like arbi quietly took the path.** The 2026-09-14 rewrite (PR #264) was drafted
+  > and handed over per the rule above, then **James individually ruled that arbi merge it**.
+  > The exception is scoped to this PR and rests on one fact: #264 *removes* a restriction
+  > that contradicted `AGENTS.md` §8.3 ("Open the PR **ready**, not draft") and grants
+  > nothing §8 does not already grant. **A `.claude/` change that adds a capability
+  > `AGENTS.md` does not already give arbi is a different question and goes back to James.**
+  > See `decision-log.md`, 2026-09-14.
+
 - **Migrations.** Authoring one on a branch is ordinary work. Applying one is the §8
   five-step sequence in one sitting, including reading `backup.yml`'s run conclusion and
   confirming it is `success` — a judgement a pre-allow cannot make, and not a thing to do
