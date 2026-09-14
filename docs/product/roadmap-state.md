@@ -2,7 +2,31 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-09-14 (`/arbi-close`, governor-directed session, **no `/arbi` wake** — `main` @ `ac05c4c`: **#254** (`481e5cd`, arbi as technical chief of staff, Amendment N) and **#256** (`ac05c4c`, reserve `.claude/**` alone; grant merge-on-green, `apply_migration`, workflow dispatch, `.github/workflows/` edits) both merged. **All four off-repo steps closed by James on 09-14** — `~/.claude/settings.json` (Opus default, auto-mode grants), `ARBI_GITHUB_TOKEN`, `SUPABASE_ACCESS_TOKEN` (scoped), writable Supabase MCP on his laptop — so the lanes have credentials for the first time; **no `schedule:` armed** (A-22 still open: first dispatch must prove auto mode engaged + hook ran). A Supabase-tier docs PR was planned, red-teamed and **dropped** (decision-log 09-14 row 2). Verified: Supabase plan `pro`; Postgres **17**. `issue-snapshot` still red on schedule (§7 incident, unchanged since 09-06). 0045 still deliberately unapplied. **No Stage cell moved.** See Last wake snapshot.)
+**Last verified:** 2026-09-14 (merge-train session, James: "run a triage of all open PR's… create
+the plan to execute a merge train" — no arbi-ranked "one thing" in the usual sense; the triage
+and its red-teamed plan **are** this session's one thing, executed to completion. `main` @
+`8e6c52c`, ending 21 open PRs → 0, 10 open issues → 1 (#228, the one live product defect). **7
+merges**: #255 (dependabot python), #230 (retired `issue-snapshot.yml`, closing §7 incident
+A-24, red daily since 09-06), #248 (nightly-triage shell, 44 tests re-verified against the
+collapsed workflow), #229 (C1 paper book + F-VAL/r0 valuation store — migrations `0053`/`0054`
+applied via the §8 sequence, backup run `34844339116` read to `success` first; a real
+`security-engineer` finding fixed — backtick could break the evidence renderer's inert Markdown
+span), #258 (unplanned — see below), #214 (dependabot claude-code-action, sequenced last), #259
+(unplanned, agent-authored — see below). **16 closes**: 14 PRs implementing the
+ACP/`asxos-control` programme Amendment N withdrew, plus 9 ACP-era issues `not_planned`; the
+control-plane stack (#232/#233/#238, tested but never admitted) closed per rule 3 with branches
+kept, not deleted. **First-dispatch proof surfaced a real defect**: `weekly-toolwatch.yml` had
+never run (0 runs ever, same for `nightly-triage.yml` and `backlog-roll.yml`) and failed before
+Claude started — `claude-code-action`'s OIDC exchange needs `id-token: write`, present on
+`claude-execute.yml` with an explanatory comment but never carried to the other three lanes when
+Amendment N collapsed each to one job. Fixed as #258 (Amber), then live re-verified end to end:
+the re-dispatched run cleared the OIDC step, ran Claude, completed in 11m49s, and opened #259
+(the lane's first report — Green, docs-only, reviewed and merged this session).
+**No Stage cell moved** — this was substrate work, not product, except #229. `issue-snapshot`'s
+§7 incident is now closed (A-24 → done). `.github/runner/claude-user-settings.json:16` drift and
+`asxos/backlog.py`'s `DENIED_FILES` are both still open, still next-wake #1/#2 — this session
+did not touch them; see Last wake snapshot.)
+**Prior verification:** 2026-09-14 (`/arbi-close`, governor-directed session, **no `/arbi` wake** — `main` @ `ac05c4c`: **#254** (`481e5cd`, arbi as technical chief of staff, Amendment N) and **#256** (`ac05c4c`, reserve `.claude/**` alone; grant merge-on-green, `apply_migration`, workflow dispatch, `.github/workflows/` edits) both merged. **All four off-repo steps closed by James on 09-14** — `~/.claude/settings.json` (Opus default, auto-mode grants), `ARBI_GITHUB_TOKEN`, `SUPABASE_ACCESS_TOKEN` (scoped), writable Supabase MCP on his laptop — so the lanes have credentials for the first time; **no `schedule:` armed** (A-22 still open: first dispatch must prove auto mode engaged + hook ran). A Supabase-tier docs PR was planned, red-teamed and **dropped** (decision-log 09-14 row 2). Verified: Supabase plan `pro`; Postgres **17**. `issue-snapshot` still red on schedule (§7 incident, unchanged since 09-06). 0045 still deliberately unapplied. **No Stage cell moved.** See Last wake snapshot.)
 **Prior verification:** 2026-09-06 (`/arbi` wake opening the attended window AW-01 — `main` @ `e058be3` (#209): the entire Amendment H stack **merged on 2026-09-05** (#185–#201, plus #178, #203, #206–#209 — 23 PRs), so the 09-03 block's "fourteen draft PRs open, none merged" is history. `backup.yml` **green** 09-05 (run 33976969363, first since 08-22) but the restore drill has never been dispatched and `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` is absent, so C-1 stays open. **Two live-ops reds:** `issue-snapshot` rejected by the `main` ruleset since 09-06 (A-24, James) and `check_cron_health` red 09-03/04/05 on a `sync_prices` **false** NO_EQUITY_DATA after #171 (fix drafted, PR-D). 0049–0052 applied; **0045 still deliberately unapplied.** `knowledge_tier` populated (C-2). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. Session was out-of-fence with emulated agents (R17-class, James's call). See Last wake snapshot.)
 **Prior verification:** 2026-09-03 (`/arbi-close`, Amendment H campaign Waves 2→7 — `main` **unchanged @ `55f2619`**: fourteen draft PRs open (#185–#198), **none merged**. Four migrations applied under James's I5 grant: 0049 `20260902201241`, 0050 `20260902203202`, 0051 `20260902204920`, 0052 `20260903025557`; **0045 still deliberately unapplied**. **`backup.yml` still red — still THE ONE THING**, and nothing this session could touch it: every remaining step is a James click (H-03 inspect the archive, H-05 secret, H-06 workflow patch, H-07 dispatch). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
 **Prior verification:** 2026-09-02 (`/arbi` wake — `main` @ `55f2619` after #184. 0048 applied as `20260901062502`. `backup.yml` red 12 consecutive scheduled runs since 2026-08-23 — THE ONE THING.)
@@ -1840,6 +1864,65 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_2026-09-14 merge-train close (James: "run a triage of all open PR's… create the plan to execute
+a merge train" — the triage and its red-teamed plan are this session's one thing; prior 09-14
+grants-session and 09-07/09-06 snapshots below are retained in full)._
+
+```
+Close: 2026-09-14 merge-train (remote session; auto mode)
+- main @ 8e6c52c. Merged since the grants-session close (c27813d/#257): #255 15589849
+  (dependabot python, Amber) · #230 94af11e (retire issue-snapshot.yml, closes A-24) ·
+  #248 02b0c8e (nightly-triage shell, 44 tests re-verified) · #229 41fb9a8 (C1 paper book +
+  F-VAL/r0 valuation store, migrations 0053/0054 applied) · #258 c27813d (id-token: write fix,
+  unplanned) · #214 401137f (claude-code-action bump, sequenced last) · #259 8e6c52c
+  (weekly-toolwatch's first report, unplanned — produced and merged within this session, see
+  below).
+- closed not merged: 14 PRs (#202,#221,#231,#232,#233,#238,#234,#240,#241,#242,#244,#247,#250,
+  #251) implementing the ACP/asxos-control programme Amendment N withdrew, plus #226 (superseded
+  by #229). Issues #204,#205,#236,#239,#243,#245,#246,#249,#252 closed not_planned. #228 (live
+  product defect) kept open — the only remaining open issue.
+- tests: 4294 passed / 1 skipped on the final head (make check equivalent: ruff clean, mypy
+  clean, 218 source files). Up from 4134 at the grants-session close — +160 from #248's 44
+  shell tests, #229's valuation/paper-book suite, and this session's own regression test for
+  the security-engineer finding.
+- migrations: 0053_paper_book_snapshots (20260914123901) and 0054_equity_valuation
+  (20260914123930) applied via the AGENTS.md §8 sequence — backup run 34844339116 read to
+  success before applying. schema_migrations now 106 rows (was 104 at 09-06). 0045 still
+  deliberately unapplied; 0042 still reserved.
+- security: security-engineer Tier A review on #229 (source_uri allowlist, file-write paths,
+  both migrations, valuation Decimal/numpy discipline, network egress) found one real,
+  currently-unreachable gap — a backtick in evidence text could break the report renderer's
+  inert Markdown code span and re-enter live Markdown with an unchecked link. Fixed in the
+  same PR with a regression test.
+- infra defect found and fixed: id-token: write missing from weekly-toolwatch.yml,
+  nightly-triage.yml and backlog-roll.yml — claude-code-action's OIDC exchange failed before
+  Claude could start on all three (0 runs ever on any of them before this session's first
+  dispatch). claude-execute.yml already had it. Fixed as #258; live re-dispatch of
+  weekly-toolwatch (run 34846052898) confirmed the OIDC step clears and Claude runs — completed
+  successfully in 11m49s, well inside its 45-minute budget (this session's own polling
+  repeatedly misread the run as stuck past timeout due to GitHub Actions API staleness on
+  in-progress jobs; job-level re-queries corrected it each time). The run produced a real
+  first report (docs/research/toolwatch/2026-09-14.md) via #259, reviewed and merged this
+  session (Green, docs-only). #259's one finding: all four agent lanes are pinned to a
+  claude-code-action commit 19 CLI releases behind tip — landing that bump is separate,
+  not-yet-opened work.
+- open drift, untouched this session, still queue #1/#2: .github/runner/claude-user-
+  settings.json:16 grants .claude/ edits to the headless lanes (#254 wrote it, #256 missed
+  it); asxos/backlog.py DENIED_FILES still lists three deleted arbi-* docs, blocking
+  backlog-roll's picker. Then .claude/skills/reversible-work-window (draft-only, .claude/**
+  so James's), the thesis-pairing item, and dark-launch surfaces #1/#4 (EXPIRED 2026-08-31,
+  still unruled) / #3 (due 2026-09-30, 16 days out at session start).
+- AUTONOMY repo variable: not checked this session — no GitHub-variables tool was available
+  in this session's toolset (gh CLI is unavailable per the environment; the github MCP server
+  here has no repos/actions/variables endpoint). Amendment N deleted every reader regardless,
+  so it is inert if present. Check and delete with `gh variable delete AUTONOMY` if still set.
+- follow-ups named in merged PR bodies: watch the first scheduled daily-brief after #255
+  (resend 2.39→2.43, the live send path, mocked in every test); watch the first scheduled
+  fire of any of the three id-token-fixed lanes once schedule: is armed (A-22, still open,
+  still James's — no ARBI_GITHUB_TOKEN-scoped schedule exists yet per the grants-session close).
+- No capital, north-star, spend-over-cap, or .claude/** action this session.
+```
 
 _2026-09-14 `/arbi-close` (no wake this session — governor-directed throughout: the chief-of-staff
 rollout, the grants question, then a Supabase-tier FYI that became a planned-then-dropped PR. No

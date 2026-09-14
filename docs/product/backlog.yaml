@@ -316,7 +316,7 @@ items:
     title: "issue-snapshot.yml pushes straight to main; the main ruleset (PR-required, no bypass actors) now rejects it — red daily since 2026-09-06"
     phase: A
     owner: james
-    status: open
+    status: done
     depends_on: []
     route: james
     paths: [".github/workflows/issue-snapshot.yml", "tests/test_issue_snapshot.py"]
@@ -326,7 +326,10 @@ items:
       docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md (recommend B:
       archive branch ops/issue-snapshot). A fresh instance of the failure class the
       Autonomy-roadmap 7a row records (a scheduled loop that reports and leaves nothing —
-      the file on main is still `[]`). Reconciled 2026-09-06.
+      the file on main is still `[]`). Reconciled 2026-09-06. RESOLVED 2026-09-14 (PR #230,
+      merge-train session): option B taken — the workflow retired outright rather than
+      patched, since no reader of the snapshot payload was ever found. The daily red run
+      stops; the file's last state (`[]`) is now historical, not a live gap.
 
   - id: A-25
     title: "#212 MERGED dc2f487 — sync_prices classifies the freshest CLOSED session; ends the check_cron_health false NO_EQUITY_DATA red (09-03/04/05)"
