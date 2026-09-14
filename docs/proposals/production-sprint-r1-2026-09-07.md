@@ -175,6 +175,13 @@ synthetic payload and the repo's agents emulated. W2/W3 revert to the in-fence r
 
 **What the window found that the plan did not anticipate**
 
+> **Superseded 2026-09-14 (#228, PR #266).** The D1 arithmetic described here no longer
+> runs on the live book. `cash_pct` is `None` — unmeasured, not zero — because the value it
+> was read from was `profile.cash_floor_pct * profile.capital_aud`, a risk-policy setting
+> rather than a balance. `headroom_max_pct` now returns zero before reaching the subtraction,
+> and `rule_cash_floor` reports `not_evaluated`. The conclusion below (the live book cannot
+> produce a non-zero size) still holds; the mechanism named for it does not.
+
 1. **The live book cannot produce a non-zero size at all.** Cash is `0.00` on an 8,249.90 AUD book,
    so `sizer.headroom_max_pct`'s D1 term (`cash_pct − 7.5`) clamps every candidate to
    `SizeRange(0,0)` — independent of any calibration. The Stage 4 positive control therefore needs a

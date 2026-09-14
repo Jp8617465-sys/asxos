@@ -27,6 +27,7 @@ import unicodedata
 from typing import Final, Literal
 
 from asxos.domain.decision_engine.challenge.rules import (
+    REGISTER_RULES,
     ChallengeInput,
     RuleOutcome,
     is_measurable,
@@ -80,7 +81,21 @@ def strongest_bear_case(x: ChallengeInput, outcomes: tuple[RuleOutcome, ...]) ->
             f"({', '.join(fired)}); the proposal cannot stand as sized."
         )
     else:
-        sentences.append("No ratified-register rule fails pro-forma; the strongest challenge is diagnostic.")
+        # #228: `cash_floor` is the FIRST ratified-register rule that can be skipped
+        # (gross_leverage, derivatives_or_shorting, sector_cap and position_cap always
+        # run). Before that, "no register rule fails" was always backed by a complete
+        # sweep. It is not any more, so the headline says which it is -- the
+        # not-evaluated sentence below lands last and reads as a footnote after a clean
+        # pass. Found by security-engineer, 2026-09-14.
+        skipped_register = [o.rule for o in outcomes if not o.evaluated and o.rule in REGISTER_RULES]
+        if skipped_register:
+            sentences.append(
+                f"No ratified-register rule fails pro-forma, but {len(skipped_register)} was "
+                f"not checked at all for lack of a measurement ({', '.join(skipped_register)}); "
+                "the sweep is incomplete, not clean."
+            )
+        else:
+            sentences.append("No ratified-register rule fails pro-forma; the strongest challenge is diagnostic.")
     if material:
         sentences.append(f"{len(material)} material concern(s) require a recorded response ({', '.join(material)}).")
     if x.target_price is not None and x.reference_price is not None and x.last_close is not None:

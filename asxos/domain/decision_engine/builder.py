@@ -442,7 +442,11 @@ async def build_decision_case(
                     title=f"Portfolio state at {as_of.isoformat()}",
                     claim=(
                         f"Pre-trade book at {as_of.isoformat()}: capital "
-                        f"{pstate.capital_aud} AUD, cash {pstate.cash_pct}%, gross exposure "
+                        f"{pstate.capital_aud} AUD, cash "
+                        # #228: an evidence claim states what was observed. "cash None%"
+                        # would read as a rendering bug; "not measured" is the fact.
+                        f"{'not measured' if pstate.cash_pct is None else f'{pstate.cash_pct}%'}"
+                        f", gross exposure "
                         f"{pstate.gross_exposure_pct}%, borrowing {pstate.borrowing_aud} AUD, "
                         f"{len(pstate.position_weights_pct)} position(s) across "
                         f"{len(pstate.sector_weights_pct)} sector(s)."
@@ -585,6 +589,14 @@ async def build_decision_case(
             else:
                 proposed_weight = Decimal("0")
                 missing.append("Annualised volatility for the proposed name — challenged at zero weight, no size derived")
+        if context.portfolio_state.cash_pct is None:
+            # #228. types.py forbids an action state while missing_or_uncertain_inputs is
+            # non-empty, so declaring the gap here is what stops an unmeasured book
+            # producing a recommendation.
+            missing.append(
+                "Authoritative cash balance for the live book — cash_floor not evaluated, "
+                "no size derived (#228)"
+            )
         x = ChallengeInput(
             symbol=symbol,
             sector=sector,
