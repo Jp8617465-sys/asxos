@@ -1,29 +1,30 @@
 # Nightly triage — root-cause a red nightly-check and draft the fix.
 #
-# Lane A of the standing-dispatch set (harness-profiles.md §Standing dispatch,
-# Amendment H 2026-09-02). Shares the safety envelope in
+# One of arbi's agent lanes. Shares the safety envelope in
 # docs/product/security-perf-mission-loop.md.
 #
 # nightly-check.yml already runs the full suite against main at 15:17 UTC with a
 # deadman. What was missing was TRIAGE of a red run, not more running. This lane
 # is that, and only that.
 #
-# THE STRUCTURAL CHOICE — the agent does NOT open the PR:
-#   step 1  agent diagnoses, fixes, commits, pushes a branch. No PR.
-#   step 2  a separate workflow step checks out that branch and runs the suite.
-#   step 3  the draft PR opens ONLY if step 2 passed.
-# Two reasons, both load-bearing. (a) unattended-guard.sh:285-287 (A6) denies any
-# `pytest` not fronted by an `env -i` scrub, so an armed agent cannot run the suite
-# itself — and the fix is not to teach the prompt `env -i`, it is to move
-# verification out of the agent's reach entirely. (b) It converts the agent's
-# self-report into a CI fact. An agent that says "tests pass" and a CI step that
-# says so are not the same claim.
+# VERIFICATION IS A WORKFLOW STEP, NOT AN AGENT CLAIM. The agent diagnoses,
+# fixes, commits and pushes; a later step in this same job re-runs ruff, mypy and
+# the suite against the pushed commit, and the PR is opened only if that step
+# passed. One of the two original reasons for that split is gone (the guard hook
+# that denied an unscrubbed `pytest` was retired on 2026-09-10). The other one
+# stands and is why the shape survives: an agent saying "tests pass" and a CI
+# step saying so are not the same claim.
 #
-# WHY NO `workflow_run:` TRIGGER — the producer agent needs `contents: write` to push
-# its branch, and GitHub workflow permissions cannot scope that token to `claude/**`.
-# Until a GitHub App or separately scoped credential is provisioned and red-teamed,
-# this lane remains owner-only `workflow_dispatch` with an explicit per-run risk
-# acknowledgement. A green manual run is evidence, not authority to automate it.
+# It is now ONE job with ONE identity rather than triage -> verify -> publish
+# across three credentials. The separate read-only verify job existed to keep a
+# checkout credential away from the verification step; with arbi landing its own
+# work under a single scoped PAT, that separation bought nothing and cost two
+# job spin-ups plus a matrix of SHA re-assertions.
+#
+# WHY NO `schedule:`/`workflow_run:` YET — the old blocker (no credential
+# scopable to `claude/**`) is solved by ARBI_GITHUB_TOKEN. No trigger is armed in
+# this PR only because that secret does not exist yet; arbi arms the cadence once
+# James creates it.
 
 name: nightly-triage
 
@@ -34,12 +35,6 @@ on:
         description: "nightly-check run ID to triage (blank = most recent failure)"
         required: false
         type: string
-      acknowledge_write_token_risk:
-        description: "I accept the gated residual risk: the agent receives a repo write token"
-        required: true
-        default: false
-        type: boolean
-
 concurrency:
   group: nightly-triage
   cancel-in-progress: false
@@ -48,25 +43,27 @@ permissions: {}
 
 jobs:
   triage:
-    if: github.actor == 'Jp8617465-sys' && inputs.acknowledge_write_token_risk == true
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       actions: read
       contents: write
+      pull-requests: write
     outputs:
       branch_found: ${{ steps.branch.outputs.found }}
       branch_name: ${{ steps.branch.outputs.name }}
       branch_sha: ${{ steps.branch.outputs.sha }}
-    env:
-      # Arms .claude/hooks/unattended-guard.sh:37 for THIS workflow only.
-      ARBI_UNATTENDED: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: main
           fetch-depth: 0
+          # The PAT, not the default GITHUB_TOKEN: a push made with
+          # GITHUB_TOKEN does not trigger other workflows, so full-check would
+          # never fire on the PR this lane opens.
+          token: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: Validate dispatch input
         env:
@@ -78,26 +75,26 @@ jobs:
             exit 1
           fi
 
-      - name: Arming self-check (STEP 0)
+      # The classifier ignores `autoMode` in project settings, so it must be
+      # user-level; and a headless run defaults to Manual without
+      # --permission-mode, where blocked actions silently do not happen.
+      - name: Install user-level Claude settings for auto mode
         run: |
-          set -euo pipefail
-          echo "ARBI_UNATTENDED=${ARBI_UNATTENDED:-UNSET}"
-          if [ "${ARBI_UNATTENDED:-}" != "1" ]; then
-            echo "::error::guard not armed — refusing to run a write lane disarmed"
-            exit 1
-          fi
+          mkdir -p ~/.claude
+          cp .github/runner/claude-user-settings.json ~/.claude/settings.json
 
       - name: Diagnose and fix (no PR)
         uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10  # v1
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           REQUESTED_RUN_ID: ${{ inputs.run_id }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            You are running the nightly TRIAGE lane for asxos — a standing,
-            unattended mission authorized by Amendment H
-            (docs/product/harness-profiles.md §Standing dispatch).
+            You are running the nightly TRIAGE lane for asxos — arbi's standing
+            root-cause mission for a red nightly-check (AGENTS.md §7:
+            incidents before features).
 
             A scheduled `nightly-check` run went red on `main` with nobody pushing.
             Root-cause it and draft the minimal fix.
@@ -150,8 +147,12 @@ jobs:
               reads process env is auto-NOT-READY and quoted verbatim for James.
             - Rule #11 (Model A) and the s766B firewall never lift.
           claude_args: |
-            --max-turns 40
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout:*),Bash(git switch:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(ruff check:*),Bash(mypy:*),Bash(gh run list:*),Bash(gh run view:*)"
+            # 40 -> 80: this lane now does in one job what took three, so a
+            # budget sized for the old triage-only job would truncate mid-run
+            # and read as a lane that simply stopped.
+            --max-turns 80
+            --permission-mode auto
+            --mcp-config .github/runner/mcp.json
 
       - name: Read branch name
         id: branch
@@ -181,8 +182,9 @@ jobs:
       #
       # Appends to the long-lived `claude/secperf-ledger` branch, NOT to main —
       # the mechanism §5 already specifies ("survives without merging to main").
-      # A push to main would collide with branch protection and would be an I6
-      # action, which Amendment H explicitly did not grant.
+      # A heartbeat is not a change anyone reviews, so it does not belong in the
+      # PR flow that lands real work, and a direct push to main is refused by the
+      # ruleset regardless.
       - name: Findings-log heartbeat
         if: always()
         env:
@@ -243,30 +245,23 @@ jobs:
   # Agent-authored code runs only here: read-only token, no OAuth/deadman secret,
   # and checkout credentials are not persisted. The immutable SHA is resolved and
   # validated by the producer job before it crosses this boundary.
-  verify:
-    needs: triage
-    if: needs.triage.outputs.branch_found == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout validated commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ needs.triage.outputs.branch_sha }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Confirm immutable checkout
+      # Verification stays a workflow step rather than an agent claim: the agent
+      # pushed the branch, and this re-runs the gates against the exact commit it
+      # pushed. The SHA re-assertion survives the job collapse because it is what
+      # makes "verified" mean a specific commit rather than "whatever HEAD is now".
+      - name: Confirm the pushed commit is what we verify
+        if: steps.branch.outputs.found == 'true'
         env:
-          EXPECTED_SHA: ${{ needs.triage.outputs.branch_sha }}
+          EXPECTED_SHA: ${{ steps.branch.outputs.sha }}
         run: |
           set -euo pipefail
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin "$EXPECTED_SHA"
+          git checkout --detach "$EXPECTED_SHA"
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
       - name: Set up Python 3.12
+        if: steps.branch.outputs.found == 'true'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
@@ -274,6 +269,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Verify the fix
+        if: steps.branch.outputs.found == 'true'
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
@@ -282,19 +278,12 @@ jobs:
           mypy asxos
           python -m pytest -q
 
-  publish:
-    needs: [triage, verify]
-    if: needs.triage.outputs.branch_found == 'true' && needs.verify.result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Open draft PR for the verified SHA
+      - name: Open the PR for the verified SHA
+        if: steps.branch.outputs.found == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRIAGE_BRANCH: ${{ needs.triage.outputs.branch_name }}
-          VERIFIED_SHA: ${{ needs.triage.outputs.branch_sha }}
+          GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          TRIAGE_BRANCH: ${{ steps.branch.outputs.name }}
+          VERIFIED_SHA: ${{ steps.branch.outputs.sha }}
         run: |
           set -euo pipefail
           [[ "$TRIAGE_BRANCH" =~ ^claude/triage-[0-9]{8}-[a-z0-9-]+$ ]]
@@ -303,12 +292,14 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/git/ref/heads/${TRIAGE_BRANCH}" \
             --jq '.object.sha')"
           test "$remote_sha" = "$VERIFIED_SHA"
-          gh pr create --draft \
+          gh pr create \
             --repo "$GITHUB_REPOSITORY" \
             --base main \
             --head "$TRIAGE_BRANCH" \
             --title "fix(triage): nightly-check failure $(date -u +%Y-%m-%d)" \
-            --body "Automated triage of a red \`nightly-check\`. Suite, ruff and mypy verified at immutable commit \`$VERIFIED_SHA\` by a separate read-only job with no persisted checkout credential.
+            --body "Automated triage of a red \`nightly-check\`. Class: Green unless the diff says otherwise — a triage fix that is one \`git revert\` away with no data loss.
+
+          Suite, ruff and mypy verified as a workflow step at immutable commit \`$VERIFIED_SHA\`, not as an agent self-report.
 
           Review adversarially: confirm the fix addresses the root cause rather than the symptom, and that no assertion was weakened.
 

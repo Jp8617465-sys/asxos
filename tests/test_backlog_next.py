@@ -4,11 +4,8 @@ Two layers, both pinned:
 
 1. Selection logic on a small fixture: ranking, dependency gating, the derived
    denied-path eligibility, overlap skipping, the click-list, and the exit codes.
-2. **Drift**: the module's denied set must cover everything the real guards deny.
-   ``TestDeniedSetMirrorsTheGuards`` parses ``.claude/hooks/unattended-guard.sh`` and
-   ``.claude/settings.json`` and fails if either widens without this module following.
-   The hook is the control; this list is the pre-gate. A pre-gate that lags the control
-   would start work the lane can never finish.
+2. Drift against the real guards — **removed 2026-09-10** with the guard hooks it parsed.
+   See the note where the class used to be, at the bottom of this file.
 
 Also asserts the checked-in seed parses and, as of seeding, picks only the two proposal
 drafts James already asked for — so the first real fire is predictable.
@@ -17,7 +14,6 @@ drafts James already asked for — so the first real fire is predictable.
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -25,8 +21,6 @@ import yaml
 
 from asxos.backlog import (
     DEFAULT_BACKLOG,
-    DENIED_FILES,
-    DENIED_PREFIXES,
     BacklogSchemaError,
     click_list,
     is_denied_path,
@@ -402,41 +396,17 @@ class TestSeed:
 
 
 # --- drift against the real guards ------------------------------------------------------
-
-
-class TestDeniedSetMirrorsTheGuards:
-    HOOK = REPO_ROOT / ".claude" / "hooks" / "unattended-guard.sh"
-    SETTINGS = REPO_ROOT / ".claude" / "settings.json"
-
-    def test_capital_fragments_are_denied_prefixes(self) -> None:
-        text = self.HOOK.read_text(encoding="utf-8")
-        block = re.search(r"CAPITAL_FRAGMENTS=\((.*?)\)", text, re.S)
-        assert block, "CAPITAL_FRAGMENTS not found in unattended-guard.sh"
-        frags = re.findall(r'"([^"]+)"', block.group(1))
-        assert frags, "no fragments parsed"
-        for frag in frags:
-            assert frag in DENIED_PREFIXES, f"{frag} is in the hook but not in asxos.backlog"
-
-    def test_authority_case_patterns_are_denied(self) -> None:
-        text = self.HOOK.read_text(encoding="utf-8")
-        fn = re.search(r"is_authority_path\(\) \{(.*?)\n\}", text, re.S)
-        assert fn, "is_authority_path() not found"
-        pats = re.findall(r"^\s*([^\s#)]+)\)\s*return 0", fn.group(1), re.M)
-        assert pats, "no case patterns parsed"
-        for alt in "|".join(pats).split("|"):
-            alt = alt.strip()
-            if alt.endswith("/*"):
-                assert alt[:-1] in DENIED_PREFIXES, alt
-            else:
-                assert alt in DENIED_FILES, alt
-
-    def test_settings_edit_denies_are_covered(self) -> None:
-        deny = json.loads(self.SETTINGS.read_text(encoding="utf-8"))["permissions"]["deny"]
-        edits = [d for d in deny if d.startswith("Edit(")]
-        assert edits
-        for rule in edits:
-            target = rule[len("Edit(") : -1].lstrip("/")
-            if target.endswith("/**"):
-                assert target[: -len("**")] in DENIED_PREFIXES, rule
-            else:
-                assert target in DENIED_FILES, rule
+#
+# ``TestDeniedSetMirrorsTheGuards`` was removed on 2026-09-10 with the guard hooks it
+# parsed. It asserted that ``asxos.backlog``'s denied set covered everything
+# ``.claude/hooks/unattended-guard.sh`` and the old 33-entry settings deny array denied;
+# both sides of that comparison are gone, so the test could only fail.
+#
+# What it was protecting still matters, in one direction only: the pre-gate must never be
+# *narrower* than the real boundary, because a pre-gate that lags the control starts work
+# the lane can never finish. Today it is much *wider* — ``DENIED_FILES`` still encodes the
+# retired fence, so the picker excludes ``.github/**``, ``.claude/**``, ``migrations/**``
+# and the old protected paths, which is most of what arbi now owns. Over-restrictive fails
+# safe (a thin pick-list, not a breach) but it blocks the ``backlog-roll`` lane from doing
+# its job. Trimming ``DENIED_FILES`` to ``AGENTS.md`` §2 is tracked in the 2026-09-10
+# session handoff; a replacement drift test belongs with that change, not before it.

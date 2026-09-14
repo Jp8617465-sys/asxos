@@ -27,13 +27,10 @@ name: migration-drift
 on:
   schedule:
     - cron: "0 6 * * *"          # daily; the drift this exists to catch produces no PR
-  pull_request:
-    branches: [main]
-    paths:
-      - "migrations/**"
-      - "asxos/schema_drift.py"
-      - "scripts/check_migration_drift.py"
-      - ".github/workflows/migration-drift.yml"
+  # No pull_request trigger: this workflow carries a repository secret
+  # (DATABASE_URL), and running it at the head of an agent-authored PR is the
+  # exposure ACP phase P1 exists to close. Drift is caught by the daily cron,
+  # and a migration PR can dispatch it on demand.
   workflow_dispatch:
 
 permissions:

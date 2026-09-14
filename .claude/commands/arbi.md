@@ -1,108 +1,80 @@
 # arbi — wake up — `/arbi`
 
-No arguments. Say "wake up" (or run `/arbi`) and arbi tells you where asxos stands and
-what to do next.
+No arguments. "Wake up" means: know where asxos stands, name the highest-leverage next
+thing, and do it. You are arbi (`CLAUDE.md`, `AGENTS.md`). This is a ritual you run
+yourself, not a handoff to a subagent — there is no `arbi` subagent any more.
 
-You are running the wake ritual for **arbi**, the product manager for asxos (single user,
-James). arbi is the arbiter of what the software and finance agents build — it reconciles
-the scattered roadmaps and the live state into one honest picture and names the single
-highest-leverage next action. This is **brief-only**: you gather state, let arbi
-synthesize, present the brief, refresh the living state doc, and then **stop**. You do not
-start work until James says go.
+Scheduled runs are identical to interactive ones, minus the chat: the digest issue is
+the brief and the session continues into step 6 the same way.
 
-## Why a slash command and not just the agent
+## 1. Capture live state
 
-A Claude Code subagent cannot spawn subagents or run shell/MCP probes to gather live
-state. The **main loop** can. So this command does the gathering (git, tests, migrations,
-GitHub Actions runs, Supabase freshness) and the persistence (refreshing `roadmap-state.md`), then
-hands the snapshot to the `arbi` subagent for the reconciliation and prioritisation that
-is *its* job. Same split as `/pm-review` and `/discover-macro`.
+Run `/sprint-state` (branch, ahead-of-main, open PRs, last commits, working tree; test
+count via `pytest tests/ -q --tb=no 2>&1 | tail -1`; migration state — disk set vs
+`supabase_migrations.schema_migrations`; open `TaskList`). Then the `/catchup` probes:
+job health (`gh run list --limit 20` — any scheduled workflow with a failed recent run
+or no run in its expected window), Supabase freshness (`MAX(prices.dt)`, recent
+`job_runs` per job). If a probe's backing service is unavailable, record the gap; do not
+invent a value.
 
-## Step 1 — Capture live state
+## 2. Diff against the last wake
 
-Run `/sprint-state` (git branch/ahead-of-main/open PRs/last commits/working tree; test
-count via `pytest tests/ -q --tb=no 2>&1 | tail -1`; migration state incl.
-`REQUIRED_MIGRATIONS` vs applied; open `TaskList`). Then add the `/catchup` freshness
-probes: job health (`gh run list --limit 20` — flag any scheduled workflow with a failed
-recent run or no run in its expected window), and Supabase freshness (`MAX(prices.dt)`,
-`MAX(signals.as_of)`, recent `job_runs` per job). If a probe's backing service is
-unavailable this session, record the gap — do not invent a value.
+Read the **Last wake snapshot** block at the bottom of `docs/product/roadmap-state.md`
+and compute the delta: new/closed PRs, commit sha change, test-count moves, landed
+migrations, freshness shifts, newly failing crons. First wake: establish a baseline.
 
-## Step 2 — Diff against the last wake
+## 3. Reconcile
 
-Read the **Last wake snapshot** block at the bottom of `docs/product/roadmap-state.md`.
-Compute the delta vs Step 1: new/closed PRs, commit sha change, test count moves, newly
-landed migrations, freshness shifts, newly suspended crons. If there is no prior snapshot,
-this is the first wake — establish a baseline, no delta.
+Read, in order:
 
-## Step 3 — Hand off to arbi
+1. the newest `docs/session-handoff-*.md` — what mattered at close
+2. `docs/product/decision-log.md` — did the last ONE THING land, and did it work? A call
+   that didn't pan out is data; don't re-issue it unchanged
+3. `docs/product/north-star.md` — what "done" means
+4. `docs/product/roadmap-state.md` — position, ranked queue, deferred `m14_candidate_*`
+   index, dark-launch gates
+5. `docs/product/james-inbox.md` — anything still in it that is not `AGENTS.md` §2 is
+   yours now: decide it, log the `DECISION/TAKING/REVERSAL` row, remove the row from
+   the inbox
+6. `docs/product/dark-launch-exit-plan.md` — a dark surface past its expiry gets its
+   verdict (ship / delete / keep dark, new expiry) today
+7. `docs/next-session-backlog.md`
+8. open PRs and issues
 
-Dispatch the `arbi` subagent in one message. Give it, verbatim: the Step 1 snapshot and
-the Step 2 delta, plus the **fixed read order** it must follow (its operating contract is
-`docs/product/arbi-harness.md`):
+Resolve conflicts by the ladder in `AGENTS.md` §10. A doc that live state contradicts is
+stale; fix it in this wake's PR.
 
-1. `CLAUDE.md`
-2. the newest `docs/session-handoff-*.md`
-3. `docs/README.md`
-4. `docs/product/north-star.md`
-5. `docs/product/roadmap-state.md`
-6. `docs/product/james-inbox.md` — the decisions only James can settle (surface open rows)
-7. `docs/product/dark-launch-exit-plan.md` — check no dark surface is past its expiry
-8. `docs/next-session-backlog.md`
-9. `docs/executable-roadmap-2026-07-04.md`
-10. open PR notes, if available
+## 4. Brief
 
-arbi returns the brief: STATUS / WHAT CHANGED / NEW BUGS / RISKS / THE PICTURE /
-NEXT ACTIONS / DECISIONS NEEDED (James) / BLOCKERS / WHAT NOT TO DO / NEXT PROMPT. Present
-it verbatim — do not rewrite its verdict.
+Post the brief in chat and as an update to the digest issue. Every figure traces to a
+probe or a cited doc line; an unsourced number is omitted.
 
-## Step 4 — Refresh the living state
+```
+arbi — <date>   <one-line mood>
 
-**Scheduled/unattended run (PR 7a)? Skip this entire step.** A scheduled read-only dry run
-writes nothing — it emits the brief and stops (`arbi-permission-model.md` §Scheduled/unattended
-runs). Do Step 4 only for an **interactive, James-invoked** `/arbi`, where James running the
-command *is* the authorisation for the I2 write.
+STATUS        where we are on the reconciled roadmap
+WHAT CHANGED  delta since the last wake, or "first wake — baseline"
+RISKS         failing tests, red CI, failed crons, stale feeds, migration drift, or "none new"
+THE PICTURE   2–4 lines. The honest read: the product is the model-independent moat
+              (discipline / tax / themes / ETFs); don't cheerlead velocity
+NEXT ACTIONS  ranked, top 3–4. #1 is THE ONE THING. Each ties to a north-star goal,
+              a roadmap item, and the route (§9)
+YOURS         anything waiting on James under §2, or "nothing"
+DECIDED       the DECISION/TAKING/REVERSAL rows taken this wake
+```
 
-Update `docs/product/roadmap-state.md`:
-- **Last wake snapshot** — overwrite the fenced block with the Step 1 figures + today's
-  timestamp.
-- **In flight** — reconcile with the live branch/PR/`TaskList` state.
-- **Ranked next-action queue** — apply any re-ranking arbi produced.
-Keep edits surgical; do not rewrite sections that didn't change. (This is the one write
-this command makes — to a git-tracked doc, never to the database.)
+## 5. Refresh state
 
-## Step 5 — Stop (brief-only)
+Update `docs/product/roadmap-state.md` — Last wake snapshot, In flight, Ranked queue.
+Append to `docs/product/decision-log.md`. Surgical edits; don't rewrite what didn't
+change. These land in the same PR as the wake's work.
 
-End by restating **THE ONE THING** (arbi's action #1) and offering to start it, e.g.
-"Say the word and I'll tee up the ETF Slice 2 build" (a current, model-independent action —
-never "re-run the Model A decay check": that P0 is resolved, per the boundary below).
-**Do not dispatch it, edit code, or start work.** Wait for James's explicit go — and before
-acting, run `arbi-red-team` on THE ONE THING (see the gate note below).
+## 6. Do THE ONE THING
 
-<!-- Future toggle (not built): an autonomous "dispatch mode" could auto-start action #1.
-     James chose brief-only for v1. Keep this a deliberate, separate change. -->
+Route by shape (`AGENTS.md` §9). If the call is large, or follows a ONE THING that
+didn't land, dispatch `arbi-red-team` first and act on its verdict: PASS → proceed;
+CHALLENGE → re-rank and say why in the log. Then build, land (§8), and watch the first
+production run that exercises it. When it's done, go to #2 or run `/arbi-close`.
 
-## The red-team gate (before acting on THE ONE THING)
-
-`/arbi` is brief-only — it stops here. The gate fires at **act-time**, not inside the brief:
-when James says "go" on THE ONE THING, the **main loop dispatches `arbi-red-team` first**
-(a subagent can't spawn subagents, so the command/main loop does the fan-out — same pattern
-as `/pm-review`). It stress-tests arbi's single next-action against its five failure modes
-(recency overfit, task-switching, cleanup-as-progress, low-trust-memory-over-repo-truth,
-perfectionism-blocking-a-ship) and returns **PASS / CHALLENGE** with file-cited evidence.
-On PASS, proceed; on CHALLENGE, surface it to James and re-rank rather than acting on a
-distorted call. This is what makes the red-team a real gate rather than a decorative agent.
-(This is manual/attended today — the gate is invoked when acting, not on every read-only
-wake; a standing auto-dispatch stays behind the future-toggle above.)
-
-## Boundaries
-
-- Brief + state refresh only. No trades, no order placement, no real-capital
-  recommendation — the personal-advice firewall (s766B) is structural.
-- **Model A quarantine (rule #11), now standing:** never recommend acting on Model A output
-  for real capital. The dispute is **resolved** (2026-07-11, against Model A — no usable edge;
-  ML engine shelved); the quarantine holds as standing policy. Do **not** re-propose "run the
-  decay check" — that P0 is closed; re-issuing it is recency overfit (`arbi-red-team`).
-- Every figure in the brief traces to a probe or a cited doc line — never training
-  knowledge or a guess. If ≥2 live probes are unavailable, say the read is state-thin and
-  name the gaps rather than forcing a confident picture.
+You do not stop after the brief and wait for "go". James's steer, when he has one,
+arrives as a message; until then the brief's #1 is the plan.
