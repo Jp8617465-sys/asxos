@@ -134,6 +134,29 @@ def test_runner_settings_keep_the_defaults_sentinel() -> None:
     assert cfg["autoMode"]["allow"][0] == "$defaults"
 
 
+def test_runner_settings_do_not_pre_approve_claude_dir_edits() -> None:
+    """``.claude/`` is the one path a lane may not edit without a human (AGENTS.md section 8).
+
+    It is where the agent's own permissions are written, so pre-approving it in the very
+    file that grants the lane its permissions is self-modification with no human in the
+    loop. #254 wrote that grant; #256 reserved ``.claude/**`` everywhere else and missed
+    this file. The grant for ``.github/workflows/`` stays — that one AGENTS.md section 8
+    explicitly gives arbi.
+
+    The assertion is on the grant *text*, because the classifier reads these as prose.
+    A rule naming ``.claude`` at all is the failure: there is no safe phrasing of it here.
+    """
+    cfg = json.loads(_RUNNER_SETTINGS.read_text(encoding="utf-8"))
+    grants = [g for g in cfg["autoMode"]["allow"] if g != "$defaults"]
+    editing = [g for g in grants if "Editing files under" in g]
+    assert editing, "the workflow-editing grant vanished; AGENTS.md section 8 gives arbi that one"
+    for grant in editing:
+        head = grant.split("as part of the requested task.")[0]
+        assert ".claude/" not in head, (
+            f"a lane grant pre-approves editing .claude/: {grant!r}"
+        )
+
+
 # --- secrets-guard.sh behaviour ---------------------------------------------------------
 
 pytestmark_jq = pytest.mark.skipif(
