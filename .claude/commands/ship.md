@@ -20,8 +20,9 @@ Run `/security-scan`. If any CRITICAL finding: stop.
 Run `/deploy-check`. If any item fails: stop.
 
 **Step 4 — Merge**
-Open the PR, confirm CI `full-check` is green on it, and merge to `main`.
-Merging is James's action, not the session's — surface a ready PR and stop.
+Open the PR ready, confirm CI `full-check` is green on its current head, and
+squash-merge it (`AGENTS.md` §8). Merges are arbi's (`AGENTS.md` §2); the only
+PRs arbi opens and does not merge are `.claude/**`, `north-star.md` and §2 items.
 
 **Step 5 — Confirm**
 Config changes are live but not yet *exercised*: a schedule change proves itself
