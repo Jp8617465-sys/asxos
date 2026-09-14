@@ -41,5 +41,35 @@ anything blocks. They are the reason two convenient-looking commands are the wro
   first, and a prefix-matching allow rule only ever sees the outer string. Never build a
   dispatch command out of substituted output; name the workflow literally.
 
+## Standing facts about the infrastructure (verified 2026-09-14)
+
+Each line names the probe that produced it. Re-probe before trusting a date-stamped fact.
+
+- **Supabase plan is `pro`** — `mcp__Supabase__get_organization` on org `dukwxpqbrpjctjyugcek`
+  returned `"plan": "pro"` on 2026-09-14 (James upgraded that day). `CLAUDE.md:38` still says
+  "free tier" — stale, in the residue sweep. `BUILD_GUIDE.md`'s "downgrade Pro → free at M1"
+  lines are dated history and stay as written. Pro includes scheduled daily backups; **PITR
+  is a separately-priced add-on, not included** — do not write "7-day PITR" into any runbook
+  without confirming it in the dashboard, which arbi cannot read.
+- **Postgres engine is 17** (`17.6.1.063`, release channel `ga`) — `mcp__Supabase__get_project`
+  on `gxjqezqndltaelmyctnl`, 2026-09-14. `backup.yml:6` already says 17 (verified 08-10);
+  `CLAUDE.md:38` says 16 — stale, same sweep.
+- **Both Actions secrets now exist**, created by James on 2026-09-14: `ARBI_GITHUB_TOKEN`
+  (fine-grained PAT, `asxos` only, Actions / Contents / Issues / Pull requests / Workflows
+  read-write, 90-day expiry — **it expires silently; every lane fails at checkout with no
+  other symptom**) and `SUPABASE_ACCESS_TOKEN` (scoped token, one project: Migrations RW,
+  Database / Logs / Advisors / Project Settings R). No `schedule:` is armed yet (A-22).
+- **Supabase personal access tokens are now scoped** (public alpha, on James's account) —
+  the rollout's "all-or-nothing" framing is out of date. Permission→tool table:
+  `https://supabase.com/docs/guides/platform/personal-access-tokens` (`apply_migration` =
+  Migrations RW; `execute_sql` = Database R).
+- **James's laptop has the writable Supabase MCP** via the hosted server
+  (`https://mcp.supabase.com/mcp?project_ref=gxjqezqndltaelmyctnl`, OAuth, `--scope user`),
+  alongside `supabase-ro`. Convention: reads through `supabase-ro`; the writable server only
+  when the task needs a write. Verified against head `20260903025557` on 2026-09-14.
+- **Drift:** `.github/runner/claude-user-settings.json:16` still grants "Editing files under
+  `.claude/` and `.github/workflows/`" to the headless lanes — written in #254, missed by #256,
+  which reserved `.claude/**`. `.github/**` is arbi's; first item on the next wake.
+
 Update this file when a durable convention is added or moved, or when a fact like the two
 above would otherwise be lost with the mechanism that encoded it.
