@@ -17,21 +17,21 @@ dependencies = [
     "uvicorn[standard]==0.52.4",
     "asyncpg==0.31.0",
     "psycopg2-binary==2.9.12",
-    "pydantic==2.13.4",
+    "pydantic==2.13.5",
     "pydantic-settings==2.15.0",
     "httpx==0.28.1",
     # Data
-    "numpy==2.5.2",
+    "numpy==2.5.3",
     "pandas==3.0.5",
     "python-dateutil==2.9.0.post0",
     # Jobs + utilities
     "defusedxml==0.7.1",  # hardened XML parsing for untrusted RSS feeds (07-18 audit)
     "tenacity==9.1.4",
-    "typer==0.27.1",
-    "click<8.5",  # typer 0.12.5 is incompatible with click 8.2+ (make_metavar signature change)
+    "typer==0.27.2",
+    "click<8.6",  # typer 0.12.5 is incompatible with click 8.2+ (make_metavar signature change)
     "rich==15.0.0",
     "jinja2==3.1.6",
-    "resend==2.39.0",
+    "resend==2.43.0",
     "python-dotenv==1.2.3",
 ]
 
@@ -43,13 +43,13 @@ ml = [
     "lightgbm==4.7.0",
     "shap==0.52.0",
     "scikit-learn==1.9.0",
-    "joblib==1.5.3",
+    "joblib==1.6.0",
 ]
 dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
-    "ruff==0.16.4",
+    "ruff==0.16.6",
     "mypy==2.3.1",
     "types-python-dateutil==2.9.0.20260807",
     # tests/test_corporate_actions.py reads .github/workflows/weekly-research.yml to
@@ -57,7 +57,7 @@ dev = [
     # resolving only transitively via uvicorn[standard]; an extras change upstream would
     # have turned that assertion into a collection error instead of a useful failure.
     "pyyaml==6.0.3",
-    "types-PyYAML==6.0.12.20260815",
+    "types-PyYAML==6.0.12.20260906",
 ]
 # Full install for CI and production: pip install -e ".[ml,dev]"
 all = [

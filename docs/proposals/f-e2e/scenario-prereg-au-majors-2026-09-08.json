@@ -1,0 +1,45 @@
+{
+  "preregistration_id": "prereg-au-majors-2026-09-08",
+  "registered_by": "arbi",
+  "registered_at": "2026-09-08T00:00:00+00:00",
+  "applies_to": "Australian major banks, residual-income valuation on tangible common equity",
+  "symbol_agnostic": true,
+  "committed_before_any_model_run": true,
+  "method_note": "Levers are MULTIPLICATIVE FACTORS on each name's own measured ROTCE, never absolute ROE values. That keeps this registration symbol-agnostic and genuinely prior to any valuation: it can be committed without knowing what any name's ROTCE is.",
+  "evidence_basis": {
+    "source": "rs_fundamentals_pit.roe, CBA/NAB/ANZ/WBC, as_of 2013-01-01 onward",
+    "observations": 52,
+    "measure": "each year's ROE divided by that name's own 13-year mean ROE",
+    "observed_range": "0.072 (NAB FY16) to 1.427 (WBC FY14)",
+    "share_at_or_below_0.70": "5 of 52 = 9.6%",
+    "share_at_or_above_1.20": "11 of 52 = 21.2%",
+    "note": "The bear factor is deliberately set at a level the sector has actually reached (WBC FY20 0.308, NAB FY20 0.436, ANZ FY20 0.553, WBC FY21 0.694) rather than at a round number. The assigned 25% bear probability is more pessimistic than the 9.6% empirical frequency; that conservatism is intentional and is not to be revised because a resulting value looks low."
+  },
+  "levers": [
+    {
+      "label": "bear",
+      "probability_pct": "25",
+      "roe_factor": "0.70",
+      "horizon_years": 10,
+      "rationale": "A credit-cycle downturn of the depth the four majors reached in FY20-FY22, short of a NAB-FY16-style write-off year (0.072 of own mean). Empirically 9.6% of name-years were at or below this level; 25% is the deliberately conservative assignment."
+    },
+    {
+      "label": "base",
+      "probability_pct": "50",
+      "roe_factor": "1.00",
+      "horizon_years": 10,
+      "rationale": "The name's own measured ROTCE at the point-in-time period, carried as the starting point of the fade. No forecast is applied."
+    },
+    {
+      "label": "bull",
+      "probability_pct": "25",
+      "roe_factor": "1.20",
+      "horizon_years": 10,
+      "rationale": "A return toward the 2013-2015 profitability band (ANZ 1.24-1.40, WBC 1.32-1.43, CBA 1.18-1.22 of own mean). Empirically 21.2% of name-years were at or above this level."
+    }
+  ],
+  "probability_note": "25/50/25 matches the prior already hardcoded in asxos/domain/decision_engine/builder.py:492-502, so the two surfaces do not disagree. Probabilities sum to exactly 100.",
+  "ke_treatment": "Ke is NOT a scenario lever. Ke uncertainty is carried by the stated beta range 0.90-1.20 and the +/-1% sensitivity table. Scenario uncertainty is the ROE path only. Keeping them separate is what stops the two mechanisms double-counting.",
+  "terminal_rule": "terminal_value_equals_book_no_perpetual_excess",
+  "pre_commitment": "Ruled by James 2026-09-08 and recorded here before any model run: if this method values a name materially below its market price, NO horizon extension, NO growth term and NO terminal excess return will be added to close the gap. A method revision is an ADR decision made on queue-wide evidence, never on one name."
+}

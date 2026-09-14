@@ -91,6 +91,13 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    # 0054 equity_valuation was here from draft to apply. APPLIED 2026-09-14
+    # as 20260914123930 via the AGENTS.md §8 migration sequence (merge-train
+    # session, PR #229): migration-integration green, backup.yml run 34844339116
+    # read to `success`, then applied. The entry is removed in the same PR so
+    # the directional allowlist does not flag it as STALE on merge.
+    # 0053 paper_book_snapshots was here from draft to apply. APPLIED 2026-09-14
+    # as 20260914123901, same sequence and PR as 0054 above.
     # 0052 outcome_materialisation was here from draft to apply. APPLIED
     # 2026-09-03 as 20260903025557 under the same in-session I5 grant (H7-A).
     # 0051 theme_candidates was here from draft to apply. APPLIED 2026-09-02

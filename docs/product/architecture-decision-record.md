@@ -192,6 +192,75 @@ Scored on the same `signal_outcomes` basis Model A faced (correlation of predict
 
 ---
 
+### 1.8 D15 — C1, the paper book
+
+**Ruled by James, 2026-09-07.** 25,000.000000 AUD at 100% cash, its own snapshot id, flagged paper so no live-book query can read it.
+
+**Why it exists.** The live book's cash is **0.00** [measured, 2026-09-07], so `rule_cash_floor` (`challenge/rules.py:229`) blocks every proposal at the D1 floor and `headroom_max_pct` (`sizer.py:112`) clamps every size to zero. No calibration changes that. The sizing gates therefore cannot be exercised against the live book at all, and an evidence-positive case cannot be distinguished from an evidence-negative one — both end in a zero size. C1 is the book on which a 10% position produces a real, non-zero answer.
+
+**What it is not.** It is not capital, not an intent to deploy, and not a claim that any position should be taken. A case built against C1 is a paper case; the execution boundary (P6) is untouched.
+
+**Implementation — `migrations/0053_paper_book_snapshots.sql`, drafted 2026-09-07, NOT YET APPLIED.**
+
+- **A separate table, not a `book` flag on `portfolio_daily_snapshots`.** With a flag, invisibility becomes a property of every SELECT ever written against that table, and one forgotten `WHERE book = 'live'` mixes paper money into the live cash floor, the sizer's headroom and the brief. Separate tables make it structural: a live query cannot read the paper book because it does not name it. The cost is a second loader; the benefit is that the failure mode requires an act of commission rather than an omission.
+- **`asxos/domain/decision_engine/paper_book.py` is the only module that queries it**, and it queries no live table. Two tests hold that line: `test_no_module_issues_sql_against_both_books` and `test_exactly_one_module_queries_the_paper_book`.
+- **Append-only** (`BEFORE UPDATE OR DELETE`), like the 13 decision/research tables — a paper book editable after a case was challenged against it is not evidence of anything.
+- **CHECK constraints** pin `book = 'paper'`, that the book balances (`capital = holdings_mv + cash`), and that a book with no holdings is all cash.
+- **`asx decision build --paper-book <snapshot_id>`** challenges against it. One book or the other, never a blend.
+
+**Measured consequence:** on C1 a 10% position leaves 90% post-trade cash and clears D1; 95% is still blocked; the boundary is exact to the millionth (92.500000 passes, 92.500001 breaches). The register value is unchanged — the paper book relaxes the *balance*, never D1.
+
+**Fixture rows — ruled 2026-09-07.** The theme and candidate rows written for the first positive control are **listable and inert, not removable**. `theme_versions` and `candidate_snapshots` are append-only (`migrations/0051_theme_candidates.sql:61-62`, `:93-94`) and that ratified guarantee stands: a delete path scoped to fixture ids is still a delete path. The rows are the audit trail of the first positive control and are retained as such.
+
+- **Marked** by an `f-e2e-` prefix on `theme_version_id` and `candidate_id` (`asx candidates build --fixture`). The prefix sits inside the id and the id sits inside the content hash, so a fixture row is a *different identity*, not a production row wearing a label.
+- **`data_mode` stays `'real'`** — the data is live; only the purpose is fixture. `test_fixture_prefix_changes_identity_not_data_mode` fails if the flag ever assigns `data_mode`.
+- **Listing query of record:**
+  ```sql
+  SELECT 'theme_versions' AS table_name, theme_version_id AS id, theme_code AS subject,
+         as_of, data_mode, created_at
+  FROM theme_versions WHERE theme_version_id LIKE 'f-e2e-%'
+  UNION ALL
+  SELECT 'candidate_snapshots', candidate_id, symbol, as_of, data_mode, created_at
+  FROM candidate_snapshots WHERE candidate_id LIKE 'f-e2e-%'
+  ORDER BY table_name, id;
+  ```
+- **Inertness is tested, not asserted:** `tests/test_fixture_rows_f_e2e.py::test_no_live_book_aggregation_reads_fixture_rows` checks that none of the five live-book aggregation queries (`SQL_SNAPSHOT`, `SQL_HOLDINGS`, `SQL_CLOSE`, `SQL_FX`, `SQL_PROFILE`) reads `theme_versions`, `candidate_snapshots` or `paper_book_snapshots`; a companion test refuses any future migration that adds a `DELETE FROM` or drops the append-only trigger on either table.
+
+**Applying 0053 is a production write and is not yet granted.** The standing I5 grant of 2026-09-07 covers only `asx candidates build --persist` for the F-E2E run. Recorded in `schema_drift.EXPECTED_UNAPPLIED` so drift detection stays honest until it is applied.
+
+---
+
+### 1.9 D16 — Arbi may author and approve a thesis, paper book only
+
+**Ruled by James, 2026-09-08.** Arbi may author, evidence, price, challenge **and approve** an investment thesis without human review, scoped to a thesis whose only sizing surface is the C1 paper book (D15). The human transition is execution, and execution is not in scope here at all.
+
+**What made this necessary — measured 2026-09-08.** The system has never had an accepted thesis:
+
+| | |
+|---|---|
+| `theses` rows | 13 |
+| `governance_status = 'approved'` | 13 |
+| `governance_events` where `object_type='thesis'` | **0** |
+| `theses.source_run_id` non-null | **0** |
+| `thesis_evidence` rows | **0** |
+| `conviction_level` non-null | **0** |
+
+Every one of the 13 carries `approved` from the migration-0033 column `DEFAULT`, never from a decision. Eleven were bulk-opened on 2026-06-24 with a zero-width entry band, NULL stop/target/timeline and a `thesis_text` of exactly 201 characters — identical boilerplate across all eleven. The one `active` row (HUBS, #2) carries a stop of 230 above an entry band of 185–190, which is incoherent for a long. `approve_object()` and `reject_object()` are dead code against every existing row: both require a source state nothing in the codebase can produce.
+
+**Scope, exactly.**
+
+- **Granted:** author a thesis from a reproducible valuation run; write its evidence; set its entry band, stop, target, timeline and conviction; run it through the deterministic challenge layer; and perform all three governance transitions — `draft → evidence_complete → pending_review → approved`, **all with `actor='agent'`**.
+- **Not granted, unchanged:** P6 execution. `portfolio-manager-charter.md:70` — *"There is **no P-tier, and no tool, that lets arbi act on its own recommendation.**"* — **stands unamended for live capital.** This decision does not touch it; it carves a paper-only exception beneath it.
+- **Not granted, unchanged:** P3 sizing. `arbi-permission-model.md:169` records target weights and sizing as *"not granted yet — draft-only"*, and this ruling does not change that. The run emits a **value range** and a thesis. It never emits a target weight.
+
+**Relationship to §3.6.** §3.6 ("The agent-output evidence base — constrains the approval model") concludes that *"the existing L1/L2/L3 tiering is the right defence and should be **tightened** as models improve, not relaxed."* This decision relaxes the approval tier, and the two are reconciled **only by the scope limit**: the surface is a paper book holding no capital, where an agent-approved thesis cannot move a dollar. Extending this grant to a live book would contradict §3.6 directly and requires a separate, co-ordinated amendment across `portfolio-manager-charter.md`, `portfolio-policy.md` and `arbi-permission-model.md` §Portfolio ladder — the charter's own amendment clause (`:116-120`) requires all three in one change.
+
+**Why the approval sits with the agent and not with James.** The measurement this exists to produce is the S0 agreement rate. If James performs the approval, the metric records his override rate on a proposal instead — a different measurement. His datapoint is the **disposition** of the resulting decision packet, downstream of approval.
+
+**Consequence if it cannot be implemented.** `theses/service.py:803-828` does not currently forward an `actor` to `apply_governance_transition`, so every thesis transition would record `actor='human'` by default. If the approval path cannot record an agent actor, the work **stops and reports** rather than routing the approval to James — a human-actor row would silently misdescribe who decided.
+
+---
+
 ## 2. Target-state process
 
 Stage-gated pipeline, idea to exit to learning loop. Annotation: `[EXISTS]` / `[DORMANT]` / `[PARTIAL]` / `[BUILD]`.

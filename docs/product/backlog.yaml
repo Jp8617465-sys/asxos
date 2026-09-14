@@ -1111,3 +1111,176 @@ items:
     paths: ["CLAUDE.md"]
     source: "2026-09-06 window, PR-A commit daf66b1; live schema_migrations = 104 rows through 20260903025557 (supabase-ro list_migrations)"
 
+
+  - id: C-16
+    title: "Legacy-marker the 13 pre-D16 theses — none was ever accepted (0 governance_events, 0 thesis_evidence); exclude them from metrics and from any authoring template"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/theses/", "migrations/"]
+    source: >-
+      Measured 2026-09-08: 13 theses, 13 governance_status='approved', but
+      governance_events WHERE object_type='thesis' = 0, source_run_id = 0,
+      thesis_evidence = 0, conviction_level = 0. All 13 carry the migration-0033
+      column DEFAULT, never a decision. Eleven (ids 3-13) were bulk-opened
+      2026-06-24 with entry_band_lower = entry_band_upper, NULL stop/target/
+      timeline and a thesis_text of exactly 201 characters — identical across all
+      eleven. James's ruling 2026-09-08 alongside ADR D16: marker only, filed not
+      fixed; they must not seed an authoring template or contaminate the S0
+      agreement-rate metric.
+
+  - id: C-17
+    title: "CHECK stop < entry_band_lower <= entry_band_upper < target_price for longs — the active HUBS row would fail it, so the ruling must say what happens to that row"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["migrations/", "asxos/domain/theses/schemas.py"]
+    source: >-
+      Deferred at migrations/0012_theses_and_themes.sql ("Direction-aware sanity
+      CHECK (stop < entry, target > entry) deferred: requires explicit direction
+      column"). ThesisProposal._check_shape (theses/schemas.py:372-394) checks
+      entry_lower <= entry_upper but NOT stop < entry < target. Measured
+      2026-09-08: thesis_id=2 (HUBS.NYSE, status='active') has stop_price 230.00
+      above entry_band_upper 190.00 — incoherent for a long. The constraint cannot
+      land until that row is ruled on: correct it, mark it short, or exempt it.
+      James's ruling 2026-09-08: filed not fixed.
+
+  - id: C-18
+    title: "fundamentals.roe / debt_to_equity / franking_pct / revenue / net_income have no writer — NULL across all 143,715 rows; drop or populate, and list every reader first"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/ingestion/fundamentals.py", "migrations/", "asxos/domain/screening/"]
+    source: >-
+      Measured 2026-09-08 across 143,715 rows / 1,932 symbols: roe, debt_to_equity,
+      franking_pct, revenue and net_income are non-null in ZERO rows. The columns
+      have existed since migration 0001; asxos/ingestion/fundamentals.py's upsert
+      never names them (it writes only EODHD's Valuation block). This is defect D5
+      in docs/proposals/segment-valuation-portfolio-architecture-2026-08-18.md. The
+      read side was already repointed to rs_fundamentals_pit
+      (asxos/domain/screening/evaluator.py:206-220) but the columns remain, so any
+      new reader will silently get NULL. Enumerate every reader BEFORE dropping.
+      James's ruling 2026-09-08: filed not fixed.
+
+  - id: C-19
+    title: "Sector-inapplicable metrics in Screen #1 — net_debt and gross_margin are meaningless for a bank yet feed the quality factor and the screening evaluator for Financials"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/research/factor_scores.py", "asxos/domain/screening/evaluator.py"]
+    source: >-
+      Measured 2026-09-08 on WBC.AU: rs_fundamentals_pit.net_debt = 232.443bn,
+      which for a bank is deposits and wholesale funding, not leverage; gross_margin
+      reads 1.042707 (FY22) and 1.000000 (FY20), arithmetically impossible. Both
+      currently feed the `quality` category z-score in factor_scores.py:173-176 and
+      the derived debt_to_equity in screening/evaluator.py. Related trap:
+      rs_financial_statements.total_revenue changes basis FY22->FY23 for WBC (net vs
+      gross interest), so any revenue-growth or margin series on it is a structural
+      break, not a business event; netInterestIncome is the honest series and is NULL
+      for FY25. James's ruling 2026-09-08: filed not fixed.
+
+  - id: E-19
+    title: "Backfill AXJO.INDX to two years — 72 rows from 2026-05-27 makes a CAPM beta uncomputable; own PR, own grant"
+    phase: E
+    owner: james
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["jobs/ingest_market_context.py", "jobs/sync_prices.py"]
+    source: >-
+      Measured 2026-09-08: prices holds 72 AXJO.INDX rows, first dt 2026-05-27,
+      against 425 rows per equity from 2025-01-02 — about 14 overlapping weeks. A
+      beta regressed on ~72 daily observations is noise, not a measurement.
+      jobs/ingest_market_context.py:172 already fetches AXJO.INDX (latest only).
+      Under ADR D16 the valuation run reports beta as BLOCKED with the row count and
+      publishes the Ke +/-1% sensitivity band as its primary output instead. James's
+      ruling 2026-09-08: separate PR under a separate grant, explicitly NOT part of
+      F-VAL/r0.
+
+  - id: C-20
+    title: "currency missing on 72,904 rs_financial_statements rows (10.4%) across 1,177 symbols — blank string as well as NULL; fix the ingest path before any backfill"
+    phase: C
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/ingestion/financial_statements.py", "asxos/ingestion/fundamentals_pit.py"]
+    source: >-
+      Found 2026-09-08 valuing CBA.AU (FY26 row, currency NULL). Rescoped twice.
+      FIRST COUNT WAS WRONG: `currency IS NULL` finds 70,393 rows, but 2,511 more
+      carry an EMPTY STRING, which that predicate misses. True total 72,904 rows
+      (10.4%) across 1,177 symbols. financial_statements.py:222-231 already warns
+      about exactly this: the correct predicate on THIS table is
+      `WHERE (currency IS NULL OR btrim(coalesce(currency,'')) = '')`.
+      (a) ROOT CAUSE, established before proposing any backfill: the loader is NOT
+      dropping the field. financial_statements.py:231 reads
+      `st.get("currency_symbol") or block.get("currency_symbol") or None` — it
+      tries statement level, then the fundamentals block, then records absence
+      honestly. The provider supplies blank or nothing for these rows. The `or
+      None` guard already converts '' to NULL for rows written FROM NOW ON;
+      legacy blank rows were never backfilled, and whitespace-only values are
+      still not caught (documented limits 1 and 2 at :222-230).
+      (b) BACKFILL SCOPE, measured: of the 1,177 affected symbols, 954 report
+      exactly one currency on some other period and are safely propagatable
+      (62,386 rows) — recorded as INFERRED, never as reported, in a separate
+      column, never written into the currency field. 101 symbols have no currency
+      on any period (3,394 rows) and stay NULL under (c).
+      (b2) NOT ANTICIPATED, NEEDS A RULE: 122 symbols report MORE THAN ONE
+      currency across their periods. Propagation is ambiguous for these — a
+      genuine reporting-currency change is indistinguishable from a data error
+      without a rule. Do not include them in the (b) sweep.
+      (c) Whatever remains stays NULL and keeps blocking. A blocked valuation is a
+      correct outcome; a valuation on an assumed currency is not.
+      REJECTED (James, 2026-09-08): a blanket AUD default. ASX-listed is not
+      AUD-reporting — measured, 329 symbols report USD and 84 NZD, plus EUR/CAD/
+      CNY/INR/GBP across 20 distinct currencies. A default true for most rows is
+      silently false for exactly the rows where currency matters most.
+
+  - id: C-21
+    title: "A dated third-party beta band belongs in the provenance record alongside rf and ERP, not as a bare module constant"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/valuation/capm.py", "asxos/domain/valuation/types.py"]
+    source: >-
+      Filed 2026-09-08 by James's ruling. capm.BETA_LOW/BETA_HIGH carry a cited
+      third-party band (Finbox/Simply Wall St/Yahoo Finance five-year estimates,
+      reviewed 2026-09-08) as module constants with the source in a comment. rf
+      comes from market_context with an as_of, and ERP is a required CLI argument
+      with a required citation — beta is the only one of the three CAPM inputs
+      whose source and date are not carried on the artifact itself. The failure
+      this prevents already happened once in this project: the band shipped at
+      0.90-1.20 while the reviewed figure was 0.55-0.85, and nothing in the output
+      would have shown the disagreement. Move the band, its source string and its
+      as-of into CostOfEquityInputs so a run states which band it used, and make a
+      band change a data change rather than a code change.
+
+  - id: C-22
+    title: "Reporting-currency changepoints break multi-period comparability — 122 symbols have series (growth, ROE, margins) that cross a currency boundary and are wrong un-translated, NULL rows or not"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/research/factor_scores.py", "asxos/ingestion/fundamentals_pit.py"]
+    source: >-
+      Filed 2026-09-08 by James's ruling, deliberately SEPARATE from the C-20
+      backfill and not blocking it. Measured: 122 symbols report more than one
+      currency across their periods in rs_financial_statements. Any such symbol
+      has multi-period series — revenue growth, ROE, margin trend — computed
+      across a reporting-currency change. Those series are wrong un-translated
+      WHETHER OR NOT any row is NULL, so filling the gaps does not fix them and
+      a symbol with complete currency data can still be affected. Consumers at
+      risk are anything deriving a multi-period ratio or trend, starting with
+      factor_scores.raw_factors. Decide whether such series are translated at a
+      stated rate, or refused with a named gap the way a NULL currency now is.

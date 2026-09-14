@@ -35,7 +35,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 | Layer | Tech | Dev command |
 |---|---|---|
 | API | FastAPI 0.115 | `make dev` → 127.0.0.1:8788 |
-| DB | Supabase Postgres 16 (existing project, free tier) | `mcp__supabase__execute_sql` |
+| DB | Supabase Postgres 17 (existing project, Pro tier) | `mcp__supabase__execute_sql` |
 | Jobs (M12+) | GitHub Actions workflows (`.github/workflows/`) | `gh workflow run <name>.yml` |
 | Migrations | Plain `.sql` in `migrations/`, applied via `mcp__supabase__apply_migration` | No runner script |
 | Email | Resend (test sender for v1) | curl-based, no SDK |
@@ -43,8 +43,8 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (on disk through 0052; latest APPLIED is
-`0052_outcome_materialisation`) is the canonical schema** — roughly 50
+**`migrations/` (on disk through 0054; latest APPLIED is
+`0054_equity_valuation`) is the canonical schema** — roughly 50
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -65,8 +65,12 @@ and `0048_decision_packets.sql` was applied on 2026-09-01 as `20260901062502`.
 Under James's 2026-09-02 I5 grant, `0049_pit_knowledge_tier.sql` (`20260902201241`),
 `0050_research_registry.sql` (`20260902203202`), `0051_theme_candidates.sql`
 (`20260902204920`) and `0052_outcome_materialisation.sql` (`20260903025557`) were
-applied on 2026-09-02/03 — `schema_migrations` held 104 rows when re-verified on
-2026-09-06. So the live ledger ends at 0052 while 0045 is still absent from it.
+applied on 2026-09-02/03. Via the `AGENTS.md` §8 migration sequence in the
+2026-09-14 merge-train session, `0053_paper_book_snapshots.sql` (`20260914123901`)
+and `0054_equity_valuation.sql` (`20260914123930`) were applied — backup run
+`34844339116` read to `success` before applying — with `schema_migrations`
+holding 106 rows when re-verified same day. So the live ledger ends at 0054
+while 0045 is still absent from it.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active

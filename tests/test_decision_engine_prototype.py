@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from asxos.domain.decision_engine.demo import build_demo_brief
 from asxos.domain.decision_engine.renderer import (
     presentation_for,
+    render_broker_report,
     render_decision_brief,
 )
 from asxos.domain.decision_engine.types import (
@@ -589,6 +590,34 @@ def test_renderer_autoescapes_untrusted_text_and_attributes() -> None:
     assert "<script>alert(2)</script>" not in html
     assert "<img src=x onerror=alert(1)>" not in html
     assert "&lt;script&gt;alert(2)&lt;/script&gt;" in html
+
+
+def test_broker_report_is_a_derived_view_of_one_admitted_case() -> None:
+    case = build_demo_brief().cases[1]
+
+    report = render_broker_report(case, evaluated_at=case.decision.knowledge_cutoff)
+
+    assert "# Broker research report: LOCK (ASX)" in report
+    assert "**Verdict:** **REVIEW**" in report
+    assert "**Recommendation state:** `abstain`" in report
+    assert "**Paper sizing:** 0% — non-actionable paper state" in report
+    assert "This is single-user decision-support, not licensed financial advice." in report
+    assert case.decision.decision_ask in report
+    assert case.decision.content_hash in report
+
+
+def test_broker_report_escapes_source_and_thesis_text() -> None:
+    payload = build_demo_brief().cases[0].model_dump(mode="python")
+    payload["thesis"]["thesis_summary"] = "<script>alert(1)</script>"
+    payload["evidence"]["items"][0]["source_uri"] = 'https://example.test/?x=<img>'
+    case = _rebuild_case(payload)
+
+    report = render_broker_report(case, evaluated_at=case.decision.knowledge_cutoff)
+
+    assert "<script>alert(1)</script>" not in report
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in report
+    assert "<img>" not in report
+    assert "&lt;img&gt;" in report
 
 
 async def test_prototype_serves_the_same_typed_synthetic_contract_as_html_and_json() -> None:
