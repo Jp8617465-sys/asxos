@@ -67,60 +67,58 @@ _ID_RE = re.compile(r"^[A-E]-\d+[a-z]?$")
 _GLOB_META_RE = re.compile(r"[*?\[\]{}]")
 _REQUIRED = ("id", "title", "phase", "owner", "status", "depends_on", "route", "paths", "source")
 
-# --- The denied set — mirrors the guards, never widens the grant --------------------
+# --- The denied set — what a headless fire must not start ---------------------------
 #
-# Exact files: ``.claude/hooks/unattended-guard.sh`` ``is_authority_path()`` plus every
-# ``Edit(/<file>)`` in ``.claude/settings.json`` ``permissions.deny``.
+# This list answers one question: which paths would make a ``backlog-roll`` pick into
+# work the lane can never finish? It is a PRE-GATE, not a control. It must never be
+# NARROWER than the real boundary (a pick that cannot land wastes a fire); being wider
+# than the boundary is safe but costs the lane its job, which is what happened between
+# 2026-09-10 and 2026-09-14 — 17 of the then-30 entries named documents deleted by the
+# chief-of-staff rollout (#254), and the prefixes still encoded the retired unattended
+# fence, so the picker excluded most of what arbi now owns.
+#
+# The authority is ``AGENTS.md`` — §2 (what is James's) and §8/§14 (how arbi lands work).
+# Read together they say arbi amends ``AGENTS.md``, ``CLAUDE.md``, ``.github/**`` "and
+# every other authority doc by PR and merges them like anything else" (§14), with exactly
+# two exceptions. Those two exceptions, plus what a fire cannot mechanically complete, are
+# the whole list below. Anything not here is arbi's, and therefore the lane's.
+#
+# NOT expressible as a path, and therefore NOT guarded here: §2's personal-use invariant.
+# ``ASXOS_PERSONAL_USE`` / ``require_personal_use()`` is enforced across eleven modules
+# (``asxos/cli/_common.py``, ``asxos/jobs/_helpers.py``,
+# ``asxos/domain/decision_engine/portfolio_state.py``, ``paper_book.py`` and the callers
+# listed in ``.claude/rules/portfolio-conventions.md``). A path list cannot tell a change
+# that *uses* the gate from one that *weakens* it; the firewall tests and review do that.
+# Saying so here is more honest than a prefix that would deny half the domain and still
+# not catch the case it was written for.
 DENIED_FILES: frozenset[str] = frozenset(
     {
-        "CLAUDE.md",
-        ".env",
-        "render.yaml",
-        ".claude/settings.json",
-        ".claude/settings.local.json",
-        ".claude/agents/arbi.md",
-        "docs/README.md",
+        # --- AGENTS.md §2.1: what the product is for. arbi drafts, James merges. ---
         "docs/product/north-star.md",
-        "docs/product/arbi-constitution.md",
-        "docs/product/arbi-authority.md",
-        "docs/product/arbi-permission-model.md",
-        "docs/product/arbi-harness.md",
-        "docs/product/arbi-scorecard.md",
-        "docs/product/arbi-promotion-gate.md",
-        "docs/product/arbi-memory-policy.md",
-        "docs/product/arbi-dream-policy.md",
-        "docs/product/arbi-managed-agent-spec.md",
-        "docs/product/arbi-autonomy-loop.md",
-        "docs/product/arbi-goal-recipes.md",
-        "docs/product/arbi-evals.md",
-        "docs/product/guilfoyle-mission-control.md",
-        "docs/product/portfolio-manager-charter.md",
-        "docs/product/portfolio-policy.md",
-        "docs/product/recommendation-schema.md",
-        "docs/product/data-contracts.md",
-        "docs/product/memory/approved-lessons.md",
-        "docs/product/memory/authority-lessons.md",
-        "docs/product/memory/project-facts.md",
-        "docs/product/memory/promotion-log.md",
-        "docs/product/memory/rejected-candidates.md",
+        # --- AGENTS.md §13: never read, never written, never in a diff. ---
+        ".env",
+        # --- Operational, not authority: this is the file whose ``autoMode.allow``
+        # array IS the lane's permission surface (every lane copies it to
+        # ``~/.claude/settings.json``). A fire editing it is self-modification with no
+        # human in the loop — the same hole #261 closed from the grant side. ---
+        ".github/runner/claude-user-settings.json",
     }
 )
-# Directory prefixes (trailing slash): the guard's ``CAPITAL_FRAGMENTS`` (capital-adjacent
-# code is human-only under the loop), ``.claude/hooks/`` (authority), every
-# ``Edit(/<dir>/**)`` deny in settings.json, and ``migrations/`` (applying one is I5;
-# drafting one unattended would be a PR that can never be verified in the lane).
+# Directory prefixes (trailing slash).
 DENIED_PREFIXES: tuple[str, ...] = (
-    "asxos/domain/portfolio/",
-    "asxos/domain/tax/",
-    "asxos/domain/models/",
-    "asxos/domain/theses/",
-    ".claude/hooks/",
-    ".claude/agents/",
-    ".claude/commands/",
-    ".claude/rules/",
-    ".claude/skills/",
-    ".github/",
-    "docs/product/rubrics/",
+    # AGENTS.md §2 final paragraph + §8 + §14: the one path arbi does not land itself,
+    # because it is where arbi's own permissions are written. arbi drafts the change and
+    # James merges it — a handover an unattended fire cannot perform.
+    ".claude/",
+    # AGENTS.md §2.2: capital. The directory does not exist yet and stays empty until
+    # James decides otherwise; denying it now means it is guarded on the day it appears.
+    "asxos/capital/",
+    # Operational, not authority. AGENTS.md §8 makes applying a migration a five-step
+    # sequence that must run IN ONE SITTING, including reading ``backup.yml``'s run
+    # conclusion. A fire can author the .sql and open the PR but cannot complete the
+    # sequence, and a merged-but-unapplied migration is a documented past failure
+    # (james-inbox.md, the 0044/0045 rows: "code and migration were drafted together but
+    # only code could merge").
     "migrations/",
 )
 
