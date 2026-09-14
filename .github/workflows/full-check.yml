@@ -12,12 +12,10 @@ name: full-check
 on:
   pull_request:
     branches: [main]
-    paths-ignore:
   push:
     branches:
       - main
       - "claude/**"
-    paths-ignore:
   workflow_dispatch:
 
 # Ref-scoped, unlike the static singleton groups on the scheduled workflows

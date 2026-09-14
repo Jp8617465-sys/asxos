@@ -2,7 +2,8 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-09-06 (`/arbi` wake opening the attended window AW-01 — `main` @ `e058be3` (#209): the entire Amendment H stack **merged on 2026-09-05** (#185–#201, plus #178, #203, #206–#209 — 23 PRs), so the 09-03 block's "fourteen draft PRs open, none merged" is history. `backup.yml` **green** 09-05 (run 33976969363, first since 08-22) but the restore drill has never been dispatched and `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` is absent, so C-1 stays open. **Two live-ops reds:** `issue-snapshot` rejected by the `main` ruleset since 09-06 (A-24, James) and `check_cron_health` red 09-03/04/05 on a `sync_prices` **false** NO_EQUITY_DATA after #171 (fix drafted, PR-D). 0049–0052 applied; **0045 still deliberately unapplied.** `knowledge_tier` populated (C-2). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. Session was out-of-fence with emulated agents (R17-class, James's call). See Last wake snapshot.)
+**Last verified:** 2026-09-14 (`/arbi-close`, governor-directed session, **no `/arbi` wake** — `main` @ `ac05c4c`: **#254** (`481e5cd`, arbi as technical chief of staff, Amendment N) and **#256** (`ac05c4c`, reserve `.claude/**` alone; grant merge-on-green, `apply_migration`, workflow dispatch, `.github/workflows/` edits) both merged. **All four off-repo steps closed by James on 09-14** — `~/.claude/settings.json` (Opus default, auto-mode grants), `ARBI_GITHUB_TOKEN`, `SUPABASE_ACCESS_TOKEN` (scoped), writable Supabase MCP on his laptop — so the lanes have credentials for the first time; **no `schedule:` armed** (A-22 still open: first dispatch must prove auto mode engaged + hook ran). A Supabase-tier docs PR was planned, red-teamed and **dropped** (decision-log 09-14 row 2). Verified: Supabase plan `pro`; Postgres **17**. `issue-snapshot` still red on schedule (§7 incident, unchanged since 09-06). 0045 still deliberately unapplied. **No Stage cell moved.** See Last wake snapshot.)
+**Prior verification:** 2026-09-06 (`/arbi` wake opening the attended window AW-01 — `main` @ `e058be3` (#209): the entire Amendment H stack **merged on 2026-09-05** (#185–#201, plus #178, #203, #206–#209 — 23 PRs), so the 09-03 block's "fourteen draft PRs open, none merged" is history. `backup.yml` **green** 09-05 (run 33976969363, first since 08-22) but the restore drill has never been dispatched and `HEALTHCHECK_URL_BACKUP_IRREPLACEABLE` is absent, so C-1 stays open. **Two live-ops reds:** `issue-snapshot` rejected by the `main` ruleset since 09-06 (A-24, James) and `check_cron_health` red 09-03/04/05 on a `sync_prices` **false** NO_EQUITY_DATA after #171 (fix drafted, PR-D). 0049–0052 applied; **0045 still deliberately unapplied.** `knowledge_tier` populated (C-2). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. Session was out-of-fence with emulated agents (R17-class, James's call). See Last wake snapshot.)
 **Prior verification:** 2026-09-03 (`/arbi-close`, Amendment H campaign Waves 2→7 — `main` **unchanged @ `55f2619`**: fourteen draft PRs open (#185–#198), **none merged**. Four migrations applied under James's I5 grant: 0049 `20260902201241`, 0050 `20260902203202`, 0051 `20260902204920`, 0052 `20260903025557`; **0045 still deliberately unapplied**. **`backup.yml` still red — still THE ONE THING**, and nothing this session could touch it: every remaining step is a James click (H-03 inspect the archive, H-05 secret, H-06 workflow patch, H-07 dispatch). **No Stage cell moved.** Dark surfaces #1/#4 still unruled. D10 ratified-not-in-force. W1-2 CHALLENGEd. See Last wake snapshot.)
 **Prior verification:** 2026-09-02 (`/arbi` wake — `main` @ `55f2619` after #184. 0048 applied as `20260901062502`. `backup.yml` red 12 consecutive scheduled runs since 2026-08-23 — THE ONE THING.)
 **Docs-truth correction:** 2026-08-20 (post-merge reconciliation — PRs #144/#142/#141 merged, which
@@ -664,6 +665,69 @@ further check-in.
 
 **Queue placement.** Does not become THE ONE THING; flips no Stage cell. Rule #11,
 capital, `0042`, `0045`, W1-2 untouched.
+
+#### Amendment N — arbi as technical chief of staff (James, 2026-09-10)
+
+Recorded per the GOV-01 two-artifact precedent: the ruling is James's 2026-09-10 upload of
+a four-file directive (`AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`,
+`.claude/commands/arbi.md`, plus `secrets-guard.sh` and a `ROLLOUT.md` procedure) with the
+instruction that it "should be implemented completely unedited"; this block is the queue
+amendment. Letter **N** — **M** was proposed in the ACP plan
+(`arbi-chief-of-staff-and-feature-control-plane-plan-2026-09-03.md` §12) and is now moot,
+so it is skipped rather than reused.
+
+**Ruling.** arbi is James's technical chief of staff. Everything in this repository that is
+not named in `AGENTS.md` §2 is arbi's to decide, build, merge and run. arbi classifies every
+PR itself by reversal cost (Green / Amber / Red), and the class changes what arbi does
+*before* merging, not *whether* it merges. arbi's standing is identical in every context —
+interactive session, scheduled workflow, headless run.
+
+**Supersedes.** Amendments **G**, **H**, **K** and **L**, and the ACP activation plan.
+G/H/K/L each granted a slice of autonomy under a condition (a lane, a window, a draft-PR
+ceiling, an attended/unattended split); this amendment removes the conditions rather than
+widening them, so the slices no longer describe anything. The ACP activation plan —
+`AGENTS.md` §0's pre-activation ceiling, the `AUTONOMY` repo variable and its attestation,
+the `risk-classify` required check, the `asxos-control` control plane, the verifier and
+publisher identities, and the 17-item activation checklist in the retired
+`autonomy-policy.md` §3 — is withdrawn undelivered. None of it was ever live: as verified
+on 2026-09-08, live GitHub had no `AUTONOMY` variable, no `risk-classify`, and no
+`breaker`/`restore` workflows. The plan is not paused; it is dropped.
+
+**What is reserved, and it is the whole list.** `AGENTS.md` §2 — (1) what the product is
+for: `north-star.md` and the personal-use invariant (`_require_personal_use()` /
+`ASXOS_PERSONAL_USE`, the s766B firewall in `.claude/rules/portfolio-conventions.md`);
+(2) capital — placing, modifying or cancelling a real order, moving funds, enabling live
+trading; (3) spend above **A$50/day** over the running baseline. arbi drafts changes to
+(1) as PRs and James merges them. Secret *values* still pass through James because only he
+holds the consoles: arbi names the slot, scopes it, wires it and confirms it exists.
+
+**Rule #11 is untouched and standing does not relax it.** The Model A quarantine survives
+this amendment verbatim (`AGENTS.md` §8, `CLAUDE.md` rule 11). It changes only when a new
+model version passes the pre-registered positive, monotonic conviction-to-21-day-return bar
+AND separately earns `approved_for_allocation`. `0042` stays reserved; `0045` stays
+unapplied.
+
+**What replaces the mechanism.** Four guard hooks, 33 `Edit(...)` deny rules, CODEOWNERS
+and the two-key `.github/**` fence are deleted. What remains mechanical: the `main` ruleset
+(PR required, `full-check` on the current head, squash, linear history, no force push, empty
+bypass list), secret scanning with push protection, the absence of any broker credential
+anywhere an agent can reach, the two `.env` deny rules, and `secrets-guard.sh` — one
+deny-only hook refusing the three shapes that leak a secret value into a transcript.
+Everything else is prose that arbi honours by judgement, which is the trade this amendment
+makes explicit rather than pretending otherwise.
+
+**Migrations.** No longer James's. arbi authors expand-only on the branch, runs
+`migration-integration.yml` green, dispatches `backup.yml` and waits for `success`, applies
+via `mcp__supabase__apply_migration`, verifies `schema_drift.py` clean and the version
+present in `supabase_migrations.schema_migrations`, then merges with the applied version and
+the backup run id in the PR body (`AGENTS.md` §8).
+
+**Queue placement.** Does not become THE ONE THING and flips no Stage cell. The first wake
+under this amendment picks up whatever of the rollout's rewrite list remains — the two named
+in the 2026-09-10 handoff are `asxos/backlog.py`'s `DENIED_FILES` (it still encodes the
+retired fence, which blocks the `backlog-roll` lane) and
+`.claude/skills/reversible-work-window` (it still instructs draft-only behaviour) — then the
+thesis-in-the-same-sitting pairing. The thesis numbers are still James's.
 
 #### Amendment D discharge + product-lane state (arbi, 2026-08-21 `/arbi-run`)
 
@@ -1330,6 +1394,34 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-14 `/arbi-close` (no wake; governor-directed).** The Stages 0→6 table at the top
+> of this file remains the only ranked queue. The credentials now exist, which changes what is *unblocked*,
+> not what is ranked first: `AGENTS.md` §7 puts the incident ahead of everything.
+>
+> **#1 — the `.github/runner/claude-user-settings.json:16` drift, five minutes, arbi's.** It still grants
+> "Editing files under `.claude/` and `.github/workflows/`" to the headless lanes; #256 reserved `.claude/**`.
+> Land it before any lane is dispatched with the new PAT, or the first headless run carries a grant the
+> contract withholds.
+>
+> **#2 — the §7 incident: `issue-snapshot.yml` has failed on schedule daily since 09-06** (A-24; route B
+> drafted at `docs/proposals/claude-config-patches-2026-09-06/issue-snapshot.md`). `.github/**` is arbi's now,
+> so this is no longer a James click. Incidents before features — nothing else merges first.
+>
+> **#3 — `asxos/backlog.py` `DENIED_FILES`** still enforces the retired fence and blocks the `backlog-roll`
+> lane (09-10 handoff residue 1). Then `.claude/skills/reversible-work-window` (draft-only, behavioural —
+> `.claude/**`, so a patch for James, into the existing patch bundle).
+>
+> **#4 — first dispatch + A-22:** run `claude-execute.yml` once with a trivial task and read the log for the
+> two things no test proves — auto mode actually engaged, `CLAUDE_PROJECT_DIR` resolved so
+> `secrets-guard.sh` ran. Also prove the `main` ruleset refuses a direct push with the PAT (a refused push
+> is the pass). Only then arm a `schedule:`.
+>
+> **#5 — a real `/arbi` wake**, the first since 09-06, with the 09-06 block below re-ranked against live state
+> (its #1(a) `sync_prices` fix, #2 backup-observed, #3 D-9a/C-13a, #4 C-5, #5 rulings, #6 CLI runs are
+> all still open and carried). The residue sweep (359 citations; plus `CLAUDE.md:38` "free tier" /
+> "Postgres 16" → `pro` / 17) rides with whichever wake touches those docs — not its own PR.
+>
+> **Superseded — 2026-09-06 `/arbi` wake (the live block is above).**
 > **Live as of the 2026-09-06 `/arbi` wake (attended window AW-01).** The Stages 0→6 table at the top
 > of this file remains the only ranked queue. The 09-03 block's **#2 (merge the stack) is discharged** —
 > James un-drafted and merged everything on 09-05 — and its #1 is narrower than "red" now.
@@ -1748,6 +1840,37 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+_2026-09-14 `/arbi-close` (no wake this session — governor-directed throughout: the chief-of-staff
+rollout, the grants question, then a Supabase-tier FYI that became a planned-then-dropped PR. No
+arbi-ranked "one thing"; the 09-07 close and 09-06 wake snapshots below are retained in full)._
+
+```
+Close: 2026-09-14 (remote session; auto mode; .claude/** reserved to James per #256)
+- main @ ac05c4c. Merged since the 09-07 close (fd6172c): #254 481e5cd (rollout, 77 files,
+  +1409/-10148, Amendment N) · #256 ac05c4c (reserve .claude/ alone; four grants). Plus the
+  09-07..09-10 merges recorded in the 09-10 handoff.
+- tests: 4134 passed / 1 skipped (make check: ruff clean, mypy clean). Identical to 09-10 —
+  no code changed this session. 09-07: 4404; the drop is the 7 deleted guard-hook tests plus
+  the rollout's rewrites, measured in the 09-10 handoff.
+- migrations: unchanged. 51 files on disk, head 0052 = 20260903025557 (verified live 09-14 from
+  James's laptop MCP: ledger clean back to 20260217004354). 0042 absent (reserved). 0045
+  deliberately unapplied. None authored or applied.
+- infra verified read-only (mcp__Supabase__get_organization / get_project, 09-14): plan=pro,
+  Postgres 17.6.1.063 ga, project ACTIVE_HEALTHY, region ap-southeast-2. CLAUDE.md:38 stale on
+  both ("free tier", "Postgres 16") — residue sweep, not a PR.
+- credentials (James, 09-14): ARBI_GITHUB_TOKEN + SUPABASE_ACCESS_TOKEN both present in Actions
+  secrets; ~/.claude/settings.json carries the auto-mode grants with .claude/ excluded and
+  model=claude-opus-5; writable Supabase MCP on the laptop (OAuth, project_ref pinned).
+  No schedule: armed (A-22 open). First dispatch not yet run.
+- open drift: .github/runner/claude-user-settings.json:16 grants .claude/ edits to the lanes —
+  #254 wrote it, #256 missed it. Queue #1.
+- live-ops: issue-snapshot still red on schedule since 09-06 (§7 incident, queue #2). Nothing
+  else probed this session.
+- red-team: arbi-red-team (Fable) on the Supabase-tier plan → DROP; accepted. Lessons L46/L47.
+- No DB write, migration, deploy, dispatch, or push to main this session. The only PR is this
+  close (docs only, Green).
+```
 
 _2026-09-07 `/arbi-close` (no wake this session — James named the work directly, so there is no
 arbi-ranked "one thing" for this entry). Records the end-state; the 2026-09-06 wake snapshot below

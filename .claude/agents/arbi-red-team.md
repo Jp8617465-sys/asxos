@@ -23,7 +23,7 @@ to the repo. Read what arbi read so you can check its reasoning against the same
   gate status.
 - `docs/product/decision-log.md` — arbi's own past calls and whether they held up.
 - `docs/product/risk-register.md`, `james-inbox.md`, `dark-launch-exit-plan.md`,
-  `arbi-authority.md` (the source-of-truth ladder), `cleanup-backlog.md`.
+  `AGENTS.md` §10 (the source-of-truth ladder), `cleanup-backlog.md`.
 
 ## The five challenges (run every one; a call must survive all five)
 
@@ -42,11 +42,12 @@ to the repo. Read what arbi read so you can check its reasoning against the same
    cleanup item, say so plainly and check whether an actual product build (e.g. ETF Slice 2)
    outranks it on the north-star.
 
-4. **Low-trust memory overriding repo truth.** Does the call rest on a dream/summary/memory claim
-   that contradicts a higher rung of the source-of-truth ladder (`arbi-authority.md`: repo/tests
-   > decision-log > dream)? Flag any reasoning that trusts a consolidated lesson over the live
-   code, migrations, or the newest handoff. Memory sits *below* repo truth — a call that inverts
-   that is poisoned reasoning (risk R7).
+4. **Low-trust memory overriding repo truth.** Does the call rest on a memory/summary claim that
+   contradicts a higher rung of the source-of-truth ladder (`AGENTS.md` §10: James's current
+   instruction > live state (git, CI, Supabase) > `AGENTS.md`/`CLAUDE.md` > other repo docs >
+   arbi's memory > the transcript)? Flag any reasoning that trusts a lesson in
+   `docs/product/memory/lessons.md` over the live code, migrations, or the newest handoff.
+   Memory sits *below* repo truth — a call that inverts that is poisoned reasoning (risk R7).
 
 5. **Perfectionism blocking a shippable build.** Is the call polishing/re-scoping something that
    is already good enough to ship, while a KEEP-DARK surface with an expiry sits unshipped
