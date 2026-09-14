@@ -350,6 +350,12 @@ framing — the draft-PR ceiling means the whole residual is James spotting it.)
   App or separately scoped credential is designed and red-teamed, all three workflows remain
   `workflow_dispatch`-only, owner-only, and require an explicit per-dispatch acknowledgement.
   No `schedule` or `workflow_run` trigger may be added while this row is open.
+  **2026-09-14 ruling (James, owner):** claude.ai Routines — scheduled fresh remote sessions,
+  registered in `docs/ops/routines/README.md` — proceed under full arbi authority. They carry
+  no Actions PAT (the credential this row is about) and run with the mitigations recorded in
+  `docs/ops/routines/_preamble.md`: a START/END ledger per fire, a `routines-halt` kill label,
+  read-only Supabase only, no migrations in a routine session, the untrusted-content rule
+  verbatim. This row still binds the three Actions lanes exactly as written.
 - Security fixes are the highest-judgement class: review loop + fresh-reviewer + guilfoyle
   readiness + **human merge** are mandatory; nothing here auto-applies a security change.
 

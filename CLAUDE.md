@@ -19,7 +19,7 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 ## Non-negotiable rules
 
 1. **Hard-fail startup.** `asxos/api/main.py` lifespan raises on dependency-init failure. No `logger.warning(...); continue`. If the DB is unreachable, the API does not start.
-2. **Service management.** Jobs run as **GitHub Actions workflows** (`.github/workflows/`), not Render — Render was **deleted 2026-08-12**. Config lives in git and is reviewed; secrets live in the repo's Actions secrets. Use `mcp__supabase__*` for Supabase. Never manage jobs by hand outside the workflows — every change goes through a workflow file + `git push`; dispatch a run with `gh workflow run <name>.yml`.
+2. **Service management.** Jobs run as **GitHub Actions workflows** (`.github/workflows/`), not Render — Render was **deleted 2026-08-12**. Config lives in git and is reviewed; secrets live in the repo's Actions secrets. Use `mcp__supabase__*` for Supabase. Never manage jobs by hand outside the workflows — every change goes through a workflow file + `git push`; dispatch a run with `gh workflow run <name>.yml`. Agent sessions may also run as claude.ai **Routines** (scheduled fresh remote sessions, 2026-09-14): their behaviour lives in `docs/ops/routines/*.md` and `docs/ops/routines/README.md` is their registry — the scheduler is never the source of truth.
 3. **No feature flags.** If a feature is half-built, it stays on a branch.
 4. **No `user_id` columns, no auth, no RLS.** Single user.
 5. **NUMERIC(18,6)** for every monetary or statistical column from day one.

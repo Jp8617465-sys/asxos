@@ -1438,7 +1438,8 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > **#4 — first dispatch + A-22:** run `claude-execute.yml` once with a trivial task and read the log for the
 > two things no test proves — auto mode actually engaged, `CLAUDE_PROJECT_DIR` resolved so
 > `secrets-guard.sh` ran. Also prove the `main` ruleset refuses a direct push with the PAT (a refused push
-> is the pass). Only then arm a `schedule:`.
+> is the pass). Only then arm a `schedule:`. *(2026-09-14: this gate binds the Actions PAT lanes only; claude.ai
+> Routines run on the session credential and are registered in `docs/ops/routines/README.md`.)*
 >
 > **#5 — a real `/arbi` wake**, the first since 09-06, with the 09-06 block below re-ranked against live state
 > (its #1(a) `sync_prices` fix, #2 backup-observed, #3 D-9a/C-13a, #4 C-5, #5 rulings, #6 CLI runs are
