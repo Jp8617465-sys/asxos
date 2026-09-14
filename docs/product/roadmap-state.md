@@ -5,21 +5,23 @@
 **Last verified:** 2026-09-14 (merge-train session, James: "run a triage of all open PR's… create
 the plan to execute a merge train" — no arbi-ranked "one thing" in the usual sense; the triage
 and its red-teamed plan **are** this session's one thing, executed to completion. `main` @
-`401137f`, ending 21 open PRs → 0, 10 open issues → 1 (#228, the one live product defect). **6
+`8e6c52c`, ending 21 open PRs → 0, 10 open issues → 1 (#228, the one live product defect). **7
 merges**: #255 (dependabot python), #230 (retired `issue-snapshot.yml`, closing §7 incident
 A-24, red daily since 09-06), #248 (nightly-triage shell, 44 tests re-verified against the
 collapsed workflow), #229 (C1 paper book + F-VAL/r0 valuation store — migrations `0053`/`0054`
 applied via the §8 sequence, backup run `34844339116` read to `success` first; a real
 `security-engineer` finding fixed — backtick could break the evidence renderer's inert Markdown
-span), #258 (unplanned — see below), #214 (dependabot claude-code-action, sequenced last).
-**16 closes**: 14 PRs implementing the ACP/`asxos-control` programme Amendment N withdrew, plus
-9 ACP-era issues `not_planned`; the control-plane stack (#232/#233/#238, tested but never
-admitted) closed per rule 3 with branches kept, not deleted. **First-dispatch proof surfaced a
-real defect**: `weekly-toolwatch.yml` had never run (0 runs ever, same for `nightly-triage.yml`
-and `backlog-roll.yml`) and failed before Claude started — `claude-code-action`'s OIDC exchange
-needs `id-token: write`, present on `claude-execute.yml` with an explanatory comment but never
-carried to the other three lanes when Amendment N collapsed each to one job. Fixed as #258
-(Amber), then live re-verified: the re-dispatched run cleared the OIDC step and ran Claude.
+span), #258 (unplanned — see below), #214 (dependabot claude-code-action, sequenced last), #259
+(unplanned, agent-authored — see below). **16 closes**: 14 PRs implementing the
+ACP/`asxos-control` programme Amendment N withdrew, plus 9 ACP-era issues `not_planned`; the
+control-plane stack (#232/#233/#238, tested but never admitted) closed per rule 3 with branches
+kept, not deleted. **First-dispatch proof surfaced a real defect**: `weekly-toolwatch.yml` had
+never run (0 runs ever, same for `nightly-triage.yml` and `backlog-roll.yml`) and failed before
+Claude started — `claude-code-action`'s OIDC exchange needs `id-token: write`, present on
+`claude-execute.yml` with an explanatory comment but never carried to the other three lanes when
+Amendment N collapsed each to one job. Fixed as #258 (Amber), then live re-verified end to end:
+the re-dispatched run cleared the OIDC step, ran Claude, completed in 11m49s, and opened #259
+(the lane's first report — Green, docs-only, reviewed and merged this session).
 **No Stage cell moved** — this was substrate work, not product, except #229. `issue-snapshot`'s
 §7 incident is now closed (A-24 → done). `.github/runner/claude-user-settings.json:16` drift and
 `asxos/backlog.py`'s `DENIED_FILES` are both still open, still next-wake #1/#2 — this session
@@ -1869,11 +1871,13 @@ grants-session and 09-07/09-06 snapshots below are retained in full)._
 
 ```
 Close: 2026-09-14 merge-train (remote session; auto mode)
-- main @ 401137f. Merged since the grants-session close (c27813d/#257): #255 15589849
+- main @ 8e6c52c. Merged since the grants-session close (c27813d/#257): #255 15589849
   (dependabot python, Amber) · #230 94af11e (retire issue-snapshot.yml, closes A-24) ·
   #248 02b0c8e (nightly-triage shell, 44 tests re-verified) · #229 41fb9a8 (C1 paper book +
   F-VAL/r0 valuation store, migrations 0053/0054 applied) · #258 c27813d (id-token: write fix,
-  unplanned) · #214 401137f (claude-code-action bump, sequenced last).
+  unplanned) · #214 401137f (claude-code-action bump, sequenced last) · #259 8e6c52c
+  (weekly-toolwatch's first report, unplanned — produced and merged within this session, see
+  below).
 - closed not merged: 14 PRs (#202,#221,#231,#232,#233,#238,#234,#240,#241,#242,#244,#247,#250,
   #251) implementing the ACP/asxos-control programme Amendment N withdrew, plus #226 (superseded
   by #229). Issues #204,#205,#236,#239,#243,#245,#246,#249,#252 closed not_planned. #228 (live
@@ -1895,10 +1899,14 @@ Close: 2026-09-14 merge-train (remote session; auto mode)
   nightly-triage.yml and backlog-roll.yml — claude-code-action's OIDC exchange failed before
   Claude could start on all three (0 runs ever on any of them before this session's first
   dispatch). claude-execute.yml already had it. Fixed as #258; live re-dispatch of
-  weekly-toolwatch confirmed the OIDC step clears and Claude runs. That re-dispatched run
-  (34846052898) was still in_progress — beyond its stated 45-minute job timeout — when this
-  session closed; check its conclusion and any PR it opened (branch prefix claude/toolwatch-)
-  at the next wake.
+  weekly-toolwatch (run 34846052898) confirmed the OIDC step clears and Claude runs — completed
+  successfully in 11m49s, well inside its 45-minute budget (this session's own polling
+  repeatedly misread the run as stuck past timeout due to GitHub Actions API staleness on
+  in-progress jobs; job-level re-queries corrected it each time). The run produced a real
+  first report (docs/research/toolwatch/2026-09-14.md) via #259, reviewed and merged this
+  session (Green, docs-only). #259's one finding: all four agent lanes are pinned to a
+  claude-code-action commit 19 CLI releases behind tip — landing that bump is separate,
+  not-yet-opened work.
 - open drift, untouched this session, still queue #1/#2: .github/runner/claude-user-
   settings.json:16 grants .claude/ edits to the headless lanes (#254 wrote it, #256 missed
   it); asxos/backlog.py DENIED_FILES still lists three deleted arbi-* docs, blocking

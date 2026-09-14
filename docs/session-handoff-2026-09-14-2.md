@@ -17,10 +17,11 @@ thing, executed start to finish in plan mode then build mode.
 
 ## Outcome — every figure measured this session, not inferred
 
-**21 open PRs → 0. 10 open issues → 1** (`#228`, the one live product defect, kept open on
-purpose).
+**21 open PRs → 0** (plus one more, #259, that this session's own work caused to exist and
+closed in turn — see below). **10 open issues → 1** (`#228`, the one live product defect, kept
+open on purpose).
 
-**6 merged**, in this order:
+**7 merged**, in this order:
 
 | PR | What | Class |
 |---|---|---|
@@ -30,6 +31,7 @@ purpose).
 | #229 | C1 paper book + F-VAL/r0 valuation store — migrations `0053`/`0054` | Amber |
 | #258 | **unplanned** — `id-token: write` missing from three agent lanes | Amber |
 | #214 | dependabot: `claude-code-action` bump, sequenced last per the red-team's finding | Amber |
+| #259 | **unplanned, agent-authored** — the first weekly-toolwatch report, produced by #258's own live re-verification dispatch and reviewed/merged in turn | Green |
 
 **16 closed, not merged:** 14 PRs implementing the ACP / `asxos-control` programme that
 Amendment N (2026-09-10) withdrew undelivered, plus 9 ACP-era issues `not_planned`. Each carries
@@ -55,24 +57,24 @@ to your workflow permissions?
 `claude-execute.yml` already had `id-token: write`, with the comment
 `# required by claude-code-action's OIDC token exchange`. That fix was written once and never
 carried to the other three lanes when Amendment N collapsed each to one job on 2026-09-10.
-Fixed as #258 (three-line diff, Amber, `AGENTS.md` §6), merged, then **live re-verified**: the
-re-dispatched `weekly-toolwatch` run (`34846052898`) cleared the OIDC step and ran Claude for
-the first time — well past 40 minutes of genuine research work by the time this session closed,
-which is itself the proof (the previous failure was at 20 seconds).
+Fixed as #258 (three-line diff, Amber, `AGENTS.md` §6), merged, then **live re-verified end to
+end**: the re-dispatched `weekly-toolwatch` run (`34846052898`) cleared the OIDC step, ran Claude
+for the first time, and **completed successfully in 11m49s** (12:55:02–13:06:51 UTC) — well
+inside its 45-minute budget. (This session's own polling of the run repeatedly misread it as
+"still running past its timeout" due to GitHub Actions API read staleness on in-progress jobs,
+corrected each time by a fresh job-level query; the actual wall-clock time was unremarkable.)
 
-**That run was still `in_progress` when this session closed**, past its stated 45-minute job
-timeout. Check its conclusion first at the next wake:
-
-```bash
-gh run view 34846052898 --repo Jp8617465-sys/asxos
-```
-
-If it finished, it likely opened a PR on a `claude/toolwatch-<date>` branch — review and land it
-per the lane's own instructions (docs-only, `docs/research/toolwatch/` only). If it hit the
-timeout, that's a separate, lower-priority finding: the lane's 45-minute budget may be too tight
-for a first-time research sweep with no prior report to diff against, or the toolwatch-ledger
-heartbeat branch competing for the `backup` concurrency group may have added a delay worth
-investigating (unlikely — different concurrency group — but unverified).
+The run did real, well-sourced work: it wrote the lane's first substantive report
+(`docs/research/toolwatch/2026-09-14.md`, 223 lines — the only prior fire was a bare `failure`
+heartbeat with nothing to diff against) and opened **#259**, which this session reviewed and
+**merged** (`8e6c52c`) — Green class, docs-only, one file, every version/CVE claim cited against
+a primary source (`gh api` against `anthropics/claude-code-action`, not a blog summary), and an
+honest self-critique of its own untested diff sketch. Its one finding worth carrying forward:
+all four agent lanes are pinned to a `claude-code-action` commit 19 CLI releases behind tip,
+missing both a Containment Escape auto-mode hardening (2.1.257) and `--permission-prompts none`
+(2.1.259, converts an unattended unanswerable-prompt hang into an explicit deny). Landing that
+bump is a separate PR — this session did not build it, since #259 itself named it as future
+work outside the lane's own docs-only constraint.
 
 **The same two silent-failure unknowns the 09-10 handoff named were never actually tested by
 this fix.** This session's dispatch proved auto mode engaged and `secrets-guard.sh` resolved
@@ -156,6 +158,10 @@ left exactly as found:
 - **`A-22` is still open, still James's** — no `schedule:` is armed on any of the three
   now-fixed lanes, since arming requires a decision about cadence, not just a working
   credential. This session only proved the credential path works.
+- **#259's ADOPT item**: all four agent lanes' pinned `claude-code-action` commit is 19 CLI
+  releases behind tip, missing a Containment Escape auto-mode hardening and
+  `--permission-prompts none` — a diff sketch is in `docs/research/toolwatch/2026-09-14.md`,
+  untested against this repo's own hooks. Landing it is a separate, not-yet-opened PR.
 
 ## Verification
 
