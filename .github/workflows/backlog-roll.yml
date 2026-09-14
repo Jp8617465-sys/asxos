@@ -38,15 +38,22 @@
 #     overlap an earlier pick and the agent builds each one off main. Stacking would need
 #     a force-with-lease onto a reviewed branch, which stays the wrong move.
 #
-# KNOWN LIMITATION — asxos/backlog.py's DENIED_FILES still encodes the retired fence, so
-# the deterministic picker below currently excludes .github/**, .claude/**, migrations/**
-# and the old protected paths: most of what arbi now owns. An over-restrictive pre-gate
-# fails safe (a thin pick-list, not a breach), but it blocks this lane from doing its job.
-# Trimming DENIED_FILES to AGENTS.md §2 is tracked in the 2026-09-10 session handoff.
+# RESOLVED 2026-09-14 (#262) — this block used to read "KNOWN LIMITATION: asxos/backlog.py's
+# DENIED_FILES still encodes the retired fence, so the picker excludes .github/**, .claude/**,
+# migrations/** and the old protected paths: most of what arbi now owns." That was true and it
+# was why this lane had nothing to build. The denied set is now re-derived from AGENTS.md §2
+# plus the two shapes a fire cannot finish (.claude/, migrations/); measured, 17 of its 30
+# entries had been naming files deleted by #254. The picker now returns E-11 and a 42-row
+# click-list. Kept as a corrected note rather than deleted, because the old text was cited
+# from three other places and a reader arriving from one of them needs to see it superseded.
 #
-# WHY NO `schedule:` YET — the old blocker (no credential scopable to `claude/**`) is
-# solved by ARBI_GITHUB_TOKEN. No cadence is armed in this PR only because that secret
-# does not exist yet; arbi arms it once James creates it.
+# WHY NO `schedule:` YET — two reasons, and the credential is no longer either of them.
+# (1) A-20: HC_BACKLOG_URL is unset, and STEP 0 below is fail-closed, so this lane cannot
+#     start at all — which is why it has 0 runs ever. That secret is James's to create.
+# (2) The arming trigger ruled on 2026-09-14 (decision-log): lanes stay workflow_dispatch-only
+#     until the backlog carries >=10 open click-list rows (met, 42) AND a week of product PRs
+#     exists to triage (not met). Earliest re-check 2026-09-21. A deadman is an alarm for a
+#     schedule that does not exist yet, so (1) is not urgent while (2) holds.
 
 name: backlog-roll
 
