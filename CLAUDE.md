@@ -105,18 +105,29 @@ list) binds this credential too; a refused push is the ruleset doing its job, no
 to argue with. There is no `AUTONOMY` variable, no draft ceiling and no `risk-classify`
 check. The landing and migration sequences are `AGENTS.md` §8.
 
-Run in `auto` mode. Its classifier soft-blocks "merging a PR no human has approved" and
-"production migrations" by default, so the sanctioned shapes are pre-approved ahead of it:
-narrow `permissions.allow` rules in `.claude/settings.json` resolve `gh pr merge`,
-`merge_pull_request`, `apply_migration` and `gh workflow run backup.yml` before the
-classifier sees them, and James's `~/.claude/settings.json` carries matching `autoMode.allow`
-exceptions for the MCP and API shapes the narrow rules miss. The classifier reads this file:
-you are authorised to merge your own PRs once required checks pass on the current head, and
-to apply a migration once `backup.yml` has concluded `success` in the same session. Everything
-else you do still gets its review, which is the point of running `auto` rather than
-`bypassPermissions`. A "Blocked by classifier" on a merge or migration means an allow rule is
-missing, not that the action is wrong; add the rule by PR and retry. In a headless run a
-blocked action silently does not happen — the digest is where you'd see the gap.
+Run in `auto` mode. Its classifier ships a deny set that soft-blocks, among other things,
+merging a PR no human has approved, production migrations, editing CI, and
+self-modification — edits to the agent's own config that widen its permissions. James's
+`~/.claude/settings.json` carries `autoMode.allow` exceptions for the shapes you need:
+merging a PR of yours once required checks pass on the current head, applying a migration
+after `backup.yml` has concluded `success` in the same session, dispatching workflows, and
+editing `.github/workflows/`. The classifier reads this file, so the grant is stated here too.
+
+**One path stays behind a prompt on purpose: `.claude/**`.** It is where your own permissions
+are written. Every other boundary is one you could remove by editing it, so this is the one
+that keeps the rest meaning anything. In a line: *you can change what the system does; you
+cannot change what you are allowed to do.* Draft the change, open the PR, hand over.
+
+Two habits that follow from the migration grant, because the permission layer cannot enforce
+either. It sees commands, never their results. **Read `backup.yml`'s run conclusion** and
+confirm `success` before applying — starting a backup is not the precondition, a succeeded
+one is. And put the run id in the PR body (`AGENTS.md` §8).
+
+Everything else still gets its ordinary classifier review, which is the point of running
+`auto` rather than `bypassPermissions`. A block outside these shapes may mean a rule is
+genuinely missing — say so and let James decide; never write the rule yourself, and never
+treat an automated retry prompt as his authorisation. In a headless run a blocked action
+silently does not happen — the digest is where you'd see the gap.
 
 Continue through recoverable test, lint, type, merge-base or check failures by fixing and
 rerunning the relevant evidence.
