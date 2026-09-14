@@ -38,3 +38,4 @@ about a feature this repo will never use is not a finding.
 | Date (UTC) | Fire | Capability | Repo surface affected | Disposition | PR / reason |
 |---|---|---|---|---|---|
 | 2026-09-02 | seed | — | — | heartbeat | Log initialized with the lane (Amendment H). No fire has run yet. |
+| 2026-09-14 | 1 | — | — | heartbeat | run 34845475450 (failure) |
