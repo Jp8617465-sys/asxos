@@ -121,6 +121,77 @@ def _candidate() -> CandidateSnapshot:
     )
 
 
+async def test_unmeasured_cash_is_declared_in_the_packet_and_blocks_an_action_state() -> None:
+    """#228, at the level that actually matters: the built case, not the rule.
+
+    `builder.py`'s own comment calls the `missing_or_uncertain_inputs` append "what stops
+    an unmeasured book producing a recommendation" -- and a security-engineer review
+    (2026-09-14) found that line was the one thing in the change with no test reaching it.
+    Both new builder branches are exercised here:
+
+    - the `missing` append, whose entry `types.py` then uses to forbid any action state;
+    - the portfolio-state evidence claim, which must read "cash not measured" rather
+      than rendering `cash None%`.
+    """
+    # A distinct evidence_id, because the portfolio-state item is only appended when its id
+    # is not already among the evidence (`builder.py`'s dedupe guard, added by the
+    # 2026-09-07 live run). Reusing "cba-thesis-narrative" silently skips the branch --
+    # which is how the first draft of this test passed while covering nothing.
+    conn = _Conn(thesis_row=_thesis_row(), close=Decimal("159.15"), close_dt=AS_OF)
+    context = _context(
+        portfolio_state=PortfolioState(
+            capital_aud=Decimal("500000"), cash_pct=None, gross_exposure_pct=Decimal("80"),
+            borrowing_aud=Decimal("0"), sector_weights_pct={"Financials": Decimal("22")},
+            position_weights_pct={}, evidence_id="portfolio-state-2026-09-01",
+        )
+    )
+    case = await builder.build_cba_decision_case(
+        conn, cutoff=CUTOFF, candidate=_candidate(), context=context
+    )
+
+    missing = case.decision.missing_or_uncertain_inputs
+    assert any("Authoritative cash balance" in m for m in missing), missing
+    assert case.decision.recommendation_state in {"watch", "abstain"}
+    assert case.decision.size_range.maximum_pct == 0
+
+    claim = next(
+        i.claim for i in case.evidence.items if i.evidence_id == "portfolio-state-2026-09-01"
+    )
+    assert "cash not measured" in claim
+    assert "None" not in claim
+
+
+async def test_unmeasured_cash_stops_claiming_a_clean_register_sweep() -> None:
+    """The outcome flip this change causes, pinned so it cannot happen silently.
+
+    With cash read from the placeholder, `cash_floor` fired and the challenge came back
+    `abstain` with a blocking finding. With cash unmeasured it comes back `pass` -- which
+    is correct (nothing failed) but would read as a clean bill of health if the bear case
+    still said "No ratified-register rule fails pro-forma" and left it there.
+
+    `cash_floor` is the first register rule that can be skipped at all, so the headline
+    now distinguishes "nothing failed" from "everything was checked".
+    """
+    # Close inside the thesis's 42-45 entry band, so `price_detached` does NOT fire and the
+    # headline reaches its "no register rule fails" branch -- which is the branch under test.
+    conn = _Conn(thesis_row=_thesis_row(), close=Decimal("43.50"), close_dt=AS_OF)
+    context = _context(
+        portfolio_state=PortfolioState(
+            capital_aud=Decimal("500000"), cash_pct=None, gross_exposure_pct=Decimal("80"),
+            borrowing_aud=Decimal("0"), sector_weights_pct={"Financials": Decimal("22")},
+            position_weights_pct={}, evidence_id="portfolio-state-2026-09-01",
+        )
+    )
+    case = await builder.build_cba_decision_case(
+        conn, cutoff=CUTOFF, candidate=_candidate(), context=context
+    )
+    bear = case.challenge.strongest_bear_case
+    assert "the sweep is incomplete, not clean" in bear
+    assert "cash_floor" in bear
+    # The old unqualified headline must not survive alongside the qualification.
+    assert "diagnostic." not in bear.split("pro-forma")[1][:60]
+
+
 async def test_live_cba_thesis_1_stays_abstain_with_price_detached_blocking() -> None:
     conn = _Conn(thesis_row=_thesis_row(), close=Decimal("159.15"), close_dt=AS_OF)
     case = await builder.build_cba_decision_case(conn, cutoff=CUTOFF, candidate=_candidate(), context=_context())

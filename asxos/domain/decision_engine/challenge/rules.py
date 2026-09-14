@@ -84,6 +84,13 @@ RULE_NAMES: Final[tuple[RuleName, ...]] = (
     "data_integrity", "data_staleness", "correlation", "valuation_percentile", "implied_growth",
     "invalidation_field", "liquidity", "thesis_age", "liquidity_trend", "price_detached",
 )
+# The ratified register (D1/D2/D8 and the profile caps) -- the first five above. These are
+# the mandate rules: a blocking finding from one of them means the proposal cannot stand as
+# sized, which is what `strongest_bear_case`'s headline sentence is about. The rest are
+# data-integrity and diagnostic rules. Named as a set because, since #228, `cash_floor` can
+# be skipped, so "no register rule fails" is no longer the same claim as "every register
+# rule ran" -- and the headline has to distinguish them.
+REGISTER_RULES: Final[frozenset[RuleName]] = frozenset(RULE_NAMES[:5])
 
 
 def _q(value: Decimal) -> Decimal:
@@ -254,8 +261,20 @@ def rule_cash_floor(x: ChallengeInput) -> RuleOutcome:
     post = x.post_trade_cash_pct
     if post is None:
         # #228: no authoritative cash source exists for the live book. A rule that
-        # cannot see its input says so; it does not rule on a placeholder. Same shape
-        # as rule_correlation / rule_liquidity / rule_valuation_percentile below.
+        # cannot see its input says so; it does not rule on a placeholder.
+        #
+        # NOTE THE DIVERGENCE, because it is deliberate and a future reader must not
+        # generalise from it. The nearest precedent is NOT the diagnostics
+        # (rule_correlation / rule_liquidity / rule_valuation_percentile, whose inputs
+        # are grouped under "diagnostics (None = not measured)" above) -- it is
+        # rule_sector_cap below, the other RATIFIED-REGISTER rule facing an
+        # unmeasurable input, and that one returns a BLOCKING finding.
+        #
+        # Blocking is right there and wrong here: a missing GICS sector is a defect in
+        # the proposal, which the proposer can fix before re-challenging. A missing cash
+        # ledger is a gap in the system, which no proposer can fix -- blocking on it
+        # would refuse every live proposal forever, which is exactly the false block of
+        # 2026-09-07 in a new costume. Do not carry this shape to D2 or D8.
         return RuleOutcome(rule="cash_floor", evaluated=False, detail="cash balance not measured")
     if post < CASH_FLOOR_PCT:
         return RuleOutcome(rule="cash_floor", evaluated=True, detail="breach", finding=_finding(

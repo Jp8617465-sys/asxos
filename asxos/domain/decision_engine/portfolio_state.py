@@ -69,8 +69,13 @@ _Q6: Final = Decimal("0.000001")
 _HUNDRED: Final = Decimal("100")
 NEGATIVE_CONTROLS: Final[frozenset[str]] = frozenset({"CBA.AU", "HUBS.NYSE", "HUBS.US", "ESS.AU"})
 
+# `cash_aud` is deliberately NOT selected (#228): it holds
+# `profile.cash_floor_pct * profile.capital_aud`, not a balance. Leaving it in the
+# projection would put the placeholder one assignment away from being re-wired without
+# a reviewer noticing. `capital_aud` is still read, and still carries that term in its
+# own sum -- removing it needs a migration (see the module docstring).
 SQL_SNAPSHOT: Final[str] = (
-    "SELECT as_of, capital_aud, holdings_mv_aud, cash_aud, ingested_at "
+    "SELECT as_of, capital_aud, holdings_mv_aud, ingested_at "
     "FROM portfolio_daily_snapshots ORDER BY as_of DESC LIMIT 1"
 )
 SQL_HOLDINGS: Final[str] = (
