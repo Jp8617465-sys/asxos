@@ -1,6 +1,6 @@
 ---
 name: reversible-work-window
-description: Pre-allow the reversible edit/test/commit loop for asxos work on claude/** or cursor/** branches so it runs without per-command prompts. Pushes, PR creation, merges, migrations and Supabase writes stay outside the allowlist and prompt as usual; arbi's authority over them is AGENTS.md §2/§8, not this skill. Use for mission build nodes.
+description: Run asxos reversible dev work under arbi/Guilfoyle — code/docs/test work on claude/** or cursor/** branches that may open draft PRs but cannot merge, deploy, migrate, mutate production DB/Render, read secrets, or execute capital actions. Use for long autonomy windows (the /goal recipes) and mission build nodes.
 disable-model-invocation: true
 allowed-tools:
   - Read
@@ -84,12 +84,6 @@ without the operator accepting the residual** — the runbook states it.
   `docs/product/memory/working/2026-07-14-pr-transaction-discipline.md`): chain
   commit+push+PR-verify; verify PR state after any force-push/rebase; reopen+report on
   head==base auto-close; never smooth over a slip; continue only on verified-safe state.
-- A ready PR is the durable stopping point (`AGENTS.md` §8 opens PRs ready, not draft).
-  Landing it is arbi's, outside this skill's allowlist: the push and the merge prompt,
-  and are taken per §8 once required checks pass on the current head.
-- **Stale references (2026-09-14, not rewritten here):** `authority-guard.sh`, `push-guard.sh`,
-  `pr-draft-guard.sh`, `unattended-guard.sh`, `docs/product/arbi-permission-model.md`,
-  `arbi-goal-recipes.md` and the I0–I6 ladder were deleted or withdrawn by Amendment N
-  (`docs/product/roadmap-state.md`, 2026-09-10). Retiring or rewriting this skill is a
-  separate call; this edit only removes the draft-only instruction that contradicts §8.
+- Draft PR is the durable stopping point. Never mark ready-for-review or merge inside a
+  window unless James instructed it.
 - The runbook for launching a window: `docs/product/runbooks/reversible-work-window.md`.
