@@ -13,7 +13,7 @@
       "Merging a pull request in Jp8617465-sys/asxos with squash once required checks have passed on its current head, including a pull request the agent opened itself. The owner has delegated merge authority to the agent in AGENTS.md.",
       "Applying a migration to the asxos Supabase project after the backup.yml workflow has concluded success in the same session.",
       "Dispatching GitHub Actions workflows in Jp8617465-sys/asxos, including backup.yml.",
-      "Editing files under .claude/ and .github/workflows/ in Jp8617465-sys/asxos as part of the requested task."
+      "Editing files under .github/workflows/ in Jp8617465-sys/asxos as part of the requested task. .claude/ is deliberately excluded: it is where the agent's own permissions are written (AGENTS.md section 8), so a lane drafts those changes and James merges them."
     ]
   }
 }

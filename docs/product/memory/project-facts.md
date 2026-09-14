@@ -67,9 +67,14 @@ Each line names the probe that produced it. Re-probe before trusting a date-stam
   (`https://mcp.supabase.com/mcp?project_ref=gxjqezqndltaelmyctnl`, OAuth, `--scope user`),
   alongside `supabase-ro`. Convention: reads through `supabase-ro`; the writable server only
   when the task needs a write. Verified against head `20260903025557` on 2026-09-14.
-- **Drift:** `.github/runner/claude-user-settings.json:16` still grants "Editing files under
-  `.claude/` and `.github/workflows/`" to the headless lanes — written in #254, missed by #256,
-  which reserved `.claude/**`. `.github/**` is arbi's; first item on the next wake.
+- **The headless lanes may edit `.github/workflows/`, never `.claude/`.**
+  `.github/runner/claude-user-settings.json` is the user-level settings file every lane copies
+  to `~/.claude/settings.json`, so its `autoMode.allow` list is the lanes' real permission
+  surface. It granted both paths — written in #254, missed by #256's `.claude/**` reservation —
+  and was corrected on 2026-09-14 to name `.github/workflows/` alone. Pinned by
+  `tests/test_claude_execute_harness.py::test_runner_settings_do_not_pre_approve_claude_dir_edits`,
+  which fails against the pre-fix file. A grant here is self-modification with no human in the
+  loop, which is the one thing `AGENTS.md` §8 reserves.
 
 Update this file when a durable convention is added or moved, or when a fact like the two
 above would otherwise be lost with the mechanism that encoded it.
