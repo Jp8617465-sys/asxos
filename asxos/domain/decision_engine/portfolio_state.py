@@ -20,6 +20,26 @@ non-zero `SizeRange` must additionally honour `ASXOS_PORTFOLIO_BRIEF_ENABLED`
 0%, so `borrowing_aud` is reported as 0 with that reason recorded here —
 it is an asserted invariant of the system, not a measurement.
 
+**Cash (#228).** asxos has no authoritative cash source either, and the two
+cases are NOT treated alike. `borrowing_aud = 0` is assertable because a
+borrowing facility cannot come into existence without a deliberate act this
+system would see. Cash moves on every dividend, fee and fill, so no value for
+it is assertable — the only honest report is that it has not been measured, and
+`cash_pct` is therefore `None` rather than a number. What used to be read here,
+`portfolio_daily_snapshots.cash_aud`, is written by the snapshot job as
+`profile.cash_floor_pct * profile.capital_aud`: a risk-policy setting times a
+configured baseline, which that job's own docstring calls a placeholder awaiting
+a real cash ledger. On 2026-09-07 it produced a BLOCKING `cash_floor` finding
+("Post-trade cash 0.000000% is below the D1 floor of 7.5%") against the live
+book that was policy arithmetic, not an observation.
+
+`capital_aud` is still read from the snapshot and is still
+`holdings_mv_aud + cash_aud`, so while the placeholder remains in the column
+every weight here carries it in the denominator. With the live profile's
+`cash_floor_pct = 0.0000` that term is 0 and the weights are exact; it stops
+being exact the moment the floor is set non-zero. Removing the placeholder from
+the column needs a migration and is the follow-up to this change.
+
 Positive-control selection (arbi decision D-5, Stage 4): the top
 `CandidateSnapshot` by quality among ordinary ASX equities, excluding the
 negative-control names (HUBS, CBA, ESS). With one governed theme member
@@ -160,7 +180,6 @@ async def load_portfolio_state(conn: StateConn, as_of: date) -> PortfolioState:
         label="held-symbol sectors",
     )
     capital = _dec(snap["capital_aud"])
-    cash = _dec(snap["cash_aud"])
     if capital <= 0:
         raise RuntimeError("snapshot capital_aud must be positive")
     fx_row = await conn.fetchrow(SQL_FX, as_of)
@@ -187,7 +206,12 @@ async def load_portfolio_state(conn: StateConn, as_of: date) -> PortfolioState:
         sector_weights[sector] = _q(sector_weights.get(sector, Decimal("0")) + weight)
     return PortfolioState(
         capital_aud=_q(capital),
-        cash_pct=_q(cash / capital * _HUNDRED),
+        # #228: the snapshot's cash_aud is profile.cash_floor_pct x profile.capital_aud
+        # (jobs/snapshot_portfolio.py), which the job's own docstring calls a placeholder
+        # for a real cash ledger. It is a risk-policy setting, not an account balance, so
+        # it is NOT read here. Reported as unmeasured until an authoritative cash source
+        # exists; see the module docstring and PortfolioState.cash_pct.
+        cash_pct=None,
         gross_exposure_pct=_q(gross),
         borrowing_aud=Decimal("0"),  # no borrowing ledger exists; D2 pins LVR at 0 — asserted, see module docstring
         sector_weights_pct=sector_weights,

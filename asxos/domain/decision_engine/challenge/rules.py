@@ -92,10 +92,30 @@ def _q(value: Decimal) -> Decimal:
 
 class PortfolioState(Contract):
     """Pre-trade book state, in percent of capital. Every figure is what the
-    caller measured; nothing is inferred here."""
+    caller measured; nothing is inferred here.
+
+    ``cash_pct`` is ``Decimal | None`` and is REQUIRED — no default. ``None`` means
+    "nobody measured this", and it is not interchangeable with ``Decimal("0")``, which
+    means "measured, and the book holds no cash". The field has no default precisely so
+    that every construction site has to state which of the two it means; a default would
+    let "unmeasured" be inherited by accident rather than asserted.
+
+    Why it can be ``None`` at all (#228): the live book has no authoritative cash source.
+    ``portfolio_daily_snapshots.cash_aud`` is written as ``profile.cash_floor_pct *
+    profile.capital_aud`` (``jobs/snapshot_portfolio.py``) — a risk-policy constant times
+    a configured baseline, which the job's own docstring calls a placeholder. Reading it
+    as an account balance produced a BLOCKING ``cash_floor`` finding on the first live
+    CBA challenge (2026-09-07) that was policy arithmetic wearing a measurement's
+    clothes. The paper book, by contrast, has real measured cash
+    (``paper_book.py``) and passes a ``Decimal``.
+
+    ``borrowing_aud`` is the opposite case and the contrast is the point: no borrowing
+    facility exists and one cannot come into being without a deliberate act, so 0 is an
+    ASSERTED INVARIANT. Cash changes with every dividend, fee and fill, so the only
+    honest assertion about it is that it has not been measured."""
 
     capital_aud: Decimal = Field(gt=Decimal("0"), max_digits=18, decimal_places=6)
-    cash_pct: Decimal = Field(ge=Decimal("0"), le=Decimal("100"), max_digits=18, decimal_places=6)
+    cash_pct: Decimal | None = Field(ge=Decimal("0"), le=Decimal("100"), max_digits=18, decimal_places=6)
     gross_exposure_pct: Decimal = Field(ge=Decimal("0"), max_digits=18, decimal_places=6)
     borrowing_aud: Decimal = Field(ge=Decimal("0"), max_digits=18, decimal_places=6)
     sector_weights_pct: dict[str, Decimal] = Field(default_factory=dict)
@@ -167,7 +187,11 @@ class ChallengeInput(Contract):
         return _q(self.portfolio.capital_aud * self.proposed_weight_pct / Decimal("100"))
 
     @property
-    def post_trade_cash_pct(self) -> Decimal:
+    def post_trade_cash_pct(self) -> Decimal | None:
+        """``None`` when pre-trade cash is unmeasured — subtracting a weight from an
+        unknown gives an unknown, not a zero."""
+        if self.portfolio.cash_pct is None:
+            return None
         return _q(self.portfolio.cash_pct - self.proposed_weight_pct)
 
     @property
@@ -227,14 +251,20 @@ def rule_derivatives_or_shorting(x: ChallengeInput) -> RuleOutcome:
 
 
 def rule_cash_floor(x: ChallengeInput) -> RuleOutcome:
-    if x.post_trade_cash_pct < CASH_FLOOR_PCT:
+    post = x.post_trade_cash_pct
+    if post is None:
+        # #228: no authoritative cash source exists for the live book. A rule that
+        # cannot see its input says so; it does not rule on a placeholder. Same shape
+        # as rule_correlation / rule_liquidity / rule_valuation_percentile below.
+        return RuleOutcome(rule="cash_floor", evaluated=False, detail="cash balance not measured")
+    if post < CASH_FLOOR_PCT:
         return RuleOutcome(rule="cash_floor", evaluated=True, detail="breach", finding=_finding(
             "blocking",
-            f"Post-trade cash {x.post_trade_cash_pct}% is below the D1 floor of {CASH_FLOOR_PCT}%.",
+            f"Post-trade cash {post}% is below the D1 floor of {CASH_FLOOR_PCT}%.",
             f"Reduce the proposed size so post-trade cash is at least {CASH_FLOOR_PCT}% of capital.",
             x._ids(x.portfolio.evidence_id),
         ))
-    return RuleOutcome(rule="cash_floor", evaluated=True, detail=f"post-trade cash {x.post_trade_cash_pct}%")
+    return RuleOutcome(rule="cash_floor", evaluated=True, detail=f"post-trade cash {post}%")
 
 
 def rule_sector_cap(x: ChallengeInput) -> RuleOutcome:
