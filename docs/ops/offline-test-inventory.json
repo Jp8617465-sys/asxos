@@ -6,9 +6,9 @@
       "network-client-import": 6,
       "network-marked": 2,
       "network-marked-without-env-gate": 1,
-      "subprocess-spawns-process": 9
+      "subprocess-spawns-process": 8
     },
-    "flagged_module_count": 14,
+    "flagged_module_count": 13,
     "network_marked_modules": [
       "tests/test_network_guard.py",
       "tests/test_price_revision_migration_integration.py"
@@ -20,7 +20,6 @@
       "tests/test_backup_script.py",
       "tests/test_claude_execute_harness.py",
       "tests/test_cursor_i56_hooks.py",
-      "tests/test_issue_snapshot.py",
       "tests/test_network_guard.py",
       "tests/test_nightly_triage_shell.py",
       "tests/test_results_review_import_isolation.py",
@@ -98,20 +97,6 @@
       "path": "tests/test_ingestion.py",
       "spawned_commands": [],
       "spawns_subprocess": false
-    },
-    {
-      "egress_client_imports": [],
-      "findings": [
-        "subprocess-spawns-process"
-      ],
-      "network_marked": false,
-      "network_marked_tests": [],
-      "opt_in_env_vars": [],
-      "path": "tests/test_issue_snapshot.py",
-      "spawned_commands": [
-        "bash"
-      ],
-      "spawns_subprocess": true
     },
     {
       "egress_client_imports": [

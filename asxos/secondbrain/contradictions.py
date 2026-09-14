@@ -149,7 +149,6 @@ _MONOTONIC_COUNTERS: Final[tuple[tuple[str, str], ...]] = (("data.migrations", "
 SCHEDULED_LANES: Final[tuple[str, ...]] = (
     "backup",
     "daily-brief",
-    "issue-snapshot",
     "migration-drift",
     "nightly-check",
     "pipeline-health",
