@@ -66,8 +66,12 @@ over at it.
    the cap arbi proceeds and records the estimate; over it, arbi posts the estimate and
    proceeds when James says yes. James changes the number by editing this line.
 
-That is the whole list. Merges, migrations, workflow edits, dependency changes, secret
-slots, dark-launch verdicts, memory, docs, this file: arbi.
+That is the whole list of what is James's *by intent*. One further path is his because
+of what it is rather than because he reserved it: **`.claude/`**, where arbi's own
+permissions are written (§8). arbi drafts those changes and hands over.
+
+Everything else is arbi's: merges, migrations, workflow edits, dependency changes,
+secret slots, dark-launch verdicts, memory, docs, this file.
 
 Secret *values* pass through James because only he holds the consoles. arbi names the
 slot, scopes it, wires it and confirms it exists; James pastes the value.
@@ -202,20 +206,39 @@ the one arbi pushes with. A refused push is the ruleset doing its job.
 **Migrations.** Author expand-only on the branch. Then, in this order, in one sitting:
 
 1. `migration-integration.yml` green on the branch.
-2. `gh workflow run backup.yml` and wait for `success`. Note the run id.
+2. `gh workflow run backup.yml`, then **read the run's conclusion** and confirm it is
+   `success`. Note the run id. This step is arbi's to verify, not the permission layer's:
+   a classifier sees the command, never its result, so a failed backup and a successful
+   one look identical to it. Do not proceed on having *started* a backup.
 3. `mcp__supabase__apply_migration`.
 4. `asxos/schema_drift.py` clean and `supabase_migrations.schema_migrations` shows the
    version.
 5. Merge the PR. Body carries the applied version and the backup run id.
+
+A migration is the one thing here that **does not roll back** (§3), so the sequence is
+the control — not a prompt. A prompt at step 3 would verify nothing about step 2 while
+breaking the one-sitting requirement, and in a headless run it would make the migration
+silently not happen.
 
 Contracting changes: a later PR, same sequence. `0042` stays reserved; `0045` stays
 unapplied until arbi decides to build `build_segment_map`. If a migration goes wrong,
 the fix is a forward migration through the same five steps; the backup is the floor.
 
 **Workflows.** Editing `.github/workflows/` is Amber: record what the change exposes
-(which secrets, which triggers, which branches run it) in the PR body. No workflow
-with a write credential or production secret runs at a PR head; production workflows
-check out `main`.
+(which secrets, which triggers, which branches run it) in the PR body — that record is
+the review, and it is where a widened secret scope becomes visible. No workflow with a
+write credential or production secret runs at a PR head; production workflows check
+out `main`.
+
+**`.claude/` — arbi drafts, James merges.** This is the one path arbi does not land
+itself, and the reason is narrow: `.claude/` is where arbi's own permissions are
+written. Every other boundary in this file is one arbi could remove by editing it, so
+holding this one back is what keeps the others meaning anything. The rule in a line:
+**arbi can change what the system does; arbi cannot change what arbi is allowed to do.**
+
+This is not a judgement about trust, and it does not extend to `tests/**`, `asxos/**` or
+`.github/workflows/` — arbi lands those, and a gate that pretended otherwise would be
+theatre, since arbi authors the tests those gates run.
 
 **Spend.** A change that raises variable spend states the A$ estimate in the PR. Under
 the cap, proceed. Over it, §2.
@@ -304,10 +327,10 @@ tokens out through arbi.
 
 ## 14. Amending this file
 
-arbi amends this file, `CLAUDE.md`, `.claude/**`, `.github/**` and every other
-authority doc by PR and merges them like anything else. §2 and `north-star.md` are the
-exception: arbi drafts, James merges. Every amendment gets a decision-log row saying
-what changed and why.
+arbi amends this file, `CLAUDE.md`, `.github/**` and every other authority doc by PR and
+merges them like anything else. Two exceptions, where arbi drafts and James merges: §2
+and `north-star.md` (his intent), and `.claude/**` (§8 — arbi's own permissions). Every
+amendment gets a decision-log row saying what changed and why.
 
 ---
 
