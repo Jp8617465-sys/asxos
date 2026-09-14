@@ -114,7 +114,7 @@ jobs:
       # ref resolves to tag object 8569a83, and the commit below is that tag
       # dereferenced. Pinning the tag object instead would not resolve.
       # Dependabot (.github/dependabot.yml) owns keeping this current.
-      - uses: anthropics/claude-code-action@56cf60fde42f7b19c3abfd5c9c48b69a1288461f  # v1
+      - uses: anthropics/claude-code-action@9cdae7f0d995e3ba7c33f226087fdf82a59cd520  # v1.0.223, bundles Claude Code 2.1.270
         env:
           GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -170,4 +170,10 @@ jobs:
           claude_args: |
             --max-turns ${{ inputs.max_turns }}
             --permission-mode auto
+            # Unattended host: nobody can answer a permission prompt, so anything
+            # that would prompt is denied outright instead of retried against the
+            # turn budget. Auto mode still decides everything else, and a
+            # PreToolUse hook deny (secrets-guard.sh) is upstream of this and
+            # unaffected -- verified by an A/B headless probe, 2026-09-14.
+            --permission-prompts none
             --mcp-config .github/runner/mcp.json
