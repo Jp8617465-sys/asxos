@@ -1,10 +1,25 @@
 # Runbook — launching a reversible work window
 
-**Status:** current (autonomy unlock pack, 2026-07-14)
-**Scope:** operator steps for James to launch, bound, and audit a long reversible-dev window
-**Last verified:** 2026-07-14
+**Status:** current
+**Scope:** operator steps for James to launch, bound, and audit a long working window
+**Last verified:** 2026-09-14 (rewritten alongside the skill; the 2026-07-14 version
+described the I0–I6 ladder, the four-guard fence and a draft-PR stopping point, none of
+which exist after the chief-of-staff rollout #254)
 **Owner:** James (operator); the recipes are `docs/product/arbi-goal-recipes.md`
 **Superseded by:** N/A
+
+## What changed, and why this file was wrong
+
+The 2026-07-14 version told you the window "merged nothing" and that your job afterwards was
+to pick a merge order. Under `AGENTS.md` that is no longer true, and reading it as true would
+have you waiting for PRs that arbi has already landed. `AGENTS.md` §8 gives arbi the whole
+sequence — branch, `make check`, **ready** PR, wait for required checks, squash-merge — and
+§0 says there is "no draft-PR ceiling". Your review is after the fact, on a reversible
+change (§7).
+
+The four guard hooks this runbook leaned on (`authority-guard.sh`, `push-guard.sh`,
+`pr-draft-guard.sh`, `unattended-guard.sh`) and the `ARBI_UNATTENDED` variable are gone.
+So is "PR-2 (Permission Friction Pack)", which step 4 waited on.
 
 ## Before launching
 
@@ -12,19 +27,17 @@
    branches off `main` (`arbi-goal-recipes.md` rule: fresh branches per mission).
 2. **Pick the recipe** — R1 (12-hour, 3–5 PRs) or R2 (8-hour, ≤3 PRs) from
    `arbi-goal-recipes.md`. Do not free-hand the boundaries; the recipe *is* the envelope.
-3. **Know what will still prompt** — the `reversible-work-window` skill
-   (`.claude/skills/reversible-work-window/SKILL.md`) pre-allows the reversible loop
-   (edit/test/commit/push-to-`claude/**`/draft-PR). Anything else — bare `git push`, any
-   `mcp__supabase__*` write, Render, merges — still asks or is denied. That is by design;
-   deny-first is the floor.
-4. **Accept the documented residual (red-team 2026-07-14):** the window skill's `Edit`/`Write`
-   are unscoped and its pre-allowed test runners execute whatever the tree contains — an
-   edited `conftest.py`/`Makefile` is an arbitrary-code path, and Write can reach `.claude/**`.
-   Attended you see the edits; unmonitored, this residual is open until **PR-2 (Permission
-   Friction Pack)** lands the mechanical guards (settings `deny` for authority paths;
-   attended authority-path check in the guard hook). Launching a long unmonitored window
-   before PR-2 means accepting that residual explicitly — it is listed in the skill's
-   "Known limitation" section.
+3. **Know what will still stop** — the `reversible-work-window` skill pre-allows the §8
+   landing loop. What it does not reach: `AGENTS.md` §2 (capital, the personal-use
+   invariant and `north-star.md`, spend over the A$50/day cap), `.claude/` (arbi's own
+   permissions — drafted, never self-landed), and applying a migration.
+4. **Accept the documented residual (red-team 2026-07-14, still open):** the skill's
+   `Edit`/`Write` are unscoped and its pre-allowed test runners execute whatever the tree
+   contains, so an edited `conftest.py` or `Makefile` is an arbitrary-code path that does
+   not pass through the Bash allowlist. The mitigation is no longer a hook — it is the
+   `main` ruleset (PR required, `full-check` on the current head, no force push, empty
+   bypass list) plus `full-check` itself. Nothing reaches `main` except through a PR with
+   green required checks.
 5. **Optional (teams):** if the window may run an `/arbi-team` mission, set the **local/user**
    env `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (see `runbooks/agent-team-mission.md`).
    Never commit this to repo config.
@@ -36,22 +49,26 @@
 
 ## During (what the window may and may not do)
 
-- May: arbi wake → red-team → Guilfoyle-led missions → builders on `claude/**` branches →
-  draft PRs. Reversible calls are made without asking (L-cand-2, `memory/working/2026-07-12-scope-reversible-without-asking.md`); JAMES_NEEDED items are
-  logged and pivoted past, not ground against.
-- May not (hard floor): merge/deploy/`main` push · DB write/migration · Render mutation ·
-  secrets · capital/broker anything · authority-file change as active truth · leaving a
-  ready artifact branch-only (L-cand-3, same memory file: the draft PR is the durable stopping point).
-- Binding conduct: the **PR transaction discipline** block (L-cand-4/5) for every branch
-  touch.
+- **May:** arbi wake → red-team → Guilfoyle-led missions → builders on `claude/**` branches →
+  ready PRs → squash-merge on green. Reversible calls are made without asking and recorded as
+  `DECISION / TAKING / REVERSAL` rows (L-cand-2,
+  `memory/working/2026-07-12-scope-reversible-without-asking.md`; `AGENTS.md` §7).
+- **May not (hard floor):** capital or broker anything · a change to the personal-use
+  invariant or `north-star.md` · spend over the cap · a `.claude/` change landed rather than
+  drafted · applying a migration from inside an unmonitored window · leaving a finished
+  artifact branch-only.
+- **Binding conduct:** the **PR transaction discipline** block (L-cand-4/5) for every branch
+  touch, and every PR classed in its body (`AGENTS.md` §6).
 
 ## After — the audit trail (10 minutes)
 
-7. Read the **morning report**: decisions needed · completed PRs · skipped/deferred · risks
-   found · recommended merge order.
-8. Verify the ledger row exists (`docs/product/arbi-run-ledger.md`) and matches the report.
-9. Spot-check one PR: diff ⊆ its stated scope, CI green, review-loop claims plausible,
-   PR is a **draft**.
-10. Merge order is yours — nothing in the window merged anything. Any slip must appear in the
-   report and the ledger (a smoothed-over slip is a circuit-breaker matter, not a style
-   issue).
+7. Read the **digest** (`AGENTS.md` §12): merged · applied · decided · yours · risks ·
+   incidents. It is one screen and it is the report.
+8. Check `docs/product/decision-log.md` for the `DECISION / TAKING / REVERSAL` rows and the
+   ONE THING → outcome pair.
+9. Spot-check one merged PR: diff ⊆ its stated scope, required checks green on the head that
+   merged, class and reversal cost stated.
+10. **Reverse anything you disagree with** — that is the review, and it is why every class is
+    written down. A Green PR is one `git revert` away. An Amber one names its reversal cost
+    in the body. A migration does not roll back (§3): it is undone only by a forward
+    migration, so those are the rows to read first.
