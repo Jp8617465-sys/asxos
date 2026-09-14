@@ -1,6 +1,6 @@
 # Session handoff — 2026-09-10 (governor directive, no `/arbi` wake)
 
-**Status:** current
+**Status:** superseded by `session-handoff-2026-09-14.md` (its residue list is still live; read both)
 **Read priority:** read first
 
 **Session shape:** James uploaded a five-file directive and said to implement it "completely

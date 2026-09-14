@@ -892,6 +892,30 @@ promotion gate that silently graded "evals: not run" is not.
 
 ---
 
+## L46 — A one-line FYI is not a wake; re-rank before you plan a PR (2026-09-14)
+James said "Supabase is now Pro, FYI" and I drafted a PR around it — four doc-line fixes and
+a spend-cap recommendation — while the 09-10 handoff's *blocking* residue and a live §7
+incident sat untouched, and while James had set the session to read-only. `arbi-red-team`
+(on Fable) called it: recency overfit, cleanup dressed as progress, and relitigating a §2
+number he had already declined to set. **Lesson:** the last thing said is input to the
+ranking, not a substitute for it. Before any PR that did not come from the queue, read
+`roadmap-state.md`'s ranked block and the newest handoff's residue list; if the item is not
+there, it goes there — not into a branch. And a plan that came from the last chat line is
+exactly the plan to red-team first; it cost one agent run and saved a James-blocking PR.
+Source: `decision-log.md` 2026-09-14 row 2; `AGENTS.md` §7 "Incidents before features".
+
+## L47 — Source per claim, not per paragraph (2026-09-14)
+Having been caught fabricating once this session (`decision-log.md` 2026-09-14 row 1), I then
+quoted three specifics from the bundled `claude-api` skill and one from my head — in the
+same sentence, at the same confidence. The skill-sourced ones held on re-check
+(`shared/models.md:73,76`); the head-sourced one ("`claude-opus-5[1m]` silently falls
+back") did not survive and was withdrawn. The red team correctly treated all four as
+suspect because it could not tell them apart, and neither could James. **Lesson:** every
+specific carries its own source or its own hedge. A sourced claim next to an unsourced one
+lends the unsourced one credibility it has not earned — that is how a fabrication hides.
+`AGENTS.md` §7 "Honest sample" applies to sentences, not just briefs.
+Source: `decision-log.md` 2026-09-14 row 2.
+
 ## Authority pointers (folded in from the retired `authority-lessons.md`, 2026-09-10)
 
 This section replaces the old separate pointer index. It holds **no original content** — it
