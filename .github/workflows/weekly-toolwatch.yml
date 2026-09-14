@@ -57,7 +57,7 @@ jobs:
           cp .github/runner/claude-user-settings.json ~/.claude/settings.json
 
       - name: Toolwatch research
-        uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10  # v1
+        uses: anthropics/claude-code-action@56cf60fde42f7b19c3abfd5c9c48b69a1288461f  # v1
         env:
           GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
