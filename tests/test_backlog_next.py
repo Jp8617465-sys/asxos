@@ -4,11 +4,13 @@ Two layers, both pinned:
 
 1. Selection logic on a small fixture: ranking, dependency gating, the derived
    denied-path eligibility, overlap skipping, the click-list, and the exit codes.
-2. Drift against the real guards — **removed 2026-09-10** with the guard hooks it parsed.
-   See the note where the class used to be, at the bottom of this file.
+2. Drift against the real boundary. The 2026-09-10 version parsed the guard hooks and
+   went with them; the replacement at the bottom of this file PINS the denied set
+   member-for-member against ``AGENTS.md``, because the boundary now lives in prose and
+   cannot be derived.
 
-Also asserts the checked-in seed parses and, as of seeding, picks only the two proposal
-drafts James already asked for — so the first real fire is predictable.
+Also asserts the checked-in seed parses and picks exactly what the current denied set
+allows — so the next real fire is predictable.
 """
 
 from __future__ import annotations
@@ -21,6 +23,8 @@ import yaml
 
 from asxos.backlog import (
     DEFAULT_BACKLOG,
+    DENIED_FILES,
+    DENIED_PREFIXES,
     BacklogSchemaError,
     click_list,
     is_denied_path,
@@ -66,19 +70,18 @@ class TestDeniedPaths:
     @pytest.mark.parametrize(
         "path",
         [
-            "asxos/domain/tax/positions.py",
-            "asxos/domain/portfolio/allocator.py",
-            "asxos/domain/models/x.py",
-            "asxos/domain/theses/service.py",
-            ".claude/hooks/pr-draft-guard.sh",
-            ".claude/agents/arbi.md",
-            ".claude/settings.json",
-            ".github/workflows/full-check.yml",
-            "migrations/0053_x.sql",
-            "CLAUDE.md",
+            # AGENTS.md section 2: James's, by intent.
             "docs/product/north-star.md",
-            "docs/product/memory/approved-lessons.md",
-            "render.yaml",
+            ".env",
+            "asxos/capital/broker.py",
+            # AGENTS.md section 2 final paragraph / section 8: arbi's own permissions.
+            ".claude/settings.json",
+            ".claude/hooks/secrets-guard.sh",
+            ".claude/rules/portfolio-conventions.md",
+            # The lane's real permission surface, which is not under .claude/.
+            ".github/runner/claude-user-settings.json",
+            # Operational: AGENTS.md section 8's one-sitting apply sequence.
+            "migrations/0055_x.sql",
         ],
     )
     def test_guarded_paths_are_denied(self, path: str) -> None:
@@ -93,6 +96,20 @@ class TestDeniedPaths:
             "asxos/domain/decision_engine/builder.py",
             "docs/product/roadmap-state.md",
             "docs/product/backlog.yaml",
+            # Newly allowed 2026-09-14. AGENTS.md section 14 gives arbi these
+            # explicitly: "arbi amends this file, CLAUDE.md, .github/** and every other
+            # authority doc by PR and merges them like anything else." The old entries
+            # encoded the retired unattended fence, not the current boundary.
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".github/workflows/full-check.yml",
+            "docs/product/memory/project-facts.md",
+            "docs/product/memory/lessons.md",
+            # Amber domain code (AGENTS.md section 6), reviewed by the conformance
+            # agents — never section 2, so never the picker's to refuse.
+            "asxos/domain/tax/positions.py",
+            "asxos/domain/portfolio/allocator.py",
+            "asxos/domain/theses/service.py",
         ],
     )
     def test_ordinary_paths_are_allowed(self, path: str) -> None:
@@ -100,11 +117,21 @@ class TestDeniedPaths:
 
     def test_a_directory_containing_a_guarded_file_is_denied(self) -> None:
         # Coarse globs cannot launder a guarded file.
-        assert is_denied_path("docs/product/")
-        assert is_denied_path("docs/product/memory/")
+        assert is_denied_path("docs/product/")  # holds north-star.md
         assert is_denied_path(".claude/")
-        assert is_denied_path("asxos/domain/")
+        assert is_denied_path("asxos/")  # holds asxos/capital/
+        assert is_denied_path(".github/runner/")  # holds the lane settings file
         assert is_denied_path("")
+
+    def test_directories_that_no_longer_hold_a_guarded_file_are_allowed(self) -> None:
+        """The 2026-09-14 trim's observable effect, pinned so a re-widen is visible.
+
+        ``docs/product/memory/`` and ``asxos/domain/`` were denied only because the old
+        set listed files inside them — most of which #254 had already deleted.
+        """
+        assert not is_denied_path("docs/product/memory/")
+        assert not is_denied_path("asxos/domain/")
+        assert not is_denied_path(".github/workflows/")
 
     def test_normalisation(self) -> None:
         assert is_denied_path("./migrations/0001.sql")
@@ -246,8 +273,8 @@ class TestSelection:
         items = parse(
             _doc(
                 [
-                    _row("A-1", paths=["asxos/domain/tax/lots.py"]),
-                    _row("A-2", paths=[".github/workflows/full-check.yml"]),
+                    _row("A-1", paths=["docs/product/north-star.md"]),
+                    _row("A-2", paths=[".claude/skills/x/SKILL.md"]),
                     _row("A-3", paths=["docs/proposals/ok.md", "migrations/0099.sql"]),
                     _row("A-4", paths=[]),  # no paths => nothing to build
                     _row("A-5", paths=["docs/proposals/ok.md"]),
@@ -349,16 +376,20 @@ class TestSeed:
     def test_seed_parses(self) -> None:
         items = __import__("asxos.backlog", fromlist=["load"]).load(DEFAULT_BACKLOG)
         assert len(items) >= 60
-        # The seed must not declare anything eligible that the guard would deny. E-11 is
-        # the deliberate negative example: open, arbi-owned, and on a .github path.
+        # The seed must not declare anything eligible that the guard would deny.
+        # Re-pinned 2026-09-14: E-11 used to be the deliberate negative example
+        # (".github/workflows/full-check.yml", denied by the retired unattended fence).
+        # AGENTS.md section 14 gives arbi ".github/**" outright, so it is now an
+        # ordinary buildable row and there is no denied-but-eligible row left in the
+        # seed. If one is added, it should be denied for a section 2 reason, not a
+        # fence reason.
         for it in items:
             if (
                 it.owner in {"arbi", "both"}
                 and it.route in {"build", "mission"}
                 and it.status == "open"
             ):
-                denied = any(is_denied_path(p) for p in it.paths)
-                assert denied == (it.id == "E-11"), it.id
+                assert not any(is_denied_path(p) for p in it.paths), it.id
 
     def test_ids_rank_numerically_not_lexically(self) -> None:
         items = parse(
@@ -373,43 +404,82 @@ class TestSeed:
         )
         assert [i.id for i in click_list(items)] == ["B-5", "B-10", "B-13", "B-13a"]
 
-    def test_seed_after_the_merge_train_landed_is_click_list_only(self) -> None:
-        """Re-pinned 2026-09-14 (was: "after the two proposal drafts landed", 09-05; then
-        re-pinned 09-06). James un-drafted and merged the whole #185–#200 stack on 2026-09-05,
-        so A-0 and A-2…A-17 are done, B-13a/B-14a landed inside #200, C-2 and C-11 were
-        observed, and the lead click is now A-20 — the HC_BACKLOG_URL secret the backlog-roll
-        lane fails without. A-24 (the issue-snapshot ruleset red) is done as of the 2026-09-14
-        merge-train session (#230 retired the workflow outright rather than patching it) and so
-        drops out of the click-list, the first change to this seed's shape since the 09-06
-        re-pin. Still no arbi-owned item that is open, guard-safe AND buildable without a live
-        session: E-17 (doc-expiry sweep) is deliberately `attended`, so the picker correctly
-        exits 3 and the click-list is the whole output. Re-pin deliberately if a future seed
-        change makes something newly eligible."""
+    def test_seed_after_the_denied_set_trim_has_a_pick(self) -> None:
+        """Re-pinned 2026-09-14, and the rename is the point.
+
+        Every prior pin of this test asserted ``picked == []`` — the ``backlog-roll``
+        lane had nothing it was allowed to build. That was never a property of the
+        backlog; it was the denied set still encoding the retired unattended fence,
+        which excluded ``.github/**``, ``migrations/**`` and most of ``asxos/`` — i.e.
+        most of what ``AGENTS.md`` says is arbi's. Trimming the set to section 2 plus
+        the two things a fire cannot mechanically finish turns E-11 into the lane's
+        first real pick.
+
+        Prior pins, for the diff: 09-05 (after the two proposal drafts landed), 09-06,
+        09-14 merge-train (A-24 done via #230, lead click A-20).
+
+        Re-pin deliberately when the seed changes shape again.
+        """
         items = __import__("asxos.backlog", fromlist=["load"]).load(DEFAULT_BACKLOG)
         picked, skipped = pick(items, max_items=10)
-        assert picked == []
+        assert [i.id for i in picked] == ["E-11"], [i.id for i in picked]
         assert skipped == []
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
         assert "A-0" not in clicks  # discharged 2026-09-05
         assert "B-13a" not in clicks and "B-14a" not in clicks  # merged in #200
-        assert "E-11" not in clicks  # .github path, correctly refused regardless of route
+        assert "E-11" not in clicks  # arbi-owned and now buildable: a pick, not a click
         assert "E-17" not in clicks  # attended, arbi-owned: neither a pick nor a click
 
 
-# --- drift against the real guards ------------------------------------------------------
+# --- drift against the real boundary ----------------------------------------------------
 #
 # ``TestDeniedSetMirrorsTheGuards`` was removed on 2026-09-10 with the guard hooks it
-# parsed. It asserted that ``asxos.backlog``'s denied set covered everything
-# ``.claude/hooks/unattended-guard.sh`` and the old 33-entry settings deny array denied;
-# both sides of that comparison are gone, so the test could only fail.
+# parsed (``unattended-guard.sh`` and the old 33-entry settings deny array). Its note said
+# a replacement belonged with the trim, not before it. The trim landed 2026-09-14; this is
+# the replacement.
 #
-# What it was protecting still matters, in one direction only: the pre-gate must never be
-# *narrower* than the real boundary, because a pre-gate that lags the control starts work
-# the lane can never finish. Today it is much *wider* — ``DENIED_FILES`` still encodes the
-# retired fence, so the picker excludes ``.github/**``, ``.claude/**``, ``migrations/**``
-# and the old protected paths, which is most of what arbi now owns. Over-restrictive fails
-# safe (a thin pick-list, not a breach) but it blocks the ``backlog-roll`` lane from doing
-# its job. Trimming ``DENIED_FILES`` to ``AGENTS.md`` §2 is tracked in the 2026-09-10
-# session handoff; a replacement drift test belongs with that change, not before it.
+# What it can and cannot prove. The boundary now lives in prose (``AGENTS.md``), not in a
+# machine-readable fence, so no test can derive the denied set automatically. What these
+# tests do instead is PIN it: the set is asserted member-for-member, so widening or
+# narrowing it is a visible, deliberate line in a diff rather than a silent drift — which
+# is exactly how 17 dead entries accumulated unnoticed between #254 and 2026-09-14. The
+# direction that matters is NARROWING: a pre-gate narrower than the real boundary starts
+# work the lane can never finish.
+
+
+class TestDeniedSetIsPinnedToTheAuthority:
+    def test_the_denied_set_is_exactly_what_agents_md_reserves(self) -> None:
+        """Change this pin only alongside the AGENTS.md line that justifies the change."""
+        assert DENIED_FILES == frozenset(
+            {
+                "docs/product/north-star.md",  # section 2.1
+                ".env",  # section 13
+                ".github/runner/claude-user-settings.json",  # the lane's permission surface
+            }
+        )
+        assert DENIED_PREFIXES == (
+            ".claude/",  # section 2 final paragraph / section 8
+            "asxos/capital/",  # section 2.2
+            "migrations/",  # section 8's one-sitting apply sequence
+        )
+
+    def test_agents_md_still_reserves_the_paths_this_set_rests_on(self) -> None:
+        """If a future amendment un-reserves these, this set is wrong and must move too.
+
+        Substring checks on the load-bearing clauses, not on whole sentences: the wording
+        gets edited, the reservation is what must survive.
+        """
+        agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        assert "`.claude/` — arbi drafts, James merges" in agents
+        assert "`asxos/capital/`" in agents
+        assert "north-star.md" in agents
+
+    def test_capital_stays_empty(self) -> None:
+        """AGENTS.md section 2.2: the directory stays empty until James decides otherwise.
+
+        Denying the prefix is only meaningful while nothing has quietly appeared under it.
+        """
+        capital = REPO_ROOT / "asxos" / "capital"
+        assert not capital.exists() or not any(capital.iterdir())

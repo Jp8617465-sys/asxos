@@ -27,9 +27,12 @@
 #               observe   nothing to do; wait and read
 #   depends_on  ids that must be done|void first
 #   paths       files the work touches. Eligibility is DERIVED: every path must fall
-#               outside the denied set the picker copies from unattended-guard.sh and
-#               settings.json. This file cannot declare something safe that the guard
-#               would refuse — the drift test pins that.
+#               outside `asxos/backlog.py`'s denied set. Re-derived 2026-09-14 from
+#               AGENTS.md section 2 (north-star, .env, capital) plus the two shapes a
+#               headless fire cannot finish (.claude/, migrations/) — it used to mirror
+#               the unattended-guard.sh + settings.json fence, and both sides of that
+#               mirror were deleted by #254. This file cannot declare something safe
+#               that the picker would refuse; TestSeed::test_seed_parses pins that.
 #   source      file:line, PR#, or click id — where the claim came from
 #
 # The lane's first product is the click-list — every James item whose dependencies are
@@ -1040,14 +1043,14 @@ items:
     source: "roadmap-state.md G1 note"
 
   - id: E-11
-    title: "Fix the false pip-cache comment on main inside merged #168 (full-check.yml) — three claude-execute attempts denied on Edit(/.github/**)"
+    title: "Fix the false pip-cache comment on main inside merged #168 (full-check.yml)"
     phase: E
     owner: arbi
     status: open
     depends_on: []
     route: build
     paths: [".github/workflows/full-check.yml"]
-    source: "roadmap-state.md 2026-08-25 close; decision-log.md 2026-08-25 — a denied path; the picker must never select this row"
+    source: "roadmap-state.md 2026-08-25 close; decision-log.md 2026-08-25. Was blocked three times as a denied path under the retired unattended fence; AGENTS.md section 14 gives arbi .github/** outright, so as of 2026-09-14 this is an ordinary buildable row and the first thing the backlog-roll picker selects."
 
   - id: E-12
     title: "R11 — conviction_level NULL on all 13 theses; a whole discipline dimension is unpopulated"
