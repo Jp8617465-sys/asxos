@@ -28,7 +28,7 @@ dependencies = [
     "defusedxml==0.7.1",  # hardened XML parsing for untrusted RSS feeds (07-18 audit)
     "tenacity==9.1.4",
     "typer==0.27.2",
-    "click<8.6",  # typer 0.12.5 is incompatible with click 8.2+ (make_metavar signature change)
+    "click<8.6",  # typer 0.27.2 is incompatible with click 8.2+ (make_metavar signature change)
     "rich==15.0.0",
     "jinja2==3.1.6",
     "resend==2.43.0",

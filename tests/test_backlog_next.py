@@ -374,21 +374,24 @@ class TestSeed:
         assert [i.id for i in click_list(items)] == ["B-5", "B-10", "B-13", "B-13a"]
 
     def test_seed_after_the_merge_train_landed_is_click_list_only(self) -> None:
-        """Re-pinned 2026-09-06 (was: "after the two proposal drafts landed", 09-05).
-        James un-drafted and merged the whole #185–#200 stack on 2026-09-05, so A-0 and
-        A-2…A-17 are done, B-13a/B-14a landed inside #200, C-2 and C-11 were observed,
-        and the lead click is now A-20 — the HC_BACKLOG_URL secret the backlog-roll lane
-        fails without. Still no arbi-owned item that is open, guard-safe AND buildable
-        without a live session: E-17 (doc-expiry sweep) is deliberately `attended`, so
-        the picker correctly exits 3 and the click-list is the whole output. Re-pin
-        deliberately if a future seed change makes something newly eligible."""
+        """Re-pinned 2026-09-14 (was: "after the two proposal drafts landed", 09-05; then
+        re-pinned 09-06). James un-drafted and merged the whole #185–#200 stack on 2026-09-05,
+        so A-0 and A-2…A-17 are done, B-13a/B-14a landed inside #200, C-2 and C-11 were
+        observed, and the lead click is now A-20 — the HC_BACKLOG_URL secret the backlog-roll
+        lane fails without. A-24 (the issue-snapshot ruleset red) is done as of the 2026-09-14
+        merge-train session (#230 retired the workflow outright rather than patching it) and so
+        drops out of the click-list, the first change to this seed's shape since the 09-06
+        re-pin. Still no arbi-owned item that is open, guard-safe AND buildable without a live
+        session: E-17 (doc-expiry sweep) is deliberately `attended`, so the picker correctly
+        exits 3 and the click-list is the whole output. Re-pin deliberately if a future seed
+        change makes something newly eligible."""
         items = __import__("asxos.backlog", fromlist=["load"]).load(DEFAULT_BACKLOG)
         picked, skipped = pick(items, max_items=10)
         assert picked == []
         assert skipped == []
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
-        assert "A-24" in clicks  # the issue-snapshot ruleset red is James's (.github path)
+        assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
         assert "A-0" not in clicks  # discharged 2026-09-05
         assert "B-13a" not in clicks and "B-14a" not in clicks  # merged in #200
         assert "E-11" not in clicks  # .github path, correctly refused regardless of route
