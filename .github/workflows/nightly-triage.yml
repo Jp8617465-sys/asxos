@@ -49,6 +49,7 @@ jobs:
       actions: read
       contents: write
       pull-requests: write
+      id-token: write  # required by claude-code-action's OIDC token exchange
     outputs:
       branch_found: ${{ steps.branch.outputs.found }}
       branch_name: ${{ steps.branch.outputs.name }}
