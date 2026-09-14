@@ -119,8 +119,23 @@ def _markdown(value: str) -> str:
     A report contains issuer and provider text.  Escaping HTML here prevents a
     source string from becoming active markup in a Markdown viewer; it does not
     rewrite or interpret the financial content.
+
+    Backtick is escaped too, not just the five HTML entities. `_source()`
+    below wraps its inert (non-linkable) branch in a single backtick span —
+    a value containing a literal backtick closes that span early and lets
+    everything after it re-enter live Markdown, including a new-and-unchecked
+    `[text](scheme:...)` construct that never passes through `_is_linkable()`.
+    No producer in this codebase can emit a backtick today (every
+    `source_uri` and `decision_packet_id` is built from a regex-validated
+    symbol/id, see `asxos/domain/results_review/pit_db.py`'s `_SYMBOL_RE`),
+    but the Pydantic fields carrying these values (`types.py`) place no
+    character restriction on them, so the guarantee belongs here, not only
+    in today's producers. `&#96;` is inert HTML-entity text at the Markdown
+    source level (the parser never sees a real backtick to pair against) and
+    still renders as a literal backtick wherever the Markdown is eventually
+    rendered to HTML.
     """
-    return escape(value, quote=True)
+    return escape(value, quote=True).replace("`", "&#96;")
 
 
 # Only these become clickable. `EvidenceItem.source_uri` is an unrestricted

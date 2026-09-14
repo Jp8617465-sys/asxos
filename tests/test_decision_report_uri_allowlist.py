@@ -115,3 +115,27 @@ def test_shipped_demo_evidence_uses_inert_identifier_sources() -> None:
     report = render_broker_report(build_demo_brief().cases[0], evaluated_at=CUTOFF)
     assert "](synthetic://" not in report
     assert "source `synthetic://" in report
+
+
+def test_a_backtick_in_an_inert_source_cannot_close_the_code_span_early() -> None:
+    # `_source()`'s inert branch wraps the value in a single backtick span:
+    # `source `{value}``. A `EvidenceItem.source_uri` value containing a
+    # literal backtick would otherwise close that span early and let the
+    # remainder re-enter live Markdown as an unchecked `[text](scheme:...)`
+    # construct that never passes through `_is_linkable()` — the exact bypass
+    # the allowlist above exists to prevent, reached through the "inert"
+    # branch instead of the linkable one. No shipped producer emits a
+    # backtick today (every source_uri is built from a regex-validated
+    # symbol), but the field itself carries no such restriction.
+    payload = "a`. [click me](javascript:alert(document.cookie))"
+    rendered = _source(payload)
+    # The load-bearing property: exactly the two wrapping backticks survive,
+    # so the whole payload sits inside one unbroken code span rather than
+    # closing early and re-entering live Markdown. The literal substring
+    # "](javascript:" is still present, but only as inert text *inside* that
+    # one span — safe, and exactly what "escaped" means here.
+    assert rendered.count("`") == 2, (
+        f"expected exactly the two wrapping backticks, got: {rendered!r}"
+    )
+    assert rendered == "source `a&#96;. [click me](javascript:alert(document.cookie))`"
+    assert rendered.startswith("source `") and rendered.endswith("`")

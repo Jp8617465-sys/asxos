@@ -91,15 +91,13 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
-    "equity_valuation": (
-        "0054 — F-VAL/r0 valuation store. Drafted 2026-09-08; applying it is a "
-        "production write and needs James's grant, same as 0053"
-    ),
-    "paper_book_snapshots": (
-        "0053 — C1 paper book (ADR D15). Drafted in this session; applying it is a "
-        "production write and needs James's I5 grant, which covers only "
-        "`asx candidates build --persist` for the F-E2E run"
-    ),
+    # 0054 equity_valuation was here from draft to apply. APPLIED 2026-09-14
+    # as 20260914123930 via the AGENTS.md §8 migration sequence (merge-train
+    # session, PR #229): migration-integration green, backup.yml run 34844339116
+    # read to `success`, then applied. The entry is removed in the same PR so
+    # the directional allowlist does not flag it as STALE on merge.
+    # 0053 paper_book_snapshots was here from draft to apply. APPLIED 2026-09-14
+    # as 20260914123901, same sequence and PR as 0054 above.
     # 0052 outcome_materialisation was here from draft to apply. APPLIED
     # 2026-09-03 as 20260903025557 under the same in-session I5 grant (H7-A).
     # 0051 theme_candidates was here from draft to apply. APPLIED 2026-09-02
