@@ -285,7 +285,15 @@ def test_paper_book_without_context_is_refused() -> None:
 
     from asxos.cli import decision as decision_mod
 
-    result = CliRunner().invoke(
+    # NO_COLOR + a wide COLUMNS pin rich's error rendering to one plain,
+    # unwrapped line. Without this the assertion is environment-dependent:
+    # measured 2026-09-08 CI failure reproduced exactly by a narrow terminal
+    # with color forced on, where rich box-wraps the message and inserts an
+    # ANSI style code between every hyphen and token (splitting
+    # "--paper-book" into separately-styled fragments), so the plain
+    # substring check below never matches. The guard itself is correct in
+    # both cases; only the test's rendering assumptions were unpinned.
+    result = CliRunner(env={"NO_COLOR": "1", "COLUMNS": "200", "TERM": "dumb"}).invoke(
         decision_mod.decision_app,
         [
             "build",
