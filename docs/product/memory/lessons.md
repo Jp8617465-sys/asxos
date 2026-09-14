@@ -916,6 +916,46 @@ lends the unsourced one credibility it has not earned — that is how a fabricat
 `AGENTS.md` §7 "Honest sample" applies to sentences, not just briefs.
 Source: `decision-log.md` 2026-09-14 row 2.
 
+## L48 — A carried-forward item is a claim; carrying is not verifying (2026-09-14)
+Three items forwarded unchanged for weeks were all wrong at the point of action, in the same
+way: a rule that had rotted into a description of a system that no longer existed.
+`asxos/backlog.py`'s `DENIED_FILES` was handed over as "three deleted `arbi-*` docs"; measured,
+**17 of its 30 entries** named files that do not exist, and the consequence was that the
+`backlog-roll` lane had nothing it was permitted to build — which every prior test pin recorded
+as `picked == []` and which was read as a property of the backlog rather than of that list.
+Dark surfaces #1 and #3 were waiting on, respectively, a job James had ratified DELETED on
+2026-08-19 and a gate the doc called "not yet plumbed" that had been plumbed all along.
+**Lesson:** the expiry machinery worked — it fired on 2026-08-31 — what failed is that nobody
+ruled, and each carry made the claim look more settled. Re-measure a claim that has been
+carried more than twice *before* acting on it, not after. The sharpest case this session was
+item 10: "the thesis-in-the-same-sitting pairing item named in the 09-10 handoff" is not in the
+09-10 handoff, occurs in exactly two places repo-wide, and neither defines it.
+Source: `decision-log.md` 2026-09-14 (wake row); `session-handoff-2026-09-14-3.md`.
+
+## L49 — An agent lane's findings age against the session that produced them (2026-09-14)
+`#259`, the toolwatch lane's first real report, measured the `claude-code-action` pin at Claude
+Code 2.1.251 and recommended a 19-release jump to gain two capabilities. **#214 landed CC
+2.1.269 hours later in the same merge-train session**, so both were already in the bundle before
+anyone read the report. Adopting it verbatim would have produced a PR whose stated rationale was
+false. What actually remained was real and smaller: *using* the flag the bump had already
+delivered. **Lesson:** re-probe a lane's premise at the primary source before adopting it,
+especially when the lane fired and the change landed on the same day. The lane is not wrong —
+it was right when it ran.
+Source: `decision-log.md` 2026-09-14 (wake row); PR #263.
+
+## L50 — A test that passes on its first draft, where it was meant to be red, proves nothing (2026-09-14)
+Writing the coverage a `security-engineer` review asked for on #228's builder hunks, the first
+draft of both tests passed while exercising neither line. One reused an `evidence_id` that the
+dedupe guard (itself added by the 2026-09-07 live run) then used to skip the entire branch; the
+other used the default CBA fixture, which is 3.5x price-detached, so the assertion never reached
+the branch under test. A green run said nothing; **coverage output caught it.**
+**Lesson:** for a test written to pin new behaviour, confirm it fails without the change. When
+it cannot be run red — because the branch already carries the fix — read the coverage of the
+specific lines instead of trusting the pass. This is the same failure class as the Phase 2a
+governance finding already recorded in `portfolio-conventions.md`: a test that cannot fail is
+not a test.
+Source: `decision-log.md` 2026-09-14 (wake row); PR #266 review comment.
+
 ## Authority pointers (folded in from the retired `authority-lessons.md`, 2026-09-10)
 
 This section replaces the old separate pointer index. It holds **no original content** — it

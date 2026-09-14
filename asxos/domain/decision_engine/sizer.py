@@ -106,6 +106,11 @@ def headroom_max_pct(
     the challenge passes."""
     if state.borrowing_aud > 0:
         return Decimal("0")
+    if state.cash_pct is None:
+        # #228: D1 headroom is `cash - floor`. With cash unmeasured there is no headroom
+        # to compute, and guessing one either invents capacity the book may not have or
+        # invents a constraint it may not be under. No measurement, no size.
+        return Decimal("0")
     headroom = [
         reference_weight_pct(proposed, peers, policy),
         policy.position_cap_pct - state.position_weights_pct.get(proposed.symbol, Decimal("0")),

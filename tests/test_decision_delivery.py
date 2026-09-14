@@ -283,12 +283,42 @@ def _state_conn(**kw: Any) -> _StateConn:
 
 async def test_portfolio_state_is_measured_from_the_snapshot_holdings_prices_and_fx() -> None:
     state = await load_portfolio_state(_state_conn(), AS_OF)
-    assert state.capital_aud == Decimal("500000") and state.cash_pct == Decimal("20")
+    # cash_pct is deliberately absent, not 20: see the #228 test below. The assertion it
+    # replaced (`cash_pct == Decimal("20")`) encoded the defect -- 100000/500000 came from
+    # the snapshot column that holds profile policy, not a balance.
+    assert state.capital_aud == Decimal("500000") and state.cash_pct is None
     assert state.position_weights_pct["NAB.AU"] == Decimal("8")  # 1000 × 40 / 500000
     assert state.position_weights_pct["HUBS.NYSE"] == Decimal("1.846154")  # 24 × 250 / 0.65 / 500000
     assert state.sector_weights_pct == {"Financials": Decimal("8"), "UNKNOWN": Decimal("1.846154")}
     assert state.gross_exposure_pct == Decimal("9.846154") and state.borrowing_aud == 0
     assert state.evidence_id == "portfolio-state-2026-09-01"
+
+
+async def test_portfolio_state_refuses_the_policy_derived_cash_placeholder() -> None:
+    """#228. The loader must not report the snapshot's `cash_aud` as measured cash.
+
+    The fixture reproduces the live production shape recorded in the issue: the snapshot
+    row carries `cash_aud = profile.cash_floor_pct * profile.capital_aud`. With the live
+    profile's `cash_floor_pct = 0.0000` that is 0, and the loader used to hand it on as
+    `cash_pct = 0.000000` — a number that looks measured and is not.
+
+    Everything else in the state is genuinely measured and must survive: holdings come
+    from `current_holdings` at `prices.close`, FX-converted. Only cash is unknown.
+    """
+    conn = _state_conn(
+        snapshot={
+            "as_of": AS_OF,
+            "capital_aud": Decimal("500000"),
+            "holdings_mv_aud": Decimal("475000"),
+            "cash_aud": Decimal("25000"),  # 0.05 x 500000 — the profile floor, not a balance
+            "ingested_at": CUTOFF,
+        }
+    )
+    state = await load_portfolio_state(conn, AS_OF)
+    assert state.cash_pct is None, "the policy-derived placeholder was reported as measured cash"
+    assert state.capital_aud == Decimal("500000")
+    assert state.position_weights_pct["NAB.AU"] == Decimal("8")
+    assert state.gross_exposure_pct == Decimal("9.846154")
 
 
 async def test_portfolio_state_hard_fails_on_missing_snapshot_price_or_fx() -> None:

@@ -32,9 +32,24 @@ from asxos.domain.decision_engine.challenge.steelman import (
     OUTSIDE_VIEW_ABSENCE_TEXT,
     falsifiability,
     outside_view,
+    strongest_bear_case,
     text_carries_no_percentage,
 )
+from asxos.domain.decision_engine.sizer import (
+    ProposedPosition,
+    SizingPolicy,
+    VolInput,
+    headroom_max_pct,
+)
 from asxos.domain.decision_engine.types import ChallengeFinding, ChallengeResult
+
+_PROPOSED = ProposedPosition(symbol="CBA.AU", sector="Financials", annualised_vol=Decimal("0.20"))
+_PEERS = (VolInput(symbol="NAB.AU", annualised_vol=Decimal("0.20")),)
+_POLICY = SizingPolicy(
+    capital_aud=Decimal("500000"),
+    position_cap_pct=Decimal("10"),
+    min_position_aud=Decimal("5000"),
+)
 
 AS_OF = date(2026, 9, 1)
 CUTOFF = datetime(2026, 9, 1, 23, 59, 59, tzinfo=UTC)
@@ -124,6 +139,76 @@ def test_register_breach_is_blocking_and_forces_abstain(kw: dict[str, Any], rule
 def test_cash_floor_boundary_is_exact_at_seven_point_five() -> None:
     assert _by_rule(_input(portfolio=_state(cash_pct=Decimal("12.5")))).get("cash_floor").finding is None  # type: ignore[union-attr]
     assert _by_rule(_input(portfolio=_state(cash_pct=Decimal("12.499999")))).get("cash_floor").finding is not None  # type: ignore[union-attr]
+
+
+# --- #228: unmeasured cash is not a measured breach ------------------------------------
+
+
+def test_cash_floor_is_not_evaluated_when_cash_is_unmeasured() -> None:
+    """#228. `cash_pct=None` means "nobody measured this", never "the book holds none".
+
+    The live defect this pins: `portfolio_daily_snapshots.cash_aud` was
+    `profile.cash_floor_pct * profile.capital_aud` — a risk-policy constant times a
+    configured baseline — and `rule_cash_floor` consumed it as an account balance. On
+    2026-09-07 the first live CBA challenge emitted a BLOCKING finding reading
+    "Post-trade cash 0.000000% is below the D1 floor of 7.5%", which was the policy
+    arithmetic restated, not an observation of the account.
+
+    A rule that cannot see its input must say so, not rule on it. The shape is the one
+    six sibling rules already use (`rule_correlation`, `rule_valuation_percentile`,
+    `rule_liquidity`, ...): `evaluated=False`, no finding.
+    """
+    out = _by_rule(_input(portfolio=_state(cash_pct=None)))["cash_floor"]
+    assert out.evaluated is False, "unmeasured cash was ruled on"
+    assert out.finding is None, "unmeasured cash produced a finding"
+    assert "not measured" in out.detail
+
+
+def test_unmeasured_cash_does_not_suppress_the_other_rules() -> None:
+    """Absence of cash must not cascade. D2/D8 and the position cap still evaluate.
+
+    Written because the cheap fix — refusing to build a ChallengeInput without cash —
+    would have turned one missing measurement into a challenge that says nothing.
+    """
+    outcomes = _by_rule(_input(portfolio=_state(cash_pct=None)))
+    for rule in ("gross_leverage", "sector_cap", "position_cap", "derivatives_or_shorting"):
+        assert outcomes[rule].evaluated is True, f"{rule} stopped evaluating"
+
+
+def test_unmeasured_cash_reaches_the_bear_case_as_an_absence_not_a_breach() -> None:
+    """End to end: what a reader of the challenge actually sees.
+
+    Before: "1 ratified-register or data-integrity rule(s) fail pro-forma (cash_floor);
+    the proposal cannot stand as sized." After: cash_floor is counted among the rules
+    that could not be evaluated. That difference is the whole of #228 -- one sentence
+    claims the book breached a floor, the other says we do not know what the book holds.
+    """
+    x = _input(portfolio=_state(cash_pct=None))
+    text = strongest_bear_case(x, tuple(run_layer1(x)))
+    assert "could not be evaluated for lack of a measurement" in text
+    assert "cash_floor" in text.split("could not be evaluated")[1]
+    assert "fail pro-forma (cash_floor" not in text
+
+
+def test_unmeasured_cash_yields_no_size() -> None:
+    """D1 headroom is `cash - floor`; with cash unmeasured there is no headroom to
+    compute. Guessing one either invents capacity the book may not have or a constraint
+    it may not be under, so the sizer returns zero -- the same posture as borrowing."""
+    assert headroom_max_pct(_PROPOSED, _PEERS, _POLICY, _state(cash_pct=None)) == Decimal("0")
+    assert headroom_max_pct(
+        _PROPOSED, _PEERS, _POLICY, _state(cash_pct=Decimal("20"))
+    ) > Decimal("0")
+
+
+def test_zero_cash_is_still_a_real_measurement() -> None:
+    """The distinction the whole change rests on: 0% measured is a breach, None is not.
+
+    A fully-invested book genuinely at 0% cash must still trip D1. If this test and the
+    one above ever agree, the fix has erased a real signal instead of a fabricated one.
+    """
+    out = _by_rule(_input(portfolio=_state(cash_pct=Decimal("0"))))["cash_floor"]
+    assert out.evaluated is True
+    assert out.finding is not None and out.finding.severity == "blocking"
 
 
 def test_price_detached_thresholds_and_cba_worked_example() -> None:

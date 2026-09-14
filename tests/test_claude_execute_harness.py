@@ -8,12 +8,14 @@ auto-mode settings the classifier will actually read.
 
 **What these tests do and do not prove.** Asserting that ``--permission-mode auto`` appears
 in ``claude_args`` proves the flag is *passed*. It does NOT prove the session actually got
-auto mode — if auto is unavailable the CLI falls back to Manual, where in a headless run
-every unlisted action is denied with no prompt and the run looks successful having merged
-nothing. That can only be confirmed from a real run log, and it is listed as a
-first-dispatch check in ``docs/session-handoff-2026-09-10.md``. The same caveat applies to
-``CLAUDE_PROJECT_DIR`` resolving on the runner so ``secrets-guard.sh`` runs rather than
-exiting 127.
+auto mode — if auto is unavailable the CLI falls back to Manual. Both 2026-09-10
+first-dispatch unknowns (auto mode engaging; ``CLAUDE_PROJECT_DIR`` resolving so
+``secrets-guard.sh`` runs rather than exiting 127) were closed by the 2026-09-14
+``weekly-toolwatch`` dispatch, run ``34846052898``.
+
+What used to be inferred — that in a headless run an unanswerable prompt is denied rather
+than retried against the turn budget — is a named flag as of 2026-09-14:
+``--permission-prompts none``. See ``test_lane_denies_what_it_cannot_prompt_for``.
 """
 
 from __future__ import annotations
@@ -32,6 +34,11 @@ _WORKFLOWS = _ROOT / ".github" / "workflows"
 _SETTINGS = _ROOT / ".claude" / "settings.json"
 _RUNNER_SETTINGS = _ROOT / ".github" / "runner" / "claude-user-settings.json"
 _SECRETS_GUARD = _ROOT / ".claude" / "hooks" / "secrets-guard.sh"
+
+# The exact commit all four lanes pin: v1.0.223, published 2026-09-12, bundling Claude
+# Code 2.1.270 — the version ``--permission-prompts none`` was verified against.
+_ACTION_SHA = "9cdae7f0d995e3ba7c33f226087fdf82a59cd520"
+_ACTION_RELEASE = "v1.0.223"
 
 AGENT_LANES = [
     "claude-execute.yml",
@@ -87,8 +94,65 @@ def test_lane_installs_user_level_auto_mode_settings(lane: str) -> None:
 
 
 @pytest.mark.parametrize("lane", AGENT_LANES)
+def test_lane_denies_what_it_cannot_prompt_for(lane: str) -> None:
+    """``--permission-prompts none``: an unanswerable prompt is a deny, not a retry.
+
+    Before this flag, whether a would-prompt action was denied, hung, or was retried
+    until the turn budget ran out was an inferred property of "headless + auto mode, no
+    TTY". The bundled CLI's own ``--help`` states the contract: *"nobody: anything that
+    would prompt is denied automatically; the permission mode still decides everything
+    else"*.
+
+    It denies strictly more than before, so it is NOT ``--dangerously-skip-permissions``;
+    a lane carrying either must fail here.
+    """
+    text = _lane_text(lane)
+    assert "--permission-prompts none" in text, f"{lane} does not deny unanswerable prompts"
+    assert "dangerously-skip-permissions" not in text, f"{lane} bypasses permission checks"
+
+
+@pytest.mark.parametrize("lane", AGENT_LANES)
+def test_lane_pins_the_action_to_one_tagged_release(lane: str) -> None:
+    """All four lanes share one 40-hex pin, and the comment names the release.
+
+    A floating ``@v1`` would let the bundled CLI change under the lanes with no diff to
+    review; four pins drifting apart would make a lane-specific failure unattributable.
+    The comment carries the tag because a bare SHA tells a reader nothing.
+    """
+    text = _lane_text(lane)
+    uses = [
+        ln.strip()
+        for ln in text.splitlines()
+        if "claude-code-action@" in ln and not ln.strip().startswith("#")
+    ]
+    assert len(uses) == 1, f"{lane} has {len(uses)} claude-code-action steps: {uses}"
+    assert _ACTION_SHA in uses[0], f"{lane} pin differs: {uses[0]}"
+    assert _ACTION_RELEASE in uses[0], f"{lane} pin does not name its release: {uses[0]}"
+
+
+@pytest.mark.parametrize("lane", AGENT_LANES)
 def test_lane_yaml_parses(lane: str) -> None:
     assert yaml.safe_load(_lane_text(lane)) is not None
+
+
+@pytest.mark.parametrize("lane", AGENT_LANES)
+def test_claude_args_comments_are_whole_line_only(lane: str) -> None:
+    """Every lane comments inside ``claude_args``; only WHOLE-LINE comments are stripped.
+
+    Verified at the primary source, ``anthropics/claude-code-action`` at the pinned
+    commit: ``base-action/src/parse-sdk-options.ts`` filters
+    ``!line.trim().startsWith("#")`` before shell-quote sees the string, and its own
+    docstring says inline ``#`` "is left untouched". So a comment appended to the END of
+    a flag line is passed to the CLI as arguments. This pins the shape the lanes rely on.
+    """
+    block = _lane_text(lane).split("claude_args: |", 1)[1]
+    for raw in block.splitlines():
+        line = raw.strip()
+        if line and not raw.startswith(" " * 12):
+            break  # dedented out of the block scalar
+        if line.startswith("#"):
+            continue
+        assert "#" not in line, f"{lane}: inline comment on a flag line: {line!r}"
 
 
 # --- project settings -------------------------------------------------------------------

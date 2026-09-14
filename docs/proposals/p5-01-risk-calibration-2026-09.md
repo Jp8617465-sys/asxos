@@ -54,6 +54,13 @@ headroom arithmetic below.
 | Open lots | **1** (HUBS.NYSE — the global sleeve, F2) | `holding_lots` |
 | Latest packet | `dpk-cba-1-2026-09-01` · **abstain** · `size_range 0/0` · expires 2026-09-30 | `decision_packets` |
 
+> **Superseded 2026-09-14 (#228, PR #266).** The D1 arithmetic described here no longer
+> runs on the live book. `cash_pct` is `None` — unmeasured, not zero — because the value it
+> was read from was `profile.cash_floor_pct * profile.capital_aud`, a risk-policy setting
+> rather than a balance. `headroom_max_pct` now returns zero before reaching the subtraction,
+> and `rule_cash_floor` reports `not_evaluated`. The conclusion below (the live book cannot
+> produce a non-zero size) still holds; the mechanism named for it does not.
+
 **Consequence 1 — on the live book no packet can ever leave zero size.** `headroom_max_pct`
 (`sizer.py:96-118`) takes the minimum of the risk-parity reference, the per-name headroom, **`cash_pct
 − cash_floor_pct` = 0 − 7.5 = −7.5**, and the gross headroom, then clamps at 0. With cash at 0.00,

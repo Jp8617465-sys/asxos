@@ -4,7 +4,7 @@
 **Scope:** every code-complete-but-gated-off surface in asxos. For each one: a **ship / delete /
 keep-dark** decision, the reason, an **expiry** if kept dark, and the exact gate that flips it.
 Closes risk R4 (built-but-dark ≠ released) by refusing to let a surface sit dark with no decision.
-**Last verified:** 2026-09-02 (`/arbi` wake — **surfaces #1 and #4 found EXPIRED since 2026-08-31 and formally re-raised**; countdown block and summary rows corrected; #3 unexpired at 28 days. Verdict drafts are campaign node H1-G, the rulings are James's). Prior: 2026-08-21 (`/arbi-run` — **surface #2 issued a fresh SHIP verdict** on a
+**Last verified:** 2026-09-14 (`/arbi` wake — **surfaces #1 and #3 ruled DELETE, #4 ruled KEEP-DARK re-scoped to 2026-11-30; every surface now carries a live verdict.** Ruled by arbi under `AGENTS.md` §2/§6: none of these gates is the personal-use invariant, capital, or spend over cap, so none is James's; the pre-Amendment-N rows calling them his are superseded. Each verdict cites the query it rests on.) Prior: 2026-09-02 (`/arbi` wake — **surfaces #1 and #4 found EXPIRED since 2026-08-31 and formally re-raised**; countdown block and summary rows corrected; #3 unexpired at 28 days. Verdict drafts are campaign node H1-G, the rulings are James's). Prior: 2026-08-21 (`/arbi-run` — **surface #2 issued a fresh SHIP verdict** on a
 read-only production probe of both restated conditions; the 8-day-old "no fresh verdict exists"
 gap is closed, and two stale claims inside that section were falsified by the same probe and
 corrected in place). Prior: 2026-08-13 (SB0-01 doc-truth sweep — surface #2's verdict reverted to
@@ -25,7 +25,54 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ### 1. Portfolio brief — `ASXOS_PORTFOLIO_BRIEF_ENABLED=0`
 
-- **Verdict: KEEP-DARK · expiry 2026-08-31.**
+- **✅ VERDICT: DELETE — issued 2026-09-14 by arbi (`/arbi` wake), 14 days past expiry.**
+  Ruled by arbi, not escalated: `AGENTS.md` §2 reserves three things to James — what the
+  product is for (`north-star.md` + the personal-use invariant), capital, and spend over
+  the cap. `ASXOS_PORTFOLIO_BRIEF_ENABLED` is none of them. It is a second gate sitting
+  *behind* `ASXOS_PERSONAL_USE`, which is the invariant and is untouched by this verdict.
+  Under §6 this surface is an Amber shape (investment output), which is arbi's to rule.
+  The pre-Amendment-N rows in `james-inbox.md` that called it James's are superseded.
+
+  **The finding that decides it: the flag is not what keeps this dark, and has not been
+  for some time.** `_portfolio_section` (`asxos/brief/compose.py:1000-1030`) passes only
+  if THREE gates hold, and two of them cannot be satisfied at all:
+
+  | Gate | State, measured 2026-09-14 |
+  |---|---|
+  | `ASXOS_PERSONAL_USE == "1"` | holds (set in `daily-brief.yml`) |
+  | `ASXOS_PORTFOLIO_BRIEF_ENABLED == "1"` | `0` — the nominal subject of this row |
+  | a `build_portfolio` **success** run with `as_of >= as_of - 2`, joined to `rebalance_runs` | **impossible.** `job_runs` shows `build_portfolio` last succeeded **2026-08-01** — 44 days ago, 11 runs lifetime. `rebalance_runs` holds **5 rows, newest 2026-07-11.** |
+
+  Flipping the flag to `1` today would change nothing: the freshness gate would still omit
+  the section. And the job cannot be revived by scheduling it, because
+  `PortfolioService.build()` hard-fails on 0 models both `is_active` and
+  `approved_for_allocation` — measured: **`approved_models = 0`** — which is rule #11's
+  mechanical enforcement point and is standing policy, not a temporary state.
+
+  **What this section actually fronts is only the allocator's trade suggestions**, and the
+  code says so in as many words: the thesis-discipline digest is *"deliberately not
+  [gated on] `ASXOS_PORTFOLIO_BRIEF_ENABLED`, which gates the allocator's trade suggestions
+  and is orthogonal to this model-independent digest"* (`compose.py:1163-1166`). So the
+  model-independent cards this KEEP-DARK claimed to be protecting **already ship**, behind
+  `ASXOS_PERSONAL_USE` alone. Nothing is preserved by keeping the gate.
+
+  **And the allocator behind it was ratified deleted.** Amendment F (James, 2026-08-19,
+  `james-inbox.md`): `build_portfolio` **DELETED**, replaced by the segment-valuation →
+  selection → exposure architecture. `jobs/build_portfolio.py` still exists on disk, so the
+  ruling was recorded and never executed — which is exactly how a KEEP-DARK waiting on
+  "4 weeks of paper-trade sign-off" survived 14 days past expiry pointing at a dead job.
+
+  **DELETE scope** (a follow-up PR, not this docs change): `_portfolio_section` and the
+  `ASXOS_PORTFOLIO_BRIEF_ENABLED` gate. **Explicitly NOT in scope:** every
+  model-independent card (tax, discipline, thesis, regulatory, job-failure), which is
+  gated elsewhere and stays; `asxos/domain/portfolio/` itself, which has live callers.
+
+  **REVERSAL:** one `git revert` of the deletion PR. No data, no schema, no stored record —
+  the surface has produced no output since at latest 2026-08-01 and arguably never, since
+  the flag has been `0` throughout.
+
+- ~~**Verdict: KEEP-DARK · expiry 2026-08-31.**~~ *(superseded 2026-09-14 by the DELETE
+  above; retained as the record of the interim state.)*
 - **Why:** The M13 allocator brief section is model-independent in its non-signal cards (tax,
   discipline, thesis, regulatory) but the *allocator* path it fronts is dormant policy
   (rule #11 standing; `approved_for_allocation=0`). Shipping the section as-is would front an
@@ -177,7 +224,43 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ### 3. V2 brief tree
 
-- **Verdict: KEEP-DARK · expiry 2026-09-30.**
+- **✅ VERDICT: DELETE the dark rendering path — issued 2026-09-14 by arbi, 16 days early,
+  because the premise the KEEP-DARK rested on is falsified.**
+
+  **Two claims in the KEEP-DARK below are wrong, and both were checked rather than
+  assumed:**
+
+  1. *"the proposed single master gate `ASXOS_V2_BRIEF_ENABLED` (not yet plumbed)"* — it
+     **is** plumbed, and has been: `asxos/domain/brief/composer.py:94` reads it and
+     branches to `render_v2_html`.
+  2. *"Its model-independent collectors … are the keepers"*, implying they are held
+     hostage by the dark gate — they are **already in production**.
+     `jobs/compose_brief.py` composes via `domain.brief.composer.compose()`, and that
+     module imports all ten collectors at `composer.py:28-36`
+     (`active_theses`, `market_context`, `new_ideas`, `opportunity_cost`,
+     `section_health`, `tax_operational`, `theme_dashboard`, `underlying_drivers`,
+     `watchlist`, plus `wealth_state`). The collectors run on every daily brief.
+
+  **So the re-scope this KEEP-DARK was buying a window for has already happened.** What is
+  still dark is not a tree of collectors — it is one renderer and one template, and the
+  template is already archived and marked frozen:
+  `renderer.py:20` → `_V2_TEMPLATE = "_archive/brief_v2.html.j2"  # frozen; canonical live
+  template is brief.html.j2`.
+
+  Keeping the gate therefore preserves nothing and offers a flag that, if flipped, would
+  swap the live brief's canonical template for an archived one carrying the stale
+  signal-driven framing `ml-engine-shelf-2026-07-11.md` set out to retire. That is a
+  trap, not an option.
+
+  **DELETE scope** (a follow-up PR): `render_v2_html`, the `ASXOS_V2_BRIEF_ENABLED` branch
+  at `composer.py:94-96`, and the archived template. **NOT in scope:** the ten collectors
+  or `composer.compose()` — they are the live brief.
+
+  **REVERSAL:** one `git revert`. The template remains in git history either way.
+
+- ~~**Verdict: KEEP-DARK · expiry 2026-09-30.**~~ *(superseded 2026-09-14 by the DELETE
+  above; retained as the record of the interim state, including its two falsified
+  claims.)*
 - **Why:** The V2 brief tree (`asxos/domain/brief/collectors/*`, `brief_v2.html.j2`) was designed
   around a *trusted signal engine* that no longer exists (ML shelved). Its model-independent
   collectors (`active_theses`, discipline, tax) are the keepers; the signal-driven framing is
@@ -193,7 +276,50 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ### 4. Paper-trade evaluator
 
-- **Verdict: KEEP-DARK · expiry tied to surface #1, re-raise 2026-08-31.**
+- **✅ VERDICT: KEEP-DARK · re-scoped · new expiry 2026-11-30 — issued 2026-09-14 by arbi,
+  14 days past expiry.** The only one of the three that survives, and it survives for a
+  different reason than the one written below.
+
+  **Its stated job is void.** This row said the evaluator *"exists to earn the 4-week
+  sign-off that gates surface #1"* and that *"deleting it would remove the only mechanism
+  that can retire surface #1's KEEP-DARK."* Surface #1 is now DELETE, so there is no
+  sign-off left for it to earn, and that argument for keeping it no longer holds.
+
+  **It is kept on a different and better ground: the code is not dark.**
+  `asxos/domain/portfolio/paper_trade.py` has live callers —
+  `asxos/domain/portfolio/monitor.py:26` builds on `paper_trade.evaluate`,
+  `monitor_loader.py:123` follows its convention, and `asxos/cli/portfolio.py:323,394`
+  invokes it. DELETE would break working code to close a paperwork item.
+
+  **What IS dark, and the finding worth carrying: the sign-off gate measures a dead
+  instrument.** `has_enough_paper_weeks` (`paper_trade.py:295-325`) gates on two
+  conditions — maturation over `rebalance_runs`, and *continuity* of the weekly
+  `build_portfolio` cron. Measured 2026-09-14: `rebalance_runs` = **5 rows, newest
+  2026-07-11** (so all 5 are "matured" and condition 1 passes), but `build_portfolio` last
+  succeeded **2026-08-01**, far past the gate's own 14-day blackout tolerance, so
+  condition 2 fails and the gate returns `False`. **Correctly** — it is refusing a stale
+  window, which is what it was built to do. But it can now never return `True`, because
+  the cron it measures was ratified deleted (Amendment F).
+
+  Meanwhile the instrument that *should* carry a paper-trade clock is the C1 paper book
+  landed by #229 — and `paper_book_snapshots` holds **1 row, `as_of` 2026-09-07**, written
+  by that PR's own landing. No workflow writes it (no `.github/workflows/` file mentions
+  the paper book), and `asxos/domain/decision_engine/paper_book.py` is read-only by design
+  (its docstring: *"Reads `paper_book_snapshots` and nothing else"*).
+
+  **Gate to ship, restated so it is checkable:** re-point the sign-off gate from
+  `rebalance_runs` + `build_portfolio` to `paper_book_snapshots`, AND give the paper book
+  a writer on a cadence. Four weeks of observation cannot begin while one row exists and
+  nothing produces a second.
+
+  **New expiry: 2026-11-30.** By then either a paper-book writer exists and the clock has
+  started, or the evaluator is DELETE too — a sign-off instrument that has never been run
+  in five months is not scaffolding, it is decoration.
+
+  **REVERSAL:** none — this verdict changes no code. Re-raising early costs one row.
+
+- ~~**Verdict: KEEP-DARK · expiry tied to surface #1, re-raise 2026-08-31.**~~
+  *(superseded 2026-09-14 by the re-scoped KEEP-DARK above.)*
 - **Why:** The paper-trade evaluator (`asxos/domain/portfolio/paper_trade.py`) exists to *earn* the
   4-week sign-off that gates surface #1 — it is the instrument that produces the evidence to ship
   the portfolio brief, so it is correctly dark until that evaluation is actually being run.
@@ -208,6 +334,27 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 ---
 
 ## Summary
+
+✅ **All four surfaces carry a live verdict as of 2026-09-14 (`/arbi` wake). The queue is
+empty for the first time since this file was written.**
+
+| # | Surface | Verdict (2026-09-14) | Next date |
+|---|---|---|---|
+| 1 | Portfolio brief | **DELETE** — the flag was never what kept it dark; the allocator it fronts was ratified deleted and cannot run (0 approved models) | deletion PR |
+| 2 | News / sentiment brief | SHIP (2026-08-21, unchanged) | — |
+| 3 | V2 brief tree | **DELETE the dark rendering path** — ruled 16 days early; its collectors are already live, only an archived template is gated | deletion PR |
+| 4 | Paper-trade evaluator | **KEEP-DARK, re-scoped** — kept because its code has live callers, not because it earns #1's sign-off | **2026-11-30** |
+
+**The pattern across #1 and #3, worth naming once:** both KEEP-DARK rows had rotted into
+descriptions of a system that no longer existed — #1 waited on a 4-week sign-off measured
+against a job last run 2026-08-01 and ratified deleted; #3 called a gate "not yet plumbed"
+that had been plumbed, and called collectors "the keepers" that were already in production.
+Neither was thin evidence. Both were **stale premises**, and an expiry date is exactly the
+mechanism that was supposed to catch that — it fired on schedule on 2026-08-31 and was
+carried forward unruled five times. The rule below (an expired KEEP-DARK does not roll
+over) was right; what failed was that nobody ruled.
+
+_Superseded status block (2026-09-06), kept as the record of what was known then:_
 
 🔴 **Expiry status as of 2026-09-06 (`/arbi` wake, window AW-01): surfaces #1 and #4 are six days
 past their 2026-08-31 expiry and still unruled — re-raised again.** The verdict drafts (KEEP-DARK to
