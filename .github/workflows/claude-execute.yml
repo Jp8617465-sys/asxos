@@ -5,29 +5,31 @@
 # `gh workflow run claude-execute.yml -f prompt="..."` instead of driving
 # everything from an interactive chat session.
 #
-# Required repo secret:  CLAUDE_CODE_OAUTH_TOKEN — minted via `claude setup-token`
-#   (bills usage to the Claude subscription, not a metered API key).
-# Optional repo secret:  CLAUDE_WORKFLOW_PAT — a fine-grained PAT used as
-#   GH_TOKEN so Claude can trigger/inspect OTHER workflows (the default
-#   GITHUB_TOKEN cannot start new workflow runs from within a run).
-#   Falls back to GITHUB_TOKEN when absent.
-#   ADDING THIS PAT IS ITSELF A BOUNDARY CHANGE, not a convenience toggle.
-#   Branch protection runs with `enforce_admins: false`, and a PAT acts as its
-#   owner — so a PAT minted from James's admin account would let this workflow
-#   bypass every protection on `main`, and would also restore its ability to
-#   dispatch other workflows. Today's fallback to GITHUB_TOKEN is what keeps
-#   both closed. Set `enforce_admins: true`, or enumerate bypass actors in a
-#   ruleset, BEFORE introducing the PAT.
+# Required repo secrets:
+#   CLAUDE_CODE_OAUTH_TOKEN — minted via `claude setup-token` (bills usage to
+#     the Claude subscription, not a metered API key).
+#   ARBI_GITHUB_TOKEN — a fine-grained PAT scoped to this repo with Contents,
+#     Pull requests, Actions, Workflows and Issues write. It is BOTH the
+#     checkout credential and GH_TOKEN, and both matter:
+#       - as GH_TOKEN it lets arbi drive `gh` (the default GITHUB_TOKEN cannot
+#         start new workflow runs from within a run);
+#       - as the CHECKOUT token it is what makes pushes trigger other
+#         workflows. `persist-credentials: true` alone persists GITHUB_TOKEN,
+#         and a push made with GITHUB_TOKEN deliberately does NOT trigger
+#         workflows — so `full-check` would never fire on the PR arbi opens,
+#         and arbi would either wait forever or merge on nothing green.
+#   SUPABASE_ACCESS_TOKEN — read/write Supabase MCP, so `apply_migration`
+#     exists in a headless run (AGENTS.md §8's migration sequence).
 #
-# Safety model: workflow_dispatch only (no automatic event triggers — repo
-# events can carry untrusted text); scoped --allowedTools (no unrestricted
-# shell); draft-PR ceiling and never-commit-to-main enforced in the prompt and
-# push/PR guards. Branch protection on `main` (a PR required, full-check
-# required, force-push/deletion blocked) has been live since 2026-07-17 and is
-# the server-side backstop — but note approvals are 0, so CODEOWNERS is
-# advisory rather than mechanical, and enforce_admins is false, so an
-# admin-scoped token bypasses it. Repo rules in CLAUDE.md (incl. rule #11 Model
-# A quarantine and migration/deploy boundaries) load with the checkout and
+# Safety model: workflow_dispatch only — no automatic event triggers, because
+# repo events can carry untrusted text. Tooling is no longer fenced by a
+# per-lane tool allowlist; the run is `--permission-mode auto`, so the
+# classifier reviews everything that is not one of the sanctioned shapes
+# pre-approved in `.github/runner/claude-user-settings.json`. The `main`
+# ruleset (PR required, `full-check` on the current head, squash, linear
+# history, no force push, empty bypass list) is the server-side backstop and
+# binds this credential too. Repo rules in AGENTS.md and CLAUDE.md (incl. rule
+# #11 Model A quarantine and the §2 reserved domain) load with the checkout and
 # apply to every run.
 
 name: Claude Execute
@@ -42,7 +44,11 @@ on:
       max_turns:
         description: "Maximum agent turns"
         required: false
-        default: "20"
+        # Raised 20 -> 40 on 2026-09-10: the lane now lands its own work
+        # (AGENTS.md §8) rather than stopping at a draft, so a budget sized for
+        # "build and hand over" truncates mid-run and reads as a lane that just
+        # stopped.
+        default: "40"
         type: string
       run_tests:
         description: "Run relevant tests before declaring done"
@@ -74,10 +80,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          # The PAT, not the default GITHUB_TOKEN. A push authenticated with
+          # GITHUB_TOKEN does not trigger other workflows, so full-check would
+          # never run on the PR this lane opens. See the header.
+          token: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          persist-credentials: true
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
+
+      # The classifier ignores `autoMode` in project settings, so the auto-mode
+      # context and its four sanctioned exceptions have to be user-level. A
+      # headless `-p` run also defaults to Manual without --permission-mode,
+      # where every unlisted action is denied with no prompt and the run looks
+      # successful having done nothing.
+      - name: Install user-level Claude settings for auto mode
+        run: |
+          mkdir -p ~/.claude
+          cp .github/runner/claude-user-settings.json ~/.claude/settings.json
 
       - name: Install project with test dependencies
         if: ${{ inputs.run_tests }}
@@ -95,7 +116,8 @@ jobs:
       # Dependabot (.github/dependabot.yml) owns keeping this current.
       - uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10  # v1
         env:
-          GH_TOKEN: ${{ secrets.CLAUDE_WORKFLOW_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # OPT-IN ONLY (default false). The action's own docs warn that this
@@ -127,8 +149,9 @@ jobs:
               code, run the relevant pytest selection (plus ruff/mypy on
               touched files) and report results before declaring done.
             - If you change files: work on a branch named claude/<short-slug>
-              (never main), commit, push the branch, and open or update a
-              DRAFT pull request describing what changed and why.
+              (never main), commit, push the branch, open the pull request
+              READY with its reversal-cost class and reversal cost, and land it
+              per AGENTS.md §8 once required checks pass on its current head.
             - Continue through recoverable failures inside the task scope
               (test, lint, type, dependency-resolution, merge-base, or CI
               validation failures) by fixing, rerunning, and reporting the
@@ -136,16 +159,15 @@ jobs:
             - If no changes are needed: make no commits and finish with a
               concise summary of what you checked and found.
             - STOP and report the exact blocker instead of proceeding if the
-              task would need missing credentials or secret creation, a
-              destructive action (force-push, deletion, DB migration apply,
-              data mutation), a direct push to main, a PR ready/merge action
-              or self-merge not explicitly authorized by repository policy and
-              James for that exact PR, or any production-risk operation
-              (deploys, schedule changes, irreversible production writes,
-              secrets). Never apply migration 0042. Never use Model A output
-              in any decision basis (CLAUDE.md rule #11).
+              task would reach AGENTS.md §2 — a real capital action, a change
+              to north-star.md or the personal-use invariant, or spend above
+              the A$50/day cap — or if it needs a secret VALUE created or
+              revealed (you name and scope a slot; James pastes the value).
+              Never apply migration 0042. Never use Model A output in any
+              decision basis (CLAUDE.md rule #11).
             - Never print secret or environment-variable values into logs,
               commits, or PR text.
           claude_args: |
             --max-turns ${{ inputs.max_turns }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout:*),Bash(git switch:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(ruff check:*),Bash(mypy:*),Bash(make check:*),Bash(gh workflow run full-check.yml:*),Bash(gh workflow run targeted-ml-tests.yml:*),Bash(gh workflow run migration-integration.yml:*),Bash(gh run watch:*),Bash(gh run view:*),Bash(gh run list:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
+            --permission-mode auto
+            --mcp-config .github/runner/mcp.json

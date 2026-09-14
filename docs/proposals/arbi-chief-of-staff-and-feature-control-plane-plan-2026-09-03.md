@@ -1122,3 +1122,318 @@ The desired outcome is not an agent that asks less because it has learned to sta
 It is an operating system where the safe autonomous path is the easiest path, dangerous
 actions are mechanically bounded, and James's attention is spent only where judgment is
 actually irreplaceable.
+
+## 23. ECC-informed harness optimisation delta — 2026-09-08
+
+**Status:** execution delta under this programme; not a second roadmap and not authority.
+**Delta baseline:** `origin/main` at `6f59b8e`, re-probed 2026-09-08.
+**External reference:** [ECC](https://github.com/affaan-m/ECC), inspected as a design source;
+no ECC package or catalogue is adopted.
+**Placement:** implementation remains in programme Issue `#204`, Phase-0 Issue `#205`, and
+the existing work orders below. Create no parallel Markdown/YAML queue for this delta.
+**Sibling policy PR:** draft PR `#235` starts from the same `6f59b8e` baseline and changes
+`AGENTS.md`, `docs/README.md`, and `docs/product/autonomy-policy.md`; it does not overlap this
+file. Its target contract is inactive unless and until its 17 activation gates, policy attestation,
+and `AUTONOMY=STANDING` state all pass.
+
+### 23.1 Placement and decision
+
+Adopt ECC's strongest operating mechanisms as increments to ASXOS's existing control plane:
+
+```text
+diagnose -> select bounded context -> execute behind runtime feedback guards
+         -> verify outside the product PR -> emit receipts -> evaluate on protected cases
+```
+
+This does not displace the admitted F-E2E r1 sprint. At this baseline its negative control is
+observed and the positive control is one James-authored thesis away
+(`e2e-run-findings-2026-09-07.md`). Finish that r1 unless James explicitly reprioritises. ACP
+Phase 0 stays under `#205`; control implementation stays under `#204`. Backlog `A-22` is the
+separate branch-scoped producer-credential gate for standing lanes: removing PR-head secrets does
+not close it.
+
+The decision is **adapt, not install**. Do not add ECC's 286-skill catalogue, installer/repair
+lifecycle, broad MCP defaults, `yolo` profile, transcript-derived memory, IOC feeds, or a second
+state store. This delta does not itself change ASXOS's command vocabulary, authority, activation
+state, no-auto-merge rule, rule #11, or s766B firewall. The current attended/draft-PR ceiling holds
+until the separate target policy in `#235` is both merged and fully activated; after that, its
+mechanical Green/Amber/Red classifier and exact-head approval rules govern execution.
+
+PR `#235` is complementary, not a prerequisite for merging this planning delta and not a second
+implementation track. If it lands, its activation checklist becomes the parent control contract:
+
+- `P2/P8/P9` implement its `asxos-control` verifier, separated publisher identity, and exact-head
+  `risk-classify` required check; do not create a second verifier or required-status vocabulary;
+- `P1`, CODEOWNERS drift control, the external check, and the identity proof contribute evidence
+  to its activation items 1–7 rather than constituting an alternative activation path;
+- a future Codex `ADOPT` must add `.codex/**` to its protected policy/classifier surfaces through a
+  James-approved policy change, because `#235` does not currently classify that path; and
+- none of this delta's PRs, receipts, or pilots may set `AUTONOMY`, satisfy an unchecked activation
+  item by assertion, or infer standing authority from `#235` merely being merged.
+
+### 23.2 Canonical crosswalk
+
+| ECC-derived mechanism | Existing ASXOS destination | Baseline | Next increment |
+|---|---|---|---|
+| Doctor / drift diagnosis | ACP Phase 0 and `P12` measurement | Project-state, workflow, offline-test, and doc-expiry checks exist separately | One new read-only doctor candidate; create one `#204` sub-issue only if James activates it |
+| External verification | ACP `P1`, `P2`, `P8`, `P9`; Issues `#204/#205` | Exact-SHA verifier and caller are staged under `docs/proposals/asxos-control/`; destination repo absent | Treat staged files as the `P8` seed; if `#235` lands, implement its single `risk-classify` verifier/publisher contract as `P9` rather than creating a parallel check |
+| Context budget | Existing `SB3-02` and ACP `P12` | `MissionEnvelope`, `MissionReceipt`, and `ContextManifest` v1 are frozen; no compiler exists | Compile/verify manifests and emit a report-only budget without widening v1 |
+| Codex roles/config | This plan's optional-provider rule and `R-ACP-15` | At this baseline root `AGENTS.md` is a prompt-only Cursor mirror and `.codex/**` does not exist; draft `#235` proposes native Codex policy wording but no `.codex/**` classification | Required capability proof, then explicit `ADOPT` or `REJECT`; adapter remains optional and never gates liveness |
+| Executable evals/receipts | Existing `SB4-01`, `SB4-02`, backlog `E-10`, ACP Lab/control | Five visible Markdown cases exist; real brief trigger and score trend are open | Protect public regression cases; keep withheld cases in control; build deterministic runner and the already-planned SB4-02 eval receipt |
+| More hooks | No active work order | Four Claude hooks already exist; current lesson is hooks = feedback, controllers = enforcement | Defer until at least ten receipts show the same preventable miss |
+
+This crosswalk is the work identity. The only genuinely new candidate is the doctor. Give it a
+canonical work-item ID only when James activates a `#204` sub-issue; do not pre-create another
+ID family here.
+
+### 23.3 Dependency overlay on the existing programme
+
+```text
+current F-E2E r1 -> observed or explicitly reprioritised by James
+
+#205 / P0 fresh baseline
+├── P1 harden product Actions settings and contain PR-head exposure
+├── P2 create/protect asxos-control
+│   └── P8 exact-SHA secretless verifier
+│       └── P9 OIDC-bound signer + App-owned required check
+├── SB3-02 manifest compiler + report-only context budget
+├── Codex capability proof
+│   └── fence .codex/** [James, only on ADOPT]
+│       └── minimal adapter trial [optional]
+└── SB4-01 real-case trigger + public regression runner
+    └── SB4-02 separate-context eval receipt
+        └── protected control execution using withheld cases [after P9]
+
+P8 + P9 + SB3-02 + SB4-02 + Codex ADOPT/REJECT disposition
+└── one low-risk observed pilot
+```
+
+The staged verifier alone is not the root of trust. `P8` proves secretless exact-SHA execution;
+`P9` binds that evidence to an identity a product PR cannot forge and publishes the required
+check. Product-side workflow inventories remain diagnostics: the protected controller owns the
+parser and policy used for enforcement and never trusts a parser or green result supplied by the
+PR being judged.
+
+If `#235` lands, its 17-item activation checklist is the overarching dependency graph. The ACP
+work above supplies part of that checklist's evidence; it does not replace the distinct identity,
+ruleset, CODEOWNERS, environment, database-role, state-controller, breaker, restore, digest, drill,
+and attestation gates that remain open there.
+
+Read-only doctor and Codex capability probes may run while James progresses `P2`. A Codex adapter
+cannot be called in-fence until the external check is observed and `.codex/**` is classified as
+authority. `SB4-01` remains parked until its existing trigger — one real `/arbi` brief — exists.
+
+### 23.4 Execution contracts
+
+#### Read-only harness doctor — new candidate under `#204`
+
+Build one standard-library bootstrap that composes existing checks rather than reimplementing
+them. Proposed product paths: `tools/harness_doctor.py`, `tests/test_harness_doctor.py`, one short
+operator runbook, and optionally a `Makefile` target.
+
+Its record is stable JSON with a human rendering from the same data. Findings are
+`PASS | WARN | FAIL | UNAVAILABLE`, each with owner, evidence, and remedy. Exit `0` means no
+`FAIL`, `1` means at least one `FAIL`, and `2` means bad invocation or an internal doctor defect.
+`--strict` may make warnings non-zero. It never installs, repairs, trusts a hook, reads a secret
+value, contacts the network, or becomes a source of truth.
+
+Required probes: repository identity/dirty state; Python/dependency readiness; tracked config and
+hook presence/digests; effective git-hook path; live-versus-staged fence version; project-state
+validity/freshness; workflow effects/exposure; offline-test surface; and external-control state as
+`observed`, `staged`, or `unavailable`. The inspected host's default `python3` cannot import
+`datetime.UTC` while ASXOS targets Python 3.12; the doctor must report that cleanly before project
+imports, not reproduce the current traceback.
+
+Do not make `check_doc_expiry.sh` blocking through the doctor. Four James-owned paths remain and
+the last sweep needed 19 standing-doc allowlist entries, so its rule still has calibration debt.
+
+#### `P1` / `P2` / `P8` / `P9` — external root of trust
+
+Move the staged verifier into the protected control repository, build its dependency image, and
+replace both placeholders with an immutable control-workflow commit and image digest. Preserve its
+network namespace, non-root user, read-only root filesystem, dropped capabilities, no Docker
+socket, DNS-negative test, raw-IP TCP-negative test, and no-secrets reusable-workflow contract.
+
+`P1` must ultimately leave zero repository-secret-bearing PR-head workflows. The current two are
+`migration-drift.yml` and `pr-review-agent.yml`. A secret-powered job may move to protected control
+code, become owner-only/manual, or run trusted code with PR content treated as data. Do not solve
+this by switching casually to `pull_request_target` and checking out the PR head. If replacement
+is not ready, safe rollback is manual/secretless operation, never the exposed state.
+
+`P9` is complete only when an App-owned, identity-bound required check is observed at the exact
+product SHA and rejects forged evidence, stale SHA, changed acceptance, artifact substitution,
+mutable actions/images, widened permissions/triggers, local composite actions, Docker tags,
+`secrets: inherit`, secret context dumps/bracket access, `workflow_run` confusion, and
+self-referential path filters.
+
+#### `SB3-02` — manifest compiler and report-only context budget
+
+Consume the existing `MissionEnvelope v1`; emit and verify the existing `ContextManifest v1`.
+Resolve selected files at `baseline_sha`, enforce repository containment, compare SHA-256 digests,
+validate line spans and snapshot links, and fail closed on stale/unreachable baselines, sensitive
+dotfiles, unresolved compiled views, or broad scope globs. Do not add fields to a frozen v1.
+
+Emit a sidecar record of exact bytes and lines by source kind, always-loaded instruction bytes,
+selected/excluded totals, and a clearly labelled token estimate. Start report-only. The full
+roadmap, all handoffs, all memory, and whole directories are not default context. Consider a
+blocking ceiling only after at least ten representative runs across docs, code, review, and live-
+probe missions, with no regression in safety, citation, or dispatch quality.
+
+`ContextManifest` remains an auditable declaration. It does not prove the runtime read nothing
+else and must not be described as an enforcement boundary.
+
+#### Codex capability proof and optional adapter
+
+The capability proof is required; adapter adoption is not. It must end in an evidence-backed
+`ADOPT` or `REJECT`. `REJECT` is a complete outcome: Claude remains primary, Codex remains
+read-only/out-of-fence, and the programme remains live.
+
+Current official OpenAI documentation confirms project-scoped
+[`config.toml`](https://learn.chatgpt.com/docs/config-file/config-basic),
+[`agents`](https://learn.chatgpt.com/docs/agent-configuration/subagents), and
+[`PreToolUse` hooks](https://learn.chatgpt.com/docs/hooks). It also states that CLI overrides outrank
+project config, changed hooks require trust review, and some tool paths can escape hooks. Re-check
+those facts at implementation time.
+
+On `ADOPT`, James first classifies `.codex/**` in every applicable surface:
+
+- `AGENTS.md` and, if `#235` lands, `docs/product/autonomy-policy.md`;
+- `.claude/settings.json` primary path denies;
+- `.claude/hooks/authority-guard.sh` attended authority fragments;
+- `.claude/hooks/unattended-guard.sh` unattended authority paths;
+- `asxos/backlog.py` protected exact/prefix sets;
+- `.github/CODEOWNERS` and the protected `asxos-control` classifier registry; and
+- `tests/test_authority_fence_drift.py`, `tests/test_authority_guard_hook.py`,
+  `tests/test_unattended_guard_secperf.py`, and backlog drift tests.
+
+Only after that fence is observed may the adapter land: project defaults
+`approval_policy = "on-request"`, `sandbox_mode = "workspace-write"`, maximum four concurrent
+subagent threads, one read-only explorer, one read-only reviewer, and one payload normalizer that
+feeds Bash, `apply_patch`, and supported MCP calls into the existing ASXOS policy scripts. Add no
+pinned model, default MCP server, secret, global path, permissive profile, or write-capable
+specialist. Update `AGENTS.md`'s Cursor-only wording only after the capability proof.
+
+The normalizer must not fork the authority vocabulary. Synthetic Bash, patch, MCP, push, merge,
+ready, authority-path, symlink, missing-`jq`, and subdirectory-start cases must produce the same
+decision in Claude and Codex adapters. Hook trust missing/changed, CLI bypass, or a parity miss
+keeps Codex out-of-fence. The external required check remains enforcement even after `ADOPT`.
+
+#### `SB4-01` / `SB4-02` — regression cases, hidden holdouts, and eval receipts
+
+The five files under `docs/product/evals/**` are visible to the candidate. Treat them as a public
+regression set, not genuine hidden holdouts, and protect them from candidate edits through the
+same explicit authority surfaces above. Add structured G1–G8 cases, including a real `/arbi`
+failure shape only after stripping live numbers, holdings, stops, targets, personal data, and
+credentials. A captured real case becomes public regression evidence after use; it is not a
+continuing holdout.
+
+Withheld cases and their exact expected answers live only in protected `asxos-control`, where the
+product candidate cannot read or modify them. The public offline runner consumes pre-captured
+outputs and exercises deterministic hard gates without model credentials or production access.
+Known-bad Model A, branch-only, unavailable-probe, capital-request, and boundary cases must fail.
+Fixtures never supply arbitrary shell for the runner to invoke.
+
+Implement the already-planned SB4-02 scorecard receipt as a distinct versioned contract; do not
+replace or widen `MissionReceipt v1`. Separate two identities:
+
+- `evaluation_content_digest` is stable over candidate/incumbent, cases, instructions, runner,
+  policy, deterministic gate outputs, output/evidence digests, and grader-policy digests; and
+- `run_id` is unique and carries timestamp, duration, observed usage/cost, and grader observation.
+
+Unknown cost is `unavailable`, never zero. Deterministic replay applies to the hard-gate results
+and content digest, not to a qualitative grader's prose. Producer and grader run in separate
+contexts. The committed product record is the small receipt and James's
+promote/reject/no-change decision, not hidden cases or a raw transcript.
+
+#### Conditional feedback hook
+
+Create no new hook now. After at least ten receipts, a repeated miss may justify a shadow
+experiment such as a compact session-start fact pack or a quality-config warning. Its proposal
+must name the observed denominator, expected catch rate, false-positive ceiling, added context and
+latency, owner, removal rule, and no-regression eval. Delete it if the shadow evidence does not
+justify a blocking control.
+
+### 23.5 Evidence matrix
+
+Each activated mission copies its applicable row into `MissionEnvelope.acceptance_checks` before
+mutation. Future command names below are interface contracts to implement and test.
+
+| Criterion | Command / test | Artifact | Observer |
+|---|---|---|---|
+| Fresh setup baseline | `git rev-parse origin/main`; `python tools/harness_doctor.py --format json` | Redacted doctor JSON bound to full SHA | Guilfoyle + security review |
+| Doctor survives incomplete setup | system Python run plus `pytest tests/test_harness_doctor.py` | Clean findings for old/missing Python, dependencies, tools, stale state, malformed child output | CI and technical writer |
+| No PR-head secret exposure | `python tools/workflow_inventory.py --format json` plus control-owned policy suite | Product diagnostic + protected control verdict, both at exact SHA | Security + James |
+| Exact-SHA control check | control attack suite; GitHub check-runs query for tested SHA | `P8` verifier evidence and `P9` App-owned required check | James + branch rules |
+| Manifest integrity/budget | `pytest tests/test_mission_context_schema.py` plus new SB3-02 targeted tests and compiler CLI | `ContextManifest v1` + budget sidecar | Guilfoyle + security/performance |
+| Codex disposition | adapter validation tests plus recorded instruction/config/hook discovery smoke run | `ADOPT` or `REJECT`, effective sources, parity matrix, context/latency/cost | James + independent reviewer |
+| Public eval replay | `python scripts/run_arbi_evals.py` plus known-bad fixtures | Deterministic hard-gate result + content digest | CI + fresh reviewer |
+| Hidden comparison | protected control execution against withheld cases | Unique run receipt linked to stable digest; no hidden input in product artifact | App-owned check + James |
+| End-to-end outcome | one low-risk mission through envelope -> manifest -> draft PR -> receipts -> exact-SHA check -> observation | `MissionReceipt v1`, eval receipt, observed/honest-miss row | Guilfoyle, external check, James |
+
+### 23.6 PR boundaries and rollback
+
+Use the existing programme Issue and work-order identities:
+
+1. **Doctor candidate, one product PR after activation:** doctor, fixtures, and runbook; draft PR
+   ceiling; rollback is branch revert.
+2. **`SB3-02`, one product PR:** compiler, verifier, budget record, and targeted tests; report-only;
+   rollback retains the frozen schemas.
+3. **`P1/P2/P8/P9`, separated by repository boundary:** protected control bootstrap/verifier;
+   control policy/signer; then James-applied product caller and secret evacuation. Never stack
+   ambiguous trust changes across repositories.
+4. **Codex experiment:** capability report first. On `REJECT`, no config PR. On `ADOPT`, one
+   James-owned boundary PR precedes one minimal-adapter PR; removing the adapter retains the
+   `.codex/**` authority classification.
+5. **`SB4-01/SB4-02`, at most two product PRs plus protected control integration:** public
+   regression/receipt contract, then offline runner; control-owned hidden execution follows `P9`.
+6. **Pilot, one low-risk product PR:** if Codex was rejected, run through Claude only; if adopted,
+   compare the same frozen mission through both without making Codex a liveness dependency.
+
+While the pre-activation attended ceiling holds, no product branch starts from a stale base,
+becomes ready, merges, or pushes to `main` through an agent. This delta grants no exception. If the
+policy proposed by `#235` is later fully activated, branch readiness and merge follow its external
+classifier, exact-head evidence, and Green/Amber/Red gates; Red, secrets, capital, protection
+bypass, policy self-amendment, and destructive production data remain hard stops. Rollback must
+always return to an attested safe state, never the former exposed state.
+
+### 23.7 Completion bar
+
+This delta is complete when:
+
+- the doctor emits deterministic, redacted findings from both a clean and deliberately incomplete
+  checkout without mutation or traceback;
+- product PR-head workflows receive zero repository secrets;
+- the required verification status is published only by protected, pinned `asxos-control` code
+  through the `P9` identity at the exact product SHA;
+- `SB3-02` produces contained, digest-bound, baseline-bound manifests and measures exact context
+  bytes separately from estimated tokens over at least ten representative runs;
+- Codex has an explicit `ADOPT` or `REJECT` disposition; an adopted adapter passes the boundary
+  parity corpus, while a rejected adapter leaves Claude as the healthy primary path;
+- public regression cases are protected, hidden cases remain external, a known-bad candidate
+  fails, producer and grader differ, and one real candidate/incumbent decision has a replayable
+  SB4-02 receipt;
+- one low-risk mission reaches exact envelope -> minimal context -> draft PR -> receipts ->
+  external verification -> observed outcome or an honest miss; and
+- no new authority, production DB, migration, deploy, automatic merge, capital, Model A, or
+  secret-handling capability is granted.
+
+Do not claim completion because files merged, CI was green, Codex started, context bytes fell, or a
+qualitative grader returned a higher scalar score.
+
+### 23.8 Recommended activation
+
+Default order:
+
+1. finish F-E2E r1's current observed contract unless James explicitly reprioritises;
+2. complete the fresh Phase-0 verdict under `#205`;
+3. if ratified, create exactly one new `#204` sub-issue for the read-only doctor and make it the
+   first agent-owned harness mission; and
+4. in parallel, James advances `P2` creation/protection of `asxos-control`, then `P8 -> P9`.
+
+Next after the doctor is the existing `SB3-02` work order. Codex configuration waits for an
+`ADOPT` disposition and its authority fence. Automated promotion waits for protected public cases,
+external hidden cases, and `P9`. `A-22` remains open until its separate branch-scoped credential
+proof is observed. PR `#235` may land as an inactive target contract in either order; once landed,
+record each of these work products against its activation checklist and do not set
+`AUTONOMY=STANDING` until all 17 items—not only the overlapping ACP subset—are independently
+verified and attested.

@@ -331,16 +331,18 @@ def test_inventory_is_json_serialisable_and_versioned(tmp_path: Path) -> None:
 
 
 def test_live_repo_exposure_set_is_pinned() -> None:
-    """Exactly two workflows run at PR head with a secret. Any third is a
-    deliberate expansion of the exposure surface and must be reviewed here.
+    """No workflow runs at the pull-request head with a repository secret.
 
-    Both are controlled use while `.github/**` stays fenced — the steps that run
-    are the reviewed ones. The flag records reachability, not a defect.
+    That is ACP phase P1's requirement, and this assertion is where it is met:
+    `migration-drift.yml` and `pr-review-agent.yml` both lost their
+    `pull_request` trigger, so the exposure set is empty rather than "two
+    controlled uses".
+
+    Any future entry is a deliberate expansion of the exposure surface and must
+    be reviewed here — adding one means an agent-authored PR can again reach a
+    secret at its own head.
     """
     inventory = inv.build_inventory(_ROOT / ".github" / "workflows", root=_ROOT)
-    assert inventory["summary"]["exposed_to_authored_pr"] == [
-        ".github/workflows/migration-drift.yml",
-        ".github/workflows/pr-review-agent.yml",
-    ]
+    assert inventory["summary"]["exposed_to_authored_pr"] == []
     assert inventory["summary"]["secrets_inherit_workflows"] == []
     assert inventory["summary"]["unsafe_pin_workflows"] == []

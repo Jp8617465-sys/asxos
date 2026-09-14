@@ -3,24 +3,52 @@
 Eleven **dev-side** subagents (architecture/quality/docs roles), adapted for asxos
 from Edmund Yong's public Claude Code configuration
 (`edmund-io/edmunds-claude-code`), plus **two finance-domain conformance agents**,
-**five investment-analysis agents**, **one discovery agent**, and **three
-program-management agents** (`arbi` + `arbi-red-team` + `guilfoyle`, see bottom). The
-dev agents help build and maintain the codebase; the conformance agents guard
-spec↔test↔code correctness; the investment-analysis agents surface evidence-grounded
-views on the live portfolio; the discovery agent proposes new investment content for
-governance review; arbi sits above them all and prioritises what gets built toward the
-product's north star, with arbi-red-team as its adversarial check and `guilfoyle` as
-its execution lead (mission-control under arbi via `/arbi-mission` — plans/judges a
-mission's task graph, never prioritises). All twenty-two are
-advisory by default; none is a runtime
-in-product agent (a runtime tax/portfolio LLM is a structural NO — it would collide
-with the personal-advice firewall and Decimal-only determinism). The investment-
-analysis and discovery agents run in Claude Code sessions only, querying Supabase
-directly — they are the interactive layer on top of the automated brief, not a
-replacement for it.
+**five investment-analysis agents**, **three discovery agents**, and **three
+program-management agents** (`guilfoyle`, `reversible-work-builder`, `arbi-red-team`,
+see bottom). The dev agents help build and maintain the codebase; the conformance
+agents guard spec↔test↔code correctness; the investment-analysis agents surface
+evidence-grounded views on the live portfolio; the discovery agents propose new
+investment content for governance review; the program-management three work **under
+arbi** on planning, mutation and adversarial review.
+
+**arbi is not in this roster.** arbi is the main session — James's technical chief of
+staff (`CLAUDE.md`, `AGENTS.md` §0) — not a subagent. `/arbi` ("wake up") is a ritual
+arbi runs itself, and every fan-out below is arbi's, because a subagent cannot spawn
+subagents. None of these twenty-four is a runtime in-product agent either (a runtime
+tax/portfolio LLM is a structural NO — it would collide with the personal-advice
+firewall and Decimal-only determinism). The investment-analysis and discovery agents
+run in Claude Code sessions only, querying Supabase directly — they are the interactive
+layer on top of the automated brief, not a replacement for it.
 
 Claude routes to these contextually based on the task, or you can invoke one
 explicitly (e.g. "use the security-engineer to review this").
+
+## Hard owner→agent table
+
+**This table is canonical.** If a command's or an agent file's copy diverges, this file
+wins. `AGENTS.md` §9 routes by work *shape* (one file → `/build`; multi-node reversible
+→ `/arbi-mission`; genuinely parallel programme → a team); this table names the *owner*
+of each kind of work once the shape is chosen.
+
+| Owner (work shape) | Agent / command | Mutates? |
+|---|---|---|
+| challenge THE ONE THING or a large envelope | `arbi-red-team` | no |
+| mission graph + readiness | `guilfoyle` (plans only) | no |
+| one-file / same-file / tiny sequential | `/build` | yes (that file) |
+| multi-node reversible mission | `/arbi-mission` main-loop dispatcher | via specialists |
+| large parallel (team-shaped only) | `/arbi-team` | via teammates |
+| schema / API / write-path / DB design | `backend-architect` | no |
+| secrets / permissions / tool blast radius | `security-engineer` | no |
+| behaviour-preserving code cleanup | `refactoring-expert` | **code** |
+| docs / runbooks / handoffs | `technical-writer` | **docs** |
+| module boundaries / structural change | `system-architect` | no |
+| feature with no written spec | `requirements-analyst` | no |
+| dependency / external service | `tech-stack-researcher` | no |
+| hot path | `performance-engineer` | no |
+| tax spec↔test↔code | `tax-spec-conformance` | no |
+| portfolio invariants | `portfolio-invariant-guard` | no |
+| live-portfolio evidence | the 5 investment-analysis agents | no |
+| mutation on `claude/**` or `cursor/**` | `reversible-work-builder` | **code/docs** |
 
 ## Architecture & planning
 - **requirements-analyst** — ideas → concrete specs (PRDs, scope, success metrics)
@@ -48,30 +76,40 @@ completeness but flagged dormant since v1 has no web UI.
 
 ## Tool permissions (blast radius)
 
-Tools are scoped per agent via the `tools:` frontmatter — an agent can only use
-what's listed. Advisory agents are read-only and return their output as text for
-the main loop to act on; only two agents mutate files.
+Tools are scoped per agent via the `tools:` frontmatter — an agent can only use what's
+listed. Most hold read-only tools and return their output as text for arbi to act on;
+three mutate files: `technical-writer` (docs), `refactoring-expert` (code) and
+`reversible-work-builder` (a mission's build node, on a branch).
+
+Every subagent **inherits arbi's standing** (`AGENTS.md` §9). Its `tools:` list bounds
+only what it does *itself*, and arbi lands the result — so a `tools:` list is a
+blast-radius default, not a containment boundary. What actually holds is mechanical:
+the `main` ruleset, secret scanning with push protection, the `.env` denies and the
+secrets hook (`AGENTS.md` §13).
 
 | Agent | Tools | Can mutate? |
 |---|---|---|
 | requirements-analyst, system-architect, backend-architect, frontend-architect, tech-stack-researcher, deep-research-agent, learning-guide | Read, Glob, Grep, WebSearch, WebFetch | No |
+| tax-spec-conformance, portfolio-invariant-guard, guilfoyle, arbi-red-team | Read, Glob, Grep | No |
+| the 5 investment-analysis agents, the 3 discovery agents | + `mcp__supabase-ro__execute_sql` (read-only DB role) | No |
 | security-engineer, performance-engineer | + Bash (run read-only tooling) | No edit/write |
 | technical-writer | Read, Glob, Grep, Write, Edit | Docs only |
 | refactoring-expert | Read, Glob, Grep, Edit, Write, Bash | Code (its job) |
+| reversible-work-builder | Read, Glob, Grep, Edit, Write, Bash | Code/docs on a branch |
 
 ## How delegation works
 
 These are loaded by Claude Code at session start from `.claude/agents/` — a session
-started before a file existed won't see it until reloaded. Invocation is by the
-main agent's judgment (matched on the `description`) or explicit user request
-("use the security-engineer…"). Nothing auto-runs them. The routing policy that
-makes them part of normal dev work lives in the root `CLAUDE.md`
-(**Subagents — delegation policy**); the `description` fields carry PROACTIVELY /
+started before a file existed won't see it until reloaded. Invocation is by arbi's
+judgment (matched on the `description`) or explicit user request ("use the
+security-engineer…"). Nothing auto-runs them. The routing policy that makes them part
+of normal dev work lives in the root `CLAUDE.md` (**Subagents — delegation policy**)
+and in the hard owner table above; the `description` fields carry PROACTIVELY /
 MUST BE USED cues that bias automatic delegation toward the right agent.
 
 ## Finance-domain conformance agents (2)
 
-Added after the system-architect scoping pass. Both are **advisory, read-only**
+Added after the system-architect scoping pass. Both are **read-only**
 (`Read, Glob, Grep`), and exist for one reason: maintaining spec↔test↔code
 conformance — the gap the red team exposed (§7 hidden as "untested"; TC-20/21 once
 hid as "untested" and have since been implemented). They are NOT runtime components
@@ -157,17 +195,16 @@ main loop
 read into a verdict — **GOOD HOLD / TRIM / REVIEW / EXIT-CANDIDATE** — with the strongest
 evidence for and against, each traced to a cited agent output.
 
-## Discovery agents (1, Phase 2b; 2 more planned in Phase 2c)
+## Discovery agents (3)
 
 Added as part of the governance-first architecture
 (`docs/proposals/governance-first-architecture-2026-06-30.md`). A distinct category
 from the five investment-analysis agents above: those *analyze* existing holdings;
-this one *proposes new content* (a macro thesis, eventually a theme or an instrument)
-for human governance review. Same tool boundary as the analysis agents (`Read, Glob,
-Grep, mcp__supabase-ro__execute_sql`, SELECT-only — mechanically enforced by the
-read-only DB role since the 2026-07-21 repoint, not just the prompt) — it never
-writes to the database
-itself. Its output is a structured JSON block (see the agent file's own "Output"
+these *propose new content* (a macro thesis, a theme, a theme holding) for governance
+review. Same tool boundary as the analysis agents (`Read, Glob, Grep,
+mcp__supabase-ro__execute_sql`, SELECT-only — mechanically enforced by the read-only DB
+role since the 2026-07-21 repoint, not just the prompt) — none writes to the database
+itself. Each output is a structured JSON block (see each agent file's own "Output"
 section) that a slash command parses and persists via `asx agent-run log`, which a
 human then reviews and promotes via `asx macro-thesis approve`.
 
@@ -176,53 +213,52 @@ human then reviews and promotes via `asx macro-thesis approve`.
   (`governed_active_macro_theses`), and recent regulatory events, then proposes 1-5
   macro theses tagged to a regime quadrant, each with a catalyst/falsifier and cited
   evidence. Invoked via `/discover-macro`.
+- **theme-researcher** — top-down and macro-conditioned: given an approved macro
+  thesis's regime read, proposes 0-5 ASX-investable theme / theme-holding candidates
+  that operationalise it, each tracing back to the macro thesis it derives from.
+  Invoked via `/discover-theme [macro_thesis_id]`.
+- **sector-screener** — bottom-up and coverage-driven: given one sector that
+  `asx theme coverage` shows as structurally unexamined, screens active universe
+  symbols against fundamentals and proposes 0-5 theme / theme-holding candidates.
+  The deliberate sibling of `theme-researcher` — they share only the output schema and
+  the governance write path. Invoked via `/discover-sector <sector>`.
 
-Not yet built (Phase 2c): **theme-researcher** (given a macro thesis, proposes
-ASX-investable themes) and **instrument-selector** (given a theme, proposes 3-5
-ASX instruments/ETFs — the first real use of `theme_holdings.source='llm_inferred'`).
+Still unbuilt: **instrument-selector** (given a theme, proposes 3-5 ASX
+instruments/ETFs — the first real use of `theme_holdings.source='llm_inferred'`).
 
-## Program-management agents (2)
+## Program-management agents (3)
 
-**arbi** sits above every other agent: the arbiter of *what gets built*. It reconciles
-the scattered roadmaps and the live repo/deploy state into one honest picture, then names
-the single highest-leverage next action toward the product's north star. Same tool
-boundary as the analysis/discovery agents minus the DB (`Read, Glob, Grep`) —
-**advisory, read-only, brief-only**: it never writes to the database, never trades, and
-cannot dispatch another agent (a subagent can't spawn subagents; the slash command does
-any fan-out). Invoked via **`/arbi`** ("wake up"); **`/arbi-close`** is the closing
-bookend that records what shipped and writes the session handoff.
+These three work **under arbi**. arbi itself is the main session, not an agent file
+here (`CLAUDE.md`, `AGENTS.md` §0): it decides what gets built, dispatches these,
+and lands the result by PR (`AGENTS.md` §8). Each inherits arbi's standing; each
+`tools:` list bounds only what that agent does itself.
 
-Its operating contract — mission, inputs, output schema, permission tiers, approval
-gates, and the Model A / financial-decision boundaries — is
-`docs/product/arbi-harness.md`. The Output it measures every recommendation against is
-`docs/product/north-star.md`; its reconciled state plus append-only decision-log memory
-is `docs/product/roadmap-state.md`; how it's scored is `docs/product/arbi-evals.md`. It
-never crosses the personal-advice firewall (s766B) or CLAUDE.md rule #11 (Model A
-quarantine).
+**guilfoyle** is the mission planner — mission-control *under* arbi, invoked via
+`/arbi-mission`. arbi decides *what matters*; guilfoyle decides *how* an approved
+mission gets built: it turns a mission envelope into a task graph, assigns each node to
+a specialist, sets the execution order, and returns one readiness verdict. It **plans
+and judges only** — read-only (`Read, Glob, Grep`, no `Agent` tool, because a subagent's
+`Agent(...)` allowlist is ignored at runtime); `/arbi-mission`'s main loop does the
+spawning, testing and review loop, and arbi opens and merges the PR. It never sets
+priority (its only pushback is executability evidence, routed up), never merges,
+deploys or migrates itself, and never acts on Model A output for capital
+(`CLAUDE.md` rule #11).
 
-**arbi-red-team** is arbi's adversarial critic — a gate, not a second brief. Before a
-`/arbi` brief's single next-action is acted on, it stress-tests that call against five
-failure modes (recency overfit, task-switching, cleanup-mistaken-for-progress, low-trust
-memory overriding repo truth, perfectionism blocking a shippable build) and returns a
-PASS / CHALLENGE verdict with a file-cited reason for each. Same read-only tool boundary
-(`Read, Glob, Grep`); it never proposes its own "one thing," never dispatches, and never
-waves through a call that crosses the firewall or rule #11.
+**reversible-work-builder** is the mutation counterpart to guilfoyle's read-only
+planning: it holds `Edit, Write, Bash` for reversible branch work only (edit → test →
+commit → `claude/**` push prep), executing one scoped build node of a guilfoyle-planned
+mission at a time. Orchestration and mutation never share a process. It builds what the
+plan specifies; it never plans, prioritises, merges, deploys, migrates, touches the DB
+or secrets, or takes any capital action — arbi lands the PR (`AGENTS.md` §8). Its
+charter states honestly that a subagent `tools:` list is not containment; the mechanical
+floor (`AGENTS.md` §13, the `main` ruleset) is.
 
-**guilfoyle** is arbi's execution lead — mission-control, *under* arbi, invoked via
-`/arbi-mission`. arbi decides *what matters*; guilfoyle decides *how* an arbi-approved
-mission gets built: it turns a mission envelope into a task graph, assigns each node to a
-specialist, sets the execution order, and returns one readiness verdict before the draft
-PR. It **plans and judges only** — same read-only boundary (`Read, Glob, Grep`, no `Agent`
-tool, because a subagent's `Agent(...)` allowlist is ignored at runtime); the
-`/arbi-mission` command's main loop does the spawning, testing, review loop, and draft PR.
-It holds no tier above what arbi grants a mission (reversible I0–I4, draft-PR ceiling,
-attended only), never sets priority (its only pushback is executability evidence, routed
-up), and never merges/deploys/migrates or acts on Model A output for capital.
+**arbi-red-team** is arbi's adversarial critic — a gate, not a second brief. Per
+`AGENTS.md` §9, dispatch it when a call is large, or follows a ONE THING that didn't
+land: it stress-tests that call against five failure modes (recency overfit,
+task-switching, cleanup-mistaken-for-progress, low-trust memory overriding repo truth,
+perfectionism blocking a shippable build) and returns a PASS / CHALLENGE verdict with a
+file-cited reason for each. Read-only (`Read, Glob, Grep`); it never proposes its own
+"one thing" and never waves through a call that crosses the personal-advice firewall
+(s766B) or rule #11.
 
-**reversible-work-builder** (autonomy unlock pack, 2026-07-14) is the mutation counterpart
-to guilfoyle's read-only planning: it holds `Edit, Write, Bash` for reversible branch work
-only (edit → test → commit through the review gate → `claude/**` push prep), executing one
-scoped build node of a guilfoyle-planned mission at a time. Orchestration and mutation never
-share a process. Bound by the PR-transaction-discipline block, I5/I6/P5/P6 STOPs, and rule
-#11; its charter states honestly that a subagent tools list is not containment — the hooks,
-deny/ask rules, branch protection, and James's merge are.
