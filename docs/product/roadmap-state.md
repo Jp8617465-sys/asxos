@@ -1902,6 +1902,13 @@ dev/ops side.
 
 ## Last wake snapshot
 
+**2026-09-16 — baseline inquiry (James: "run this first so we have a live baseline of capability").**
+`docs/proposals/baseline-inquiry-2026-09-16.md`: the whole active ASX equity universe through the
+residual-income model, read-only, parity-checked. 572 / 1,880 valued; 335 liquid valued; 42 below the
+pre-registered value, 23 robust to average ROE; 10 of 12 research theses screen expensive or unvalued
+under the zero-excess convention; ETFs mapped not valued. It is S1's acceptance test for the F-E2E r2
+sprint, whose plan lands next.
+
 **2026-09-16 — `daily-product` routine, first scheduled fire (17:36 UTC 2026-09-15).** `main` @ `50aff99`
 at fire. Gate: `nightly-check` 34889454574 `success`; no incident issue, no `HALT:`; ledger #270 clean;
 0 open PRs; picker → E-11 (eligible 1, 42-row click list). One thing: E-11 — comment rewritten, row
