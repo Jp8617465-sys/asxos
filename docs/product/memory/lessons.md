@@ -956,6 +956,21 @@ governance finding already recorded in `portfolio-conventions.md`: a test that c
 not a test.
 Source: `decision-log.md` 2026-09-14 (wake row); PR #266 review comment.
 
+## L51 — A scheduler's "succeeded" is not evidence the session did anything (2026-09-15)
+
+Two scheduled fires of a Routine created from an arbi session came back `ROUTINE_RUN_STATUS_SUCCEEDED`
+having done nothing: the trigger stored no repository (`sources: []`), so the session woke
+empty, wrote a paragraph and went idle. The only thing that showed it was a ledger issue on
+which every fire must post a START comment as its first act — absence of START against a
+scheduler success is the detector, and it fired on the very first night. Three corollaries
+learned at ≈US$1.40 in four sessions: (1) bind routines to what you have already proven
+(a repo-attached session with the tools) rather than to a mechanism whose config you have
+not read — `sources: []` was visible in the trigger record before the first fire; (2) a
+verification prompt that asks for token-shaped actions is refused as injection by the very
+rule the preamble carries, so verify with the routine's own prescribed actions only; (3) a
+session with no human will stop to ask unless its instructions say there is no one to ask.
+Fix the instruction first, then test once — this session tested first and paid for it.
+
 ## Authority pointers (folded in from the retired `authority-lessons.md`, 2026-09-10)
 
 This section replaces the old separate pointer index. It holds **no original content** — it

@@ -2,7 +2,14 @@
 
 **Status:** current (living document — refreshed every `/arbi` and `/arbi-close`)
 **Scope:** whole repo — **the single live queue.** All other backlogs are reference only.
-**Last verified:** 2026-09-14 (merge-train session, James: "run a triage of all open PR's… create
+**Last verified:** 2026-09-15 (overnight-Routines session, the fourth of 2026-09-14 by James's
+clock: "build some Claude routines to fire overnight… automate a session a day", then "wrap this
+up… need this routines online"). `docs/ops/routines/` landed (#272, #274, #276); three Routines are
+**online, bound to persistent repo-attached sessions** after fresh-session triggers proved repo-less
+— steward 19:45 UTC, product 17:30 UTC, security Sun 12:00 UTC; ledger #270, digest #271 (first real
+digest already written by the steward's proof run). See `docs/session-handoff-2026-09-14-4.md`.)
+
+**Prior verification:** 2026-09-14 (merge-train session, James: "run a triage of all open PR's… create
 the plan to execute a merge train" — no arbi-ranked "one thing" in the usual sense; the triage
 and its red-teamed plan **are** this session's one thing, executed to completion. `main` @
 `8e6c52c`, ending 21 open PRs → 0, 10 open issues → 1 (#228, the one live product defect). **7
@@ -1865,6 +1872,15 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-15 — overnight-Routines session (close).** `main` @ `72629e1` at branch time. Routines
+online: `nightly-steward` → `trig_01AP9VyuN8JSNt5x6eyysiMx`, `daily-product` →
+`trig_01TLku22ZdzveWG7iQ1ybXFE`, `weekly-security` → `trig_01FTd3jWG9JbdLEWT2g4soTz`, each bound to
+a repo-attached session (`docs/ops/routines/README.md`). Steward proven 2026-09-14 (US$2.22) and
+re-fired 2026-09-15. Next observation: product's first scheduled fire 2026-09-15 17:35 UTC, then the
+digest on #271 by 07:00 AEST. Open PRs at close: #273 (`.claude/**`, James's), plus the parallel
+session's #277. Open issues: #228 (deliberate), #270/#271 (pinned, permanent).
+
 
 _2026-09-14 `/arbi` wake + product sprint (James: a `/loop` mission -- clear the substrate in
 Hour 1, then product on the model-independent moat, one concern per PR. Prior 09-14 merge-train

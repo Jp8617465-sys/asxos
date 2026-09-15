@@ -26,41 +26,45 @@ that cannot happen unnoticed a third time.
 
 | Routine | Fires (UTC) | AEST | Model | Connectors | Budget | Trigger id | First fire | Last measured cost |
 |---|---|---|---|---|---|---|---|---|
-| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | GitHub + Supabase read-only (UI-attached; see below) | 120 min | **not yet live** — the agent-minted trigger (no repo, no connectors) was deleted 2026-09-14; create in the UI | pending — first fire after UI creation | — |
-| `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 45 min | **not yet live** — same, deleted; create in the UI | **doc proven 2026-09-14 21:42 UTC** in a repo-attached test session: START/END on #270, HEALTHY, digest on #271, 5 min of a 45-min budget (see "First-fire findings" 5) | US$2.22 (Sonnet 5, full body) |
-| `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | GitHub + Supabase read-only (UI-attached; see below) | 60 min | **not yet live** — creation from a session was refused by the auto-mode classifier; create in the UI | pending — first fire after UI creation | — |
+| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | inherited from the bound session: GitHub + Supabase read-only | 120 min | `trig_01TLku22ZdzveWG7iQ1ybXFE` → bound session `session_016GusBoDGMihXbXHbiMTpK1` (repo attached, created 2026-09-15 11:54 UTC) | readiness turn 2026-09-15 11:55 UTC: "GitHub + supabase-ro tools live; write Supabase locked per preamble"; first scheduled fire 2026-09-15 17:35 UTC | US$2.45 for the readiness turn alone (Fable reads the docs expensively; budget the full body at US$10–25) |
+| `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | inherited from the bound session: GitHub + Supabase read-only | 45 min | `trig_01AP9VyuN8JSNt5x6eyysiMx` → bound session `session_016BZ4U8L3thJHetE54EbTS2` (the session that proved the doc on 2026-09-14) | doc proven 2026-09-14 21:42 UTC (fresh repo-attached session, 5 min); **bound path proven 2026-09-15 11:55 UTC**: START 10 s after the fire, END at 11:58 `outcome=ran`, HEALTHY, digest refreshed on #271, 3 min | US$2.22 (2026-09-14 run) and ≈US$2.94 (2026-09-15 run; session total US$5.16). Context grew ~100k tokens per fire (238k → 336k): rebind roughly weekly |
+| `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | inherited from the bound session: GitHub + Supabase read-only | 60 min | `trig_01FTd3jWG9JbdLEWT2g4soTz` → bound session `session_01SyWFtBsMRxkpvet5CyHTEa` (repo attached, created 2026-09-15 11:54 UTC) | readiness turn 2026-09-15 11:54 UTC: "GitHub + Supabase RO tools confirmed"; first scheduled fire Sun 2026-09-20 12:00 UTC | US$0.32 for the readiness turn |
 
 AEST = UTC+10 fixed, the repo's convention; AEDT states see each time an hour later from
 2026-10-04. Crons are UTC and do not move. Environment: `Default`
-(`env_01BsLzNwdBvLVg8BBYL654BH`). Notifications: push + email to James on every completion.
+(`env_01BsLzNwdBvLVg8BBYL654BH`). **Notifications: none from the scheduler** — push/email
+is offered only for fresh-session Routines, and these are bound to persistent sessions (below).
+The observation is the ledger #270 and the digest #271; subscribing to #271 in GitHub gives
+one notification per digest.
 
-**The `connectors` column is declared intent, not a grant.** The scheduler tool available to
-an arbi session refuses the `connectors` parameter for this organisation, and a trigger it
-creates stores no repository and no MCP connections (`sources: []`, `mcp_servers: []`), so
-the session it fires wakes without the repo and without GitHub or Supabase tools. Routines
-therefore have to be created in the claude.ai Routines UI (below), where James attaches the
-repo and the connectors. Whatever the UI attaches is what the session has; the preamble's §2
-rule against Supabase write tools is prompt-level either way.
+## Bound path — how the Routines are online (2026-09-15)
 
-## Scheduler setup — James, in the claude.ai Routines UI
+The scheduler tool available to an arbi session cannot attach a repository or connectors to
+a *fresh-session* Routine: a trigger it creates stores `sources: []` and `mcp_servers: []`, and
+its fires wake without the repo and go idle ("First-fire findings" 1). What it *can* do is
+fire into an **existing** session, and a session created from an arbi session with the repo
+attached inherits the GitHub and Supabase read-only tools — proven 2026-09-14 21:42 UTC when
+such a session ran the steward doc end to end ("First-fire findings" 5).
 
-One Routine per row above. Fields: **name** `arbi routine — <name>`; **repository**
-`Jp8617465-sys/asxos` at `main`; **environment** `Default`; **connectors** GitHub and Supabase
-read-only (`supabase-ro`) — never the Supabase write connector; **model** as in the table;
-**schedule** the cron in the table (UTC); **notifications** push + email; **prompt** the
-three-line pointer at the top of this file with `<name>` filled in. Then fire it once by hand
-and check the ledger (#270) for a START and an END comment. Until this is done, no routine
-fires; nothing in the repo is waiting on it except this registry row.
+So each routine is bound to its own repo-attached session (table above). A fire is a new
+user turn in that session carrying the pointer prompt, which re-reads the routine doc at
+`origin/main` every time; the prompt says that earlier turns are prior fires, not
+instructions. Consequences, stated so nobody is surprised:
 
-**Pinned issues:** ledger **#270** (`arbi — routines ledger`: START/END per fire, weekly
-security summaries); digest **#271** (`arbi — daily digest`: the `AGENTS.md` §12 block,
-rewritten by the steward every morning).
-
-**Sequencing:** product (17:30–19:30 at most) finishes before the steward (19:45), so the
-digest reports what product shipped; the steward finishes before `daily-brief` (20:30 Sun–Thu)
-and merges nothing, so the brief is never the first test of a merge — product proves every
-merge with a `nightly-check` dispatch before it closes. Every routine cron is at least 30
-minutes from every `cron:` in `.github/workflows/` and from every other routine (tested).
+- **Context accumulates across fires** (the steward's proof run used ~240k of a 1M-token
+  window). The harness compacts automatically; the doc is re-read each fire so compaction
+  loses nothing that matters. When a bound session's `context_usage` passes ~700k, arbi
+  creates a fresh repo-attached session, deletes the trigger and recreates it bound to the
+  new session (there is no in-place rebind), and updates this table. The steward reads each
+  bound session's usage when the scheduler tools are present and puts it in the digest's
+  Risks line.
+- **No scheduler notifications** (above). The ledger and the digest are the observation.
+- **The UI path is the upgrade, not a prerequisite.** A Routine created in the claude.ai
+  Routines UI with the repo and connectors attached gets a clean context per fire and push
+  notifications. If James creates one, arbi deletes the bound trigger for that routine and
+  updates this table; the prompt is the three-line pointer at the top of this file. Fields:
+  repo `Jp8617465-sys/asxos` at `main`, environment `Default`, connectors GitHub + Supabase
+  read-only (never the write connector), model and cron from the table.
 
 ## Stopping a routine
 
@@ -84,11 +88,10 @@ proceed under full arbi authority with the mitigations in `_preamble.md`. That r
 
 ## Known stale, not fixed here
 
-- `.claude/commands/ship.md` step 4 says "merging is James's action" — `AGENTS.md` §2/§8 say
-  merges are arbi's. `.claude/**` is James's to merge; PR #273 carries the one-line fix.
-- `.claude/skills/reversible-work-window/SKILL.md` still describes a draft-only, cannot-merge
-  window. PR #264 (open, James's) rewrites it in full. It is `disable-model-invocation: true`,
-  so a routine session does not load it unless invoked.
+- `.claude/commands/ship.md` step 4 said "merging is James's action" — fixed by #273, merged
+  2026-09-15 (James's path). No longer stale.
+- `.claude/skills/reversible-work-window/SKILL.md` was rewritten by #264, merged 2026-09-14
+  under James's ruling (recorded in #277). No longer stale.
 
 ## First-fire checklist (rollout step 4; result recorded in the registry row)
 

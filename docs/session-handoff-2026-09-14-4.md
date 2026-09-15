@@ -34,19 +34,27 @@ after every merge so the 06:30 brief is never the first test; the Saturday colli
 five-hour rate window is shared; a `HALT:`-titled issue as a kill switch that works from a
 phone.
 
-## The scheduler is yours — the one thing this session could not finish
+## Online — how the scheduler was bound (2026-09-15, after James: "need this routines online")
 
 A trigger created from an arbi session stores **no repository and no connectors**
 (`sources: []`, `mcp_servers: []`; the tool also refuses the `connectors` parameter for this
 organisation). Its fires wake without the repo and go idle: two fires, 21:19 and 21:24 UTC,
-US$0.34 and US$0.26, no trace anywhere. Both triggers were disabled, then deleted. The third
-(`weekly-security`) was refused by the auto-mode classifier at creation.
+US$0.34 and US$0.26, no trace anywhere, both recorded `SUCCEEDED` by the scheduler. Both
+triggers were deleted. The third (`weekly-security`) was refused by the auto-mode classifier.
 
-**Create the three Routines in the claude.ai Routines UI** per `docs/ops/routines/README.md`
-"Scheduler setup": repo `Jp8617465-sys/asxos` at `main`, environment `Default`, connectors
-GitHub + Supabase read-only, model and cron from the registry table, the three-line pointer
-prompt. Fire each once by hand and look for START and END on #270. Until then nothing fires;
-nothing in the repo is waiting on it except the registry row.
+What the tool *can* do is fire into an existing session, and a session created from an arbi
+session with the repo attached inherits the GitHub and Supabase read-only tools — the
+end-to-end proof below ran in exactly such a session. So each routine is now **bound to its
+own repo-attached session** (`docs/ops/routines/README.md`, "Bound path"): steward
+`trig_01AP9VyuN8JSNt5x6eyysiMx` → the session that proved the doc; product
+`trig_01TLku22ZdzveWG7iQ1ybXFE` → a Fable session that reported "GitHub + supabase-ro tools
+live" on its readiness turn; security `trig_01FTd3jWG9JbdLEWT2g4soTz` → a Sonnet session,
+same. First scheduled fires: product 2026-09-15 17:35 UTC (03:35 AEST), steward 19:45 UTC
+(05:45 AEST), security Sunday 2026-09-20 12:00 UTC. Two consequences are written in the
+README: context accumulates in a bound session (recreate and rebind past ~700k tokens), and
+the scheduler sends no push notifications for bound routines — the ledger #270 and the digest
+#271 are the observation. Creating the Routines in the claude.ai UI remains the upgrade path
+(fresh context per fire, push notifications), not a prerequisite.
 
 ## What is proven
 
@@ -67,9 +75,12 @@ condition was invisible from the session record until compared against a repo-at
 
 ## Yours
 
-1. Create the three Routines in the UI (above). Then fire each once and check #270.
-2. Merge **#273** (`.claude/commands/ship.md`) and **#264** (`reversible-work-window`, from the
-   parallel session) — `.claude/**`.
+1. Read the digest on #271 tomorrow morning (07:00 AEST) — it will say what product shipped at
+   03:35 AEST or which gate stopped it. Subscribe to #271 in GitHub for one notification per
+   digest, since bound Routines send none themselves. Optional upgrade: create the Routines in
+   the claude.ai UI (README "Bound path", last bullet).
+2. Nothing under `.claude/**` is waiting: #273 (`ship.md`) and #264 (`reversible-work-window`)
+   both merged 2026-09-15 under your ruling (recorded in the parallel session's #277).
 3. Optional, within the week: one Healthchecks check per routine and its ping URL as
    `HC_ROUTINE_<NAME>_URL` in the `Default` environment — the deadman for the watchdog. Every
    run so far reports `deadman=unset`.
