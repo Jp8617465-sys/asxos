@@ -71,6 +71,12 @@ asx = "asxos.cli.main:app"
 where = ["."]
 exclude = ["tests*", "jobs*", "scripts*"]
 
+[tool.setuptools.package-data]
+# The sealed scenario pre-registration the valuation sweep registers before its
+# first run (asxos/domain/valuation/preregistration.py). Editable installs find
+# it in place; this line makes a wheel carry it too.
+"asxos.domain.valuation" = ["*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
