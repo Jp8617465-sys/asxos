@@ -203,3 +203,44 @@ Lanes stay `workflow_dispatch`-only. Arm when **both**: (a) ≥10 open click-lis
 3. **#228 PR 3** — migration 0056, `cash_balance_assertions`.
 4. The 359-occurrence citation residue from the 09-10 handoff, triaged by whether a doc is *read
    as current* rather than by reference count.
+
+---
+
+## Addendum — after the close (2026-09-14 21:40 → 2026-09-15 01:00 UTC)
+
+The session continued past its own close. Recorded here rather than in a fourth handoff,
+because it is the same session and the same three threads.
+
+**The "Yours" section is empty.** James asked arbi to take it; the outcome per item:
+
+- **PR #264** — James ruled arbi merge it (`f5fa291`), a **scoped** exception logged with the
+  reasoning that makes it safe: the PR *removes* a restriction contradicting `AGENTS.md` §8.3
+  and grants nothing §8 does not already grant. The provenance is written into the skill's own
+  "not pre-allowed" section, so the file states its history.
+- **`AUTONOMY`** — probed from a GitHub runner (`gh-probe.yml`, #275, run **`34901105075`**,
+  removed again in #277 per its own header). Verbatim:
+  `gh: Resource not accessible by personal access token (HTTP 403)`. `ARBI_GITHUB_TOKEN` is
+  scoped Actions/Contents/Issues/PRs/Workflows RW and **"Variables" is a separate fine-grained
+  permission**. The variable's existence is still unknown — but now for a measured, reproducible
+  reason with a named remedy (inbox **K-07**), not a third vague "I couldn't".
+- **A-20 `HC_BACKLOG_URL`** — genuinely James's (a Healthchecks console + a secret value). The
+  claim was **verified and holds**: `backlog-roll.yml:95-103` is a fail-closed STEP 0, which is
+  why that lane has 0 runs ever, against `weekly-toolwatch.yml:185-188` which skips and exits 0.
+  Reduced to exact steps in **K-03** and marked not-blocking while lanes stay manual-dispatch.
+- **PR #273** — James's own PR, same `.claude/` shape; arbi flagged rather than assuming #264's
+  ruling carried, and merged on his word (`de6f1e6`).
+
+**Item 11 closed GREEN.** Run **`34908116618`**, 2026-09-14T23:16:44Z, `success`; independently
+confirmed in `job_runs` — all twelve chained jobs succeeded, **`compose_brief` wrote 7 rows**.
+The `resend` 2.39→2.43 bump is verified in production. Two carry-forwards: the `daily-brief`
+cron (`30 20 * * 0-4`) fired at **23:16**, so **the cron expression is not a usable estimate of
+when it runs** — read recent run timestamps instead; and a green workflow conclusion alone is
+not evidence the work happened, `job_runs` is.
+
+**A distinction for the Routines work (#272/#274).** That session found agent-minted triggers
+wake repo-less (`sources: []`) and disabled two. arbi's own item-11 check-in survived because it
+is `persist_session: true` bound to this session. So the defect is not "agent-minted triggers"
+— it is **fresh-session Routines minted from an agent session**. Self-bind reminders are fine.
+
+**State at true close:** `main` @ `de6f1e6`. Open PRs: none. Open issues: **#228** (deliberate)
+and **#269** (the digest). No migration, no capital, no Model A output, all session long.
