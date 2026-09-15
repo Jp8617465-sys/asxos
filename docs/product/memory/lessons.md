@@ -971,6 +971,18 @@ rule the preamble carries, so verify with the routine's own prescribed actions o
 session with no human will stop to ask unless its instructions say there is no one to ask.
 Fix the instruction first, then test once — this session tested first and paid for it.
 
+## L52 — A backlog row names a file; the defect may live in an immutable artifact (2026-09-16)
+
+E-11 said "fix the false pip-cache comment in `full-check.yml`". The false sentence was in
+commit `c35d435`'s message and PR #168's body — neither editable — while the file comment
+only carried the implication ("worth a step here at all"). Three prior attempts and one
+roadmap line ("#184 fixed it") had all worked from the row's wording rather than from the
+artifact; #184's actual patch to the file was a one-line quote normalisation. Before
+building a row whose premise is "X is false", fetch X at the commit the row cites (the
+GitHub API can; a shallow clone cannot — `git blame` here bottoms out at the clone root)
+and quote the false text. If it is not in the file, the fix is the residue plus an honest
+close, not a rewrite. The picker cannot tell the difference, so the row's close note must.
+
 ## Authority pointers (folded in from the retired `authority-lessons.md`, 2026-09-10)
 
 This section replaces the old separate pointer index. It holds **no original content** — it

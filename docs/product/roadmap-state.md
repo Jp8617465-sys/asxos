@@ -1425,6 +1425,35 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-16 `daily-product` routine fire (first scheduled fire; `/arbi` §1-3 run
+> surgically per `docs/ops/routines/daily-product.md` §2).** The Stages 0→6 table at the top of this file
+> remains the only ranked queue. The 09-14 block below is contradicted by live state: its #1 landed as
+> #261, its #2 as #230 (`issue-snapshot.yml` retired; `nightly-check` has concluded `success` on every
+> scheduled run since, 34889454574 on 09-14), its #3 as #262, and its #5 was the 09-14 third session.
+> What is left of it is carried here.
+>
+> **#1 — execute dark-launch DELETE verdict #1 (portfolio brief):** `_portfolio_section` and the
+> `ASXOS_PORTFOLIO_BRIEF_ENABLED` gate (`dark-launch-exit-plan.md` §1 states the scope; the
+> model-independent cards and `asxos/domain/portfolio/` stay). Amber by shape (`asxos/brief/`), one
+> revert, no data. Filed as `backlog.yaml` row **A-34** this fire so the picker and this block name the
+> same next item (Amendment K); `backlog_next.py` now picks it first.
+>
+> **#2 — execute DELETE verdict #3 (V2 brief dark rendering path):** the `ASXOS_V2_BRIEF_ENABLED`
+> branch at `composer.py:94` and `render_v2_html`; the ten collectors stay — they are in production.
+> Row **A-35**; overlaps A-34 on `compose.py`, so it is the fire after.
+>
+> **#3 — #228 PR 2 (migration 0055):** carried, not routine-pickable (no migrations in a routine
+> session, `_preamble.md` §2); an interactive session runs the `AGENTS.md` §8 five-step sequence.
+>
+> **#4 — E-20 `ingest_regulatory`:** `rows_written=1` nightly while `regulatory_events` has 7 rows
+> and none since 2026-09-03; verify the live RBA feed's item count against `parse_rss` before calling
+> it a defect. Row **E-20**, filed this fire; phase E ranks it after A-34/A-35.
+>
+> **#5 — carried unchanged:** lane-arming re-check 2026-09-21 (#265); item 9's paper-book clock
+> blocked on #228 + a cadenced `paper_book_snapshots` writer + re-pointing `has_enough_paper_weeks`;
+> D-12/C17 ruling James's; the 359-citation residue rides with whichever wake touches those docs.
+>
+> **Superseded — 2026-09-14 `/arbi-close` (the live block is above).**
 > **Live as of the 2026-09-14 `/arbi-close` (no wake; governor-directed).** The Stages 0→6 table at the top
 > of this file remains the only ranked queue. The credentials now exist, which changes what is *unblocked*,
 > not what is ranked first: `AGENTS.md` §7 puts the incident ahead of everything.
@@ -1872,6 +1901,15 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-16 — `daily-product` routine, first scheduled fire (17:36 UTC 2026-09-15).** `main` @ `50aff99`
+at fire. Gate: `nightly-check` 34889454574 `success`; no incident issue, no `HALT:`; ledger #270 clean;
+0 open PRs; picker → E-11 (eligible 1, 42-row click list). One thing: E-11 — comment rewritten, row
+closed `done`, E-20 filed, the live block above re-ranked. Baseline `make check` on unmodified `main` in
+the routine sandbox: 4329 passed / 1 skipped, ruff + mypy (218 files) clean. Migrations unchanged
+(ledger head `20260914123930`, 0054; 0045 still unapplied, 0042 reserved). `regulatory_events`: 7 rows,
+none since 2026-09-03. `HC_ROUTINE_PRODUCT_URL` unset in the bound session (`deadman=unset`). Merge sha,
+proof run and elapsed are in the ledger END comment on #270 and the digest on #271.
 
 **2026-09-15 — overnight-Routines session (close).** `main` @ `72629e1` at branch time. Routines
 online: `nightly-steward` → `trig_01AP9VyuN8JSNt5x6eyysiMx`, `daily-product` →
