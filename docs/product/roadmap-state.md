@@ -1432,6 +1432,15 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > scheduled run since, 34889454574 on 09-14), its #3 as #262, and its #5 was the 09-14 third session.
 > What is left of it is carried here.
 >
+> **Amended 2026-09-16 — sprint F-E2E r2 admitted (`docs/proposals/production-sprint-r2-2026-09-16.md`).**
+> The sprint spine runs above this block's items and is built by a loop mission, not by the nightly
+> routine (its rows A-36…A-41, C-23…C-26, D-16 are `route: attended`): S1 universe valuation runner →
+> S2 valuation into the challenge → M1 migrations 0055/0056/0057 → S3 paper book + S4 discovery →
+> S5 scheduled packets + S8 disposition-from-a-phone → S7 outcomes + S9 tax feed → S10 gated state.
+> The contract-revision table (r0 done, r1 closes in r2, r2 this sprint, r3 next) lives in the sprint
+> doc §1; the baseline it is measured against is `docs/proposals/baseline-inquiry-2026-09-16.md`.
+> #1–#5 below stay the routine's queue.
+>
 > **#1 — execute dark-launch DELETE verdict #1 (portfolio brief):** `_portfolio_section` and the
 > `ASXOS_PORTFOLIO_BRIEF_ENABLED` gate (`dark-launch-exit-plan.md` §1 states the scope; the
 > model-independent cards and `asxos/domain/portfolio/` stay). Amber by shape (`asxos/brief/`), one

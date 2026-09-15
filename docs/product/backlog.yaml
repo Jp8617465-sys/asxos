@@ -494,6 +494,85 @@ items:
       the first daily-product fire. Overlaps A-34 on asxos/brief/compose.py, so the picker
       takes one per fire. Amber by shape (asxos/brief/, asxos/domain/brief/).
 
+  - id: A-36
+    title: "F-E2E/S1 — ValuationRun + ScenarioPreregistration contracts, repository, jobs/run_valuation.py over the active ASX equity universe (both conventions, gaps as blocked rows), weekly in weekly-research.yml"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/valuation/", "jobs/run_valuation.py", ".github/workflows/weekly-research.yml", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S1. Baseline 2026-09-16: valuation_runs has
+      0 rows though migration 0054 is applied; the baseline sweep (scripts/research/baseline_inquiry.sql
+      REPORT B, 572 of 1,880 valued) is the acceptance test. Amber by shape (workflow + investment
+      output). Done when one as_of has >= 1,000 valued rows and REPORT B reconciles.
+
+  - id: A-37
+    title: "F-E2E/S2 — valuation as EvidencePacket evidence (evidence_type valuation_fact) and rule_valuation_gap in the challenge layer; no new DecisionPacket fields"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: ["A-36"]
+    route: attended
+    paths: ["asxos/domain/decision_engine/types.py", "asxos/domain/decision_engine/builder.py", "asxos/domain/decision_engine/challenge/rules.py", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S2. builder.py never reads valuation_runs and
+      rule_valuation_percentile is never fed by the model (code trace 2026-09-16). Both live packets
+      must still pass verify_content_hash.
+
+  - id: A-38
+    title: "F-E2E/S6 — brief section 'opportunities': top-10 ranked opportunities (both conventions), latest packet per approved thesis, pending proposals with the exact APPROVE/DISPOSE comment text"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: ["A-34", "A-35", "A-36"]
+    route: attended
+    paths: ["asxos/brief/section.py", "asxos/brief/compose.py", "asxos/brief/gold.py", "asxos/brief/templates/", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S6. No brief code references valuation_runs
+      or decision_packets today. Fail-soft like the news section (EMPTY on error, MISSING on absent
+      table). Amendment E renders: the card on a scheduled send with real values.
+
+  - id: A-39
+    title: "F-E2E/S8 — disposition from a phone: jobs/apply_github_decisions.py parses owner-only APPROVE / REJECT / DISPOSE comments on the pinned decisions issue into approve_object / persist_disposition"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: ["C-24", "C-25"]
+    route: attended
+    paths: ["jobs/apply_github_decisions.py", "asxos/domain/governance/github_commands.py", ".github/workflows/daily-brief.yml", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S8. James does not run CLIs (C-3..C-8 unrun
+      for weeks); the only disposition path today is asx decision dispose. Only comments by the repo
+      owner login are commands; everything else is data. Amber: ARBI_GITHUB_TOKEN use recorded.
+
+  - id: A-40
+    title: "F-E2E/M1 — migrations 0055 (cash_aud/capital_aud paired NULL CHECK), 0056 (cash_balance_assertions), 0057 (thesis_revisions.source += 'system_screen') in one AGENTS.md section 8 sitting"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["migrations/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md M1; #228 PRs 2/3 (session-handoff-2026-09-14-3.md);
+      0057 is new: system-proposed theses need a source value the CHECK admits. Before-image for 0055:
+      72 rows, 26 non-zero cash_aud. Not routine-pickable by construction (migrations/ is denied).
+
+  - id: A-41
+    title: "F-E2E/S11 — global-universe data spike: non-ASX fundamentals source options and the A$/day estimate, posted before any pull (r3 prep, no build)"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["docs/proposals/"]
+    source: >-
+      James 2026-09-16: "find investment opportunities in the ASX and global investment universe".
+      Measured: no non-ASX fundamentals exist (HUBS.NYSE prices only; rs_fundamentals_pit is .AU only).
+      Over A$50/day is James's (AGENTS.md section 2.3); under it arbi proceeds and records the estimate.
+
   - id: B-1
     title: "Inspect $BACKUP_REPO signal-evidence-2026-08-16/ digests (ls, sha256sum, MANIFEST, gzip -dc | sha256sum) — unconditional, first"
     phase: B
@@ -986,6 +1065,18 @@ items:
   # Phase E — deferred / parked / carried
   # ---------------------------------------------------------------------------
 
+  - id: D-16
+    title: "F-E2E/S10 — derive the packet state from challenge + tax readiness + calibration instead of the hard-coded watch/abstain at builder.py:661; action states stay unreachable until C-13"
+    phase: D
+    owner: arbi
+    status: open
+    depends_on: ["C-14"]
+    route: attended
+    paths: ["asxos/domain/decision_engine/builder.py", "asxos/domain/decision_engine/sizer.py", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S10. builder.py:661-662 pin state and size by
+      construction (code trace 2026-09-16). Byte-identical output on the two live packets is the test.
+
   - id: E-1
     title: "Persist challenge-finding dispositions append-only, keyed to challenge_results.content_hash + finding_key (H-30)"
     phase: E
@@ -1336,6 +1427,58 @@ items:
       risk are anything deriving a multi-period ratio or trend, starting with
       factor_scores.raw_factors. Decide whether such series are translated at a
       stated rate, or refused with a named gap the way a NULL currency now is.
+
+  - id: C-23
+    title: "F-E2E/S3 — paper book: jobs/snapshot_paper_book.py writes paper_book_snapshots daily from the arbi-declared paper capital; re-point has_enough_paper_weeks to it"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: ["A-40", "A-34"]
+    route: attended
+    paths: ["jobs/snapshot_paper_book.py", "asxos/domain/portfolio/paper_trade.py", ".github/workflows/daily-brief.yml", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S3. paper_book_snapshots has 1 row and no
+      writer; has_enough_paper_weeks counts a deleted cron so it can never be True
+      (session-handoff-2026-09-14-3.md Item 9). Paper is arbi's (AGENTS.md section 2.2).
+
+  - id: C-24
+    title: "F-E2E/S4 — discovery: jobs/discover_opportunities.py screens the valued universe (liquidity, average-ROE quality), ranks by value/price, and opens system-proposed theses at pending_review with evidence"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: ["A-36", "A-40"]
+    route: attended
+    paths: ["jobs/discover_opportunities.py", "asxos/domain/discovery/", "asxos/domain/theses/service.py", "asxos/domain/screening/evaluator.py", ".github/workflows/weekly-research.yml", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S4. Baseline 2026-09-16: 42 liquid names
+      below the pre-registered value, 23 robust to 3-period-average ROE (memo section 4). Entry band
+      0.65-0.80 x target, stop 0.80 x entry upper, 12-month timeline — James can change the convention.
+      Deterministic, not an LLM agent (D-12/C17 not crossed).
+
+  - id: C-25
+    title: "F-E2E/S5 — jobs/build_decision_packets.py: a challenged decision packet on schedule for every approved thesis, with the paper book and the latest valuation, persisted; step after the brief send"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: ["A-37", "C-23"]
+    route: attended
+    paths: ["jobs/build_decision_packets.py", ".github/workflows/daily-brief.yml", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S5. asx decision build is hand-run only; 2
+      packets ever (2026-09-01, 2026-09-04). Supersedes the r1 reservation of the first --persist
+      runs to James (decision-log 2026-09-16).
+
+  - id: C-26
+    title: "F-E2E/S7 — jobs/observe_decision_outcomes.py: t0 for every packet without one, observe at 21/63/126 sessions, daily"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: ["C-25"]
+    route: attended
+    paths: ["jobs/observe_decision_outcomes.py", ".github/workflows/daily-brief.yml", "tests/"]
+    source: >-
+      docs/proposals/production-sprint-r2-2026-09-16.md S7. outcomes.materialise_t0 and observe
+      exist and are unscheduled; thesis_outcomes has 4 rows. r2's first-outcome clause.
 
   - id: E-20
     title: "ingest_regulatory reports rows_written=1 nightly while regulatory_events has not grown since 2026-09-03 — verify the live RBA feed's item count against parse_rss; rows_written is an upsert-touched count, not inserts"
