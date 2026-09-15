@@ -460,6 +460,40 @@ items:
   # Phase B — James-only infrastructure
   # ---------------------------------------------------------------------------
 
+  - id: A-34
+    title: "Execute dark-launch DELETE verdict #1 — remove _portfolio_section and the ASXOS_PORTFOLIO_BRIEF_ENABLED gate; model-independent cards and asxos/domain/portfolio/ stay"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: build
+    paths: ["asxos/brief/compose.py", "asxos/brief/section.py", "tests/test_brief_portfolio_section.py", "tests/test_brief_outcome.py"]
+    source: >-
+      docs/product/dark-launch-exit-plan.md surface 1, VERDICT DELETE issued 2026-09-14 by
+      arbi (#267), scope stated there: "_portfolio_section and the ASXOS_PORTFOLIO_BRIEF_ENABLED
+      gate. Explicitly NOT in scope: every model-independent card (tax, discipline, thesis,
+      regulatory, job-failure), which is gated elsewhere and stays; asxos/domain/portfolio/
+      itself, which has live callers." Reversal one git revert, no data. Filed as a row
+      2026-09-16 by the first daily-product fire so the picker and roadmap-state.md's live
+      block name the same next item (Amendment K: when they disagree, this file is wrong).
+      Amber by shape (asxos/brief/ is investment output).
+
+  - id: A-35
+    title: "Execute dark-launch DELETE verdict #3 — remove the ASXOS_V2_BRIEF_ENABLED branch (composer.py:94) and render_v2_html; the ten collectors stay, they are in production"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: build
+    paths: ["asxos/domain/brief/composer.py", "asxos/domain/brief/renderer.py", "asxos/brief/compose.py", "tests/test_brief_v2_caveat.py", "tests/test_brief_outcome.py"]
+    source: >-
+      docs/product/dark-launch-exit-plan.md surface 3, VERDICT DELETE the dark rendering path,
+      issued 2026-09-14 by arbi (#267), 16 days before the 2026-09-30 expiry because both
+      KEEP-DARK premises were falsified: the gate IS plumbed (composer.py:94) and the ten
+      collectors are ALREADY in production (composer.py:28-36). Filed as a row 2026-09-16 by
+      the first daily-product fire. Overlaps A-34 on asxos/brief/compose.py, so the picker
+      takes one per fire. Amber by shape (asxos/brief/, asxos/domain/brief/).
+
   - id: B-1
     title: "Inspect $BACKUP_REPO signal-evidence-2026-08-16/ digests (ls, sha256sum, MANIFEST, gzip -dc | sha256sum) — unconditional, first"
     phase: B
@@ -1046,11 +1080,23 @@ items:
     title: "Fix the false pip-cache comment on main inside merged #168 (full-check.yml)"
     phase: E
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: build
     paths: [".github/workflows/full-check.yml"]
-    source: "roadmap-state.md 2026-08-25 close; decision-log.md 2026-08-25. Was blocked three times as a denied path under the retired unattended fence; AGENTS.md section 14 gives arbi .github/** outright, so as of 2026-09-14 this is an ordinary buildable row and the first thing the backlog-roll picker selects."
+    source: >-
+      roadmap-state.md 2026-08-25 close; decision-log.md 2026-08-25. Was blocked three
+      times as a denied path under the retired unattended fence; AGENTS.md section 14
+      gives arbi .github/** outright, so as of 2026-09-14 this is an ordinary buildable
+      row and the first thing the backlog-roll picker selects. CLOSED 2026-09-16 by the
+      first daily-product routine fire: the literally false sentence ("there is no cache:
+      key anywhere in .github/workflows/ ... This is the first one") is in commit c35d435's
+      message and PR #168's body, both immutable; the file comment at #168's head
+      (843350a) was byte-identical to main and carried only the residue ("which is why
+      caching is worth a step here at all"). The four comment lines now state the true
+      fact (same key the scheduled workflows use; nine workflows carry cache: pip).
+      The roadmap's "#184 fixed it" was wrong: #184's full-check.yml patch is the one-line
+      'pip' -> pip normalisation, comment untouched.
 
   - id: E-12
     title: "R11 — conviction_level NULL on all 13 theses; a whole discipline dimension is unpopulated"
@@ -1290,3 +1336,23 @@ items:
       risk are anything deriving a multi-period ratio or trend, starting with
       factor_scores.raw_factors. Decide whether such series are translated at a
       stated rate, or refused with a named gap the way a NULL currency now is.
+
+  - id: E-20
+    title: "ingest_regulatory reports rows_written=1 nightly while regulatory_events has not grown since 2026-09-03 — verify the live RBA feed's item count against parse_rss; rows_written is an upsert-touched count, not inserts"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: build
+    paths: ["jobs/ingest_regulatory.py", "asxos/ingestion/regulatory.py"]
+    source: >-
+      Measured 2026-09-15 by the first daily-product fire (supabase-ro): regulatory_events
+      has 7 rows total, all source=RBA, max(ingested_at) 2026-09-03 22:44 UTC,
+      max(published_at) 2026-09-03, 1 row ingested in the last 14 days; job_runs shows
+      ingest_regulatory success with rows_written=1 on every night 09-07 to 09-14.
+      asxos/ingestion/regulatory.py::upsert_events returns len(rows) after ON CONFLICT DO
+      UPDATE, so rows_written=1 means one parsed item re-touched nightly, not one new row.
+      Either the RBA feed carries one item and 0 new is the documented slow-news outcome,
+      or parse_rss filters too narrowly. The steward flagged the table stale on 09-14 and
+      09-15. Pass test: a stated count of items in the live RBA RSS vs items parsed, and
+      rows_written redefined or documented so a digest cannot read a re-touch as growth.

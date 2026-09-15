@@ -46,9 +46,11 @@ jobs:
         with:
           python-version: "3.12"
           # No requirements.txt in this repo — pyproject.toml is the manifest
-          # (PEP 621), so it is what the cache key hashes. The heavy half of the
-          # install is the ml extra (lightgbm/shap/scikit-learn; shap builds
-          # llvmlite), which is why caching is worth a step here at all.
+          # (PEP 621), so it is what the cache key hashes — the same key the
+          # scheduled workflows use (daily-brief, nightly-check, …), not a
+          # first. The heavy half of the install is the ml extra
+          # (lightgbm/shap/scikit-learn; shap builds llvmlite), which is what
+          # makes the cache worth having.
           cache: pip
           cache-dependency-path: pyproject.toml
 

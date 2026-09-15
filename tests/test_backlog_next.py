@@ -422,8 +422,13 @@ class TestSeed:
         """
         items = __import__("asxos.backlog", fromlist=["load"]).load(DEFAULT_BACKLOG)
         picked, skipped = pick(items, max_items=10)
-        assert [i.id for i in picked] == ["E-11"], [i.id for i in picked]
-        assert skipped == []
+        # Re-pinned 2026-09-16 by the first daily-product routine fire: E-11 is done
+        # (the false claim lived in commit c35d435's message; the file residue was
+        # corrected), and three rows were filed — A-34/A-35 (the two dark-launch DELETE
+        # verdicts, phase A so they rank first) and E-20 (ingest_regulatory). A-35
+        # overlaps A-34 on asxos/brief/compose.py, so the picker skips it for overlap.
+        assert [i.id for i in picked] == ["A-34", "E-20"], [i.id for i in picked]
+        assert [i.id for i in skipped] == ["A-35"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
