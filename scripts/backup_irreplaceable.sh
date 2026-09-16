@@ -113,6 +113,21 @@ else
   echo "[backup] decision_packets absent — pre-0048 backup compatibility mode"
 fi
 
+# Migration 0056 (F-E2E r2 M1) adds cash_balance_assertions: dated, sourced,
+# append-only assertions of the live cash balance, recorded by hand from
+# statements (#228). Not re-derivable from anything. Conditional for the same
+# reason as the two blocks above.
+CASH_ASSERTIONS_TABLE_ARGS=()
+if [ "$(
+  psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 \
+    -c "SELECT to_regclass('public.cash_balance_assertions') IS NOT NULL"
+)" = "t" ]; then
+  CASH_ASSERTIONS_TABLE_ARGS+=(--table=cash_balance_assertions)
+  echo "[backup] cash_balance_assertions exists — include the 0056 cash ledger"
+else
+  echo "[backup] cash_balance_assertions absent — pre-0056 backup compatibility mode"
+fi
+
 pg_dump \
   --no-owner --no-privileges --no-acl \
   --data-only \
@@ -132,6 +147,7 @@ pg_dump \
   --table=governance_events \
   "${OPTIONAL_TABLE_ARGS[@]}" \
   "${DECISION_ENGINE_TABLE_ARGS[@]}" \
+  "${CASH_ASSERTIONS_TABLE_ARGS[@]}" \
   "$DATABASE_URL" > "$DUMP"
 
 gzip -9 "$DUMP"
