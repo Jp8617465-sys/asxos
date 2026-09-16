@@ -74,6 +74,7 @@ class CoreSettings(BaseSettings):
     healthcheck_url_snapshot_paper_book: str = ""          # F-E2E r2 S3 daily paper book
     healthcheck_url_discover_opportunities: str = ""       # F-E2E r2 S4 weekly discovery
     healthcheck_url_build_decision_packets: str = ""       # F-E2E r2 S5 daily challenged packets
+    healthcheck_url_apply_github_decisions: str = ""       # F-E2E r2 S8 decisions from the issue
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False
