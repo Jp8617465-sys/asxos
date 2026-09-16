@@ -17,6 +17,7 @@ References:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -180,19 +181,81 @@ async def _insert_revision(
     revision_type: str,
     diff: dict[str, Any],
     reasoning: str,
+    source: str = "human",
+    evidence_confidence: str | None = None,
+    evidence_citations: list[str] | None = None,
 ) -> None:
+    """Append one discipline event.
+
+    `source` is 'human' (the CLI), 'agent' (an LLM discovery agent, via the
+    service functions only) or 'system_screen' (the deterministic valuation
+    screen, migration 0057). The 0034 provenance constraints require a
+    non-human row to carry `evidence_confidence` and at least one citation —
+    enforced here too so the failure names itself before Postgres does.
+    """
+    if source != "human" and (not evidence_confidence or not evidence_citations):
+        raise ValueError(
+            f"a {source!r} revision must carry evidence_confidence and at least one "
+            "evidence citation (migration 0034 provenance constraints)"
+        )
     await conn.execute(
         """
         INSERT INTO thesis_revisions
-            (thesis_id, revised_at, revision_type, diff, reasoning)
-        VALUES ($1, $2, $3, $4::jsonb, $5)
+            (thesis_id, revised_at, revision_type, diff, reasoning,
+             source, evidence_confidence, evidence_citations)
+        VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8::jsonb)
         """,
         thesis_id,
         revised_at,
         revision_type,
         json.dumps(diff),
         reasoning,
+        source,
+        evidence_confidence,
+        json.dumps(evidence_citations or []),
     )
+
+
+async def add_thesis_evidence(
+    conn: asyncpg.Connection,
+    *,
+    thesis_id: int,
+    source_agent: str,
+    tier: str,
+    claim_text: str,
+    source_table: str,
+    source_as_of: datetime,
+    snapshot_data: dict[str, Any],
+) -> int:
+    """Append one `thesis_evidence` citation (migration 0033) and return its id.
+
+    `snapshot_hash` is sha256 over the canonical JSON of `snapshot_data`
+    (sorted keys, no whitespace) — the tamper-evidence the column exists for.
+    Decimals are serialised as strings so the hash never depends on float
+    formatting (CLAUDE.md #5).
+    """
+    if tier not in ("verified", "inferred", "speculative"):
+        raise ValueError(f"unknown evidence tier {tier!r}")
+    canonical = json.dumps(snapshot_data, sort_keys=True, separators=(",", ":"), default=str)
+    snapshot_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    row = await conn.fetchrow(
+        """
+        INSERT INTO thesis_evidence
+            (thesis_id, source_agent, tier, claim_text, source_type, source_table,
+             source_as_of, snapshot_data, snapshot_hash)
+        VALUES ($1, $2, $3, $4, 'db_query', $5, $6, $7::jsonb, $8)
+        RETURNING evidence_id
+        """,
+        thesis_id,
+        source_agent,
+        tier,
+        claim_text,
+        source_table,
+        source_as_of,
+        canonical,
+        snapshot_hash,
+    )
+    return int(row["evidence_id"])
 
 
 # ---------------------------------------------------------------------------
@@ -215,8 +278,18 @@ async def open_thesis(
     conviction_level: int | None = None,
     tax_notes: str | None = None,
     reasoning: str = "Initial thesis",
+    governance_status: str = "approved",
+    source: str = "human",
+    evidence_confidence: str | None = None,
+    evidence_citations: list[str] | None = None,
 ) -> Thesis:
     """Open a new investment thesis.
+
+    `governance_status` defaults to 'approved' — the zero-friction human CLI
+    path (0033 grandfathers human-authored theses). A system-proposed thesis
+    (F-E2E r2 S4, `source='system_screen'`) opens at 'pending_review' and
+    reaches 'approved' only through `approve_object()`; its 'opened' revision
+    must cite evidence (0034/0057).
 
     Validates symbol suffix; inserts thesis + 'opened' revision +
     theme_holdings placeholder rows (source='system_default') in a single
@@ -231,6 +304,13 @@ async def open_thesis(
     actual exposure_strength and mechanism_text.
     """
     _validate_symbol(symbol)
+    if governance_status not in ("approved", "pending_review", "draft"):
+        raise ValueError(f"open_thesis cannot open at governance_status={governance_status!r}")
+    if source != "human" and governance_status == "approved":
+        raise ValueError(
+            f"a {source!r} thesis cannot open as approved — it enters at pending_review "
+            "and needs a human approval (governance Section 4.1)"
+        )
     themes = themes or []
     invalidation_conditions = invalidation_conditions or []
     now = _now_utc()
@@ -245,14 +325,14 @@ async def open_thesis(
                 stop_price, target_price, timeline_days,
                 invalidation_conditions, themes,
                 last_revisited_at, revisit_due_at, opened_at,
-                conviction_level, tax_notes
+                conviction_level, tax_notes, governance_status
             ) VALUES (
                 $1, $2, $3,
                 $4, $5,
                 $6, $7, $8,
                 $9::jsonb, $10,
                 $11, $12, $11,
-                $13, $14
+                $13, $14, $15
             )
             RETURNING *
             """,
@@ -270,6 +350,7 @@ async def open_thesis(
             due,
             conviction_level,
             tax_notes,
+            governance_status,
         )
         thesis_id: int = row["thesis_id"]
 
@@ -280,6 +361,9 @@ async def open_thesis(
             revision_type="opened",
             diff={},
             reasoning=reasoning,
+            source=source,
+            evidence_confidence=evidence_confidence,
+            evidence_citations=evidence_citations,
         )
 
         # Upsert theme_holdings placeholder rows for each theme code.

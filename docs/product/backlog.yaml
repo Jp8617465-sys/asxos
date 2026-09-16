@@ -498,7 +498,7 @@ items:
     title: "F-E2E/S1 — ValuationRun + ScenarioPreregistration contracts, repository, jobs/run_valuation.py over the active ASX equity universe (both conventions, gaps as blocked rows), weekly in weekly-research.yml"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: attended
     paths: ["asxos/domain/valuation/", "jobs/run_valuation.py", ".github/workflows/weekly-research.yml", "tests/"]
@@ -507,6 +507,15 @@ items:
       0 rows though migration 0054 is applied; the baseline sweep (scripts/research/baseline_inquiry.sql
       REPORT B, 572 of 1,880 valued) is the acceptance test. Amber by shape (workflow + investment
       output). Done when one as_of has >= 1,000 valued rows and REPORT B reconciles.
+      DONE 2026-09-16 (#283; first live run: weekly-research 35041442377, job_runs run_valuation
+      rows_written=1879, as_of 2026-09-16): 573 valued (170 currency_unverified, 128 payout clipped,
+      203 at or above price), blocked histogram roe_non_positive 1082 / book_value_non_positive 140 /
+      currency_unconvertible 42 / pit_row_absent 41 / roe_null 1; prereg-asx-universe-2026-09-16
+      registered. The ">= 1,000 valued" bar is NOT met and cannot be: 1,082 loss-makers and 140
+      negative-book names have no residual-income basis, so the attainable maximum is ~658 — the bar
+      was mis-set against the baseline's own histogram, not missed by the runner. Amendment E:
+      captures: valuation_runs, with defect: the DoD (i) bar. REPORT B parity holds on the five
+      parity names (tests); the sprint-close re-run of the SQL is the live before/after.
 
   - id: A-37
     title: "F-E2E/S2 — valuation as EvidencePacket evidence (evidence_type valuation_fact) and rule_valuation_gap in the challenge layer; no new DecisionPacket fields"
@@ -1464,6 +1473,13 @@ items:
       below the pre-registered value, 23 robust to 3-period-average ROE (memo section 4). Entry band
       0.65-0.80 x target, stop 0.80 x entry upper, 12-month timeline — James can change the convention.
       Deterministic, not an LLM agent (D-12/C17 not crossed).
+      BUILT 2026-09-16 (mission W3): jobs/discover_opportunities.py (screen via
+      discovery-liquidity-v1 + log_run, rank on the 3-period-average ROE, top-10 at pending_review
+      with source=system_screen and two verified thesis_evidence rows each). currency_unverified
+      names are ranked but never proposed. candidate_snapshots not written (no theme version for a
+      value screen; the evidence rows and the screening_runs row carry the record). Closes when the
+      DoD (ii) holds live: >= 1 screening_runs row and >= 5 system-screen theses at pending_review
+      (first scheduled run Saturday 16:00 UTC, or the dispatch after merge).
 
   - id: C-25
     title: "F-E2E/S5 — jobs/build_decision_packets.py: a challenged decision packet on schedule for every approved thesis, with the paper book and the latest valuation, persisted; step after the brief send"
