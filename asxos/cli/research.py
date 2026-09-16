@@ -29,6 +29,16 @@ from asxos.domain.research.registry.repository import (
     save_run,
     save_strategy_version,
 )
+from asxos.domain.research.registry.vp import (
+    HYPOTHESIS_ID as VP_HYPOTHESIS_ID,
+)
+from asxos.domain.research.registry.vp import (
+    POWER_STATEMENT,
+    RESPONSE_RULE,
+    TOTAL_SURFACE_EXAMINED,
+    vp_hypothesis,
+    vp_strategy,
+)
 
 research_app = typer.Typer(
     help="Research registry — reproducible hypothesis evaluation (Stage 2).",
@@ -131,4 +141,49 @@ async def _run(as_of: date, twice: bool, persist: bool) -> None:
         f"[dim]run={run.run_id} outcome={run.outcome} content_hash={run.content_hash} "
         f"panel_hash={p_hash} reproducible={'yes' if twice and outcome == 'evaluated' else 'n/a'} "
         f"runs_on_record={len(history)} failed_on_record={sum(1 for r in history if r.outcome == 'fail')}[/dim]"
+    )
+
+
+@research_app.command("vp-register")
+def research_vp_register(
+    persist: bool = typer.Option(True, "--persist/--dry-run", help="Write the seal to the registry."),
+) -> None:
+    """Seal the value-to-price pre-registration BEFORE any evidence exists.
+
+    Registration is a separate, earlier command than `run` on purpose. A
+    hypothesis saved in the same transaction as its own result is not a
+    pre-registration — it is a description of what happened. This command
+    refuses outright if a run already exists for the hypothesis, so the
+    ordering is enforced rather than merely intended.
+    """
+    asyncio.run(_vp_register(persist))
+
+
+async def _vp_register(persist: bool) -> None:
+    now = datetime.now(UTC).replace(microsecond=0)
+    hypothesis, strategy = vp_hypothesis(now), vp_strategy(now)
+
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            existing = await list_runs(conn, hypothesis_id=VP_HYPOTHESIS_ID)
+            if existing:
+                console.print(
+                    f"[red]refusing to register: {len(existing)} run(s) already exist for "
+                    f"{VP_HYPOTHESIS_ID}. A seal cannot be applied after the evidence.[/red]"
+                )
+                raise typer.Exit(code=2)
+            if persist:
+                await save_hypothesis(conn, hypothesis)
+                await save_strategy_version(conn, strategy)
+    finally:
+        await close_pool()
+
+    console.print(json.dumps(hypothesis.model_dump(mode="json"), indent=2, sort_keys=True))
+    console.print(f"[bold]RESPONSE RULE (James, 2026-09-16, pre-committed):[/bold] {RESPONSE_RULE}")
+    console.print(f"[bold]POWER:[/bold] {POWER_STATEMENT}")
+    console.print(
+        f"[dim]sealed={'yes' if persist else 'DRY RUN'} hypothesis={VP_HYPOTHESIS_ID} "
+        f"content_hash={hypothesis.content_hash} strategy={strategy.strategy_version_id} "
+        f"surface_declared={TOTAL_SURFACE_EXAMINED} runs_on_record=0[/dim]"
     )
