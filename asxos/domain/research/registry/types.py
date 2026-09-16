@@ -33,11 +33,20 @@ class ResearchHypothesis(ContentAddressedContract):
     title: str = Field(min_length=1, max_length=300)
     statement: str = Field(min_length=1, max_length=4000)
     factor: FactorName
-    universe_rule: str = Field(min_length=1, max_length=500)
+    # Widened 500 -> 1200 for the V/P hypothesis: a membership rule that must say
+    # why it is NOT `universe.is_active`, and name its liquidity screen, does not
+    # fit in 500 characters. The DB stores these in `payload` JSONB with no length
+    # CHECK, so the bound is a contract choice, not a schema constraint.
+    universe_rule: str = Field(min_length=1, max_length=1200)
     rebalance: Rebalance
     horizon_trading_days: int = Field(ge=1, le=252)
     cost_bps_per_side: Decimal = Field(ge=Decimal("0"), le=Decimal("500"))
-    falsifier: str = Field(min_length=1, max_length=2000)
+    # Widened 2000 -> 5000 for the same reason. The falsifier is where the
+    # pre-committed response to a disappointing result lives, together with the
+    # power statement and any disclosure that the data was looked at before
+    # sealing. Truncating THAT to fit a bound would defeat the purpose of sealing
+    # it at all — a commitment nobody can read is not a commitment.
+    falsifier: str = Field(min_length=1, max_length=5000)
     registered_by: str = Field(min_length=1, max_length=100)
     created_at: datetime
 

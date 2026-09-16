@@ -79,6 +79,47 @@ RESPONSE_RULE: Final[str] = (
     "capital except by a human writing a governed thesis."
 )
 
+#: DISCLOSURE: the data WAS looked at once before this was sealed, and pretending
+#: otherwise would be the exact dishonesty a pre-registration exists to prevent.
+#:
+#: On 2026-09-16, before registering, arbi ran one exploratory read-only ladder at
+#: the 2025-03-31 cutoff and found the specification broken in a way that had
+#: nothing to do with the hypothesis: across all 1,782 priced names the mean
+#: 126-session return was +632% against a median of +13.9%, with a maximum of
+#: +833,230% on a stock trading at A$0.0001. Bucket MEANS are meaningless under
+#: that tail. Screening to ADV >= A$250k and close >= A$0.20 gives n=434, mean
+#: +22.8%, median +11.8%.
+#:
+#: WHAT CHANGED AS A RESULT, and why it is an estimator fix rather than a tuned
+#: result: (a) the ladder is judged on the MEDIAN forward return per bucket, not
+#: the mean, because cross-sectional equity returns are universally right-tailed;
+#: (b) a liquidity and minimum-price screen is declared, as every cross-sectional
+#: study applies and as this repo's own `quality-liquid-au-equity-v1` screen
+#: already does. Neither was chosen from the direction of the result: the probe's
+#: ladder was 0.22 / 1.10 / 1.09 / 0.17 / 1.04 — noise with no monotonic pattern.
+#:
+#: WHAT THE PROBE DID NOT REVEAL: the primary endpoint. The Spearman rank
+#: correlation is rank-based and therefore was ALREADY immune to the tail that
+#: broke the ladder — it was never recomputed under the corrected screen before
+#: sealing. The endpoint that decides the verdict remains unseen.
+PRE_SEAL_PROBE: Final[str] = (
+    "One exploratory read-only ladder was run at the 2025-03-31 cutoff on "
+    "2026-09-16 before sealing. It showed the bucket-mean estimator is destroyed "
+    "by sub-cent stocks (all-names mean +632% vs median +13.9%, max +833,230% at "
+    "a A$0.0001 close). In response the ladder moved to MEDIAN and a liquidity / "
+    "minimum-price screen was declared — both standard practice for a "
+    "cross-section, neither chosen from the direction of the result (the probe's "
+    "ladder was flat noise). The primary endpoint, the Spearman rank correlation, "
+    "is rank-based and was not recomputed under the corrected screen before "
+    "sealing: it remains unseen."
+)
+
+#: Declared screen. Not a free parameter discovered mid-run: ADV matches the
+#: baseline inquiry's liquid cohort and the minimum price removes the sub-cent
+#: names whose percentage moves are quotation artefacts, not returns.
+MIN_ADV_AUD: Final[int] = 250_000
+MIN_CLOSE_AUD: Final[str] = "0.20"
+
 #: Stated before the run so it cannot be produced afterwards as an excuse.
 POWER_STATEMENT: Final[str] = (
     "prices begin 2025-01-02 (433 .AU sessions to 2026-09-15), so at a 126-session "
@@ -109,17 +150,23 @@ def vp_hypothesis(now: datetime) -> ResearchHypothesis:
             "endpoint: the mean across cutoffs of the per-cutoff cross-sectional "
             "Spearman rank correlation between value-to-price and forward return, "
             "under the zero_excess terminal convention. Monotonicity is judged on "
-            "the quintile ladder, not on the top quintile alone, because an "
-            "inverted ladder with a strong top decile is the failure Model A hid."
+            "the quintile ladder by MEDIAN forward return, not on the top quintile "
+            "alone and not on bucket means, because an inverted ladder with a strong "
+            "top decile is the failure Model A hid and because bucket means in this "
+            "cross-section are dominated by sub-cent quotation artefacts."
         ),
         factor="value_to_price",
         universe_rule=(
-            "valuation_runs at the replay cutoff WHERE outcome = 'valued' AND the "
-            "symbol has both a cutoff and a forward close in prices; PIT-correct by "
-            "construction (knowledge_date <= cutoff, asserted by test). Marked-book "
-            "instruments (LICs, LITs, A-REITs) are FLAGGED in the result rather than "
-            "excluded, because excluding them after seeing the 2026-09-16 candidate "
-            "set would be a choice made on the data."
+            "Common stocks TRADING at the cutoff (a close inside the pre-registered "
+            "window; rs_security_master.security_type = 'Common Stock') — NOT "
+            "universe.is_active, which is current listing status and drops every name "
+            "delisted since. Valued by the registered model on point-in-time inputs "
+            f"(knowledge_date <= cutoff, asserted by test), then screened to ADV >= "
+            f"A${MIN_ADV_AUD:,} and close >= A${MIN_CLOSE_AUD} — see PRE_SEAL_PROBE for "
+            "why that screen is declared and on what grounds. Marked-book instruments "
+            "(LICs, LITs, A-REITs) are FLAGGED in the result rather than excluded, "
+            "because excluding them after seeing the 2026-09-16 candidate set would be "
+            "a choice made on the data."
         ),
         rebalance="quarterly",
         horizon_trading_days=PRIMARY_HORIZON_SESSIONS,
@@ -127,6 +174,7 @@ def vp_hypothesis(now: datetime) -> ResearchHypothesis:
         falsifier=(
             f"{RESPONSE_RULE} "
             f"POWER, stated before the run: {POWER_STATEMENT} "
+            f"PRE-SEAL PROBE (disclosed, not hidden): {PRE_SEAL_PROBE} "
             f"SURFACE: {TOTAL_SURFACE_EXAMINED} combinations "
             f"({PRIMARY_CONVENTION} + {', '.join(SECONDARY_CONVENTIONS)}) x "
             f"({PRIMARY_HORIZON_SESSIONS} + "
@@ -151,6 +199,9 @@ def vp_strategy(now: datetime) -> StrategyVersion:
             "horizon_trading_days": str(PRIMARY_HORIZON_SESSIONS),
             "cost_bps_per_side": "25",
             "quantiles": "5",
+            "ladder_statistic": "median",
+            "min_adv_aud": str(MIN_ADV_AUD),
+            "min_close_aud": MIN_CLOSE_AUD,
             "min_symbols_per_cutoff": "50",
             "rebalance": "quarterly",
         },

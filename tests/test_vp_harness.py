@@ -132,7 +132,7 @@ def test_cheapest_bucket_is_last() -> None:
     """Bucket 5 must be the high-V/P (cheap) end, or every sign flips."""
     out = _run(*_build(lambda i, n: Decimal(i) * Decimal("0.001")))
     ladder = out["cutoffs"][0]["ladder"]
-    assert Decimal(ladder[-1]["mean_value_to_price"]) > Decimal(ladder[0]["mean_value_to_price"])
+    assert Decimal(ladder[-1]["median_value_to_price"]) > Decimal(ladder[0]["median_value_to_price"])
 
 
 # --- survivorship accounting ------------------------------------------------
@@ -233,3 +233,45 @@ def test_spearman_handles_ties_without_blowing_up() -> None:
 
 def test_spearman_is_none_on_a_constant_series() -> None:
     assert spearman([Decimal(3)] * 5, [Decimal(i) for i in range(5)]) is None
+
+
+# --- the estimator fix ------------------------------------------------------
+
+def test_ladder_is_judged_on_median_not_mean() -> None:
+    """A single sub-cent artefact must not decide a bucket.
+
+    Measured on the real panel at 2025-03-31: the all-names mean 126-session
+    return was +632% against a median of +13.9%, max +833,230% on a A$0.0001
+    stock. Here one name in the DEAREST bucket gets a +500x return. Under a mean
+    ladder that bucket would dominate and the ladder would read inverted; under
+    a median it is ignored, which is correct.
+    """
+    def shape(i: int, n: int) -> Decimal:
+        if i == 0:
+            return Decimal("500")  # the artefact, in bucket 1
+        return Decimal(i) * Decimal("0.001")
+
+    out = _run(*_build(shape))
+    ladder = out["cutoffs"][0]["ladder"]
+    assert "median_forward_return" in ladder[0]
+    # The mean of bucket 1 is wrecked; its median is not.
+    assert Decimal(ladder[0]["mean_forward_return"]) > Decimal("20")
+    assert Decimal(ladder[0]["median_forward_return"]) < Decimal("0.02")
+    # And the verdict still reads the true monotone shape.
+    assert out["verdict"] == VERDICT_POSITIVE
+    assert out["parameters"]["ladder_statistic"] == "median"
+
+
+def test_declared_screen_is_recorded_in_the_result() -> None:
+    scores, panel = _build(lambda i, n: Decimal(i) * Decimal("0.001"))
+    out = _run(scores, panel, screen="ADV >= A$250,000 AND close >= A$0.20")
+    assert out["parameters"]["screen"] == "ADV >= A$250,000 AND close >= A$0.20"
+
+
+def test_median_is_exact_on_even_and_odd_buckets() -> None:
+    from asxos.domain.research.registry.vp_harness import median
+
+    assert median([Decimal(3), Decimal(1), Decimal(2)]) == Decimal(2)
+    assert median([Decimal(1), Decimal(2), Decimal(3), Decimal(4)]) == Decimal("2.5")
+    with pytest.raises(HarnessError, match="empty bucket"):
+        median([])

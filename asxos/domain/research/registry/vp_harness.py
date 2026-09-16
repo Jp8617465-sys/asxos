@@ -84,6 +84,25 @@ def spearman(xs: list[Decimal], ys: list[Decimal]) -> Decimal | None:
     return _pearson(_avg_ranks(xs), _avg_ranks(ys))
 
 
+def median(values: list[Decimal]) -> Decimal:
+    """Exact median, Decimal-only. The ladder's central statistic, not the mean.
+
+    Cross-sectional equity returns are violently right-tailed: measured on this
+    panel at 2025-03-31, the mean 126-session return across all 1,782 priced
+    names was +632% against a median of +13.9%, with a maximum of +833,230% on a
+    stock quoted at A$0.0001. A bucket mean under that tail reports the largest
+    quotation artefact in the bucket, not the bucket.
+    """
+    ordered = sorted(values)
+    n = len(ordered)
+    if n == 0:
+        raise HarnessError("median of an empty bucket")
+    mid = n // 2
+    if n % 2:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) / Decimal(2)
+
+
 def _quintile_bounds(n: int, buckets: int) -> list[tuple[int, int]]:
     """Contiguous, near-equal slices of a sorted list — no name is dropped."""
     edges = [(n * b) // buckets for b in range(buckets + 1)]
@@ -99,6 +118,7 @@ def evaluate_value_to_price(
     buckets: int = 5,
     min_symbols_per_cutoff: int = 50,
     marked_book: dict[str, str] | None = None,
+    screen: str = "none declared",
 ) -> dict[str, object]:
     """Evaluate the V/P ladder across cutoffs. Returns a JSON-native payload.
 
@@ -177,23 +197,30 @@ def evaluate_value_to_price(
             slice_ = ordered[lo:hi]
             if not slice_:
                 continue
-            mean_ret = sum((r for _, _, r in slice_), Decimal(0)) / Decimal(len(slice_))
+            rets_b = [r for _, _, r in slice_]
+            med_ret = median(rets_b)
+            mean_ret = sum(rets_b, Decimal(0)) / Decimal(len(slice_))
             ladder.append({
                 "bucket": b + 1,
                 "n": len(slice_),
-                "mean_value_to_price": format(
-                    q(sum((vp for _, vp, _ in slice_), Decimal(0)) / Decimal(len(slice_))), "f"
-                ),
+                # Median on both axes: a bucket's mean V/P is as tail-dominated as
+                # its mean return (a single 94x artefact moves it by orders).
+                "median_value_to_price": format(q(median([vp for _, vp, _ in slice_])), "f"),
+                "median_forward_return": format(q(med_ret), "f"),
+                "median_forward_return_net": format(q(med_ret - round_trip_cost), "f"),
+                # Reported for comparison only. NOT the ladder statistic.
                 "mean_forward_return": format(q(mean_ret), "f"),
-                "mean_forward_return_net": format(q(mean_ret - round_trip_cost), "f"),
             })
 
         ladder_rho = spearman(
             [Decimal(row["bucket"]) for row in ladder],  # type: ignore[arg-type]
-            [Decimal(str(row["mean_forward_return"])) for row in ladder],
+            [Decimal(str(row["median_forward_return"])) for row in ladder],
         )
         cheap, dear = ladder[-1], ladder[0]
-        spread = Decimal(str(cheap["mean_forward_return"])) - Decimal(str(dear["mean_forward_return"]))
+        spread = (
+            Decimal(str(cheap["median_forward_return"]))
+            - Decimal(str(dear["median_forward_return"]))
+        )
 
         flagged = [s for s, _, _ in paired if s in marked]
         cutoff_rows.append({
@@ -259,6 +286,8 @@ def evaluate_value_to_price(
             "buckets": buckets,
             "min_symbols_per_cutoff": min_symbols_per_cutoff,
             "ladder_monotone_min": format(LADDER_MONOTONE_MIN, "f"),
+            "ladder_statistic": "median",
+            "screen": screen,
         },
         "calendar": {
             "first": calendar[0].isoformat(), "last": calendar[-1].isoformat(),
@@ -277,8 +306,10 @@ def evaluate_value_to_price(
             ),
             "threshold": format(LADDER_MONOTONE_MIN, "f"),
             "note": (
-                "judged on the whole ladder, not the top bucket — an inverted ladder "
-                "under a strong headline is what Model A hid"
+                "judged on the whole ladder by MEDIAN, not on the top bucket and not "
+                "on bucket means — an inverted ladder under a strong headline is what "
+                "Model A hid, and a bucket mean here reports its largest sub-cent "
+                "quotation artefact rather than the bucket"
             ),
         },
         "mean_cheapest_minus_dearest_net": format(q(mean_spread), "f"),

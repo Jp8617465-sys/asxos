@@ -45,6 +45,8 @@ from asxos.domain.research.registry.repository import (
 from asxos.domain.research.registry.types import ResearchRun
 from asxos.domain.research.registry.vp import (
     HYPOTHESIS_ID,
+    MIN_ADV_AUD,
+    MIN_CLOSE_AUD,
     PRIMARY_HORIZON_SESSIONS,
     RESPONSE_RULE,
     STRATEGY_ID,
@@ -70,6 +72,13 @@ SQL_PANEL = (
 #: is its portfolio return, an A-REIT's contains the IAS 40 revaluation mark.
 #: FLAGGED in the result, never excluded: dropping them after seeing a candidate
 #: set would be a choice made on the data.
+#: The declared liquidity screen (vp.py). Sub-cent names make percentage moves
+#: that are quotation artefacts rather than returns: at the 2025-03-31 cutoff the
+#: all-names mean 126-session return was +632% against a median of +13.9%.
+SQL_ELIGIBLE = (
+    "SELECT symbol FROM prices WHERE dt <= $1 AND dt >= $1 - 130 AND symbol LIKE '%.AU' "
+    "GROUP BY symbol HAVING avg(close * volume) >= $2"
+)
 SQL_MARKED_BOOK = (
     "SELECT symbol, gics_industry FROM rs_security_master "
     "WHERE gics_industry ILIKE ANY (ARRAY['%REIT%','%Capital Markets%','%Asset Management%'])"
@@ -84,16 +93,30 @@ async def scores_for_cutoff(conn, cutoff: date, prereg) -> dict[str, Decimal]:  
     rows = await load_replay_rows(
         conn, cutoff_date=cutoff, roe_average_periods=prereg.input_rules.roe_average_periods
     )
+    eligible = {
+        str(r["symbol"])
+        for r in await conn.fetch(SQL_ELIGIBLE, cutoff, Decimal(MIN_ADV_AUD))
+    }
+    min_close = Decimal(MIN_CLOSE_AUD)
+
     out: dict[str, Decimal] = {}
+    valued = screened = 0
     for row in rows:
         run = value_row(row, market=market, ke=ke, prereg=prereg, cutoff=at, created_at=at)
         if run.outcome != "valued" or run.value_per_share is None:
             continue
+        valued += 1
         price = row.last_close
         if price is None or price <= 0:
             continue
+        if row.symbol not in eligible or price < min_close:
+            screened += 1
+            continue
         out[row.symbol] = run.value_per_share / price
-    log.info("cutoff %s: %s of %s names valued", cutoff, len(out), len(rows))
+    log.info(
+        "cutoff %s: %s rows, %s valued, %s screened out, %s scored",
+        cutoff, len(rows), valued, screened, len(out),
+    )
     return out
 
 
@@ -139,7 +162,10 @@ async def main() -> None:
             outcome, reason, evaluation = "evaluated", None, {}
             try:
                 evaluation = evaluate_value_to_price(
-                    scores, panel, horizon_trading_days=args.horizon, marked_book=marked
+                    scores, panel,
+                    horizon_trading_days=args.horizon,
+                    marked_book=marked,
+                    screen=f"ADV >= A${MIN_ADV_AUD:,} AND close >= A${MIN_CLOSE_AUD}",
                 )
             except HarnessError as exc:
                 outcome, reason = "fail", str(exc)
