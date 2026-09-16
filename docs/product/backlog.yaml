@@ -637,7 +637,9 @@ items:
       Amendment E captures: PENDING Saturday 2026-09-19 weekly-research (job_runs.rows_written=0 for
       discover_opportunities with the note; no new system_screen thesis). Residue, attended: the ten
       system_screen theses ids 14-23 at pending_review still carry the constant-derived levels —
-      asx thesis reject x10 (A-39's #289 parser is open, so a REJECT comment executes nothing yet).
+      DISCHARGED 2026-09-17 (attended, James-directed): all ten are governance_status='rejected', each
+      with one governance_events row citing #306/#309; theses is 13 approved (human) / 10 rejected.
+      Executed via the governance path, not the CLI — the agent sandbox cannot reach Postgres directly.
 
   - id: B-1
     title: "Inspect $BACKUP_REPO signal-evidence-2026-08-16/ digests (ls, sha256sum, MANIFEST, gzip -dc | sha256sum) — unconditional, first"
