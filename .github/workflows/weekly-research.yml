@@ -67,5 +67,11 @@ jobs:
       - name: Derive fundamentals PIT
         run: python jobs/derive_fundamentals_pit.py
 
+      # F-E2E r2 S1: value the whole active ASX equity universe on the fresh PIT
+      # rows. DB-to-DB, no EODHD call; reads only the tables the valuation
+      # package admits (rule #11 screened at import). Failures are rows.
+      - name: Run valuation
+        run: python jobs/run_valuation.py
+
       - name: Sync fundamentals
         run: python jobs/sync_fundamentals.py

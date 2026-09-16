@@ -24,8 +24,21 @@ from typing import Any, Final, Protocol
 from asxos.domain.valuation.gaps import Gap
 from asxos.domain.valuation.numeric import valuation_context
 
+#: `fx_rates` was admitted for the universe sweep (F-E2E r2 S1): USD reporters
+#: are converted at the AUDUSD rate on or before the cutoff, the same source
+#: `jobs/snapshot_portfolio.py` reads. It carries no Model A surface.
 _ADMISSIBLE: Final[frozenset[str]] = frozenset(
-    {"rs_fundamentals_pit", "rs_financial_statements", "market_context_current", "prices", "universe"}
+    {
+        "rs_fundamentals_pit",
+        "rs_financial_statements",
+        "market_context_current",
+        "prices",
+        "universe",
+        "fx_rates",
+        # The package's own store (migration 0054) — read back by `repository.py`.
+        "valuation_runs",
+        "valuation_scenario_preregistrations",
+    }
 )
 _FORBIDDEN: Final[tuple[str, ...]] = (
     r"\bsignals\b", r"\bshap_", r"\bprob_up\b", r"\bsignal_label\b", r"\bmodel_a\b",
@@ -34,6 +47,10 @@ _FORBIDDEN: Final[tuple[str, ...]] = (
     r"\btotal_revenue\b", r"netinterestincome",
 )
 _FROM_JOIN = re.compile(r"\b(?:from|join)\s+([a-z_][a-z0-9_]*)", re.IGNORECASE)
+#: A common-table-expression name declared in the same statement (`name AS (`).
+#: Admissible only for that statement — a CTE can only read what its own
+#: FROM/JOIN clauses read, and those are screened by the same pass.
+_CTE_NAME = re.compile(r"\b([a-z_][a-z0-9_]*)\s+as\s*\(", re.IGNORECASE)
 
 
 def assert_valuation_sql_admissible(sql: str) -> None:
@@ -41,8 +58,9 @@ def assert_valuation_sql_admissible(sql: str) -> None:
     for token in _FORBIDDEN:
         if re.search(token, lowered):
             raise AssertionError(f"valuation SQL names a forbidden token: {token}")
+    local_ctes = {name.lower() for name in _CTE_NAME.findall(sql)}
     for table in _FROM_JOIN.findall(sql):
-        if table.lower() not in _ADMISSIBLE:
+        if table.lower() not in _ADMISSIBLE and table.lower() not in local_ctes:
             raise AssertionError(f"valuation SQL reads an inadmissible table: {table}")
 
 

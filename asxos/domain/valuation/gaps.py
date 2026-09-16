@@ -26,6 +26,11 @@ NamedGap = Literal[
     "pit_row_estimated_tier",
     "currency_null",
     "currency_not_aud",
+    # --- universe sweep (F-E2E r2 S1, reported-book base) --------------------
+    "book_value_non_positive",
+    "roe_null",
+    "roe_non_positive",
+    "currency_unconvertible",
     "payout_ratio_underivable",
     "roe_definition_unknown",
     "price_stale",

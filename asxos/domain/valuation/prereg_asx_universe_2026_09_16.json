@@ -1,0 +1,75 @@
+{
+  "preregistration_id": "prereg-asx-universe-2026-09-16",
+  "registered_by": "arbi",
+  "registered_at": "2026-09-16T00:00:00Z",
+  "applies_to": "Every active ASX equity (universe.security_kind = 'au_equity', is_active) with a usable point-in-time fundamentals row: residual-income valuation on reported book equity, run weekly by jobs/run_valuation.py. Supersedes prereg-au-majors-2026-09-08 (tangible common equity, four names) for the universe-wide run; the Phase 1 levers and probabilities are carried unchanged.",
+  "method": "residual_income",
+  "return_base": "reported_book_equity",
+  "terminal_convention": "zero_excess",
+  "franking_convention": "grossed_up_resident",
+  "horizon_years": 10,
+  "symbol_agnostic": true,
+  "committed_before_any_model_run": true,
+  "levers": [
+    {
+      "label": "bear",
+      "probability_pct": "25",
+      "roe_factor": "0.70",
+      "rationale": "Carried from prereg-au-majors-2026-09-08: a downturn of the depth the Australian majors reached in FY20-FY22, short of a NAB-FY16-style write-off year. Empirically 9.6% of the observed name-years were at or below this level; 25% is the deliberately conservative assignment and is not to be revised because a resulting value looks low."
+    },
+    {
+      "label": "base",
+      "probability_pct": "50",
+      "roe_factor": "1.00",
+      "rationale": "The name's own trailing-twelve-month ROE from rs_fundamentals_pit, carried as the starting point of the linear fade to Ke. No forecast is applied."
+    },
+    {
+      "label": "bull",
+      "probability_pct": "25",
+      "roe_factor": "1.20",
+      "rationale": "Carried from prereg-au-majors-2026-09-08: a return toward the 2013-2015 profitability band. Empirically 21.2% of the observed name-years were at or above this level."
+    }
+  ],
+  "sensitivities": [
+    {
+      "label": "average_roe",
+      "parameter": "base scenario re-run with roe_start = the mean ROE of the latest 3 point-in-time periods (fewer when fewer exist); zero-excess; Ke mid",
+      "registered": false,
+      "rationale": "Trailing ROE at a cycle peak is the model's largest single distortion (baseline 2026-09-16: Metro Mining 94x value/price on trailing ROE, 0.92x on the 3-period average). The discovery ranker (S4) uses the LOWER of the registered value and this one; it never replaces the registered value."
+    },
+    {
+      "label": "fading_excess_w050",
+      "parameter": "persistence w = 0.5 (Ohlson): ROE fades to Ke + 0.5 * (ROE_0 - Ke) and the surviving excess decays at 0.5 forever; probability-weighted; Ke mid",
+      "registered": false,
+      "rationale": "The comparison convention required by the standing pre-commitment: computed universe-wide ALONGSIDE zero_excess so the calibration metric (share of names valued above market) becomes interpretable. Illustrative; no operative persistence value has been pre-registered for use in a thesis."
+    },
+    {
+      "label": "unadjusted_franking",
+      "parameter": "the registered probability-weighted value at Ke mid with franking_pct = None (pre_tax_no_franking_adjustment)",
+      "registered": false,
+      "rationale": "The adjustment is worth roughly a fifth of value on a fully franked payer and rests on investor residency, so both figures are published side by side (Phase 1 practice)."
+    }
+  ],
+  "ke_treatment": {
+    "erp": "0.055",
+    "beta_low": "0.55",
+    "beta_mid": "0.70",
+    "beta_high": "0.85",
+    "beta_provenance": "third-party five-year estimates (Finbox, Simply Wall St, Yahoo Finance) for the four Australian majors; reviewed 2026-09-08; CITED, not measured from asxos price data; applied universe-wide because beta cannot be measured (AXJO.INDX holds fewer than 250 sessions, backlog E-19)",
+    "risk_free_series": "FRED IRLTLT01AUM156N via market_context_current.aus_10y_yield (OECD monthly long-term government bond yield for Australia, carried forward)",
+    "sensitivity_note": "Ke is NOT a scenario lever. Ke uncertainty is carried by the stated beta band (value at Ke low / mid / high on every row). Scenario uncertainty is the ROE path only. Keeping them separate is what stops the two mechanisms double-counting."
+  },
+  "input_rules": {
+    "universe": "universe WHERE security_kind = 'au_equity' AND is_active; ETFs, LICs-by-kind and hybrids are not valued (no book/ROE basis)",
+    "pit_selection": "rs_fundamentals_pit: the latest usable row per symbol with knowledge_date <= cutoff date, ordered by as_of DESC then knowledge_date DESC; roe_average = mean(roe) over the latest 3 such rows with non-null roe",
+    "price_window_days": 40,
+    "usd_conversion": "book_value_ps and dividend_ttm of a USD reporter (rs_fundamentals_pit.currency = 'USD') are divided by the fx_rates AUDUSD rate on or before the cutoff date; AUD reporters are taken as is",
+    "currency_unverified_policy": "a NULL or blank rs_fundamentals_pit.currency is VALUED as AUD and FLAGGED currency_unverified (currency_verified = false), never hidden — backlog C-20 closes the flag; any other currency blocks with currency_unconvertible",
+    "payout_rule": "payout_ratio = dividend_ttm / eps_ttm clipped to [0, 1]; 0 when eps_ttm <= 0 or dividend_ttm is NULL; clipping is recorded (payout_clipped)",
+    "franking_rule": "franking_pct = rs_fundamentals_pit.franking_avg_pct as reported, 0 where absent; grossed up at 30/70 for an Australian resident holder",
+    "roe_average_periods": 3
+  },
+  "evidence_basis": "prereg-au-majors-2026-09-08 (rs_fundamentals_pit.roe, CBA/NAB/ANZ/WBC, 52 name-years from 2013: each year's ROE over the name's own 13-year mean ranged 0.072 to 1.427; 9.6% at or below 0.70, 21.2% at or above 1.20) and the 2026-09-16 baseline inquiry (docs/proposals/baseline-inquiry-2026-09-16.md; scripts/research/baseline_inquiry.sql REPORT B, parity <= 0.000001 to value_per_share on five names).",
+  "pre_commitment": "Ruled by James 2026-09-08 and carried here before the first universe run: if this method values a name materially below its market price, NO horizon extension, NO growth term and NO terminal excess return will be added to close the gap. A method revision is an ADR decision made on queue-wide evidence, never on one name. The fading-excess figure is recorded as a sensitivity for that queue-wide comparison and is not a basis for any value, thesis or ranking.",
+  "content_hash": "dfb60bff6b9198f5c0d6f1faeb849a1640290a6f23bfaba1d2d6dcf8f5612900"
+}
