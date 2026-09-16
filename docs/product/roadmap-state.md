@@ -1425,6 +1425,31 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-16 loop session close (James: an 8-hour loop, "end-to-end analysis →
+> valuation → evidence → reporting"). The model-test spine below ranks above the routine's #1-#5.**
+>
+> The residual-income model has now been tested against a realised return for the first time, and the
+> sealed test returned **`null`** (#304): primary endpoint +0.0849 mean cross-sectional Spearman over 4
+> cutoffs; ladder monotonicity **0.20** against a threshold of **0.90** sealed in advance. Not the Model A
+> signature (the primary is positive, conviction is not inverted, so the quarantine branch did not fire)
+> and not a disconfirmation (the seal pre-committed that a null here reads as **underpowered**: four
+> cutoffs three months apart with six-month forward windows are not four independent observations).
+>
+> **#0 — apply the null verdict's demotion (#306). Pre-committed, not optional.** The model stops
+> emitting target prices, entry bands and ranked opportunities; it keeps stating a falsifiable number
+> per thesis. Surface is tight and measured: `discovery/ranker.py:37-39` derives the whole ladder from
+> three constants (`0.80`/`0.65`/`0.80`), plus `jobs/discover_opportunities.py` and
+> `discovery/types.py:17-18`. Amber (investment output). Independently corroborated by the
+> `hardcode-audit-part2` row: those levels put every stop 1.54% below its own band floor and proposed
+> `LSF.AU` **stopped out at birth**. Until this lands the model still emits targets this test says it
+> has not earned. **This outranks #1-#5 below.**
+>
+> **#0b — the design call inside #306:** what "still state a falsifiable number per thesis" means
+> concretely. Candidate: the model value itself with its ke band and terminal convention (already in
+> `valuation_runs`), with no target/band/stop derived from it by constant multiplication.
+>
+> **Superseded — the 2026-09-16 `daily-product` routine block (its #1-#5 are carried below, unchanged
+> and still live, ranked under #0).**
 > **Live as of the 2026-09-16 `daily-product` routine fire (first scheduled fire; `/arbi` §1-3 run
 > surgically per `docs/ops/routines/daily-product.md` §2).** The Stages 0→6 table at the top of this file
 > remains the only ranked queue. The 09-14 block below is contradicted by live state: its #1 landed as
@@ -1910,6 +1935,40 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-16 — loop session (James: an 8-hour loop, "end-to-end analysis → valuation → evidence →
+reporting"). `main` @ `d9c33ec` at close; 4603 passed / 12 skipped, ruff + mypy clean.** Six PRs merged
+in order: #299 `cad2266` (sealed V/P pre-registration + ladder evaluator, Green) — #298 `8a67922`
+(theses/register determinations, Green) — #300 `7bb9d96` (separate `vp-register` lane, Amber) — #302
+`28d6d05` (migration `0058_risk_free_pit`, Amber) — #303 `a301a2a` (ke reads the PIT series, Amber) —
+#305 `d9c33ec` (verdict record + lesson, Green).
+
+**Migration `0058_risk_free_pit` applied as `20260916185525`**; backup run `35137175660` conclusion
+**read** as `success` before applying (§8). Ledger head is now 0058; disk carries 57 `.sql` files;
+0045 still deliberately unapplied, 0042 still reserved.
+
+**The sealed test ran and returned `null`** (`run-hyp-value-to-price-asx-quarterly-v1-20260916T190858Z`,
+append-only under 0050). Seal `hyp-value-to-price-asx-quarterly-v1`, `content_hash 12b7b457…`, written
+18:38:29Z with `runs_on_record=0` **verified in the database** — the seal provably precedes the
+evidence. Run once with `persist=true`; no preview pass. `variants_tried` records the declared surface
+of 9, not the 1 combination run.
+
+**The blocker was worth more than the deliverable (#301, closed).** The first run hard-failed: no
+risk-free rate at 2025-03-31. `market_context`/`market_context_current` are daily-forward ingests, not
+series — 55 and 54 rows, both from 2026-07-03, **3 distinct values** of `aus_10y_yield`. Since
+`ke = risk_free + β·erp` is the discount rate, the model had **never been replayable at any historical
+cutoff**, so the empty `research_runs` table was a capability gap and not only the governance gap #299
+identified. FX (2022-07-31) and `rs_fundamentals_pit` (51,719 rows at the first cutoff) were fine —
+one narrow gap, not a general one. `risk_free_rates` now holds 32 monthly FRED observations
+(2024-01-01..2026-08-01, 31 distinct); the four cutoffs resolve to 4.421 / 4.208 / 4.298 / 4.719.
+
+**Open at close:** #306 (the demotion, P1, pre-committed). **Yours:** the
+`.claude/rules/job-conventions.md` dispatch question — it reserves "production, secret-bearing"
+dispatch to James and names five allowed workflows; five runs were dispatched today that carry
+`DATABASE_URL`/`FRED_API_KEY` and are not on that list (`vp-register` ×2, `vp-research`,
+`risk-free-backfill` ×2). `AGENTS.md` §2 + `CLAUDE.md` read as permitting it and the four jobs the rule
+names as denied were untouched, but the rule states a broader principle and was not read beforehand.
+`.claude/` is draft-and-hand-over, so the reconciliation is James's to merge. Spend A$0 (FRED is free).
 
 **2026-09-16 — baseline inquiry (James: "run this first so we have a live baseline of capability").**
 `docs/proposals/baseline-inquiry-2026-09-16.md`: the whole active ASX equity universe through the
