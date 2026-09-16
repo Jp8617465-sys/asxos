@@ -216,7 +216,9 @@ class EvidenceItem(Contract):
     #: `valuation_fact` (F-E2E r2 S2): a persisted `valuation_runs` row cited by
     #: `run_id` — the model's own reading of the name, independent of the thesis
     #: author. An additive widening: every stored payload still validates and
-    #: hashes identically.
+    #: hashes identically. `tax_fact` (F-E2E r2 S9): the G12 dividend
+    #: characterisation from `rs_corporate_actions` (`asxos/domain/tax/feed.py`),
+    #: the same additive widening.
     evidence_type: Literal[
         "market_fact",
         "fundamental_fact",
@@ -224,6 +226,7 @@ class EvidenceItem(Contract):
         "theme_fact",
         "portfolio_fact",
         "valuation_fact",
+        "tax_fact",
     ]
     title: str = Field(min_length=1, max_length=500)
     claim: str = Field(min_length=1, max_length=10_000)
