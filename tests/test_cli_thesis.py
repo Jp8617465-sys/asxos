@@ -296,6 +296,59 @@ def test_reject_missing_reason_exits_nonzero() -> None:
 
 
 # ---------------------------------------------------------------------------
+# retire — service wiring (2026-09-17)
+# ---------------------------------------------------------------------------
+
+def test_retire_invokes_service_with_correct_args(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    fake_thesis = MagicMock(thesis_id=3, symbol="TPW.AU", governance_status="retired")
+    with patch.object(
+        thesis_mod.svc, "retire_object", new=AsyncMock(return_value=fake_thesis)
+    ) as retire_patch:
+        result = runner.invoke(
+            cli_main.app,
+            ["thesis", "retire", "3", "--reason", "Auto-seeded placeholder, never authored"],
+        )
+
+    assert result.exit_code == 0, result.output
+    retire_patch.assert_awaited_once()
+    call_args = retire_patch.await_args
+    assert call_args.args[1] == 3
+    assert call_args.kwargs["reasoning"] == "Auto-seeded placeholder, never authored"
+
+
+def test_retire_missing_reason_exits_nonzero() -> None:
+    result = runner.invoke(cli_main.app, ["thesis", "retire", "3"])
+    assert result.exit_code != 0
+
+
+def test_retire_is_behind_the_personal_use_firewall(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ASXOS_PERSONAL_USE", raising=False)
+    result = runner.invoke(cli_main.app, ["thesis", "retire", "3", "--reason", "x"])
+    assert result.exit_code != 0
+    assert "ASXOS_PERSONAL_USE" in result.output
+
+
+def test_retire_surfaces_a_service_refusal_as_exit_one(
+    monkeypatch: pytest.MonkeyPatch, patched_pool: MagicMock
+) -> None:
+    """A row that was never approved must be rejected, not retired — the CLI
+    should show that message rather than a traceback."""
+    monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
+    with patch.object(
+        thesis_mod.svc,
+        "retire_object",
+        new=AsyncMock(side_effect=ValueError("Cannot retire thesis 9 — expected one of ['approved']")),
+    ):
+        result = runner.invoke(cli_main.app, ["thesis", "retire", "9", "--reason", "x"])
+
+    assert result.exit_code == 1
+    assert "Cannot retire" in result.output
+
+
+# ---------------------------------------------------------------------------
 # open --from-agent-run — routing
 # ---------------------------------------------------------------------------
 

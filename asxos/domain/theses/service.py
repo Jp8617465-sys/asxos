@@ -45,6 +45,10 @@ _VALID_SYMBOL_SUFFIXES = (".AU", ".US")
 _REVISIT_INTERVAL_DAYS = 30
 _STALE_EVIDENCE_DAYS = 14
 _REJECTABLE_FROM = {"draft", "evidence_complete", "pending_review"}
+#: Retirement is the disposal of an ALREADY-DECIDED row, which is exactly what
+#: reject_object refuses (see its docstring). The two are complements, not
+#: alternatives: reject = "never accepted", retire = "was accepted, is finished".
+_RETIREABLE_FROM = {"approved"}
 
 
 # ---------------------------------------------------------------------------
@@ -1040,6 +1044,63 @@ async def reject_object(
             conn, thesis_id,
             from_status=existing["governance_status"],
             to_status="rejected",
+            reasoning=reasoning,
+        )
+
+        return _row_to_thesis(row)
+
+
+async def retire_object(
+    conn: asyncpg.Connection,
+    thesis_id: int,
+    *,
+    reasoning: str,
+) -> Thesis:
+    """Transition an approved thesis to retired — the disposal of a decided row.
+
+    This is the gap that made the 2026-09-16 register review's Rec 1
+    ("retire the eleven auto-seeded rows") unexecutable as written: `reject_object`
+    deliberately refuses an already-approved row, and nothing else could reach
+    `governance_status='retired'`, which migration 0033 has admitted since it was
+    written. So a thesis could be accepted and could be rejected, but could never
+    be *finished*.
+
+    Retire means "this row is no longer live content", NOT "this was a mistake".
+    Reach for it when an approved thesis has served out or should never have been
+    approved in the first place; `reject_object` remains the verb for a row that was
+    never accepted.
+
+    `theses.status` is deliberately untouched — its CHECK (migration 0012) has no
+    'retired' value, and widening the investment-lifecycle enum to mirror a
+    governance state is a separate call with its own migration. The two columns
+    answer different questions (0033's header: status = where in the investment
+    lifecycle; governance_status = is this content trustworthy).
+
+    Hard-fails if reasoning is empty or governance_status is not 'approved'
+    (_RETIREABLE_FROM). Writes: theses.governance_status='retired' plus a matching
+    governance_events row in the same transaction, in that order, which is what
+    satisfies the migration 0034 BEFORE UPDATE trigger.
+    """
+    async with conn.transaction():
+        existing = await conn.fetchrow(
+            "SELECT * FROM theses WHERE thesis_id = $1 FOR UPDATE", thesis_id
+        )
+        if existing is None:
+            raise ValueError(f"Thesis {thesis_id} not found")
+        if existing["governance_status"] not in _RETIREABLE_FROM:
+            raise ValueError(
+                f"Cannot retire thesis {thesis_id} — governance_status is "
+                f"{existing['governance_status']!r}, expected one of "
+                f"{sorted(_RETIREABLE_FROM)}. A row that was never approved is "
+                f"rejected, not retired."
+            )
+        if not reasoning or not reasoning.strip():
+            raise ValueError("reasoning is required to retire a thesis")
+
+        row = await _apply_governance_transition(
+            conn, thesis_id,
+            from_status=existing["governance_status"],
+            to_status="retired",
             reasoning=reasoning,
         )
 
