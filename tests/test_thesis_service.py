@@ -725,6 +725,101 @@ async def test_reject_object_already_approved_raises() -> None:
         await svc.reject_object(conn, thesis_id=1, reasoning="test")
 
 
+# ---------------------------------------------------------------------------
+# retire_object — the complement of reject_object (2026-09-17)
+# ---------------------------------------------------------------------------
+
+
+async def test_retire_object_happy_path_writes_the_event_before_the_update() -> None:
+    """The 0034 trigger is BEFORE UPDATE, so the governance_events INSERT must
+    already be visible when the UPDATE fires. Pinned by call ORDER, not just count —
+    the same shape that caught the Phase 2a bug."""
+    existing = _make_thesis_row(governance_status="approved")
+    updated = _make_thesis_row(governance_status="retired")
+    ordered: list[str] = []
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    fr_returns = iter([existing, updated])
+
+    async def _fetchrow(query, *_args):
+        if "UPDATE theses" in query:
+            ordered.append("update")
+        return next(fr_returns, None)
+
+    async def _execute(query, *_args):
+        if "governance_events" in query:
+            ordered.append("insert")
+
+    conn.fetchrow = _fetchrow
+    conn.execute = _execute
+
+    t = await svc.retire_object(conn, thesis_id=1, reasoning="Served out; superseded")
+
+    assert t.governance_status == "retired"
+    assert ordered == ["insert", "update"], "INSERT must precede UPDATE (transitions.py)"
+
+
+async def test_retire_object_records_the_from_status_and_actor() -> None:
+    existing = _make_thesis_row(governance_status="approved")
+    updated = _make_thesis_row(governance_status="retired")
+    calls: list = []
+
+    @asynccontextmanager
+    async def _tx():
+        yield
+
+    conn = MagicMock()
+    conn.transaction = _tx
+    fr = iter([existing, updated])
+
+    async def _fetchrow(_q, *_a):
+        return next(fr, None)
+
+    async def _execute(query, *args):
+        calls.append((query, args))
+
+    conn.fetchrow = _fetchrow
+    conn.execute = _execute
+
+    await svc.retire_object(conn, thesis_id=1, reasoning="Auto-seeded placeholder, never authored")
+    (_, args), = [(q, a) for q, a in calls if "governance_events" in q]
+    assert args[0] == "thesis" and args[1] == 1
+    assert args[2] == "approved" and args[3] == "retired"
+    assert args[5] == "human"
+
+
+async def test_retire_object_refuses_a_row_that_was_never_approved() -> None:
+    """pending_review belongs to reject_object. Retire is for a DECIDED row."""
+    for status in ("pending_review", "draft", "evidence_complete", "rejected", "retired"):
+        conn = _make_conn(fetchrow_returns=[_make_thesis_row(governance_status=status)])
+        with pytest.raises(ValueError, match="expected one of"):
+            await svc.retire_object(conn, thesis_id=1, reasoning="test")
+
+
+async def test_retire_object_empty_reasoning_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[_make_thesis_row(governance_status="approved")])
+    with pytest.raises(ValueError, match="reasoning is required"):
+        await svc.retire_object(conn, thesis_id=1, reasoning="   ")
+
+
+async def test_retire_object_missing_thesis_raises() -> None:
+    conn = _make_conn(fetchrow_returns=[None])
+    with pytest.raises(ValueError, match="not found"):
+        await svc.retire_object(conn, thesis_id=999, reasoning="test")
+
+
+async def test_retire_and_reject_source_states_are_disjoint() -> None:
+    """The two verbs must not both accept the same state — that would make
+    'was this ever accepted?' unanswerable from the audit trail alone."""
+    assert not (svc._RETIREABLE_FROM & svc._REJECTABLE_FROM)
+    assert svc._RETIREABLE_FROM == {"approved"}
+
+
 async def test_reject_object_from_draft_succeeds() -> None:
     """draft is a valid source state for rejection, not just pending_review."""
     existing = _make_thesis_row(governance_status="draft")

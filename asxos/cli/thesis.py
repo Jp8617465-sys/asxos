@@ -412,6 +412,33 @@ async def _reject_thesis(thesis_id: int, reason: str) -> None:
         await close_pool()
 
 
+@thesis_app.command("retire")
+def thesis_retire(
+    thesis_id: int = typer.Argument(..., help="Thesis ID (numeric), not symbol"),
+    reason: str = typer.Option(..., "--reason", help="Why this thesis is finished"),
+) -> None:
+    """Retire an approved thesis — governance_status -> 'retired'.
+
+    Only valid from 'approved'. Retire means "no longer live content", not "this
+    was a mistake" — use `asx thesis reject` for a row that was never accepted.
+    """
+    _require_personal_use()
+    asyncio.run(_retire_thesis(thesis_id, reason))
+
+
+async def _retire_thesis(thesis_id: int, reason: str) -> None:
+    await init_pool()
+    try:
+        async with acquire() as conn:
+            t = await svc.retire_object(conn, thesis_id, reasoning=reason)
+        console.print(f"[yellow]\u23fb[/yellow] Retired thesis #{t.thesis_id} ({t.symbol})")
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        await close_pool()
+
+
 @thesis_app.command("revise")
 def thesis_revise(
     symbol: str = typer.Argument(..., help="Symbol, e.g. CBA.AU"),
