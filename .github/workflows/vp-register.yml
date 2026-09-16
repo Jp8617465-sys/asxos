@@ -1,0 +1,83 @@
+# Value-to-price pre-registration — sealing the hypothesis (S3, step 1).
+#
+# WHY THIS IS A SEPARATE WORKFLOW FROM vp-research.yml, AND MUST STAY ONE.
+# `asx research vp-register` is deliberately a different command from `run`:
+# a hypothesis saved in the same transaction as its own result is not a
+# pre-registration, it is a description of what happened. vp-research.yml
+# encodes the other half of that — it hard-fails unless the hypothesis row
+# already exists, so it cannot seal its own pre-registration on the way past.
+#
+# Putting registration into vp-research.yml as an input would hand that
+# workflow the one capability its header promises it does not have. Two
+# workflows keep the ordering guarantee at the infrastructure level and not
+# merely inside the CLI: sealing and testing are separate dispatches, in that
+# order, by construction.
+#
+# WHAT THIS EXPOSES (AGENTS.md §8 — a workflow edit is Amber and must record
+# which secrets, which triggers, which branches run it):
+#   - Secret: DATABASE_URL only. Same single secret vp-research.yml already
+#     holds; no EODHD, FRED, RESEND, GitHub or Supabase token is added, and
+#     no existing workflow's scope changes.
+#   - Trigger: workflow_dispatch only. No schedule and no repo event — repo
+#     events can carry untrusted text and nothing here should run unattended.
+#   - Branch: checks out refs/heads/main, like every other production
+#     workflow. A workflow holding a production secret must not run at a PR
+#     head.
+#
+# WHAT IT WRITES. At most two rows: one `research_hypotheses` and one
+# `strategy_versions`, both under migration 0050's BEFORE UPDATE OR DELETE
+# trigger, so both are append-only and undeletable once written. That
+# permanence is the point of a seal, and it is also the whole reversal cost:
+# a mistaken seal cannot be retracted, only superseded by a new hypothesis
+# with its own id. `persist` therefore defaults to FALSE — the default
+# dispatch prints the statement, its content hash and the pre-committed
+# response rule without writing anything, so the seal can be read in full
+# before it is made permanent.
+#
+# WHAT IT CANNOT DO. It writes nothing to valuation_runs, holding_lots,
+# theses or signals, and migration 0050 gives the research schema no foreign
+# key to capital at all. It does not run the test and does not produce a
+# verdict. The CLI refuses outright if a run already exists for the
+# hypothesis, so a seal cannot be applied after the evidence.
+
+name: vp-register
+
+on:
+  workflow_dispatch:
+    inputs:
+      persist:
+        description: "Write the seal (append-only; a hypothesis cannot be deleted or edited)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: vp-register
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Seal the value-to-price pre-registration
+        run: |
+          asx research vp-register ${{ inputs.persist && '--persist' || '--dry-run' }}
