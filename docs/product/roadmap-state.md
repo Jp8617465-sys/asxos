@@ -1435,10 +1435,13 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > (`job_runs.rows_written=0` for `discover_opportunities` with the #306 note; no new `system_screen`
 > thesis) — the routine's `nightly-check` dispatch does not exercise the weekly job.
 >
-> **Residue, attended (stored records; a routine holds no Supabase write):** the ten `system_screen` theses
-> ids 14–23 at `pending_review` (opened 2026-09-16) still carry the constant-derived target/band/stop —
-> `asx thesis reject` ×10. A `REJECT` comment on #289 executes nothing until A-39 lands. A-38 (the S6
-> brief card) is re-scoped: no ranked list, no targets.
+> **Residue — DISCHARGED 2026-09-17 in the attended session James ran straight after the fire.** The ten
+> `system_screen` theses ids 14–23 are `governance_status='rejected'`, each with one `governance_events`
+> row citing #306/#309; `theses` is now 13 approved (human, ids 1–13, untouched) and 10 rejected. Executed
+> through the governance path rather than the CLI — the agent sandbox cannot reach Postgres directly, so
+> `asx thesis reject` cannot run there; the INSERT-then-UPDATE order was live-verified in a rolled-back
+> transaction first (portfolio-conventions Phase 2a lesson). A `REJECT` comment on #289 still executes
+> nothing until A-39 lands. A-38 (the S6 brief card) is re-scoped: no ranked list, no targets.
 >
 > **Next, unchanged from the loop block: #1 A-34 → #2 A-35 → #3 #228 PR 2 (migration, carried) → #4 E-20
 > → #5 carried.** The picker (`backlog_next.py`: eligible 3, picks A-34 then E-20, A-35 skipped for
@@ -1965,7 +1968,8 @@ Amendment K says the roadmap wins; `arbi-red-team` NO CHALLENGE (four conditions
 A-38 corrected). Baseline `make check` on unmodified `main` in the routine sandbox: 4603 passed / 12
 skipped, ruff + mypy (231 files) clean. Migrations unchanged (ledger head `20260916185525`, 0058; 0045
 still unapplied, 0042 reserved). Ten `system_screen` theses (ids 14–23) measured live at `pending_review`
-with the constant-derived levels — residue for an attended session. `HC_ROUTINE_PRODUCT_URL` unset
+with the constant-derived levels, then **rejected in the attended session that followed** (13 approved /
+10 rejected at close). `HC_ROUTINE_PRODUCT_URL` unset
 (`deadman=unset`). Sandbox: system Python is 3.11, so `uv venv --python 3.12 .venv` precedes the picker.
 Merge sha, proof run and elapsed are in the ledger END comment on #270 and the digest on #271.
 

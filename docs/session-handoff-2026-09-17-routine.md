@@ -85,13 +85,47 @@ routine's `nightly-check` proof does not exercise the weekly job, so it is not c
 
 ## Yours
 
-Nothing under `AGENTS.md` §2. Two carried from the loop close, neither blocking: the
-`.claude/rules/job-conventions.md` dispatch-scope reconciliation (`.claude/**`, James's to
-merge); `HC_ROUTINE_PRODUCT_URL` / detaching the write-capable `Supabase` connector.
+Nothing under `AGENTS.md` §2. Two were carried from the loop close and **both were settled by James
+in the attended session below**: the `.claude/rules/job-conventions.md` dispatch-scope
+reconciliation (merged as #311) and the write-capable `Supabase` connector (stays attached).
+What is left is one click-list row, not blocking: **K-08** in `james-inbox.md` — the three routine
+deadman URLs, with their cron schedules and graces.
+
+## Attended addendum — the session James ran straight after the fire
+
+The fire had already posted END on #270 when James picked the session up and directed four things.
+Recorded here because a reader of the ledger would otherwise see a *routine* doing Supabase writes.
+
+1. **The ten `system_screen` theses are rejected** (ids 14–23). `theses` is now 13 `approved`
+   (human, ids 1–13, untouched) and 10 `rejected`, each carrying exactly one `governance_events`
+   row citing #306/#309. **Mechanism, and why it is not the CLI:** a direct `init_pool()` from this
+   sandbox times out — the loop session's finding that outbound is HTTPS-proxied holds, so
+   `asx thesis reject` cannot run here at all. The rejections replicate exactly what
+   `reject_object()` -> `apply_governance_transition()` emits (`governance_events` INSERT **then**
+   UPDATE, one transaction), guarded to `pending_review` AND an EXISTS on a `system_screen`
+   revision. The order was live-verified in a **rolled-back** transaction first, per the Phase 2a
+   lesson in `portfolio-conventions.md`. `ASXOS_PERSONAL_USE` was never set or exported.
+   **Honest scope:** records hygiene, not a live-harm fix — every brief collector already filters
+   `governance_status = 'approved'`, so these ten never reached a brief.
+2. **PR #311 merged** (`1532269`) on James's explicit instruction — the `.claude/` dispatch-scope
+   ruling the loop session drafted for him. Same carve-out shape as #264/#273. Reserved to James is
+   now computed, not typed: a workflow with a `schedule:` AND an email/paid-API secret.
+3. **The write-capable Supabase connector stays attached**, James's call. `_preamble.md` §2 stays
+   the routine-fire rule. The trade is recorded in the decision log: this keeps a prompt-level
+   control where a mechanical one was available, and the real fix is the read-only Postgres role
+   already tracked as `m14_candidate_agent_db_role_scoping`.
+4. **Deadman recommended, not built** — `james-inbox.md` K-08 carries the three checks, their cron
+   schedules and graces, and the note that the URLs go in the `Default` environment, not Actions.
+
+**One thing to watch, and it is the reason the last session was rebound.** This bound session is
+again both the routine's home and James's interactive workspace — the exact shape `#308` recorded as
+the reason `session_016Gus…` had to be replaced. Nothing is broken; the cost is context growth and
+the risk that a future fire reads tonight's interactive turns as prior fires. If the next fire feels
+heavy, rebind before 17:30 UTC rather than after.
 
 ## Next fire
 
 (d).1 none → (d).2 exit 0, pick **A-34 — DELETE verdict #1 (portfolio brief)**, scope in
 `dark-launch-exit-plan.md` §1; the roadmap agrees. Then A-35, then E-20. **Attended, not
-routine:** reject the ten `system_screen` theses ids 14–23 (`asx thesis reject` ×10 — A-39's
-#289 parser is still open, so a comment executes nothing); #228 PR 2 (migration).
+routine:** ~~reject the ten `system_screen` theses~~ — done in the addendum above; #228 PR 2
+(migration). A-39's #289 parser is still open, so a `REJECT` comment there still executes nothing.
