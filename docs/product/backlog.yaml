@@ -1525,6 +1525,14 @@ items:
     source: >-
       docs/proposals/production-sprint-r2-2026-09-16.md S7. outcomes.materialise_t0 and observe
       exist and are unscheduled; thesis_outcomes has 4 rows. r2's first-outcome clause.
+      BUILT 2026-09-16 (mission W5): jobs/observe_decision_outcomes.py — pass 1 records t0 (+ the
+      21/63/126 scheduled rows) for every decision_packets row without one; pass 2 observes every
+      scheduled horizon whose due session <= the run's UTC cutoff at the PROMISED session's close
+      (outcomes.observe_at_due_session, shared with the CLI), benchmark unavailable until
+      AXJOA.INDX exists (F1). Step "Observe decision outcomes" directly after "Build decision
+      packets" in daily-brief.yml. Closes when the first scheduled run writes >= 1 row
+      (job_runs.rows_written for observe_decision_outcomes) — t0 for the S5 packets the same
+      night; the first observation lands 21 sessions after the first scheduled packet.
 
   - id: C-27
     title: "Re-point the live snapshot writer at cash_balance_assertions (0056): cash_aud/capital_aud NULL when no assertion exists (0055), every capital_aud reader treats NULL as unmeasured, and an `asx cash assert` CLI writes the ledger"

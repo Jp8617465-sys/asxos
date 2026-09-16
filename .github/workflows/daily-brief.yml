@@ -134,6 +134,11 @@ jobs:
       - name: Build decision packets
         run: python jobs/build_decision_packets.py
 
+      # F-E2E r2 S7: t0 for every packet without one, then observe every 21/63/126-session
+      # horizon whose session has arrived (thesis_outcomes, 0052; append-only, no verdict).
+      - name: Observe decision outcomes
+        run: python jobs/observe_decision_outcomes.py
+
       - name: Score macro theses
         run: python jobs/score_macro_theses.py
 
