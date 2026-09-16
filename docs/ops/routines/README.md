@@ -77,6 +77,40 @@ its own tools, and the previous trigger carried the same empty `mcp_connections`
 correctly. It matters only for a fresh-session routine; the remedy the warning names is to
 create the trigger from a session holding the connectors, or from the claude.ai routines UI.
 
+## Delivering an out-of-schedule fire to a bound session (2026-09-16)
+
+**`fire_trigger` does NOT deliver into a bound session.** Found the same evening as the
+inheritance defect above, and it fails the same way — silently, into a repo-less session that
+looks fine from the outside.
+
+Calling `fire_trigger` on `trig_019hfSFbVCdKQA5PPxJM9MMH` (bound to
+`session_01HyKLpP6LMTm9wio1oL9e5m`) did not wake that session. It **force-ran a fresh one**:
+`session_01GqwvHUR3TLMPRvL48Gw9vi`, `origin: force_run_trigger`, tags `routine:agent-minted`
+and `config:routine-lineage-none`, **no `sources`**, served by `claude-sonnet-5` rather than the
+routine's `claude-fable-5-1`. It ran ~90 s, posted nothing, went idle, and was archived. The
+bound session's record still showed only its readiness turn. The tell is the returned
+`session_id`: its suffix did not match the bound session's, where a scheduled fire's does
+(`cse_016Gus…` ↔ `session_016Gus…` on the old trigger).
+
+`SendMessage` cannot reach a cloud session from a session either (`ListAgents` lists none).
+
+**What does deliver:** a one-shot trigger bound to the session, i.e. the scheduler's own path —
+
+```
+create_trigger(persistent_session_id="<bound session>", run_once_at="<a few minutes out>",
+               prompt="<the pointer prompt, plus any catch-up context>", initiation=…)
+```
+
+Proven 2026-09-16: `trig_012Y9BzWg2zycQuZ7MuoZpoM` (`run_once_at` 19:50 UTC) woke
+`session_01HyKLpP6LMTm9wio1oL9e5m` as its second turn, on `claude-fable-5-1`, with `main`
+checked out; the ledger START comment landed at 19:51:16 UTC. A one-shot disables itself after
+firing (`ended_reason=run_once_fired`), so there is nothing to clean up.
+
+**So, for any catch-up or re-fire of a bound routine:** never `fire_trigger`; create a one-shot
+bound trigger, then read the bound session's record and the ledger for the START comment before
+believing it ran. If a stray force-run session appears anyway, check it created no PR or
+branch before archiving it — it has no repo, so it should not have been able to, but look.
+
 ## Bound path — how the Routines are online (2026-09-15)
 
 The scheduler tool available to an arbi session cannot attach a repository or connectors to

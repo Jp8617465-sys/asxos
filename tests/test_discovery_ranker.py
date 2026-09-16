@@ -1,4 +1,4 @@
-"""The deterministic discovery ranker (F-E2E r2 S4): gates, score, plan, prose."""
+"""The value screen (F-E2E r2 S4, demoted by #306): four gates, symbol order, no plan, no rank."""
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -6,7 +6,8 @@ from decimal import Decimal as D
 
 import pytest
 
-from asxos.domain.discovery import ranker
+from asxos.domain.discovery import ranker, types
+from asxos.domain.research.registry import vp
 from asxos.domain.valuation import sweep
 from asxos.domain.valuation.contracts import ValuationRun
 from asxos.domain.valuation.preregistration import load_bundled_preregistration
@@ -38,45 +39,41 @@ CHEAP = _run("CHEAP.AU", book=D("10"), roe=D("0.20"), roe_avg=D("0.18"), close=D
 DEAR = _run("DEAR.AU", book=D("10"), roe=D("0.20"), roe_avg=D("0.18"), close=D("40"))
 
 
-def test_cheap_name_ranks_and_carries_every_figure() -> None:
-    (o,) = ranker.rank([CHEAP, DEAR], _screened("CHEAP.AU", "DEAR.AU"), screening_run_id=7)
+def test_cheap_name_passes_and_carries_every_figure_it_passed_on() -> None:
+    (o,) = ranker.passing([CHEAP, DEAR], _screened("CHEAP.AU", "DEAR.AU"), screening_run_id=7)
     assert o.symbol == "CHEAP.AU" and o.screening_run_id == 7
     assert o.value_to_price_registered >= 1 and o.value_to_price_average_roe >= 1
     assert o.value_to_price_min == min(o.value_to_price_registered, o.value_to_price_average_roe)
-    assert o.liquidity_factor == D("1.000000") and o.score == o.value_to_price_min
     assert o.run_id == CHEAP.run_id and o.run_content_hash == CHEAP.content_hash
-    assert o.plan.target_price == CHEAP.value_per_share
-    assert o.plan.entry_band_upper == (CHEAP.value_per_share * D("0.80")).quantize(D("0.000001"))  # type: ignore[operator]
-    assert o.plan.stop_price == (o.plan.entry_band_upper * D("0.80")).quantize(D("0.000001"))
-    assert o.plan.timeline_days == 365
+    assert o.value_registered == CHEAP.value_per_share and o.adv_aud == D("2000000")
 
 
 def test_expensive_name_is_excluded_by_the_value_gate() -> None:
-    assert ranker.rank([DEAR], _screened("DEAR.AU"), screening_run_id=1) == []
+    assert ranker.passing([DEAR], _screened("DEAR.AU"), screening_run_id=1) == []
 
 
 def test_peak_cycle_trailing_roe_is_caught_by_the_average() -> None:
     """Trailing ROE 60% but a 3-period average of 4%: value on the average is below price."""
     peak = _run("PEAK.AU", book=D("10"), roe=D("0.60"), roe_avg=D("0.04"), close=D("12"))
-    assert ranker.rank([peak], _screened("PEAK.AU"), screening_run_id=1) == []
+    assert ranker.passing([peak], _screened("PEAK.AU"), screening_run_id=1) == []
 
 
 def test_quality_gate_uses_the_average_roe_against_ke() -> None:
     low = _run("LOW.AU", book=D("10"), roe=D("0.20"), roe_avg=D("0.05"), close=D("3"))  # cheap but avg ROE < Ke
-    assert ranker.rank([low], _screened("LOW.AU"), screening_run_id=1) == []
+    assert ranker.passing([low], _screened("LOW.AU"), screening_run_id=1) == []
 
 
 def test_missing_average_falls_back_to_trailing_and_is_flagged() -> None:
     noavg = _run("NOAVG.AU", book=D("10"), roe=D("0.20"), roe_avg=None, close=D("8"))
-    (o,) = ranker.rank([noavg], _screened("NOAVG.AU"), screening_run_id=1)
+    (o,) = ranker.passing([noavg], _screened("NOAVG.AU"), screening_run_id=1)
     assert o.roe_average_is_fallback and ranker.FLAG_ROE_AVERAGE_FALLBACK in o.flags
     assert o.value_average_roe == o.value_registered
 
 
-def test_currency_unverified_is_never_proposed_unless_asked() -> None:
+def test_currency_unverified_is_excluded_unless_asked() -> None:
     unv = _run("UNV.AU", book=D("10"), roe=D("0.20"), roe_avg=D("0.18"), close=D("8"), currency=None)
-    assert ranker.rank([unv], _screened("UNV.AU"), screening_run_id=1) == []
-    (o,) = ranker.rank([unv], _screened("UNV.AU"), screening_run_id=1, include_currency_unverified=True)
+    assert ranker.passing([unv], _screened("UNV.AU"), screening_run_id=1) == []
+    (o,) = ranker.passing([unv], _screened("UNV.AU"), screening_run_id=1, include_currency_unverified=True)
     assert sweep.FLAG_CURRENCY_UNVERIFIED in o.flags
 
 
@@ -85,40 +82,41 @@ def test_currency_unverified_is_never_proposed_unless_asked() -> None:
     [(D("249999"), D("500000000")), (D("2000000"), D("99999999"))],
 )
 def test_liquidity_and_cap_floors_exclude(adv: D, cap: D) -> None:
-    assert ranker.rank([CHEAP], _screened("CHEAP.AU", adv=adv, cap=cap), screening_run_id=1) == []
+    assert ranker.passing([CHEAP], _screened("CHEAP.AU", adv=adv, cap=cap), screening_run_id=1) == []
 
 
 def test_unscreened_blocked_and_unvalued_runs_are_skipped() -> None:
     blocked = _run("BLK.AU", book=D("10"), roe=D("-0.1"), roe_avg=None, close=D("8"))
     assert blocked.outcome == "blocked"
-    assert ranker.rank([CHEAP, blocked], _screened("BLK.AU"), screening_run_id=1) == []
+    assert ranker.passing([CHEAP, blocked], _screened("BLK.AU"), screening_run_id=1) == []
 
 
-def test_liquidity_factor_discounts_thin_names_and_orders_the_list() -> None:
-    thin = {"CHEAP.AU": ranker.Screened("CHEAP.AU", adv_aud=D("500000"), market_cap_aud=D("500000000"))}
-    (o,) = ranker.rank([CHEAP], thin, screening_run_id=1)
-    assert o.liquidity_factor == D("0.500000")
-    assert o.score == (o.value_to_price_min * D("0.5")).quantize(D("0.000001"))
-    # Two names: the liquid one ranks first on score, ties break on symbol.
-    other = _run("AAA.AU", book=D("10"), roe=D("0.20"), roe_avg=D("0.18"), close=D("8"))
-    both = {**thin, "AAA.AU": ranker.Screened("AAA.AU", adv_aud=D("2000000"), market_cap_aud=D("500000000"))}
-    ranked = ranker.rank([CHEAP, other], both, screening_run_id=1)
-    assert [o.symbol for o in ranked] == ["AAA.AU", "CHEAP.AU"]
-    same = ranker.rank([CHEAP, other], _screened("CHEAP.AU", "AAA.AU"), screening_run_id=1)
-    assert [o.symbol for o in same] == ["AAA.AU", "CHEAP.AU"]
+# --- the demotion (#306) --------------------------------------------------------------
 
 
-def test_plan_conventions_and_close_inside_band() -> None:
-    plan = ranker.plan_for(D("100"), D("70"))
-    assert (plan.entry_band_lower, plan.entry_band_upper, plan.stop_price) == (D("65"), D("80"), D("64"))
-    assert plan.close_inside_band is True
-    assert ranker.plan_for(D("100"), D("90")).close_inside_band is False
+def test_passing_set_is_symbol_ordered_not_ranked() -> None:
+    """A cheaper name and a thinner name do not move: the order is the symbol, nothing else."""
+    cheaper = _run("ZZZ.AU", book=D("10"), roe=D("0.20"), roe_avg=D("0.18"), close=D("4"))  # 2x cheaper than CHEAP
+    thin = {
+        "CHEAP.AU": ranker.Screened("CHEAP.AU", adv_aud=D("500000"), market_cap_aud=D("500000000")),
+        "ZZZ.AU": ranker.Screened("ZZZ.AU", adv_aud=D("2000000"), market_cap_aud=D("500000000")),
+    }
+    out = ranker.passing([cheaper, CHEAP], thin, screening_run_id=1)
+    assert [o.symbol for o in out] == ["CHEAP.AU", "ZZZ.AU"]
+    assert out[1].value_to_price_min > out[0].value_to_price_min  # the cheaper name is NOT first
 
 
-def test_prose_is_template_only_and_conditions_are_measurable() -> None:
-    (o,) = ranker.rank([CHEAP], _screened("CHEAP.AU"), screening_run_id=7)
-    text = ranker.thesis_text_for(o)
-    assert "not a recommendation" in text and o.run_id in text and str(o.value_registered) in text
-    conditions = ranker.invalidation_conditions_for(o)
-    assert len(conditions) == 3 and all(any(ch.isdigit() for ch in c["condition"]) for c in conditions)
-    assert all(c["status"] == "open" for c in conditions)
+def test_the_demotion_removed_every_target_band_stop_and_rank_surface() -> None:
+    """#306 pins the sealed response rule to the code: no plan, no constants, no score, no rank."""
+    assert "stops emitting target prices, entry bands and ranked 'opportunities'" in vp.RESPONSE_RULE
+    for name in (
+        "plan_for", "rank", "liquidity_factor", "thesis_text_for", "invalidation_conditions_for",
+        "ENTRY_UPPER_OF_TARGET", "ENTRY_LOWER_OF_TARGET", "STOP_OF_ENTRY_UPPER", "TIMELINE_DAYS",
+        "LIQUIDITY_NEUTRAL_ADV_AUD",
+    ):
+        assert not hasattr(ranker, name), name
+    assert not hasattr(types, "ThesisPlan")
+    fields = set(types.Opportunity.model_fields)
+    assert not fields & {"plan", "score", "liquidity_factor", "target_price", "entry_band_lower", "stop_price"}
+    # the gates the packet builder and the screening rule still read are intact
+    assert int(ranker.MIN_ADV_AUD) == 250000 and int(ranker.MIN_MARKET_CAP_AUD) == 100000000
