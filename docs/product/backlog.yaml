@@ -559,6 +559,14 @@ items:
       docs/proposals/production-sprint-r2-2026-09-16.md S8. James does not run CLIs (C-3..C-8 unrun
       for weeks); the only disposition path today is asx decision dispose. Only comments by the repo
       owner login are commands; everything else is data. Amber: ARBI_GITHUB_TOKEN use recorded.
+      BUILT 2026-09-16 (mission W4): issue #289 "asxos — decisions" created; jobs/apply_github_decisions.py
+      is the first step of daily-brief.yml with ARBI_GITHUB_TOKEN scoped to that one step and
+      ASXOS_DECISIONS_ISSUE=289. The owner login is fetched from the repository, never a comment;
+      each command is answered once with an applied/refused marker reply and never re-read; a GitHub
+      4xx or outage is a job_runs note (exit 0), a marker that cannot post after a DB write fails
+      loudly. The job pins the issue on first contact (GraphQL pinIssue is unreachable from a
+      session). Closes when the first live run answers one owner command (job_runs.rows_written
+      >= 1 or a refused marker on #289) — James's first APPROVE/REJECT/DISPOSE comment.
 
   - id: A-40
     title: "F-E2E/M1 — migrations 0055 (cash_aud/capital_aud paired NULL CHECK), 0056 (cash_balance_assertions), 0057 (thesis_revisions.source += 'system_screen') in one AGENTS.md section 8 sitting"

@@ -80,6 +80,17 @@ jobs:
       # step below it. Under Render these were minute-offset crons that ran
       # regardless of whether their upstream had produced anything.
 
+      # F-E2E r2 S8: James's decisions, typed as one-line comments on the pinned
+      # "asxos — decisions" issue, applied before anything downstream reads them.
+      # ARBI_GITHUB_TOKEN is scoped to this one step (Issues read/write on this
+      # repo) — the only step in this workflow that holds a GitHub credential.
+      # A GitHub 4xx or outage is a job_runs note, never a blocked brief.
+      - name: Apply GitHub decisions
+        run: python jobs/apply_github_decisions.py
+        env:
+          ARBI_GITHUB_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          ASXOS_DECISIONS_ISSUE: "289"
+
       - name: Sync prices
         run: python jobs/sync_prices.py
 
