@@ -1450,6 +1450,10 @@ items:
       docs/proposals/production-sprint-r2-2026-09-16.md S3. paper_book_snapshots has 1 row and no
       writer; has_enough_paper_weeks counts a deleted cron so it can never be True
       (session-handoff-2026-09-14-3.md Item 9). Paper is arbi's (AGENTS.md section 2.2).
+      BUILT 2026-09-16 (mission W3): jobs/snapshot_paper_book.py writes paper-daily-<as_of> from
+      ASXOS_PAPER_CAPITAL_AUD=25000 (James's C1 ruling, D15) as step 4 of daily-brief.yml; the gate
+      re-pointed at paper_book_snapshots and reachable in a unit test. Stays open until the "done
+      when" holds on live data: >= 7 consecutive as_of rows (first scheduled write 2026-09-16 20:30 UTC).
 
   - id: C-24
     title: "F-E2E/S4 — discovery: jobs/discover_opportunities.py screens the valued universe (liquidity, average-ROE quality), ranks by value/price, and opens system-proposed theses at pending_review with evidence"
