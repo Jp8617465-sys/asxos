@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import date, datetime, timedelta
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -47,12 +46,11 @@ from asxos.domain.decision_engine.outcomes import (
     due_horizons,
     load_outcomes,
     materialise_t0,
-    observe,
+    observe_at_due_session,
     save_outcome,
 )
 from asxos.domain.decision_engine.paper_book import load_paper_book_state
 from asxos.domain.decision_engine.portfolio_state import (
-    SQL_CLOSE,
     load_annualised_vol,
     load_peer_vols,
     load_portfolio_state,
@@ -266,18 +264,12 @@ async def _observe(packet_id: str, day: date, persist: bool) -> None:
 
 
 async def _observe_due_row(conn: object, row: ThesisOutcome) -> ThesisOutcome:
-    """Observe one promised horizon at its due session, never the catch-up date."""
-    due_day = row.due_at.date()
-    price_row = await conn.fetchrow(SQL_CLOSE, row.symbol, due_day)  # type: ignore[attr-defined]
-    price = Decimal(str(price_row["close"])) if price_row and price_row["close"] is not None else None
-    observed_at = (
-        date.fromisoformat(str(price_row["dt"]))
-        if price_row and price_row.get("dt") is not None
-        else due_day
-    )
-    # Benchmark levels are deliberately not passed: AXJOA.INDX is absent
-    # from `prices`, so the comparison reports unavailable (F1), not proxied.
-    return observe(row, observed_at=observed_at, observed_price=price)
+    """Observe one promised horizon at its due session, never the catch-up date.
+
+    The read lives in `outcomes.observe_at_due_session` since S7 scheduled it
+    (`jobs/observe_decision_outcomes.py`); this is the CLI's name for it.
+    """
+    return await observe_at_due_session(conn, row)  # type: ignore[arg-type]
 
 
 @decision_app.command("positive-control")
