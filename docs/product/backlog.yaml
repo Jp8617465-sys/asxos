@@ -1481,6 +1481,14 @@ items:
       docs/proposals/production-sprint-r2-2026-09-16.md S5. asx decision build is hand-run only; 2
       packets ever (2026-09-01, 2026-09-04). Supersedes the r1 reservation of the first --persist
       runs to James (decision-log 2026-09-16).
+      BUILT 2026-09-16 (mission W4): jobs/build_decision_packets.py — every approved, unclosed
+      thesis challenged on the latest paper_book_snapshots row (never the live book) with the
+      active profile's sizing policy, the name's annualised vol and the latest valuation_runs row
+      (S2's valuation= evidence), persisted through repository.save; same-day packet ids are
+      skipped, one thesis failing to build is noted and the rest continue, a run fails only when
+      nothing built. Step "Build decision packets" directly after "Compose and send brief" in
+      daily-brief.yml. Closes when the first scheduled run writes >= 1 packet
+      (job_runs.rows_written for build_decision_packets, first run 2026-09-16 20:30 UTC).
 
   - id: C-26
     title: "F-E2E/S7 — jobs/observe_decision_outcomes.py: t0 for every packet without one, observe at 21/63/126 sessions, daily"
