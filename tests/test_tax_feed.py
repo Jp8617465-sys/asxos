@@ -19,7 +19,8 @@ def _rec(ex: date, amount: D | None = D("2.70"), franking: D | None = D("100"), 
 
 
 def test_cba_window_fully_declared_passes_with_the_spec_gross_up() -> None:
-    """Two fully franked dividends in the window: credit = cash × 1.0 × 0.30 / 0.70 (spec §3)."""
+    """TC-26 (spec §11): two fully franked dividends in the window, default 30% rate;
+    credit = cash × 1.0 × 0.30 / 0.70 (spec §3)."""
     recs = [_rec(date(2026, 2, 18), D("2.25")), _rec(date(2026, 8, 19), D("2.70"), pay=date(2026, 9, 29))]
     c = feed.characterise_dividends(recs, symbol="CBA.AU", cutoff=CUTOFF)
     assert c.readiness == "pass" and c.undeclared == () and len(c.records) == 2
@@ -31,13 +32,25 @@ def test_cba_window_fully_declared_passes_with_the_spec_gross_up() -> None:
     assert (ref.readiness, ref.applicability) == ("pass", "applicable") and verify_content_hash(ref)
 
 
+def test_base_rate_entity_rate_reproduces_the_spec_worked_example() -> None:
+    """TC-26(c) (spec §11): spec §3's own $1,000/25% worked example — credit $333.33, grossed-up
+    $1,333.33 — reproduced through the feed's `corporate_tax_rate` parameter. Not yet wired end
+    to end from `universe.corporate_tax_rate` (A-31 decision 3: stays unread)."""
+    c = feed.characterise_dividends(
+        [_rec(date(2026, 8, 19), D("1000"))], symbol="CBA.AU", cutoff=CUTOFF, corporate_tax_rate=D("0.25")
+    )
+    assert c.readiness == "pass" and c.corporate_tax_rate == D("0.25")
+    assert c.franking_credit_ttm == D("333.333333")
+    assert c.grossed_up_ttm == D("1333.333333")
+
+
 def test_explicitly_declared_zero_franking_is_unfranked_and_computes() -> None:
     c = feed.characterise_dividends([_rec(date(2026, 8, 19), D("1.00"), D("0"))], symbol="CBA.AU", cutoff=CUTOFF)
     assert c.readiness == "pass" and c.franking_credit_ttm == D("0") and c.cash_ttm == D("1.000000")
 
 
 def test_undeclared_franking_blocks_the_pass_and_names_the_row() -> None:
-    """spec v1.7 §10: NULL is undeclared, never 0 (migration 0027:57)."""
+    """TC-26(b) (spec §11); spec v1.7 §10: NULL is undeclared, never 0 (migration 0027:57)."""
     recs = [_rec(date(2026, 2, 18)), _rec(date(2026, 8, 19), franking=None)]
     c = feed.characterise_dividends(recs, symbol="CBA.AU", cutoff=CUTOFF)
     assert c.readiness == "unknown"

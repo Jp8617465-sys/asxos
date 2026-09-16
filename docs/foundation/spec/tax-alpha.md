@@ -485,6 +485,9 @@ Each case below must be covered by a unit test referencing the spec section.
 | TC-24 | $10,000 discountable gain (held > 12 months), SMSF fund_pension_proportion=0.60 | 1/3 CGT discount → net gain $6,666.67. ECPI exempt (60%) → taxable base $2,666.67. Fund tax at 15% = $400.00. Medicare 0. (§5.2: discount and ECPI are independent and stack.) | §5.2, §4.2 |
 | TC-25 | Lots: A 100 u @ $120 acquired 2024-03-01 (not discountable at sale), B 200 u @ $100 acquired 2023-01-01 (discountable); sell 250 @ $160 on 2025-01-15, individual; lots supplied in the order A, B | min-CGT draws **B in full (gain $12,000, discountable) + 50 of A (gain $2,000)**: post-discount $8,000. Drawing A in full + 150 of B would be $8,500. The minimum is unique, so the result is identical when the lots are supplied as B, A. | §5.5, §5.1, §2 |
 | TC-25(b) | The TC-25 lots and sale, but **SMSF** (`d = 1/3`, §2) | **An exact tie**: A-full + 150 B = 4,000 + 9,000 × 2/3 = **10,000**; B-full + 50 A = 12,000 × 2/3 + 2,000 = **10,000**. The tie-break (§5.5) decides: the first candidate in enumeration order wins, so with the lots supplied as A, B the bearer enumeration reaches `[B, A]` first and draws **B in full + 50 of A**; supplied as B, A it draws **A in full + 150 of B**. §5.5 guarantees *determinism for a given input*, not order-independence — order-independence follows only when the minimum is unique. | §5.5, §2 |
+| TC-26 | G12 feed (`asxos/domain/tax/feed.py`): CBA.AU, two fully franked dividends in the trailing 365-day window ($2.25 and $2.70 per share, both declared), default 30% rate | `readiness="pass"`, `applicability="applicable"`. `cash_ttm = $4.95`. `franking_credit_ttm = 4.95 × 0.30 / 0.70 = $2.121429`. `grossed_up_ttm = $7.071429`. | §3, §10 |
+| TC-26(b) | The same feed, one dividend undeclared (`franking_pct` NULL) | `readiness="unknown"`, `applicability="uncertain"`; the row is named (`"<symbol> ex <date>: franking_pct undeclared (NULL, not 0)"`), never coalesced to 0. | §10 |
+| TC-26(c) | The same feed, $1,000 fully franked dividend from a 25%-rate base-rate entity (spec §3's own worked example, `corporate_tax_rate=0.25`) | `franking_credit = $333.33`, `grossed_up = $1,333.33` (§3 worked example, reproduced by the feed's `corporate_tax_rate` parameter — not yet wired from `universe.corporate_tax_rate`, which stays unread per A-31 decision 3). | §3 |
 
 ## 12. Authoritative sources
 
@@ -545,8 +548,11 @@ store NULL as "undeclared (NOT 0)". Both cannot govern a feed.
   formula with the default 0.30 rate is the production path there because no registry-statement
   credit exists in the research store; `universe.corporate_tax_rate` is still unread, so the
   credit is overstated for a base-rate entity and the evidence claim says so.
-- No test case number: the feed's cases live in `tests/test_tax_feed.py` (explicit 0% computes;
-  NULL blocks and is named; the ex-date-on-cutoff-day row is not knowable at a morning cutoff).
+- Added **TC-26** (the fully-declared window earns a pass at the default 30% rate), **TC-26(b)**
+  (an undeclared row blocks the pass and is named), and **TC-26(c)** (the base-rate-entity 25%
+  path, reproducing §3's own worked example) to §11. `tests/test_tax_feed.py` additionally covers
+  the empty-window and ex-date-on-cutoff-day cases, which are feed-freshness conventions local to
+  `asxos/domain/tax/feed.py`, not numbered spec cases.
 
 **v1.6, 2026-09-07 (pending D-9 ratification).** Adds §5.5 (lot selection for a disposal) so the
 min-CGT strategy has a governing rule now that a staged sell makes lot choice capital-facing
