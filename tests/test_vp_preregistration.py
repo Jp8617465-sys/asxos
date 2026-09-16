@@ -17,7 +17,9 @@ from asxos.domain.research.registry.vp import (
     HYPOTHESIS_ID,
     POWER_STATEMENT,
     PRIMARY_CONVENTION,
+    PRIMARY_CUTOFFS,
     PRIMARY_HORIZON_SESSIONS,
+    QUALIFYING_CUTOFFS_AT_PRIMARY,
     RESPONSE_RULE,
     SECONDARY_CONVENTIONS,
     SECONDARY_HORIZONS_SESSIONS,
@@ -130,3 +132,22 @@ def test_registration_is_a_separate_command_from_the_run() -> None:
     assert "list_runs" in source
     assert source.index("list_runs") < source.index("save_hypothesis")
     assert "refusing to register" in source
+
+
+def test_cutoff_count_is_measured_against_the_real_calendar_not_estimated() -> None:
+    """A sealed document's numbers must be counted before sealing, not guessed.
+
+    An earlier draft claimed five qualifying cutoffs at the primary horizon. The
+    live .AU session calendar gives four — 2026-03-31 has only 117 forward
+    sessions against a 126-session requirement. This pins the corrected count so
+    the two cannot drift apart again.
+    """
+    assert QUALIFYING_CUTOFFS_AT_PRIMARY == 4
+    assert len(PRIMARY_CUTOFFS) == QUALIFYING_CUTOFFS_AT_PRIMARY
+    assert PRIMARY_CUTOFFS == ("2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31")
+    # The power statement must agree with the constant, and must disclose that
+    # a 126-session horizon on 3-month spacing overlaps.
+    assert "FOUR" in POWER_STATEMENT
+    assert "OVERLAP" in POWER_STATEMENT
+    for wrong in ("five quarter", "five quasi"):
+        assert wrong not in POWER_STATEMENT and wrong not in RESPONSE_RULE

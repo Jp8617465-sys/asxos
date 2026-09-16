@@ -1,0 +1,83 @@
+# Value-to-price predictive test — the sealed research run (S3).
+#
+# WHY THIS IS DISPATCH-ONLY, AND WILL STAY THAT WAY.
+# Re-running a predictive test on a schedule IS multiple testing: every extra
+# look at the same four overlapping cutoffs raises the chance of a flattering
+# read without adding evidence, and the sealed hypothesis prices its surface at
+# nine combinations declared in advance. So there is no `schedule:` here and
+# there should never be one. The test is run deliberately, its result is
+# recorded in an append-only table (migration 0050's trigger), and a second
+# opinion on the same data is a new hypothesis, not a re-run.
+#
+# WHAT THIS EXPOSES (AGENTS.md §8 — a workflow edit is Amber and must record
+# which secrets, which triggers, which branches run it):
+#   - Secret: DATABASE_URL only. No EODHD, FRED, RESEND, GitHub or Supabase
+#     token. The job reads prices, rs_fundamentals_pit, rs_security_master,
+#     market_context_current and fx_rates, and writes exactly one row to
+#     research_runs.
+#   - Trigger: workflow_dispatch only. No schedule, no repo event — repo events
+#     can carry untrusted text and nothing here should ever run unattended.
+#   - Branch: checks out refs/heads/main, like every other production workflow.
+#     A workflow holding a production secret must not run at a PR head.
+#
+# WHAT IT CANNOT DO. It cannot register its own pre-registration: the job hard-
+# fails unless the hypothesis row already exists (`asx research vp-register`).
+# It writes nothing to valuation_runs, holding_lots, theses or signals, and
+# migration 0050 gives the research schema no foreign key to capital at all.
+# The verdict's CONSEQUENCE is the pre-committed response rule, applied as a
+# separate human-visible step — never by this workflow.
+
+name: vp-research
+
+on:
+  workflow_dispatch:
+    inputs:
+      cutoffs:
+        description: "Comma-separated quarterly cutoffs (sessions with a full forward window)"
+        required: false
+        default: "2025-03-31,2025-06-30,2025-09-30,2025-12-31"
+        type: string
+      horizon:
+        description: "Forward horizon in trading sessions (primary endpoint is 126)"
+        required: false
+        default: "126"
+        type: string
+      persist:
+        description: "Write the ResearchRun (append-only; a run cannot be deleted)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: vp-research
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Run the sealed value-to-price test
+        run: |
+          python jobs/run_vp_test.py \
+            --cutoffs "${{ inputs.cutoffs }}" \
+            --horizon "${{ inputs.horizon }}" \
+            ${{ inputs.persist && '--persist' || '' }}

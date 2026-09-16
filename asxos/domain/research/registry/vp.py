@@ -20,7 +20,7 @@ THE PRE-COMMITMENT THAT MATTERS. A test whose failure branch is unwritten is a
 machine that can only say yes. James ruled the response on 2026-09-16, before
 any result existed, and `RESPONSE_RULE` below carries it verbatim. It is
 deliberately asymmetric: an underpowered null is NOT treated as disconfirming,
-because with ~5 quasi-independent cutoffs it genuinely cannot be.
+because with four heavily-overlapping cutoffs it genuinely cannot be.
 """
 from __future__ import annotations
 
@@ -34,12 +34,23 @@ HYPOTHESIS_ID: Final[str] = "hyp-value-to-price-asx-quarterly-v1"
 STRATEGY_ID: Final[str] = "sv-vp-zero-excess-quintile-25bp-v1"
 
 #: The PRIMARY endpoint. One test, fixed before the data was seen. 126 sessions
-#: (~6 months) is the middle horizon: at 434 sessions of price history it leaves
-#: five quarterly cutoffs with a complete forward window, where 252 sessions
-#: leaves three and 63 leaves seven but measures a horizon shorter than the
-#: weeks-to-months the theses are held for.
+#: (~6 months) is the middle horizon: at 433 sessions of price history it leaves
+#: four quarterly cutoffs with a complete forward window, where 252 leaves two
+#: and 63 leaves five but measures a horizon shorter than the weeks-to-months
+#: the theses are held for.
 PRIMARY_HORIZON_SESSIONS: Final[int] = 126
 PRIMARY_CONVENTION: Final[str] = "zero_excess"
+
+#: Measured against the live session calendar (433 distinct .AU sessions,
+#: 2025-01-02 to 2026-09-15) BEFORE sealing, because an estimate in a sealed
+#: document is a number nobody can correct afterwards. Quarter-ends with a
+#: complete forward window: FOUR at 126 sessions (2025-03-31, 06-30, 09-30,
+#: 12-31), five at 63, two at 252. An earlier draft of this module said "five"
+#: at 126; 2026-03-31 has only 117 forward sessions and does not qualify.
+QUALIFYING_CUTOFFS_AT_PRIMARY: Final[int] = 4
+PRIMARY_CUTOFFS: Final[tuple[str, ...]] = (
+    "2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31",
+)
 
 #: Declared secondary reporting — NOT additional primary tests. Reported
 #: alongside the primary so the surface examined is visible rather than hidden,
@@ -58,8 +69,8 @@ RESPONSE_RULE: Final[str] = (
     "indistinguishable from zero): the model is DEMOTED to a discipline device. It "
     "must still state a falsifiable number per thesis, but stops emitting target "
     "prices, entry bands and ranked 'opportunities'. A null here reads as "
-    "UNDERPOWERED, NOT DISCONFIRMING — five quasi-independent cutoffs cannot "
-    "detect an effect of the size the literature reports. "
+    "UNDERPOWERED, NOT DISCONFIRMING — four overlapping cutoffs cannot detect "
+    "an effect of the size the literature reports. "
     "NEGATIVE MONOTONIC (conviction inverted at the top, the Model A signature): "
     "full rule-#11-style QUARANTINE. No valuation output feeds a thesis, a packet "
     "or a target until a NEW registered model version passes this same bar. "
@@ -70,12 +81,17 @@ RESPONSE_RULE: Final[str] = (
 
 #: Stated before the run so it cannot be produced afterwards as an excuse.
 POWER_STATEMENT: Final[str] = (
-    "prices begin 2025-01-02 (434 sessions to 2026-09-15), so at a 126-session "
-    "horizon there are five quarterly cutoffs with a complete forward window. The "
-    "power lives in the cross-section (500-1,500 names per cutoff), not the time "
-    "series. Detecting a decile spread of the magnitude Frankel-Lee report is not "
-    "reliably possible in this sample; that is why a null is underpowered rather "
-    "than disconfirming, and why no positive read licences a size."
+    "prices begin 2025-01-02 (433 .AU sessions to 2026-09-15), so at a 126-session "
+    "horizon there are FOUR quarter-end cutoffs with a complete forward window "
+    "(2025-03-31, 06-30, 09-30, 12-31) — counted against the live calendar before "
+    "sealing, not estimated. Worse, a 126-session horizon is about six months "
+    "while the cutoffs are three months apart, so consecutive forward windows "
+    "OVERLAP by roughly half and the four are not four independent observations. "
+    "The power therefore lives entirely in the cross-section (1,500-1,800 names "
+    "per cutoff), not the time series. Detecting a spread of the magnitude "
+    "Frankel-Lee report is not reliably possible here. That is why a null reads "
+    "as underpowered rather than disconfirming, and why no positive read "
+    "licences a size."
 )
 
 
