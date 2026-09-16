@@ -58,9 +58,6 @@ jobs:
       BRIEF_FROM_EMAIL: ${{ secrets.BRIEF_FROM_EMAIL }}
       BRIEF_TO_EMAIL: ${{ secrets.BRIEF_TO_EMAIL }}
       ASXOS_PERSONAL_USE: "1"
-      # The paper book's declared capital (F-E2E r2 S3). 25,000 is James's C1
-      # ruling of 2026-09-07 (ADR D15); changing it is this one line.
-      ASXOS_PAPER_CAPITAL_AUD: "25000"
       ASXOS_NEWS_BRIEF_ENABLED: "1"
       ASXOS_TZ: "Australia/Sydney"
     steps:
@@ -100,9 +97,11 @@ jobs:
       - name: Snapshot portfolio
         run: python jobs/snapshot_portfolio.py
 
-      # F-E2E r2 S3: the arbi-declared paper book, one all-cash row a day
-      # (paper_book_snapshots, 0053). Reads no live table; the capital is the
-      # ASXOS_PAPER_CAPITAL_AUD line in env: above (paper is arbi's, AGENTS.md §2.2).
+      # F-E2E r2 S3: the paper book, one all-cash row a day (paper_book_snapshots,
+      # 0053). Reads no live table. The capital is NOT set here: the job carries it
+      # forward from the latest paper row, which runs back to James's C1 ruling
+      # (2026-09-07, ADR D15). Changing the paper capital means a new declaring row,
+      # never a line in this file — corrected 2026-09-16.
       - name: Snapshot paper book
         run: python jobs/snapshot_paper_book.py
 

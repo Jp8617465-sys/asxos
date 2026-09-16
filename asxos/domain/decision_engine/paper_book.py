@@ -112,15 +112,29 @@ async def load_paper_book_state(conn: StateConn, snapshot_id: str) -> PortfolioS
 # the job, the gate and the packet builder all come through here.
 # ---------------------------------------------------------------------------
 
-#: The arbi-declared paper capital (sprint §4 decision, 2026-09-16), read from
-#: the workflow `env:` block — never inferred from a profile or a policy figure.
-PAPER_CAPITAL_ENV: Final[str] = "ASXOS_PAPER_CAPITAL_AUD"
-PAPER_DAILY_LABEL: Final[str] = "paper, arbi-declared — daily snapshot (ASXOS_PAPER_CAPITAL_AUD)"
+#: The paper book's capital is JAMES'S C1 RULING (2026-09-07, ADR D15), and the
+#: row that carries it is the declaration. It is NOT arbi's to re-declare and NOT
+#: a number typed into a workflow: the daily writer carries forward the capital of
+#: the most recent paper row, so the ruling has exactly one home.
+#:
+#: Corrected 2026-09-16, same day as the S3 slice that introduced the defect. The
+#: first version read `ASXOS_PAPER_CAPITAL_AUD` from `daily-brief.yml`, which
+#: restated 25000 in git alongside the governed row — two homes for one ruling,
+#: and the failure mode James named ("all this should be owned by arbi and the
+#: financial agent system. What is hard coded right now?"). A literal in a
+#: workflow is hard-coded whatever it is called.
+PAPER_DAILY_LABEL_PREFIX: Final[str] = "paper — daily snapshot, capital carried from"
 
 SQL_INSERT_PAPER_SNAPSHOT: Final[str] = (
     "INSERT INTO paper_book_snapshots "
     "(snapshot_id, as_of, label, capital_aud, holdings_mv_aud, cash_aud, holdings_count) "
     "VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (snapshot_id) DO NOTHING"
+)
+#: The standing declaration: the most recent paper row on or before `as_of`. Its
+#: `capital_aud` IS the declared capital (C1 seeded it; each daily row carries it).
+SQL_DECLARED_PAPER_CAPITAL: Final[str] = (
+    "SELECT snapshot_id, capital_aud FROM paper_book_snapshots WHERE as_of <= $1 "
+    "ORDER BY as_of DESC, ingested_at DESC LIMIT 1"
 )
 SQL_LATEST_PAPER_SNAPSHOT_ID: Final[str] = (
     "SELECT snapshot_id FROM paper_book_snapshots WHERE as_of <= $1 "
@@ -134,28 +148,46 @@ SQL_PAPER_SNAPSHOT_DATES: Final[str] = (
 )
 
 
-def declared_paper_capital() -> Decimal:
-    """The paper capital the workflow declares. Absent or non-positive hard-fails."""
-    raw = os.environ.get(PAPER_CAPITAL_ENV, "").strip()
-    if not raw:
+async def declared_paper_capital(conn: PaperBookConn, *, as_of: date) -> tuple[Decimal, str]:
+    """Return (capital, source_snapshot_id) carried from the latest paper row.
+
+    The declaration lives in `paper_book_snapshots` — seeded by James's C1 ruling
+    (`paper-c1-2026-09-07`, A$25,000) — and every later row carries it forward. An
+    empty table hard-fails rather than defaulting: a paper book nobody declared is
+    not a paper book, and inventing a figure here is the exact defect this function
+    was rewritten to remove (CLAUDE.md #10, fail loudly).
+
+    To change the paper capital, write a new declaring row. Do not edit code.
+    """
+    row = await conn.fetchrow(SQL_DECLARED_PAPER_CAPITAL, as_of)
+    if row is None:
         raise RuntimeError(
-            f"{PAPER_CAPITAL_ENV} is not set: the paper book is arbi-declared in the "
-            "workflow env block and is never inferred from a profile or a policy figure"
+            "paper_book_snapshots holds no row on or before "
+            f"{as_of.isoformat()}: the paper book's capital is declared by its rows "
+            "(C1, James's ruling 2026-09-07), never by this code or by a workflow "
+            "env value. Seed the declaring row before running this job."
         )
-    capital = _q(Decimal(raw))
+    capital = _q(Decimal(row["capital_aud"]))
     if capital <= 0:
-        raise RuntimeError(f"{PAPER_CAPITAL_ENV}={raw!r} must be a positive AUD amount")
-    return capital
+        raise RuntimeError(
+            f"paper_book_snapshots row {row['snapshot_id']!r} declares "
+            f"capital_aud={capital}, which is not a positive AUD amount"
+        )
+    return capital, str(row["snapshot_id"])
 
 
 def paper_snapshot_id(as_of: date) -> str:
     return f"paper-daily-{as_of.isoformat()}"
 
 
-async def write_daily_paper_snapshot(conn: PaperBookConn, *, as_of: date, capital_aud: Decimal) -> bool:
+async def write_daily_paper_snapshot(
+    conn: PaperBookConn, *, as_of: date, capital_aud: Decimal, carried_from: str
+) -> bool:
     """Append today's all-cash paper book. False when the day's row already exists.
 
-    No paper holdings ledger exists, so the book is 100% cash by construction
+    `capital_aud` and `carried_from` come from `declared_paper_capital`, so each
+    row records which declaration it inherits and the chain runs back to C1. No
+    paper holdings ledger exists, so the book is 100% cash by construction
     (`load_paper_book_state` refuses any other shape). The table is append-only;
     a same-day re-run keeps the first row.
     """
@@ -166,7 +198,7 @@ async def write_daily_paper_snapshot(conn: PaperBookConn, *, as_of: date, capita
         SQL_INSERT_PAPER_SNAPSHOT,
         paper_snapshot_id(as_of),
         as_of,
-        PAPER_DAILY_LABEL,
+        f"{PAPER_DAILY_LABEL_PREFIX} {carried_from}",
         _q(capital_aud),
         Decimal("0"),
         _q(capital_aud),

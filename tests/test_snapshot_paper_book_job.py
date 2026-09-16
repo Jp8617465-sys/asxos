@@ -1,10 +1,16 @@
-"""S3 — the daily arbi-declared paper book: writer, gate reads, job and workflow step.
+"""S3 — the daily paper book: writer, gate reads, job and workflow step.
+
+The paper capital is James's C1 ruling, carried forward from the latest paper row.
+It is NOT an env value and NOT a literal in the workflow — corrected 2026-09-16,
+the same day S3 shipped with an `ASXOS_PAPER_CAPITAL_AUD` line that restated 25000
+in git beside the governed row.
 
 The paper table is still named by exactly one module (`decision_engine/paper_book.py`,
 pinned by `tests/test_paper_book_c1.py`); the job and the sign-off gate come through it.
 """
 from __future__ import annotations
 
+import re
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from decimal import Decimal as D
@@ -47,21 +53,47 @@ class FakeConn:
 @pytest.fixture(autouse=True)
 def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ASXOS_PERSONAL_USE", "1")
-    monkeypatch.setenv(paper_book.PAPER_CAPITAL_ENV, "25000")
 
 
 # --- declared capital ----------------------------------------------------------
 
 
-def test_declared_capital_is_read_from_the_env_and_quantised() -> None:
-    assert paper_book.declared_paper_capital() == D("25000.000000")
+async def test_declared_capital_is_carried_from_the_latest_paper_row() -> None:
+    conn = FakeConn()
+    conn.latest = {"snapshot_id": "paper-c1-2026-09-07", "capital_aud": D("25000")}
+    capital, carried_from = await paper_book.declared_paper_capital(conn, as_of=AS_OF)
+    assert capital == D("25000.000000")
+    assert carried_from == "paper-c1-2026-09-07"
 
 
-@pytest.mark.parametrize("raw", ["", "   ", "0", "-5"])
-def test_declared_capital_refuses_absent_or_non_positive(monkeypatch: pytest.MonkeyPatch, raw: str) -> None:
-    monkeypatch.setenv(paper_book.PAPER_CAPITAL_ENV, raw)
-    with pytest.raises(RuntimeError, match=paper_book.PAPER_CAPITAL_ENV):
-        paper_book.declared_paper_capital()
+async def test_declared_capital_hard_fails_when_nothing_was_ever_declared() -> None:
+    conn = FakeConn()
+    conn.latest = None
+    with pytest.raises(RuntimeError, match="no row on or before"):
+        await paper_book.declared_paper_capital(conn, as_of=AS_OF)
+
+
+@pytest.mark.parametrize("bad", [D("0"), D("-5")])
+async def test_declared_capital_refuses_a_non_positive_declaration(bad: D) -> None:
+    conn = FakeConn()
+    conn.latest = {"snapshot_id": "paper-bad", "capital_aud": bad}
+    with pytest.raises(RuntimeError, match="positive AUD amount"):
+        await paper_book.declared_paper_capital(conn, as_of=AS_OF)
+
+
+def test_no_env_value_and_no_literal_declares_the_paper_capital() -> None:
+    """The regression guard for the 2026-09-16 correction.
+
+    One ruling, one home. If a future change reintroduces an env value or types the
+    figure into the workflow, this fails.
+    """
+    assert not hasattr(paper_book, "PAPER_CAPITAL_ENV")
+    # The module may NAME the retired env var in the comment that records why it
+    # went; it may not READ it. Match the lookup, not the mention.
+    source = (ROOT / "asxos/domain/decision_engine/paper_book.py").read_text()
+    assert not re.search(r"environ[.\[][^\n]*PAPER_CAPITAL", source)
+    workflow = (ROOT / ".github/workflows/daily-brief.yml").read_text()
+    assert "ASXOS_PAPER_CAPITAL_AUD" not in workflow and "25000" not in workflow
 
 
 # --- writer --------------------------------------------------------------------
@@ -69,30 +101,40 @@ def test_declared_capital_refuses_absent_or_non_positive(monkeypatch: pytest.Mon
 
 async def test_writer_appends_an_all_cash_labelled_paper_row() -> None:
     conn = FakeConn()
-    assert await paper_book.write_daily_paper_snapshot(conn, as_of=AS_OF, capital_aud=D("25000")) is True
+    assert await paper_book.write_daily_paper_snapshot(
+        conn, as_of=AS_OF, capital_aud=D("25000"), carried_from="paper-c1-2026-09-07"
+    ) is True
     (query, args), = conn.executed
     assert "INSERT INTO paper_book_snapshots" in query and "ON CONFLICT (snapshot_id) DO NOTHING" in query
+    label = f"{paper_book.PAPER_DAILY_LABEL_PREFIX} paper-c1-2026-09-07"
     assert args == (
-        "paper-daily-2026-09-17", AS_OF, paper_book.PAPER_DAILY_LABEL,
+        "paper-daily-2026-09-17", AS_OF, label,
         D("25000.000000"), D("0"), D("25000.000000"), 0,
     )
-    assert "paper" in paper_book.PAPER_DAILY_LABEL and "arbi-declared" in paper_book.PAPER_DAILY_LABEL
+    # The row records which declaration it inherits, so the chain runs back to C1.
+    assert "paper" in label and "paper-c1-2026-09-07" in label
 
 
 async def test_writer_reports_a_same_day_re_run_as_not_written() -> None:
     conn = FakeConn(insert_status="INSERT 0 0")
-    assert await paper_book.write_daily_paper_snapshot(conn, as_of=AS_OF, capital_aud=D("25000")) is False
+    assert await paper_book.write_daily_paper_snapshot(
+        conn, as_of=AS_OF, capital_aud=D("25000"), carried_from="paper-c1-2026-09-07"
+    ) is False
 
 
 async def test_writer_is_behind_the_personal_use_firewall(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ASXOS_PERSONAL_USE")
     with pytest.raises(RuntimeError, match="ASXOS_PERSONAL_USE"):
-        await paper_book.write_daily_paper_snapshot(FakeConn(), as_of=AS_OF, capital_aud=D("25000"))
+        await paper_book.write_daily_paper_snapshot(
+            FakeConn(), as_of=AS_OF, capital_aud=D("25000"), carried_from="paper-c1-2026-09-07"
+        )
 
 
 async def test_writer_refuses_non_positive_capital() -> None:
     with pytest.raises(RuntimeError, match="positive"):
-        await paper_book.write_daily_paper_snapshot(FakeConn(), as_of=AS_OF, capital_aud=D("0"))
+        await paper_book.write_daily_paper_snapshot(
+            FakeConn(), as_of=AS_OF, capital_aud=D("0"), carried_from="paper-c1-2026-09-07"
+        )
 
 
 async def test_latest_snapshot_id_reads_the_newest_at_or_before() -> None:
@@ -167,6 +209,7 @@ def _patched(conn: FakeConn) -> Any:
 
 async def test_job_writes_one_row_for_today() -> None:
     conn = FakeConn()
+    conn.latest = {"snapshot_id": "paper-c1-2026-09-07", "capital_aud": D("25000")}
     patches = _patched(conn)
     for p in patches:
         p.start()
@@ -184,20 +227,30 @@ async def test_job_refuses_without_the_firewall(monkeypatch: pytest.MonkeyPatch)
         await job_mod.main()
 
 
-async def test_job_refuses_without_a_declared_capital(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(paper_book.PAPER_CAPITAL_ENV)
-    with pytest.raises(RuntimeError, match=paper_book.PAPER_CAPITAL_ENV):
-        await job_mod.main()
+async def test_job_refuses_when_no_paper_book_was_ever_declared() -> None:
+    conn = FakeConn()
+    conn.latest = None  # an empty table: nobody declared a paper book
+    patches = _patched(conn)
+    for p in patches:
+        p.start()
+    try:
+        with pytest.raises(RuntimeError, match="no row on or before"):
+            await job_mod.main()
+    finally:
+        for p in patches:
+            p.stop()
+    assert conn.executed == []  # it declares nothing of its own
 
 
 # --- workflow ----------------------------------------------------------------------
 
 
-def test_daily_brief_runs_the_paper_snapshot_after_the_live_one_with_a_declared_capital() -> None:
+def test_daily_brief_runs_the_paper_snapshot_after_the_live_one_and_declares_no_capital() -> None:
     wf = yaml.safe_load((ROOT / ".github/workflows/daily-brief.yml").read_text())
     job = next(iter(wf["jobs"].values()))
     names = [s.get("name") for s in job["steps"]]
     assert names.index("Snapshot paper book") == names.index("Snapshot portfolio") + 1
-    assert job["env"]["ASXOS_PAPER_CAPITAL_AUD"] == "25000"
     assert job["env"]["ASXOS_PERSONAL_USE"] == "1"
+    # The workflow carries no capital figure: the declaration is the C1 row.
+    assert not any("PAPER_CAPITAL" in key for key in job["env"])
     assert settings.healthcheck_url_snapshot_paper_book == ""
