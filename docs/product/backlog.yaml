@@ -596,7 +596,7 @@ items:
     title: "F-E2E/S11 — global-universe data spike: non-ASX fundamentals source options and the A$/day estimate, posted before any pull (r3 prep, no build)"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: attended
     paths: ["docs/proposals/"]
@@ -604,6 +604,14 @@ items:
       James 2026-09-16: "find investment opportunities in the ASX and global investment universe".
       Measured: no non-ASX fundamentals exist (HUBS.NYSE prices only; rs_fundamentals_pit is .AU only).
       Over A$50/day is James's (AGENTS.md section 2.3); under it arbi proceeds and records the estimate.
+      DONE 2026-09-16 (mission W6): docs/proposals/global-universe-spike-2026-09-16.md. Three source
+      options costed (EODHD fundamentals add-on ~A$103/mo, SEC EDGAR free/official, FMP unclear
+      tier); two starter-universe shapes (ASX-quoted global ETFs — A$0, screening-only; US/UK
+      large-cap 200-name set — needs real non-AU fundamentals + FX + a spec amendment lifting the
+      v1 foreign-holdings tax reservation). All estimated paths land under the A$50/day cap; the
+      one unverified number is James's actual EODHD plan tier/quota headroom. Recommended r3
+      sequence: ASX-quoted global ETFs first (zero new cost/surface), then a US SEC-EDGAR path
+      gated on a security_kind enum and a spec amendment. No pull made; no spend committed.
 
   - id: B-1
     title: "Inspect $BACKUP_REPO signal-evidence-2026-08-16/ digests (ls, sha256sum, MANIFEST, gzip -dc | sha256sum) — unconditional, first"
