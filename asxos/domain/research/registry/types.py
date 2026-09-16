@@ -16,8 +16,8 @@ from pydantic import Field, field_validator
 from asxos.domain.decision_engine.types import ContentAddressedContract
 from asxos.domain.research.registry.promotion import PROMOTION_STATES, PromotionState
 
-FactorName = Literal["momentum_12_1"]
-Rebalance = Literal["monthly"]
+FactorName = Literal["momentum_12_1", "value_to_price"]
+Rebalance = Literal["monthly", "quarterly"]
 RunOutcome = Literal["evaluated", "fail"]
 
 _BENCHMARK_UNAVAILABLE = (
