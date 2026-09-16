@@ -3,13 +3,14 @@
   "summary": {
     "finding_counts": {
       "env-gated-integration": 1,
-      "network-client-import": 6,
-      "network-marked": 2,
-      "network-marked-without-env-gate": 1,
+      "network-client-import": 7,
+      "network-marked": 3,
+      "network-marked-without-env-gate": 2,
       "subprocess-spawns-process": 8
     },
-    "flagged_module_count": 13,
+    "flagged_module_count": 14,
     "network_marked_modules": [
+      "tests/test_m1_migrations_integration.py",
       "tests/test_network_guard.py",
       "tests/test_price_revision_migration_integration.py"
     ],
@@ -109,6 +110,22 @@
       "network_marked_tests": [],
       "opt_in_env_vars": [],
       "path": "tests/test_job_monitor.py",
+      "spawned_commands": [],
+      "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [
+        "psycopg2"
+      ],
+      "findings": [
+        "network-client-import",
+        "network-marked",
+        "network-marked-without-env-gate"
+      ],
+      "network_marked": true,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_m1_migrations_integration.py",
       "spawned_commands": [],
       "spawns_subprocess": false
     },

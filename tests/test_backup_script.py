@@ -138,6 +138,18 @@ def test_decision_engine_table_is_in_dump_list(table: str) -> None:
     )
 
 
+def test_cash_balance_assertions_is_dumped_when_present() -> None:
+    """Migration 0056 (F-E2E r2 M1): hand-recorded cash assertions are irreplaceable.
+
+    Conditional like the 0043 and 0048 blocks, so the script stays green against a
+    database where 0056 is not applied — and the array must actually reach pg_dump.
+    """
+    assert "to_regclass('public.cash_balance_assertions')" in _TEXT
+    assert "--table=cash_balance_assertions" in _TEXT
+    assert '"${CASH_ASSERTIONS_TABLE_ARGS[@]}"' in _TEXT
+    assert _TEXT.index('"${CASH_ASSERTIONS_TABLE_ARGS[@]}"') < _TEXT.index('"$DATABASE_URL" > "$DUMP"')
+
+
 def test_decision_engine_tables_are_conditional_like_price_revisions() -> None:
     """The script must stay green against a schema where 0048 is not applied."""
     assert "to_regclass('public.decision_packets') IS NOT NULL" in _TEXT
