@@ -422,11 +422,11 @@ items:
       needs no action state, that tax_settings has had every needed column and zero
       readers since migration 0004, and a spec-vs-schema collision on missing
       franking (tax-alpha.md:49 "treat as 0" vs migrations/0027:57 "NULL is NOT 0").
-    RULED 2026-09-16 by arbi under James's 2026-09-16 delegation ("arbi shouldn't need me" —
-    decision-log row sprint-r2-s9): (1) a pass is a security-level characterisation only, never
-    a position; (2) undeclared franking is never 0 — tax-alpha.md amended to v1.7 (§3, §10); (3)
-    tax_settings stays unread (a security-level gross-up needs no marginal rate). See C-14 for
-    the implementation.
+      RULED 2026-09-16 by arbi under James's 2026-09-16 delegation ("arbi shouldn't need me" —
+      decision-log row sprint-r2-s9): (1) a pass is a security-level characterisation only, never
+      a position; (2) undeclared franking is never 0 — tax-alpha.md amended to v1.7 (§3, §10); (3)
+      tax_settings stays unread (a security-level gross-up needs no marginal rate). See C-14 for
+      the implementation.
 
   - id: A-32
     title: "Merge #223 — dependency audit of #214/#215 (MERGE WITH NAMED FOLLOW-UPS); then merge #214 and #215 themselves"
@@ -912,12 +912,22 @@ items:
   - id: C-14
     title: "Real tax feed readiness == pass for an action-state packet"
     phase: C
-    owner: both
-    status: open
+    owner: arbi
+    status: done
     depends_on: [A-13]
     route: attended
     paths: ["asxos/domain/tax/"]
-    source: "campaign plan H6-A; decision-flow-2026-08-30.md:253-254"
+    source: >-
+      campaign plan H6-A; decision-flow-2026-08-30.md:253-254.
+      BUILT 2026-09-16 (mission W5): asxos/domain/tax/feed.py — a security-level dividend
+      characterisation from rs_corporate_actions earns readiness=pass/applicable for an ASX name
+      with every dividend in the trailing 365-day window declared (cash + franking); undeclared
+      (NULL) franking blocks the pass and is named, never treated as 0 (A-31 decision 2, tax-alpha
+      v1.7). Wired into build_decision_case via dividends=, the decision packets job (S5) and
+      asx decision build. tax_settings stays unread (A-31 decision 3: gross-up alone needs no
+      marginal rate). Non-ASX names and position-level figures stay unresolved by design (A-31
+      decision 1). Pending: verify a real ASX packet reaches readiness=pass on the first scheduled
+      build_decision_packets run.
 
   - id: C-15
     title: "Rule the Stage 1 cell wording — 'gates (1)(2)(3) met in-repo, F6 carried' vs OPEN; arbi does not flip the cell"
