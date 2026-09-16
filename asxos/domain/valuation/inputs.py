@@ -35,6 +35,11 @@ _ADMISSIBLE: Final[frozenset[str]] = frozenset(
         "prices",
         "universe",
         "fx_rates",
+        # Security master (EODHD active + delisted). Admitted for the V/P replay,
+        # whose membership rule must NOT be `universe.is_active`: that is
+        # current-only and silently drops every name delisted since the cutoff.
+        # It carries security_type and listing dates, and no Model A surface.
+        "rs_security_master",
         # The package's own store (migration 0054) — read back by `repository.py`.
         "valuation_runs",
         "valuation_scenario_preregistrations",

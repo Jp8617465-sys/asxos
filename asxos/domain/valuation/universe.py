@@ -74,6 +74,76 @@ WHERE u.security_kind = 'au_equity' AND u.is_active
 ORDER BY u.symbol
 """
 
+#: The REPLAY universe (S2 of the V/P predictive test) — identical inputs to
+#: SQL_UNIVERSE_INPUTS, one deliberate difference: membership is NOT
+#: `universe.is_active`.
+#:
+#: `is_active` is CURRENT listing status, so using it at a historical cutoff
+#: silently drops every name that has delisted since — the classic survivorship
+#: bias, and it biases UPWARD because delistings are disproportionately failures.
+#: Measured at the 2025-07-01 cutoff: 1,774 symbols have a price in the window
+#: and usable point-in-time fundamentals, but only 1,736 survive `is_active`.
+#:
+#: Membership here is "it was trading then, and it is a common stock": a close
+#: inside the pre-registered price window before the cutoff, plus
+#: `rs_security_master.security_type = 'Common Stock'` to exclude ETFs, indices
+#: and hybrids without depending on current listing status. A delisted name
+#: therefore appears at cutoffs before its delisting and vanishes afterwards,
+#: which is exactly right.
+#:
+#: The residual bias this does NOT fix, and which the run reports rather than
+#: hides: `rs_security_master` has 2,040 inactive rows and ZERO `delisted_date`
+#: values, so a name that delists DURING a forward window simply has no forward
+#: close and drops out of that cutoff. Its delisting return (the literature puts
+#: performance-related delistings near -30%) cannot be applied because the date
+#: is unknown. The evaluator counts those names so the bias is bounded and
+#: visible instead of assumed away.
+SQL_REPLAY_INPUTS: Final[str] = """
+WITH pit AS (
+    SELECT DISTINCT ON (symbol)
+           symbol, as_of, knowledge_date, book_value_ps, roe, eps_ttm, dividend_ttm,
+           franking_avg_pct, currency
+    FROM rs_fundamentals_pit
+    WHERE knowledge_date <= $1
+    ORDER BY symbol, as_of DESC, knowledge_date DESC
+),
+pit_avg AS (
+    SELECT symbol, avg(roe) AS roe_average, count(*) AS roe_periods
+    FROM (
+        SELECT symbol, roe,
+               row_number() OVER (PARTITION BY symbol ORDER BY as_of DESC, knowledge_date DESC) AS rn
+        FROM rs_fundamentals_pit
+        WHERE knowledge_date <= $1 AND roe IS NOT NULL
+    ) ranked
+    WHERE rn <= $3
+    GROUP BY symbol
+),
+px AS (
+    SELECT DISTINCT ON (symbol) symbol, dt, close
+    FROM prices
+    WHERE dt <= $1 AND dt >= $2 AND symbol LIKE '%.AU'
+    ORDER BY symbol, dt DESC
+)
+SELECT px.symbol,
+       pit.as_of            AS pit_as_of,
+       pit.knowledge_date   AS pit_knowledge_date,
+       pit.book_value_ps,
+       pit.roe,
+       pit.eps_ttm,
+       pit.dividend_ttm,
+       pit.franking_avg_pct,
+       pit.currency,
+       pit_avg.roe_average,
+       pit_avg.roe_periods,
+       px.dt                AS last_close_dt,
+       px.close             AS last_close
+FROM px
+JOIN rs_security_master m ON m.symbol = px.symbol AND m.security_type = 'Common Stock'
+LEFT JOIN pit     ON pit.symbol = px.symbol
+LEFT JOIN pit_avg ON pit_avg.symbol = px.symbol
+ORDER BY px.symbol
+"""
+
 SQL_RISK_FREE_LATEST: Final[str] = (
     "SELECT as_of, aus_10y_yield FROM market_context_current "
     "WHERE aus_10y_yield IS NOT NULL AND as_of <= $1 ORDER BY as_of DESC LIMIT 1"
@@ -82,7 +152,7 @@ SQL_AUDUSD_LATEST: Final[str] = (
     "SELECT dt, rate FROM fx_rates WHERE pair = 'AUDUSD' AND dt <= $1 ORDER BY dt DESC LIMIT 1"
 )
 
-for _sql in (SQL_UNIVERSE_INPUTS, SQL_RISK_FREE_LATEST, SQL_AUDUSD_LATEST):
+for _sql in (SQL_UNIVERSE_INPUTS, SQL_REPLAY_INPUTS, SQL_RISK_FREE_LATEST, SQL_AUDUSD_LATEST):
     assert_valuation_sql_admissible(_sql)
 
 
@@ -185,3 +255,24 @@ async def load_market_inputs(conn: Conn, *, cutoff_date: date) -> MarketInputs:
         audusd=dec(fx["rate"]),
         audusd_as_of=fx["dt"],
     )
+
+
+async def load_replay_rows(
+    conn: Conn, *, cutoff_date: date, roe_average_periods: int
+) -> list[UniverseRow]:
+    """Every common stock TRADING at `cutoff_date`, with its inputs as known then.
+
+    Same row shape as `load_universe_rows`, so `sweep.value_row` values a replay
+    row and a live row by identical code. The difference is membership only —
+    see `SQL_REPLAY_INPUTS` for why `universe.is_active` is wrong at a historical
+    cutoff and what residual bias remains.
+    """
+    window_start = cutoff_date - timedelta(days=PRICE_WINDOW_DAYS)
+    records = await conn.fetch(
+        SQL_REPLAY_INPUTS,
+        cutoff_date,
+        window_start,
+        roe_average_periods,
+        timeout=UNIVERSE_QUERY_TIMEOUT_S,
+    )
+    return [row_from_record(record) for record in records]
