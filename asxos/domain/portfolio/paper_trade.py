@@ -35,6 +35,10 @@ if TYPE_CHECKING:
     import asyncpg
 
 from asxos import clock
+from asxos.domain.decision_engine.paper_book import (
+    count_paper_snapshots_matured,
+    paper_snapshot_dates,
+)
 from asxos.domain.portfolio.types import ProposedTrade
 
 # ---------------------------------------------------------------------------
@@ -300,52 +304,43 @@ async def has_enough_paper_weeks(
     require_continuity: bool = True,
     today: date | None = None,
 ) -> bool:
-    """M13.8 sign-off gate: are there ≥`maturation_weeks` of OBSERVED paper-trade
-    evidence before flipping ``ASXOS_PORTFOLIO_BRIEF_ENABLED=1``?
+    """M13.8 sign-off gate: are there ≥`maturation_weeks` of OBSERVED paper-book
+    evidence?
 
-    Two independent, decoupled conditions (the old gate conflated count and weeks
-    into one number — needing ≥4 runs each ≥4 weeks old, which under weekly cadence
-    silently inflated "4 weeks" to ~7):
+    Re-pointed 2026-09-16 (F-E2E r2 S3) at `paper_book_snapshots`, the daily
+    arbi-declared paper book. It previously counted `rebalance_runs` and the
+    `build_portfolio` cron's `job_runs` — a cron deleted in the 2026-08-19 ruling,
+    so the gate could never be True (session-handoff-2026-09-14-3.md, Item 9).
+    Both reads go through `decision_engine.paper_book`, the one module that names
+    the paper table.
 
-    1. **Maturation** (`rebalance_runs`): at least `min_matured_runs` runs are old
-       enough to have `maturation_weeks` of subsequent price history
-       (`as_of <= today - maturation_weeks*7`). Default `min_matured_runs=1` — the
-       literal "4 weeks elapsed" reading.
-    2. **Continuity** (`job_runs`, the same source the brief freshness gate trusts):
-       the weekly `build_portfolio` cron actually ran across the window — no
-       blackout > 14 days, the window opened on a real run, and the cron is
-       currently alive. This is what stops a same-day backfill of one old-dated run
-       from gaming a pure-time gate.
+    Two independent, decoupled conditions:
 
-    Returns `pass_1 and pass_2`. Set `require_continuity=False` to gate on maturation
-    alone (e.g. for a manual override path).
+    1. **Maturation**: at least `min_matured_runs` paper snapshots are old enough
+       to have `maturation_weeks` of subsequent price history
+       (`as_of <= today - maturation_weeks*7`).
+    2. **Continuity**: the daily writer actually ran across the window — no
+       blackout > 14 days, the window opened on a real snapshot, and the writer is
+       currently alive. This is what stops a same-day backfill of one old-dated
+       row from gaming a pure-time gate.
+
+    Returns `pass_1 and pass_2`. Set `require_continuity=False` to gate on
+    maturation alone (e.g. for a manual override path).
     """
     if today is None:
         today = clock.today()
     window_open = today - timedelta(days=maturation_weeks * 7)
 
-    matured = await conn.fetchval(
-        "SELECT COUNT(*) FROM rebalance_runs WHERE as_of <= $1",
-        window_open,
-    )
-    if (matured or 0) < min_matured_runs:
+    matured = await count_paper_snapshots_matured(conn, window_open=window_open)
+    if matured < min_matured_runs:
         return False
 
     if not require_continuity:
         return True
 
-    rows = await conn.fetch(
-        """
-        SELECT as_of
-        FROM job_runs
-        WHERE job_name = 'build_portfolio'
-          AND status = 'success'
-          AND as_of >= $1
-        ORDER BY as_of
-        """,
-        window_open - timedelta(days=_CONTINUITY_MAX_GAP_DAYS),
+    successes = await paper_snapshot_dates(
+        conn, since=window_open - timedelta(days=_CONTINUITY_MAX_GAP_DAYS)
     )
-    successes = [r["as_of"] for r in rows]
     return _cron_was_continuous(successes, window_open, today)
 
 
