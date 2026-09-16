@@ -140,8 +140,15 @@ def test_a_longer_horizon_cannot_be_used_to_raise_the_value_to_market() -> None:
 # --- franking ----------------------------------------------------------------
 
 def test_franking_gross_up_matches_the_repo_wide_constant() -> None:
-    """Tc/(1-Tc) — the same derivation as research/factor_scores.py."""
-    assert ri.FRANKING_GROSS_UP == Decimal("0.30") / Decimal("0.70")
+    """Tc/(1-Tc) — the same derivation as research/factor_scores.py, under the package context.
+
+    Compared under `valuation_context()` on both sides: the global precision is
+    40 once `asxos/domain/portfolio/monitor.py` has been imported and 28 before,
+    so an ambient-context comparison depended on test order.
+    """
+    with valuation_context():
+        assert ri.FRANKING_GROSS_UP == Decimal("0.30") / Decimal("0.70")
+    assert len(str(ri.FRANKING_GROSS_UP).split(".")[1]) == 34
 
 
 def test_franking_adjustment_raises_value_and_zero_franking_is_a_no_op() -> None:

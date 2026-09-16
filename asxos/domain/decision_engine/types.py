@@ -213,8 +213,17 @@ def verify_content_hash(model: ContentAddressedContract) -> bool:
 
 class EvidenceItem(Contract):
     evidence_id: str = Field(min_length=1, max_length=200)
+    #: `valuation_fact` (F-E2E r2 S2): a persisted `valuation_runs` row cited by
+    #: `run_id` — the model's own reading of the name, independent of the thesis
+    #: author. An additive widening: every stored payload still validates and
+    #: hashes identically.
     evidence_type: Literal[
-        "market_fact", "fundamental_fact", "source_document", "theme_fact", "portfolio_fact"
+        "market_fact",
+        "fundamental_fact",
+        "source_document",
+        "theme_fact",
+        "portfolio_fact",
+        "valuation_fact",
     ]
     title: str = Field(min_length=1, max_length=500)
     claim: str = Field(min_length=1, max_length=10_000)

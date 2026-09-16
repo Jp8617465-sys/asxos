@@ -41,6 +41,7 @@ class FakeConn:
         self.transactions = 0
         self.fetch_rows: list[dict[str, Any]] = []
         self.count_row: dict[str, Any] | None = None
+        self.symbol_row: dict[str, Any] | None = None
 
     async def execute(self, query: str, *args: object) -> str:
         self.executed.append((query, args))
@@ -53,6 +54,8 @@ class FakeConn:
             return None if self.prereg_hash is None else {"content_hash": self.prereg_hash}
         if "count(*)" in query:
             return self.count_row
+        if "WHERE symbol = $1" in query:
+            return self.symbol_row
         return None
 
     async def fetch(self, query: str, *args: object) -> list[dict[str, Any]]:
@@ -181,3 +184,13 @@ def test_every_repository_statement_passes_the_screen() -> None:
         repository.SQL_LATEST_RUNS,
     ):
         assert_valuation_sql_admissible(sql)
+
+
+async def test_latest_run_for_symbol_reads_one_payload_or_none() -> None:
+    run = _run("CBA.AU")
+    conn = FakeConn()
+    conn.symbol_row = {"payload": json.dumps(run.model_dump(mode="json"))}
+    assert await repository.latest_run_for_symbol(conn, symbol="CBA.AU", as_of=date(2026, 9, 20)) == run
+    conn.symbol_row = None
+    assert await repository.latest_run_for_symbol(conn, symbol="CBA.AU", as_of=date(2026, 9, 20)) is None
+    assert_valuation_sql_admissible(repository.SQL_LATEST_RUN_FOR_SYMBOL)

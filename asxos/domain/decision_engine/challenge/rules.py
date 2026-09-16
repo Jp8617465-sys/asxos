@@ -10,6 +10,16 @@ failure; `material` is a cited diagnostic concern; `monitor` is real but not
 actionable now. Nothing here imposes a restriction the register does not
 already carry.
 
+A sixteenth rule, `valuation_gap` (F-E2E r2 S2, 2026-09-16), is the point where
+the residual-income model reaches the challenge: the thesis target against the
+model's registered value for the same name (`valuation_runs`, S1). Before it the
+model never touched a packet — the defect the sprint names. Its threshold is an
+arbi draft constant (`VALUATION_GAP_MATERIAL_PCT`); a target more than that far
+above the model value is a `material` diagnostic (the plan needs the market to
+pay a premium the model cannot justify), a target that far below it is `monitor`
+(the plan and the model disagree the other way). Never `blocking`: a model
+disagreement is a cited concern, not a register breach (D14).
+
 A fifteenth rule, `price_detached`, is the governor-drafts C5 item scheduled
 here (2026-07-16 ruling, restated 2026-09-02): the entry band on file no
 longer describes the security's price. Its thresholds are arbi's draft
@@ -48,6 +58,7 @@ FUNDAMENTALS_STALE_MATERIAL_DAYS: Final[int] = 200  # > two half-year cycles
 CORRELATION_MATERIAL: Final[Decimal] = Decimal("0.80")  # the register's own co-movement assumption
 VALUATION_EXTREME_LOW_PCT: Final[Decimal] = Decimal("5")
 VALUATION_EXTREME_HIGH_PCT: Final[Decimal] = Decimal("95")
+VALUATION_GAP_MATERIAL_PCT: Final[Decimal] = Decimal("25")  # target vs model value, either way
 IMPLIED_CAGR_MATERIAL_PCT: Final[Decimal] = Decimal("30")
 LIQUIDITY_PARTICIPATION: Final[Decimal] = Decimal("0.20")  # of ADV per session
 LIQUIDITY_DAYS_TO_EXIT_MATERIAL: Final[Decimal] = Decimal("5")
@@ -72,6 +83,7 @@ RuleName = Literal[
     "data_staleness",
     "correlation",
     "valuation_percentile",
+    "valuation_gap",
     "implied_growth",
     "invalidation_field",
     "liquidity",
@@ -81,8 +93,9 @@ RuleName = Literal[
 ]
 RULE_NAMES: Final[tuple[RuleName, ...]] = (
     "gross_leverage", "derivatives_or_shorting", "cash_floor", "sector_cap", "position_cap",
-    "data_integrity", "data_staleness", "correlation", "valuation_percentile", "implied_growth",
-    "invalidation_field", "liquidity", "thesis_age", "liquidity_trend", "price_detached",
+    "data_integrity", "data_staleness", "correlation", "valuation_percentile", "valuation_gap",
+    "implied_growth", "invalidation_field", "liquidity", "thesis_age", "liquidity_trend",
+    "price_detached",
 )
 # The ratified register (D1/D2/D8 and the profile caps) -- the first five above. These are
 # the mandate rules: a blocking finding from one of them means the proposal cannot stand as
@@ -169,6 +182,10 @@ class ChallengeInput(Contract):
     # diagnostics (None = not measured; the rule reports "not evaluated")
     pairwise_correlation_max: Decimal | None = Field(default=None, ge=Decimal("-1"), le=Decimal("1"), max_digits=18, decimal_places=6)
     valuation_percentile: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("100"), max_digits=18, decimal_places=6)
+    #: (target_price - model value) / model value * 100, from a `valuation_runs` row
+    #: for this name; None = no valued run was supplied, so the rule reports unevaluated.
+    valuation_gap_pct: Decimal | None = Field(default=None, max_digits=18, decimal_places=6)
+    valuation_evidence_id: str | None = Field(default=None, min_length=1, max_length=200)
     adv_aud: Decimal | None = Field(default=None, ge=Decimal("0"), max_digits=18, decimal_places=6)
     adv_trend_pct: Decimal | None = Field(default=None, max_digits=18, decimal_places=6)
     spread_bps: Decimal | None = Field(default=None, ge=Decimal("0"), max_digits=18, decimal_places=6)
@@ -393,6 +410,29 @@ def rule_valuation_percentile(x: ChallengeInput) -> RuleOutcome:
     return RuleOutcome(rule="valuation_percentile", evaluated=True, detail=f"percentile {p}")
 
 
+def rule_valuation_gap(x: ChallengeInput) -> RuleOutcome:
+    """The thesis target against the model's registered value (S1 `valuation_runs`)."""
+    g = x.valuation_gap_pct
+    if g is None:
+        return RuleOutcome(rule="valuation_gap", evaluated=False, detail="model value not measured (no valued valuation run)")
+    ids = x._ids(x.valuation_evidence_id, x.thesis_evidence_id)
+    if g > VALUATION_GAP_MATERIAL_PCT:
+        return RuleOutcome(rule="valuation_gap", evaluated=True, detail=f"target {g}% above model value", finding=_finding(
+            "material",
+            f"The thesis target price sits {g}% above the model's registered value (threshold {VALUATION_GAP_MATERIAL_PCT}%); the plan needs the market to pay a premium the model cannot justify.",
+            "Record the variant view that justifies the premium over the model value, citing evidence, or revise the target.",
+            ids,
+        ))
+    if g < -VALUATION_GAP_MATERIAL_PCT:
+        return RuleOutcome(rule="valuation_gap", evaluated=True, detail=f"target {-g}% below model value", finding=_finding(
+            "monitor",
+            f"The thesis target price sits {-g}% below the model's registered value (threshold {VALUATION_GAP_MATERIAL_PCT}%); the plan and the model disagree on where value lies.",
+            "Reconcile the target with the model value at the next revisit; no response is required before then.",
+            ids,
+        ))
+    return RuleOutcome(rule="valuation_gap", evaluated=True, detail=f"gap {g}%")
+
+
 def implied_cagr_pct(*, reference_price: Decimal, target_price: Decimal, horizon_months: int) -> Decimal:
     """Annualised growth implied by reaching target from reference over the horizon."""
     ratio = target_price / reference_price
@@ -517,6 +557,7 @@ RULES: Final[tuple[Callable[[ChallengeInput], RuleOutcome], ...]] = (
     rule_data_staleness,
     rule_correlation,
     rule_valuation_percentile,
+    rule_valuation_gap,
     rule_implied_growth,
     rule_invalidation_field,
     rule_liquidity,
