@@ -75,9 +75,12 @@ jobs:
       - name: Run valuation
         run: python jobs/run_valuation.py
 
-      # F-E2E r2 S4: screen the valued universe and propose theses at
-      # pending_review (source=system_screen, 0057). Deterministic, no LLM; the
-      # theses are investment content, hence ASXOS_PERSONAL_USE in env: above.
+      # F-E2E r2 S4, demoted by #306: record the value screen (screening_runs
+      # audit row + the passing set in the log). Opens NO theses, emits no
+      # target, band, stop or rank — the sealed V/P test returned null.
+      # Deterministic, no LLM. ASXOS_PERSONAL_USE stays required (env: above):
+      # removing that gate is a personal-use-firewall change, James's (AGENTS.md
+      # section 2), not this job's.
       - name: Discover opportunities
         run: python jobs/discover_opportunities.py
 

@@ -1425,6 +1425,26 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-17 `daily-product` routine fire (the catch-up for the 09-16 17:38 UTC misfire,
+> #308; `/arbi` §1-3 run surgically per `docs/ops/routines/daily-product.md` §2).** The Stages 0→6 table at
+> the top of this file remains the only ranked queue. **#0 below is DONE — #309, row A-42.** **#0b is
+> DECIDED** in #309's body and the decision log: the falsifiable number per thesis is the model value as
+> the challenge already reads it (`valuation_fact` + `valuation_gap`, `decision_engine/builder.py`) for
+> human-approved theses; the screen proposes nothing and ranks nothing; nothing is derived from the model
+> value by constant multiplication. Proof is **pending** Saturday 2026-09-19's `weekly-research` run
+> (`job_runs.rows_written=0` for `discover_opportunities` with the #306 note; no new `system_screen`
+> thesis) — the routine's `nightly-check` dispatch does not exercise the weekly job.
+>
+> **Residue, attended (stored records; a routine holds no Supabase write):** the ten `system_screen` theses
+> ids 14–23 at `pending_review` (opened 2026-09-16) still carry the constant-derived target/band/stop —
+> `asx thesis reject` ×10. A `REJECT` comment on #289 executes nothing until A-39 lands. A-38 (the S6
+> brief card) is re-scoped: no ranked list, no targets.
+>
+> **Next, unchanged from the loop block: #1 A-34 → #2 A-35 → #3 #228 PR 2 (migration, carried) → #4 E-20
+> → #5 carried.** The picker (`backlog_next.py`: eligible 3, picks A-34 then E-20, A-35 skipped for
+> overlap) and this block now name the same next item.
+>
+> **Superseded — the 2026-09-16 loop-close block (its #0 is done above; its #1-#5 are carried).**
 > **Live as of the 2026-09-16 loop session close (James: an 8-hour loop, "end-to-end analysis →
 > valuation → evidence → reporting"). The model-test spine below ranks above the routine's #1-#5.**
 >
@@ -1935,6 +1955,19 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-17 — `daily-product` routine, catch-up fire (19:50 UTC 2026-09-16 = 05:50 AEST 09-17; the
+17:38 UTC fire misfired, #308).** `main` @ `66bcb93` at fire. Gate: `nightly-check` 35137435106 `success`
+(scheduled, on `7bb9d96`); no incident issue, no `HALT:`; ledger #270 clean (steward START 19:45 / END
+19:48); 0 open PRs; picker → A-34 (eligible 3, 41-row click list) but the live block ranked #306 first and
+Amendment K says the roadmap wins; `arbi-red-team` NO CHALLENGE (four conditions, all carried). One thing:
+#306 — the demotion, landed as **#309** (Amber, investment output; one revert, no data; row A-42; C-24 and
+A-38 corrected). Baseline `make check` on unmodified `main` in the routine sandbox: 4603 passed / 12
+skipped, ruff + mypy (231 files) clean. Migrations unchanged (ledger head `20260916185525`, 0058; 0045
+still unapplied, 0042 reserved). Ten `system_screen` theses (ids 14–23) measured live at `pending_review`
+with the constant-derived levels — residue for an attended session. `HC_ROUTINE_PRODUCT_URL` unset
+(`deadman=unset`). Sandbox: system Python is 3.11, so `uv venv --python 3.12 .venv` precedes the picker.
+Merge sha, proof run and elapsed are in the ledger END comment on #270 and the digest on #271.
 
 **2026-09-16 — loop session (James: an 8-hour loop, "end-to-end analysis → valuation → evidence →
 reporting"). `main` @ `d9c33ec` at close; 4603 passed / 12 skipped, ruff + mypy clean.** Six PRs merged

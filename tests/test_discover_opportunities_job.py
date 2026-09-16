@@ -1,4 +1,4 @@
-"""jobs/discover_opportunities.py — screen, rank, propose at pending_review; plus the service changes."""
+"""jobs/discover_opportunities.py — screen and record, open nothing (#306); plus the service changes."""
 from __future__ import annotations
 
 import json
@@ -118,56 +118,38 @@ def _patched(conn: FakeConn, *screened: str) -> Any:
     )
 
 
-async def _run_job(conn: FakeConn, *screened: str, top_k: int = 10) -> tuple[dict[str, Any], FakeMonitor]:
+async def _run_job(conn: FakeConn, *screened: str) -> tuple[dict[str, Any], FakeMonitor]:
     monitor = FakeMonitor()
     patches = _patched(conn, *screened)
     for p in patches:
         p.start()
     try:
-        summary = await job_mod.run(monitor=monitor, top_k=top_k)
+        summary = await job_mod.run(monitor=monitor)
     finally:
         for p in patches:
             p.stop()
     return summary, monitor
 
 
-async def test_job_proposes_the_cheap_liquid_name_at_pending_review_with_evidence() -> None:
+async def test_job_records_the_screen_and_opens_no_thesis() -> None:
+    """#306: the passing set is logged; no thesis, revision or evidence row is written."""
     conn = FakeConn(runs=[_run("CHEAP.AU", D("8")), _run("DEAR.AU", D("40"))])
     summary, monitor = await _run_job(conn, "CHEAP.AU", "DEAR.AU")
-    assert summary["opened"] == [(101, "CHEAP.AU")] and monitor.rows_written == 1
-    assert summary["screening_run_id"] == 42 and summary["opportunities"] == 1
-    # the thesis row: research, pending_review, the baseline plan
-    (args,) = conn.inserted_theses
-    assert args[0] == "CHEAP.AU" and args[1] == "research" and args[14] == "pending_review"
-    target = D(str(args[6]))
-    assert D(str(args[4])) == (target * D("0.80")).quantize(D("0.000001"))
-    assert args[7] == 365
-    # the 'opened' revision carries the provenance the 0034/0057 constraints require
-    (rev,) = [a for q, a in conn.executed if "INSERT INTO thesis_revisions" in q]
-    assert rev[5] == "system_screen" and rev[6] == "verified"
-    citations = json.loads(str(rev[7]))
-    assert citations == ["asxos://valuation_runs/vr-CHEAP.AU-2026-09-19-zero_excess", "asxos://screening_runs/42"]
-    # two evidence rows, both verified, with a snapshot hash
-    assert [e[1:3] for e in conn.evidence] == [("system_screen", "verified"), ("system_screen", "verified")]
-    assert {e[4] for e in conn.evidence} == {"valuation_runs", "screening_runs"}
-    assert all(len(str(e[7])) == 64 for e in conn.evidence)
-    # the screening rule is ensured before it is read
+    assert summary["passing"] == ["CHEAP.AU"] and summary["opened"] == []
+    assert summary["screening_run_id"] == 42 and summary["valued_runs"] == 2
+    assert monitor.rows_written == 0
+    assert monitor.note is not None and "#306" in monitor.note and "1 names pass" in monitor.note
+    assert conn.inserted_theses == [] and conn.evidence == []
+    assert not any("INSERT INTO thes" in q for q, _ in conn.executed)
+    # the screening rule is still ensured before it is read — the audit row is the job's record
     assert any("INSERT INTO screening_rules" in q and "ON CONFLICT (name) DO NOTHING" in q for q, _ in conn.executed)
 
 
-async def test_job_skips_names_that_already_have_an_open_thesis() -> None:
+async def test_job_never_reads_open_theses_because_it_proposes_none() -> None:
     conn = FakeConn(runs=[_run("CHEAP.AU", D("8"))], open_symbols={"CHEAP.AU"})
-    summary, monitor = await _run_job(conn, "CHEAP.AU")
-    assert summary["opened"] == [] and monitor.rows_written == 0
-    assert monitor.note is not None and "already have an open thesis" in monitor.note
+    summary, _ = await _run_job(conn, "CHEAP.AU")
+    assert summary["passing"] == ["CHEAP.AU"] and summary["opened"] == []
     assert conn.inserted_theses == []
-
-
-async def test_top_k_bounds_the_proposals_in_rank_order() -> None:
-    runs = [_run(f"N{i}.AU", D("8")) for i in range(5)]
-    conn = FakeConn(runs=runs)
-    summary, _ = await _run_job(conn, *[f"N{i}.AU" for i in range(5)], top_k=2)
-    assert [s for _, s in summary["opened"]] == ["N0.AU", "N1.AU"]
 
 
 async def test_job_refuses_without_a_valuation_run() -> None:
