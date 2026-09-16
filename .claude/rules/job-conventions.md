@@ -64,11 +64,33 @@ daily brief, not for market-microstructure timing. Mon-Fri AEST anchors; UTC
 offset 10h. DST shift is acceptable noise.
 
 `schedule:` only fires from `main`, so a schedule change goes live on merge.
-`workflow_dispatch` works immediately on any ref, but dispatch is constrained:
-only `full-check.yml`, `targeted-ml-tests.yml`, `migration-integration.yml`,
-`backup.yml` and `claude-execute.yml` may be dispatched from a session.
-Dispatching a production, secret-bearing job (`daily-brief`, `us-positions`,
-`weekly-research`, `pipeline-health`) is denied and reserved to James.
+`workflow_dispatch` works immediately on any ref. What a session may dispatch is
+decided by **what the run does to James**, not by whether the workflow carries a
+secret — `backup.yml` carries two and has always been dispatchable, because §8
+requires it.
+
+**Reserved to James — never dispatched from a session:** a workflow that has a
+`schedule:` AND whose `env:` carries `RESEND_API_KEY` or `EODHD_API_KEY`. Today that
+is exactly `daily-brief`, `us-positions`, `pipeline-health` and `weekly-research`.
+An out-of-schedule run of one of these lands on James directly — a duplicate email
+in his inbox, a duplicate paid pull against the §2 spend cap, a duplicate
+`as_of`-keyed write — and that is why they are his. `tests/test_workflow_dispatch_scope.py`
+computes this set from the workflow files and fails if it drifts from the four named,
+so the list cannot rot the way the previous prose allowlist did.
+
+**Dispatchable from a session:** everything else — CI (`full-check`,
+`targeted-ml-tests`, `migration-integration`), `backup.yml`, `claude-execute.yml`, the
+scheduled checks with no side effect on James (`nightly-check`, `migration-drift`),
+and every **dispatch-only lane arbi builds for deliberate execution** (`vp-register`,
+`vp-research`, `risk-free-backfill`, …). A lane that exists only to be dispatched
+cannot run at all unless arbi may dispatch it; forbidding that would mean arbi can build
+a research run but never take it, which is not the delegation `AGENTS.md` §2 makes.
+
+Two conditions on any dispatch-only lane, both pinned by the same test: its checkout is
+`refs/heads/main` (a production secret never runs at a PR head), and if it takes a
+`persist` or `dry_run` input, **the default writes nothing** (`persist: false` /
+`dry_run: true`) so the default dispatch is a read-through, never a write. The PR that
+adds the lane records what it exposes (`AGENTS.md` §8, Amber).
 
 ## Idempotency
 
