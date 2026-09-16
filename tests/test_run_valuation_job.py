@@ -56,7 +56,11 @@ class FakeConn:
     async def fetchrow(self, query: str, *args: object) -> dict[str, Any] | None:
         if "valuation_scenario_preregistrations" in query:
             return None
-        if "market_context_current" in query:
+        if "risk_free_rates" in query:
+            # The point-in-time series (0058) replaced market_context_current as
+            # ke's risk-free source. The row still arrives under the
+            # aus_10y_yield key — the query aliases yield_pct to it — so only
+            # the routing moved, not the shape load_market_inputs reads.
             return None if self.rf is None else {"as_of": date(2026, 9, 15), "aus_10y_yield": self.rf}
         if "fx_rates" in query:
             return None if self.fx is None else {"dt": date(2026, 9, 18), "rate": self.fx}
@@ -148,7 +152,12 @@ async def test_zero_written_and_zero_stored_is_a_failure_not_a_green_run() -> No
 
 
 def test_risk_free_is_read_as_a_percent_and_stored_as_a_fraction() -> None:
-    """market_context.aus_10y_yield is 4.831 (percent); Ke needs 0.04831."""
+    """risk_free_rates.yield_pct is 4.831 (percent); Ke needs 0.04831.
+
+    The percent-to-fraction conversion stayed in load_market_inputs when the
+    source moved off market_context_current (0058), so it lives in one place
+    rather than being re-derived at each reader.
+    """
 
     async def check() -> None:
         conn = FakeConn([_record("A.AU")])

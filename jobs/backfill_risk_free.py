@@ -45,10 +45,10 @@ log = logging.getLogger(__name__)
 
 JOB_NAME = "backfill_risk_free"
 
-#: capm.RISK_FREE_SERIES is "FRED IRLTLT01AUM156N" — the provenance string the
-#: valuation records. The bare id is what the API takes. Deriving it here rather
-#: than hardcoding a second copy keeps the two from drifting apart.
-FRED_SERIES_ID = capm.RISK_FREE_SERIES.removeprefix("FRED ").strip()
+#: The bare FRED id, derived once in capm and shared with the valuation read
+#: path — a second hardcoded copy is how the writer and the reader come to
+#: disagree about which series `risk_free_rates` holds.
+FRED_SERIES_ID = capm.RISK_FREE_SERIES_ID
 
 #: FRED's monthly series returns ~12 observations a year; this bounds a decade
 #: without paging. A truncated fetch is detected rather than assumed away.

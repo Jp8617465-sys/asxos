@@ -40,6 +40,13 @@ _ADMISSIBLE: Final[frozenset[str]] = frozenset(
         # current-only and silently drops every name delisted since the cutoff.
         # It carries security_type and listing dates, and no Model A surface.
         "rs_security_master",
+        # The point-in-time risk-free series (migration 0058, issue #301). It
+        # replaces `market_context_current` as the source for ke's risk-free
+        # leg: both carry the SAME FRED series (see capm.RISK_FREE_LABEL), but
+        # market_context_current carries the monthly value forward into daily
+        # rows and only began 2026-07-03, so it cannot answer "what was the rate
+        # at a 2025 cutoff". It carries no Model A surface.
+        "risk_free_rates",
         # The package's own store (migration 0054) — read back by `repository.py`.
         "valuation_runs",
         "valuation_scenario_preregistrations",
@@ -85,9 +92,21 @@ SQL_BALANCE: Final[str] = (
     "FROM rs_financial_statements WHERE symbol = $1 AND period_type = 'yearly' "
     "AND statement_type = 'balance_sheet' AND period_end = ANY($2::date[])"
 )
+#: The risk-free leg of ke, read as a point-in-time series (migration 0058).
+#:
+#: It used to read `market_context_current`, which carries the SAME FRED series
+#: (capm.RISK_FREE_LABEL) but forward-filled into daily rows and only from
+#: 2026-07-03 — so it could not answer "what was the rate at a 2025 cutoff", and
+#: the sealed V/P replay hard-failed on exactly that. `risk_free_rates` holds the
+#: observations as published, with their true `as_of`.
+#:
+#: Verified equivalent at the switch, not assumed: on 2026-09-16
+#: market_context_current's latest value and risk_free_rates' 2026-08-01
+#: observation are both 5.015 — the same number, because one is the other
+#: carried forward.
 SQL_RISK_FREE: Final[str] = (
-    "SELECT as_of, aus_10y_yield FROM market_context_current "
-    "WHERE aus_10y_yield IS NOT NULL AND as_of <= $1 ORDER BY as_of DESC LIMIT 1"
+    "SELECT as_of, yield_pct AS aus_10y_yield FROM risk_free_rates "
+    "WHERE series = $2 AND as_of <= $1 ORDER BY as_of DESC LIMIT 1"
 )
 SQL_CLOSE: Final[str] = (
     "SELECT dt, close FROM prices WHERE symbol = $1 AND dt <= $2 ORDER BY dt DESC LIMIT 1"

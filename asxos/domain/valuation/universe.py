@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Final, Protocol
 
+from asxos.domain.valuation import capm
 from asxos.domain.valuation.inputs import assert_valuation_sql_admissible
 from asxos.domain.valuation.numeric import dec
 
@@ -144,9 +145,14 @@ LEFT JOIN pit_avg ON pit_avg.symbol = px.symbol
 ORDER BY px.symbol
 """
 
+#: The risk-free leg of ke, read as a point-in-time series (migration 0058,
+#: issue #301). See the note on `inputs.SQL_RISK_FREE` for why this moved off
+#: `market_context_current`: same FRED series, but forward-filled into daily
+#: rows and only from 2026-07-03, so it could not answer "what was the rate at
+#: a 2025 cutoff" — which is precisely where the sealed V/P replay hard-failed.
 SQL_RISK_FREE_LATEST: Final[str] = (
-    "SELECT as_of, aus_10y_yield FROM market_context_current "
-    "WHERE aus_10y_yield IS NOT NULL AND as_of <= $1 ORDER BY as_of DESC LIMIT 1"
+    "SELECT as_of, yield_pct AS aus_10y_yield FROM risk_free_rates "
+    "WHERE series = $2 AND as_of <= $1 ORDER BY as_of DESC LIMIT 1"
 )
 SQL_AUDUSD_LATEST: Final[str] = (
     "SELECT dt, rate FROM fx_rates WHERE pair = 'AUDUSD' AND dt <= $1 ORDER BY dt DESC LIMIT 1"
@@ -237,11 +243,12 @@ async def load_universe_rows(
 
 
 async def load_market_inputs(conn: Conn, *, cutoff_date: date) -> MarketInputs:
-    rf = await conn.fetchrow(SQL_RISK_FREE_LATEST, cutoff_date)
+    rf = await conn.fetchrow(SQL_RISK_FREE_LATEST, cutoff_date, capm.RISK_FREE_SERIES_ID)
     if rf is None:
         raise RuntimeError(
-            "no risk-free rate: market_context_current.aus_10y_yield is empty at or before "
-            f"{cutoff_date} — run ingest_market_context before the valuation sweep"
+            f"no risk-free rate: risk_free_rates has no {capm.RISK_FREE_SERIES_ID} "
+            f"observation at or before {cutoff_date} — run jobs/backfill_risk_free.py "
+            "(risk-free-backfill.yml) to cover that date before the valuation sweep"
         )
     fx = await conn.fetchrow(SQL_AUDUSD_LATEST, cutoff_date)
     if fx is None:

@@ -44,6 +44,10 @@ ERP_MAX: Final[Decimal] = Decimal("0.06")
 
 #: What market_context.aus_10y_yield ACTUALLY is. Never label it "10-year ACGB".
 RISK_FREE_SERIES: Final[str] = "FRED IRLTLT01AUM156N"
+#: The bare FRED series id, for the API and for `risk_free_rates.series`.
+#: Derived rather than written twice — two hardcoded copies of a series id is
+#: how the two come to disagree.
+RISK_FREE_SERIES_ID: Final[str] = RISK_FREE_SERIES.removeprefix("FRED ")
 RISK_FREE_LABEL: Final[str] = (
     "OECD/FRED monthly long-term (10-year) government bond yield for Australia, "
     "series IRLTLT01AUM156N — a MONTHLY series carried forward, not a daily "
