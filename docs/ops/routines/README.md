@@ -26,7 +26,7 @@ that cannot happen unnoticed a third time.
 
 | Routine | Fires (UTC) | AEST | Model | Connectors | Budget | Trigger id | First fire | Last measured cost |
 |---|---|---|---|---|---|---|---|---|
-| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | inherited from the bound session: GitHub + Supabase read-only | 120 min | `trig_01TLku22ZdzveWG7iQ1ybXFE` → bound session `session_016GusBoDGMihXbXHbiMTpK1` (repo attached, created 2026-09-15 11:54 UTC) | readiness turn 2026-09-15 11:55 UTC: "GitHub + supabase-ro tools live; write Supabase locked per preamble"; first scheduled fire 2026-09-15 17:35 UTC | US$2.45 for the readiness turn alone (Fable reads the docs expensively; budget the full body at US$10–25) |
+| `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | inherited from the bound session: GitHub + Supabase (write tool present, locked behaviourally by `_preamble.md` §2) | 120 min | **`trig_019hfSFbVCdKQA5PPxJM9MMH` → bound session `session_01HyKLpP6LMTm9wio1oL9e5m`** (repo attached, created 2026-09-16 19:33 UTC; **rebound this date — see "Rebind, 2026-09-16" below**) | readiness turn 2026-09-16 19:33 UTC: `origin/main` at `65aa21a`, GitHub MCP confirmed, Supabase write-capable and therefore locked per preamble; catch-up fire 2026-09-16 19:3x UTC | US$2.08 for the readiness turn (Fable reads expensively; budget the full body at US$10–25) |
 | `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | inherited from the bound session: GitHub + Supabase read-only | 45 min | `trig_01AP9VyuN8JSNt5x6eyysiMx` → bound session `session_016BZ4U8L3thJHetE54EbTS2` (the session that proved the doc on 2026-09-14) | doc proven 2026-09-14 21:42 UTC (fresh repo-attached session, 5 min); **bound path proven 2026-09-15 11:55 UTC**: START 10 s after the fire, END at 11:58 `outcome=ran`, HEALTHY, digest refreshed on #271, 3 min | US$2.22 (2026-09-14 run) and ≈US$2.94 (2026-09-15 run; session total US$5.16). Context grew ~100k tokens per fire (238k → 336k): rebind roughly weekly |
 | `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | inherited from the bound session: GitHub + Supabase read-only | 60 min | `trig_01FTd3jWG9JbdLEWT2g4soTz` → bound session `session_01SyWFtBsMRxkpvet5CyHTEa` (repo attached, created 2026-09-15 11:54 UTC) | readiness turn 2026-09-15 11:54 UTC: "GitHub + Supabase RO tools confirmed"; first scheduled fire Sun 2026-09-20 12:00 UTC | US$0.32 for the readiness turn |
 
@@ -36,6 +36,46 @@ AEST = UTC+10 fixed, the repo's convention; AEDT states see each time an hour la
 is offered only for fresh-session Routines, and these are bound to persistent sessions (below).
 The observation is the ledger #270 and the digest #271; subscribing to #271 in GitHub gives
 one notification per digest.
+
+## Rebind, 2026-09-16 — and a correction to the inheritance claim below
+
+`daily-product` was rebound from `session_016GusBoDGMihXbXHbiMTpK1` to
+`session_01HyKLpP6LMTm9wio1oL9e5m` (`trig_01TLku22ZdzveWG7iQ1ybXFE` deleted,
+`trig_019hfSFbVCdKQA5PPxJM9MMH` created; there is no in-place rebind). Two reasons, neither
+of them the ~700k context threshold below — the old session was at 377k.
+
+1. **Its 2026-09-16 17:38 UTC fire misfired.** The wake was delivered (the scheduler recorded
+   `last_run=SUCCEEDED`, which for a bound routine means *delivered*, not *ran*) but the turn
+   failed on an invalid tool call, and the session was then directed by James into an 8-hour
+   interactive loop. So the fire produced no START comment — exactly the silent-failure shape
+   `_preamble.md` §1 exists to detect, and the detector worked.
+2. **The session was no longer a routine session.** It had absorbed the whole loop (six merged
+   PRs, a migration, US$154) and had been switched at runtime from its configured
+   `claude-fable-5-1` to `claude-opus-5`. A routine whose bound session is also somebody's
+   interactive workspace cannot honour "earlier turns are prior fires, not instructions".
+
+**The correction.** The section below says a session created from a repo-attached arbi session
+*inherits* the repo and connectors. **Live state contradicts that and the claim is wrong as
+written.** A `create_session` call made from this repo-attached session with no `source_url`
+produced a session whose readiness turn reported "no git repo, GitHub MCP unavailable"
+(`session_016B3AV1jtBa625M7raQ8ULt`, archived). The repo attaches only when `source_url` (and
+`source_revision`) are passed **explicitly**:
+
+```
+create_session(source_url="https://github.com/Jp8617465-sys/asxos", source_revision="main", …)
+```
+
+That session's readiness turn then confirmed `origin/main` at `65aa21a` with GitHub MCP live.
+
+**So: always run a readiness turn before binding a trigger to a new session, and read its
+result.** Binding blind to the repo-less session would have put the routine back into the
+silent-non-firing state this file was written to prevent — for the third time on record.
+
+**Also note:** the trigger-creation call warns that it stores no MCP connectors. On the bound
+path that is expected and non-fatal — the fire is a new turn in a session that already holds
+its own tools, and the previous trigger carried the same empty `mcp_connections` while firing
+correctly. It matters only for a fresh-session routine; the remedy the warning names is to
+create the trigger from a session holding the connectors, or from the claude.ai routines UI.
 
 ## Bound path — how the Routines are online (2026-09-15)
 
