@@ -999,3 +999,42 @@ this list.
 
 If a lesson in this file ever conflicts with any file above, the file above wins: flag the
 lesson stale and correct it in place with a `decision-log.md` row (`AGENTS.md` §10).
+
+## 2026-09-16 — A pre-registration is only as good as the inputs it can actually reach
+
+The sealed value-to-price test was built carefully: append-only seal, survivorship-correct
+membership, a whole-ladder monotonicity test chosen specifically because Model A's failure
+was an inverted ladder under a strong top bucket. All of that was right, and none of it
+mattered on the first run, which hard-failed at the first cutoff for want of a risk-free
+rate.
+
+`market_context_current` had looked like a rate series for as long as anyone had needed one.
+It is a daily-forward ingest: 55 rows, all from 2026-07-03, carrying 3 distinct values of a
+monthly print it was forward-filling. `ke = risk_free + β·erp` is the discount rate in a
+residual-income model, so the model could not be replayed at any historical cutoff — it had
+never been testable, and the empty `research_runs` table was a symptom of that rather than of
+neglect.
+
+Three things to carry forward.
+
+**The hard-fail earned its keep.** `CLAUDE.md` #10 exists for exactly this. A graceful
+warning here would have valued 1,774 securities against today's rate at a 2025 cutoff,
+producing a plausible number, a green run, and look-ahead bias inside a pre-registered test.
+The loud failure is what made the gap findable.
+
+**Check that a test CAN run before concluding anything from the fact that it hasn't.** #299
+correctly established that `research_runs` was 0 while the model emitted target prices for 23
+securities, and read that as a governance gap. It was also a capability gap, and the second
+reading only appeared when the test was actually dispatched. Running the thing is a different
+kind of evidence from reasoning about it.
+
+**Read the constant before designing around it.** When the backfill stopped at 2026-08-01 I
+flagged that a six-week-lagging monthly series looked unsuitable as a live discount rate, and
+started designing a two-source rule to accommodate it. `capm.RISK_FREE_LABEL` already said
+the daily table was "a MONTHLY series carried forward, not a daily 10-year ACGB quote" — the
+same series. The concern was wrong, the two-source design was unnecessary, and one paragraph
+of existing documentation would have prevented both. Verified rather than assumed: both
+sources read 5.015 on 2026-09-16.
+
+The loop's headline result (verdict `null`, demotion) is real and pre-committed. But the
+finding that paid for the day was the one that got in the way of producing it.
