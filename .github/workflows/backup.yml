@@ -43,6 +43,9 @@ jobs:
       BACKUP_GITHUB_TOKEN: ${{ secrets.BACKUP_GITHUB_TOKEN }}
       BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
       EXPECTED_SUPABASE_PROJECT_REF: gxjqezqndltaelmyctnl
+      # A-19: scripts/backup_irreplaceable.sh:227 already pings this; it was never wired.
+      # Unset -> the shell guard skips the ping, exactly as JobMonitor does.
+      HEALTHCHECK_URL_BACKUP_IRREPLACEABLE: ${{ secrets.HEALTHCHECK_URL_BACKUP_IRREPLACEABLE }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
