@@ -39,6 +39,8 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
       ASXOS_TZ: "Australia/Sydney"
+      # F-E2E r2 S4: discover_opportunities opens theses (personal investment content).
+      ASXOS_PERSONAL_USE: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -72,6 +74,12 @@ jobs:
       # package admits (rule #11 screened at import). Failures are rows.
       - name: Run valuation
         run: python jobs/run_valuation.py
+
+      # F-E2E r2 S4: screen the valued universe and propose theses at
+      # pending_review (source=system_screen, 0057). Deterministic, no LLM; the
+      # theses are investment content, hence ASXOS_PERSONAL_USE in env: above.
+      - name: Discover opportunities
+        run: python jobs/discover_opportunities.py
 
       - name: Sync fundamentals
         run: python jobs/sync_fundamentals.py

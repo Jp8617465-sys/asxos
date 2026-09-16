@@ -72,6 +72,7 @@ class CoreSettings(BaseSettings):
     healthcheck_url_build_segment_map: str = ""            # D3/S3 normalized segment_map
     healthcheck_url_run_valuation: str = ""                # F-E2E r2 S1 valuation_runs sweep
     healthcheck_url_snapshot_paper_book: str = ""          # F-E2E r2 S3 daily paper book
+    healthcheck_url_discover_opportunities: str = ""       # F-E2E r2 S4 weekly discovery
 
     # Local dev only — skips migration drift check when Supabase branch is absent
     skip_migration_drift_check: bool = False
