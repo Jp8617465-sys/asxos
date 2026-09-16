@@ -35,6 +35,11 @@ jobs:
       BRIEF_FROM_EMAIL: ${{ secrets.BRIEF_FROM_EMAIL }}
       BRIEF_TO_EMAIL: ${{ secrets.BRIEF_TO_EMAIL }}
       ASXOS_PERSONAL_USE: "1"
+      # Healthchecks.io deadman, one per job in this workflow (job-conventions.md).
+      # An unset secret interpolates to empty and JobMonitor skips the ping silently
+      # (job_monitor.py:176), so wiring these is safe before the checks exist.
+      # tests/test_healthcheck_wiring.py derives this list from the job steps below.
+      HEALTHCHECK_URL_CHECK_US_POSITIONS: ${{ secrets.HEALTHCHECK_URL_CHECK_US_POSITIONS }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

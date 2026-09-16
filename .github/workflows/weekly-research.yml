@@ -41,6 +41,18 @@ jobs:
       ASXOS_TZ: "Australia/Sydney"
       # F-E2E r2 S4: discover_opportunities opens theses (personal investment content).
       ASXOS_PERSONAL_USE: "1"
+      # Healthchecks.io deadman, one per job in this workflow (job-conventions.md).
+      # An unset secret interpolates to empty and JobMonitor skips the ping silently
+      # (job_monitor.py:176), so wiring these is safe before the checks exist.
+      # tests/test_healthcheck_wiring.py derives this list from the job steps below.
+      HEALTHCHECK_URL_DERIVE_FUNDAMENTALS_PIT: ${{ secrets.HEALTHCHECK_URL_DERIVE_FUNDAMENTALS_PIT }}
+      HEALTHCHECK_URL_DISCOVER_OPPORTUNITIES: ${{ secrets.HEALTHCHECK_URL_DISCOVER_OPPORTUNITIES }}
+      HEALTHCHECK_URL_RUN_VALUATION: ${{ secrets.HEALTHCHECK_URL_RUN_VALUATION }}
+      HEALTHCHECK_URL_SYNC_CORPORATE_ACTIONS: ${{ secrets.HEALTHCHECK_URL_SYNC_CORPORATE_ACTIONS }}
+      HEALTHCHECK_URL_SYNC_FINANCIAL_STATEMENTS: ${{ secrets.HEALTHCHECK_URL_SYNC_FINANCIAL_STATEMENTS }}
+      HEALTHCHECK_URL_SYNC_FUNDAMENTALS: ${{ secrets.HEALTHCHECK_URL_SYNC_FUNDAMENTALS }}
+      HEALTHCHECK_URL_SYNC_SECURITY_MASTER: ${{ secrets.HEALTHCHECK_URL_SYNC_SECURITY_MASTER }}
+      HEALTHCHECK_URL_SYNC_UNIVERSE: ${{ secrets.HEALTHCHECK_URL_SYNC_UNIVERSE }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

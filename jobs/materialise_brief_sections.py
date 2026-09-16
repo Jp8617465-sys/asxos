@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 from datetime import date
 
 from asxos import clock
@@ -54,7 +55,14 @@ async def main(as_of: date) -> None:
 
     await _init_pool()
     try:
-        async with _JobMonitor(job_name="materialise_brief_sections", as_of=as_of) as monitor:
+        # This job had no deadman at all until 2026-09-17 — the only JobMonitor call
+        # site without a healthcheck. os.environ, not settings, to match the ten
+        # sibling jobs and to keep this module's imports lazy/patchable.
+        async with _JobMonitor(
+            job_name="materialise_brief_sections",
+            as_of=as_of,
+            healthcheck_url=os.environ.get("HEALTHCHECK_URL_MATERIALISE_BRIEF_SECTIONS", ""),
+        ) as monitor:
             data = await collect(as_of)
             async with _acquire() as conn:
                 await persist(conn, data)
