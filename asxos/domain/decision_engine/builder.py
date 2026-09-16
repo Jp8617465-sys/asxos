@@ -36,15 +36,14 @@ ChallengeResult -> PortfolioAssessment -> DecisionPacket -> DecisionCase`,
   ASX exchange calendar (see that module's docstring); this packet is
   forced into `abstain` regardless, so no action-state deadline ever rests
   on it.
-- `TaxAssessmentReference` reuses
-  `results_review/contracts.py::unresolved_tax_assessment_reference()`
-  rather than calling `tax_view_individual()` directly: that function's
-  only real caller today hardcodes empty dividends/realised-gains (G12),
-  so calling it here would produce the same unearned-looking `readiness`
-  through more code, not a more honest one. `unresolved_tax_assessment_reference`
-  is the single producer this codebase already ships for "no real
-  dividend/gains feed exists yet, so readiness is honestly unknown, not
-  fabricated" — reusing it directly says exactly that with no new surface.
+- `TaxAssessmentReference` comes from the G12 feed when the caller supplies
+  a `DividendCharacterisation` (`asxos/domain/tax/feed.py::tax_reference_for`,
+  F-E2E r2 S9): a security-level `pass`/`applicable` when every dividend in
+  the trailing window is declared for an ASX name. Without the feed it is
+  `results_review/contracts.py::unresolved_tax_assessment_reference()` —
+  readiness honestly unknown, not fabricated — exactly as before S9.
+  `tax_view_individual()` is still never called here: it is a position-level
+  producer and this packet has no position.
 - Before Wave 5 the `ChallengeResult` was a permanent "no challenger exists"
   blocking finding. The challenger now exists; the no-context path keeps an
   equivalent honest finding ("the register rules did not run") so a case can
@@ -108,6 +107,7 @@ from asxos.domain.results_review.pit_db import (
     assert_sql_admissible,
     validate_symbol,
 )
+from asxos.domain.tax.feed import DividendCharacterisation, claim_for, tax_reference_for
 from asxos.domain.themes.candidates.measures import assert_measure_sql_admissible
 from asxos.domain.themes.candidates.types import CandidateSnapshot
 from asxos.domain.theses.service import get_thesis
@@ -248,8 +248,18 @@ async def build_decision_case(
     context: ChallengeContext | None = None,
     expected_symbol: str | None = None,
     valuation: ValuationRun | None = None,
+    dividends: DividendCharacterisation | None = None,
 ) -> DecisionCase:
     """Compose one real `DecisionCase` for any approved thesis.
+
+    `dividends` (F-E2E r2 S9, the G12 feed) is the name's security-level
+    dividend characterisation from `rs_corporate_actions`
+    (`asxos/domain/tax/feed.py`). It becomes a `tax_fact` evidence item and
+    the `TaxAssessmentReference`: `pass`/`applicable` when every dividend in
+    the trailing window is declared for an ASX name, else the unresolved
+    reference this builder always carried. Without it the packet still lists
+    the feed as a missing input. A pass earns nothing beyond `watch`: state
+    derivation is S10, and the size stays zero.
 
     `valuation` (F-E2E r2 S2) is the name's latest `valuation_runs` row. It
     becomes a `valuation_fact` evidence item citing the run, and — when the
@@ -298,6 +308,11 @@ async def build_decision_case(
             raise ValueError(f"valuation run {valuation.run_id} is for {valuation.symbol}, not {symbol}")
         if valuation.knowledge_cutoff > cutoff:
             raise ValueError("valuation run was built after the requested knowledge cutoff")
+    if dividends is not None:
+        if dividends.symbol != symbol:
+            raise ValueError(f"dividend characterisation is for {dividends.symbol}, not {symbol}")
+        if dividends.knowledge_cutoff != cutoff:
+            raise ValueError("dividend characterisation was built for a different knowledge cutoff")
 
     narrative_known_at = thesis.last_revisited_at
     if narrative_known_at.tzinfo is None:
@@ -487,6 +502,22 @@ async def build_decision_case(
     if context is not None and context.valuation_gap_pct is not None:
         valuation_gap_pct = context.valuation_gap_pct
 
+    # -- The G12 feed (S9): a tax_fact citing the research store's dividend rows.
+    if dividends is not None:
+        items.append(
+            EvidenceItem(
+                evidence_id=f"{slug}-dividends-{as_of.isoformat()}",
+                evidence_type="tax_fact",
+                title=f"{symbol} trailing-window dividend characterisation (readiness={dividends.readiness})",
+                claim=claim_for(dividends),
+                source_uri=f"asxos://rs_corporate_actions/{symbol}/dividend/{as_of.isoformat()}",
+                observed_at=dividends.observed_at,
+                known_at=dividends.known_at,
+                evidence_tier="verified",
+                data_mode=dividends.data_mode,
+            )
+        )
+
     # -- Stage 3 candidate evidence rides along unchanged (same EvidenceItem contract).
     if candidate is not None:
         present = {item.evidence_id for item in items}
@@ -617,7 +648,15 @@ async def build_decision_case(
     )
 
     # -- Slice 2.5 challenge + Slice 2 sizer -------------------------------------
-    missing: list[str] = ["Real dividend/realised-gains feed for tax readiness (G12)"]
+    missing: list[str] = []
+    if dividends is None:
+        missing.append("Real dividend/realised-gains feed for tax readiness (G12)")
+    elif dividends.readiness != "pass":
+        missing.append(
+            "Dividend characterisation incomplete — tax readiness unknown: " + "; ".join(dividends.undeclared)
+        )
+    elif not symbol.endswith(".AU"):
+        missing.append("Tax characterisation applies to ASX securities only — non-AU name stays uncertain (spec §1)")
     indicative_size = ZERO_SIZE
     if context is None:
         challenge = ChallengeResult(
@@ -736,8 +775,8 @@ async def build_decision_case(
             ),
         )
 
-    # A passed challenge earns `watch` (non-action: tax readiness is unknown by
-    # construction until G12 closes); anything else is `abstain`.
+    # A passed challenge earns `watch` (non-action: state derivation from
+    # challenge + tax readiness + calibration is S10); anything else is `abstain`.
     state: RecommendationState = "watch" if challenge.outcome == "pass" else "abstain"
     zero_size = ZERO_SIZE
     portfolio_snapshot_id = f"live-portfolio-{as_of.isoformat()}"
@@ -781,16 +820,23 @@ async def build_decision_case(
         constraints=constraints,
     )
 
-    tax_reference = unresolved_tax_assessment_reference(
-        tax_assessment_id=f"taxref-{slug}-{thesis_id}-{as_of.isoformat()}",
-        as_of=as_of,
-        knowledge_cutoff=cutoff,
-        created_at=cutoff,
+    tax_assessment_id = f"taxref-{slug}-{thesis_id}-{as_of.isoformat()}"
+    tax_reference = (
+        tax_reference_for(
+            dividends, tax_assessment_id=tax_assessment_id, as_of=as_of, knowledge_cutoff=cutoff, created_at=cutoff,
+        )
+        if dividends is not None
+        else unresolved_tax_assessment_reference(
+            tax_assessment_id=tax_assessment_id, as_of=as_of, knowledge_cutoff=cutoff, created_at=cutoff,
+        )
     )
+    market_data = "asxos-research-store-rs_financial_statements-rs_fundamentals_pit-prices"
+    if dividends is not None:
+        market_data += "-rs_corporate_actions"
     manifest = (
         ManifestEntry(component="composition", version="deterministic-python-decision-engine-builder-0.2"),
         ManifestEntry(component="llm", version="none"),
-        ManifestEntry(component="market_data", version="asxos-research-store-rs_financial_statements-rs_fundamentals_pit-prices"),
+        ManifestEntry(component="market_data", version=market_data),
         ManifestEntry(component="code_contract", version="decision-engine-slice2.5-0.2"),
     )
     decision = DecisionPacket(
