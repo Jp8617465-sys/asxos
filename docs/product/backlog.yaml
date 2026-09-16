@@ -540,17 +540,20 @@ items:
       defect: "model never reaches challenge" — closed by tests/test_decision_builder_valuation.py.
 
   - id: A-38
-    title: "F-E2E/S6 — brief section 'opportunities': top-10 ranked opportunities (both conventions), latest packet per approved thesis, pending proposals with the exact APPROVE/DISPOSE comment text"
+    title: "F-E2E/S6 — brief section 'opportunities', re-scoped by #306: no ranked list and no targets (at most the symbol-ordered value-screen record with model values); latest packet per approved thesis; pending proposals with the exact APPROVE/DISPOSE comment text"
     phase: A
     owner: arbi
     status: open
-    depends_on: ["A-34", "A-35", "A-36"]
+    depends_on: ["A-34", "A-35", "A-36", "A-42"]
     route: attended
     paths: ["asxos/brief/section.py", "asxos/brief/compose.py", "asxos/brief/gold.py", "asxos/brief/templates/", "tests/"]
     source: >-
       docs/proposals/production-sprint-r2-2026-09-16.md S6. No brief code references valuation_runs
       or decision_packets today. Fail-soft like the news section (EMPTY on error, MISSING on absent
       table). Amendment E renders: the card on a scheduled send with real values.
+      RE-SCOPED 2026-09-17 by #306/#309 (A-42): the sealed response rule forbids ranked
+      'opportunities' and targets, so the card may show at most the symbol-ordered passing set with
+      its model values and the packets — never a top-N, a target, a band or a stop.
 
   - id: A-39
     title: "F-E2E/S8 — disposition from a phone: jobs/apply_github_decisions.py parses owner-only APPROVE / REJECT / DISPOSE comments on the pinned decisions issue into approve_object / persist_disposition"
@@ -612,6 +615,29 @@ items:
       one unverified number is James's actual EODHD plan tier/quota headroom. Recommended r3
       sequence: ASX-quoted global ETFs first (zero new cost/surface), then a US SEC-EDGAR path
       gated on a security_kind enum and a spec amendment. No pull made; no spend committed.
+
+  - id: A-42
+    title: "F-VAL — apply the null verdict's demotion (#306): the residual-income model stops emitting target prices, entry bands and ranked opportunities; the screen is recorded, no thesis is opened"
+    phase: A
+    owner: arbi
+    status: done
+    depends_on: []
+    route: build
+    paths: ["asxos/domain/discovery/", "jobs/discover_opportunities.py", ".github/workflows/weekly-research.yml", "tests/"]
+    source: >-
+      #306: the pre-committed response rule (asxos/domain/research/registry/vp.py RESPONSE_RULE,
+      sealed by James 2026-09-16 before any result existed; #304 returned null). Filed 2026-09-17 by
+      the daily-product routine so the picker and roadmap-state.md's live block name the same item
+      (Amendment K) — the loop close ranked it #0 without a row. Amber (investment output).
+      DONE 2026-09-17 (#309): plan_for, the three constants (0.80/0.65/0.80), liquidity_factor, rank,
+      thesis prose and ThesisPlan deleted; passing() keeps the four gates, symbol-ordered; the job
+      opens no thesis (rows_written=0, note names #306); ASXOS_PERSONAL_USE gate and the workflow
+      step kept. #0b decided: the falsifiable number per thesis is valuation_fact + valuation_gap in
+      decision_engine/builder.py for human-approved theses; nothing is derived from the model value.
+      Amendment E captures: PENDING Saturday 2026-09-19 weekly-research (job_runs.rows_written=0 for
+      discover_opportunities with the note; no new system_screen thesis). Residue, attended: the ten
+      system_screen theses ids 14-23 at pending_review still carry the constant-derived levels —
+      asx thesis reject x10 (A-39's #289 parser is open, so a REJECT comment executes nothing yet).
 
   - id: B-1
     title: "Inspect $BACKUP_REPO signal-evidence-2026-08-16/ digests (ls, sha256sum, MANIFEST, gzip -dc | sha256sum) — unconditional, first"
@@ -1507,7 +1533,7 @@ items:
       when" holds on live data: >= 7 consecutive as_of rows (first scheduled write 2026-09-16 20:30 UTC).
 
   - id: C-24
-    title: "F-E2E/S4 — discovery: jobs/discover_opportunities.py screens the valued universe (liquidity, average-ROE quality), ranks by value/price, and opens system-proposed theses at pending_review with evidence"
+    title: "F-E2E/S4 — discovery: jobs/discover_opportunities.py screens the valued universe (liquidity, average-ROE quality), ranks by value/price, and opens system-proposed theses at pending_review with evidence — DEMOTED by #306, see A-42"
     phase: C
     owner: arbi
     status: done
@@ -1531,6 +1557,9 @@ items:
       screening_runs has 1 row (discovery-liquidity-v1); 10 theses at governance_status=
       pending_review carry a thesis_revisions row with source=system_screen. DoD (ii) exceeded
       (bar was >=1 screening run and >=5 theses).
+      DEMOTED 2026-09-17 (#306 -> #309, row A-42): the rank, the band/stop conventions this row
+      describes and the top-10 proposal no longer exist; the job records the screen and opens
+      nothing. This row is the record of what shipped; A-42 is the live behaviour.
 
   - id: C-25
     title: "F-E2E/S5 — jobs/build_decision_packets.py: a challenged decision packet on schedule for every approved thesis, with the paper book and the latest valuation, persisted; step after the brief send"
