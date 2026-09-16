@@ -410,8 +410,8 @@ items:
   - id: A-31
     title: "Merge #222 — G12 tax-feed design spike; then rule its three decisions (what a pass asserts, the franking rule, tax_settings)"
     phase: A
-    owner: james
-    status: built-unmerged
+    owner: arbi
+    status: done
     depends_on: []
     route: james
     paths: ["docs/proposals/g12-tax-feed-design-2026-09-07.md"]
@@ -422,6 +422,11 @@ items:
       needs no action state, that tax_settings has had every needed column and zero
       readers since migration 0004, and a spec-vs-schema collision on missing
       franking (tax-alpha.md:49 "treat as 0" vs migrations/0027:57 "NULL is NOT 0").
+    RULED 2026-09-16 by arbi under James's 2026-09-16 delegation ("arbi shouldn't need me" —
+    decision-log row sprint-r2-s9): (1) a pass is a security-level characterisation only, never
+    a position; (2) undeclared franking is never 0 — tax-alpha.md amended to v1.7 (§3, §10); (3)
+    tax_settings stays unread (a security-level gross-up needs no marginal rate). See C-14 for
+    the implementation.
 
   - id: A-32
     title: "Merge #223 — dependency audit of #214/#215 (MERGE WITH NAMED FOLLOW-UPS); then merge #214 and #215 themselves"

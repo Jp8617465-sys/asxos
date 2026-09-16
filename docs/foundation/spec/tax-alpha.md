@@ -1,6 +1,6 @@
 # Tax alpha specification
 
-Version 1.6. Date 2026-09-07 (v1.6 pending governor ratification — D-9; ratified by the merge of the PR that carries it). Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT stacking numeric verification). v1.5 implements TC-20 (Div 296 cost-base reset). v1.6 adds §5.5 (lot selection for a disposal — the min-CGT objective, search space and tie-break) and TC-25. See section 13 for the full delta history.
+Version 1.7. Date 2026-09-16 (v1.6 ratified by James's merge of #218 on 2026-09-07 — D-9; v1.7 amends §3 and §10 on undeclared franking under James's 2026-09-16 delegation to arbi, decision-log row sprint-r2-s9). Audience: an accountant or experienced investor with Australian tax knowledge. Implementation must follow this document; deviations require a version bump and a change log entry. v1.1 integrates the technical audit dated 2026-05-19 (eight issues against the Treasury Laws Amendment (Building a Stronger and Fairer Super System) Act 2026, the Imposition Act 2026, ITAA 1997, ITAA 1936, ITTPA, the Income Tax Rates Act 1986, and the Medicare Levy Act 1986). v1.2 added §8 (Div 775 US equities). v1.3 adds §5.4 (CGT discount break-even heuristic). v1.4 adds TC-24 (SMSF ECPI-on-CGT stacking numeric verification). v1.5 implements TC-20 (Div 296 cost-base reset). v1.6 adds §5.5 (lot selection for a disposal — the min-CGT objective, search space and tie-break) and TC-25. v1.7 rules that an undeclared (NULL) franking percentage is not zero and blocks any dependent readiness. See section 13 for the full delta history.
 
 ## 1. Scope and non-goals
 
@@ -46,7 +46,7 @@ Worked example. A 30%-tax-rate company pays a $1,000 fully franked dividend. The
 
 Worked example, base-rate entity. A 25%-tax-rate company pays the same $1,000 fully franked dividend. The franking credit is $1,000 × 1.0 × 0.25 / 0.75 = $333.33. Grossed-up = $1,333.33.
 
-When the franking rate for a security is unknown, default to 0.30 and log a warning. When a dividend record is missing its franking percentage, treat as unfranked (franking_pct = 0). Silent assumption of full franking is forbidden.
+When the franking rate for a security is unknown, default to 0.30 and log a warning. A dividend record whose franking percentage is **explicitly declared as zero** is unfranked (franking_pct = 0); zero franking is a valid, common state. A dividend record whose franking percentage is **absent** (NULL — undeclared by the source; `rs_corporate_actions.franking_pct`, migration 0027) is not a computable input: it is neither 0 nor fully franked, and any characterisation or readiness that depends on it stays `unknown` until the value is declared (§1: the registry statement is the trusted source). Silent assumption of any franking level — full or zero — is forbidden.
 
 ## 4. After-tax dividend calculation
 
@@ -427,7 +427,7 @@ Each ambiguous case is resolved here. Implementation must follow these resolutio
 
 **Unknown franking rate for a security.** Default the corporate tax rate to 0.30 and log a warning identifying the security. Silent assumption is forbidden.
 
-**Missing franking percentage on a dividend record.** Treat as fully unfranked (franking_pct = 0). Do not assume full franking. Zero franking is a valid common state.
+**Missing franking percentage on a dividend record.** Undeclared (NULL) is not zero: do not compute; surface the record as an unresolved input and leave dependent readiness `unknown`. An explicitly declared 0% is unfranked and computes normally. Do not assume full franking.
 
 **CGT discount boundary day.** The disposal must occur on or after the date one year and one day after acquisition. A disposal exactly 365 calendar days after acquisition does not qualify in non-leap-year spans (see §5.1). Use calendar arithmetic, not day-count arithmetic.
 
@@ -530,6 +530,23 @@ Each case below must be covered by a unit test referencing the spec section.
 Direct fetching of the ATO franking and CGT pages returned 403 during preparation of v1.0; v1.1 confirms via the AustLII statutory text, the audit's verification against the Parliamentary Library Bills Digest, and the cross-referencing of the practitioner sources above. Before implementation cuts code, the final step is a direct read of the compiled Acts on the Federal Register of Legislation.
 
 ## 13. Change log
+
+**v1.7, 2026-09-16 (arbi, under James's 2026-09-16 delegation; decision-log row sprint-r2-s9).**
+Resolves the spec-vs-schema collision the G12 design spike found
+(`docs/proposals/g12-tax-feed-design-2026-09-07.md`, decision 2): §3 said a missing franking
+percentage is "treat as unfranked (0)" while migration 0027 and `ingestion/corporate_actions.py`
+store NULL as "undeclared (NOT 0)". Both cannot govern a feed.
+- §3 and §10: an **undeclared** (NULL) franking percentage is not a computable input and leaves any
+  dependent characterisation or readiness `unknown`; an **explicitly declared 0%** is unfranked and
+  computes normally. Migration 0027:57 stands unchanged.
+- Producer: `asxos/domain/tax/feed.py` (security-level dividend characterisation from
+  `rs_corporate_actions`; a `pass` asserts declared cash and franking for every dividend in the
+  trailing 365-day window for an ASX name, and nothing about a position). The §3 validation
+  formula with the default 0.30 rate is the production path there because no registry-statement
+  credit exists in the research store; `universe.corporate_tax_rate` is still unread, so the
+  credit is overstated for a base-rate entity and the evidence claim says so.
+- No test case number: the feed's cases live in `tests/test_tax_feed.py` (explicit 0% computes;
+  NULL blocks and is named; the ex-date-on-cutoff-day row is not knowable at a morning cutoff).
 
 **v1.6, 2026-09-07 (pending D-9 ratification).** Adds §5.5 (lot selection for a disposal) so the
 min-CGT strategy has a governing rule now that a staged sell makes lot choice capital-facing
