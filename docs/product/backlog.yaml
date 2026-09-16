@@ -1119,13 +1119,24 @@ items:
     title: "F-E2E/S10 — derive the packet state from challenge + tax readiness + calibration instead of the hard-coded watch/abstain at builder.py:661; action states stay unreachable until C-13"
     phase: D
     owner: arbi
-    status: open
+    status: done
     depends_on: ["C-14"]
     route: attended
     paths: ["asxos/domain/decision_engine/builder.py", "asxos/domain/decision_engine/sizer.py", "tests/"]
     source: >-
       docs/proposals/production-sprint-r2-2026-09-16.md S10. builder.py:661-662 pin state and size by
       construction (code trace 2026-09-16). Byte-identical output on the two live packets is the test.
+      DONE 2026-09-16 (mission W6): asxos/domain/decision_engine/builder.py::derive_state(challenge_outcome,
+      tax_readiness, calibration) replaces the hard-coded ternary; abstain unless the challenge passed,
+      watch unless calibration is present AND tax readiness is pass. calibration is always None (no C-13
+      producer exists), so every call site is guaranteed a NON_ACTION_STATE this sprint — a non-None
+      calibration raises NotImplementedError naming C-13 rather than guessing an action state, since no
+      position/stage-aware direction rule exists either. tradeability_and_ownership now reads S4's ADV
+      floor (MIN_ADV_AUD) instead of always "unknown". tests/test_decision_builder_wave5.py,
+      tests/test_decision_builder_tax_feed.py and tests/test_live_decision_chain_fixture.py stay green
+      unchanged — byte-identical output on the two live packets holds. New:
+      tests/test_decision_state_derivation.py (the full gate matrix, the calibration-raises path, the
+      liquidity-fed tradeability constraint).
 
   - id: E-1
     title: "Persist challenge-finding dispositions append-only, keyed to challenge_results.content_hash + finding_key (H-30)"
