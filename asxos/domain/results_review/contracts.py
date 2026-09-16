@@ -218,12 +218,15 @@ TAX_ASSESSMENT_PRODUCERS: Final[tuple[str, str]] = (
     "asxos.domain.tax.positions.tax_view_smsf",
 )
 
-#: FROZEN DEFAULT: `unknown`, not `pass`. The tax aggregator has never been
-#: fed real dividends or realised gains (`asxos/cli/tax.py:93,99` hardcodes
-#: empty inputs — G12), so `pass` would be an unearned assertion. UNKNOWN is a
-#: valid, successful outcome, not a failure (matrix :454-455); the canonical
-#: contract makes non-pass readiness mechanically forbid every action state
-#: (types.py:512-516).
+#: FROZEN DEFAULT: `unknown`, not `pass`. The position-level aggregator has
+#: never been fed real dividends or realised gains (`asxos/cli/tax.py:93,99`
+#: hardcodes empty inputs — G12), so a position-level `pass` would be an
+#: unearned assertion. UNKNOWN is a valid, successful outcome, not a failure
+#: (matrix :454-455); the canonical contract makes non-pass readiness
+#: mechanically forbid every action state (types.py:512-516). The only
+#: `pass` constructor that exists is the SECURITY-LEVEL one in
+#: `asxos/domain/tax/feed.py::tax_reference_for` (F-E2E r2 S9, A-31 decision
+#: 1): real `rs_corporate_actions` rows, every field declared, ASX names only.
 DEFAULT_TAX_READINESS: Final[Literal["unknown"]] = "unknown"
 
 

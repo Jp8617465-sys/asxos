@@ -6,8 +6,8 @@ Daily, after "Compose and send brief" in daily-brief.yml (so a failure here can
 never cost the brief). For each thesis with governance_status='approved' and no
 close date: challenge it against the arbi-declared paper book (S3,
 `paper_book_snapshots`, never the live book — C1/D15) with the active profile's
-sizing policy, the name's annualised vol, and the latest valuation_runs row (S1,
-via S2's `valuation=`), then persist the five-artifact case (0048). Same-day
+sizing policy, the name's annualised vol, the latest valuation_runs row (S1,
+via S2's `valuation=`) and the G12 dividend characterisation (S9), then persist the five-artifact case (0048). Same-day
 idempotent: a packet id already stored for the day is skipped, never rebuilt.
 
 One thesis failing to build (no price plan, no income row, stale snapshot) is
@@ -40,6 +40,7 @@ from asxos.domain.decision_engine.portfolio_state import (
     load_peer_vols,
     load_sizing_policy,
 )
+from asxos.domain.tax.feed import load_dividend_characterisation
 from asxos.domain.valuation.repository import latest_run_for_symbol
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -69,12 +70,13 @@ async def build_one(conn: Any, *, thesis_id: int, symbol: str, cutoff: datetime,
     vol = await load_annualised_vol(conn, symbol, day)
     peers = await load_peer_vols(conn, state, day)
     valuation = await latest_run_for_symbol(conn, symbol=symbol, as_of=day)
+    dividends = await load_dividend_characterisation(conn, symbol, cutoff)
     ctx = ChallengeContext(
         portfolio_state=state, sizing=policy, proposed_annualised_vol=vol, peers=peers,
         dispositions=DispositionLog(),
     )
     case = await build_decision_case(
-        conn, cutoff=cutoff, thesis_id=thesis_id, context=ctx, valuation=valuation
+        conn, cutoff=cutoff, thesis_id=thesis_id, context=ctx, valuation=valuation, dividends=dividends
     )
     await repository.save(case, conn=conn)
     return case.decision.decision_packet_id

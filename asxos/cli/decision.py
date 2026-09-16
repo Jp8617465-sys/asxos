@@ -59,6 +59,7 @@ from asxos.domain.decision_engine.portfolio_state import (
 )
 from asxos.domain.decision_engine.renderer import render_broker_report
 from asxos.domain.decision_engine.types import DecisionCase
+from asxos.domain.tax.feed import load_dividend_characterisation
 from asxos.domain.themes.candidates.builder import build_candidate_snapshot, build_theme_version
 
 decision_app = typer.Typer(help="Governed decision cases (Stage 4).", no_args_is_help=True, add_completion=False)
@@ -131,7 +132,10 @@ async def _build(
                     portfolio_state=state, sizing=policy, proposed_annualised_vol=vol, peers=peers,
                     dispositions=DispositionLog(),
                 )
-            case = await build_decision_case(conn, cutoff=cutoff, thesis_id=thesis_id, candidate=candidate, context=ctx)
+            dividends = await load_dividend_characterisation(conn, thesis.symbol, cutoff)
+            case = await build_decision_case(
+                conn, cutoff=cutoff, thesis_id=thesis_id, candidate=candidate, context=ctx, dividends=dividends
+            )
             delivery_at = now_utc()
             html = render_decision_case(case, evaluated_at=delivery_at)
             receipts = [receipt_for(case, html, channel="cli", delivered_at=delivery_at)]
