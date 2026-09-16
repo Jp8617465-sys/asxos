@@ -119,6 +119,10 @@ jobs:
       # Post-brief steps: deliberately AFTER the send, so a failure here can
       # never cost James the brief itself. They still fail the run visibly.
 
+      # F-E2E r2 S5: a challenged packet for every approved thesis, on the paper book.
+      - name: Build decision packets
+        run: python jobs/build_decision_packets.py
+
       - name: Score macro theses
         run: python jobs/score_macro_theses.py
 
