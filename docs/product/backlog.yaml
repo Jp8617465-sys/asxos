@@ -555,7 +555,7 @@ items:
     title: "F-E2E/M1 — migrations 0055 (cash_aud/capital_aud paired NULL CHECK), 0056 (cash_balance_assertions), 0057 (thesis_revisions.source += 'system_screen') in one AGENTS.md section 8 sitting"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: attended
     paths: ["migrations/"]
@@ -563,6 +563,12 @@ items:
       docs/proposals/production-sprint-r2-2026-09-16.md M1; #228 PRs 2/3 (session-handoff-2026-09-14-3.md);
       0057 is new: system-proposed theses need a source value the CHECK admits. Before-image for 0055:
       72 rows, 26 non-zero cash_aud. Not routine-pickable by construction (migrations/ is denied).
+      DONE 2026-09-16 (mission W3, one sitting): migration-integration 35042541429 green on the
+      branch; backup.yml 35042621759 read as success; applied as 20260916010627 / 20260916010638 /
+      20260916010642; schema_drift compare clean; before-image re-verified post-apply (74 rows, 26
+      non-zero, 0 NULL, max 25000). Amendment E captures: the three ledger rows. The writer
+      re-point (snapshot writes NULL cash/capital unless an assertion exists; readers treat NULL as
+      unmeasured) is C-27, not this row.
 
   - id: A-41
     title: "F-E2E/S11 — global-universe data spike: non-ASX fundamentals source options and the A$/day estimate, posted before any pull (r3 prep, no build)"
@@ -1483,6 +1489,21 @@ items:
     source: >-
       docs/proposals/production-sprint-r2-2026-09-16.md S7. outcomes.materialise_t0 and observe
       exist and are unscheduled; thesis_outcomes has 4 rows. r2's first-outcome clause.
+
+  - id: C-27
+    title: "Re-point the live snapshot writer at cash_balance_assertions (0056): cash_aud/capital_aud NULL when no assertion exists (0055), every capital_aud reader treats NULL as unmeasured, and an `asx cash assert` CLI writes the ledger"
+    phase: C
+    owner: arbi
+    status: open
+    depends_on: ["A-40"]
+    route: attended
+    paths: ["jobs/snapshot_portfolio.py", "asxos/cli/", "asxos/brief/", "asxos/domain/brief/collectors/wealth_state.py", "asxos/domain/benchmark/", "tests/"]
+    source: >-
+      #228 remaining work after M1 (2026-09-16). Migrations 0055/0056 make the honest row
+      representable; the writer still writes profile.cash_floor_pct * profile.capital_aud because
+      23 modules read capital_aud (brief wealth line, benchmark returns, discipline, monitors) and a
+      NULL capital would fail the brief until each treats NULL as "not measured". Attended: the
+      blast radius is the daily brief.
 
   - id: E-20
     title: "ingest_regulatory reports rows_written=1 nightly while regulatory_events has not grown since 2026-09-03 — verify the live RBA feed's item count against parse_rss; rows_written is an upsert-touched count, not inserts"
