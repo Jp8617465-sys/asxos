@@ -59,7 +59,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
-from typing import Final
+from typing import Final, Literal
 
 from pydantic import Field
 
@@ -97,6 +97,7 @@ from asxos.domain.decision_engine.types import (
     UpstreamArtifactHashes,
     default_packet_expiry,
 )
+from asxos.domain.discovery.ranker import MIN_ADV_AUD
 from asxos.domain.results_review.contracts import (
     derive_statement_known_at,
     unresolved_tax_assessment_reference,
@@ -214,6 +215,44 @@ def _valuation_title(symbol: str, run: ValuationRun) -> str:
             f"({run.terminal_convention}, {run.as_of.isoformat()})"
         )
     return f"{symbol} valuation blocked at {run.as_of.isoformat()}: " + ", ".join(g.name for g in run.gaps)
+
+
+def derive_state(
+    *,
+    challenge_outcome: Literal["pass", "revise", "abstain"],
+    tax_readiness: Literal["pass", "fail", "unknown"],
+    calibration: object | None,
+) -> RecommendationState:
+    """The packet's recommendation state (F-E2E r2 S10, backlog D-16).
+
+    Replaces the hard-coded ``"watch" if challenge.outcome == "pass" else
+    "abstain"`` with the real gate: a state is an action state only when the
+    challenge passed, a capital-risk calibration is present, AND tax
+    readiness is ``"pass"``. Otherwise the packet stays non-action —
+    ``"abstain"`` when the challenge itself did not pass, ``"watch"``
+    whenever it did but calibration or tax readiness is missing.
+
+    ``calibration`` is the capital-risk calibration campaign C-13 is meant to
+    supply (loss-limit / drawdown sizing); no such producer exists yet, so
+    every call site in this codebase passes ``None`` and this function always
+    returns a NON_ACTION_STATE this sprint — action states stay structurally
+    unreachable, not merely improbable. The door is the parameter itself: once
+    C-13 lands a real calibration value AND a mechanism for choosing *which*
+    action state (initiate/add/trim/exit_review depends on the existing
+    position and thesis stage, which this function does not have), that
+    mechanism plugs in below without touching the tax/challenge gate this
+    slice built. A non-``None`` calibration today is a programming error —
+    there is nothing yet that can honestly produce one — so it raises rather
+    than guessing a direction.
+    """
+    if challenge_outcome != "pass":
+        return "abstain"
+    if calibration is None or tax_readiness != "pass":
+        return "watch"
+    raise NotImplementedError(
+        "action-state selection requires C-13 (capital-risk calibration) and a "
+        "position/stage-aware direction rule; neither exists yet"
+    )
 
 
 def _valuation_claim(run: ValuationRun) -> str:
@@ -657,6 +696,19 @@ async def build_decision_case(
         )
     elif not symbol.endswith(".AU"):
         missing.append("Tax characterisation applies to ASX securities only — non-AU name stays uncertain (spec §1)")
+
+    # -- Computed here (S9), ahead of `derive_state` (S10) which reads its readiness.
+    tax_assessment_id = f"taxref-{slug}-{thesis_id}-{as_of.isoformat()}"
+    tax_reference = (
+        tax_reference_for(
+            dividends, tax_assessment_id=tax_assessment_id, as_of=as_of, knowledge_cutoff=cutoff, created_at=cutoff,
+        )
+        if dividends is not None
+        else unresolved_tax_assessment_reference(
+            tax_assessment_id=tax_assessment_id, as_of=as_of, knowledge_cutoff=cutoff, created_at=cutoff,
+        )
+    )
+
     indicative_size = ZERO_SIZE
     if context is None:
         challenge = ChallengeResult(
@@ -684,6 +736,7 @@ async def build_decision_case(
         )
         missing.append("Portfolio state and sizing policy (ChallengeContext) — the register rules did not run")
         borrowing = Decimal("0")
+        adv_raw: str | None = None
         freshness: ConstraintResult = ConstraintResult(
             name="decision_evidence_freshness", status="unknown", blocking=True,
             detail="No price was read at the cutoff; evidence recency is only as fresh as the caller-supplied knowledge_cutoff.",
@@ -775,11 +828,33 @@ async def build_decision_case(
             ),
         )
 
-    # A passed challenge earns `watch` (non-action: state derivation from
-    # challenge + tax readiness + calibration is S10); anything else is `abstain`.
-    state: RecommendationState = "watch" if challenge.outcome == "pass" else "abstain"
+    # Gated derivation (S10, D-16): action states stay unreachable this sprint —
+    # calibration is always None until C-13 exists — so this call is guaranteed
+    # to return a NON_ACTION_STATE, matching the pre-S10 behaviour exactly.
+    state: RecommendationState = derive_state(
+        challenge_outcome=challenge.outcome, tax_readiness=tax_reference.readiness, calibration=None,
+    )
     zero_size = ZERO_SIZE
     portfolio_snapshot_id = f"live-portfolio-{as_of.isoformat()}"
+    adv_aud = Decimal(adv_raw) if adv_raw is not None else None
+    tradeability = (
+        ConstraintResult(
+            name="tradeability_and_ownership", status="pass", blocking=True,
+            detail=(
+                f"90-day ADV {adv_aud} AUD >= the discovery liquidity floor {MIN_ADV_AUD} AUD "
+                "(S4); ownership is not independently checked."
+            ),
+        )
+        if adv_aud is not None and adv_aud >= MIN_ADV_AUD
+        else ConstraintResult(
+            name="tradeability_and_ownership", status="unknown", blocking=True,
+            detail=(
+                f"90-day ADV {adv_aud} AUD is below the discovery liquidity floor {MIN_ADV_AUD} AUD (S4)."
+                if adv_aud is not None
+                else "No ADV measure was supplied; tradeability is unmeasured, not assumed liquid."
+            ),
+        )
+    )
     constraints = (
         ConstraintResult(
             name="model_a_quarantine", status="pass", blocking=True,
@@ -793,10 +868,7 @@ async def build_decision_case(
             name="no_broker_execution", status="pass", blocking=True,
             detail="This builder has no broker credential, order route, or execution adapter; staging is non-executable.",
         ),
-        ConstraintResult(
-            name="tradeability_and_ownership", status="unknown", blocking=True,
-            detail="No live tradeability/ownership check is wired into this builder yet.",
-        ),
+        tradeability,
         freshness,
     )
     assert UNIVERSAL_CONSTRAINTS == {c.name for c in constraints}
@@ -820,16 +892,6 @@ async def build_decision_case(
         constraints=constraints,
     )
 
-    tax_assessment_id = f"taxref-{slug}-{thesis_id}-{as_of.isoformat()}"
-    tax_reference = (
-        tax_reference_for(
-            dividends, tax_assessment_id=tax_assessment_id, as_of=as_of, knowledge_cutoff=cutoff, created_at=cutoff,
-        )
-        if dividends is not None
-        else unresolved_tax_assessment_reference(
-            tax_assessment_id=tax_assessment_id, as_of=as_of, knowledge_cutoff=cutoff, created_at=cutoff,
-        )
-    )
     market_data = "asxos-research-store-rs_financial_statements-rs_fundamentals_pit-prices"
     if dividends is not None:
         market_data += "-rs_corporate_actions"
