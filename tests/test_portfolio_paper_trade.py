@@ -372,13 +372,17 @@ async def test_gate_require_continuity_false_bypasses_continuity():
 
 
 @pytest.mark.asyncio
-async def test_gate_continuity_query_filters_successful_build_portfolio():
-    # The continuity query must scope to successful build_portfolio runs.
+async def test_gate_continuity_query_reads_the_paper_book_not_a_deleted_cron():
+    # Re-pinned 2026-09-16 (F-E2E r2 S3): the continuity query reads
+    # paper_book_snapshots, the daily arbi-declared paper book. It used to scope to
+    # successful build_portfolio runs — a cron deleted in the 2026-08-19 ruling, which
+    # is why the gate could never be True (session-handoff-2026-09-14-3.md, Item 9).
     conn = _gate_conn(matured=1, successes=_WEEKLY)
     await has_enough_paper_weeks(conn, today=_GATE_TODAY)
+    assert "paper_book_snapshots" in conn.fetchval.await_args.args[0]
     query = conn.fetch.await_args.args[0]
-    assert "job_name = 'build_portfolio'" in query
-    assert "status = 'success'" in query
+    assert "paper_book_snapshots" in query
+    assert "build_portfolio" not in query and "job_runs" not in query
 
 
 @pytest.mark.asyncio
