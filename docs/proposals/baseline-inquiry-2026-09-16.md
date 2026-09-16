@@ -14,6 +14,23 @@ the read-only connector, and **a recommendation is not an order**. Personal use 
 (periods to 2026-06-30), `prices` to 2026-09-14, `market_context` 2026-09-15 (rf 4.831%),
 AUDUSD 0.7134.
 
+> **Correction, 2026-09-16 (same day).** Two figures in this memo were mine, not the
+> system's, and both had a governed home I failed to read:
+>
+> 1. **The A$100,000 paper book in §7 is superseded and was wrong in kind.** James ruled
+>    the C1 paper book at **A$25,000** on 2026-09-07 (ADR D15) and it is a row in
+>    `paper_book_snapshots`. C1's size is not arbitrary: the ADR (`:199, :211`) shows the
+>    live book's zero cash blocks every proposal at the D1 floor, and C1 is the book on
+>    which a 10% position leaves 90% post-trade cash and clears D1. A larger invented book
+>    discards the reason the instrument exists.
+> 2. **The 7.5% cash floor in §7 is D1, ratified by James 2026-08-23** — not a suggestion
+>    from `target-architecture.md` as cited here, and already enforced in
+>    `challenge/rules.py`. The active profile's `cash_floor_pct = 0` is a stale duplicate.
+>    The contradiction is the finding; it should not have been presented as a recommendation.
+>
+> The universe map, the valuation sweep, the segment tables and the capability scorecard are
+> unaffected — they are computed from live data, not from these two figures.
+
 ## 1. The answer in one screen
 
 - **What the system can do today, live:** value **572 of 1,880** active ASX equities on the
