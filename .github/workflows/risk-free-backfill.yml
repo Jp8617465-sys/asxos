@@ -1,0 +1,76 @@
+# Risk-free point-in-time backfill (issue #301).
+#
+# WHY DISPATCH-ONLY. This fills history, and history does not change daily. The
+# ongoing daily value keeps arriving through ingest_market_context; this lane
+# exists to lay down the series that never existed, and to re-run when FRED
+# revises a published print. A schedule would re-fetch a decade every night to
+# change nothing.
+#
+# WHAT THIS EXPOSES (AGENTS.md §8 — a workflow edit is Amber and must record
+# which secrets, which triggers, which branches run it):
+#   - Secrets: DATABASE_URL and FRED_API_KEY. FRED_API_KEY is already held by
+#     the daily ingest lane that calls the same client; no new secret is
+#     created and no existing workflow's scope changes. No EODHD, RESEND,
+#     GitHub or Supabase token.
+#   - Trigger: workflow_dispatch only. No schedule, no repo event.
+#   - Branch: checks out refs/heads/main, like every other production workflow.
+#     A workflow holding a production secret must not run at a PR head.
+#
+# WHAT IT WRITES. risk_free_rates only — one row per published observation,
+# upserted. It does not touch market_context, market_context_current, any
+# valuation output, valuation_runs or research_runs. dry_run defaults to TRUE,
+# so the default dispatch fetches from FRED and reports what it would write
+# without opening a database connection at all.
+#
+# COST. FRED is free and unmetered; one dispatch is a single series request.
+# Nothing here approaches the AGENTS.md §2 spend cap.
+
+name: risk-free-backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "FRED observation_start (YYYY-MM-DD)"
+        required: false
+        default: "2024-01-01"
+        type: string
+      dry_run:
+        description: "Fetch and report without writing"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: risk-free-backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Backfill the risk-free series
+        run: |
+          python jobs/backfill_risk_free.py \
+            --start "${{ inputs.start }}" \
+            ${{ inputs.dry_run && '--dry-run' || '' }}

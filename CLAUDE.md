@@ -43,8 +43,8 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (on disk through 0054; latest APPLIED is
-`0054_equity_valuation`) is the canonical schema** — roughly 50
+**`migrations/` (on disk through 0058; latest APPLIED is
+`0057_thesis_revisions_source_system_screen`) is the canonical schema** — roughly 50
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -69,8 +69,14 @@ applied on 2026-09-02/03. Via the `AGENTS.md` §8 migration sequence in the
 2026-09-14 merge-train session, `0053_paper_book_snapshots.sql` (`20260914123901`)
 and `0054_equity_valuation.sql` (`20260914123930`) were applied — backup run
 `34844339116` read to `success` before applying — with `schema_migrations`
-holding 106 rows when re-verified same day. So the live ledger ends at 0054
-while 0045 is still absent from it.
+holding 106 rows when re-verified same day. On 2026-09-16 the F-E2E r2 M1 set
+landed via #285: `0055_snapshot_cash_nullable` (`20260916010627`),
+`0056_cash_balance_assertions` (`20260916010638`) and
+`0057_thesis_revisions_source_system_screen` (`20260916010642`). So the live
+ledger ends at 0057 while 0045 is still absent from it.
+`0058_risk_free_pit.sql` is on disk and **NOT yet applied** — it is the
+point-in-time risk-free series (issue #301), whose absence is why the valuation
+model could not be replayed at any historical cutoff.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active

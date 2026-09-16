@@ -150,7 +150,7 @@ def test_epoch_boundary_is_inclusive_of_initial() -> None:
 
 def test_repo_keys_are_unique_and_cover_every_file() -> None:
     keys = repo_migration_keys()
-    assert len(keys) == 56, f"expected 56 .sql files, found {len(keys)}"
+    assert len(keys) == 57, f"expected 57 .sql files, found {len(keys)}"
     assert "perf_indexes" in keys, "0018 must be tracked after its reconstruction"
     assert "screening_runs_comment_fix" in keys, "0046 comment fix must be tracked"
     assert "brief_section_gold" in keys, "0047 gold table must be tracked"
@@ -164,6 +164,7 @@ def test_repo_keys_are_unique_and_cover_every_file() -> None:
     assert "snapshot_cash_nullable" in keys, "0055 paired cash/capital NULL must be tracked"
     assert "cash_balance_assertions" in keys, "0056 cash assertions ledger must be tracked"
     assert "thesis_revisions_source_system_screen" in keys, "0057 system_screen source must be tracked"
+    assert "risk_free_pit" in keys, "0058 point-in-time risk-free series must be tracked"
     assert "initial" in keys
 
 
