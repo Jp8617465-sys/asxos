@@ -416,3 +416,34 @@ async def save_outcome(conn: OutcomeConn, outcome: ThesisOutcome) -> None:
 async def load_outcomes(conn: OutcomeConn, decision_packet_id: str) -> tuple[ThesisOutcome, ...]:
     rows = await conn.fetch(SQL_LOAD_OUTCOMES, decision_packet_id)
     return tuple(ThesisOutcome.model_validate(_payload(r)) for r in rows)
+
+
+class PriceConn(Protocol):
+    async def fetchrow(self, query: str, *args: object) -> Any: ...
+
+
+#: The last close at or before a date — the same read `portfolio_state.SQL_CLOSE`
+#: makes; duplicated here so this module depends on nothing above it.
+SQL_CLOSE_AT: Final[str] = (
+    "SELECT dt, close FROM prices WHERE symbol = $1 AND dt <= $2 ORDER BY dt DESC LIMIT 1"
+)
+
+
+async def observe_at_due_session(conn: PriceConn, row: ThesisOutcome) -> ThesisOutcome:
+    """Observe one promised horizon at its due session, never the catch-up date.
+
+    The price is the last close at or before the row's own `due_at` date, so a
+    late run (the job was down, the packet was recorded after the fact) still
+    measures the window the t0 row promised. Benchmark levels are deliberately
+    not passed: `AXJOA.INDX` is absent from `prices`, so the comparison reports
+    unavailable (governor ruling F1), never a proxy.
+    """
+    due_day = row.due_at.date()
+    price_row = await conn.fetchrow(SQL_CLOSE_AT, row.symbol, due_day)
+    price = Decimal(str(price_row["close"])) if price_row and price_row["close"] is not None else None
+    observed_at = (
+        date.fromisoformat(str(price_row["dt"]))
+        if price_row and price_row.get("dt") is not None
+        else due_day
+    )
+    return observe(row, observed_at=observed_at, observed_price=price)
