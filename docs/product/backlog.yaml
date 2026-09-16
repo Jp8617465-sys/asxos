@@ -1491,7 +1491,7 @@ items:
     title: "F-E2E/S4 — discovery: jobs/discover_opportunities.py screens the valued universe (liquidity, average-ROE quality), ranks by value/price, and opens system-proposed theses at pending_review with evidence"
     phase: C
     owner: arbi
-    status: open
+    status: done
     depends_on: ["A-36", "A-40"]
     route: attended
     paths: ["jobs/discover_opportunities.py", "asxos/domain/discovery/", "asxos/domain/theses/service.py", "asxos/domain/screening/evaluator.py", ".github/workflows/weekly-research.yml", "tests/"]
@@ -1507,6 +1507,11 @@ items:
       value screen; the evidence rows and the screening_runs row carry the record). Closes when the
       DoD (ii) holds live: >= 1 screening_runs row and >= 5 system-screen theses at pending_review
       (first scheduled run Saturday 16:00 UTC, or the dispatch after merge).
+      CLOSED 2026-09-16 (mission W5): weekly-research dispatch after #287 merged ran
+      discover_opportunities with job_runs.rows_written=10. Measured live (supabase-ro):
+      screening_runs has 1 row (discovery-liquidity-v1); 10 theses at governance_status=
+      pending_review carry a thesis_revisions row with source=system_screen. DoD (ii) exceeded
+      (bar was >=1 screening run and >=5 theses).
 
   - id: C-25
     title: "F-E2E/S5 — jobs/build_decision_packets.py: a challenged decision packet on schedule for every approved thesis, with the paper book and the latest valuation, persisted; step after the brief send"
