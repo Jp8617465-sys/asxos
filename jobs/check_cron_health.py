@@ -58,6 +58,7 @@ _EXPECTED_DAILY: dict[str, int] = {
     "compose_brief": _DEFAULT_WINDOW_HOURS,
     "snapshot_portfolio": _DEFAULT_WINDOW_HOURS,
     "snapshot_paper_book": _DEFAULT_WINDOW_HOURS,  # F-E2E r2 S3: the daily paper book
+    "build_decision_packets": _DEFAULT_WINDOW_HOURS,  # F-E2E r2 S5: challenged packets after the brief
     "apply_github_decisions": _DEFAULT_WINDOW_HOURS,  # F-E2E r2 S8: James's issue comments
     "ingest_market_context": _DEFAULT_WINDOW_HOURS,
     "ingest_underlyings": _DEFAULT_WINDOW_HOURS,
