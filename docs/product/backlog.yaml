@@ -512,14 +512,18 @@ items:
     title: "F-E2E/S2 — valuation as EvidencePacket evidence (evidence_type valuation_fact) and rule_valuation_gap in the challenge layer; no new DecisionPacket fields"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: ["A-36"]
     route: attended
     paths: ["asxos/domain/decision_engine/types.py", "asxos/domain/decision_engine/builder.py", "asxos/domain/decision_engine/challenge/rules.py", "tests/"]
     source: >-
       docs/proposals/production-sprint-r2-2026-09-16.md S2. builder.py never reads valuation_runs and
       rule_valuation_percentile is never fed by the model (code trace 2026-09-16). Both live packets
-      must still pass verify_content_hash.
+      must still pass verify_content_hash. DONE 2026-09-16 (mission W2): build_decision_case(valuation=)
+      emits a valuation_fact item citing the run and feeds rule_valuation_gap (sixteenth rule,
+      material above +25%, monitor below -25%, never blocking); the two live chains (10 payloads,
+      tests/fixtures/live_decision_chain_2026-09.json) validate and hash unchanged. Amendment E
+      defect: "model never reaches challenge" — closed by tests/test_decision_builder_valuation.py.
 
   - id: A-38
     title: "F-E2E/S6 — brief section 'opportunities': top-10 ranked opportunities (both conventions), latest packet per approved thesis, pending proposals with the exact APPROVE/DISPOSE comment text"

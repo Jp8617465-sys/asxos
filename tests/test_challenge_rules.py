@@ -79,6 +79,7 @@ def _input(**kw: Any) -> ChallengeInput:
         "last_revisited_at": AS_OF - timedelta(days=10), "revisit_due_at": AS_OF + timedelta(days=80),
         "base_rate_evidence_ids": ("ev:base-rate",),
         "pairwise_correlation_max": Decimal("0.55"), "valuation_percentile": Decimal("60"),
+        "valuation_gap_pct": Decimal("10"), "valuation_evidence_id": "ev:valuation",
         "adv_aud": Decimal("250000000"), "adv_trend_pct": Decimal("3"), "spread_bps": Decimal("4"),
     }
     base.update(kw)
@@ -99,7 +100,7 @@ def _by_rule(x: ChallengeInput) -> dict[str, rules.RuleOutcome]:
 def test_clean_fixture_passes_with_no_findings_and_all_rules_run() -> None:
     res = _challenge(_input())
     assert res.outcome == "pass" and res.findings == ()
-    assert tuple(o.rule for o in run_layer1(_input())) == RULE_NAMES and len(RULE_NAMES) == 15
+    assert tuple(o.rule for o in run_layer1(_input())) == RULE_NAMES and len(RULE_NAMES) == 16
     assert all(o.evaluated for o in run_layer1(_input()))
     assert res.independent_of_author is True
     assert _challenge(_input()).content_hash == res.content_hash  # deterministic
@@ -234,6 +235,8 @@ def test_price_detached_thresholds_and_cba_worked_example() -> None:
         ({"pairwise_correlation_max": Decimal("0.85")}, "correlation", "material"),
         ({"valuation_percentile": Decimal("97")}, "valuation_percentile", "material"),
         ({"valuation_percentile": Decimal("3")}, "valuation_percentile", "material"),
+        ({"valuation_gap_pct": Decimal("25.000001")}, "valuation_gap", "material"),
+        ({"valuation_gap_pct": Decimal("-25.000001")}, "valuation_gap", "monitor"),
         ({"target_price": Decimal("300"), "horizon_months": 12}, "implied_growth", "material"),
         ({"invalidation_conditions": ()}, "invalidation_field", "material"),
         ({"invalidation_conditions": ("  ",)}, "invalidation_field", "material"),
@@ -271,13 +274,34 @@ def test_overridden_blocking_finding_is_counted_but_still_blocks() -> None:
 
 
 def test_unmeasured_diagnostics_are_reported_not_guessed() -> None:
-    x = _input(pairwise_correlation_max=None, valuation_percentile=None, adv_aud=None, adv_trend_pct=None,
-               target_price=None, revisit_due_at=None)
+    x = _input(pairwise_correlation_max=None, valuation_percentile=None, valuation_gap_pct=None, adv_aud=None,
+               adv_trend_pct=None, target_price=None, revisit_due_at=None)
     outs = _by_rule(x)
-    for rule in ("correlation", "valuation_percentile", "liquidity", "liquidity_trend", "implied_growth", "thesis_age"):
+    for rule in ("correlation", "valuation_percentile", "valuation_gap", "liquidity", "liquidity_trend",
+                 "implied_growth", "thesis_age"):
         assert not outs[rule].evaluated and outs[rule].finding is None
     res = _challenge(x)
     assert res.outcome == "pass" and "could not be evaluated" in res.strongest_bear_case
+
+
+def test_valuation_gap_boundaries_and_citation() -> None:
+    """S2: the model reaches the challenge. +/-25% is inside; beyond it fires, citing the run."""
+    for gap in (Decimal("25"), Decimal("-25"), Decimal("0")):
+        out = _by_rule(_input(valuation_gap_pct=gap))["valuation_gap"]
+        assert out.evaluated and out.finding is None
+    high = _by_rule(_input(valuation_gap_pct=Decimal("40")))["valuation_gap"]
+    assert high.finding is not None and high.finding.severity == "material"
+    assert high.finding.evidence_ids == ("ev:valuation", "ev:thesis")
+    assert "40" in high.finding.finding and "premium" in high.finding.finding
+    low = _by_rule(_input(valuation_gap_pct=Decimal("-40")))["valuation_gap"]
+    assert low.finding is not None and low.finding.severity == "monitor"
+    assert "40" in low.finding.finding
+    # Without a valuation evidence id the finding still cites the thesis.
+    bare = _by_rule(_input(valuation_gap_pct=Decimal("40"), valuation_evidence_id=None))["valuation_gap"]
+    assert bare.finding is not None and bare.finding.evidence_ids == ("ev:thesis",)
+    # A material gap alone cannot pass without a disposition; it never blocks.
+    res = _challenge(_input(valuation_gap_pct=Decimal("40")))
+    assert res.outcome == "revise" and all(f.severity != "blocking" for f in res.findings)
 
 
 def test_implied_cagr_arithmetic_is_decimal() -> None:

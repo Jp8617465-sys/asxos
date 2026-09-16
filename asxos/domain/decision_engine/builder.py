@@ -111,6 +111,7 @@ from asxos.domain.results_review.pit_db import (
 from asxos.domain.themes.candidates.measures import assert_measure_sql_admissible
 from asxos.domain.themes.candidates.types import CandidateSnapshot
 from asxos.domain.theses.service import get_thesis
+from asxos.domain.valuation.contracts import ValuationRun
 
 #: Not in pit_db.py's admissible-table SQL constants (it has no "latest
 #: period" query) — mirrors its query-construction style: SELECT-only,
@@ -190,6 +191,9 @@ class ChallengeContext(Contract):
     proposed_weight_pct: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("100"), max_digits=18, decimal_places=6)
     pairwise_correlation_max: Decimal | None = Field(default=None, ge=Decimal("-1"), le=Decimal("1"), max_digits=18, decimal_places=6)
     valuation_percentile: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("100"), max_digits=18, decimal_places=6)
+    #: (target - model value) / model value * 100, when the caller measured it itself.
+    #: Normally derived by the builder from `valuation=`; an explicit value wins.
+    valuation_gap_pct: Decimal | None = Field(default=None, max_digits=18, decimal_places=6)
     spread_bps: Decimal | None = Field(default=None, ge=Decimal("0"), max_digits=18, decimal_places=6)
     adv_trend_pct: Decimal | None = Field(default=None, max_digits=18, decimal_places=6)
     base_rate_evidence_ids: tuple[str, ...] = ()
@@ -203,6 +207,38 @@ def _candidate_measure(candidate: CandidateSnapshot | None, key: str) -> str | N
     return None if value is None else str(value)
 
 
+def _valuation_title(symbol: str, run: ValuationRun) -> str:
+    if run.outcome == "valued":
+        return (
+            f"{symbol} residual-income value {run.value_per_share} at Ke mid "
+            f"({run.terminal_convention}, {run.as_of.isoformat()})"
+        )
+    return f"{symbol} valuation blocked at {run.as_of.isoformat()}: " + ", ".join(g.name for g in run.gaps)
+
+
+def _valuation_claim(run: ValuationRun) -> str:
+    """Template-only prose over code-generated numbers (the G10 defence, reused)."""
+    head = (
+        f"valuation_runs run_id={run.run_id} content_hash={run.content_hash} "
+        f"preregistration={run.preregistration_id} method={run.method} "
+        f"convention={run.terminal_convention} franking={run.franking_convention} "
+        f"base={run.return_base} outcome={run.outcome}"
+    )
+    if run.outcome != "valued" or run.sensitivities is None or run.inputs is None:
+        return head + "; gaps=" + "; ".join(f"{g.name} ({g.detail})" for g in run.gaps) + "."
+    return (
+        head
+        + f"; value_per_share={run.value_per_share} (Ke low/high {run.value_ke_low}/{run.value_ke_high}"
+        + f", Ke mid {run.ke.ke_mid}); last_close={run.inputs.last_close} on {run.inputs.last_close_dt.isoformat()}"
+        + f"; value_to_price={run.value_to_price}"
+        + f"; sensitivities: fading_excess_w050={run.sensitivities.fading_excess_w050_ke_mid}"
+        + f", average_roe={run.sensitivities.average_roe_ke_mid}"
+        + f", unadjusted_franking={run.sensitivities.unadjusted_franking_ke_mid}"
+        + (f"; flags={','.join(run.flags)}" if run.flags else "")
+        + "."
+    )
+
+
 async def build_decision_case(
     conn: FetchConn,
     *,
@@ -211,8 +247,15 @@ async def build_decision_case(
     candidate: CandidateSnapshot | None = None,
     context: ChallengeContext | None = None,
     expected_symbol: str | None = None,
+    valuation: ValuationRun | None = None,
 ) -> DecisionCase:
     """Compose one real `DecisionCase` for any approved thesis.
+
+    `valuation` (F-E2E r2 S2) is the name's latest `valuation_runs` row. It
+    becomes a `valuation_fact` evidence item citing the run, and — when the
+    run is `valued` and the thesis has a target — the `valuation_gap` input
+    the challenger's sixteenth rule reads. Without it the rule reports
+    unevaluated and the packet lists the model value as a missing input.
 
     `cutoff` is the caller-supplied `knowledge_cutoff` (UTC, enforced by the
     contracts) — never "now", so the packet stays reproducible.
@@ -250,6 +293,11 @@ async def build_decision_case(
             raise ValueError(f"candidate {candidate.symbol} is not the thesis symbol {symbol}")
         if candidate.knowledge_cutoff > cutoff:
             raise ValueError("candidate snapshot was built after the requested knowledge cutoff")
+    if valuation is not None:
+        if valuation.symbol != symbol:
+            raise ValueError(f"valuation run {valuation.run_id} is for {valuation.symbol}, not {symbol}")
+        if valuation.knowledge_cutoff > cutoff:
+            raise ValueError("valuation run was built after the requested knowledge cutoff")
 
     narrative_known_at = thesis.last_revisited_at
     if narrative_known_at.tzinfo is None:
@@ -413,6 +461,31 @@ async def build_decision_case(
             data_mode="real",
         )
     )
+
+    # -- The model's own reading (S2): a valuation_fact citing the persisted run.
+    valuation_evidence_id: str | None = None
+    valuation_gap_pct: Decimal | None = None
+    if valuation is not None:
+        valuation_evidence_id = f"{slug}-valuation-{valuation.as_of.isoformat()}"
+        items.append(
+            EvidenceItem(
+                evidence_id=valuation_evidence_id,
+                evidence_type="valuation_fact",
+                title=_valuation_title(symbol, valuation),
+                claim=_valuation_claim(valuation),
+                source_uri=f"asxos://valuation_runs/{valuation.run_id}",
+                observed_at=valuation.as_of,
+                known_at=valuation.knowledge_cutoff,
+                evidence_tier="verified",
+                data_mode=valuation.data_mode,
+            )
+        )
+        if valuation.value_per_share is not None and valuation.value_per_share > 0:
+            valuation_gap_pct = _pct(
+                (thesis.target_price - valuation.value_per_share) / valuation.value_per_share * Decimal("100")
+            )
+    if context is not None and context.valuation_gap_pct is not None:
+        valuation_gap_pct = context.valuation_gap_pct
 
     # -- Stage 3 candidate evidence rides along unchanged (same EvidenceItem contract).
     if candidate is not None:
@@ -589,6 +662,11 @@ async def build_decision_case(
             else:
                 proposed_weight = Decimal("0")
                 missing.append("Annualised volatility for the proposed name — challenged at zero weight, no size derived")
+        if valuation_gap_pct is None:
+            missing.append(
+                "Model value for the name (no valued valuation_runs row supplied) — "
+                "valuation_gap not evaluated"
+            )
         if context.portfolio_state.cash_pct is None:
             # #228. types.py forbids an action state while missing_or_uncertain_inputs is
             # non-empty, so declaring the gap here is what stops an unmeasured book
@@ -621,6 +699,8 @@ async def build_decision_case(
             base_rate_evidence_ids=context.base_rate_evidence_ids,
             pairwise_correlation_max=context.pairwise_correlation_max,
             valuation_percentile=context.valuation_percentile,
+            valuation_gap_pct=valuation_gap_pct,
+            valuation_evidence_id=valuation_evidence_id,
             adv_aud=Decimal(adv_raw) if adv_raw is not None else None,
             adv_trend_pct=context.adv_trend_pct,
             spread_bps=context.spread_bps,

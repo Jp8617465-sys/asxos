@@ -21,9 +21,23 @@ from asxos.domain.valuation.numeric import compound, q6, valuation_context
 #: Australian company tax rate used only to gross up franking credits.
 COMPANY_TAX_RATE: Final[Decimal] = Decimal("0.30")
 
+
+
+def _franking_gross_up() -> Decimal:
+    """Tc / (1 - Tc) under the package's OWN context, not the import-time global one.
+
+    `asxos/domain/portfolio/monitor.py` sets the process-global precision to 40
+    at import, so a division evaluated at module import took whichever precision
+    happened to be ambient in that import order — 28 or 40 digits — and the
+    constant differed between test orders (found 2026-09-16 by the S2 suite).
+    """
+    with valuation_context():
+        return COMPANY_TAX_RATE / (Decimal("1") - COMPANY_TAX_RATE)
+
+
 #: credit per $1 of fully franked dividend = Tc / (1 - Tc) = 0.30/0.70.
 #: Same constant, same derivation, as asxos/domain/research/factor_scores.py.
-FRANKING_GROSS_UP: Final[Decimal] = COMPANY_TAX_RATE / (Decimal("1") - COMPANY_TAX_RATE)
+FRANKING_GROSS_UP: Final[Decimal] = _franking_gross_up()
 
 DEFAULT_HORIZON_YEARS: Final[int] = 10
 

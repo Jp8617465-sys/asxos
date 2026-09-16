@@ -166,3 +166,21 @@ async def latest_runs(
     """The most recent run per symbol at or before `as_of`, reconstructed from payload."""
     records = await conn.fetch(SQL_LATEST_RUNS, as_of, terminal_convention)
     return [ValuationRun.model_validate(_payload(r)) for r in records]
+
+
+SQL_LATEST_RUN_FOR_SYMBOL: Final[str] = """
+SELECT payload
+FROM valuation_runs
+WHERE symbol = $1 AND as_of <= $2 AND terminal_convention = $3
+ORDER BY as_of DESC, created_at DESC
+LIMIT 1
+"""
+assert_valuation_sql_admissible(SQL_LATEST_RUN_FOR_SYMBOL)
+
+
+async def latest_run_for_symbol(
+    conn: RepositoryConn, *, symbol: str, as_of: date, terminal_convention: str = "zero_excess"
+) -> ValuationRun | None:
+    """The most recent run for one name at or before `as_of` — the decision builder's read (S2/S5)."""
+    row = await conn.fetchrow(SQL_LATEST_RUN_FOR_SYMBOL, symbol, as_of, terminal_convention)
+    return None if row is None else ValuationRun.model_validate(_payload(row))
