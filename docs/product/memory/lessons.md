@@ -1038,3 +1038,35 @@ sources read 5.015 on 2026-09-16.
 
 The loop's headline result (verdict `null`, demotion) is real and pre-committed. But the
 finding that paid for the day was the one that got in the way of producing it.
+
+## L53 — A guard you have not opened is not a guard you know is missing (2026-09-17)
+
+L52 said: verify a backlog row's premise against the artifact before building. One day later I
+filed a row that broke the same rule, and only caught it because I opened the code before
+starting the build rather than after.
+
+**What happened.** The 2026-09-16 hard-coding audit recorded that `_ASX200_TR_YIELD = 0.04` is
+compounded onto the AXJO **price** index and written to a column named `benchmark_tr_level` on
+67 of 74 snapshot rows, against governor ruling F1. That is all true. From it I filed A-45
+describing a live defect that "corrupts what performance is measured against" and "outranks
+cosmetic work", and ranked it #1 in the live queue.
+
+Then I opened the consumers. `outcome.py:26-33` reads the `trailing_div_yield_pct` marker the
+writer sets for exactly that path and **reports the measurement as unavailable, naming the proxy
+as the reason** — "it never silently substitutes". `compose.py` derives `is_proxy` from the same
+marker. `wealth_state.py` selects the columns and uses neither. A test pins the behaviour. The F1
+guard was built, and built well, at the same time as the approximation.
+
+**So the severity was mine, not the code's.** The real finding is narrower: a synthetic value is
+stored under a total-return column name, which F1 does forbid, and one collector has a dead
+select. Worth fixing; nowhere near the top of the queue.
+
+**The rule, and it is not the same as L52's.** L52 was about a row citing the wrong *artifact*.
+This is about a row citing the right artifact and the wrong *blast radius*. A writer producing a
+questionable value and a consumer trusting it are two separate facts, and finding the first tells
+you nothing about the second. **Before ranking a defect by severity, open the readers.** The
+distance between "this value is wrong" and "this value is used" is where a whole night can go.
+
+**Why this one cost nothing.** The correction landed before the build, because the first thing I
+did on picking the row up was read the code rather than write it. That ordering is the only
+reason this is a lesson and not an incident.

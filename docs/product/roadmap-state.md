@@ -1443,14 +1443,19 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > `20260917000622`**, backup run `35164844485` read `success` first; drops the `governance_status`
 > default, the root cause) → #316 (this record, eight backlog rows, two proposals).
 >
-> **#1 — A-45, the F1 violation.** `_ASX200_TR_YIELD = 0.04` is compounded onto the AXJO **price**
-> index and written as `benchmark_tr_level` on 67 of 74 snapshot rows, nightly, against a governor
-> ruling that says AXJO "must never carry a total-return label". It corrupts what performance is
-> measured against. Buildable half: stop writing a fabricated figure and label it unavailable — a
-> correct figure needs AXJOA.INDX, which is James's (E-15) and may never be proxied.
-> **#2 — A-47, the packet→thesis writeback.** CBA was challenged three times in September, all
+> **#1 — A-47, the packet→thesis writeback.** CBA was challenged three times in September, all
 > `abstain`, with its revision ledger unmoved and 81 days overdue. The review calls this the only
-> recommendation that changes the product. Mission-shaped: packets key on symbol with no `thesis_id`.
+> recommendation that changes the product. Packets key on symbol with no `thesis_id`, so it needs a
+> migration and is not a one-file build.
+> **#2 — A-45, re-ranked DOWN the same night I filed it, and the correction matters more than the
+> row.** I filed it at #1 claiming the synthetic yield overlay "corrupts what performance is measured
+> against", then opened the consumers before building and found the F1 guard fully implemented:
+> `outcome.py:26-33` reads the `trailing_div_yield_pct` marker and reports the measurement
+> **unavailable**, naming the proxy, and "never silently substitutes"; `compose.py` derives
+> `is_proxy` from it; `wealth_state.py` selects the columns and uses neither; a test pins it. What
+> remains is real but narrower — a synthetic value stored under a total-return column name (which F1
+> does forbid) and one dead select. **Lesson L53:** a writer producing a questionable value and a
+> consumer trusting it are two separate facts; open the readers before ranking by severity.
 > **#3 — A-34 → A-35 → E-20**, the routine's carried queue, unchanged.
 > **#4 — A-46** (stale `profiles.capital_aud` makes the per-name cap A$666.70 against a A$1,000
 > minimum, so the framework silently permits zero new positions), **A-44** (`themes` and
