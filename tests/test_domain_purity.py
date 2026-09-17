@@ -75,6 +75,9 @@ _KNOWN_VIOLATORS = frozenset(
         "asxos/domain/governance/agent_run_service.py",
         "asxos/domain/governance/transitions.py",
         "asxos/domain/macro_theses/service.py",
+        "asxos/domain/portfolio/holdings.py",  # merged into main 2026-09-18 (#327/#328),
+        # after this list was first written; same shape as the others (asyncpg.
+        # Connection in a type annotation only).
         "asxos/domain/portfolio/monitor_loader.py",
         "asxos/domain/portfolio/paper_trade.py",
         "asxos/domain/portfolio/profile.py",
