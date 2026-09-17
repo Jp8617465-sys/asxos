@@ -138,6 +138,10 @@ async def test_loader_maps_rows_and_orders_by_symbol(
     # The rank RESPONSE_RULE deleted must not reappear as an ORDER BY.
     assert "value_per_share DESC" not in query
     assert "value_to_price" not in query
+    # The figures column is pinned to one method. Without this, a second
+    # valuation method writing to the same table on the same as_of makes the
+    # LATERAL pick non-deterministic and the card mis-attributes it.
+    assert "method = 'residual_income'" in query
 
 
 async def test_loader_keeps_a_row_whose_valuation_is_absent(

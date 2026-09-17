@@ -681,7 +681,16 @@ async def _candidates(conn: asyncpg.Connection, as_of: date) -> list[CandidateRo
         LEFT JOIN LATERAL (
             SELECT value_per_share, payload
             FROM valuation_runs
-            WHERE symbol = t.symbol AND outcome = 'valued'
+            WHERE symbol = t.symbol
+              AND outcome = 'valued'
+              -- Pinned, not inferred. `valuation_runs.method` admits one value
+              -- today, so this is a no-op now; the moment a second method
+              -- writes to the table, an unpinned LATERAL over one as_of would
+              -- pick non-deterministically and render a peer-median composite
+              -- as "the model value" under prose that claims the RI gates
+              -- (arbi-red-team on the relative-lens scope, 2026-09-17). A
+              -- second method earns its own column here deliberately.
+              AND method = 'residual_income'
             ORDER BY as_of DESC
             LIMIT 1
         ) v ON TRUE
