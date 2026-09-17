@@ -32,7 +32,12 @@ RESERVED_TO_JAMES = frozenset(
 
 #: Lanes arbi built for deliberate execution: dispatch-only, and a default that writes
 #: nothing. Add a new lane here when it lands, so the persist-default pin covers it.
-DISPATCH_ONLY_LANES = ("vp-register.yml", "vp-research.yml", "risk-free-backfill.yml")
+DISPATCH_ONLY_LANES = (
+    "vp-register.yml",
+    "vp-research.yml",
+    "risk-free-backfill.yml",
+    "factor-probe.yml",
+)
 
 
 def _load(path: Path) -> dict:
@@ -98,3 +103,45 @@ def test_dispatch_only_lanes_check_out_main() -> None:
     """A production secret never runs at a PR head (AGENTS.md §8)."""
     for name in DISPATCH_ONLY_LANES:
         assert "ref: refs/heads/main" in (ROOT / ".github/workflows" / name).read_text(), name
+
+
+def test_factor_probe_only_writes_behind_the_persist_flag() -> None:
+    """The probe's write-nothing default is enforced by SKIPPING the step, not by a flag.
+
+    `jobs/compute_factor_scores.py` has no `--dry-run` of its own — it upserts
+    rs_factor_scores unconditionally. So the only thing standing between a default
+    dispatch and a write is the `if:` guard on that step. The generic persist-default
+    pin above cannot see that, which is exactly why this lane gets its own assertion:
+    delete the guard and the default dispatch silently starts writing.
+    """
+    doc = _load(ROOT / ".github/workflows/factor-probe.yml")
+    steps = doc["jobs"]["probe"]["steps"]
+
+    writers = [s for s in steps if "compute_factor_scores.py" in s.get("run", "")]
+    assert len(writers) == 1, "expected exactly one step to invoke the writer"
+    assert writers[0].get("if") == "${{ inputs.persist }}", (
+        "the recompute step must be gated on inputs.persist — without it the default "
+        "dispatch writes rs_factor_scores"
+    )
+
+    # The evaluator is read-only and therefore deliberately NOT gated.
+    readers = [s for s in steps if "eval_alpha_factors.py" in s.get("run", "")]
+    assert len(readers) == 1 and "if" not in readers[0], (
+        "the read-only evaluator should run on every dispatch"
+    )
+
+
+def test_factor_probe_touches_no_paid_api_and_no_capital_surface() -> None:
+    """A$0 by construction, and it cannot reach a rule-#11 or capital table.
+
+    The lane's cost claim rests on compute_factor_scores being pure DB-to-DB and
+    eval_alpha_factors being read-only; the secret list is what makes that checkable
+    from outside the jobs.
+    """
+    text = (ROOT / ".github/workflows/factor-probe.yml").read_text()
+    assert _secret_names(text) == {"DATABASE_URL"}, (
+        "factor-probe must carry DATABASE_URL and nothing else — a paid-API secret here "
+        "would both cost money and move the lane toward the James-reserved set"
+    )
+    for job in ("run_vp_test.py", "generate_signals.py", "snapshot_portfolio.py"):
+        assert job not in text, f"factor-probe must not invoke {job}"
