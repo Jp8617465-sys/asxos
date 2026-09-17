@@ -1131,3 +1131,38 @@ the hard-fail convention exists to prevent.
 round-trip, and no amount of reading finds a defect whose symptom is wall-clock. This is the same
 family as the Phase 2a finding that mocked connections do not enforce trigger semantics — run it
 against something real, once, before trusting it.
+
+## L57 — A runbook written from the domain layer will describe work the scheduler already does (2026-09-17)
+
+**What happened.** James asked for a plan to scan for investment opportunities using
+existing infrastructure. I read `asxos/domain/`, the CLI, the contracts and the
+migrations, wrote `docs/product/runbooks/opportunity-scan.md`, and pushed it. Its §9
+told him to run `asx decision build --context` by hand and its §10 told him to run
+`asx decision observe` by hand.
+
+Both already run **nightly** in `daily-brief.yml` — `jobs/build_decision_packets.py`
+builds a challenged packet for every approved thesis, and
+`jobs/observe_decision_outcomes.py` closes the outcome loop. Worse than redundant: the
+nightly builder challenges against the **paper** book (C1/D15, deliberately never the
+live one) while `--context` is the **live** book, so following the runbook would have
+produced packets that could not be compared to the ones already in the table.
+
+I found this in the `/arbi` wake James asked for afterwards — from `job_runs`, not from
+the code. The `build_decision_packets` row was sitting in the freshness probe the whole
+time.
+
+**Why it happened.** I searched by capability ("what can produce a broker report?") and
+the domain layer answered completely, so I stopped. `jobs/` is not where a *capability*
+lives; it is where the decision to **invoke** that capability on a schedule lives. A
+capability search finds the former and is blind to the latter.
+
+**The rule.** Before documenting any procedure as manual, grep `jobs/` and
+`.github/workflows/` for the thing being described. If a job already calls it, the
+procedure is *read the result*, not *run the command* — and the manual verb is an
+off-cycle escape hatch, which is a different section with a different warning.
+
+**The sharper form.** L54 said a negative existence claim needs a probe. This is the
+same failure one level up: **"the user must do X" is a negative existence claim about
+automation** — it asserts nothing already does X. It was made on the same day L54 was
+written, about the same subsystem, by me. Two independent probes would have caught it:
+`ls jobs/`, or reading the `job_runs` table I queried twice for other reasons.

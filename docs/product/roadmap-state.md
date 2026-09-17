@@ -2038,6 +2038,50 @@ dev/ops side.
 
 ## Last wake snapshot
 
+**2026-09-17 (later, `/arbi` wake inside the opportunity-scan session) — James: "Create a plan
+use our product to scan for investment opportunities … Don't build any new features", then
+"Ensuring you are using arbi to lead this."** The steer is the reason this block exists: the
+runbook had already been written and pushed *without* a wake, and the wake is what found it
+wrong.
+
+`main` @ `7f7c148` (#325, `packet_examined` + **migration 0060** applied `20260917114415`).
+Branch `claude/investment-scanning-plan-q8frsr` rebased onto it. **Ledger verified live: 112
+rows**; 59 `.sql` on disk through 0060; 0042 reserved-absent, 0045 on disk and still unapplied.
+`CLAUDE.md`'s schema block was stale at 111/0059 and is corrected in this session's commit.
+
+**§7 incident — `pipeline-health` run `35165551435` concluded `failure` 2026-09-17 00:12**, first
+red after four greens. Two DEGRADED notes. (1) `run_valuation`'s idempotent same-day re-run was
+being written into `monitor.note`, the degraded channel `check_cron_health` pages on — **fixed
+this session**, producer-side, with an AST guard against regression. Second false positive of
+this class after `sync_prices` `NO_EQUITY_DATA` on 09-03/05. (2) `build_decision_packets` "12 of
+13" — **eleven self-healed** (the #315 rows, now `retired`); the twelfth is a real gap filed as
+**#327**: `HUBS.NYSE` has **0** `rs_financial_statements` rows because
+`sync_financial_statements --active-only` filters on `is_active` and held US names are
+`is_active=FALSE`. The one US holding can never get a decision packet.
+
+**What the wake corrected in the runbook.** `build_decision_packets` and
+`observe_decision_outcomes` already run nightly in `daily-brief.yml`, and the nightly builder
+uses the **paper** book where the manual `--context` default uses the **live** one — the draft
+told James to do both by hand, against the wrong book. `arbi-red-team` returned **CHALLENGE**
+with three further high-load findings, each verified against source before acting (L55):
+`screening_runs.matched_symbols` already persists the passing set; the funnel's top row should be
+**1,879** (`security_kind='au_equity' AND is_active`), not 2,396, with the 517 itemised as
+487 etf / 18 hybrid / 12 lic; and `asx thesis update-consensus` / `log-analyst` persist the
+street's targets — omitting them under-delivered the literal ask. Corrected funnel:
+**1,879 → 537 → 332 → 270 → 138 → 16.**
+
+**L54 fired twice in one day.** The premise-asserted-not-verified failure recorded this morning
+was repeated this afternoon, by me, in a document about the same subsystem. The generalisable
+form: *a runbook written from the domain layer without reading `jobs/` will describe manual work
+the scheduler already does.*
+
+**Live figures at close:** `prices.dt` 2026-09-16 · `valuation_runs` 2026-09-16 (1,879 rows, 573
+valued) · `rs_fundamentals_pit` 2026-07-31 · `decision_packets` 3, all `abstain` · `theses` 2
+approved / 11 retired / 10 rejected · tests **4646 passed, 13 skipped**, ruff + mypy clean.
+**No Stage cell moved.** Open for James: **#319** (`.claude/**`). Next: **#327**, then #228.
+
+_Prior snapshot (same date, earlier session) retained below for diffing._
+
 **2026-09-17 — attended session, straight after the `daily-product` fire and its own addendum.**
 `main` @ `8a363f7` after four merges: #313 `bab01f3` (deadman wiring, Amber) — #314 `89636ce`
 (`retire_object`, Amber) — #315 `8a363f7` (**migration 0059**, Amber) — #316 (this record, Green).
