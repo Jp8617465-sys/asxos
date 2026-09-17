@@ -1,7 +1,6 @@
 # Investment selection & ideation — what this system can do, what the industry does, and what is worth building
 
-**Date:** 2026-09-17 · **Status:** DRAFT — §1.3's measured "after" state is pending the probe re-run
-· **Class:** Green (document)
+**Date:** 2026-09-17 · **Status:** current · **Class:** Green (document)
 **Commissioned by James:** *"explore what's possible, what can be done in our current infrastructure and
 what is industry standard or pushing the boundary for investment selection scanning/ideation, pattern
 recognition as a starting point and extrapolate from there."*
@@ -31,6 +30,11 @@ So the honest state of "selection and ideation" here is:
    include the dead names. Prices reach 435 sessions and exclude them.
 3. **The system's real scarcity is not ideas.** It is review throughput and evidence depth. Every
    generator built so far has out-run the capacity to adjudicate what it generates.
+4. **The incumbent has now been measured, and it has no detectable edge** (best effective t = 0.75
+   across four horizons). That is not a verdict on factor investing — the engine reports 14 / 6 / 3 / 1
+   independent dates at 21 / 63 / 126 / 252 days and flags three of the four as not decision-grade. It
+   is a verdict on *what this data can currently support*, and it is the evidence the backfill decision
+   (§5b) now rests on.
 
 **What this report does not contain: a list of stocks.** That is not modesty, it is a hard constraint —
 James's own pre-sealed `RESPONSE_RULE` and north-star §1.6 forbid ranked "opportunities" as output. The
@@ -91,11 +95,63 @@ This is the part of the system most worth knowing about, because it is a quality
 **One usable cross-section.** The five July dates are 10–11 row stubs from symbol-limited runs. Any
 statement that the composite "has been evaluated" was, until now, true only of a single date.
 
-**The measured "after" state is pending, and this section will not be filled in from expectation.**
-The first probe dispatch (`factor-probe` run 35173534051) was **cancelled, not completed**: it exposed a
-latency defect — `refresh_factor_scores` wrote one row per round-trip, ~13 minutes per cross-section, so
-a 21-date panel would have taken ~5 hours against a 60-minute lane timeout. That is fixed separately;
-the panel is rebuilt and this section completed only once a run actually finishes.
+**After the probe:** 27 `as_of` dates, 71,759 rows, 2025-01-31 → 2026-09-16. All 21 new cross-sections
+succeeded, zero failures (`job_runs`). ~3,250 names carry `composite_score` at every date; only ~1,700
+carry `momentum_score`, and none before 2025-12-31 — momentum needs 253 sessions of history, the
+composite needs only fundamentals plus the `as_of` price. **The incumbent is better powered than
+momentum on both axes: more dates and twice the cross-section.**
+
+*(The first dispatch, run 35173534051, was cancelled rather than completed — it exposed a latency defect,
+one DB round-trip per row, ~13 min per cross-section. Fixed in #320; a cross-section now takes ~7.3 s.)*
+
+### 1.3b — The probe result
+
+Run `35174601661`. **This is a probe, not a pre-registered test:** no `research_runs` row, nothing
+sealed, nothing promoted.
+
+**The incumbent — `composite_score`, the D4 #7 baseline:**
+
+| horizon | rank-IC | effective n | **effective t** | significant |
+|---|---|---|---|---|
+| 21d | +0.0340 | 14 | **0.75** | no |
+| 63d | +0.0122 | 6 | 0.42 | no |
+| 126d | −0.0238 | 3 | −0.74 | no |
+| 252d | −0.0589 | 1 | −1.73 | no |
+
+**No horizon reaches significance; the best effective t is 0.75.** On the evidence available, the
+deterministic factor-tilt baseline D4 #7 names as the thing to beat **has no detectable
+cross-sectional edge** — which makes it a low bar, and that is itself a finding about what a
+successor would have to demonstrate.
+
+**The decile spreads are negative at every horizon** (−12.1% at 21d, rising to −167.4% at 252d) — the
+bottom bucket out-returns the top. The liquidity split says why, and it is not a short signal:
+
+| horizon | tradable IC | illiquid IC |
+|---|---|---|
+| 21d | +0.0675 (t 1.13, n≈443) | +0.0128 (n≈971) |
+| 252d | −0.1579 (t −5.19, n≈506) | −0.0202 (n≈1,200) |
+
+The bottom decile's large positive returns live in illiquid microcaps — the sub-cent artefact §4 names.
+This is exactly what `liquidity_split` was built to expose, and it did.
+
+**The engine flagged its own limits, unprompted:** *"horizon 126: only 3 independent (non-overlapping)
+date(s) — NOT decision-grade"*; *"horizon 252: only 1"*; *"Only 27 signal date(s) total. Treat all
+results as indicative."*
+
+### 1.3c — The one cell that looks interesting, and why it is not yet a finding
+
+`low_vol_score` is the only factor with both an effect and non-trivial power: **IC +0.1095, effective
+n 14, effective t 3.06 at 21d**, and +0.0826 / t 2.0 at 63d. It is **not in the composite**.
+
+**This must not be read as a result, and the reason is the whole point of this document.** The
+evaluation examined **24 cells** (6 scores × 4 horizons). At |t| > 2 you expect ~1.2 false positives by
+chance alone; five cells are marked significant and **three of those sit on `effective_n = 1`**
+(`momentum` at 126d, `quality` and `yield` at 252d) and are meaningless. Selecting the best cell from a
+24-cell table *after seeing it* is precisely the multiple-testing failure Harvey-Liu-Zhu and D4 #5
+exist to prevent.
+
+So `low_vol` enters §5 as **a hypothesis to pre-register**, carrying a declared trial count of **24**
+— not as an edge. Its next look must be a sealed test, and if the effect is real it will survive one.
 
 ### 1.4 Data depth — the asymmetry that governs everything
 
@@ -196,18 +252,60 @@ This is the part a global factor library does not give you, and it is where the 
 Ordered by expected information per hour, and each must pass pre-registration before it may inform
 anything. **This is the deliverable of "ideation" in this system** — not a shortlist of securities.
 
-| # | Hypothesis | Testable today? |
-|---|---|---|
-| 1 | The value×quality composite carries positive cross-sectional rank information at 21d in liquid ASX names | **Yes** — being measured now |
-| 2 | Franking-adjusted yield outperforms raw yield on an after-tax basis for a resident investor | Yes, partially — needs the deep panel for power |
-| 3 | Quality × value beats either leg alone (is the interaction real, or is one leg carrying it?) | Yes — same panel |
-| 4 | 12-1 momentum carries rank information in liquid ASX names | Only 7 dates today; needs depth |
-| 5 | PEAD exists on the ASX at a retail-tradable horizon | **No** — announcement dates not ingested |
-| 6 | A properly-engineered ML successor can clear D4 | Gated on the feasibility study |
+**The probe reordered this queue, which is what a probe is for.**
 
-**Note the ordering change.** #1 is the incumbent, and it was ranked below momentum in the plan that
-opened this mission. That was the error this report exists to correct: momentum is a sub-factor, and
-testing it first would have measured the wrong thing while the thing D4 actually names sat unmeasured.
+| # | Hypothesis | Status after the probe |
+|---|---|---|
+| 1 | **Low volatility carries positive cross-sectional rank information at 21d in liquid ASX names** | **Pre-register next.** The only cell with effect *and* power (t 3.06, n 14) — but selected from 24, so it must carry **trial count 24** into its seal |
+| 2 | Franking-adjusted yield beats raw yield after tax for a resident investor | Untested; the one genuinely ASX-specific construction (§4) |
+| 3 | The value×quality composite carries edge at 21d | **Measured: no detectable edge** (best eff_t 0.75). Not dead — underpowered — but it is no longer a *candidate*, it is the **incumbent's measured baseline** |
+| 4 | 12-1 momentum carries rank information in liquid names | 8 usable dates at 21d, IC −0.0885 (t −1.02). Underpowered and pointing the wrong way |
+| 5 | PEAD exists on the ASX at a retail-tradable horizon | **Not buildable** — announcement dates not ingested |
+| 6 | A properly-engineered ML successor can clear D4 | Gated on the feasibility study — and #3 tells us the bar it must clear is low |
+
+**Two ordering corrections, both mine.** Momentum was ranked #1 in the plan that opened this mission,
+on the false premise that it *was* the D4 #7 incumbent. It is a sub-factor, it is not in the composite,
+and the probe now measures it as the weakest of the six at 21d. And the composite — the thing D4
+actually names — has moved from "the candidate to test" to "the measured baseline", which is a
+different and more useful role.
+
+---
+
+## §5b — The decision gate, recorded
+
+The probe was run to answer one question that had been answered by assumption: **is the ≥10-year price
+backfill worth building?**
+
+```
+DECISION: The deep price backfill is justified, and the probe establishes it on
+          evidence rather than on the assumption the mission opened with.
+TAKING:   Build it as its own Amber PR under the AGENTS.md §8 sequence — expand-only
+          into a new table, driven off rs_security_master (not universe.is_active) so
+          delisted names are included, reusing eodhd.py's existing daily_prices() and
+          exchange_symbols_delisted(). ~3,700-4,400 one-off API calls.
+REVERSAL: One revert of the migration's forward pair plus a table drop; no existing
+          job reads the new table until one is pointed at it. `prices` untouched.
+```
+
+**What made it evidence rather than assumption.** The engine's effective-sample-size guard reports
+**14 / 6 / 3 / 1** independent dates at 21 / 63 / 126 / 252 days. Three of the four horizons this
+system holds positions for are *not decision-grade by the engine's own test*, and it says so without
+being asked. The binding constraint is now measured: not "the factors don't work", but **"nothing here
+can be distinguished from noise at this depth."**
+
+**Two things the probe changed that argue for the backfill more sharply than the original plan did:**
+
+1. **The incumbent's bar is low** (best eff_t 0.75). A successor of any kind — deterministic or ML —
+   would be measured against a baseline that itself cannot be distinguished from zero. Deepening the
+   panel is what makes the *comparison* meaningful, not just the candidate.
+2. **The one interesting cell is 21d low-vol at n=14** — the best-powered cell available, and still
+   only 14 independent observations drawn from a 24-cell search. A sealed test of it needs more dates
+   than exist today, or it will be underpowered before it starts.
+
+**What the probe does not license.** It is not a pre-registered test, it promoted nothing, and rule #11
+is untouched. `low_vol` is a hypothesis with a declared trial count of 24, not an edge. And per the
+correction now proposed against D4 #3, the backfill is not an optimisation — it is what would make
+that criterion true for the first time.
 
 ---
 
