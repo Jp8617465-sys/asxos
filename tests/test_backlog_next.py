@@ -427,7 +427,12 @@ class TestSeed:
         # corrected), and three rows were filed — A-34/A-35 (the two dark-launch DELETE
         # verdicts, phase A so they rank first) and E-20 (ingest_regulatory). A-35
         # overlaps A-34 on asxos/brief/compose.py, so the picker skips it for overlap.
-        assert [i.id for i in picked] == ["A-34", "E-20"], [i.id for i in picked]
+        # Re-pinned 2026-09-17 by the attended triage: eight rows filed from two
+        # proposals that had sat unfiled since 2026-09-16 (A-43..A-48, E-21, E-22).
+        # Only E-21 joins the pick list — the rest are route=attended (a migration, a
+        # .claude/ handover, or a James ruling), which the lane never picks. That is the
+        # shape to expect from a triage: most of it is not lane work.
+        assert [i.id for i in picked] == ["A-34", "E-20", "E-21"], [i.id for i in picked]
         assert [i.id for i in skipped] == ["A-35"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks

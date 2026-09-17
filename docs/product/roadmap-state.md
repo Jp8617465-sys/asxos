@@ -1425,6 +1425,45 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-17 attended session (James: "I thought we were reworking the theses and the
+> rules with the fin services agent team?" + "create and triage a list for all of these to be built.
+> If not in the 5 hours make it a task/backlog").** The Stages 0→6 table at the top of this file
+> remains the only ranked queue.
+>
+> **The register is rehabilitated.** `theses` reads **2 approved / 11 retired / 10 rejected**. The
+> eleven (ids 3–13) were never James's: bulk-inserted in one transaction on 2026-06-24, selected by
+> the quarantined 5d signal sleeve, NULL target/stop/timeline, zero-width band, 0 evidence rows,
+> `approved` by **column default** with 0 `governance_events` rows in the whole database.
+> `check_thesis_invalidations` ran 61 times over 84 days and could not fire on one of them.
+> **#309's claim that the human theses "keep James's numbers" was false for 11 of the 13** — only
+> CBA (id 1) and HUBS (id 2) are his.
+>
+> **Landed tonight:** #313 (all 28 deadmen wired, A-19 closed) → #314 (`retire_object` + `asx thesis
+> retire` — Rec 1 needed a verb, not a decision) → #315 (**migration 0059 applied as
+> `20260917000622`**, backup run `35164844485` read `success` first; drops the `governance_status`
+> default, the root cause) → #316 (this record, eight backlog rows, two proposals).
+>
+> **#1 — A-45, the F1 violation.** `_ASX200_TR_YIELD = 0.04` is compounded onto the AXJO **price**
+> index and written as `benchmark_tr_level` on 67 of 74 snapshot rows, nightly, against a governor
+> ruling that says AXJO "must never carry a total-return label". It corrupts what performance is
+> measured against. Buildable half: stop writing a fabricated figure and label it unavailable — a
+> correct figure needs AXJOA.INDX, which is James's (E-15) and may never be proxied.
+> **#2 — A-47, the packet→thesis writeback.** CBA was challenged three times in September, all
+> `abstain`, with its revision ledger unmoved and 81 days overdue. The review calls this the only
+> recommendation that changes the product. Mission-shaped: packets key on symbol with no `thesis_id`.
+> **#3 — A-34 → A-35 → E-20**, the routine's carried queue, unchanged.
+> **#4 — A-46** (stale `profiles.capital_aud` makes the per-name cap A$666.70 against a A$1,000
+> minimum, so the framework silently permits zero new positions), **A-44** (`themes` and
+> `theme_holdings` carry the same laundering default 0059 just closed), **E-21**, **E-22**.
+>
+> **Yours (§2 or a ruling):** **A-43** — which of three options for the level gate, since
+> `asx thesis open` makes every level optional and a bare watchlist row may be deliberate. **C-17** —
+> the DB CHECK on stop < entry ≤ upper < target, which the live HUBS row would fail. **A-48** — the
+> ESPP lock-window end date (no column exists for it; arbi builds the column, James supplies the
+> date) and which acquisition FX stands, 0.6450 or 0.7171. Plus the ten decisions in
+> `docs/proposals/thesis-dossier-cba-hubs-2026-09-17.md`, and the CBA packet expiring **2026-10-15**.
+>
+> **Superseded — the 2026-09-17 `daily-product` routine block below (its #0 is done; #1-#5 carried).**
 > **Live as of the 2026-09-17 `daily-product` routine fire (the catch-up for the 09-16 17:38 UTC misfire,
 > #308; `/arbi` §1-3 run surgically per `docs/ops/routines/daily-product.md` §2).** The Stages 0→6 table at
 > the top of this file remains the only ranked queue. **#0 below is DONE — #309, row A-42.** **#0b is
@@ -1958,6 +1997,32 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-17 — attended session, straight after the `daily-product` fire and its own addendum.**
+`main` @ `8a363f7` after four merges: #313 `bab01f3` (deadman wiring, Amber) — #314 `89636ce`
+(`retire_object`, Amber) — #315 `8a363f7` (**migration 0059**, Amber) — #316 (this record, Green).
+**Migration 0059 applied as `20260917000622`**; backup run `35164844485` conclusion **read** as
+`success` before applying; `migration-integration` green on the branch (runs 35164842820,
+35164871727); `schema_drift.compare` against the live 111-row ledger **clean**;
+`information_schema` confirms `theses.governance_status.column_default` is NULL with `NOT NULL`
+intact. 0045 still absent, 0042 still reserved.
+
+**The register, measured live at close: 2 approved / 11 retired / 10 rejected.** Eleven
+`governance_events` rows of `to_status='retired'`, one per thesis, `from_status='approved'`,
+`actor='human'`. Ids 1–2 (CBA, HUBS) untouched — they are the only two James authored, and
+`conviction_level` is NULL on both, so every "conviction n/5" in the docs is *unset*, not low.
+
+**Two of my own claims corrected on evidence.** #309's body said the human theses keep James's
+numbers — false for 11 of 13. And I called HUBS's stop at 230 "a raised trailing stop, not an
+error"; it was authored 22.6% **above** the 187.54 entry and the position has closed at or below it
+on 48 of 77 sessions, so it is neither a trailing stop nor a typo.
+
+**Two proposals, nothing enacted from either:** the CBA/HUBS dossier (ten decisions for James; it
+also resolved the five conflicting detachment figures as one formula difference plus one session's
+staleness) and the agent capability survey (ten of 24 agents invoked by no command; the thinnest
+moat layer has two unblocked agents that have never been run). **Eight backlog rows filed**
+(A-43…A-48, E-21, E-22) — the gap that let six recommendations evaporate on 2026-09-16 was that
+nobody filed a row. `make check` 4626 passed / 12 skipped, ruff + mypy clean.
 
 **2026-09-17 — `daily-product` routine, catch-up fire (19:50 UTC 2026-09-16 = 05:50 AEST 09-17; the
 17:38 UTC fire misfired, #308).** `main` @ `66bcb93` at fire. Gate: `nightly-check` 35137435106 `success`

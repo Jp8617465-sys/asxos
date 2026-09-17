@@ -1638,3 +1638,173 @@ items:
       or parse_rss filters too narrowly. The steward flagged the table stale on 09-14 and
       09-15. Pass test: a stated count of items in the live RBA RSS vs items parsed, and
       rows_written redefined or documented so a digest cannot read a re-touch as growth.
+
+  - id: A-43
+    title: "Level gate — open_thesis refuses governance_status='approved' when the thesis states no falsifiable number (target, stop and timeline all NULL) or a zero-width entry band"
+    phase: A
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/theses/service.py", "asxos/cli/thesis.py", "tests/"]
+    source: >-
+      Rec 6 second half (docs/proposals/thesis-register-review-2026-09-16.md). Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      Migration 0059 closed the DEFAULT (the first half, #315). The gate needs JAMES'S
+      RULING first because it changes his own flow: `asx thesis open SYMBOL` makes --entry
+      --stop --target --timeline all optional today, so a bare watchlist row at 'approved'
+      with NULL levels is legal and may be something he uses deliberately. Options to put to
+      him: (a) refuse approved with all-NULL levels, so a bare row must open at 'draft';
+      (b) open it at 'draft' automatically instead of refusing; (c) leave it and rely on 0059.
+      Related but distinct: C-17 wants a DB CHECK on stop < entry_lower <= entry_upper <
+      target, which the live HUBS row (stop 230 vs band upper 190) would FAIL — so C-17
+      needs its own ruling on that row before any CHECK lands. This row is the service-layer
+      half and does not require the CHECK.
+
+  - id: A-44
+    title: "themes.governance_status and theme_holdings.governance_status carry the same DEFAULT 'approved' from 0035 — the laundering shape 0059 closed on theses"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: ["A-42"]
+    route: attended
+    paths: ["migrations/", "asxos/domain/themes/service.py", "tests/"]
+    source: >-
+      Found while writing 0059. Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      migrations/0035_macro_theses_and_governance_columns.sql:68,85 set DEFAULT 'approved' on
+      both columns; :39-41 sets macro_theses to DEFAULT 'draft' and explicitly contrasts
+      itself with "theses.governance_status's DEFAULT 'approved'", so the inconsistency was
+      seen and not resolved. theses/service.py::open_thesis already passes
+      governance_status='draft' explicitly for its theme_holdings placeholders and its
+      comment names the risk as "the laundered state" — the same words, one table over.
+      Pass test: neither column has a default; an INSERT omitting it fails; every existing
+      row unchanged. One migration, expand-only, its own PR.
+
+  - id: A-45
+    title: "F1 violation — _ASX200_TR_YIELD = 0.04 is compounded onto the AXJO PRICE index and written as benchmark_tr_level on 67 of 74 portfolio_daily_snapshots rows, nightly"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["jobs/snapshot_portfolio.py", "asxos/domain/benchmark/", "tests/"]
+    source: >-
+      decision-log.md hardcode-audit-part2-2026-09-16 finding (1), recorded "arbi's next
+      build" and left without a row until now. Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      jobs/snapshot_portfolio.py:82 hardcodes a 4% trailing yield, compounds it onto AXJO
+      (a PRICE index) and writes the result to a column NAMED benchmark_tr_level; every one
+      of the 67 affected rows carries trailing_div_yield_pct = 4.000000, min = max. Governor
+      ruling F1 (2026-08-10, portfolio-policy.md:29-32) says AXJO "must never carry a
+      total-return label". This is a ruling that never reached the writer, which is the exact
+      defect class James asked about in the hard-coding audit. It corrupts the series the
+      portfolio's performance is measured against, so it outranks cosmetic work.
+      NOTE the interaction with E-15: the real fix needs AXJOA.INDX (the accumulation index),
+      which is absent from prices and is James's to acquire — and F1 forbids a proxy. So the
+      buildable part is to STOP writing a fabricated total-return figure and label the column
+      honestly (unavailable, never a proxy), not to compute a correct one. Pass test: no
+      hardcoded yield in the writer; the 67 mislabelled rows addressed by a stated decision
+      (corrected, nulled, or left with a recorded caveat) rather than silently kept.
+
+  - id: A-46
+    title: "profiles.capital_aud is A$6,666.98 against a live A$8,155.96 — 74 days stale, and under its own framework the per-name cap A$666.70 is below min_position_aud A$1,000, so the system permits zero new positions"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: ["C-27"]
+    route: attended
+    paths: ["asxos/domain/portfolio/", "jobs/snapshot_portfolio.py", "tests/"]
+    source: >-
+      decision-log.md hardcode-audit-part2-2026-09-16 finding (3), no row until now. Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      C-27 re-points capital_aud READERS at cash_balance_assertions (0056) and treats NULL as
+      unmeasured; this row is the arithmetic consequence that makes the staleness visible —
+      a framework that silently permits nothing is worse than one that refuses loudly.
+      Pass test: the cap is computed from a measured capital figure or the sizer hard-fails
+      naming the missing assertion, and the zero-permitted-positions state cannot be silent.
+
+  - id: A-47
+    title: "Packet→thesis writeback — a completed decision packet writes a thesis_revisions row and moves last_revisited_at; today CBA was challenged three times with the ledger unmoved"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/decision_engine/", "jobs/build_decision_packets.py", "migrations/", "tests/"]
+    source: >-
+      Rec 4 of the register review, which calls it "the only recommendation here that changes
+      the product" (north-star moat layer 2, discipline). Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      Measured 2026-09-17: CBA has THREE challenge_results and THREE decision_packets
+      (2026-09-01, 09-04, 09-16), all outcome=abstain, and exactly ONE thesis_revisions row
+      ever — the 'opened' one from 2026-05-28. last_revisited_at is 111 days old and
+      revisit_due_at is 81 days past due, while the system challenged the thesis three times.
+      So theses.last_revisited_at is a floor, not a measure of examination. Root cause:
+      thesis_versions / decision_packets / challenge_results key on symbol+exchange with NO
+      thesis_id FK, and decision_engine/builder.py only READS last_revisited_at (:356, :789)
+      — the sole writers are in theses/service.py. Needs a migration for the link, so it is
+      mission-shaped, not a one-file build. Pass test: a packet completing for a symbol with
+      a thesis moves that thesis's revision ledger, proven on a scheduled run.
+
+  - id: A-48
+    title: "HUBS ESPP lock-window end date has no home in the schema, and it is the single fact that decides whether the stop is executable at all"
+    phase: A
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["migrations/", "asxos/domain/theses/", "tests/"]
+    source: >-
+      Rec 3 of the register review, plus a stronger finding measured 2026-09-17. Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      thesis 2's 2026-07-04 assumption_change revision records that the shares are in a
+      LOCKED employee-share-scheme window and NON-DISPOSABLE, so "the $230 stop and the
+      triggered invalidation condition operate as ALERT/REVIEW levels only, not executable
+      sell triggers". It then says "confirm lock-window end date from the plan administrator
+      and record it here when known". It never was. An information_schema scan for %lock%,
+      %window%, %blackout%, %disposable%, %espp% returns ZERO columns across all tables —
+      there is no field for it to live in. So a 74-day-old free-text note is the only record
+      of a constraint that neutralises the entire stop mechanism on the only live position,
+      and nothing will tell James when it lifts. The DATE is James's (plan administrator);
+      the COLUMN is arbi's. Second item in the same Rec: the acquisition FX conflict —
+      holding_lots.notes and theses.tax_notes both say 0.6450 is estimated and unresolved
+      against a vendor 0.7171, while .claude/rules/portfolio-conventions.md asserts it is
+      "confirmed against the brokerage statement". One is stale; the AUD return moves between
+      +14.80% and +27.63% and the CGT cost base depends on it.
+
+  - id: E-21
+    title: "Detachment ratio — three live formulas, all arithmetically correct, quoted interchangeably across five docs; pick one canonical definition"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: build
+    paths: ["docs/proposals/", "docs/product/roadmap-state.md", "asxos/domain/decision_engine/"]
+    source: >-
+      Reconciled 2026-09-17 and the mystery is solved, so this is now a naming decision not
+      an investigation. Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      For CBA on the 2026-09-16 close 151.54: close/band_upper = 3.367556;
+      close/band_mid = 3.483678; (close - band_upper)/band_mid = 2.449195 — and that third
+      form on the 2026-09-15 close of 152.50 gives exactly 2.471264, the figure the register
+      review quoted. So the five conflicting "×detached" numbers across repo docs are one
+      formula difference plus one session's staleness, not bad data. challenge_results and
+      decision_packets already use the third form. Pass test: one definition named in the
+      docs with its formula beside it, and the others corrected or removed.
+
+  - id: E-22
+    title: "Ten agents are invoked by no command and no skill; two have never appeared in the decision log at all"
+    phase: E
+    owner: both
+    status: open
+    depends_on: []
+    route: attended
+    paths: [".claude/agents/", ".claude/commands/", "docs/"]
+    source: >-
+      docs/proposals/agent-roster-capability-survey-2026-09-17.md, produced at James's
+      instruction ("need to explore what else they have to offer"). Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
+      Unreachable by any call site: thesis-coherence-guard, tax-spec-conformance,
+      portfolio-invariant-guard, backend-architect, system-architect, requirements-analyst,
+      deep-research-agent, tech-stack-researcher, learning-guide, frontend-architect (the
+      last dormant by design). tech-stack-researcher and learning-guide have zero decision-log
+      mentions ever. /harden writes to docs/harden/ which does not exist; /discover-sector and
+      /discover-theme have never run; /pm-review has run twice in fourteen months. The
+      highest-value idle capability is theme-researcher and sector-screener against moat
+      layer 3 (theme stewardship): 2,377 tracked instruments, 13 theses, 1 theme, 2
+      theme_holdings, ZERO ETF/LIC/hybrid coverage — which is the gap James named directly.
+      Both agents are unblocked and neither has been run once. NOTE .claude/ is draft-only
+      from arbi, so any routing change is a PR for James.

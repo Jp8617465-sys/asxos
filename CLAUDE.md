@@ -43,8 +43,8 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (on disk through 0058; latest APPLIED is
-`0057_thesis_revisions_source_system_screen`) is the canonical schema** — roughly 50
+**`migrations/` (on disk through 0059; latest APPLIED is
+`0059_theses_governance_status_no_default`, version `20260917000622`) is the canonical schema** — roughly 50
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -74,7 +74,12 @@ landed via #285: `0055_snapshot_cash_nullable` (`20260916010627`),
 `0056_cash_balance_assertions` (`20260916010638`) and
 `0057_thesis_revisions_source_system_screen` (`20260916010642`). So the live
 ledger ends at 0057 while 0045 is still absent from it.
-`0058_risk_free_pit.sql` is on disk and **NOT yet applied** — it is the
+`0058_risk_free_pit.sql` was applied 2026-09-16 as `20260916185525`.
+`0059_theses_governance_status_no_default.sql` was applied 2026-09-17 as `20260917000622`
+(backup run `35164844485` read `success` first) — it drops the `theses.governance_status`
+column DEFAULT, which had laundered eleven unreviewed auto-seeded rows into `approved`.
+The ledger now holds 111 rows and `schema_drift.compare` is clean; 0045 stays absent.
+Superseded note: `0058_risk_free_pit.sql` is on disk and **NOT yet applied** — it is the
 point-in-time risk-free series (issue #301), whose absence is why the valuation
 model could not be replayed at any historical cutoff.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
