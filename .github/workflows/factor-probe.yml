@@ -1,0 +1,101 @@
+# Factor probe — measure the value×quality composite on a real multi-date panel.
+#
+# WHY THIS EXISTS. ADR §1.7 D4 #7 requires a successor to "materially outperform the
+# deterministic factor-tilt baseline net of costs". That baseline is not hypothetical:
+# `_COMPOSITE_CATEGORIES = ("value", "quality")` (asxos/domain/research/factor_scores.py)
+# is it, and `jobs/eval_alpha_factors.py` already scores it. What was missing is a PANEL —
+# `rs_factor_scores` held 6 as_of dates, all inside a six-week window, so every long
+# horizon collapsed to ~1 independent observation. This lane recomputes the cross-section
+# at month-end trading days across the full price history and evaluates it.
+#
+# WHY DISPATCH-ONLY, AND WHY IT STAYS THAT WAY. Re-running an evaluation on a schedule is
+# multiple testing: each extra look at the same panel raises the chance of a flattering
+# read without adding evidence. There is no `schedule:` here and there should never be one.
+#
+# WHAT THIS IS NOT. It is a PROBE, not a pre-registered test. It writes no `research_runs`
+# row, seals no hypothesis and promotes nothing. Its output is evidence for a recorded
+# decision about whether a deep price backfill is worth building — it is not a verdict of
+# record, and it must never be cited as one. A sealed test remains a separate, deliberate,
+# pre-registered act through `vp-register` / `vp-research`.
+#
+# WHAT THIS EXPOSES (AGENTS.md §8 — a workflow edit is Amber and must record which
+# secrets, which triggers, which branches run it):
+#   - Secret: DATABASE_URL only. No EODHD, FRED, RESEND, GitHub or Supabase token. It
+#     therefore costs A$0 — `jobs/compute_factor_scores.py` is pure DB-to-DB ("No EODHD",
+#     per its docstring) and `jobs/eval_alpha_factors.py` is read-only. No new secret is
+#     created and no existing workflow's scope changes.
+#   - Trigger: workflow_dispatch only. No schedule, no repo event — repo events can carry
+#     untrusted text and nothing here should ever run unattended.
+#   - Branch: checks out refs/heads/main, like every other production workflow. A workflow
+#     holding a production secret must not run at a PR head.
+#
+# WHAT IT WRITES. With `persist: false` (the DEFAULT) it writes NOTHING AT ALL: the
+# recompute step is skipped entirely and only the read-only evaluator runs, reporting on
+# whatever panel already exists. `compute_factor_scores.py` has no dry-run flag of its own,
+# so "default writes nothing" is honoured by not invoking it rather than by passing it a
+# flag it does not have. With `persist: true` it upserts `rs_factor_scores` (and one
+# `job_runs` row per as_of via JobMonitor) — and nothing else. It does not touch `prices`,
+# `signals`, `signal_outcomes`, `research_runs`, `valuation_runs`, `theses` or any capital
+# surface.
+
+name: factor-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      as_of_dates:
+        description: "Comma-separated month-end TRADING days (must be real prices.dt values)"
+        required: false
+        default: "2025-01-31,2025-02-28,2025-03-31,2025-04-30,2025-05-30,2025-06-30,2025-07-31,2025-08-29,2025-09-30,2025-10-31,2025-11-28,2025-12-31,2026-01-30,2026-02-27,2026-03-31,2026-04-30,2026-05-29,2026-06-30,2026-07-31,2026-08-31,2026-09-16"
+        type: string
+      persist:
+        description: "Recompute and upsert rs_factor_scores. Unchecked = evaluate only, write nothing."
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: factor-probe
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      # Skipped unless persist is explicitly checked, so the DEFAULT dispatch is a
+      # read-through. A failure at any as_of fails the run: a partially-built panel
+      # evaluated as though complete is exactly the silent-wrong-answer this lane exists
+      # to avoid (CLAUDE.md #10 — no graceful warnings in infra code).
+      - name: Recompute the factor cross-section at each as_of
+        if: ${{ inputs.persist }}
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra DATES <<< "${{ inputs.as_of_dates }}"
+          for d in "${DATES[@]}"; do
+            d="$(echo "$d" | tr -d '[:space:]')"
+            echo "::group::compute_factor_scores --as-of $d"
+            python jobs/compute_factor_scores.py --as-of "$d"
+            echo "::endgroup::"
+          done
+
+      - name: Evaluate the composite against realised returns
+        run: python jobs/eval_alpha_factors.py
