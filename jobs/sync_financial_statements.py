@@ -2,7 +2,8 @@
 """
 Sync the research-store financial statements (rs_financial_statements) from EODHD —
 raw historical balance-sheet / income / cash-flow statements (yearly + quarterly) for
-every security in rs_security_master. The source for point-in-time factor derivation.
+every security in rs_security_master, PLUS every US-exchange name we hold (which the
+ASX-only master never contains — incident #327). The source for PIT factor derivation.
 
 Survivorship-free: iterates the full security master by default. SEPARATE from
 production tables — never touches `universe` or `prices`. Run weekly, AFTER
@@ -25,6 +26,7 @@ import logging
 from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.portfolio.holdings import held_foreign_symbols
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.financial_statements import refresh_financial_statements
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -43,6 +45,24 @@ _HYBRID_SECURITY_TYPES = ("Preferred Stock", "Notes", "BOND")
 
 
 async def _load_symbols(conn, *, active_only: bool, limit: int | None) -> list[str]:
+    """The security master, plus every US name we actually hold (incident #327).
+
+    `rs_security_master` is an **ASX master**: `asxos/ingestion/security_master.py`
+    populates it from `exchange_symbols("AU")` and its delisted counterpart, and it
+    held 4,439 rows on 2026-09-18, every one `.AU`. So a held US position is not in
+    it at all — and the `--active-only` filter is a red herring, because dropping the
+    filter still cannot surface a row that does not exist.
+
+    That is why `HUBS.NYSE` had zero `rs_financial_statements` rows while being an
+    approved, actively held thesis, and why `build_decision_case` raised
+    "no admissible yearly income row" for it every night, holding `pipeline-health`
+    red. The held US names are unioned in from `holding_lots`, the one source that
+    does not go through `universe.is_active`.
+
+    `--limit` applies to the master selection only. The held set is small, bounded by
+    open lots, and is the reason this function exists — capping it away under a limit
+    would silently reintroduce the bug on any limited run.
+    """
     sql = (
         "SELECT symbol FROM rs_security_master "
         "WHERE (security_type IS NULL OR NOT (security_type = ANY($1::text[])))"
@@ -54,7 +74,12 @@ async def _load_symbols(conn, *, active_only: bool, limit: int | None) -> list[s
     if limit:
         sql += f" LIMIT {int(limit)}"
     rows = await conn.fetch(sql, *params)
-    return [r["symbol"] for r in rows]
+    symbols = [r["symbol"] for r in rows]
+
+    held = await held_foreign_symbols(conn)
+    seen = set(symbols)
+    symbols.extend(s for s in held if s not in seen)
+    return symbols
 
 
 async def main() -> None:
