@@ -158,6 +158,7 @@ class FakeConn:
         self._prices = prices
         self.fetched: list[str] = []
         self.executed: list[tuple[str, tuple]] = []
+        self.batched: list[tuple[str, list]] = []
 
     async def fetch(self, sql, *args):
         self.fetched.append(sql)
@@ -169,6 +170,16 @@ class FakeConn:
 
     async def execute(self, sql, *args):
         self.executed.append((sql, args))
+
+    async def executemany(self, sql, args_iter):
+        # Recorded row-by-row into the SAME list a per-row `execute` would have
+        # filled, so every assertion below keeps its original meaning: the write
+        # path was batched, not changed. `batched` is what distinguishes the two
+        # for the test that cares (test_orchestrator_batches_the_cross_section).
+        rows = list(args_iter)
+        self.batched.append((sql, rows))
+        for args in rows:
+            self.executed.append((sql, tuple(args)))
 
 
 def _pit_row(sym="CBA.AU", **over):
@@ -278,3 +289,50 @@ async def test_orchestrator_writes_null_sector_as_null():
     assert counts["rows"] == 2
     sectors = {args[0]: args[3] for _sql, args in conn.executed}
     assert sectors["A.AU"] is None and sectors["B.AU"] == "Tech"
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_batches_the_cross_section_into_one_round_trip():
+    """The write path must stay batched — this is a latency bug with a correctness tail.
+
+    It used to `await conn.execute(...)` once per symbol. Against a remote Supabase
+    that is one network round-trip per row: measured on factor-probe run 35173534051,
+    a single ~3,300-name cross-section took ~13 minutes, and a 21-date panel would
+    have taken ~5 hours and exceeded the lane's timeout.
+
+    The correctness tail is why this is pinned rather than just profiled: asyncpg runs
+    executemany in an implicit transaction, so a cross-section now lands
+    all-or-nothing. Row-by-row writes leave a partially-built cross-section visible,
+    and an evaluator reading one cannot tell it from a complete one.
+    """
+    pit = [_pit_row(sym) for sym in ("AAA.AU", "BBB.AU", "CCC.AU")]
+    prices = [
+        _price_row(sym, dt, px, px)
+        for sym in ("AAA.AU", "BBB.AU", "CCC.AU")
+        for dt, px in (("2026-06-23", 100), ("2026-06-24", 110))
+    ]
+    conn = FakeConn(pit, prices)
+    counts = await refresh_factor_scores(conn, as_of=D("2026-06-24"))
+
+    assert counts == {"symbols": 3, "rows": 3}
+    assert len(conn.batched) == 1, (
+        f"three symbols must be one executemany, got {len(conn.batched)} calls — "
+        "the per-row write regressed"
+    )
+    sql, rows = conn.batched[0]
+    assert len(rows) == 3
+    assert "ON CONFLICT (symbol, as_of, factor_set_version) DO UPDATE" in sql
+    assert [r[0] for r in rows] == ["AAA.AU", "BBB.AU", "CCC.AU"]
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_writes_nothing_when_no_symbol_qualifies():
+    """An empty cross-section must issue no statement at all, not an empty executemany.
+
+    asyncpg tolerates an empty sequence, but issuing a write for zero rows makes
+    "nothing qualified" and "nothing was attempted" indistinguishable in a log.
+    """
+    conn = FakeConn([], [])
+    counts = await refresh_factor_scores(conn, as_of=D("2026-06-24"))
+    assert counts == {"symbols": 0, "rows": 0}
+    assert conn.batched == [] and conn.executed == []
