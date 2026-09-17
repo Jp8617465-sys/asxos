@@ -43,8 +43,8 @@ Personal investment intelligence OS for ASX equities. Single user. Python 3.12 +
 
 ## Database schema reference
 
-**`migrations/` (on disk through 0059; latest APPLIED is
-`0059_theses_governance_status_no_default`, version `20260917000622`) is the canonical schema** — roughly 50
+**`migrations/` (on disk through 0060; latest APPLIED is
+`0060_thesis_revisions_packet_examined`, version `20260917114415`) is the canonical schema** — roughly 50
 tables across the signal, portfolio, tax, paper-trade, research-store, FX,
 position-monitor and governance subsystems. The list below is a partial overview
 of the core tables, **not exhaustive** — do not trust it for completeness; read
@@ -78,10 +78,18 @@ ledger ends at 0057 while 0045 is still absent from it.
 `0059_theses_governance_status_no_default.sql` was applied 2026-09-17 as `20260917000622`
 (backup run `35164844485` read `success` first) — it drops the `theses.governance_status`
 column DEFAULT, which had laundered eleven unreviewed auto-seeded rows into `approved`.
-The ledger now holds 111 rows and `schema_drift.compare` is clean; 0045 stays absent.
-Superseded note: `0058_risk_free_pit.sql` is on disk and **NOT yet applied** — it is the
-point-in-time risk-free series (issue #301), whose absence is why the valuation
-model could not be replayed at any historical cutoff.
+`0060_thesis_revisions_packet_examined.sql` was applied 2026-09-17 as `20260917114415`
+(#325) — it widens the `thesis_revisions.revision_type` CHECK with `packet_examined`,
+the row a built decision packet writes to record that it examined a thesis. The type
+sits deliberately OUTSIDE the brief's `last_answering_revision_at` allowlist, so a
+machine examination never moves `revisit_due_at`: every clock reset stays a human
+keystroke.
+**Verified 2026-09-17: the ledger holds 112 rows, latest version `20260917114415`;
+59 `.sql` on disk through 0060.** 0042 is reserved and absent from disk; 0045 is on
+disk and stays absent from the ledger.
+Superseded note: the line above once said `0058_risk_free_pit.sql` is on disk and
+**NOT yet applied** — it was applied 2026-09-16 as `20260916185525`, as recorded two
+lines up. Retained as a dated correction, not deleted.
 No `user_id` anywhere. NUMERIC(18,6) on every monetary or statistical column.
 
 - `universe` — symbol PRIMARY KEY, sector, currency, is_active

@@ -1,6 +1,8 @@
 """jobs/run_valuation.py — the sweep end to end on a mocked connection, and its workflow step."""
 from __future__ import annotations
 
+import ast
+import logging
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from decimal import Decimal as D
@@ -136,13 +138,54 @@ async def test_run_hard_fails_without_a_market_input(missing: str, match: str) -
         await job_mod.run(cutoff=CUTOFF, monitor=FakeMonitor(), write_batch_size=10)
 
 
-async def test_same_day_rerun_writes_nothing_and_says_so() -> None:
+async def test_same_day_rerun_writes_nothing_and_says_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A benign no-op is logged and left OUT of the degraded channel.
+
+    `monitor.note` is the degraded-partial-success marker
+    (`asxos/jobs/utils/job_monitor.py:56-62`), and `check_cron_health` raises on
+    every note it finds in a 36-hour window. A same-day re-run is the
+    idempotency guard working exactly as designed, so putting it there turned
+    the nightly watchdog red for a healthy run — observed 2026-09-17, run
+    35165551435. `rows_written == 0` on a 'success' row plus the log line is
+    the whole record, and it is enough.
+    """
     conn = FakeConn([_record("A.AU")], insert_status="INSERT 0 0", stored=(1880, 572))
     monitor = FakeMonitor()
-    with _patched(conn):
+    with _patched(conn), caplog.at_level(logging.INFO, logger=job_mod.log.name):
         await job_mod.run(cutoff=CUTOFF, monitor=monitor, write_batch_size=10)
     assert monitor.rows_written == 0
-    assert monitor.note == "same-day re-run: 0 rows written; 1880 rows (572 valued) already stored for 2026-09-19"
+    assert monitor.note is None
+    assert (
+        "same-day re-run: 0 rows written; 1880 rows (572 valued) already stored for 2026-09-19"
+        in caplog.text
+    )
+
+
+def test_no_benign_branch_writes_the_degraded_note() -> None:
+    """Bind the invariant to the source, not just to the one branch above.
+
+    The only `monitor.note` assignment this job may ever carry is one that
+    means "this run degraded". Today it carries none. If a future change adds
+    one, this test fails and whoever adds it has to decide deliberately whether
+    check_cron_health should page on it.
+
+    Matches an ASSIGNMENT, not a mention — the module's own prose explains why
+    the note is not used, and that prose must not trip the guard.
+    """
+    tree = ast.parse(Path(job_mod.__file__).read_text(encoding="utf-8"))
+    assigned = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and node.attr == "note"
+        and isinstance(node.ctx, ast.Store)
+    ]
+    assert assigned == [], (
+        f"jobs/run_valuation.py assigns the degraded note at line(s) "
+        f"{[n.lineno for n in assigned]} — check_cron_health will page on it"
+    )
 
 
 async def test_zero_written_and_zero_stored_is_a_failure_not_a_green_run() -> None:

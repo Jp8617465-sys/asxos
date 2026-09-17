@@ -4,7 +4,7 @@
 **Owner:** arbi (procedure), James (every judgement inside it)
 **Built:** 2026-09-17. Live figures in §2 are a snapshot of the 2026-09-16 valuation
 sweep — re-derive them, never quote them.
-**Scope:** how to go from 2,396 ASX names to a broker-grade research report with a
+**Scope:** how to go from 1,879 ASX equities to a broker-grade research report with a
 price target and bull/base/bear scenarios, **using only surfaces that exist on `main`
 today**. No new features. Nothing here requires code to be written.
 
@@ -25,13 +25,19 @@ still runs and still records who passes. It emits a **set, in symbol order** —
 rank, not a proposal. That is the machine being honest about what it measured, and the
 runbook is built on top of it rather than around it.
 
-**The targets and scenarios come from you, not from the model.** This is the part
-worth being clear-eyed about. The broker report's bull case is your recorded
-`target_price`; the bear case is your recorded `stop_price`; the base case is 0%. The
-system's job is to *challenge* those numbers against the book, the tax position, the
-liquidity and its own independent valuation — and to make them permanent, hashed and
-scorable. It does not invent them. A system that invented them is what rule #11
-quarantined.
+**The scenarios come from your price plan; the street's targets have their own home.**
+Two different things, and conflating them undersells what exists. The governed report's
+bull case is your recorded `target_price`, its bear case your recorded `stop_price`,
+its base case 0% — the system challenges those numbers against the book, the tax
+position, the liquidity and its own independent valuation, makes them permanent and
+hashed, and scores them later. It does not invent them, and a system that invented them
+is what rule #11 quarantined.
+
+Separately, **analyst consensus and dated target moves are first-class persisted
+fields** — `theses.analyst_consensus_target` and analyst-move revisions, written by
+`asx thesis update-consensus` and `asx thesis log-analyst`, and already read by the
+daily brief. §6.1 is the step that fills them. Skip it and the street's targets exist
+only as prose in a markdown file.
 
 **Nothing it produces is actionable, by construction.** `derive_state()`
 (`decision_engine/builder.py:220`) can only return `watch` or `abstain` today: an
@@ -58,7 +64,8 @@ They are different tools and you will use both. Do not confuse them.
 | Web research | Yes (~10–15 fetches) | No — DB only |
 | Writes to DB | **Nothing** (Phase A constraint) | Yes, content-addressed and append-only |
 | Reproducible | No | Byte-reproducible with `--evaluated-at` |
-| Output | `docs/reviews/thesis-<symbol>-<date>.md` | `<out>/<packet_id>/<sha256>.md` |
+| Triggered | You run it | **The packet is built nightly**; you render it |
+| Output | `docs/reviews/thesis-<symbol-slug>-<date>.md` | `<out>/<packet_id>/<sha256>.md` |
 
 The first is how you *form* a view. The second is how you *commit* one so it can be
 challenged and, later, scored against what actually happened. Skipping the second is
@@ -68,21 +75,40 @@ how a research process becomes a collection of opinions nobody ever marks.
 
 ## 2. The funnel, with live numbers
 
-Measured 2026-09-17 against the 2026-09-16 sweep. Re-derive with the SQL in §4.2.
+Measured 2026-09-17 against the 2026-09-16 sweep and screening run. Re-derive with
+§4.2 — do not quote these.
+
+**Start from the right number.** `universe.is_active` is 2,396, but the valuation sweep's
+population is `security_kind = 'au_equity' AND is_active` (`valuation/universe.py:74`),
+which is **1,879**. The other 517 are not dropped silently, they are out of the
+residual-income model's domain by construction:
+
+| Active, not `au_equity` | Count |
+|---|---:|
+| `etf` | 487 |
+| `hybrid` | 18 |
+| `lic` | 12 |
+
+A residual-income model on tangible common equity has nothing to say about an ETF.
+Those 517 are the product's **thinnest moat layer, not its out-of-scope pile** — the
+theme lane in §4.3 is the surface that covers them, and it has barely been run.
+
+The funnel proper, in the order the job applies it — liquidity is the **pre-filter**,
+not the last gate:
 
 | Stage | Names | Gate |
 |---|---:|---|
-| Active universe | 2,396 | `universe.is_active` |
-| Valued by the RI model | 573 | the rest are `blocked` with a named gap — 1,306 of them |
-| Currency verified | 403 | `currency_unverified` excluded — the HUBS error class |
-| Quality | 198 | 3-period **average** ROE > Ke mid |
-| Value, both conventions | 35 | value ≥ price under registered **and** average-ROE sensitivity |
-| Liquidity | **16** | ADV ≥ A$250k **and** market cap ≥ A$100m |
+| ASX equity universe | 1,879 | `security_kind='au_equity' AND is_active` |
+| Liquidity pre-filter | 537 | ADV ≥ A$250k **and** market cap ≥ A$100m |
+| Valued by the RI model | 332 | the rest are `blocked` with a named gap |
+| Currency verified | 270 | `currency_unverified` excluded — the HUBS error class |
+| Quality | 138 | 3-period **average** ROE > Ke mid |
+| Value, both conventions | **16** | value ≥ price under registered **and** average-ROE sensitivity |
 
-1,306 blocked is not a failure — gaps are rows, never omissions
-(`jobs/run_valuation.py`). A name with no book value or no ROE history cannot be
-valued by a residual-income model, and the model says so by name instead of quietly
-dropping it.
+Across the whole sweep, 1,306 of 1,879 are `blocked`. That is not a failure — gaps are
+rows, never omissions (`jobs/run_valuation.py`). A name with no book value or no ROE
+history cannot be valued by a residual-income model, and the model says so by name
+instead of quietly dropping it.
 
 **Sixteen names is the honest output of a weekly scan.** That is a reading list, not a
 buy list, and it is small enough to actually read.
@@ -134,52 +160,64 @@ whole scan. `discover_opportunities` logs the liquidity screen to `screening_run
 records the passing set. **You do not need to run anything to get a weekly scan** —
 you need to read the result.
 
-### 4.2 Re-derive the passing set
+### 4.2 Read the passing set
 
-**The job does not persist the set.** `discover_opportunities` writes one
-`screening_runs` audit row and a count in `job_runs`, and deliberately writes nothing
-else (#306) — so there is no table of "this week's opportunities" to read back, by
-design. The query below re-derives the same four gates as
-`asxos/domain/discovery/ranker.py::passing`. Read-only, no side effects.
+**Gate 1 is already persisted — do not re-derive it.** `screening_runs.matched_symbols`
+is a `TEXT[] NOT NULL` holding *every* passing symbol, unbounded by `--limit` and
+ordered by symbol so two runs over identical data produce byte-identical arrays
+(`migrations/0038_screening_evaluator_wiring.sql:60`, written by
+`screening/evaluator.py:697`). The audit row records the whole answer by design.
 
-One approximation to know about: the liquidity CTE averages `close × volume` over the
-last 130 calendar days, where the screening evaluator computes 90 **sessions** in
-`_AVG_DAILY_VALUE_SQL`. Close enough to triage on, not identical. If a name sits on
-the ADV boundary, trust the evaluator (`asx screen run`), not this.
+Either read the stored array, or reproduce it exactly:
+
+```bash
+asx screen run discovery-liquidity-v1 --no-log --limit 600
+```
+
+Then apply the three value/quality gates to what the screen matched. This query
+re-derives `asxos/domain/discovery/ranker.py::passing` gates 2–4 over the persisted
+gate-1 set — read-only, no side effects:
 
 ```sql
-WITH latest AS (
-  SELECT * FROM valuation_runs
-   WHERE as_of = (SELECT max(as_of) FROM valuation_runs) AND outcome = 'valued'
+WITH latest_run AS (
+  SELECT matched_symbols FROM screening_runs ORDER BY run_at DESC LIMIT 1
+), scr AS (
+  SELECT unnest(matched_symbols) AS symbol FROM latest_run   -- gate 1, as stored
 ), g AS (
   SELECT symbol, value_per_share,
-         (payload->'inputs'->>'last_close')::numeric              AS last_close,
-         (payload->'sensitivities'->>'average_roe_ke_mid')::numeric AS avg_roe_value,
-         (payload->'ke'->>'ke_mid')::numeric                      AS ke_mid,
+         (payload->'inputs'->>'last_close')::numeric  AS last_close,
+         -- ranker.py:89-91 falls back to value_per_share when the sensitivity
+         -- is absent. Without this COALESCE the comparison yields NULL and
+         -- silently DROPS a name that should pass.
+         COALESCE((payload->'sensitivities'->>'average_roe_ke_mid')::numeric,
+                  value_per_share)                    AS avg_roe_value,
+         (payload->'ke'->>'ke_mid')::numeric          AS ke_mid,
          COALESCE((payload->'inputs'->>'roe_average')::numeric,
-                  (payload->'inputs'->>'roe_trailing')::numeric)  AS roe,
-         COALESCE(payload->'flags','[]'::jsonb)                   AS flags
-    FROM latest
-), liq AS (
-  SELECT symbol, avg(close*volume) AS adv FROM prices
-   WHERE dt > (SELECT max(dt) FROM prices) - INTERVAL '130 days'
-   GROUP BY 1
+                  (payload->'inputs'->>'roe_trailing')::numeric) AS roe,
+         COALESCE(payload->'flags','[]'::jsonb)       AS flags
+    FROM valuation_runs
+   WHERE as_of = (SELECT max(as_of) FROM valuation_runs) AND outcome = 'valued'
 )
-SELECT g.symbol, u.sector,
+SELECT g.symbol, u.sector, u.security_kind,
        round(g.last_close,3) AS close, round(g.value_per_share,3) AS model_value,
-       round(g.value_per_share/NULLIF(g.last_close,0),2) AS value_to_price,
-       round(l.adv/1000,0) AS adv_k_aud, round(u.market_cap/1e6,0) AS mcap_m
+       round(g.value_per_share/NULLIF(g.last_close,0),2) AS value_to_price
   FROM g
+  JOIN scr ON scr.symbol = g.symbol
   JOIN universe u ON u.symbol = g.symbol
-  LEFT JOIN liq l ON l.symbol = g.symbol
  WHERE NOT g.flags ? 'currency_unverified'
    AND g.roe > g.ke_mid
    AND g.value_per_share >= g.last_close
    AND g.avg_roe_value  >= g.last_close
-   AND l.adv >= 250000
-   AND u.market_cap >= 100000000
  ORDER BY g.symbol;                 -- symbol order. The rank was deleted on purpose.
 ```
+
+**Never hand-roll the liquidity gate.** A previous draft of this runbook computed ADV
+as `avg(close*volume)` over 130 calendar days. `screening/evaluator.py:160-177` names
+that exact shape as one of *"two distinct hazards, both of which would make the gate
+admit the LEAST liquid names, the exact inverse of its purpose"* — a symbol trading 10
+days in 90 gets scored on those 10 days alone, a ~9× overstatement. The evaluator
+divides by a fixed 90 and guards `dt <= CURRENT_DATE` (a single future row once
+overstated an ADV by ~524×). Use the stored array or `asx screen run`; nothing else.
 
 `value_to_price` is in the output because you will want to see it. **It is a
 diagnostic, not a score.** The one test of whether it predicts anything returned null
@@ -190,6 +228,13 @@ find yourself doing it, you are using the model as an oracle again.
 
 The screen is bottom-up and will only ever find what is cheap on book. The
 theme lane is top-down and finds what is *changing*. Both feed the same funnel.
+
+**This is the thinnest layer of the moat, and it is where the 517 non-`au_equity`
+names from §2 live.** The standing count is 2,377 tracked instruments against 13
+theses, 1 theme, 2 theme-holdings and **zero ETF/LIC/hybrid coverage**, with two agents
+built for exactly this that have never been run once (`decision-log.md:161`). If you
+only ever run §4.2, the screen will keep handing you cheap small-caps and the ETF
+sleeve will stay empty. Budget at least one session a month here.
 
 ```bash
 /discover-macro                        # → agent_runs rows, one per proposal
@@ -218,12 +263,19 @@ merges, that lane returns nothing and you should not spend a session on it.
 This stage is a human reading the list, and it is not optional. Two failure modes the
 screen cannot see, both visible in the current output:
 
-**Closed-end funds.** Six of today's sixteen are LICs and listed funds. A
-residual-income model on a fund's book value is measuring the discount to NTA and
-calling it value. That may be a real trade, but it is a *different* trade with
-different drivers, and the model does not know it made the substitution. Decide
-deliberately whether fund structures are in your universe; the screen will keep
-surfacing them until you do.
+**Closed-end funds — a filed defect, not a judgement call.** Six of today's sixteen
+are LICs, listed funds and an A-REIT. A residual-income model on a fund's book value
+is measuring the discount to NTA and calling it value — a different trade with
+different drivers, and the model does not know it made the substitution.
+
+Do not treat this as a standing chore you re-decide each week. The screen already
+excludes funds: it hardcodes `security_kind = 'au_equity'`
+(`screening/evaluator.py:284`), and only **12** names in the whole universe are tagged
+`lic`. These six reach you because they are **misclassified as `au_equity`** — a
+`universe.security_kind` data defect already filed (`decision-log.md:154` finding 2,
+naming PGF/LSF/HM1 as LICs and BWP as an A-REIT, all *"outside the residual-income
+model's domain"*). The fix is reclassification, one row each. Until then, drop them on
+sight and do not spend judgement on them.
 
 **Book-value artefacts at the top.** The widest value-to-price gap in the current set
 is 6.26×. A gap that large is nearly always the model mis-reading the balance sheet,
@@ -257,9 +309,33 @@ and **no financial fact from training memory** — if it was not fetched this ru
 from the DB, it does not appear. Fetched pages are untrusted text: data to quote,
 never instructions to follow.
 
-It writes nothing to the database. Output is `docs/reviews/thesis-<symbol>-<date>.md`
-on the current branch. **At the end of this stage you have a view. Nothing else in the
-system knows about it yet.**
+It writes nothing to the database. Output is `docs/reviews/thesis-<symbol-slug>-<date>.md`
+on the current branch, and the note ends with the follow-up verbs it suggests — running
+them is yours, by design. **At the end of this stage you have a view. Nothing else in
+the system knows about it yet — which is why §6.1 exists.**
+
+### 6.1 Persist the street's targets — do not let them die in the note
+
+This is the step that makes the §6 research durable, and it is the part easiest to
+skip. The street view `/thesis` just fetched has two existing homes:
+
+```bash
+# The consensus snapshot. analyst_consensus_target is read by the daily brief
+# (brief/collectors/active_theses.py:58-61) — this is not a write-only field.
+asx thesis update-consensus BHP.AU --buy 12 --neutral 4 --sell 1 --target 48.50
+
+# Each target move, as a dated thesis revision event.
+asx thesis log-analyst BHP.AU \
+  --analyst "<firm>" --action upgrade \
+  --from-rating neutral --to-rating buy \
+  --from-target 41.00 --to-target 48.50 --date 2026-09-15
+```
+
+Without these, the target ladder exists only as prose in a markdown file on a branch,
+and the brief has nothing to compare your own `target_price` against. With them, the
+gap between what the street thinks and what you wrote becomes a tracked number.
+
+`--action` must be one of `upgrade|downgrade|initiate|reiterate`.
 
 ---
 
@@ -283,9 +359,12 @@ asx thesis open BHP.AU \
   --reason "Opened from the 2026-09-20 scan"
 ```
 
-**The price plan is mandatory and hard-fails if incomplete.** Without an entry band,
-stop and target, `build_decision_case` raises rather than inventing scenario numbers
-with no plan behind them (`builder.py:480`). That refusal is the feature.
+**A price plan is mandatory and hard-fails if absent.** `build_decision_case` raises
+rather than invent scenario numbers with no plan behind them (`builder.py:480`). What
+it needs is a **reference price plus a stop and a target**: either the full entry band,
+or an `actual_entry_price` on an entered thesis, which substitutes for the band
+(`builder.py:481-494`). Stop and target are required either way. That refusal is the
+feature.
 
 Then the ten broker-report sections, one command each:
 
@@ -348,22 +427,45 @@ into `approved`, so the gate is real for everything that is not the human path.
 
 ## 9. Stage 6 — The governed packet and its broker report
 
-```bash
-asx decision build \
-  --thesis-id <id> \
-  --as-of 2026-09-20 \
-  --theme <theme_code> \
-  --context \
-  --persist
+**The packet is already built for you.** `jobs/build_decision_packets.py` runs nightly
+in `daily-brief.yml` (after the brief is sent, so a failure here can never cost the
+brief) and builds a challenged packet for **every** thesis with
+`governance_status='approved'` and no close date. It is same-day idempotent: a packet
+already stored for the day is skipped, never rebuilt. So once §7 and §8 are done, the
+routine path is simply to render tonight's packet:
 
+```bash
 asx decision report --packet-id <decision_packet_id> --out docs/reviews/packets --persist
 ```
 
+Find the id with:
+
+```sql
+SELECT decision_packet_id, as_of, recommendation_state
+FROM decision_packets ORDER BY created_at DESC LIMIT 5;
+```
+
+**Since #325 (migration 0060), a built packet also writes a `packet_examined` revision**
+on the thesis, recording that the system examined it and what state it reached. That
+revision type sits deliberately *outside* the brief's staleness allowlist, so it never
+resets `revisit_due_at` — every clock reset stays a human keystroke. A machine
+examination does not buy you another 30 days.
+
+Build by hand only when you need an off-cycle or backdated packet:
+
+```bash
+asx decision build --thesis-id <id> --as-of 2026-09-20 --theme <theme_code> --persist
+```
+
+**Mind which book you challenge against.** The nightly job uses the **paper book**
+(`paper_book_snapshots`, never the live book — C1/D15). `asx decision build` defaults
+to `--context`, which is the **live** book. Pass `--paper-book <snapshot_id>` to match
+the nightly convention; one or the other, never a blend. If you build by hand with the
+default and compare it to last night's packet, you are comparing two different books.
+
 `--theme` is optional: supplying it builds a Stage 3 `CandidateSnapshot` for the
 symbol and rides it into the packet as extra evidence. Omit it if the symbol is not a
-member of an approved theme. `--context` (the default) challenges against the live
-book; `--paper-book <snapshot_id>` challenges against the paper book instead — one or
-the other, never a blend.
+member of an approved theme.
 
 `build` composes the chain — evidence packet → thesis version → challenge →
 portfolio assessment → tax assessment → decision packet — and every artifact is
@@ -410,38 +512,64 @@ and a sector.
 
 ---
 
-## 10. Stage 7 — Score it later
+## 10. Stage 7 — Dispose, then let it score itself
 
-The step that turns this from research into a research *process*.
+### 10.1 Dispose — the step that closes the loop
+
+A packet that is delivered but never answered is the north-star's named honest miss.
+`roadmap-state.md:594` calls *"delivered and disposed"* Stage 4's exit gate. Your verdict
+is the other half of the record:
 
 ```bash
-# Immediately after §9 — records what was known and claimed at t0 and
-# schedules the three horizons. Without --persist it prints and writes nothing.
-asx decision record-t0 --packet-id <id> --persist
+asx decision dispose --packet-id <id> \
+  --verdict accept|request_revision|reject|defer \
+  --note "<why>" --persist
+```
 
-# At each due horizon. Observes every horizon whose session has arrived.
+Without this, the outcome data below measures what the system claimed and never what
+you decided — which makes it a scorecard for a machine nobody was listening to.
+
+### 10.2 Outcome observation — already automatic
+
+`jobs/observe_decision_outcomes.py` runs nightly in `daily-brief.yml`, right after the
+packet builder. Two append-only passes: t0 for any packet without one, then any horizon
+whose due session has arrived. **You do not need to run these by hand.** The manual
+verbs exist for off-cycle work:
+
+```bash
+asx decision record-t0 --packet-id <id> --persist
 asx decision observe --packet-id <id> --as-of 2026-10-20 --persist
 ```
 
-Outcomes materialise at **21 / 63 / 126 trading days**. Model A had 19,032 matured
-observations before anyone checked whether its conviction was monotonic; it was
-inverted (STRONG_BUY −0.09% at 21d vs HOLD +5.07%). The valuation model had **zero**
-when it was already emitting targets for 23 names. Run `observe` or this runbook
-produces the same class of artefact — confident, unmarked and unfalsifiable.
+Outcomes materialise at **21 / 63 / 126 trading days**, measured from the packet's
+reference price to the last close at or before the *promised* session, never the
+catch-up date. The benchmark leg reports unavailable until `AXJOA.INDX` exists in
+`prices` — a named unavailability, never a proxy (governor ruling F1).
+
+Model A had 19,032 matured observations before anyone checked whether its conviction
+was monotonic; it was inverted (STRONG_BUY −0.09% at 21d vs HOLD +5.07%). The
+valuation model had **zero** when it was already emitting targets for 23 names. The
+observation loop is automatic now — the part that is still yours is §10.1.
 
 ---
 
 ## 11. Cadence
 
-| When | What |
-|---|---|
-| Sat 16:00 UTC | `weekly-research.yml` — automatic, no action |
-| Sunday | §3 preflight, §4.2 read the set, §5 triage to 3–5 names |
-| As earned | §6 `/thesis` on those names — the expensive, valuable step |
-| When a view firms | §7–§9 record the thesis, build the packet, render the report |
-| At 21 / 63 / 126d | §10 `observe` — non-negotiable |
-| Monthly | `/discover-macro` → `/discover-theme`; `asx theme coverage` for blind spots |
-| Quarterly | Re-read §0. If the funnel has started producing rankings again, something has drifted back |
+| When | What | Whose |
+|---|---|---|
+| Nightly, in `daily-brief.yml` | `build_decision_packets` → `observe_decision_outcomes` | automatic |
+| Sat 16:00 UTC | `weekly-research.yml` — the sweep and the screen | automatic |
+| Sunday | §3 preflight, §4.2 read the set, §5 triage to 3–5 names | yours |
+| As earned | §6 `/thesis` on those names — the expensive, valuable step | yours |
+| Same sitting | §6.1 persist the consensus target and any analyst moves | yours |
+| When a view firms | §7 record the thesis; §9 render tonight's packet | yours |
+| Within a few days of each packet | §10.1 `dispose` — the exit gate | yours |
+| Monthly | `/discover-macro` → `/discover-theme`; `asx theme coverage`. The thinnest moat layer — do not let this slide | yours |
+| Quarterly | Re-read §0. If the funnel has started producing rankings again, something has drifted back | yours |
+
+The two automatic rows are the reason this runbook is shorter than it looks: the
+packet build and the outcome observation happen whether or not you open a terminal.
+What is actually yours is triage, research, the thesis record, and the disposition.
 
 ---
 
@@ -477,6 +605,9 @@ document, and fixing them means building features — deliberately out of scope.
 | `sector-screener` screens all-NULL columns | `/discover-sector` returns nothing | **PR #319, open, James's merge** |
 | `segment_map` never built (0045 unapplied) | Peer sets are GICS labels, not real segments | `build_segment_map` |
 | The value screen has no measured edge | The set is a reading list, not a signal | a registered model that passes the bar |
+| LICs/A-REITs misclassified as `au_equity` | Fund structures reach the value screen, which excludes funds by design | `universe.security_kind` reclassification (`decision-log.md:154`) |
+| `HUBS.NYSE` has 0 `rs_financial_statements` rows | Its packet fails nightly; the watchdog stays red | `sync_financial_statements --active-only` never fetches it — `is_active=FALSE` for held US names (`m14_candidate_security_kind_enum`) |
+| The brief does not render the packet | `asx decision report` is the only broker-report surface | S6 — the templates exist, nothing calls them |
 
 ---
 
