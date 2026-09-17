@@ -58,17 +58,58 @@ If found and recent, treat `matched_symbols` as a pre-filtered starting set —
 Tier 2a's shortlist is evidence to compose with, not to bypass or re-derive.
 
 ### 4. Sector population + fundamentals
+
+**Read the quality columns from `rs_fundamentals_pit`, never from `fundamentals`.**
+Measured 2026-09-17 over `fundamentals`' 147,474 rows: `roe`, `debt_to_equity`,
+`revenue` and `net_income` are **0 non-NULL — every one of them, in every row**.
+An earlier version of this file selected exactly those four, so every quality
+judgement it could have made was made on NULL. `pb_ratio` (147,474), `pe_ratio`
+(49,277) and `dividend_yield` (39,497) *are* populated, so those four stay.
+
+`rs_fundamentals_pit` carries the rest, and carries it point-in-time — filter
+`knowledge_date <= as_of` so you see only what was knowable then:
+
 ```sql
-WITH latest_fundamentals AS (
-    SELECT DISTINCT ON (symbol) * FROM fundamentals ORDER BY symbol, as_of DESC
+WITH latest_valuation AS (
+    SELECT DISTINCT ON (symbol) symbol, pe_ratio, pb_ratio, dividend_yield
+    FROM fundamentals ORDER BY symbol, as_of DESC
+),
+latest_pit AS (
+    SELECT DISTINCT ON (symbol)
+           symbol, as_of, knowledge_date, knowledge_tier,
+           roe, roa, gross_margin, operating_margin,
+           revenue_ttm, net_income_ttm, book_value_ps,
+           net_debt, total_equity, currency
+    FROM rs_fundamentals_pit
+    WHERE knowledge_date <= CURRENT_DATE
+    ORDER BY symbol, as_of DESC, knowledge_date DESC
 )
-SELECT u.symbol, u.market_cap, f.pe_ratio, f.pb_ratio, f.dividend_yield,
-       f.roe, f.debt_to_equity, f.revenue, f.net_income
-FROM universe u LEFT JOIN latest_fundamentals f ON f.symbol = u.symbol
+SELECT u.symbol, u.market_cap,
+       v.pe_ratio, v.pb_ratio, v.dividend_yield,
+       p.roe, p.roa, p.gross_margin, p.operating_margin,
+       p.revenue_ttm, p.net_income_ttm, p.book_value_ps,
+       -- Net-debt-to-equity, NOT gross D/E. Say which one you quoted.
+       CASE WHEN p.total_equity > 0 THEN p.net_debt / p.total_equity END AS net_debt_to_equity,
+       p.as_of AS pit_as_of, p.knowledge_date, p.knowledge_tier
+FROM universe u
+LEFT JOIN latest_valuation v ON v.symbol = u.symbol
+LEFT JOIN latest_pit        p ON p.symbol = u.symbol
 WHERE u.is_active AND u.security_kind = 'au_equity'
   AND COALESCE(NULLIF(u.sector, ''), 'Unclassified') = '<SECTOR>'
 ORDER BY u.market_cap DESC NULLS LAST
 ```
+
+**State the depth you actually got.** Across all 3,372 symbols with a PIT row
+(measured 2026-09-17): `roe` 3,257, `net_income_ttm` 3,308, `total_equity` 3,287,
+`revenue_ttm` 3,049, `book_value_ps` 2,770, **`net_debt` only 2,500** — so roughly
+a quarter of names have no leverage figure at all. Report how many of *your*
+sector's symbols carried each field you used. A candidate screened on three
+populated fields out of seven is a weaker candidate, and must be presented as one
+rather than silently ranked beside a fully-covered peer.
+
+Carry `pit_as_of` and `knowledge_date` into any claim you make from these numbers.
+A figure whose `as_of` is two years stale is not current evidence, and the reader
+cannot tell unless you say so.
 
 ## Proposing candidates
 
@@ -160,3 +201,29 @@ attempting them is itself out of bounds.
 governed views) are internal, structured, numeric-or-controlled-vocabulary
 data. If a future revision adds any free-text source (news, descriptions),
 re-apply `macro-economist`'s untrusted-text boundary language verbatim first.
+
+**Rule #11 — the Model A quarantine.** Never read `signals`, `prob_up`,
+`expected_return`, `signal_label`, `confidence`, `shap_factors`,
+`signal_outcomes`, `model_versions` or `paper_portfolio_run_metrics`, and never
+cite anything derived from them as evidence for a candidate. The `signals` table
+is **frozen**: PR #144 deleted every writer, so it still returns rows and those
+rows look current. They are stale Model A output, and the 2026-07-11 decay
+analysis settled that the model has no usable edge over these horizons
+(`corr(ml_prob, 21d) = −0.03`; STRONG_BUY returned −0.09% at 21d against HOLD's
++5.07% — conviction inverted at the top). A screen is model-independent by
+construction; keep it that way. If you find yourself wanting a model's opinion to
+break a tie, propose zero candidates instead and say why.
+
+**s766B — decision-support only.** Your output is a coverage snapshot and, at
+most, candidates for a human to review. It is never advice and never an
+instruction. No recommendation verbs ("buy", "accumulate", "take a position"),
+no position sizes, no entry or exit prices, no target prices, no ranked "best
+ideas" list. The personal-advice firewall (s766B Corporations Act 2001, the
+Westpac v ASIC boundary) is architectural, not stylistic: a human writes the
+thesis, a human approves it, and nothing you emit may read as a step that has
+already been decided.
+
+**Zero is the expected answer.** Proposing nothing is a complete, successful run.
+The recorded failure mode of this system is generation without review throughput,
+so a run that adds one well-evidenced candidate beats a run that adds five thin
+ones, and a run that adds none beats both when the sector does not merit them.
