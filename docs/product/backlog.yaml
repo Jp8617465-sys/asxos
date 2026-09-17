@@ -1741,11 +1741,23 @@ items:
     title: "Packet→thesis writeback — a completed decision packet writes a thesis_revisions row and moves last_revisited_at; today CBA was challenged three times with the ledger unmoved"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: attended
     paths: ["asxos/domain/decision_engine/", "jobs/build_decision_packets.py", "migrations/", "tests/"]
     source: >-
+      DONE 2026-09-17 — #325 (merged 7f7c148), migration 0060 applied as 20260917114415 under
+      the §8 sequence (backup run 35216727672 read success first). The row as filed was WRONG
+      in two places and the correction is the record: (1) there is no missing link — the
+      builder takes thesis_id and bakes it into every packet id, so no FK migration; (2)
+      moving last_revisited_at would have voided discipline.py's clock-reset invariant (every
+      reset is a human keystroke, so no job can suppress a staleness finding). What landed
+      writes a NEW revision_type 'packet_examined' (0060, a CHECK widening not an FK),
+      deliberately OUTSIDE compose.py's answering allowlist, source=system_screen, citing the
+      packet id + content hash; it never touches last_revisited_at, revisit_due_at or
+      governance_status. Backfill lane dispatched dry → persist → persist: CBA revisions 1→4,
+      last_revisited_at still 2026-05-28, governance_events still 36, idempotent on re-run.
+      CBA stays overdue — correctly — until James looks. Original filing follows.
       Rec 4 of the register review, which calls it "the only recommendation here that changes
       the product" (north-star moat layer 2, discipline). Filed 2026-09-17 in the attended triage James asked for. Its source proposal has sat unfiled since 2026-09-16 — six recommendations, none of them given a row, which is how they evaporated.
       Measured 2026-09-17: CBA has THREE challenge_results and THREE decision_packets

@@ -1433,8 +1433,12 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 >
 > **Landed:** #318 (the `factor-probe` dispatch lane) → #320 (**a 107× latency fix** — the factor
 > cross-section wrote one row per round-trip, ~13 min per `as_of`; batched it into one `executemany`,
-> now **7.3 s**) → #321 (two D4 corrections proposed to James) → #322 (the landscape report).
+> now **7.3 s**) → #321 (two D4 corrections proposed to James) → #322 (the landscape report) → #324
+> (close) → **#325 (A-47, the discipline-layer item that outranked this whole lane — see the attended
+> block below; 0060 applied, backfill run, CBA 1→4 revisions with the clock untouched).**
 > **Open for James:** #319 (`.claude/` agent safety — two files, not the ten I proposed).
+> **Next, in this order:** E-23 (the deep price backfill, attended, its own §8 sitting) → E-24
+> (pre-register `low_vol`, trial count 24).
 >
 > **The mission's premise was false and the mission was re-scoped mid-flight.** I claimed no measured
 > deterministic baseline existed. `factor_scores.py:79`, `alpha_eval.py` and `eval_alpha_factors.py:92`
@@ -1478,10 +1482,15 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > `20260917000622`**, backup run `35164844485` read `success` first; drops the `governance_status`
 > default, the root cause) → #316 (this record, eight backlog rows, two proposals).
 >
-> **#1 — A-47, the packet→thesis writeback.** CBA was challenged three times in September, all
-> `abstain`, with its revision ledger unmoved and 81 days overdue. The review calls this the only
-> recommendation that changes the product. Packets key on symbol with no `thesis_id`, so it needs a
-> migration and is not a one-file build.
+> **#1 — A-47, the packet→thesis writeback — DONE 2026-09-17 (#325, `7f7c148`; 0060 applied
+> `20260917114415`).** As filed it was wrong twice: the `thesis_id` link was never missing (the builder
+> bakes it into every packet id), and moving `last_revisited_at` would have voided `discipline.py`'s
+> "every clock reset is a human keystroke" invariant — the moat it was meant to serve. What landed
+> records each packet build under a **new** `packet_examined` type outside the brief's answering
+> allowlist, never touching the clock. Backfilled: CBA revisions 1→4, `last_revisited_at` still
+> 2026-05-28, idempotent on re-run. **CBA stays overdue — correctly — until James looks.** Proof on
+> the scheduled path is pending the next `daily-brief` run. (Original text: CBA was challenged three
+> times in September, all `abstain`, with its revision ledger unmoved and 81 days overdue.)
 > **#2 — A-45, re-ranked DOWN the same night I filed it, and the correction matters more than the
 > row.** I filed it at #1 claiming the synthetic yield overlay "corrupts what performance is measured
 > against", then opened the consumers before building and found the F1 guard fully implemented:

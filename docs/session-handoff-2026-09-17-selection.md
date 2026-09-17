@@ -145,6 +145,17 @@ The largest unexploited free data source, and PEAD's prerequisite.
 
 The attended session's queue (A-47, A-45, A-34…) is **unchanged** and still ranks as written.
 
+**Addendum, same day, after this close.** James asked "where to from here"; the answer was A-47
+first (discipline, north-star §1.3 layer 2, #1 on the queue) and E-23 second. **A-47 landed as
+#325** (`7f7c148`): migration 0060 applied as `20260917114415` under the §8 sequence (backup run
+`35216727672` read `success`); the writeback records each packet build as a `packet_examined`
+revision **outside** the brief's answering allowlist and never moves `last_revisited_at` — the
+row as filed would have voided `discipline.py`'s clock-reset invariant. Backfill dispatched
+dry → persist → persist: CBA revisions **1→4**, clock still 2026-05-28, `governance_events` still
+36, idempotent. Lesson **L57** (the integration lane was green without applying 0060). **Next
+wake: E-23**, attended, its own §8 sitting; then E-24. Proof of the scheduled writeback path is
+the next `daily-brief` run.
+
 ---
 
 ## Verified at close
