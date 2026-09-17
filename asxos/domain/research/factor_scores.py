@@ -382,19 +382,34 @@ async def refresh_factor_scores(
 
     sector_neutral_scores(scored)
 
-    written = 0
-    for r in scored:
-        # Skip a symbol that produced no usable factor at all (all categories empty
-        # AND no market cap) — nothing to record.
-        if r.n_factors_present == 0 and r.market_cap_aud is None:
-            continue
-        await conn.execute(
-            _UPSERT,
+    # One round-trip for the whole cross-section, not one per symbol.
+    #
+    # This loop used to `await conn.execute(...)` per row. Against a remote
+    # Supabase that is ~3,300 sequential round-trips for a full ASX cross-section,
+    # and the latency — not the computation — dominated: a single as_of took ~13
+    # minutes, measured on factor-probe run 35173534051. Building a panel of 21
+    # month-end cross-sections would have taken ~5 hours and blown the lane's
+    # timeout. `executemany` pipelines the same statements, so the wall time
+    # collapses to roughly the compute plus one network exchange.
+    #
+    # Semantics are unchanged: the same _UPSERT, the same parameters, the same
+    # ON CONFLICT. asyncpg runs executemany inside an implicit transaction, so the
+    # cross-section now lands all-or-nothing rather than row-by-row — strictly
+    # better here, because a half-written cross-section is one an evaluator could
+    # read as though it were complete.
+    rows = [
+        (
             r.symbol, as_of, factor_set_version, r.sector, _q6(r.market_cap_aud),
             _q6(r.value_score), _q6(r.quality_score), _q6(r.momentum_score),
             _q6(r.low_vol_score), _q6(r.yield_score), _q6(r.composite_score),
             r.n_factors_present,
         )
-        written += 1
+        for r in scored
+        # Skip a symbol that produced no usable factor at all (all categories empty
+        # AND no market cap) — nothing to record.
+        if not (r.n_factors_present == 0 and r.market_cap_aud is None)
+    ]
+    if rows:
+        await conn.executemany(_UPSERT, rows)
 
-    return {"symbols": len(scored), "rows": written}
+    return {"symbols": len(scored), "rows": len(rows)}
