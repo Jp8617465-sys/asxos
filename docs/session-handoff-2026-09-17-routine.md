@@ -123,6 +123,31 @@ the reason `session_016Gus…` had to be replaced. Nothing is broken; the cost i
 the risk that a future fire reads tonight's interactive turns as prior fires. If the next fire feels
 heavy, rebind before 17:30 UTC rather than after.
 
+## Second attended block — the register rework (James's 5-hour window)
+
+James pushed back: *"I thought we were reworking the theses and the rules with the fin services
+agent team?"* He was right. Two determinations from 2026-09-16 carried six recommendations between
+them and **not one had a backlog row** — which is how they evaporated while the sprint moved on.
+His instruction: retire all eleven, triage everything into a build list, backlog what does not fit,
+and use the agents both ways plus survey what else they offer.
+
+**Landed:** #313 deadman wiring (28 variables, A-19 closed, two gaps fixed) → #314 `retire_object`
++ `asx thesis retire` → #315 migration 0059 (`20260917000622`, backup `35164844485` read `success`)
+→ #316 the record. **The eleven are retired: 2 approved / 11 retired / 10 rejected.**
+
+**Two corrections I owe the record.** #309's body claimed the human theses keep James's numbers —
+false for 11 of 13, and the register review had established it the day before. And I described
+HUBS's stop at 230 as a raised trailing stop; it was authored 22.6% above the 187.54 entry and the
+position has closed at or below it on 48 of 77 sessions.
+
+**Next, ranked:** A-45 (the F1 `_ASX200_TR_YIELD` violation — a fabricated 4% yield on a price
+index written nightly to a column named `benchmark_tr_level`, against a governor ruling) → A-47
+(the packet→thesis writeback; CBA challenged three times with its ledger unmoved) → A-34/A-35/E-20.
+
+**Yours:** A-43 (which level-gate option), C-17 (the CHECK that HUBS would fail), A-48 (the ESPP
+lock end date and which FX stands), and the ten decisions in the CBA/HUBS dossier. The CBA decision
+packet expires **2026-10-15**.
+
 ## Next fire
 
 (d).1 none → (d).2 exit 0, pick **A-34 — DELETE verdict #1 (portfolio brief)**, scope in
