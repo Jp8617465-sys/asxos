@@ -1425,6 +1425,37 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-18 `daily-product` routine fire (fired 2026-09-17T17:37Z, held in plan
+> mode until 20:47Z).** The Stages 0→6 table at the top of this file remains the only ranked queue.
+>
+> **The fire took incident #327 as its one thing** — gate (b) failed with it open, and `AGENTS.md` §7
+> puts incidents before features. Landed **#328** (`8211290`, Amber).
+>
+> **#327's stated root cause was wrong, and its remedy would not have worked.** It blamed the
+> `AND is_active` filter in the statements job. Measured live first: `rs_security_master` holds
+> **4,439 rows, every one `.AU`**, because it is built from EODHD's AU exchange — `HUBS.NYSE` is
+> absent from the table entirely, so dropping the filter surfaces nothing. The fix sources held US
+> names from `holding_lots` instead, via `held_foreign_symbols` moved into
+> `asxos/domain/portfolio/holdings.py`. Tests mutation-checked; one of them pins the superseded
+> remedy so it cannot be re-derived from the issue text.
+>
+> **#327 STAYS OPEN and `pipeline-health` is still red tonight.** The code path is fixed; the data is
+> not there yet. `rs_financial_statements` gains HUBS rows only when `weekly-research` runs, and that
+> workflow is **James's** under #311's dispatch-scope rule — Saturday 16:00 UTC, or his dispatch.
+> Closing it on the merge would be claiming a capture nobody has.
+>
+> **Two process findings, both the kind that look like nothing.** The fire could not post its ledger
+> START at fire time, because plan mode forbids writes — the exact silent-failure shape
+> `_preamble.md` §1 exists to detect. And it was **already over its 120-minute budget at START**, and
+> continued anyway on the §7 ground that an open incident outranks the clock.
+>
+> **Next:** the queue below is unchanged by this fire. The one item it adds is the honest unknown —
+> whether EODHD answers its fundamentals endpoint for a **US** ticker at all. The sandbox has no key,
+> so only the live run settles it. If it does not, the follow-up is to make `build_decision_case`
+> *report* the gap rather than raise, which is what actually turns one absent row into a nightly red
+> watchdog.
+>
+> **Superseded — the 2026-09-17 selection & ideation block below, carried unchanged.**
 > **Live as of the 2026-09-17 selection & ideation mission (James: "explore what's possible… for
 > investment selection scanning/ideation" + "Model A was so underbaked… if you properly engineer it,
 > is it still worth exploring?").** The Stages 0→6 table at the top of this file remains the only
@@ -2046,6 +2077,19 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-18 — `daily-product` routine fire (fired 17:37Z 09-17, executed 20:47–20:55Z).** `main` @
+`8211290`. One merge: **#328**, Amber, the #327 incident fix. `make check` 4653 passed / 13 skipped,
+ruff + mypy clean on 233 files. No migration (ledger head `20260917000622`, 0059; 0045 absent, 0042
+reserved). No capital action, no Model A output, no Supabase write.
+
+Measured before building, and it changed the fix: `rs_security_master` = 4,439 rows, **4,439 `.AU`,
+0 non-AU**; `HUBS.NYSE` absent from it and from `rs_financial_statements` (CBA has 488). So the
+incident's proposed remedy — widen the `is_active` filter — could not have worked, and the real fix
+is to source held US names from `holding_lots`.
+
+Open at close: **#327** (deliberately — the data lands only when `weekly-research` runs, which is
+James's to dispatch) and **PR #319** (`.claude/`, James's to merge). `deadman=unset`.
 
 **2026-09-17 — attended session, straight after the `daily-product` fire and its own addendum.**
 `main` @ `8a363f7` after four merges: #313 `bab01f3` (deadman wiring, Amber) — #314 `89636ce`
