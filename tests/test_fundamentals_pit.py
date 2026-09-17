@@ -612,6 +612,12 @@ class FactorCompatibilityConn:
     async def execute(self, sql, *args):
         self.factor_writes.append((sql, args))
 
+    async def executemany(self, sql, args_iter):
+        # refresh_factor_scores batches its cross-section into one executemany;
+        # recorded per row so this test's factor_writes assertions are unchanged.
+        for args in args_iter:
+            self.factor_writes.append((sql, tuple(args)))
+
 
 @pytest.mark.asyncio
 async def test_batched_pit_row_remains_compatible_with_factor_score_consumer():
