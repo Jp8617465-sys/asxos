@@ -76,5 +76,39 @@ Each line names the probe that produced it. Re-probe before trusting a date-stam
   which fails against the pre-fix file. A grant here is self-modification with no human in the
   loop, which is the one thing `AGENTS.md` §8 reserves.
 
+- **The RI valuation sweep sees 88.9% of ASX market cap, and only tangible-book businesses**
+  — 2026-09-16 sweep, probed 2026-09-17. 1,879 active `au_equity`; 537 pass liquidity; 332
+  valued ($3,363bn of $3,784bn); 16 clear all four gates, of which 8 are operating companies
+  and 8 are LIC / A-REIT / one-off artefacts. 1,082 of 1,879 blocked `roe_non_positive` — CSL
+  among them, correctly (TTM net income −US$2.64bn). Valued-by-count per sector: Real Estate
+  78%, Financials 71%, Industrials 56%, Tech 26%, Energy 20%, Healthcare 17%, Materials 13%.
+  The model values BHP at $23.87 vs $59.25 and CBA at $67.15 vs $152.50: the `zero_excess`
+  terminal convention assigns nothing to franchise beyond the 10-year fade, so every one of
+  the 8 surviving operating companies is a tangible-book business. That is the lens, not the
+  market.
+- **41% of the liquid universe is valued on accounts at least nine months old** — of the 537
+  liquid names, latest `rs_fundamentals_pit.as_of` is 2026-06-30 for 317, 2025-12-31 for 92,
+  2025-06-30 for 65, older for 18 (probed 2026-09-17). `HLI.AU` sits in the Dec-2025 bucket:
+  the screen surfaced it knowing nothing of its H1-2026 result, special dividend, buyback or
+  ING renewal. A name the screen finds is not a case the screen has made.
+- **A second valuation method needs a migration** — `valuation_runs_method_check` is
+  `CHECK (method = 'residual_income')` and `valuation_runs_terminal_convention_check` is
+  `CHECK (terminal_convention = 'zero_excess')` (`pg_constraint`, 2026-09-17). Widening either
+  is one expand-only ALTER, the 0057/0060 pattern; every existing row satisfies the wider
+  constraint.
+- **Relative-multiples coverage on the same 537 liquid names** (2026-09-17): P/E computable for
+  354 (`eps_ttm > 0`), EV/EBITDA for 365 (`rs_financial_statements.line_items.ebitda > 0` on
+  the latest yearly income row — the key is present on all 54,107 yearly income rows, non-null
+  for 513 of the 537, positive for 365), EV/Sales for 464, P/B for 522.
+  `rs_security_master.gics_sector` covers 537/537 in 16 groups where `universe.sector` covers
+  535; `factor_scores.py` already reads the former. 518/537 carry ≥5 years of PIT history.
+  Utilities has 6 liquid names — below any sensible peer-group floor.
+- **`factor_scores.py` already computes a sector-neutral value z-score** (`earnings_yield`,
+  `book_yield`) into `rs_factor_scores` (71,759 rows). The value×quality composite it feeds
+  measured no detectable edge — best effective t 0.75 at 21d (selection probe, 2026-09-17).
+  It is a *ranker* in the research store, retired from `weekly-research`, not a gate and not a
+  valuation. Anything proposed as a "relative valuation lens" must state how it differs from
+  this, or it is a duplicate.
+
 Update this file when a durable convention is added or moved, or when a fact like the two
 above would otherwise be lost with the mechanism that encoded it.
