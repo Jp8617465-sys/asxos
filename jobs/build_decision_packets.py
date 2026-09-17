@@ -40,6 +40,7 @@ from asxos.domain.decision_engine.portfolio_state import (
     load_peer_vols,
     load_sizing_policy,
 )
+from asxos.domain.decision_engine.writeback import record_packet_examination
 from asxos.domain.tax.feed import load_dividend_characterisation
 from asxos.domain.valuation.repository import latest_run_for_symbol
 from asxos.jobs._helpers import require_personal_use_job
@@ -79,6 +80,10 @@ async def build_one(conn: Any, *, thesis_id: int, symbol: str, cutoff: datetime,
         conn, cutoff=cutoff, thesis_id=thesis_id, context=ctx, valuation=valuation, dividends=dividends
     )
     await repository.save(case, conn=conn)
+    # A-47: the packet is the system examining this thesis -- say so on the
+    # thesis's own discipline ledger. This never resets last_revisited_at (see
+    # decision_engine/writeback.py and discipline.py's clock-reset invariant).
+    await record_packet_examination(conn, thesis_id=thesis_id, case=case)
     return case.decision.decision_packet_id
 
 

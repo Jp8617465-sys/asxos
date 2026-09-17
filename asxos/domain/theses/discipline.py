@@ -289,8 +289,16 @@ def data_sanity_escalation(
       the ladder (a ``reviewed_no_change`` hold, say) buys another N days.
 
     Both are bounded by one property: ``INSERT INTO thesis_revisions`` exists in
-    exactly one module, reached only from CLI commands, so every clock reset is
-    a human keystroke — no job, agent or model can suppress this finding.
+    exactly one module (``theses/service.py``), and every **clock reset** is a
+    human keystroke — no job, agent or model can suppress this finding. One
+    job-authored row type exists (``packet_examined``, migration 0060, written
+    by ``jobs/build_decision_packets.py`` through the narrow
+    ``record_system_examination`` entry): it records that the system built a
+    packet against the thesis, it sits OUTSIDE the answering allowlist the
+    brief's ``last_answering_revision_at`` subquery counts, and it never
+    touches ``last_revisited_at`` — so it cannot answer a red, cannot reset the
+    clock, and cannot suppress this finding. A system examination is not a
+    human revisit.
 
     **s766B.** "Correct or retire" applies to the thesis ROW — a stale
     *record* — never to a holding. Evidence + arithmetic + the maintenance

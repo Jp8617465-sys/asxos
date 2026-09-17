@@ -91,6 +91,10 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "thesis_revisions_packet_examined": (
+        "0060 — drafted on the A-47 branch; applied in the same PR under the "
+        "AGENTS.md §8 sequence, and this entry is removed in that apply commit"
+    ),
     # 0054 equity_valuation was here from draft to apply. APPLIED 2026-09-14
     # as 20260914123930 via the AGENTS.md §8 migration sequence (merge-train
     # session, PR #229): migration-integration green, backup.yml run 34844339116
