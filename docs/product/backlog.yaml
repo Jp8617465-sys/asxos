@@ -1680,7 +1680,7 @@ items:
       row unchanged. One migration, expand-only, its own PR.
 
   - id: A-45
-    title: "F1 violation — _ASX200_TR_YIELD = 0.04 is compounded onto the AXJO PRICE index and written as benchmark_tr_level on 67 of 74 portfolio_daily_snapshots rows, nightly"
+    title: "F1 record-hygiene — a synthetic yield overlay is stored in a column NAMED benchmark_tr_level on 67 of 74 rows; every consumer already guards it, so this is labelling, not measurement corruption"
     phase: A
     owner: arbi
     status: open
@@ -1703,6 +1703,23 @@ items:
       honestly (unavailable, never a proxy), not to compute a correct one. Pass test: no
       hardcoded yield in the writer; the 67 mislabelled rows addressed by a stated decision
       (corrected, nulled, or left with a recorded caveat) rather than silently kept.
+      CORRECTED 2026-09-17, SAME NIGHT, BEFORE ANY BUILD — and the correction is the point.
+      I filed the row above from a decision-log claim without opening the consumers, and the
+      severity was WRONG. The F1 guard is implemented, not merely intended:
+      jobs/snapshot_portfolio.py writes trailing_div_yield_pct non-NULL for exactly the overlay
+      path and NULL for the real index; asxos/domain/benchmark/outcome.py:26-33 reads that
+      marker and reports the measurement as UNAVAILABLE, naming the proxy as the reason, and
+      "never silently substitutes"; asxos/brief/compose.py:1325-1342 derives is_proxy from the
+      same marker; and tests/test_brief_outcome.py:509 pins it. So NOTHING downstream treats
+      the synthetic figure as a benchmark measurement, and the original claim that it
+      "corrupts what performance is measured against" is false. What remains is real but
+      narrower and does NOT outrank the queue: (a) the stored column is NAMED
+      benchmark_tr_level while holding a price-derived synthetic on 67 of 74 rows, and F1 says
+      AXJO must never carry a total-return label — a record-hygiene violation even with every
+      consumer guarding; (b) asxos/domain/brief/collectors/wealth_state.py:41 SELECTs
+      benchmark_tr_level and trailing_div_yield_pct and then uses neither, deferring benchmark
+      reporting to section 8 in its own comment — a dead select to drop. Re-ranked BELOW A-47.
+      Lesson L53.
 
   - id: A-46
     title: "profiles.capital_aud is A$6,666.98 against a live A$8,155.96 — 74 days stale, and under its own framework the per-name cap A$666.70 is below min_position_aud A$1,000, so the system permits zero new positions"
