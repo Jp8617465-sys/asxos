@@ -150,7 +150,7 @@ def test_epoch_boundary_is_inclusive_of_initial() -> None:
 
 def test_repo_keys_are_unique_and_cover_every_file() -> None:
     keys = repo_migration_keys()
-    assert len(keys) == 57, f"expected 57 .sql files, found {len(keys)}"
+    assert len(keys) == 58, f"expected 58 .sql files, found {len(keys)}"
     assert "perf_indexes" in keys, "0018 must be tracked after its reconstruction"
     assert "screening_runs_comment_fix" in keys, "0046 comment fix must be tracked"
     assert "brief_section_gold" in keys, "0047 gold table must be tracked"
@@ -164,6 +164,13 @@ def test_repo_keys_are_unique_and_cover_every_file() -> None:
     assert "snapshot_cash_nullable" in keys, "0055 paired cash/capital NULL must be tracked"
     assert "cash_balance_assertions" in keys, "0056 cash assertions ledger must be tracked"
     assert "thesis_revisions_source_system_screen" in keys, "0057 system_screen source must be tracked"
+    # 0058 landed 2026-09-16 without being named here; added with 0059 rather than
+    # left as a silent gap in a test whose whole job is to notice a missing migration.
+    assert "risk_free_pit" in keys, "0058 point-in-time risk-free series must be tracked"
+    assert "theses_governance_status_no_default" in keys, (
+        "0059 must be tracked — it closes the DEFAULT that laundered eleven unreviewed "
+        "theses into approved"
+    )
     assert "risk_free_pit" in keys, "0058 point-in-time risk-free series must be tracked"
     assert "initial" in keys
 

@@ -62,11 +62,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Execute migration behavioural contracts on PostgreSQL 17 (0043, 0055-0057)
+      - name: Execute migration behavioural contracts on PostgreSQL 17 (0043, 0055-0057, 0059)
         run: |
           python -m pytest -q \
             tests/test_price_revision_migration.py \
             tests/test_price_revision_migration_integration.py \
             tests/test_m1_migrations.py \
             tests/test_m1_migrations_integration.py \
+            tests/test_migration_0059_governance_default.py \
             tests/test_backup_script.py
