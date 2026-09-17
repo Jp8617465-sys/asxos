@@ -1825,3 +1825,120 @@ items:
       theme_holdings, ZERO ETF/LIC/hybrid coverage — which is the gap James named directly.
       Both agents are unblocked and neither has been run once. NOTE .claude/ is draft-only
       from arbi, so any routing change is a PR for James.
+
+  - id: E-23
+    title: "Deep, delisting-inclusive price backfill — the binding constraint on every cross-sectional test"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["migrations/", "jobs/", ".github/workflows/", "asxos/ingestion/eodhd.py"]
+    source: >-
+      ROUTE IS ATTENDED, NOT MISSION, AND THE BACKLOG GUARD IS WHY: is_denied_path
+      denies "migrations/" for any arbi-owned build/mission row, because AGENTS.md §8
+      makes applying a migration a five-step sequence that must run IN ONE SITTING —
+      including READING backup.yml's run conclusion — which an unattended fire cannot
+      complete. Filing this as `mission` would have licensed exactly that. The guard
+      caught it on first run; the row is attended because the work genuinely is.
+      Decided on evidence 2026-09-17 by the factor-probe, not assumed. See
+      docs/research/selection-landscape-2026-09.md §5b. prices holds 435 sessions
+      (2025-01-02..2026-09-16) and 57 of 2,040 delisted names; rs_fundamentals_pit reaches
+      1987 and carries 1,515 of them. Since every cross-sectional test needs a forward
+      RETURN, prices are the single binding constraint. alpha_eval reports 14/6/3/1
+      independent non-overlapping dates at 21/63/126/252d and flags three of four as NOT
+      decision-grade on its own initiative. NO NEW CLIENT CODE NEEDED: eodhd.py:73
+      daily_prices(symbol) returns full history in ONE call when from_date is omitted, and
+      eodhd.py:67 exchange_symbols_delisted() already enumerates the dead names (~1,986 AU).
+      Membership MUST be driven off rs_security_master, never universe.is_active, which is
+      current listing status and reintroduces the bias. Expand-only into a new table; prices
+      untouched. ~3,700-4,400 one-off API calls. Amber, AGENTS.md §8 sequence.
+      TWO DEFECTS ANY BACKFILL MUST CARRY: (1) eodhd.py:77-81 coerces a non-list payload to
+      [], so a {"code": 402} quota body is arithmetically identical to "no history" — a
+      resumable backfill would mark symbols complete with zero rows and never fail; classify
+      the payload the way asxos/ingestion/news.py does. (2) risk_free_rates runs 2024-01-01
+      only, so a deep panel outruns it and hard-fails as run 35135765565 did; the lane already
+      takes `start`, only OBSERVATION_LIMIT=200 (jobs/backfill_risk_free.py:55) blocks a 2005
+      pull, and the job's own truncation guard catches it rather than truncating silently.
+
+  - id: E-24
+    title: "Pre-register low_vol at 21d — carrying a DECLARED TRIAL COUNT OF 24"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: ["E-23"]
+    route: mission
+    paths: ["asxos/domain/research/registry/", ".github/workflows/"]
+    source: >-
+      The factor-probe (run 35174601661) measured low_vol_score at IC +0.1095, effective n 14,
+      effective t 3.06 at 21d — the only cell with BOTH effect and power, and it is not in the
+      value x quality composite. IT IS NOT AN EDGE AND MUST NOT BE REPORTED AS ONE. The
+      evaluation examined 24 cells (6 scores x 4 horizons); at |t|>2 roughly 1.2 false
+      positives are expected by chance, five cells were flagged significant, and three of those
+      sit on effective_n=1 and are meaningless. Selecting the best cell from a 24-cell table
+      after seeing it is the exact failure D4 #5 and Harvey-Liu-Zhu exist to prevent. So any
+      seal MUST declare trial count 24 in its surface, and the test needs R-01's depth first —
+      at n=14 and the measured sigma(IC)=0.147, reaching t=3.0 would require a mean IC of 0.12,
+      roughly triple any plausible single-factor IC. Mirror registry/vp.py constant-for-constant;
+      reuse vp_harness.spearman/median/_quintile_bounds and hash_document_payload rather than
+      re-deriving them. Depends on R-01 for power.
+
+  - id: E-25
+    title: "asx research run saves hypothesis, strategy and run in ONE transaction, under a momentum id"
+    phase: E
+    owner: arbi
+    status: parked
+    depends_on: []
+    route: build
+    paths: ["asxos/cli/research.py"]
+    source: >-
+      asxos/cli/research.py:125-132 persists save_hypothesis, save_strategy_version and
+      save_run together inside one `if persist:` block, under HYPOTHESIS_ID =
+      "hyp-momentum-12-1-asx-monthly-v1" (:49). That is the file-drawer defect the research
+      registry exists to prevent: one dispatch after a seal makes the pre-registration a
+      description of a result rather than a commitment made before it. Its universe_rule also
+      reads "universe.is_active", the survivorship rule SQL_REPLAY_INPUTS exists to avoid.
+      JAMES'S RULING 2026-09-17: leave it in place, note it — it only fires on a deliberate
+      run. Retire or split it before any momentum hypothesis is sealed under that id.
+      STATUS IS `parked`, NOT `open`, AND THAT IS THE RULING ENCODED: filed open with
+      route=build it is one-file lane work, so the unattended picker would have built it
+      tonight — against the decision not to touch it yet. Parked keeps the row and the
+      reasoning without licensing the fix. Unpark it when E-24 goes to seal.
+
+  - id: E-26
+    title: "Eight remaining agent files still lack rule #11 / s766B / untrusted-text clauses"
+    phase: E
+    owner: james
+    status: open
+    depends_on: []
+    route: james
+    paths: [".claude/agents/"]
+    source: >-
+      PR #319 fixes the two that actually gate work: deep-research-agent (WebSearch/WebFetch
+      with zero boundary clauses — the weakest boundary in the roster) and sector-screener
+      (screening on roe/debt_to_equity/revenue/net_income from `fundamentals`, all four 0
+      non-NULL across 147,474 rows). The other eight are hygiene at the same weight and were
+      deliberately dropped from the mission rather than converted into a ten-PR review queue
+      for the one human bottleneck: macro-economist, theme-researcher,
+      benchmark-performance-analyst (its §4 reads paper_portfolio_run_metrics, a rule #11
+      surface), thesis-milestone-monitor, thesis-coherence-guard, portfolio-coherence-reviewer,
+      market-context-narrator, plus the five stale commands describing Model A's deleted
+      training chain as live. .claude/ is draft-only from arbi — every one is a PR for James.
+
+  - id: E-27
+    title: "_KNOWN_AGENTS is a frozenset with no drift test against the files it names"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: build
+    paths: ["asxos/domain/governance/agent_run_service.py", "tests/"]
+    source: >-
+      agent_run_service.py:54 holds frozenset({"macro-economist", "sector-screener",
+      "theme-researcher"}) with nothing binding it to .claude/agents/. Hygiene, explicitly NOT
+      mission progress. The pending-cap idea that originally accompanied this was DROPPED on
+      measurement: agent_runs with acted_on=false AND proposed_object IS NOT NULL is 0, and the
+      2026-07-16 finding it cited was about TWO proposals sitting 13 days — a cap at five would
+      never have bound on any queue this system has had, and expiry discards unreviewed
+      proposals rather than reviewing them. The bottleneck is review throughput; a write-side
+      cap does not touch it.

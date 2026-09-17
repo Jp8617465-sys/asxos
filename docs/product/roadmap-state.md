@@ -1425,6 +1425,41 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-17 selection & ideation mission (James: "explore what's possible… for
+> investment selection scanning/ideation" + "Model A was so underbaked… if you properly engineer it,
+> is it still worth exploring?").** The Stages 0→6 table at the top of this file remains the only
+> ranked queue. This block supersedes the attended-session block below it for the research lane only;
+> A-47/A-45/A-34 etc. are unchanged and still rank as written there.
+>
+> **Landed:** #318 (the `factor-probe` dispatch lane) → #320 (**a 107× latency fix** — the factor
+> cross-section wrote one row per round-trip, ~13 min per `as_of`; batched it into one `executemany`,
+> now **7.3 s**) → #321 (two D4 corrections proposed to James) → #322 (the landscape report).
+> **Open for James:** #319 (`.claude/` agent safety — two files, not the ten I proposed).
+>
+> **The mission's premise was false and the mission was re-scoped mid-flight.** I claimed no measured
+> deterministic baseline existed. `factor_scores.py:79`, `alpha_eval.py` and `eval_alpha_factors.py:92`
+> say otherwise — the D4 #7 incumbent and a more rigorous evaluation engine than the one I proposed to
+> build were both already shipped. What was missing was the **panel**. See **L54**.
+>
+> **#1 (research lane) — the ≥10yr delisting-inclusive price backfill.** Now decided on evidence, not
+> assumption: the incumbent measures effective t **0.75 / 0.42 / −0.74 / −1.73** at 21/63/126/252d on
+> **14 / 6 / 3 / 1** independent dates, three of four flagged not decision-grade by the engine itself.
+> Amber; §8 sequence; driven off `rs_security_master` not `universe.is_active`; reuses `eodhd.py`'s
+> existing `daily_prices()` and `exchange_symbols_delisted()`. ~3,700–4,400 one-off calls.
+> **#2 — pre-register `low_vol` at 21d**, carrying a **declared trial count of 24**. It is the only
+> cell with effect *and* power (IC +0.1095, eff_n 14, eff_t 3.06) and it is **not an edge until a
+> sealed test says so** — it was selected from a 24-cell table after seeing it.
+> **#3 — ASX announcements ingestion.** Free, structured, price-sensitive flagged, and nothing reads
+> it. The largest unexploited free data source, and PEAD's prerequisite.
+>
+> **Closed by arithmetic, not by opinion — #323.** D4 #6's `t > 3.0` stops being a bar at **~420
+> trials**; a conventional ML search (≈5,832 configurations) has an expected best-of-null t of
+> **3.73** and clears D4 by luck. **D3 stands.** Rule #11 untouched.
+>
+> **Yours (§2 or a ruling):** **#319** (`.claude/`), and the two D4 corrections in **#321** —
+> survivorship-clean is recorded as met and is not (57 of 2,040 delisted names carry a price row),
+> and D4's `signal_outcomes` scoring basis is stale since `decision_engine/outcomes.py` shipped.
+
 > **Live as of the 2026-09-17 attended session (James: "I thought we were reworking the theses and the
 > rules with the fin services agent team?" + "create and triage a list for all of these to be built.
 > If not in the 5 hours make it a task/backlog").** The Stages 0→6 table at the top of this file

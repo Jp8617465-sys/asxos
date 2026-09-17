@@ -1070,3 +1070,64 @@ distance between "this value is wrong" and "this value is used" is where a whole
 **Why this one cost nothing.** The correction landed before the build, because the first thing I
 did on picking the row up was read the code rather than write it. That ordering is the only
 reason this is a lesson and not an incident.
+
+## L54 — A negative existence claim needs a probe, exactly like a figure does (2026-09-17)
+
+I opened a 62-hour mission on this sentence, in the plan James approved:
+
+> *"#7 beat the incumbent — a **measured** deterministic baseline to compare against: **none exists**."*
+
+It was false. `factor_scores.py:79` defines `_COMPOSITE_CATEGORIES = ("value", "quality")` and
+comments it *"the thing under test"*. `alpha_eval.py` already computes effective non-overlapping
+sample size, the effective t it instructs callers to quote, decile spreads with a monotonicity
+fraction, a `top_minus_upper_mid` "top decile has no edge" detector, calibration and a liquidity
+split. `eval_alpha_factors.py:92` already drives its deciles off `composite_score` — literally the
+D4 #7 comparison. Roughly 20 hours of the approved graph re-implemented shipped capability, and
+the test it designed measured a single sub-factor rather than the composite D4 actually names.
+
+**`AGENTS.md` §7 says every figure traces to a probe or a doc line, and an unsourced number is
+omitted rather than guessed. A "none exists" is a claim of exactly that weight** — arguably more,
+because a wrong figure gets checked by the next reader and a wrong absence closes the question.
+One `ls asxos/domain/research/` would have cost four seconds.
+
+The tell was available and I walked past it: I cited an ADR line written 2026-08-23 as authority
+over code that shipped afterwards. That is the §10 ladder inverted — live state outranks repo
+docs — and it is the same shape as L53 the day before.
+
+**The rule: before building the thing that does not exist, run the command that would find it.**
+
+## L55 — Two agents agreeing is not verification (2026-09-17)
+
+`guilfoyle` and `arbi-red-team` were dispatched independently, given different briefs, and
+converged on the same finding: the `alpha_eval` stack exists. They were right, and I verified
+every claim myself against the code before acting.
+
+The same two agents also told me A-45 was an active nightly corruption of the benchmark series,
+ranked #1, incoherent to leave running. **That was false when they said it.** PR #317 had landed
+on `main` about three hours earlier and found the F1 guard fully implemented — `outcome.py:26-33`
+reports the measurement unavailable and "never silently substitutes". Both agents were reading
+`roadmap-state.md` at my branch point and had no way to know. I nearly relayed it to James.
+
+Convergence is not evidence: two agents reading the same stale snapshot converge on the same
+stale conclusion. **What separated the true finding from the false one was not agreement — it was
+that I re-derived one against live state and had not yet re-derived the other.** A subagent's
+report is evidence to check, never a conclusion to carry.
+
+## L56 — Dispatching the thing is a form of reading the code (2026-09-17)
+
+`refresh_factor_scores` wrote its cross-section with `await conn.execute(...)` inside a per-symbol
+loop — ~3,300 sequential round-trips to a remote Supabase. It had passed review, had tests, and
+looked entirely ordinary. The first real dispatch made it obvious in ninety seconds: one `as_of`
+still writing after ~13 minutes, so a 21-date panel meant ~5 hours against a 60-minute timeout.
+Batched into one `executemany`, a cross-section takes **7.3 seconds** — measured in `job_runs`.
+
+The latency was the visible half. The half that mattered: row-by-row writes leave a **partially
+built cross-section queryable**, and I watched it pass through 1,373 → 1,683 → 2,253 rows for the
+same date. An evaluator reading that window computes a rank-IC over whichever names happened to
+have landed and reports it as the cross-section's result — a silent wrong answer, which is what
+the hard-fail convention exists to prevent.
+
+**The rule: a job's shape only shows up at production scale.** Mocked tests cannot see a
+round-trip, and no amount of reading finds a defect whose symptom is wall-clock. This is the same
+family as the Phase 2a finding that mocked connections do not enforce trigger semantics — run it
+against something real, once, before trusting it.

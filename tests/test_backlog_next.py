@@ -432,8 +432,18 @@ class TestSeed:
         # Only E-21 joins the pick list — the rest are route=attended (a migration, a
         # .claude/ handover, or a James ruling), which the lane never picks. That is the
         # shape to expect from a triage: most of it is not lane work.
+        # Re-pinned 2026-09-17 by the selection & ideation mission: five rows filed
+        # (E-23..E-27). The PICKED list is deliberately unchanged — the whole mission
+        # added zero new unattended lane work, which is the shape to expect from a
+        # research mission. E-23 is route=attended because the backlog guard denied it
+        # as a mission row: it names migrations/, and AGENTS.md §8's five-step sequence
+        # must run in one sitting, which a fire cannot do. E-24 is blocked on E-23.
+        # E-25 is parked, encoding James's "leave it, note it" ruling — filed open with
+        # route=build it is one-file lane work and the picker WOULD have built it.
+        # E-26 is a .claude/ handover. Only E-27 reaches the lane at all, and it is
+        # skipped for overlap: its `tests/` path collides with an already-picked row.
         assert [i.id for i in picked] == ["A-34", "E-20", "E-21"], [i.id for i in picked]
-        assert [i.id for i in skipped] == ["A-35"], [i.id for i in skipped]
+        assert [i.id for i in skipped] == ["A-35", "E-27"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
