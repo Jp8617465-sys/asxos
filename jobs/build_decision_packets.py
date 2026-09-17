@@ -42,6 +42,7 @@ from asxos.domain.decision_engine.portfolio_state import (
 )
 from asxos.domain.decision_engine.writeback import record_packet_examination
 from asxos.domain.tax.feed import load_dividend_characterisation
+from asxos.domain.theses.plan import has_price_plan
 from asxos.domain.valuation.repository import latest_run_for_symbol
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -50,8 +51,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 JOB_NAME: Final[str] = "build_decision_packets"
+#: The price-plan columns ride along so the set can be partitioned BEFORE the
+#: builder is called — see `run()`. Selecting them here and testing them with
+#: the shared `has_price_plan` is what keeps this job and
+#: `build_decision_case`'s own guard from drifting apart.
 SQL_APPROVED_THESES: Final[str] = (
-    "SELECT thesis_id, symbol FROM theses "
+    "SELECT thesis_id, symbol, entry_band_lower, entry_band_upper, "
+    "stop_price, target_price, actual_entry_price FROM theses "
     "WHERE governance_status = 'approved' AND closed_at IS NULL ORDER BY thesis_id"
 )
 SQL_PACKET_EXISTS: Final[str] = "SELECT 1 FROM decision_packets WHERE decision_packet_id = $1"
@@ -100,7 +106,30 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
                 "precede the packet build; the live book is never used here (C1/D15)"
             )
         theses = await conn.fetch(SQL_APPROVED_THESES)
-        for row in theses:
+        # An approved thesis with no price plan is not a failure to report, it
+        # is a row waiting on James. Calling the builder for it would raise
+        # every night, land in `monitor.note`, and page through
+        # check_cron_health forever — the shape of issue #327, and what
+        # migration 0059's eleven rows did for 84 days. It is partitioned out
+        # here instead and surfaced where it belongs: the brief's candidates
+        # card, which already renders these rows.
+        awaiting_plan = [
+            f"{r['symbol']}#{int(r['thesis_id'])}"
+            for r in theses
+            if not has_price_plan(
+                entry_band_lower=r["entry_band_lower"],
+                entry_band_upper=r["entry_band_upper"],
+                stop_price=r["stop_price"],
+                target_price=r["target_price"],
+                actual_entry_price=r["actual_entry_price"],
+            )
+        ]
+        buildable = [
+            r
+            for r in theses
+            if f"{r['symbol']}#{int(r['thesis_id'])}" not in set(awaiting_plan)
+        ]
+        for row in buildable:
             thesis_id, symbol = int(row["thesis_id"]), str(row["symbol"])
             packet_id = packet_id_for(symbol, thesis_id, cutoff)
             if await conn.fetchrow(SQL_PACKET_EXISTS, packet_id) is not None:
@@ -123,6 +152,7 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         "approved": len(theses),
         "built": built,
         "skipped_same_day": skipped,
+        "awaiting_plan": awaiting_plan,
         "failed": failed,
     }
     log.info("build_decision_packets done — %s", json.dumps(summary))
@@ -132,6 +162,9 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         monitor.note = f"{len(failed)} of {len(theses)} approved theses did not build: {json.dumps(failed)}"
     elif not theses:
         monitor.note = "no approved theses — nothing to challenge"
+    # `awaiting_plan` deliberately sets NO note. It is a fact about James's
+    # review queue, not about this job's health, and the note channel is an
+    # alerting channel (job_monitor.py:139 -> check_cron_health.py:152).
     return summary
 
 
