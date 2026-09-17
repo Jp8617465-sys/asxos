@@ -32,6 +32,7 @@ SECTION_ORDER: tuple[str, ...] = (
     "regulatory",
     "news",
     "portfolio",
+    "candidates",
 )
 
 
@@ -84,6 +85,8 @@ def assemble_sections(
     portfolio_section: Any,
     computed_at: datetime,
     data_as_of: Any = None,
+    candidates: list[Any] | None = None,
+    candidates_error: str | None = None,
 ) -> dict[str, SectionResult]:
     """Pure mapper: live collect() payloads → SectionResult dict.
 
@@ -135,6 +138,19 @@ def assemble_sections(
     news_err = news_error
     if news_status_enum is SectionStatus.MISSING and not news_err:
         news_err = "news section could not run"
+
+    # EMPTY is the ordinary weekly state: "nothing new cleared the gates". It is
+    # a different claim from MISSING ("the queue could not be read"), and the
+    # two must never collapse — see `_candidates` in compose.py.
+    if candidates_error:
+        cand_status = SectionStatus.MISSING
+        cand_error: str | None = candidates_error
+    elif not candidates:
+        cand_status = SectionStatus.EMPTY
+        cand_error = None
+    else:
+        cand_status = SectionStatus.FRESH
+        cand_error = None
 
     jobs_status = SectionStatus.EMPTY if not job_failures else SectionStatus.FRESH
     reg_status = SectionStatus.EMPTY if not regulatory_hits else SectionStatus.FRESH
@@ -197,6 +213,14 @@ def assemble_sections(
             data=portfolio_section,
             computed_at=computed_at,
             source="sql:portfolio_runs+gate:ASXOS_PORTFOLIO_BRIEF_ENABLED",
+        ),
+        SectionResult(
+            name="candidates",
+            status=cand_status,
+            data=None if cand_status is SectionStatus.MISSING else list(candidates or []),
+            computed_at=computed_at,
+            source="sql:theses[pending_review]+valuation_runs",
+            error=cand_error,
         ),
     )
     return {s.name: s for s in results}

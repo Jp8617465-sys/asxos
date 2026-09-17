@@ -276,6 +276,68 @@
   {% endif %}
   <!-- outcome:end -->
 
+  {# Candidates — names the weekly screen proposed, awaiting your review.
+
+     Same load-bearing marker convention as the outcome section above: the
+     s766B advice-vocabulary grep runs over THIS section's text alone.
+
+     What this section may never acquire, in one line: a target, a stop, an
+     entry band, or an order. The sealed value-to-price test returned null
+     (#304) and James's pre-committed RESPONSE_RULE demotes the model so it
+     "stops emitting target prices, entry bands and ranked 'opportunities'".
+     Rows are ORDER BY symbol. Sorting this table by value-to-price would
+     reintroduce the rank that rule deleted, and would do it somewhere nobody
+     would think to look for it.
+
+     Nothing here derives from `signals`, `shap_factors`, `prob_up` or any model
+     (rule #11) — the residual-income model is not Model A and is quarantined
+     from targets, not from arithmetic. #}
+  <!-- candidates:start -->
+  {% if d.candidates_error %}
+  <h2>Candidates</h2>
+  <div class="banner">
+    <strong>The candidate queue could not be read.</strong> {{ d.candidates_error }}
+    This is not the same as a quiet week — treat it as unknown, not as none.
+  </div>
+  {% elif d.candidates %}
+  <h2>Candidates awaiting your review ({{ d.candidates | length }})</h2>
+  <p class="meta">
+    Names the weekly screen proposed. Each cleared four stated gates: liquidity,
+    a completed valuation, a verified currency, average ROE above the cost of
+    equity, and model value at or above price under both conventions. Listed in
+    symbol order: the set is not ranked, and it carries no price levels of any
+    kind. The two figures below are shown so the value gate's claim can be
+    checked against the numbers it was made from — nothing more is implied.
+  </p>
+  <table>
+    <tr><th>Symbol</th><th>Sector</th><th>Last close</th><th>Model value</th><th>Proposed</th><th>Review</th></tr>
+    {% for c in d.candidates %}
+    <tr>
+      <td><strong>{{ c.symbol }}</strong></td>
+      <td>{{ c.sector or '—' }}</td>
+      <td>{{ '%.3f' % c.last_close if c.last_close is not none else '—' }}</td>
+      <td>{{ '%.3f' % c.model_value if c.model_value is not none else '—' }}</td>
+      <td>{{ c.proposed_at }}</td>
+      <td class="mono">asx thesis approve {{ c.thesis_id }} --reason "…"</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="meta">
+    Each row is an unreviewed record of a screen result. Nothing has been
+    decided and nothing has been acted on. Approving one records only that you
+    judged the name worth writing a thesis for; writing that thesis, and every
+    price level in it, remains yours.
+    For personal use only (s766B Corporations Act 2001).
+  </p>
+  {% else %}
+  <h2>Candidates awaiting your review</h2>
+  <p class="meta">
+    None. No name cleared every gate since the last screen, or none that was not
+    already proposed. An empty queue is the ordinary weekly state.
+  </p>
+  {% endif %}
+  <!-- candidates:end -->
+
   {# The "Signal changes on holdings" section that sat here rendered the Model A
      label ladder (STRONG_BUY … STRONG_SELL) and its top SHAP driver. It was
      retired whole by mission P1-04 (manifest A6) rather than emptied, because an
