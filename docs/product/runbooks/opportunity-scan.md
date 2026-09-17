@@ -134,9 +134,18 @@ whole scan. `discover_opportunities` logs the liquidity screen to `screening_run
 records the passing set. **You do not need to run anything to get a weekly scan** —
 you need to read the result.
 
-### 4.2 Read the passing set
+### 4.2 Re-derive the passing set
 
-The job records the set; this is how you see it. Read-only, no side effects.
+**The job does not persist the set.** `discover_opportunities` writes one
+`screening_runs` audit row and a count in `job_runs`, and deliberately writes nothing
+else (#306) — so there is no table of "this week's opportunities" to read back, by
+design. The query below re-derives the same four gates as
+`asxos/domain/discovery/ranker.py::passing`. Read-only, no side effects.
+
+One approximation to know about: the liquidity CTE averages `close × volume` over the
+last 130 calendar days, where the screening evaluator computes 90 **sessions** in
+`_AVG_DAILY_VALUE_SQL`. Close enough to triage on, not identical. If a name sits on
+the ADV boundary, trust the evaluator (`asx screen run`), not this.
 
 ```sql
 WITH latest AS (
