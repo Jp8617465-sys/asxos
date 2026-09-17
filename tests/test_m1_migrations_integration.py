@@ -1,12 +1,13 @@
-"""Migrations 0055/0056/0057 executed on PostgreSQL 17 (the `migration-integration` lane).
+"""Migrations 0055/0056/0057/0060 executed on PostgreSQL 17 (the `migration-integration` lane).
 
 Runs only when `MIGRATION_TEST_DATABASE_URL` points at the disposable database the
 lane provisions; skipped everywhere else, like
 `test_price_revision_migration_integration.py`, whose harness this mirrors. The
 prerequisite tables are created here in their production shape for the columns
 the migrations touch (0011 for `portfolio_daily_snapshots`, 0034 for
-`thesis_revisions.source`), then the three files are applied verbatim and the
-behaviour they promise is exercised — not just that they parse.
+`thesis_revisions.source`, 0021 for `thesis_revisions.revision_type`), then the
+four files are applied verbatim and the behaviour they promise is exercised —
+not just that they parse.
 """
 from __future__ import annotations
 
@@ -64,6 +65,14 @@ def migrated() -> PgConnection:
             CREATE TABLE thesis_revisions (
                 revision_id         BIGSERIAL PRIMARY KEY,
                 reasoning           TEXT NOT NULL,
+                -- 0021's shape and constraint NAME, so 0060's DROP CONSTRAINT IF EXISTS
+                -- actually drops it and the widened ADD does not collide.
+                revision_type       TEXT NOT NULL DEFAULT 'opened'
+                    CONSTRAINT thesis_revisions_revision_type_check CHECK (revision_type IN (
+                        'opened', 'assumption_change', 'target_adjusted', 'stop_adjusted',
+                        'timeline_extended', 'reviewed_no_change', 'status_change',
+                        'entered', 'exited', 'exited_by_stop', 'exited_by_target',
+                        'expired', 'analyst_action')),
                 source              TEXT NOT NULL DEFAULT 'human' CHECK (source IN ('human','agent')),
                 agent_name          TEXT,
                 evidence_confidence TEXT CHECK (evidence_confidence IN ('verified','inferred','speculative')),
@@ -80,6 +89,7 @@ def migrated() -> PgConnection:
             "0055_snapshot_cash_nullable.sql",
             "0056_cash_balance_assertions.sql",
             "0057_thesis_revisions_source_system_screen.sql",
+            "0060_thesis_revisions_packet_examined.sql",
         ):
             cur.execute((MIGRATIONS / name).read_text(encoding="utf-8"))
     yield conn
@@ -189,3 +199,38 @@ def test_0057_system_screen_is_admitted_only_with_evidence(migrated: PgConnectio
     with migrated.cursor() as cur:
         cur.execute("SELECT source FROM thesis_revisions ORDER BY revision_id")
         assert [r[0] for r in cur.fetchall()] == ["human", "system_screen"]
+
+
+# --- 0060 -----------------------------------------------------------------------
+
+
+def test_0060_packet_examined_is_admitted_with_evidence_and_nothing_else_widens(migrated: PgConnection) -> None:
+    """The A-47 writeback's row shape, against the real widened CHECK on Postgres 17.
+
+    Three things, in the order Postgres reports them: the exact row the writeback
+    emits is admitted; the same row without evidence is refused by the 0034
+    provenance pair (0057's header says those bind system_screen, and 0060 leaves
+    them untouched); and an unknown type is refused by the widened CHECK by NAME,
+    proving 0060 widened the list by exactly one value rather than dropping it.
+    """
+    ok = _fails(
+        migrated,
+        "INSERT INTO thesis_revisions (reasoning, revision_type, source, evidence_confidence, evidence_citations) "
+        "VALUES ('packet dpk-cba-1-2026-09-16 examined', 'packet_examined', 'system_screen', 'inferred', "
+        "'[\"decision_packet:dpk-cba-1-2026-09-16\", \"content_hash:abc\"]')",
+    )
+    assert ok == ""
+    bare = _fails(
+        migrated,
+        "INSERT INTO thesis_revisions (reasoning, revision_type, source) "
+        "VALUES ('x', 'packet_examined', 'system_screen')",
+    )
+    assert "thesis_revisions_agent_requires" in bare
+    unknown = _fails(
+        migrated,
+        "INSERT INTO thesis_revisions (reasoning, revision_type, source, evidence_confidence, evidence_citations) "
+        "VALUES ('x', 'oracle_examined', 'system_screen', 'verified', '[\"asxos://x\"]')",
+    )
+    assert "thesis_revisions_revision_type_check" in unknown
+    # Expand-only: a pre-0060 answering type is still admitted after the widening.
+    assert _fails(migrated, "INSERT INTO thesis_revisions (reasoning, revision_type) VALUES ('hold', 'reviewed_no_change')") == ""

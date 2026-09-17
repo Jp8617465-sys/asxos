@@ -37,6 +37,7 @@ DISPATCH_ONLY_LANES = (
     "vp-research.yml",
     "risk-free-backfill.yml",
     "factor-probe.yml",
+    "packet-examination-backfill.yml",
 )
 
 

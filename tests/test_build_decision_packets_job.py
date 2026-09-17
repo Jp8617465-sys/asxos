@@ -77,6 +77,9 @@ def _patches(conn: FakeConn, build: Any, save: Any) -> list[Any]:
         patch.object(job_mod, "latest_run_for_symbol", AsyncMock(return_value=None)),
         patch.object(job_mod, "build_decision_case", build),
         patch.object(job_mod.repository, "save", save),
+        # A-47: the writeback is a collaborator like the rest; its own behaviour is
+        # pinned in tests/test_decision_writeback.py, not re-tested through the job.
+        patch.object(job_mod, "record_packet_examination", AsyncMock(return_value=True)),
     ]
 
 

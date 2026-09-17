@@ -1,0 +1,77 @@
+# Packet-examination backfill (A-47, one-off).
+#
+# WHY THIS EXISTS. jobs/build_decision_packets.py now records, on the thesis's
+# own discipline ledger, that it examined the thesis -- a `packet_examined`
+# thesis_revisions row per packet (migration 0060). The packets built before
+# that landed have no such row: measured 2026-09-17, CBA (thesis 1) had three
+# packets and a ledger that had moved once, ever. This lane replays exactly
+# those, through the same helper the daily job uses.
+#
+# WHY DISPATCH-ONLY. It is a replay of history, and history does not change
+# daily; the daily job covers every packet from here on. There is no schedule
+# and there should never be one.
+#
+# WHAT IT NEVER DOES. It never writes theses.last_revisited_at or
+# revisit_due_at -- asxos/domain/theses/discipline.py's invariant that every
+# clock reset is a human keystroke stands, and packet_examined sits outside
+# the brief's answering-revision allowlist by construction. It never touches
+# governance_status. A system examination is not a human revisit: CBA stays
+# overdue after this runs, correctly, until James looks.
+#
+# WHAT THIS EXPOSES (AGENTS.md §8 -- a workflow edit is Amber and must record
+# which secrets, which triggers, which branches run it):
+#   - Secrets: DATABASE_URL only. No EODHD, FRED, RESEND, GitHub or Supabase
+#     token. ASXOS_PERSONAL_USE=1 is the s766B firewall the job requires.
+#   - Trigger: workflow_dispatch only. No schedule, no repo event.
+#   - Branch: checks out refs/heads/main, like every production workflow.
+#
+# WHAT IT WRITES. With `persist: false` (the DEFAULT) it writes NOTHING: the
+# job loads every in-scope packet and prints the rows it would write, opening
+# no write path. With `persist: true` it INSERTs thesis_revisions rows only --
+# idempotent on the packet id, so a re-dispatch writes nothing new -- and one
+# job_runs row via JobMonitor. It does not touch decision_packets, theses,
+# signals, signal_outcomes, research_runs or any capital surface.
+
+name: packet-examination-backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      persist:
+        description: "Write the packet_examined rows. Unchecked = dry-run, write nothing."
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: packet-examination-backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ASXOS_PERSONAL_USE: "1"
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Record the packet examinations that already happened
+        run: |
+          python jobs/backfill_packet_examinations.py \
+            ${{ inputs.persist && '--persist' || '' }}

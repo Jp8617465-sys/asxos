@@ -220,6 +220,42 @@ async def _insert_revision(
     )
 
 
+async def record_system_examination(
+    conn: asyncpg.Connection,
+    *,
+    thesis_id: int,
+    examined_at: datetime,
+    reasoning: str,
+    evidence_confidence: str,
+    evidence_citations: list[str],
+    diff: dict[str, Any] | None = None,
+) -> None:
+    """Append a `packet_examined` row (migration 0060): the system looked, James did not.
+
+    This is the one public entry for a *job* to write `thesis_revisions`, and
+    it is deliberately narrow. It cannot choose the revision type -- it is always
+    `packet_examined`, which sits OUTSIDE the brief's answering-revision allowlist
+    (`asxos/brief/compose.py`, `last_answering_revision_at`) -- and it never
+    touches `theses.last_revisited_at` or `revisit_due_at`. So the invariant in
+    `discipline.py` holds: every clock reset is still a human keystroke, and no
+    job can suppress a staleness finding by calling this.
+
+    `source` is fixed to `system_screen` (0057), so the 0034 provenance
+    constraints apply and `_insert_revision` enforces them before Postgres does.
+    """
+    await _insert_revision(
+        conn,
+        thesis_id=thesis_id,
+        revised_at=examined_at,
+        revision_type="packet_examined",
+        diff=diff or {},
+        reasoning=reasoning,
+        source="system_screen",
+        evidence_confidence=evidence_confidence,
+        evidence_citations=evidence_citations,
+    )
+
+
 async def add_thesis_evidence(
     conn: asyncpg.Connection,
     *,
