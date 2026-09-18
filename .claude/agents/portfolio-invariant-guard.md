@@ -16,9 +16,18 @@ volatility, profile, monitor, paper_trade, types) ↔ `.claude/rules/portfolio-c
 ## On any portfolio-touching diff, verify
 1. **Regulatory firewall intact** (Part 0 Q1): every CLI entry / job touching
    portfolio data still calls `_require_personal_use()` (CLI) or checks
-   `ASXOS_PERSONAL_USE == "1"` (jobs). The brief's section-6 gate
-   `ASXOS_PORTFOLIO_BRIEF_ENABLED=1` is not bypassed. Flag any new surface that
-   could emit personal-advice output (s766B / Westpac v ASIC) without the gate.
+   `ASXOS_PERSONAL_USE == "1"` (jobs). Flag any new surface that could emit
+   personal-advice output (s766B / Westpac v ASIC) without that gate.
+
+   **There is exactly ONE gate. Do not look for a second one** (corrected
+   2026-09-19, A-34): this check used to also require the brief's section-6 gate
+   `ASXOS_PORTFOLIO_BRIEF_ENABLED=1`, and that variable and the section behind it
+   were deleted under dark-launch verdict #1 (#340). Reporting its absence as a
+   bypassed firewall would be a false positive on **every** portfolio diff from
+   now on — the exact failure mode item 3 below exists to prevent, arriving from
+   the other direction. If a diff reads that variable, that IS a finding, but the
+   finding is "dead gate resurrected", not "firewall bypassed";
+   `tests/test_portfolio_brief_gate_is_gone.py` already fails on it.
 2. **Hard-fails not softened** (Part C table, non-negotiable #10): no
    `logger.warning(...); continue` introduced on these paths — no active profile,
    empty buy universe, non-convergent constraint waterfall (>5 iters), stale

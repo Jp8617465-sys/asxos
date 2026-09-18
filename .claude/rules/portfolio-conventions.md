@@ -13,8 +13,25 @@ Every CLI entry point and every job that touches portfolio data MUST call
 (under s766B Corporations Act 2001 / the Westpac v ASIC boundary) from
 being surfaced in a multi-user context.
 
-The brief's section 6 requires a SECOND gate: `ASXOS_PORTFOLIO_BRIEF_ENABLED=1`.
-This stays `0` until 4 weeks of paper-trade sign-off completes (M13.8).
+~~The brief's section 6 requires a SECOND gate: `ASXOS_PORTFOLIO_BRIEF_ENABLED=1`.
+This stays `0` until 4 weeks of paper-trade sign-off completes (M13.8).~~
+
+**There is no second gate. `ASXOS_PERSONAL_USE` is the firewall, singular**
+(corrected 2026-09-19, A-34). `ASXOS_PORTFOLIO_BRIEF_ENABLED` and the one brief
+section behind it were deleted under dark-launch verdict #1 (#340, verdict
+issued 2026-09-14). It was never set to `1` in any tracked config, and
+`brief_section_gold` recorded that section `EMPTY` on all 18 days it was
+materialised — it never rendered once.
+
+**What this does and does not change.** It does not weaken the firewall: the
+guard and the only surface it guarded were deleted in the same commit, and every
+remaining card (tax, discipline, thesis, regulatory, job-failure, candidates) was
+already gated on `ASXOS_PERSONAL_USE` alone. It does mean a reviewer must stop
+looking for two gates. **Any NEW surface that could emit personal-advice output
+needs `ASXOS_PERSONAL_USE` and nothing else** — and if a future surface warrants
+a second gate, that gate is designed then, not inherited from this line.
+`tests/test_portfolio_brief_gate_is_gone.py` fails if anything reads the old
+variable again.
 
 ---
 
@@ -32,12 +49,27 @@ out of v1 scope).
 allocator (`build.py`) calls the gate `required=True` (default) and
 hard-fails on those two cases — this is the capital-safety invariant and
 rule #11's mechanical enforcement point (revoke `approved_for_allocation`
-→ 0 rows → the allocator refuses to run). The display-only brief paths
+→ 0 rows → the allocator refuses to run). ~~The display-only brief paths
 (`compose.collect()` + the V2 `active_theses` collector) call it
-`required=False`: they get `None` and skip the cosmetic Model A signal
-reads, so a Model A quarantine can harden the allocator gate without
-hard-failing the model-independent brief (tax, regulatory, job-failure,
-portfolio, thesis-discipline cards).
+`required=False`.~~
+
+**Corrected 2026-09-19 — and this one was stale before A-34, which is the more
+interesting half.** `compose.collect()` does not call the gate at all any more,
+with `required=False` or otherwise. Its own docstring records why: the call
+"whose only job was deciding whether the Model A regime/signal reads below it
+could run" went when those reads went (`asxos/brief/compose.py`, the `collect()`
+docstring). So the brief is model-independent by *construction* now, not by a
+softened gate — a stronger property than the one this paragraph claimed, reached
+by a different route.
+
+**The `required=False` overload itself stays** on `production_gate.py`. It is
+risk-register R9's fix and it belongs to any future display consumer; it simply
+has no caller today. The allocator's `required=True` path is unchanged and is
+still rule #11's enforcement point.
+
+Finding worth keeping: a rule file can go stale by the code getting *safer*, and
+nothing catches it. This paragraph described a live call for weeks after that
+call was deleted.
 
 `approved_for_allocation`
 (migration 0032) is orthogonal to `is_active`: `is_active` means "current
@@ -386,7 +418,15 @@ No `logger.warning(...); continue` on any of these paths.
 
 ## Weekly cron cadence
 
-Saturday 20:00 UTC = Sunday 06:00 AEST. Monday's brief picks up the result.
+Saturday 20:00 UTC = Sunday 06:00 AEST. ~~Monday's brief picks up the result.
 If the cron fails, section 6 of the brief is omitted (not partial, not stale).
 The brief freshness gate: `job_runs.status='success'` for `build_portfolio`
-with `as_of >= brief_date - 2`.
+with `as_of >= brief_date - 2`.~~
+
+**Corrected 2026-09-19 (A-34): no brief consumes this cron.** The freshness gate
+described above was the deleted section's own code, so there is nothing left for
+a failed run to omit. The cron and `build_portfolio` still exist, and the job has
+not succeeded since **2026-08-01** — it cannot, while `approved_for_allocation`
+is 0 and `PortfolioService.build()` hard-fails on it (rule #11, standing).
+Whether the schedule should exist at all is a separate question from this rule
+file; it is not load-bearing for any output today.
