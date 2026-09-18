@@ -1425,6 +1425,30 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-18 attended close (#332 merged `611eb9d`).** The Stages 0→6 table at the
+> top of this file remains the only ranked queue. This block supersedes the routine block below it;
+> the queue is unchanged except for the follow-ups it names.
+>
+> **Landed:** #332 — the detection→delivery gap closed: candidates card, `pending_review`
+> proposals with no levels, the planless partition, the `run_valuation` note fix, the runbook.
+> **Filed:** #331 — the relative-valuation lens; phase (a) buildable after #327, phase (b) on a James
+> ruling of `RESPONSE_RULE`.
+>
+> **Follow-ups from #332's review loop — recorded here, not yet backlog rows:**
+> - `weekly-research.yml`: its comment at lines 89–95 ("Opens NO theses") is false since #332, and
+>   the discovery step reads fundamentals a step before `sync_fundamentals` refreshes them (a week
+>   stale, not wrong). One Amber workflow PR, both in it, next time the file is touched (N3, N4).
+> - `decision_engine/builder.py`: `thesis_text` is copied as `verified` `theme_fact` evidence
+>   whatever tier the `thesis_evidence` rows carry; set the narrative tier from
+>   `MIN(thesis_evidence.tier)`. Own PR — every packet's narrative tier moves (N2).
+> - `.claude/rules/job-conventions.md`'s `ASXOS_PERSONAL_USE` workflow list has rotted — `.claude/**`,
+>   drafted for James when next touched.
+>
+> **Do not re-take #327 before Saturday's data** — the routine block below says the same. The
+> Saturday 18:30 UTC check-in reads the first live fire of the proposals; a fire before it takes the
+> queue.
+>
+> **Superseded — the 2026-09-18 routine block below, carried unchanged.**
 > **Live as of the 2026-09-18 `daily-product` routine fire (fired 2026-09-17T17:37Z, held in plan
 > mode until 20:47Z).** The Stages 0→6 table at the top of this file remains the only ranked queue.
 >
@@ -2077,6 +2101,33 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-18 — attended close (`/arbi-close`) of the opportunity-scan session.** `main` @
+`611eb9d` (#332, Amber). `make check` **4725 passed / 13 skipped**, ruff + mypy clean on 237 files.
+No migration (ledger head `20260917114415`, 0060, 112 rows; 0045 absent, 0042 reserved). No capital
+action, no Model A output, no Supabase write.
+
+**The gap closed.** The weekly screen's survivors now reach James: `discover_opportunities` opens
+each name clearing the four gates as a `system_screen` thesis at `pending_review` — no target, no
+stop, no entry band, symbol order, never truncated; 90-day cooling-off on `governance_events`;
+breakers at 25 queued / 30 per run refuse the whole run — and the brief carries a "Candidates
+awaiting your review" card (EMPTY ≠ MISSING). `has_price_plan` partitions planless approved theses
+out of the nightly builder's failures and out of `monitor.note`. Decision #0b reversed on James's
+instruction, proposal half only. Runbook `docs/product/runbooks/opportunity-scan.md`. **#331 filed**
+(relative-valuation lens, two phases; (b) on a James ruling). L59, L60, five facts.
+
+**Unproven until Saturday 2026-09-19 16:00 UTC** (`weekly-research`, James's): AC1–AC5. Check-in
+`trig_01TMyoZHedGbatdz3yY742dr` at 18:30 UTC reads `rows_written`, the `pending_review` count and
+the evidence rows. Tonight's `daily-brief` renders the card EMPTY for the first time.
+
+**#327 open, `pipeline-health` red** (run `35289220374`): both notes the known shape — the 09-16
+"12 of 13" still in-window, the 09-17 "1 of 2" is HUBS alone. Cause 1 fixed (#332), cause 2's code
+fixed (#328), data Saturday. Merged with the incident open — recorded (decision-log 2026-09-18).
+
+Open for James: **#331** ruling; **#319 / #334** (`.claude/**`); **#335**. Next: the ranked queue;
+Saturday's evidence; N3 + N4 when `weekly-research.yml` is next edited; N2 as its own PR.
+
+_Prior snapshot (routine fire, same date) retained below for diffing._
 
 **2026-09-18 — `daily-product` routine fire (fired 17:37Z 09-17, executed 20:47–20:55Z).** `main` @
 `8211290`. One merge: **#328**, Amber, the #327 incident fix. `make check` 4653 passed / 13 skipped,

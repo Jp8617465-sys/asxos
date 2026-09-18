@@ -1217,3 +1217,24 @@ same failure one level up: **"the user must do X" is a negative existence claim 
 automation** — it asserts nothing already does X. It was made on the same day L54 was
 written, about the same subsystem, by me. Two independent probes would have caught it:
 `ls jobs/`, or reading the `job_runs` table I queried twice for other reasons.
+
+## L60 — Pin every axis a store can widen, not only the ones it has widened (2026-09-18)
+
+**What happened.** The candidates card's valuation lookup was `WHERE symbol = t.symbol AND
+outcome = 'valued' ORDER BY as_of DESC LIMIT 1`. It was deterministic — but only because a
+CHECK constraint currently admits one `terminal_convention` and one `method`. `run_id` is
+`vr-{symbol}-{date}-{convention}`: the store is *designed* to hold a second row per
+(symbol, as_of) the moment a second convention is registered, and #331 scopes a second
+method. `security-engineer` found it on #332 (M1). A red-team round the day before had
+found the `method` half, and I pinned that one only.
+
+**Why it happened.** I read the CHECK as a fact about the data instead of a fact about
+*today's* data. A `LIMIT 1` made deterministic by a constraint is a latent nondeterminism
+with a start date, and the start date is whichever PR relaxes the constraint — a PR that
+will never look at this query.
+
+**The rule.** When a lookup relies on `LIMIT 1`, pin every column that participates in
+the store's identity — here `method`, `terminal_convention`, and an `ORDER BY` down to
+`created_at` — and mirror the repository's own reader so the two cannot disagree. Pin the
+axes the *schema* names, not the ones the current rows exercise. And when a reviewer finds
+one axis, ask what the other axes are before fixing the one.
