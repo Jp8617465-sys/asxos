@@ -474,7 +474,13 @@ class BriefData:
 
 
 async def collect(as_of: date) -> BriefData:
-    """Single async DB session, four sections + optional portfolio section.
+    """Single async DB session, all sections in one pass.
+
+    The "+ optional portfolio section" this line used to name was deleted under
+    A-34 (dark-launch verdict #1, 2026-09-19) along with its
+    ``ASXOS_PORTFOLIO_BRIEF_ENABLED`` gate. Nothing here is optional any more:
+    every remaining section is gated on ``ASXOS_PERSONAL_USE`` alone or not at
+    all.
 
     No model gate and no ``signals`` read (manifest A3/A4). The gate call that
     used to open this block was ``resolve_production_model(required=False)``,
