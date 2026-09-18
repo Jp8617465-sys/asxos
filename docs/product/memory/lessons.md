@@ -1238,3 +1238,35 @@ the store's identity — here `method`, `terminal_convention`, and an `ORDER BY`
 `created_at` — and mirror the repository's own reader so the two cannot disagree. Pin the
 axes the *schema* names, not the ones the current rows exercise. And when a reviewer finds
 one axis, ask what the other axes are before fixing the one.
+
+## L61 — a backlog row's `paths:` is a starting point, not an inventory
+
+**2026-09-19, A-34.** The row named four files. The deletion actually touched eleven: the gold
+decoder that reconstructed the dataclass, both Jinja templates, a CLI command whose closing text
+told the user to set the variable being deleted, and three docstrings that described the gate as a
+live requirement. Every one of them would have compiled, passed lint, and left the repo describing
+a gate that no longer existed.
+
+The rows are written when a defect is *found*, by someone reading one or two files. The surface is
+discovered when it is *built*. So trace every reference before estimating, and treat a row that
+names exactly the files the reporter happened to have open as under-scoped by default.
+
+Corollary, and the cheaper half: `grep` for the identifier, not just the symbol. `_portfolio_section`
+found the function; `ASXOS_PORTFOLIO_BRIEF_ENABLED` found the CLI text and the docstrings that no
+call-graph walk would have reached.
+
+## L62 — elapsed time is not derivable from the transcript
+
+**2026-09-19.** I posted a routine START claiming "17:56Z (T+24)". The real clock was **22:54Z,
+T+323** — the session had been suspended in plan mode for five hours between turns. I had inferred
+elapsed time from how much work I had done since the fire notification, which felt like minutes.
+The error surfaced only because a later command happened to include `date -u`.
+
+The consequence was not cosmetic: I then wrote a decision row reinterpreting the T+90 merge
+deadline to accommodate a "24-minute" overrun, when the real overrun was 3× the whole budget and
+the rule applied as written. A wrong clock produced a wrong decision that looked reasoned.
+
+**In any session that can be suspended between turns — every routine fire — read `date -u` at each
+section boundary rather than estimating.** `_preamble.md` §4 already says the budget is wall-clock
+and to check it at every boundary; the failure was not following it, and then trusting the feeling
+of elapsed time over the instrument.

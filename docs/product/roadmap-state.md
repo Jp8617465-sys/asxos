@@ -1426,11 +1426,17 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 ## Ranked next-action queue
 
 > **Live as of the 2026-09-19 `daily-product` routine fire (fired 2026-09-18T17:31:38Z, held in
-> plan mode until 17:55Z — the second consecutive fire held that way).** The Stages 0→6 table at
-> the top of this file remains the only ranked queue. This block supersedes the one below it; the
-> queue is unchanged except that **A-34 is done**.
+> plan mode until 22:54Z — the second consecutive fire held that way, and this one for five
+> hours).** The Stages 0→6 table at the top of this file remains the only ranked queue. This block
+> supersedes the one below it; the queue is unchanged except that **A-34 is built**.
 >
-> **#0 — A-34 DONE.** Dark-launch DELETE verdict #1 executed: `_portfolio_section`,
+> **Two things that are not the work, and matter more than it.** The fire ran ~T+335 against a
+> 120-minute budget, so per `daily-product.md` §4 it did **not** merge: **PR #340 is open, green
+> and unmerged**, and there is no incident tonight to outrank the clock. And the `nightly-steward`
+> fire at 19:45Z **disabled this routine** (`enabled=false` on `trig_019hfSFbVCdKQA5PPxJM9MMH`)
+> after two consecutive silent fires — correctly. So #340 has no next fire to finish it.
+>
+> **#0 — A-34 BUILT (PR #340, not merged).** Dark-launch DELETE verdict #1 executed: `_portfolio_section`,
 > `PortfolioSection`, `PortfolioTradeSummary`, the `portfolio` entry in `SECTION_ORDER`, the gold
 > decoder, both Jinja section blocks and the `ASXOS_PORTFOLIO_BRIEF_ENABLED` gate are gone. The
 > verdict was issued 2026-09-14; the fire's contribution was measuring it before executing it —
@@ -1445,7 +1451,7 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > next-step text and three docstrings all had to move. A backlog row's `paths:` list is a
 > starting point, not an inventory.
 >
-> **Next, unchanged: #1 A-35** (DELETE verdict #3, the `ASXOS_V2_BRIEF_ENABLED` branch — the same
+> **Next, once #340 lands: #1 A-35** (DELETE verdict #3, the `ASXOS_V2_BRIEF_ENABLED` branch — the same
 > shape as A-34 and now with a worked precedent) → **#2 E-20** → **#3 E-21**. The research lane's
 > E-23 → E-24 is attended and needs its own §8 sitting.
 >

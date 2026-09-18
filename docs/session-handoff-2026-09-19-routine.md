@@ -14,16 +14,28 @@ Saturday 16:00 UTC, or his dispatch.
 `trig_019hfSFbVCdKQA5PPxJM9MMH` → bound session `session_01HyKLpP6LMTm9wio1oL9e5m`, fire
 **2026-09-18T17:31:38Z**, `doc_sha=32f8b83`, budget 120 min.
 
-**The fire was held in plan mode again — the second consecutive time.** Plan mode forbids every
-write, so START could not be posted at fire time; the scheduler recorded the wake as delivered
-while the ledger stayed silent, which is exactly the shape `_preamble.md` §1 exists to detect.
-James released it at 17:55Z. **Once is an incident; twice is a pattern.** The fix is not in this
-repo — it is the bound session's permission mode, which `docs/ops/routines/README.md`'s first-fire
-checklist already says to verify as `auto` via `get_session`.
+**The fire was held in plan mode again — the second consecutive time, and this one for five
+hours.** Plan mode forbids every write, so START could not be posted at fire time; the scheduler
+recorded the wake as delivered while the ledger stayed silent, which is exactly the shape
+`_preamble.md` §1 exists to detect. James released it at **22:54Z, T+323**.
 
-Recorded as a decision rather than a silent overrun: the T+90 merge deadline was measured from
-**release** (19:25Z), not fire (19:01Z), because the 24 minutes the harness held were never
-available for work and the stated purpose of T+90 is leaving room for the proof and the close.
+**A correction I owe the ledger.** The START comment I posted says "17:56Z (T+24)". That was
+wrong — I inferred elapsed time from how much work I had done instead of reading `date -u`, and
+the real clock was 22:54Z. The error surfaced only when a later `date -u` returned 23:05Z. The
+lesson is narrow and worth keeping: **in a session that can be suspended between turns, elapsed
+time is not derivable from the transcript — read the clock at every section boundary, which is
+what `_preamble.md` §4 already says.** Filed as **L62**.
+
+**The consequence: this fire went over budget by a factor of three (T+335 at END) and did NOT
+merge.** `daily-product.md` §4 is unambiguous — no merge after T+90, leave the PR open and ready
+and say so. There is no incident tonight to outrank the clock the way #327 did last night. **PR
+#340 is open, green and unmerged.**
+
+**And the `nightly-steward` fire at 19:45Z disabled this routine.** Two consecutive silent fires
+met the documented threshold, so it called
+`update_trigger(trig_019hfSFbVCdKQA5PPxJM9MMH, enabled=false)`. `daily-product` will not fire
+again until James re-enables it. That is the steward working correctly, and it means **#340 has no
+next fire to finish it** — it waits on James either way.
 
 **Gate, all four:**
 
@@ -111,7 +123,11 @@ is the ruling**. A useful accident: being blocked bought a human answer for free
 
 ## Next fire
 
-**A-35 — dark-launch DELETE verdict #3** (the `ASXOS_V2_BRIEF_ENABLED` branch), which the picker
+**There is no next fire until James re-enables the trigger.** When there is, the first item is
+**#340** under gate (d).1 — an open PR on a `claude/routine-*` branch, to finish with checks and
+the `nightly-check` proof, not to rebuild.
+
+Then **A-35 — dark-launch DELETE verdict #3** (the `ASXOS_V2_BRIEF_ENABLED` branch), which the picker
 and the roadmap now both name at #1. It is the same shape as tonight's work with a worked
 precedent: measure whether the dark branch has ever rendered before deleting it, and expect the
 real surface to be wider than the row's `paths:`. Then E-20, then E-21.
