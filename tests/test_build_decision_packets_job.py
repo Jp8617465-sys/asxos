@@ -22,15 +22,30 @@ CUTOFF = datetime(2026, 9, 17, 20, 40, tzinfo=UTC)
 
 
 class FakeConn:
-    def __init__(self, *, theses: list[tuple[int, str]], existing: set[str] = frozenset(), paper: str | None = "paper-daily-2026-09-17") -> None:  # type: ignore[assignment]
+    #: A thesis WITH a price plan, which is what every pre-existing test here
+    #: assumes. `planless` names the subset that has none, so the partition
+    #: added for issue #327 can be exercised without reshaping every fixture.
+    def __init__(self, *, theses: list[tuple[int, str]], existing: set[str] = frozenset(), paper: str | None = "paper-daily-2026-09-17", planless: set[str] = frozenset()) -> None:  # type: ignore[assignment]
         self.theses = theses
+        self.planless = set(planless)
         self.existing = set(existing)
         self.paper = paper
 
     async def fetch(self, query: str, *args: object) -> list[Any]:
         if "FROM theses" in query:
             assert "governance_status = 'approved'" in query and "closed_at IS NULL" in query
-            return [{"thesis_id": t, "symbol": s} for t, s in self.theses]
+            return [
+                {
+                    "thesis_id": t,
+                    "symbol": s,
+                    "entry_band_lower": None if s in self.planless else D("40"),
+                    "entry_band_upper": None if s in self.planless else D("42"),
+                    "stop_price": None if s in self.planless else D("36"),
+                    "target_price": None if s in self.planless else D("55"),
+                    "actual_entry_price": None,
+                }
+                for t, s in self.theses
+            ]
         return []
 
     async def fetchrow(self, query: str, *args: object) -> Any:
@@ -170,3 +185,51 @@ def test_daily_brief_builds_packets_after_the_brief_is_sent() -> None:
     assert names.index("Build decision packets") == names.index("Compose and send brief") + 1
     assert job["env"]["ASXOS_PERSONAL_USE"] == "1"
     assert settings.healthcheck_url_build_decision_packets == ""
+
+
+async def test_a_planless_approved_thesis_is_partitioned_out_not_failed() -> None:
+    """Issue #327's shape, pinned.
+
+    An approved thesis with no entry band, stop or target used to reach
+    `build_decision_case`, raise, land in `failed`, and therefore in
+    `monitor.note` — which `check_cron_health` turns into a nightly alert. It
+    did that for eleven rows for 84 days (migration 0059) and for HUBS.NYSE
+    until its statements land.
+
+    It is now partitioned out before the builder is called: reported in the
+    summary, absent from `failed`, and — the load-bearing half — silent in
+    `monitor.note`.
+    """
+    conn = FakeConn(theses=[(1, "CBA.AU"), (9, "PLAN.AU")], planless={"PLAN.AU"})
+
+    async def build(conn: Any, **kw: Any) -> Any:
+        assert kw["thesis_id"] != 9, "the builder must never be called for a planless thesis"
+        return _case(job_mod.packet_id_for("CBA.AU", kw["thesis_id"], kw["cutoff"]))
+
+    summary, monitor = await _run(conn, build)
+    assert summary["awaiting_plan"] == ["PLAN.AU#9"]
+    assert summary["failed"] == {}
+    assert len(summary["built"]) == 1
+    assert monitor.note is None, (
+        "a row waiting on James is not a job-health problem; a note here pages "
+        "through check_cron_health every night until he acts"
+    )
+
+
+async def test_every_approved_thesis_awaiting_a_plan_is_a_quiet_success() -> None:
+    """The degenerate case the candidates feature makes reachable.
+
+    Right after James approves a batch of machine proposals and before he has
+    written any plans, EVERY approved thesis is planless. Nothing is built and
+    nothing failed — which must not trip the "no packet built" invariant, whose
+    job is to catch a genuinely broken run.
+    """
+    conn = FakeConn(theses=[(1, "A.AU"), (2, "B.AU")], planless={"A.AU", "B.AU"})
+
+    async def build(conn: Any, **kw: Any) -> Any:
+        raise AssertionError("the builder must not be called at all")
+
+    summary, monitor = await _run(conn, build)
+    assert summary["built"] == [] and summary["failed"] == {}
+    assert summary["awaiting_plan"] == ["A.AU#1", "B.AU#2"]
+    assert monitor.note is None

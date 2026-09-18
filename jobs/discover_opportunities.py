@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Record the value screen over the valuation sweep. Opens no theses (#306).
+Record the value screen, and propose each survivor for review.
 
 Weekly, after run_valuation in weekly-research.yml:
 
@@ -10,40 +10,55 @@ Weekly, after run_valuation in weekly-research.yml:
   2. Read the latest valuation_runs row per name (S1) and compute the passing set
      (asxos/domain/discovery/ranker.py): quality on the 3-period-AVERAGE ROE,
      value >= price under both the registered convention and the average-ROE
-     sensitivity. Log it. Write nothing else.
+     sensitivity.
+  3. Open each fresh survivor as a `system_screen` thesis at `pending_review`
+     with two thesis_evidence rows — a governance-queue entry, nothing more.
+     It renders in the brief's candidates card; James approves or rejects.
 
-Demoted 2026-09-16 (#306). This job used to rank the passing set by value/price
-x liquidity and open the top-K as `system_screen` theses at pending_review with
-a target, an entry band and a stop derived from the model value by three
-constants. The sealed value-to-price test returned `null` (#304), and the
-pre-committed response (`asxos/domain/research/registry/vp.py::RESPONSE_RULE`)
-demotes the model to a discipline device that "stops emitting target prices,
-entry bands and ranked 'opportunities'". So: no rank, no proposal, no plan.
-The falsifiable number per thesis is stated where the challenge reads it —
+WHAT IS PROPOSED AND WHAT IS NOT. #306 demoted this job after the sealed
+value-to-price test returned `null` (#304): it had been ranking the passing set
+by value/price x liquidity and opening the top-K with a target, an entry band
+and a stop derived from the model value by three constants. The pre-committed
+response (`asxos/domain/research/registry/vp.py::RESPONSE_RULE`) demotes the
+model to a discipline device that "stops emitting target prices, entry bands and
+ranked 'opportunities'".
+
+Those three things stay deleted. What #306 also removed, and what James restored
+on 2026-09-17, is the proposal itself — a reviewable queue is not a target and
+not a rank. So a proposed row carries NO target, NO stop, NO entry band, and the
+set is ordered by symbol and never truncated (`asxos/domain/discovery/proposals.py`
+explains why both circuit breakers refuse the whole run rather than pick).
+
+The falsifiable number per thesis is still stated where the challenge reads it —
 `valuation_fact` evidence and the `valuation_gap` rule in
-`decision_engine/builder.py` — for theses a human has written and approved.
+`decision_engine/builder.py` — once a human has written a plan and approved it.
 
 Deterministic Python only — no LLM (sprint §6). Rule #11: no signals /
-model_versions. ASXOS_PERSONAL_USE=1 is still required: the job no longer opens
-theses, but removing the gate is a change to the personal-use firewall
-(AGENTS.md §2 item 1), which is James's, not this job's.
+model_versions. ASXOS_PERSONAL_USE=1 required (AGENTS.md §2 item 1).
+
+Note on first fire: `weekly-research.yml` is reserved to James and is never
+dispatched from an agent session (.claude/rules/job-conventions.md), so this
+lands on his Saturday 16:00 UTC schedule, not on demand.
 
 Usage:
     ASXOS_PERSONAL_USE=1 python jobs/discover_opportunities.py
 """
-
 import asyncio
 import json
 import logging
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any, Final
 
 from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
-from asxos.domain.discovery import ranker
+from asxos.domain.discovery import proposals, ranker
+from asxos.domain.discovery.types import Opportunity
+from asxos.domain.results_review.pit_db import validate_symbol
 from asxos.domain.screening.evaluator import decode_rule_json, evaluate_rule, log_run
 from asxos.domain.screening.types import ScreeningRule
+from asxos.domain.theses import service as theses_service
 from asxos.domain.valuation import repository as valuation_repository
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -70,9 +85,6 @@ SCREEN_RULE_DESCRIPTION: Final[str] = (
 )
 #: Large enough that every match carries its values (the screen needs ADV and cap).
 SCREEN_LIMIT: Final[int] = 5000
-DEMOTION_NOTE: Final[str] = (
-    "demoted (#306): the value screen is recorded, no thesis is opened, no target or rank is emitted"
-)
 
 
 async def ensure_screen_rule(conn: Any) -> ScreeningRule:
@@ -109,6 +121,73 @@ def _dec(value: object) -> Decimal:
     return Decimal(str(value))
 
 
+async def propose(
+    conn: Any, passing: list[Opportunity], *, as_of: date
+) -> tuple[list[str], list[str], str | None]:
+    """Open each fresh survivor at `pending_review`. Returns (opened, suppressed, breaker).
+
+    One transaction per symbol, never one around the loop: a run that fails on
+    symbol 9 of 16 should leave the first 8 committed and be resumable, which
+    the suppression predicate makes safe.
+
+    Both circuit breakers open NOTHING rather than truncate — see
+    `proposals.py`'s module docstring for why a truncated set is a rank. Only
+    `QueueFull` is caught here: it is James's state, reported in the summary.
+    `RunawayScreen` propagates and fails the run — a gate is broken and the
+    run must be loud.
+    """
+    if not passing:
+        return [], [], None
+    symbols = [o.symbol for o in passing]
+    rows = await conn.fetch(
+        proposals.SQL_SUPPRESSED_SYMBOLS, symbols, proposals.REPROPOSE_COOLDOWN_DAYS
+    )
+    suppressed = {r["symbol"] for r in rows}
+    depth_row = await conn.fetchrow(proposals.SQL_OPEN_QUEUE_DEPTH)
+    depth = int(depth_row["n"]) if depth_row else 0
+    try:
+        fresh = proposals.selectable(
+            passing, suppressed=suppressed, open_queue_depth=depth
+        )
+    except proposals.QueueFull as exc:
+        log.info("queue-depth breaker: %s", exc)
+        return [], sorted(suppressed), str(exc)
+
+    opened: list[str] = []
+    for o in fresh:
+        # Fail early (rule #10). `open_thesis` checks only the .AU/.US suffix;
+        # the vendor-namespaced regex every packet is built under
+        # (`results_review/pit_db.py`) was otherwise first applied at packet
+        # time, after approval. This is the first path by which a
+        # vendor-supplied code reaches a governed table with no human typing
+        # it, so a malformed one is refused here, before any row exists
+        # (security-engineer on #332, 2026-09-18).
+        validate_symbol(o.symbol)
+        async with conn.transaction():
+            thesis = await theses_service.open_thesis(
+                conn,
+                o.symbol,
+                status="research",
+                thesis_text=proposals.thesis_text_for(o),
+                governance_status="pending_review",
+                source="system_screen",
+                evidence_confidence=proposals.evidence_tier_for(o),
+                evidence_citations=proposals.evidence_citations_for(o),
+                reasoning=proposals.opening_reason_for(o, as_of=as_of),
+            )
+            for row in proposals.evidence_rows_for(o):
+                await theses_service.add_thesis_evidence(
+                    conn,
+                    thesis_id=thesis.thesis_id,
+                    source_agent="system_screen",
+                    source_as_of=datetime.combine(o.as_of, time(0, 0), tzinfo=UTC),
+                    **row,
+                )
+        opened.append(f"{o.symbol}#{thesis.thesis_id}")
+        log.info("proposed %s as thesis %d (pending_review)", o.symbol, thesis.thesis_id)
+    return opened, sorted(suppressed), None
+
+
 async def run(*, monitor: JobMonitor) -> dict[str, Any]:
     as_of = clock.today()
     async with acquire() as conn:
@@ -133,18 +212,24 @@ async def run(*, monitor: JobMonitor) -> dict[str, Any]:
                 f"no valuation_runs at or before {as_of} — run_valuation must precede discovery"
             )
         passing = ranker.passing(runs, screened, screening_run_id=screening_run_id)
-    # The screening_runs row is the audit log's, not this job's product; the job's
-    # own product — theses — no longer exists (#306), so rows_written stays 0 and
-    # the note says why, so a digest cannot read the zero as a silent failure.
-    monitor.rows_written = 0
-    monitor.note = f"{DEMOTION_NOTE}; {len(passing)} names pass the value screen"
+        opened, suppressed, breaker = await propose(conn, passing, as_of=as_of)
+    monitor.rows_written = len(opened)
+    # Deliberately NO monitor.note on any of these paths. `note` is the degraded
+    # partial-success channel (job_monitor.py) and check_cron_health raises on
+    # every note it finds inside 36 hours, so a routine weekly outcome written
+    # there pages every Saturday for the rest of time. A quiet run, a suppressed
+    # name and a tripped breaker are all ordinary states of this job; they are
+    # reported in the summary and the log, and the queue itself renders in the
+    # brief's candidates card.
     summary = {
         "as_of": as_of.isoformat(),
         "screening_run_id": screening_run_id,
         "screened": len(screened),
         "valued_runs": sum(1 for r in runs if r.outcome == "valued"),
         "passing": [o.symbol for o in passing],
-        "opened": [],
+        "opened": opened,
+        "suppressed_existing": suppressed,
+        "breaker": breaker,
     }
     log.info("discover_opportunities done — %s", json.dumps(summary, default=str))
     return summary

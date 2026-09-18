@@ -1,4 +1,8 @@
-"""jobs/discover_opportunities.py — screen and record, open nothing (#306); plus the service changes."""
+"""jobs/discover_opportunities.py — screen, record, and propose at pending_review.
+
+The proposal half was removed by #306 and restored by James on 2026-09-17; the
+target/entry-band/rank half stays deleted. Tests below assert both halves.
+"""
 from __future__ import annotations
 
 import json
@@ -13,7 +17,8 @@ import pytest
 import yaml
 
 import jobs.discover_opportunities as job_mod
-from asxos.domain.discovery import ranker
+from asxos.domain.discovery import proposals, ranker
+from asxos.domain.results_review.pit_db import ResultsReviewAdapterError
 from asxos.domain.screening.types import ScreenMatch, ScreenRunResult
 from asxos.domain.theses import service as thesis_service
 from asxos.domain.valuation import sweep
@@ -44,6 +49,7 @@ class FakeConn:
     def __init__(self, *, runs: list[dict[str, Any]], open_symbols: set[str] = frozenset()) -> None:  # type: ignore[assignment]
         self.runs = runs
         self.open_symbols = set(open_symbols)
+        self.queue_depth = 0
         self.executed: list[tuple[str, tuple[object, ...]]] = []
         self.inserted_theses: list[tuple[object, ...]] = []
         self.evidence: list[tuple[object, ...]] = []
@@ -66,13 +72,19 @@ class FakeConn:
         if "INSERT INTO thesis_evidence" in query:
             self.evidence.append(args)
             return {"evidence_id": len(self.evidence)}
+        if "pending_review" in query and "count(*)" in query:
+            return {"n": self.queue_depth}
         return None
 
     async def fetch(self, query: str, *args: object) -> list[Any]:
         if "FROM valuation_runs" in query:
             return [{"payload": r} for r in self.runs]
-        if "FROM theses WHERE closed_at IS NULL" in query:
-            return [{"symbol": s} for s in sorted(self.open_symbols)]
+        if "FROM theses" in query and "ANY($1::text[])" in query:
+            # The suppression predicate. `open_symbols` now means "symbols the
+            # predicate would suppress" — queued, on the book, or inside the
+            # cooling-off window after a rejection.
+            asked = set(args[0]) if args else set()
+            return [{"symbol": s} for s in sorted(self.open_symbols & asked)]
         return []
 
     def transaction(self) -> Any:
@@ -131,24 +143,84 @@ async def _run_job(conn: FakeConn, *screened: str) -> tuple[dict[str, Any], Fake
     return summary, monitor
 
 
-async def test_job_records_the_screen_and_opens_no_thesis() -> None:
-    """#306: the passing set is logged; no thesis, revision or evidence row is written."""
+async def test_job_proposes_each_survivor_at_pending_review() -> None:
+    """The proposal half, restored (James, 2026-09-17) with the target half still deleted.
+
+    #306 demoted this job to recording the screen and opening nothing, because
+    the sealed test returned null. What the RESPONSE_RULE actually forbids is
+    "target prices, entry bands and ranked 'opportunities'" — not the existence
+    of a reviewable queue. So the row is opened with no price plan at all, and
+    the demotion holds where it was aimed.
+    """
     conn = FakeConn(runs=[_run("CHEAP.AU", D("8")), _run("DEAR.AU", D("40"))])
     summary, monitor = await _run_job(conn, "CHEAP.AU", "DEAR.AU")
-    assert summary["passing"] == ["CHEAP.AU"] and summary["opened"] == []
-    assert summary["screening_run_id"] == 42 and summary["valued_runs"] == 2
-    assert monitor.rows_written == 0
-    assert monitor.note is not None and "#306" in monitor.note and "1 names pass" in monitor.note
-    assert conn.inserted_theses == [] and conn.evidence == []
-    assert not any("INSERT INTO thes" in q for q, _ in conn.executed)
-    # the screening rule is still ensured before it is read — the audit row is the job's record
+    assert summary["passing"] == ["CHEAP.AU"]
+    assert summary["opened"] == ["CHEAP.AU#101"]
+    assert summary["suppressed_existing"] == [] and summary["breaker"] is None
+    assert monitor.rows_written == 1
+    # The degraded channel stays empty: a routine weekly outcome written into
+    # `note` pages through check_cron_health every Saturday (issue #327).
+    assert monitor.note is None
+    # No price plan on the inserted row — entry band, stop and target are the
+    # 4th/5th/6th/7th bound parameters of open_thesis's INSERT.
+    (args,) = conn.inserted_theses
+    assert args[3] is None and args[4] is None and args[5] is None and args[6] is None
+    assert args[14] == "pending_review"
+    # Two thesis_evidence rows, or approve_object hard-fails and James cannot
+    # action the proposal at all.
+    assert len(conn.evidence) == 2
+    # args are 0-indexed against add_thesis_evidence's bind order:
+    # thesis_id, source_agent, tier, claim_text, source_table, ...
+    assert {str(a[4]) for a in conn.evidence} == {"valuation_runs", "screening_runs"}
     assert any("INSERT INTO screening_rules" in q and "ON CONFLICT (name) DO NOTHING" in q for q, _ in conn.executed)
 
 
-async def test_job_never_reads_open_theses_because_it_proposes_none() -> None:
+async def test_a_symbol_already_in_the_queue_is_not_proposed_again() -> None:
     conn = FakeConn(runs=[_run("CHEAP.AU", D("8"))], open_symbols={"CHEAP.AU"})
-    summary, _ = await _run_job(conn, "CHEAP.AU")
-    assert summary["passing"] == ["CHEAP.AU"] and summary["opened"] == []
+    summary, monitor = await _run_job(conn, "CHEAP.AU")
+    assert summary["passing"] == ["CHEAP.AU"]
+    assert summary["opened"] == [] and summary["suppressed_existing"] == ["CHEAP.AU"]
+    assert conn.inserted_theses == []
+    assert monitor.note is None
+
+
+async def test_the_queue_depth_breaker_opens_nothing_rather_than_choosing() -> None:
+    """It drops the whole week, never a subset.
+
+    Taking the alphabetically-first N of a passing set is a rank pretending not
+    to be one: it silently discards names on an alphabetical accident. Refusing
+    the run is honest and self-correcting — dispose of a few and the flow
+    resumes.
+    """
+    conn = FakeConn(runs=[_run("CHEAP.AU", D("8"))])
+    conn.queue_depth = proposals.MAX_OPEN_QUEUE
+    summary, monitor = await _run_job(conn, "CHEAP.AU")
+    assert summary["opened"] == []
+    assert summary["breaker"] is not None and "awaiting review" in summary["breaker"]
+    assert conn.inserted_theses == []
+    assert monitor.note is None, "a full queue is James's state, not a job failure"
+
+
+async def test_a_malformed_vendor_symbol_is_refused_before_any_row_is_written() -> None:
+    """Fail-early (rule #10), from the security review of #332.
+
+    `open_thesis` checks only the .AU/.US suffix, and the vendor-namespaced
+    regex every packet is built under was otherwise first applied at packet
+    time -- after approval. A survivor that would fail it is refused before
+    any INSERT, not discovered a week later when the builder raises.
+    """
+    conn = FakeConn(runs=[_run("BAD-SYM.AU", D("8"))])
+    with pytest.raises(ResultsReviewAdapterError, match="not a vendor-namespaced"):
+        await _run_job(conn, "BAD-SYM.AU")
+    assert conn.inserted_theses == [] and conn.evidence == []
+
+
+async def test_a_runaway_screen_refuses_loudly_instead_of_flooding_the_queue() -> None:
+    """A gate breaking is not a bumper crop of ideas (CLAUDE.md #10)."""
+    symbols = [f"S{i:03d}.AU" for i in range(proposals.MAX_OPENS_PER_RUN + 1)]
+    conn = FakeConn(runs=[_run(s, D("8")) for s in symbols])
+    with pytest.raises(proposals.RunawayScreen, match="runaway guard"):
+        await _run_job(conn, *symbols)
     assert conn.inserted_theses == []
 
 

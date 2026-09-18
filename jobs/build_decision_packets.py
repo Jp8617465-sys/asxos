@@ -42,6 +42,7 @@ from asxos.domain.decision_engine.portfolio_state import (
 )
 from asxos.domain.decision_engine.writeback import record_packet_examination
 from asxos.domain.tax.feed import load_dividend_characterisation
+from asxos.domain.theses.plan import has_price_plan
 from asxos.domain.valuation.repository import latest_run_for_symbol
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -50,8 +51,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 JOB_NAME: Final[str] = "build_decision_packets"
+#: The price-plan columns ride along so the set can be partitioned BEFORE the
+#: builder is called — see `run()`. Selecting them here and testing them with
+#: the shared `has_price_plan` is what keeps this job and
+#: `build_decision_case`'s own guard from drifting apart.
 SQL_APPROVED_THESES: Final[str] = (
-    "SELECT thesis_id, symbol FROM theses "
+    "SELECT thesis_id, symbol, entry_band_lower, entry_band_upper, "
+    "stop_price, target_price, actual_entry_price FROM theses "
     "WHERE governance_status = 'approved' AND closed_at IS NULL ORDER BY thesis_id"
 )
 SQL_PACKET_EXISTS: Final[str] = "SELECT 1 FROM decision_packets WHERE decision_packet_id = $1"
@@ -91,6 +97,7 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
     day = cutoff.date()
     built: list[str] = []
     skipped: list[str] = []
+    awaiting_plan: list[str] = []
     failed: dict[str, str] = {}
     async with acquire() as conn:
         paper_snapshot_id = await latest_paper_snapshot_id(conn, as_of=day)
@@ -102,6 +109,22 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         theses = await conn.fetch(SQL_APPROVED_THESES)
         for row in theses:
             thesis_id, symbol = int(row["thesis_id"]), str(row["symbol"])
+            # An approved thesis with no price plan is not a failure to report,
+            # it is a row waiting on James. Calling the builder for it would
+            # raise every night, land in `monitor.note`, and page through
+            # check_cron_health forever — the shape of issue #327, and what
+            # migration 0059's eleven rows did for 84 days. It is set aside
+            # before the builder is called and surfaced where it belongs: the
+            # brief's candidates card, which already renders these rows.
+            if not has_price_plan(
+                entry_band_lower=row["entry_band_lower"],
+                entry_band_upper=row["entry_band_upper"],
+                stop_price=row["stop_price"],
+                target_price=row["target_price"],
+                actual_entry_price=row["actual_entry_price"],
+            ):
+                awaiting_plan.append(f"{symbol}#{thesis_id}")
+                continue
             packet_id = packet_id_for(symbol, thesis_id, cutoff)
             if await conn.fetchrow(SQL_PACKET_EXISTS, packet_id) is not None:
                 skipped.append(packet_id)
@@ -123,6 +146,7 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         "approved": len(theses),
         "built": built,
         "skipped_same_day": skipped,
+        "awaiting_plan": awaiting_plan,
         "failed": failed,
     }
     log.info("build_decision_packets done — %s", json.dumps(summary))
@@ -132,6 +156,9 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         monitor.note = f"{len(failed)} of {len(theses)} approved theses did not build: {json.dumps(failed)}"
     elif not theses:
         monitor.note = "no approved theses — nothing to challenge"
+    # `awaiting_plan` deliberately sets NO note. It is a fact about James's
+    # review queue, not about this job's health, and the note channel is an
+    # alerting channel (job_monitor.py:139 -> check_cron_health.py:152).
     return summary
 
 

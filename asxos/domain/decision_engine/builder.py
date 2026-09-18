@@ -111,6 +111,7 @@ from asxos.domain.results_review.pit_db import (
 from asxos.domain.tax.feed import DividendCharacterisation, claim_for, tax_reference_for
 from asxos.domain.themes.candidates.measures import assert_measure_sql_admissible
 from asxos.domain.themes.candidates.types import CandidateSnapshot
+from asxos.domain.theses.plan import has_price_plan
 from asxos.domain.theses.service import get_thesis
 from asxos.domain.valuation.contracts import ValuationRun
 
@@ -478,12 +479,13 @@ async def build_decision_case(
 
     # -- Price plan: market_fact. Hard-fails if absent rather than inventing
     # scenario numbers with no price plan behind them.
-    if (
-        thesis.entry_band_lower is None
-        or thesis.entry_band_upper is None
-        or thesis.stop_price is None
-        or thesis.target_price is None
-    ) and thesis.actual_entry_price is None:
+    if not has_price_plan(
+        entry_band_lower=thesis.entry_band_lower,
+        entry_band_upper=thesis.entry_band_upper,
+        stop_price=thesis.stop_price,
+        target_price=thesis.target_price,
+        actual_entry_price=thesis.actual_entry_price,
+    ):
         raise ValueError(
             f"thesis_id={thesis_id} has no entry/target/stop price plan on file — "
             "cannot honestly derive bull/bear scenario returns"

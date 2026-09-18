@@ -32,6 +32,7 @@ SECTION_ORDER: tuple[str, ...] = (
     "regulatory",
     "news",
     "portfolio",
+    "candidates",
 )
 
 
@@ -69,6 +70,18 @@ def news_to_status(news_status: str, *, error: str | None = None) -> SectionStat
     return SectionStatus.MISSING
 
 
+def _status_for(error: str | None, *, has_data: bool) -> tuple[SectionStatus, str | None]:
+    """MISSING when the loader failed; otherwise FRESH with a payload, EMPTY without.
+
+    "Nothing to report" and "could not look" are different claims, and the
+    four-state vocabulary exists so a loader failure can never render as a
+    quiet section.
+    """
+    if error:
+        return SectionStatus.MISSING, error
+    return (SectionStatus.FRESH if has_data else SectionStatus.EMPTY), None
+
+
 def assemble_sections(
     *,
     latest_price_date: Any,
@@ -84,6 +97,8 @@ def assemble_sections(
     portfolio_section: Any,
     computed_at: datetime,
     data_as_of: Any = None,
+    candidates: list[Any] | None = None,
+    candidates_error: str | None = None,
 ) -> dict[str, SectionResult]:
     """Pure mapper: live collect() payloads → SectionResult dict.
 
@@ -121,20 +136,16 @@ def assemble_sections(
         disc_status = SectionStatus.FRESH
         disc_error = None
 
-    if outcome_error:
-        out_status = SectionStatus.MISSING
-        out_error: str | None = outcome_error
-    elif outcome_section is None:
-        out_status = SectionStatus.EMPTY
-        out_error = None
-    else:
-        out_status = SectionStatus.FRESH
-        out_error = None
+    out_status, out_error = _status_for(outcome_error, has_data=outcome_section is not None)
 
     news_status_enum = news_to_status(news_status, error=news_error)
     news_err = news_error
     if news_status_enum is SectionStatus.MISSING and not news_err:
         news_err = "news section could not run"
+
+    # EMPTY is the ordinary weekly state: "nothing new cleared the gates" — see
+    # `_candidates` in compose.py.
+    cand_status, cand_error = _status_for(candidates_error, has_data=bool(candidates))
 
     jobs_status = SectionStatus.EMPTY if not job_failures else SectionStatus.FRESH
     reg_status = SectionStatus.EMPTY if not regulatory_hits else SectionStatus.FRESH
@@ -197,6 +208,14 @@ def assemble_sections(
             data=portfolio_section,
             computed_at=computed_at,
             source="sql:portfolio_runs+gate:ASXOS_PORTFOLIO_BRIEF_ENABLED",
+        ),
+        SectionResult(
+            name="candidates",
+            status=cand_status,
+            data=None if cand_status is SectionStatus.MISSING else list(candidates or []),
+            computed_at=computed_at,
+            source="sql:theses[pending_review]+valuation_runs",
+            error=cand_error,
         ),
     )
     return {s.name: s for s in results}

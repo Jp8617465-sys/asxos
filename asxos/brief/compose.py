@@ -249,6 +249,32 @@ class PortfolioSection:
     turnover_aud: Decimal
 
 
+@dataclass(frozen=True)
+class CandidateRow:
+    """One machine-proposed name awaiting governance review.
+
+    Deliberately carries NO target, stop, entry band or ordinal. The sealed
+    value-to-price test returned null (#304) and the pre-committed
+    `RESPONSE_RULE` (`asxos/domain/research/registry/vp.py`) demotes the model
+    so it "stops emitting target prices, entry bands and ranked
+    'opportunities'". A symbol-ordered set of names with the figures they
+    cleared their gates on is none of those three things, which is why this
+    row can exist at all — and why it must never grow a rank column.
+
+    `model_value` and `last_close` are reported because the gate was stated in
+    terms of them, not as a recommendation: the claim is "this cleared
+    value >= price under both conventions", and a reader cannot check that
+    claim without the two numbers it was made from.
+    """
+
+    symbol: str
+    thesis_id: int
+    sector: str | None
+    last_close: Decimal | None
+    model_value: Decimal | None
+    proposed_at: date
+
+
 class NewsStatus(StrEnum):
     """Which of four states produced the news section's item list.
 
@@ -318,6 +344,13 @@ class BriefData:
     # Stage 1: book-level snapshot delta vs the previous snapshot. None when a
     # test constructs BriefData without collect(); collect() always sets it.
     deltas: BookDelta | None = None
+    # Machine-proposed names sitting at governance_status='pending_review',
+    # written weekly by jobs/discover_opportunities.py. Empty is the ordinary
+    # state and means "nothing new cleared the gates", which is why the section
+    # renders EMPTY rather than being omitted — an absent section and a quiet
+    # week look identical to a reader and only one of them is honest.
+    candidates: list[CandidateRow] = field(default_factory=list)
+    candidates_error: str | None = None
 
     @property
     def resolved_sections(self) -> dict[str, SectionResult]:
@@ -342,6 +375,8 @@ class BriefData:
             news_status=str(self.news_status),
             news_error=None,
             portfolio_section=self.portfolio_section,
+            candidates=self.candidates,
+            candidates_error=self.candidates_error,
             computed_at=computed,
             data_as_of=self.data_as_of,
         )
@@ -554,6 +589,19 @@ async def collect(as_of: date) -> BriefData:
         except Exception as exc:
             outcome_error = f"outcome section could not run: {exc}"
 
+        # Same isolation, and carried on its own error field for the same reason
+        # section 8 is: a candidate queue that could not be read is a
+        # measurement failure, not a discipline breach, so it must not flip the
+        # headline to BLOCKED. It must also never silently render as "no new
+        # candidates" — an empty queue and an unreadable one are the one pair a
+        # reader cannot tell apart, and only one of them is good news.
+        candidates: list[CandidateRow] = []
+        candidates_error: str | None = None
+        try:
+            candidates = await _candidates(conn, as_of)
+        except Exception as exc:
+            candidates_error = f"candidates section could not run: {exc}"
+
         # Sequential on the same connection — never asyncio.gather (asyncpg #56).
         deltas = await load_book_delta(conn, as_of)
 
@@ -573,6 +621,8 @@ async def collect(as_of: date) -> BriefData:
         news_status=str(news_status),
         news_error=news_error,
         portfolio_section=portfolio_section,
+        candidates=candidates,
+        candidates_error=candidates_error,
         computed_at=computed_at,
         data_as_of=data_as_of,
     )
@@ -591,7 +641,80 @@ async def collect(as_of: date) -> BriefData:
         data_as_of=data_as_of,
         sections=sections,
         deltas=deltas,
+        candidates=candidates,
+        candidates_error=candidates_error,
     )
+
+
+async def _candidates(conn: asyncpg.Connection, as_of: date) -> list[CandidateRow]:
+    """Machine-proposed names awaiting review, symbol-ordered.
+
+    Reads `theses` at `governance_status='pending_review'` — the queue
+    `jobs/discover_opportunities.py` writes weekly. `open_thesis` raises if a
+    non-human source tries to open at `approved`, so everything this returns is
+    by construction unreviewed and unacted-upon.
+
+    Gated on ``ASXOS_PERSONAL_USE=1`` — parity with `_discipline_findings` /
+    `_news_section` / `_portfolio_section` / `_cgt_boundary_findings`. These are
+    candidate securities for this user's own portfolio, which is personal
+    investment content whatever the absence of a price plan.
+
+    s766B firewall: states which deterministic gates a name cleared and the two
+    figures the value gate was expressed in. No trade direction, no size, no
+    target, no ordering — ORDER BY symbol, never by value-to-price, because
+    sorting by the model's own number is the rank `RESPONSE_RULE` deleted
+    wearing a different hat.
+
+    `valuation_runs` is LEFT-joined on the name's latest row: a proposal whose
+    valuation row has since been superseded still renders, with the figures
+    absent rather than the row vanishing (CLAUDE.md #10).
+    """
+    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
+        return []
+    rows = await conn.fetch(
+        """
+        SELECT t.thesis_id, t.symbol, t.opened_at, u.sector,
+               v.value_per_share,
+               (v.payload->'inputs'->>'last_close')::numeric AS last_close
+        FROM theses t
+        LEFT JOIN universe u ON u.symbol = t.symbol
+        LEFT JOIN LATERAL (
+            SELECT value_per_share, payload
+            FROM valuation_runs
+            WHERE symbol = t.symbol
+              AND outcome = 'valued'
+              -- Pinned on BOTH axes the store can widen, mirroring
+              -- `valuation.repository.latest_runs`' own filter. `method` is
+              -- one value today (arbi-red-team, relative-lens scope,
+              -- 2026-09-17: a second method must not render a peer-median
+              -- composite as "the model value"). `terminal_convention` is the
+              -- axis 0054 was designed to widen -- run_id is
+              -- vr-{symbol}-{date}-{convention}, so a second convention is a
+              -- second row per (symbol, as_of), and the CHECK pinning it to
+              -- zero_excess is the only thing that made an unpinned LIMIT 1
+              -- deterministic (security-engineer on #332, 2026-09-18). A
+              -- second value on either axis earns its own column here.
+              AND method = 'residual_income'
+              AND terminal_convention = 'zero_excess'
+            ORDER BY as_of DESC, created_at DESC
+            LIMIT 1
+        ) v ON TRUE
+        WHERE t.governance_status = 'pending_review'
+          AND t.closed_at IS NULL
+        ORDER BY t.symbol
+        """
+    )
+    return [
+        CandidateRow(
+            symbol=r["symbol"],
+            thesis_id=r["thesis_id"],
+            sector=r["sector"],
+            last_close=r["last_close"],
+            model_value=r["value_per_share"],
+            proposed_at=r["opened_at"].date(),
+        )
+        for r in rows
+    ]
 
 
 async def _cgt_boundary_findings(

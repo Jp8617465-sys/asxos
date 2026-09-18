@@ -10,8 +10,14 @@ weekly in weekly-research.yml after derive_fundamentals_pit. Rule #11: nothing h
 reads `signals` or `model_versions` (screened at import in the valuation package).
 
 Idempotent by construction: the store is append-only and every INSERT is
-ON CONFLICT (run_id) DO NOTHING, so a same-day re-run writes 0 rows and says so in
-job_runs.error_message rather than duplicating or mutating.
+ON CONFLICT (run_id) DO NOTHING, so a same-day re-run writes 0 rows rather than
+duplicating or mutating. That no-op is recorded as rows_written=0 on a 'success'
+job_runs row and logged at INFO — deliberately NOT in `monitor.note`, which is the
+degraded-partial-success channel check_cron_health alerts on (see the comment at
+the branch below). A no-op is not a degradation.
+
+0 rows written AND 0 rows stored is a different thing entirely and still hard-fails:
+that means the INSERTs did not land.
 
 Usage:
     python jobs/run_valuation.py
@@ -93,9 +99,17 @@ async def run(*, cutoff: datetime, monitor: JobMonitor, write_batch_size: int) -
                     f"0 rows written and 0 rows stored for {cutoff.date()} — the INSERTs "
                     "did not land; refusing to report success"
                 )
-            monitor.note = (
-                f"same-day re-run: 0 rows written; {stored} rows ({stored_valued} valued) "
-                f"already stored for {cutoff.date()}"
+            # NOT monitor.note. `note` is the DEGRADED partial-success channel
+            # (job_monitor.py:56-62) and check_cron_health hard-fails on every
+            # note it finds in a 36-hour window, so putting a benign idempotent
+            # no-op there turns the nightly watchdog red for a run that did
+            # exactly what it was designed to do — observed 2026-09-17, run
+            # 35165551435. The no-op stays fully recoverable without it:
+            # rows_written=0 on a 'success' row, plus the log line below, plus
+            # the `stored` rows themselves in valuation_runs.
+            log.info(
+                "same-day re-run: 0 rows written; %d rows (%d valued) already stored for %s",
+                stored, stored_valued, cutoff.date(),
             )
         log.info(
             "run_valuation done — symbols=%d written=%d histogram=%s",
