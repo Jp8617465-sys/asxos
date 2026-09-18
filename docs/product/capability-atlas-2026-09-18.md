@@ -140,13 +140,18 @@ Reproducing `asxos/domain/discovery/ranker.py::passing` in SQL against
 Liquidity (ADV ≥ A$250k, cap ≥ A$100m) is applied separately in
 `jobs/discover_opportunities.py` and cuts 35 → the 16 recorded on 09-16.
 
-**The finding that matters:** of the 35 survivors, **14 sit in Financial Services and
-read as listed investment companies / closed-end funds** (LRT, NGE, PPM, WQG, FGX, HM1,
-MEC, PGF, HLI, TGF, LCE, FGG, LSF …) and **4 more are A-REIT-shaped** (TIA, BWP, TCF,
-CWP). That is **over half the passing set** in vehicles whose "book value" *is* net
-tangible assets and whose "ROE" *is* their own portfolio return. A residual-income model
-pointed at a LIC does not discover mispriced earnings power — it rediscovers
-discount-to-NTA, which is a known, published, structural feature of the instrument class.
+**The finding that matters:** of the 35 survivors, **at least eight are listed investment
+companies or trusts** (WQG, FGX, FGG, HM1, LSF, TGF, PGF, MEC) and **four more are
+A-REIT-shaped** (TIA, BWP, TCF, CWP). That is roughly **a third of the passing set** in
+vehicles whose "book value" *is* net tangible assets and whose "ROE" *is* their own portfolio
+return. A residual-income model pointed at a closed-end fund does not discover mispriced
+earnings power — it rediscovers discount-to-NTA, which is a published, structural feature of
+the instrument class, not an edge.
+
+Stated precisely so it is not over-claimed: several other Financial Services names in the set
+(PPM, HLI, LFG, CCP) are **operating** lenders and insurers, and the finding does not apply
+to them. The classification is by inspection of ticker and sector, not by a `security_kind`
+column — because that column does not exist, which is the defect.
 
 This is the already-tracked `universe.security_kind` gap
 (`m14_candidate_security_kind_enum`) but its cost is larger than "seven rows to reject on

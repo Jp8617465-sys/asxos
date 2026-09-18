@@ -52,7 +52,7 @@ layer on top of it, because an instruction with no decision behind it is just a 
 | ID | Finding | Severity |
 |---|---|---|
 | **D-1** | Regime classifier's credit-stress arm is dead — `_HY_OAS_STRESS = 600` bps vs ingested `2.70` percent. Both legs unfireable; tests encode bps so CI is green. | HIGH |
-| **D-2** | >50% of the discovery engine's 35-name passing set are LIC/LIT/A-REIT NTA vehicles. The residual-income model rediscovers discount-to-NTA and calls it value. | HIGH |
+| **D-2** | Roughly a third of the discovery engine's 35-name passing set are LIC/LIT (at least 8) or A-REIT-shaped (4) NTA vehicles. The residual-income model rediscovers discount-to-NTA and calls it value. | HIGH |
 | **D-3** | `tax_settings` has 0 rows. The entire tax engine is built, tested and cannot produce a number. | MEDIUM |
 | **D-4** | `position_monitor_runs` has 0 rows, ever. Dead code carrying a live promise. | MEDIUM |
 | **D-6** | **The active profile's constraints are mutually unsatisfiable.** `baseline`: `per_name_cap_pct = 10%` of A$7,749 = **A$775**, but `min_position_aud = A$1,000`. No position can be legal. `capital_aud` is also stale (A$6,666.98 vs A$7,749.54 actual). | HIGH |
