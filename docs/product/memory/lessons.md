@@ -1150,7 +1150,40 @@ conclusion is evidence about its inputs, and a fixture with an enumerated list h
 inputs that does not grow when a new migration file appears. This is the migration-lane sibling of
 L53 (open the readers before ranking severity) and L56 (dispatch the thing): the artefact that
 looked like verification was a different verification.
-## L58 — A runbook written from the domain layer will describe work the scheduler already does (2026-09-17)
+
+## L58 — A structural guard finds what re-reading does not; and my own framing of a finding is a hypothesis too (2026-09-18)
+
+Two instances in one session, both on code I had just read closely.
+
+**One.** `tests/test_domain_purity.py` landed in #329 with an allow-list of the 27 files then
+violating the rule. Merging `main` minutes later surfaced a 28th —
+`asxos/domain/portfolio/holdings.py`, added the same day by an unrelated PR, importing `asyncpg`.
+No amount of care in writing the list would have caught a file that did not exist when I wrote it.
+The gate did, on its first real exposure.
+
+**Two.** #336 added a guard that no job may discard a `send_alert` return. It immediately named a
+call site in `validate_price_data.py` that I had read, in a file I had just inventoried by hand,
+and missed. That one turned out to be a **legitimate** discard — the branch raises immediately
+after, so a note would be dead — which is the better half of the finding: the guard forced the rule
+to be stated as the real invariant (*a discard is allowed only where the block goes on to raise*)
+rather than as a filename allow-list. A guard that fires on a correct case is telling you your rule
+is wrong, not that the code is.
+
+**And the framing.** My own assessment called the six inline Resend senders "duplicated". They were
+not: they had drifted into **three** contracts, and the middle group carried a real defect an
+existing test file had already named and fixed in only two of six jobs. I had to correct my own
+document in the PR that implemented it. L12 says a framing is a hypothesis, not truth, and applies
+to a doc's *source* — this is the case where the source was **me**, one day earlier, and the
+hypothesis was still wrong.
+
+**The rule: when a convention is already the house style, the cheap durable move is to mechanise
+it, not to restate it** — and prefer a guard on the *defect class* over a fix to the instance in
+front of you. Corollary, from the "duplicated" error: before acting on a finding you wrote, re-read
+the code it describes, not the finding.
+Evidence: `docs/proposals/hybrid-tdd-assessment-2026-09-17.md`; PRs #329, #333, #336, #337;
+`tests/test_domain_purity.py`, `tests/test_alert_send_observability.py`.
+*Extends L12 (a framing is a hypothesis) and the L11 amendment (accepting a proxy for evidence).*
+## L59 — A runbook written from the domain layer will describe work the scheduler already does (2026-09-17)
 
 **What happened.** James asked for a plan to scan for investment opportunities using
 existing infrastructure. I read `asxos/domain/`, the CLI, the contracts and the

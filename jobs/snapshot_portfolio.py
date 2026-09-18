@@ -51,8 +51,14 @@ from decimal import Decimal
 from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.portfolio.snapshot import (
+    ForeignLot,
+    HoldingPrice,
+    compute_foreign_cost_basis,
+    compute_holdings_mv,
+)
 from asxos.domain.prices.coverage import latest_complete_trading_day
-from asxos.domain.prices.fx import foreign_symbol_sql, is_foreign_symbol
+from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.jobs._helpers import UpstreamBlocked, require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
 
@@ -150,17 +156,23 @@ async def _compute_holdings_mv(
 ) -> tuple[
     Decimal, int, Decimal | None, Decimal | None, Decimal | None, Decimal | None
 ]:
-    """Compute total market value of current_holdings on as_of.
+    """Load the held book and value it — queries here, arithmetic in the domain.
 
-    AU symbols: price in AUD, no FX conversion needed.
-    US-exchange (USD) symbols — any FOREIGN_SUFFIXES (.US/.NYSE/.NASDAQ/.AMEX):
-    price in USD, converted to AUD via most recent AUDUSD rate.
     Returns (holdings_mv_aud, holdings_count, us_mv_aud, us_cost_aud,
     fx_rate_audusd, us_fx_pnl_aud). us_fx_pnl_aud is the CURRENCY component of
     unrealised P&L only (revaluing native MV at acquisition vs current FX) —
     NOT total unrealised P&L, which is us_mv_aud − us_cost_aud.
+
+    The valuation itself lives in `asxos/domain/portfolio/snapshot.py` as pure
+    functions over the frozen inputs mapped below, so the headline figures are
+    unit-testable with no connection (see that module's header). This function
+    keeps the three queries and the conditional between them: the lot query
+    runs only when a foreign holding was actually priced today.
     """
-    # Fetch the most recent AUDUSD rate on or before as_of (monthly data)
+    # Most recent AUDUSD rate on or before as_of. The `<=` carry matters
+    # because the series has gaps (weekends, holidays), not because it is
+    # monthly — the comment here said "monthly data" until 2026-09-18, when a
+    # read of live `fx_rates` showed consecutive daily EODHD rows.
     fx_row = await conn.fetchrow(
         """
         SELECT rate FROM fx_rates
@@ -181,27 +193,30 @@ async def _compute_holdings_mv(
         as_of,
     )
 
-    if not rows:
-        return Decimal("0"), 0, None, None, audusd_rate, None
+    mv = compute_holdings_mv(
+        [
+            HoldingPrice(
+                symbol=r["symbol"],
+                quantity=Decimal(str(r["quantity"])),
+                close=Decimal(str(r["close"])),
+            )
+            for r in rows
+        ],
+        audusd_rate,
+        as_of,
+    )
 
-    total_mv = Decimal("0")
-    us_mv_aud: Decimal | None = None
-    for r in rows:
-        qty = Decimal(str(r["quantity"]))
-        close = Decimal(str(r["close"]))
-        price_aud: Decimal
-        if is_foreign_symbol(r["symbol"]):
-            if audusd_rate is None:
-                raise RuntimeError(
-                    f"No AUDUSD FX rate on or before {as_of} — "
-                    "cannot convert US holdings to AUD. Run sync_prices first."
-                )
-            # AUDUSD rate = USD per 1 AUD; USD → AUD = price / rate
-            price_aud = close / audusd_rate
-            us_mv_aud = (us_mv_aud or Decimal("0")) + qty * price_aud
-        else:
-            price_aud = close
-        total_mv += qty * price_aud
+    if mv.us_mv_aud is None:
+        # Nothing foreign priced today, so there is no lot query to run and no
+        # cost basis to report. Covers the empty-book case too.
+        return (
+            mv.total_mv_aud,
+            mv.holdings_count,
+            None,
+            None,
+            audusd_rate,
+            None,
+        )
 
     # US cost_base_normal is stored in AUD; joining holding_lots directly
     # because the current_holdings VIEW does not include cost_base_normal.
@@ -211,61 +226,56 @@ async def _compute_holdings_mv(
     # with no price row on as_of drops out of us_cost_aud too — deliberate:
     # us_mv_aud already requires a price row, so cost and MV now cover the
     # same lot set instead of the mismatched sets the old bare SUM compared.
-    us_cost_aud: Decimal | None = None
-    us_fx_pnl_aud: Decimal | None = None
-    if us_mv_aud is not None:
-        us_cost_rows = await conn.fetch(
-            f"""
-            SELECT hl.quantity, hl.cost_base_normal, hl.acquisition_fx_rate, p.close
-            FROM holding_lots hl
-            JOIN prices p ON p.symbol = hl.symbol AND p.dt = $1
-            WHERE hl.disposed_at IS NULL AND {foreign_symbol_sql("hl.symbol")}
-            """,
-            as_of,
-        )
-        if us_cost_rows:
-            us_cost_aud = sum(
-                (Decimal(str(r["cost_base_normal"])) for r in us_cost_rows),
-                Decimal("0"),
-            )
-            # FX component per lot: revalue today's native MV at the lot's
-            # acquisition rate vs today's rate —
-            # qty × close × (1/fx_now − 1/fx_acq). Computable only when every
-            # foreign lot carries acquisition_fx_rate; otherwise NULL (a data
-            # gap in a display-only analytic column, not an infra failure).
-            # audusd_rate is necessarily non-None here: us_mv_aud being set
-            # means a foreign row survived the MV loop, which raises without it.
-            missing_acq_fx = [r for r in us_cost_rows if r["acquisition_fx_rate"] is None]
-            if missing_acq_fx:
-                log.warning(
-                    "unrealised_fx_pnl_aud left NULL: %d foreign lot(s) missing "
-                    "acquisition_fx_rate (migration 0009 backfill needed)",
-                    len(missing_acq_fx),
-                )
-            else:
-                us_fx_pnl_aud = sum(
-                    (
-                        Decimal(str(r["quantity"]))
-                        * Decimal(str(r["close"]))
-                        * (
-                            Decimal("1") / audusd_rate
-                            - Decimal("1") / Decimal(str(r["acquisition_fx_rate"]))
-                        )
-                        for r in us_cost_rows
-                    ),
-                    Decimal("0"),
-                ).quantize(Decimal("0.000001"))
+    us_cost_rows = await conn.fetch(
+        f"""
+        SELECT hl.quantity, hl.cost_base_normal, hl.acquisition_fx_rate, p.close
+        FROM holding_lots hl
+        JOIN prices p ON p.symbol = hl.symbol AND p.dt = $1
+        WHERE hl.disposed_at IS NULL AND {foreign_symbol_sql("hl.symbol")}
+        """,
+        as_of,
+    )
 
-    if us_mv_aud is not None:
-        us_mv_aud = us_mv_aud.quantize(Decimal("0.000001"))
+    # audusd_rate is necessarily non-None here: us_mv_aud being set means a
+    # foreign row survived the MV loop, which raises without a rate. Stated as
+    # a raise rather than an assert — asserts vanish under `-O`, and a silent
+    # None here would reach the FX decomposition (CLAUDE.md #10).
+    if audusd_rate is None:  # pragma: no cover - unreachable by construction
+        raise RuntimeError(
+            "us_mv_aud was computed without an AUDUSD rate — "
+            "compute_holdings_mv should have raised. This is a logic error."
+        )
+    cost = compute_foreign_cost_basis(
+        [
+            ForeignLot(
+                quantity=Decimal(str(r["quantity"])),
+                cost_base_normal=Decimal(str(r["cost_base_normal"])),
+                acquisition_fx_rate=(
+                    None
+                    if r["acquisition_fx_rate"] is None
+                    else Decimal(str(r["acquisition_fx_rate"]))
+                ),
+                close=Decimal(str(r["close"])),
+            )
+            for r in us_cost_rows
+        ],
+        audusd_rate,
+    )
+
+    if cost.lots_missing_acquisition_fx:
+        log.warning(
+            "unrealised_fx_pnl_aud left NULL: %d foreign lot(s) missing "
+            "acquisition_fx_rate (migration 0009 backfill needed)",
+            cost.lots_missing_acquisition_fx,
+        )
 
     return (
-        total_mv.quantize(Decimal("0.000001")),
-        len(rows),
-        us_mv_aud,
-        us_cost_aud,
+        mv.total_mv_aud,
+        mv.holdings_count,
+        mv.us_mv_aud,
+        cost.us_cost_aud,
         audusd_rate,
-        us_fx_pnl_aud,
+        cost.us_fx_pnl_aud,
     )
 
 

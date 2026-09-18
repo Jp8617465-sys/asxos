@@ -37,6 +37,10 @@ from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.theses.schemas import MacroSignal
 from asxos.jobs._helpers import require_personal_use_job
+
+# The one Resend alert path (asxos/jobs/utils/alert_email.py): never raises,
+# escapes the body, and RETURNS a redacted failure note for JobMonitor.note.
+from asxos.jobs.utils.alert_email import send_alert as _send_alert
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "score_macro_theses"
@@ -196,29 +200,6 @@ def _parse_machine_conditions(raw: object) -> dict[str, Any] | None:
     return raw if isinstance(raw, dict) else None  # defensive: always a dict in practice
 
 
-def _send_alert(subject: str, body: str) -> None:
-    # Best-effort — mirrors check_thesis_invalidations._send_alert. A dead email
-    # channel must never fail the scoring run.
-    try:
-        import resend  # type: ignore[import-not-found]
-
-        api_key = os.environ.get("RESEND_API_KEY", "")
-        to = os.environ.get("BRIEF_TO_EMAIL", "")
-        sender = os.environ.get("BRIEF_FROM_EMAIL", "")
-        if not (api_key and to and sender):
-            return
-
-        resend.api_key = api_key
-        resend.Emails.send({
-            "from": sender,
-            "to": to,
-            "subject": subject,
-            "html": f"<pre>{body}</pre>",
-        })
-    except Exception:
-        pass
-
-
 async def _fetch_approved_theses(conn) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
     rows = await conn.fetch(
         """
@@ -269,6 +250,7 @@ async def _run(as_of: date) -> None:
                 )
 
             scored = 0
+            send_notes: list[str] = []
             for t in theses:
                 created_at_date = t["created_at"].date()
                 horizon_months = t["horizon_months"]
@@ -329,12 +311,20 @@ async def _run(as_of: date) -> None:
                         "history. This is NOT auto-retired — review and decide.\n"
                         f"Run: asx macro-thesis retire {t['macro_thesis_id']}"
                     )
-                    _send_alert(
+                    note = _send_alert(
                         f"asxos [MACRO FALSIFIED] #{t['macro_thesis_id']} — {as_of}",
                         body,
                     )
+                    if note is not None:
+                        send_notes.append(note)
 
                 scored += 1
+
+            # A failed send is RETURNED, never swallowed: a falsified macro
+            # thesis that never reached James must not look like a clean run
+            # (tests/test_alert_send_observability.py).
+            if send_notes:
+                monitor.note = f"{send_notes[0]} ({len(send_notes)} alert(s))"
 
             monitor.rows_written = scored
     finally:
