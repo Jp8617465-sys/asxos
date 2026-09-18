@@ -55,6 +55,7 @@ from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.discovery import proposals, ranker
 from asxos.domain.discovery.types import Opportunity
+from asxos.domain.results_review.pit_db import validate_symbol
 from asxos.domain.screening.evaluator import decode_rule_json, evaluate_rule, log_run
 from asxos.domain.screening.types import ScreeningRule
 from asxos.domain.theses import service as theses_service
@@ -154,6 +155,14 @@ async def propose(
 
     opened: list[str] = []
     for o in fresh:
+        # Fail early (rule #10). `open_thesis` checks only the .AU/.US suffix;
+        # the vendor-namespaced regex every packet is built under
+        # (`results_review/pit_db.py`) was otherwise first applied at packet
+        # time, after approval. This is the first path by which a
+        # vendor-supplied code reaches a governed table with no human typing
+        # it, so a malformed one is refused here, before any row exists
+        # (security-engineer on #332, 2026-09-18).
+        validate_symbol(o.symbol)
         async with conn.transaction():
             thesis = await theses_service.open_thesis(
                 conn,

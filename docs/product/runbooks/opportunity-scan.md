@@ -2,8 +2,9 @@
 
 **Status:** current
 **Owner:** arbi (procedure), James (every judgement inside it)
-**Built:** 2026-09-17. Live figures in §2 are a snapshot of the 2026-09-16 valuation
-sweep — re-derive them, never quote them.
+**Built:** 2026-09-17. Revised 2026-09-18 (screen proposals restored; #327 fixed in
+code). Live figures in §2 are a snapshot of the 2026-09-16 valuation sweep — re-derive
+them, never quote them.
 **Scope:** how to go from 1,879 ASX equities to a broker-grade research report with a
 price target and bull/base/bear scenarios, **using only surfaces that exist on `main`
 today**. No new features. Nothing here requires code to be written.
@@ -12,25 +13,40 @@ today**. No new features. Nothing here requires code to be written.
 
 ## 0. Read this before you use it
 
+**What happens without you.** Every Saturday at 16:00 UTC (Sunday 02:00 AEST),
+`weekly-research.yml` runs the valuation sweep and the screen. Each name that clears
+all four gates is opened as a `system_screen` thesis at `pending_review` — no target,
+no stop, no entry band, listed in symbol order (`jobs/discover_opportunities.py`; the
+proposal half was restored on James's instruction on 2026-09-17). The next daily brief
+lists those rows in a **Candidates awaiting your review** card, with the approve
+command printed against each one. Every night after the brief, the packet builder and
+the outcome observer run over whatever is approved. None of that needs a terminal.
+
+**Where your job starts.** At triage (§5). Read the Candidates card, drop the names the
+screen cannot see through, and carry three to five forward. Everything after that — the
+research note, the price plan, the approval, the disposition — is a judgement, and each
+one is yours.
+
 Three things this runbook will not do, so you do not discover them halfway through.
 
 **It will not hand you a ranked list of buys.** `jobs/discover_opportunities.py` used
 to do exactly that — rank by value/price × liquidity and open the top-K as theses with
-a target, an entry band and a stop derived from the model. It was **demoted on
-2026-09-16 (#306)** because the sealed value-to-price test returned null (#304), and
-the response was pre-committed by James before any result existed
+a target, an entry band and a stop derived from the model. That half was **demoted on
+2026-09-16 (#306)** because the sealed value-to-price test returned null (#304). The
+response had been pre-committed by James before any result existed
 (`asxos/domain/research/registry/vp.py::RESPONSE_RULE`): the residual-income model
-*"stops emitting target prices, entry bands and ranked 'opportunities'"*. The screen
-still runs and still records who passes. It emits a **set, in symbol order** — not a
-rank, not a proposal. That is the machine being honest about what it measured, and the
-runbook is built on top of it rather than around it.
+*"stops emitting target prices, entry bands and ranked 'opportunities'"*. What
+survives is the proposal itself: a **set, in symbol order, carrying no price levels**.
+Nothing is truncated, because taking the "best" five of sixteen would be a rank. That
+is the machine being honest about what it measured, and the runbook is built on top of
+it rather than around it.
 
 **The scenarios come from your price plan; the street's targets have their own home.**
 Two different things, and conflating them undersells what exists. The governed report's
 bull case is your recorded `target_price`, its bear case your recorded `stop_price`,
-its base case 0% — the system challenges those numbers against the book, the tax
-position, the liquidity and its own independent valuation, makes them permanent and
-hashed, and scores them later. It does not invent them, and a system that invented them
+its base case 0%. The system challenges those numbers against the book, the tax
+position, the liquidity and its own independent valuation; makes them permanent and
+hashed; and scores them later. It does not invent them. A system that invented them
 is what rule #11 quarantined.
 
 Separately, **analyst consensus and dated target moves are first-class persisted
@@ -80,8 +96,8 @@ Measured 2026-09-17 against the 2026-09-16 sweep and screening run. Re-derive wi
 
 **Start from the right number.** `universe.is_active` is 2,396, but the valuation sweep's
 population is `security_kind = 'au_equity' AND is_active` (`valuation/universe.py:74`),
-which is **1,879**. The other 517 are not dropped silently, they are out of the
-residual-income model's domain by construction:
+which is **1,879**. The other 517 are not dropped silently: they are outside the
+residual-income model's domain by construction.
 
 | Active, not `au_equity` | Count |
 |---|---:|
@@ -155,12 +171,31 @@ Step order **is** the dependency graph: `sync_financial_statements` →
 
 ### 4.1 Let the weekly chain do it
 
-`weekly-research.yml` runs Saturday 16:00 UTC (Sunday 02:00 AEST) and already does the
-whole scan. `discover_opportunities` logs the liquidity screen to `screening_runs` and
-records the passing set. **You do not need to run anything to get a weekly scan** —
-you need to read the result.
+`weekly-research.yml` runs Saturday 16:00 UTC (Sunday 02:00 AEST) and does the whole
+scan. `discover_opportunities` logs the liquidity screen to `screening_runs`, computes
+the passing set, and opens each fresh survivor as a `system_screen` thesis at
+`pending_review` with two evidence rows (§0). **You do not need to run anything to get
+a weekly scan** — you need to read the result, and the easiest place to read it is the
+Candidates card in the next brief.
+
+Three things the job decides on its own. They explain why the card can list fewer
+names than the screen passed, or none at all:
+
+- A name already in the review queue, already on the book, or declined within the
+  cooling-off period is not proposed again. The screen still records it as passing.
+- If the review queue is already full, the run opens nothing and records that it did,
+  rather than choosing which names to drop. Dispose of what is queued and the flow
+  resumes.
+- If a run would open implausibly many names, it opens nothing and fails loudly. That
+  means a gate is broken, and the right response is inspection, not review.
+
+(`asxos/domain/discovery/proposals.py` holds the three rules and the reasoning.)
 
 ### 4.2 Read the passing set
+
+The card is the reading surface; this section is the audit surface. Use it when you
+want the whole passing set — including names the card suppressed — or when you want
+to check what the job did.
 
 **Gate 1 is already persisted — do not re-derive it.** `screening_runs.matched_symbols`
 is a `TEXT[] NOT NULL` holding *every* passing symbol, unbounded by `--limit` and
@@ -247,9 +282,11 @@ asx theme holding approve ...
 asx theme coverage                     # → sectors where you have no exposure at all
 ```
 
-Agents propose; they never write. A proposal becomes a row only when you run the
-`open` verb, and reaches `approved` only via the `approve` verb — enforced by a
-Postgres trigger, not just the service layer (migration 0034/0036).
+The discovery agents propose; they never write. An agent's proposal becomes a row only
+when you run the `open` verb, and reaches `approved` only via the `approve` verb —
+enforced by a Postgres trigger, not just the service layer (migration 0034/0036). This
+is the one difference from the screen in §4.1, which is deterministic code rather than
+an agent and writes its own `pending_review` rows.
 
 **`/discover-sector` is broken today.** `sector-screener` screens on four columns that
 are 0 non-NULL across 147,474 rows. The fix is in **PR #319, open and waiting on
@@ -260,22 +297,33 @@ merges, that lane returns nothing and you should not spend a session on it.
 
 ## 5. Stage 2 — Triage the sixteen
 
-This stage is a human reading the list, and it is not optional. Two failure modes the
-screen cannot see, both visible in the current output:
+This stage is a human reading the list, and it is not optional. The list arrives as
+the Candidates card (§0): each row is a `pending_review` thesis, and the card prints
+the approve command with the id filled in. Your verdict on each row is approve (§8)
+or reject. Two failure modes the screen cannot see, both visible in the current output:
 
-**Closed-end funds — a filed defect, not a judgement call.** Six of today's sixteen
-are LICs, listed funds and an A-REIT. A residual-income model on a fund's book value
-is measuring the discount to NTA and calling it value — a different trade with
+**Closed-end funds — a filed defect, not a judgement call.** Seven of today's sixteen
+are LICs, listed funds and an A-REIT (six funds plus `BWP`); an eighth, `FML` at 6.26×,
+is the one-off the next paragraph is about. A residual-income model on a fund's book value
+is measuring the discount to NTA and calling it value. That is a different trade with
 different drivers, and the model does not know it made the substitution.
 
 Do not treat this as a standing chore you re-decide each week. The screen already
 excludes funds: it hardcodes `security_kind = 'au_equity'`
 (`screening/evaluator.py:284`), and only **12** names in the whole universe are tagged
-`lic`. These six reach you because they are **misclassified as `au_equity`** — a
+`lic`. These seven reach you because they are **misclassified as `au_equity`** — a
 `universe.security_kind` data defect already filed (`decision-log.md:154` finding 2,
 naming PGF/LSF/HM1 as LICs and BWP as an A-REIT, all *"outside the residual-income
-model's domain"*). The fix is reclassification, one row each. Until then, drop them on
-sight and do not spend judgement on them.
+model's domain"*). The fix is reclassification, one row each. Until then, reject them
+on sight and do not spend judgement on them:
+
+```bash
+asx thesis reject <thesis_id> --reason "LIC/A-REIT — outside the residual-income model's domain"
+```
+
+The id is printed against each row on the Candidates card. A rejected name also stays
+out of the queue for the cooling-off period (§4.1), so you will not re-decide it next
+Saturday.
 
 **Book-value artefacts at the top.** The widest value-to-price gap in the current set
 is 6.26×. A gap that large is nearly always the model mis-reading the balance sheet,
@@ -343,6 +391,11 @@ gap between what the street thinks and what you wrote becomes a tracked number.
 
 This is where your target becomes a number the machine can challenge and score.
 
+**Two ways in.** A name you found yourself gets a new row: `asx thesis open`, below. A
+name the screen proposed already *has* a row at `pending_review`, with no levels — do
+not open a second one. Approve it (§8), then put the plan on that row with
+`asx thesis revise`. The plan rule below applies either way.
+
 ```bash
 export ASXOS_PERSONAL_USE=1
 
@@ -408,7 +461,10 @@ the reasoning that you reviewing your own work at the keyboard *is* the review. 
 approve step is needed; go straight to §9.**
 
 **A thesis a system or agent proposed enters at `pending_review`** and cannot open as
-`approved` at all — `open_thesis` raises if a non-human source tries. That one needs:
+`approved` at all — `open_thesis` raises if a non-human source tries. Since
+2026-09-17 this is the ordinary weekly case: every name the Saturday screen proposes
+arrives this way, and the Candidates card prints the command with the id filled in.
+That one needs:
 
 ```bash
 asx thesis approve <thesis_id> --reason "<why this passes review>"
@@ -417,6 +473,11 @@ asx thesis approve <thesis_id> --reason "<why this passes review>"
 Note it takes the **numeric `thesis_id`, not the symbol**, and hard-fails unless the
 current status is exactly `pending_review`. It also enforces a 14-day evidence
 staleness check, overridable only with `--accept-stale-evidence` and a logged reason.
+A proposal's evidence is stamped when the row is opened, so one left in the queue for
+more than 14 days trips that check — the queue is meant to be worked, not kept.
+
+Approving a proposal records only that you judged the name worth writing a thesis
+for. The thesis, and every price level in it, is still yours to write (§7).
 
 The transition is enforced by a `BEFORE UPDATE` trigger requiring a matching
 `governance_events` row in the same transaction — a direct `UPDATE` fails loudly.
@@ -430,9 +491,12 @@ into `approved`, so the gate is real for everything that is not the human path.
 **The packet is already built for you.** `jobs/build_decision_packets.py` runs nightly
 in `daily-brief.yml` (after the brief is sent, so a failure here can never cost the
 brief) and builds a challenged packet for **every** thesis with
-`governance_status='approved'` and no close date. It is same-day idempotent: a packet
-already stored for the day is skipped, never rebuilt. So once §7 and §8 are done, the
-routine path is simply to render tonight's packet:
+`governance_status='approved'`, no close date and a price plan. An approved thesis
+with no plan yet is set aside for the night, not failed (`has_price_plan`,
+`theses/plan.py`) — so approving a candidate before you have written its plan costs
+nothing. It is same-day idempotent: a packet already stored for the day is skipped,
+never rebuilt. So once §7 and §8 are done, the routine path is simply to render
+tonight's packet:
 
 ```bash
 asx decision report --packet-id <decision_packet_id> --out docs/reviews/packets --persist
@@ -517,7 +581,7 @@ and a sector.
 ### 10.1 Dispose — the step that closes the loop
 
 A packet that is delivered but never answered is the north-star's named honest miss.
-`roadmap-state.md:594` calls *"delivered and disposed"* Stage 4's exit gate. Your verdict
+`roadmap-state.md:589` calls *"delivered and disposed"* Stage 4's exit gate. Your verdict
 is the other half of the record:
 
 ```bash
@@ -557,9 +621,11 @@ observation loop is automatic now — the part that is still yours is §10.1.
 
 | When | What | Whose |
 |---|---|---|
+| Sat 16:00 UTC (Sun 02:00 AEST) | `weekly-research.yml` — the sweep, the screen, and each fresh survivor opened at `pending_review` | automatic |
+| Next brief after the screen (Sun 20:30 UTC, Mon 06:30 AEST) | `daily-brief.yml` — the Candidates card lists the proposals with their approve commands | automatic |
 | Nightly, in `daily-brief.yml` | `build_decision_packets` → `observe_decision_outcomes` | automatic |
-| Sat 16:00 UTC | `weekly-research.yml` — the sweep and the screen | automatic |
-| Sunday | §3 preflight, §4.2 read the set, §5 triage to 3–5 names | yours |
+| Sunday (the rows are in the DB from Sun 02:00 AEST; the card lands Monday morning) | §3 preflight, §5 triage the candidates to 3–5 names; §4.2 if you want the whole set | yours |
+| Same sitting | Approve (§8) or reject each candidate. A queue left full stops next Saturday's proposals (§4.1) | yours |
 | As earned | §6 `/thesis` on those names — the expensive, valuable step | yours |
 | Same sitting | §6.1 persist the consensus target and any analyst moves | yours |
 | When a view firms | §7 record the thesis; §9 render tonight's packet | yours |
@@ -567,9 +633,10 @@ observation loop is automatic now — the part that is still yours is §10.1.
 | Monthly | `/discover-macro` → `/discover-theme`; `asx theme coverage`. The thinnest moat layer — do not let this slide | yours |
 | Quarterly | Re-read §0. If the funnel has started producing rankings again, something has drifted back | yours |
 
-The two automatic rows are the reason this runbook is shorter than it looks: the
-packet build and the outcome observation happen whether or not you open a terminal.
-What is actually yours is triage, research, the thesis record, and the disposition.
+The automatic rows are the reason this runbook is shorter than it looks: the screen,
+the proposals, the packet build and the outcome observation happen whether or not you
+open a terminal. What is actually yours is triage, research, the thesis record, and
+the disposition.
 
 ---
 
@@ -606,8 +673,8 @@ document, and fixing them means building features — deliberately out of scope.
 | `segment_map` never built (0045 unapplied) | Peer sets are GICS labels, not real segments | `build_segment_map` |
 | The value screen has no measured edge | The set is a reading list, not a signal | a registered model that passes the bar |
 | LICs/A-REITs misclassified as `au_equity` | Fund structures reach the value screen, which excludes funds by design | `universe.security_kind` reclassification (`decision-log.md:154`) |
-| `HUBS.NYSE` has 0 `rs_financial_statements` rows | Its packet fails nightly until the rows exist | **Fixed in code by #328 (2026-09-18)** — `sync_financial_statements` now includes held US names. The rows land on Saturday's `weekly-research` sync; until then #327 is fixed in code and still open in fact |
-| The brief does not render the packet | `asx decision report` is the only broker-report surface | S6 — the templates exist, nothing calls them |
+| `HUBS.NYSE` has 0 `rs_financial_statements` rows | Its packet fails nightly until the rows exist, and `pipeline-health` stays red | **Fixed in code by #328 (2026-09-18)** — `sync_financial_statements` now includes held US names. The rows land on the next `weekly-research` run (Saturday 16:00 UTC, or James's dispatch). Until then #327 stays open by design: fixed in code, not yet in fact |
+| The brief does not render the packet | The brief carries the Candidates card (§0), not the broker report; `asx decision report` is the only broker-report surface | S6 — the templates exist, nothing calls them |
 
 ---
 
@@ -618,6 +685,8 @@ document, and fixing them means building features — deliberately out of scope.
 | Why the model cannot emit targets | `asxos/domain/research/registry/vp.py::RESPONSE_RULE` |
 | Why Model A is quarantined | `docs/model-a-decay-analysis-2026-07-11.md`, CLAUDE.md #11 |
 | The value screen's four gates | `asxos/domain/discovery/ranker.py` |
+| What the screen proposes, and the three volume rules | `asxos/domain/discovery/proposals.py` |
+| The Candidates card | `asxos/brief/compose.py::_candidates`, `asxos/brief/templates/brief.html.j2` |
 | The decision contracts | `asxos/domain/decision_engine/types.py` |
 | The broker report render | `asxos/domain/decision_engine/renderer.py::render_broker_report` |
 | The 16 challenge rules | `asxos/domain/decision_engine/challenge/rules.py` |

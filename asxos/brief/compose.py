@@ -683,15 +683,20 @@ async def _candidates(conn: asyncpg.Connection, as_of: date) -> list[CandidateRo
             FROM valuation_runs
             WHERE symbol = t.symbol
               AND outcome = 'valued'
-              -- Pinned, not inferred. `valuation_runs.method` admits one value
-              -- today, so this is a no-op now; the moment a second method
-              -- writes to the table, an unpinned LATERAL over one as_of would
-              -- pick non-deterministically and render a peer-median composite
-              -- as "the model value" under prose that claims the RI gates
-              -- (arbi-red-team on the relative-lens scope, 2026-09-17). A
-              -- second method earns its own column here deliberately.
+              -- Pinned on BOTH axes the store can widen, mirroring
+              -- `valuation.repository.latest_runs`' own filter. `method` is
+              -- one value today (arbi-red-team, relative-lens scope,
+              -- 2026-09-17: a second method must not render a peer-median
+              -- composite as "the model value"). `terminal_convention` is the
+              -- axis 0054 was designed to widen -- run_id is
+              -- vr-{symbol}-{date}-{convention}, so a second convention is a
+              -- second row per (symbol, as_of), and the CHECK pinning it to
+              -- zero_excess is the only thing that made an unpinned LIMIT 1
+              -- deterministic (security-engineer on #332, 2026-09-18). A
+              -- second value on either axis earns its own column here.
               AND method = 'residual_income'
-            ORDER BY as_of DESC
+              AND terminal_convention = 'zero_excess'
+            ORDER BY as_of DESC, created_at DESC
             LIMIT 1
         ) v ON TRUE
         WHERE t.governance_status = 'pending_review'

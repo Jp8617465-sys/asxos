@@ -18,6 +18,7 @@ import yaml
 
 import jobs.discover_opportunities as job_mod
 from asxos.domain.discovery import proposals, ranker
+from asxos.domain.results_review.pit_db import ResultsReviewAdapterError
 from asxos.domain.screening.types import ScreenMatch, ScreenRunResult
 from asxos.domain.theses import service as thesis_service
 from asxos.domain.valuation import sweep
@@ -198,6 +199,20 @@ async def test_the_queue_depth_breaker_opens_nothing_rather_than_choosing() -> N
     assert summary["breaker"] is not None and "awaiting review" in summary["breaker"]
     assert conn.inserted_theses == []
     assert monitor.note is None, "a full queue is James's state, not a job failure"
+
+
+async def test_a_malformed_vendor_symbol_is_refused_before_any_row_is_written() -> None:
+    """Fail-early (rule #10), from the security review of #332.
+
+    `open_thesis` checks only the .AU/.US suffix, and the vendor-namespaced
+    regex every packet is built under was otherwise first applied at packet
+    time -- after approval. A survivor that would fail it is refused before
+    any INSERT, not discovered a week later when the builder raises.
+    """
+    conn = FakeConn(runs=[_run("BAD-SYM.AU", D("8"))])
+    with pytest.raises(ResultsReviewAdapterError, match="not a vendor-namespaced"):
+        await _run_job(conn, "BAD-SYM.AU")
+    assert conn.inserted_theses == [] and conn.evidence == []
 
 
 async def test_a_runaway_screen_refuses_loudly_instead_of_flooding_the_queue() -> None:

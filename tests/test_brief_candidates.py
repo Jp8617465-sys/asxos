@@ -138,10 +138,15 @@ async def test_loader_maps_rows_and_orders_by_symbol(
     # The rank RESPONSE_RULE deleted must not reappear as an ORDER BY.
     assert "value_per_share DESC" not in query
     assert "value_to_price" not in query
-    # The figures column is pinned to one method. Without this, a second
-    # valuation method writing to the same table on the same as_of makes the
-    # LATERAL pick non-deterministic and the card mis-attributes it.
+    # The figures column is pinned on both axes the store can widen. `method`
+    # against a second valuation method (#331); `terminal_convention` against a
+    # second convention -- run_id is vr-{symbol}-{date}-{convention}, so that is
+    # a second row per (symbol, as_of), and only a CHECK made the old LIMIT 1
+    # deterministic (security-engineer, #332). Ordering by created_at breaks the
+    # remaining tie the same way the repository's own reader does.
     assert "method = 'residual_income'" in query
+    assert "terminal_convention = 'zero_excess'" in query
+    assert "ORDER BY as_of DESC, created_at DESC" in query
 
 
 async def test_loader_keeps_a_row_whose_valuation_is_absent(
