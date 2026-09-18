@@ -29,14 +29,36 @@ attribution, signal-bucket diagnostics, and cost estimates around it.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date
-from decimal import Decimal, getcontext
-from typing import Literal
+from decimal import Context, Decimal, localcontext
+from typing import Final, Literal
 
-# Wide precision for chained Decimal multiplies/divides (vol, drawdown, sqrt).
-getcontext().prec = 40
+#: Wide precision for chained Decimal multiplies/divides (vol, drawdown, sqrt) —
+#: a LOCAL context (see `_monitor_context` below), not a process-global mutation.
+#: This module used to call `getcontext().prec = 40` at import time, which
+#: silently changed Decimal precision for every OTHER module for the rest of the
+#: process. Confirmed live 2026-09-16: `asxos/domain/valuation/residual_income.py`'s
+#: franking-gross-up constant evaluated to a different value (28 vs 40 digits of
+#: precision) depending on which module the test suite happened to import first —
+#: see that module's `_franking_gross_up` docstring. `asxos/domain/valuation/numeric.py`
+#: documents the same hazard and uses the same `localcontext` fix.
+_CONTEXT: Final[Context] = Context(prec=40)
+
+
+@contextmanager
+def _monitor_context() -> Iterator[None]:
+    """Run a block under this module's own wide-precision Decimal context.
+
+    Importing this module must never change `decimal.getcontext()` for anything
+    else in the process — only code running inside this context manager sees the
+    wider precision.
+    """
+    with localcontext(_CONTEXT):
+        yield
+
 
 _ZERO = Decimal("0")
 _ONE = Decimal("1")
@@ -618,7 +640,15 @@ def compute_report(inp: MonitorInputs) -> PerfReport:
     Enforces no-lookahead (raises ValueError if any price dt > eval_as_of) and
     cleanly degrades to a 'not yet measurable' report when no forward trading
     day exists — the honest state for a brand-new build.
+
+    Runs under `_monitor_context()` (prec=40) — the module's local Decimal
+    context, not the process-global default. See that function's docstring.
     """
+    with _monitor_context():
+        return _compute_report(inp)
+
+
+def _compute_report(inp: MonitorInputs) -> PerfReport:
     if inp.eval_as_of < inp.run_as_of:
         raise ValueError("eval_as_of precedes run_as_of")
     for d in inp.price_panel:

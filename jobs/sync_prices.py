@@ -28,6 +28,7 @@ from datetime import date, timedelta
 from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
+from asxos.domain.portfolio.holdings import held_foreign_symbols
 from asxos.domain.prices.coverage import (
     classify_sync_completeness,
     latest_observed_price_date,
@@ -157,22 +158,14 @@ async def get_index_symbols() -> list[str]:
 async def get_us_holding_symbols() -> list[str]:
     """Held US-exchange symbols (e.g. HUBS.NYSE) — independent of is_active.
 
-    A held US holding is shaped like an index (the AXJO.INDX precedent): it needs
-    prices but is NOT an ASX-equity-universe member, so it is is_active=FALSE and
-    every `WHERE is_active` ML reader (generate_signals, retrain, sync_fundamentals)
-    excludes it for free — no junk US signal enters the ASX model / portfolio
-    candidates. Phase 2 therefore can't derive these from the *active* universe;
-    it sources them from the **open holding lots** directly (the only US names we
-    actually hold), so coverage auto-stops when a lot closes. The prices→universe
-    FK holds because the holding's universe row already exists.
+    Thin wrapper over `asxos.domain.portfolio.holdings.held_foreign_symbols`, which
+    is now shared with `jobs/sync_financial_statements.py` (incident #327). The
+    reasoning lives in that module's header; the short version is that a held US name
+    is `is_active=FALSE` on purpose, so no `WHERE is_active` reader can find it and
+    the question has to be asked of `holding_lots` directly.
     """
     async with acquire() as conn:
-        rows = await conn.fetch(
-            "SELECT DISTINCT symbol FROM holding_lots"
-            f" WHERE disposed_at IS NULL AND {foreign_symbol_sql('symbol')}"
-            " ORDER BY symbol"
-        )
-        return [r["symbol"] for r in rows]
+        return await held_foreign_symbols(conn)
 
 
 async def _sync_us_prices(

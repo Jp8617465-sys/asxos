@@ -1132,7 +1132,25 @@ round-trip, and no amount of reading finds a defect whose symptom is wall-clock.
 family as the Phase 2a finding that mocked connections do not enforce trigger semantics — run it
 against something real, once, before trusting it.
 
-## L57 — A runbook written from the domain layer will describe work the scheduler already does (2026-09-17)
+## L57 — A lane being green is only evidence about the files it applies (2026-09-17)
+
+AGENTS.md §8 step 1 is "`migration-integration.yml` green on the branch." On the A-47 branch it
+was green on the first head, and I read that as step 1 satisfied. It was not.
+`tests/test_m1_migrations_integration.py` applies an **explicit list** — 0055, 0056, 0057 — on a
+scaffold that did not even have the `revision_type` column 0060 alters. The green run had
+exercised nothing of the migration I was about to apply to production. The lane's name promised
+coverage; its fixture delivered coverage of three other files.
+
+The fix was to open the fixture, add the column in 0021's shape under 0021's constraint **name**
+(so `DROP CONSTRAINT IF EXISTS` actually drops it), put 0060 in the list, and pin the exact row
+the writeback emits against the real widened CHECK on Postgres 17. Only then was the box ticked.
+
+**The rule: before ticking a gate, read what the gate ran, not what it is called.** A check's
+conclusion is evidence about its inputs, and a fixture with an enumerated list has a fixed set of
+inputs that does not grow when a new migration file appears. This is the migration-lane sibling of
+L53 (open the readers before ranking severity) and L56 (dispatch the thing): the artefact that
+looked like verification was a different verification.
+## L58 — A runbook written from the domain layer will describe work the scheduler already does (2026-09-17)
 
 **What happened.** James asked for a plan to scan for investment opportunities using
 existing infrastructure. I read `asxos/domain/`, the CLI, the contracts and the

@@ -1425,6 +1425,37 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-18 `daily-product` routine fire (fired 2026-09-17T17:37Z, held in plan
+> mode until 20:47Z).** The Stages 0→6 table at the top of this file remains the only ranked queue.
+>
+> **The fire took incident #327 as its one thing** — gate (b) failed with it open, and `AGENTS.md` §7
+> puts incidents before features. Landed **#328** (`8211290`, Amber).
+>
+> **#327's stated root cause was wrong, and its remedy would not have worked.** It blamed the
+> `AND is_active` filter in the statements job. Measured live first: `rs_security_master` holds
+> **4,439 rows, every one `.AU`**, because it is built from EODHD's AU exchange — `HUBS.NYSE` is
+> absent from the table entirely, so dropping the filter surfaces nothing. The fix sources held US
+> names from `holding_lots` instead, via `held_foreign_symbols` moved into
+> `asxos/domain/portfolio/holdings.py`. Tests mutation-checked; one of them pins the superseded
+> remedy so it cannot be re-derived from the issue text.
+>
+> **#327 STAYS OPEN and `pipeline-health` is still red tonight.** The code path is fixed; the data is
+> not there yet. `rs_financial_statements` gains HUBS rows only when `weekly-research` runs, and that
+> workflow is **James's** under #311's dispatch-scope rule — Saturday 16:00 UTC, or his dispatch.
+> Closing it on the merge would be claiming a capture nobody has.
+>
+> **Two process findings, both the kind that look like nothing.** The fire could not post its ledger
+> START at fire time, because plan mode forbids writes — the exact silent-failure shape
+> `_preamble.md` §1 exists to detect. And it was **already over its 120-minute budget at START**, and
+> continued anyway on the §7 ground that an open incident outranks the clock.
+>
+> **Next:** the queue below is unchanged by this fire. The one item it adds is the honest unknown —
+> whether EODHD answers its fundamentals endpoint for a **US** ticker at all. The sandbox has no key,
+> so only the live run settles it. If it does not, the follow-up is to make `build_decision_case`
+> *report* the gap rather than raise, which is what actually turns one absent row into a nightly red
+> watchdog.
+>
+> **Superseded — the 2026-09-17 selection & ideation block below, carried unchanged.**
 > **Live as of the 2026-09-17 selection & ideation mission (James: "explore what's possible… for
 > investment selection scanning/ideation" + "Model A was so underbaked… if you properly engineer it,
 > is it still worth exploring?").** The Stages 0→6 table at the top of this file remains the only
@@ -1433,8 +1464,12 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 >
 > **Landed:** #318 (the `factor-probe` dispatch lane) → #320 (**a 107× latency fix** — the factor
 > cross-section wrote one row per round-trip, ~13 min per `as_of`; batched it into one `executemany`,
-> now **7.3 s**) → #321 (two D4 corrections proposed to James) → #322 (the landscape report).
+> now **7.3 s**) → #321 (two D4 corrections proposed to James) → #322 (the landscape report) → #324
+> (close) → **#325 (A-47, the discipline-layer item that outranked this whole lane — see the attended
+> block below; 0060 applied, backfill run, CBA 1→4 revisions with the clock untouched).**
 > **Open for James:** #319 (`.claude/` agent safety — two files, not the ten I proposed).
+> **Next, in this order:** E-23 (the deep price backfill, attended, its own §8 sitting) → E-24
+> (pre-register `low_vol`, trial count 24).
 >
 > **The mission's premise was false and the mission was re-scoped mid-flight.** I claimed no measured
 > deterministic baseline existed. `factor_scores.py:79`, `alpha_eval.py` and `eval_alpha_factors.py:92`
@@ -1478,10 +1513,15 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 > `20260917000622`**, backup run `35164844485` read `success` first; drops the `governance_status`
 > default, the root cause) → #316 (this record, eight backlog rows, two proposals).
 >
-> **#1 — A-47, the packet→thesis writeback.** CBA was challenged three times in September, all
-> `abstain`, with its revision ledger unmoved and 81 days overdue. The review calls this the only
-> recommendation that changes the product. Packets key on symbol with no `thesis_id`, so it needs a
-> migration and is not a one-file build.
+> **#1 — A-47, the packet→thesis writeback — DONE 2026-09-17 (#325, `7f7c148`; 0060 applied
+> `20260917114415`).** As filed it was wrong twice: the `thesis_id` link was never missing (the builder
+> bakes it into every packet id), and moving `last_revisited_at` would have voided `discipline.py`'s
+> "every clock reset is a human keystroke" invariant — the moat it was meant to serve. What landed
+> records each packet build under a **new** `packet_examined` type outside the brief's answering
+> allowlist, never touching the clock. Backfilled: CBA revisions 1→4, `last_revisited_at` still
+> 2026-05-28, idempotent on re-run. **CBA stays overdue — correctly — until James looks.** Proof on
+> the scheduled path is pending the next `daily-brief` run. (Original text: CBA was challenged three
+> times in September, all `abstain`, with its revision ledger unmoved and 81 days overdue.)
 > **#2 — A-45, re-ranked DOWN the same night I filed it, and the correction matters more than the
 > row.** I filed it at #1 claiming the synthetic yield overlay "corrupts what performance is measured
 > against", then opened the consumers before building and found the F1 guard fully implemented:
@@ -2038,6 +2078,18 @@ dev/ops side.
 
 ## Last wake snapshot
 
+**2026-09-18 — `daily-product` routine fire (fired 17:37Z 09-17, executed 20:47–20:55Z).** `main` @
+`8211290`. One merge: **#328**, Amber, the #327 incident fix. `make check` 4653 passed / 13 skipped,
+ruff + mypy clean on 233 files. No migration (ledger head `20260917000622`, 0059; 0045 absent, 0042
+reserved). No capital action, no Model A output, no Supabase write.
+
+Measured before building, and it changed the fix: `rs_security_master` = 4,439 rows, **4,439 `.AU`,
+0 non-AU**; `HUBS.NYSE` absent from it and from `rs_financial_statements` (CBA has 488). So the
+incident's proposed remedy — widen the `is_active` filter — could not have worked, and the real fix
+is to source held US names from `holding_lots`.
+
+Open at close: **#327** (deliberately — the data lands only when `weekly-research` runs, which is
+James's to dispatch) and **PR #319** (`.claude/`, James's to merge). `deadman=unset`.
 **2026-09-17 (later, `/arbi` wake inside the opportunity-scan session) — James: "Create a plan
 use our product to scan for investment opportunities … Don't build any new features", then
 "Ensuring you are using arbi to lead this."** The steer is the reason this block exists: the
