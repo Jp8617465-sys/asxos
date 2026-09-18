@@ -36,6 +36,10 @@ from typing import Any
 from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs._helpers import require_personal_use_job
+
+# The one Resend alert path (asxos/jobs/utils/alert_email.py): never raises,
+# escapes the body, and RETURNS a redacted failure note for JobMonitor.note.
+from asxos.jobs.utils.alert_email import send_alert as _send_alert
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "check_thesis_invalidations"
@@ -102,27 +106,6 @@ async def _fetch_latest_close(conn, symbol: str, as_of: date) -> Decimal | None:
     return Decimal(str(row["close"])) if row else None
 
 
-def _send_alert(subject: str, body: str) -> None:
-    try:
-        import resend
-
-        api_key = os.environ.get("RESEND_API_KEY", "")
-        to = os.environ.get("BRIEF_TO_EMAIL", "")
-        sender = os.environ.get("BRIEF_FROM_EMAIL", "")
-        if not (api_key and to and sender):
-            return
-
-        resend.api_key = api_key
-        resend.Emails.send({
-            "from": sender,
-            "to": to,
-            "subject": subject,
-            "html": f"<pre>{body}</pre>",
-        })
-    except Exception:
-        pass
-
-
 async def _run(as_of: date) -> None:
     # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
     # missing flag fails loud rather than relying on the workflow's env: block alone.
@@ -135,6 +118,7 @@ async def _run(as_of: date) -> None:
                 theses = await _fetch_active_theses_with_conditions(conn)
 
             triggered_count = 0
+            send_notes: list[str] = []
             for t in theses:
                 symbol = t["symbol"]
                 thesis_id = t["thesis_id"]
@@ -183,8 +167,18 @@ async def _run(as_of: date) -> None:
                         + "\n\nReview thesis and consider exit.\n"
                         + f"Run: asx thesis exit {symbol}"
                     )
-                    _send_alert(f"asxos [INVALIDATION] {symbol} — {as_of}", body)
+                    note = _send_alert(
+                        f"asxos [INVALIDATION] {symbol} — {as_of}", body
+                    )
+                    if note is not None:
+                        send_notes.append(note)
                     triggered_count += 1
+
+            # A failed send is RETURNED, never swallowed — an invalidation that
+            # never reached James must not look like a clean run
+            # (tests/test_alert_send_observability.py).
+            if send_notes:
+                monitor.note = f"{send_notes[0]} ({len(send_notes)}/{triggered_count} alerts)"
 
             monitor.rows_written = triggered_count
     finally:
