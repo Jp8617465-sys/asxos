@@ -28,6 +28,10 @@ from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.jobs._helpers import require_personal_use_job
+
+# The one Resend alert path (asxos/jobs/utils/alert_email.py): never raises,
+# escapes the body, and RETURNS a redacted failure note for JobMonitor.note.
+from asxos.jobs.utils.alert_email import send_alert as _send_alert
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "check_us_positions"
@@ -116,28 +120,6 @@ def _build_alerts(
     return alerts
 
 
-def _send_alert(subject: str, body: str) -> None:
-    """Send email via Resend. Never raises."""
-    try:
-        import resend
-
-        api_key = os.environ.get("RESEND_API_KEY", "")
-        to = os.environ.get("BRIEF_TO_EMAIL", "")
-        sender = os.environ.get("BRIEF_FROM_EMAIL", "")
-        if not (api_key and to and sender):
-            return
-
-        resend.api_key = api_key
-        resend.Emails.send({
-            "from": sender,
-            "to": to,
-            "subject": subject,
-            "html": f"<pre>{body}</pre>",
-        })
-    except Exception:
-        pass
-
-
 async def _run(as_of: date) -> None:
     # Personal-use firewall (Part 0 Q1 / CLAUDE.md #10). In-code backstop so a
     # missing flag fails loud rather than relying on the workflow's env: block alone.
@@ -166,8 +148,17 @@ async def _run(as_of: date) -> None:
                 alerts = _build_alerts(symbol, close, prev_close, stop_d, next_ed, as_of)
                 all_alerts.extend(alerts)
 
-            for subject, body in all_alerts:
-                _send_alert(f"asxos {subject} — {as_of}", body)
+            # A failed send is RETURNED, never swallowed: a broken alerter
+            # must not present as "quiet lately"
+            # (tests/test_alert_send_observability.py). Aggregated because this
+            # sends per alert; first distinct reason wins, with a count.
+            send_notes = [
+                note
+                for subject, body in all_alerts
+                if (note := _send_alert(f"asxos {subject} — {as_of}", body)) is not None
+            ]
+            if send_notes:
+                monitor.note = f"{send_notes[0]} ({len(send_notes)}/{len(all_alerts)} alerts)"
 
             monitor.rows_written = len(all_alerts)
     finally:

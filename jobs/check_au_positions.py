@@ -26,6 +26,10 @@ from decimal import Decimal
 from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
 from asxos.jobs._helpers import require_personal_use_job
+
+# The one Resend alert path (asxos/jobs/utils/alert_email.py): never raises,
+# escapes the body, and RETURNS a redacted failure note for JobMonitor.note.
+from asxos.jobs.utils.alert_email import send_alert as _send_alert
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "check_au_positions"
@@ -124,40 +128,6 @@ def _build_alerts(
             ))
 
     return alerts
-
-
-def _send_alert(subject: str, body: str) -> str | None:
-    """Send email via Resend. Never raises; RETURNS a failure note or None.
-
-    The swallow stays — a dead notification channel must not crash a position
-    check. What was wrong is that it left no trace: a failed send made the run
-    look identical to one with nothing to report, so the operator experiences a
-    broken alerter as "quiet lately". The caller records the return on
-    JobMonitor.note, which lands in job_runs.error_message.
-
-    Returns the exception CLASS NAME, never str(exc) — a Resend/httpx error
-    embeds the request URL and the API key travels with it, and job_runs is
-    queryable and agent-readable (CWE-532).
-    """
-    try:
-        import resend
-
-        api_key = os.environ.get("RESEND_API_KEY", "")
-        to = os.environ.get("BRIEF_TO_EMAIL", "")
-        sender = os.environ.get("BRIEF_FROM_EMAIL", "")
-        if not (api_key and to and sender):
-            return "alert not sent: RESEND_API_KEY/BRIEF_TO_EMAIL/BRIEF_FROM_EMAIL not all set"
-
-        resend.api_key = api_key
-        resend.Emails.send({
-            "from": sender,
-            "to": to,
-            "subject": subject,
-            "html": f"<pre>{body}</pre>",
-        })
-    except Exception as exc:
-        return f"alert send failed: {type(exc).__name__}"
-    return None
 
 
 async def _run(as_of: date) -> None:
