@@ -209,6 +209,7 @@ any "X is covered" claim — including this file. Current known gaps:
 `.claude/rules/` files attach automatically when working in matching paths:
 
 - `api-conventions.md` — FastAPI route patterns
+- `domain-purity.md` — no driver/HTTP/templating/array imports under `asxos/domain/**`; `Protocol` ports, SQL-as-`Final[str]`, the Decimal-context hazards, and the shrink-only allow-list `tests/test_domain_purity.py` enforces
 - `ml-conventions.md` — feature engine, model artefacts, signal threshold ladder, numpy adapter
 - `screening-conventions.md` — rule JSON schema, walk-forward methodology
 - `job-conventions.md` — JobMonitor, pipeline guards, idempotency, env vars
