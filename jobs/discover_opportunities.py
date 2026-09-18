@@ -46,7 +46,7 @@ Usage:
 import asyncio
 import json
 import logging
-from datetime import UTC, datetime, time
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any, Final
 
@@ -54,6 +54,7 @@ from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.discovery import proposals, ranker
+from asxos.domain.discovery.types import Opportunity
 from asxos.domain.screening.evaluator import decode_rule_json, evaluate_rule, log_run
 from asxos.domain.screening.types import ScreeningRule
 from asxos.domain.theses import service as theses_service
@@ -120,7 +121,7 @@ def _dec(value: object) -> Decimal:
 
 
 async def propose(
-    conn: Any, passing: list[Any], *, as_of: Any
+    conn: Any, passing: list[Opportunity], *, as_of: date
 ) -> tuple[list[str], list[str], str | None]:
     """Open each fresh survivor at `pending_review`. Returns (opened, suppressed, breaker).
 
@@ -129,7 +130,10 @@ async def propose(
     the suppression predicate makes safe.
 
     Both circuit breakers open NOTHING rather than truncate — see
-    `proposals.py`'s module docstring for why a truncated set is a rank.
+    `proposals.py`'s module docstring for why a truncated set is a rank. Only
+    `QueueFull` is caught here: it is James's state, reported in the summary.
+    `RunawayScreen` propagates and fails the run — a gate is broken and the
+    run must be loud.
     """
     if not passing:
         return [], [], None
@@ -147,9 +151,6 @@ async def propose(
     except proposals.QueueFull as exc:
         log.info("queue-depth breaker: %s", exc)
         return [], sorted(suppressed), str(exc)
-    except proposals.RunawayScreen:
-        # Not caught and softened: a gate is broken and the run must be loud.
-        raise
 
     opened: list[str] = []
     for o in fresh:

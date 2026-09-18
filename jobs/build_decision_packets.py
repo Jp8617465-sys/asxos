@@ -97,6 +97,7 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
     day = cutoff.date()
     built: list[str] = []
     skipped: list[str] = []
+    awaiting_plan: list[str] = []
     failed: dict[str, str] = {}
     async with acquire() as conn:
         paper_snapshot_id = await latest_paper_snapshot_id(conn, as_of=day)
@@ -106,31 +107,24 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
                 "precede the packet build; the live book is never used here (C1/D15)"
             )
         theses = await conn.fetch(SQL_APPROVED_THESES)
-        # An approved thesis with no price plan is not a failure to report, it
-        # is a row waiting on James. Calling the builder for it would raise
-        # every night, land in `monitor.note`, and page through
-        # check_cron_health forever — the shape of issue #327, and what
-        # migration 0059's eleven rows did for 84 days. It is partitioned out
-        # here instead and surfaced where it belongs: the brief's candidates
-        # card, which already renders these rows.
-        awaiting_plan = [
-            f"{r['symbol']}#{int(r['thesis_id'])}"
-            for r in theses
-            if not has_price_plan(
-                entry_band_lower=r["entry_band_lower"],
-                entry_band_upper=r["entry_band_upper"],
-                stop_price=r["stop_price"],
-                target_price=r["target_price"],
-                actual_entry_price=r["actual_entry_price"],
-            )
-        ]
-        buildable = [
-            r
-            for r in theses
-            if f"{r['symbol']}#{int(r['thesis_id'])}" not in set(awaiting_plan)
-        ]
-        for row in buildable:
+        for row in theses:
             thesis_id, symbol = int(row["thesis_id"]), str(row["symbol"])
+            # An approved thesis with no price plan is not a failure to report,
+            # it is a row waiting on James. Calling the builder for it would
+            # raise every night, land in `monitor.note`, and page through
+            # check_cron_health forever — the shape of issue #327, and what
+            # migration 0059's eleven rows did for 84 days. It is set aside
+            # before the builder is called and surfaced where it belongs: the
+            # brief's candidates card, which already renders these rows.
+            if not has_price_plan(
+                entry_band_lower=row["entry_band_lower"],
+                entry_band_upper=row["entry_band_upper"],
+                stop_price=row["stop_price"],
+                target_price=row["target_price"],
+                actual_entry_price=row["actual_entry_price"],
+            ):
+                awaiting_plan.append(f"{symbol}#{thesis_id}")
+                continue
             packet_id = packet_id_for(symbol, thesis_id, cutoff)
             if await conn.fetchrow(SQL_PACKET_EXISTS, packet_id) is not None:
                 skipped.append(packet_id)

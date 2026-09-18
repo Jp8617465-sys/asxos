@@ -70,6 +70,18 @@ def news_to_status(news_status: str, *, error: str | None = None) -> SectionStat
     return SectionStatus.MISSING
 
 
+def _status_for(error: str | None, *, has_data: bool) -> tuple[SectionStatus, str | None]:
+    """MISSING when the loader failed; otherwise FRESH with a payload, EMPTY without.
+
+    "Nothing to report" and "could not look" are different claims, and the
+    four-state vocabulary exists so a loader failure can never render as a
+    quiet section.
+    """
+    if error:
+        return SectionStatus.MISSING, error
+    return (SectionStatus.FRESH if has_data else SectionStatus.EMPTY), None
+
+
 def assemble_sections(
     *,
     latest_price_date: Any,
@@ -124,33 +136,16 @@ def assemble_sections(
         disc_status = SectionStatus.FRESH
         disc_error = None
 
-    if outcome_error:
-        out_status = SectionStatus.MISSING
-        out_error: str | None = outcome_error
-    elif outcome_section is None:
-        out_status = SectionStatus.EMPTY
-        out_error = None
-    else:
-        out_status = SectionStatus.FRESH
-        out_error = None
+    out_status, out_error = _status_for(outcome_error, has_data=outcome_section is not None)
 
     news_status_enum = news_to_status(news_status, error=news_error)
     news_err = news_error
     if news_status_enum is SectionStatus.MISSING and not news_err:
         news_err = "news section could not run"
 
-    # EMPTY is the ordinary weekly state: "nothing new cleared the gates". It is
-    # a different claim from MISSING ("the queue could not be read"), and the
-    # two must never collapse — see `_candidates` in compose.py.
-    if candidates_error:
-        cand_status = SectionStatus.MISSING
-        cand_error: str | None = candidates_error
-    elif not candidates:
-        cand_status = SectionStatus.EMPTY
-        cand_error = None
-    else:
-        cand_status = SectionStatus.FRESH
-        cand_error = None
+    # EMPTY is the ordinary weekly state: "nothing new cleared the gates" — see
+    # `_candidates` in compose.py.
+    cand_status, cand_error = _status_for(candidates_error, has_data=bool(candidates))
 
     jobs_status = SectionStatus.EMPTY if not job_failures else SectionStatus.FRESH
     reg_status = SectionStatus.EMPTY if not regulatory_hits else SectionStatus.FRESH
