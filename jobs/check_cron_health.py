@@ -23,13 +23,13 @@ On clean pipeline: records 'success' and pings Healthchecks.io.
 from __future__ import annotations
 
 import asyncio
-import html
 import os
 import textwrap
 from datetime import UTC, date, datetime
 
 from asxos import clock
 from asxos.db import acquire, close_pool, init_pool
+from asxos.jobs.utils.alert_email import send_alert
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 # Jobs that must have a 'success' row within their window (hours) on weekdays.
@@ -168,36 +168,23 @@ async def _query_issues(conn) -> list[str]:  # type: ignore[type-arg]
     return issues
 
 
-def _send_alert(issues: list[str]) -> None:
-    """Best-effort Resend alert. Never raises — if email fails, the job still
-    hard-fails via RuntimeError so Healthchecks.io catches it."""
-    try:
-        import resend
+def _send_alert(issues: list[str]) -> str | None:
+    """Format the issue list and send it. Never raises; returns a failure note.
 
-        api_key = os.environ.get("RESEND_API_KEY", "")
-        to = os.environ.get("BRIEF_TO_EMAIL", "")
-        sender = os.environ.get("BRIEF_FROM_EMAIL", "")
-        if not (api_key and to and sender):
-            return
+    The note is PASSED THROUGH rather than swallowed here so the swallow is a
+    decision the caller makes, visibly, at the one place it is justified: it
+    raises RuntimeError immediately after, so JobMonitor records THAT as the
+    run's error_message and the run goes red regardless. Recording a send note
+    would overwrite the primary failure with a secondary one.
 
-        # html.escape each issue before it enters the unescaped <pre> below:
-        # check #4 is the first path routing the free-text job_runs.error_message
-        # into this email, so a future note carrying external text can't break
-        # out of the markup (defense-in-depth; today all interpolated content is
-        # hardcoded). Escaping the controlled #1-#3 lines is a harmless no-op.
-        body = "\n".join(f"• {html.escape(i)}" for i in issues)
-        html_body = f"<pre>{body}</pre>"
-        resend.api_key = api_key
-        resend.Emails.send(
-            {
-                "from": sender,
-                "to": to,
-                "subject": f"asxos pipeline alert — {clock.today().isoformat()}",
-                "html": html_body,
-            }
-        )
-    except Exception:
-        pass  # alert failure never masks the primary failure
+    The helper escapes the body. That matters most here: check #4 routes the
+    free-text `job_runs.error_message` into this email, so a note carrying
+    external text must not be able to break out of the `<pre>`.
+    """
+    return send_alert(
+        f"asxos pipeline alert — {clock.today().isoformat()}",
+        "\n".join(f"\u2022 {i}" for i in issues),
+    )
 
 
 async def _run(as_of: date) -> None:

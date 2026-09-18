@@ -21,13 +21,16 @@ Alert behaviour:
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import date
 
 from asxos import clock
 from asxos.config import settings
 from asxos.db import acquire, close_pool, init_pool
 from asxos.domain.prices.coverage import latest_complete_trading_day
+
+# The one Resend alert path (asxos/jobs/utils/alert_email.py): never raises,
+# escapes the body, and RETURNS a redacted failure note for JobMonitor.note.
+from asxos.jobs.utils.alert_email import send_alert as _send_alert
 from asxos.jobs.utils.job_monitor import JobMonitor
 
 JOB_NAME = "validate_price_data"
@@ -37,52 +40,6 @@ _LARGE_MOVE_THRESHOLD = 0.25
 # so a genuine crash from a meaningful price (e.g. $0.06 -> $0.001) is still flagged.
 _LARGE_MOVE_MIN_PRICE = 0.02
 _HARD_FAIL_THRESHOLD = 10
-
-
-def _send_alert(subject: str, body: str) -> str | None:
-    """Best-effort Resend alert. Never raises; RETURNS a failure note or None.
-
-    The swallow is correct and stays: a dead notification channel must not
-    crash the validation run that found the anomalies. What was wrong is that
-    the failure left no trace anywhere. If Resend is down, the API key rotates,
-    or BRIEF_TO_EMAIL is wrong, the alert evaporates and the operator
-    experiences it as "the system has been quiet lately" — silence from an
-    alerting system being indistinguishable from good news is the one failure
-    mode it cannot afford.
-
-    So the outcome is returned rather than discarded, and the caller records it
-    on JobMonitor.note, which lands in job_runs.error_message on an otherwise
-    successful run. That makes undelivered alerts queryable after the fact.
-
-    Returns the exception CLASS NAME, never str(exc): a Resend/httpx error
-    embeds the request URL, and the API key rides in the Authorization header
-    or query string depending on the client path. job_runs is queryable and
-    agent-readable (CWE-532). JobMonitor redacts known secret shapes on the way
-    in, but not leaking them in the first place is the stronger position.
-    """
-    try:
-        import resend
-
-        api_key = os.environ.get("RESEND_API_KEY", "")
-        to = os.environ.get("BRIEF_TO_EMAIL", "")
-        sender = os.environ.get("BRIEF_FROM_EMAIL", "")
-        if not (api_key and to and sender):
-            # A deliberate no-send (local runs, --no-send style configs) is not
-            # the same event as a failed send, but it is still an alert that did
-            # not arrive, so it is reported — named distinctly so the two are
-            # never conflated when reading job_runs.
-            return "alert not sent: RESEND_API_KEY/BRIEF_TO_EMAIL/BRIEF_FROM_EMAIL not all set"
-
-        resend.api_key = api_key
-        resend.Emails.send({
-            "from": sender,
-            "to": to,
-            "subject": subject,
-            "html": f"<pre>{body}</pre>",
-        })
-    except Exception as exc:
-        return f"alert send failed: {type(exc).__name__}"
-    return None
 
 
 async def _query_anomalies(conn, as_of: date) -> list[str]:  # type: ignore[type-arg]

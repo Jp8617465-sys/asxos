@@ -13,14 +13,35 @@ exception, and its comment says so.
 """
 from __future__ import annotations
 
+import ast
+import pathlib
 import sys
 import types
 
 import pytest
 
-from jobs import check_au_positions, validate_price_data
+from jobs import (
+    check_au_positions,
+    check_thesis_invalidations,
+    check_us_positions,
+    score_macro_theses,
+    validate_price_data,
+)
 
-MODULES = [validate_price_data, check_au_positions]
+# All five jobs whose `_send_alert(subject, body)` is the shared helper
+# (`asxos/jobs/utils/alert_email.py`). Extended 2026-09-18 from the original
+# two: the other three still swallowed silently, which is the very defect this
+# file's docstring describes, so centralising the contract fixed them and the
+# parametrisation is what proves it. `check_cron_health` is deliberately absent
+# — different signature, and its discard is documented (see the structural
+# tests at the bottom).
+MODULES = [
+    validate_price_data,
+    check_au_positions,
+    check_us_positions,
+    check_thesis_invalidations,
+    score_macro_theses,
+]
 ENV = {
     "RESEND_API_KEY": "k",
     "BRIEF_TO_EMAIL": "to@example.com",
@@ -114,3 +135,68 @@ def test_job_monitor_healthcheck_swallow_is_untouched() -> None:
     source = inspect.getsource(job_monitor)
     assert "except Exception:\n            pass" in source or "pass" in source
     assert "must not mask" in source or "healthcheck" in source.lower()
+
+
+# ---------------------------------------------------------------------------
+# Structural guards — the defect class, not one instance of it
+# ---------------------------------------------------------------------------
+
+_JOBS_DIR = pathlib.Path(__file__).resolve().parents[1] / "jobs"
+
+# A discard is legitimate in exactly one shape: the enclosing block RAISES
+# straight after, so JobMonitor records the exception as the run's
+# error_message and the run goes red anyway. Recording a send note there would
+# overwrite the primary failure with a secondary one. That shape is detected
+# below rather than allow-listed by filename, so a new job gets the same
+# latitude for the same reason — and no latitude for any other reason.
+
+
+def _raises_later(body: list[ast.stmt], idx: int) -> bool:
+    """Does any statement after `idx` in this same block raise?"""
+    return any(
+        isinstance(n, ast.Raise)
+        for stmt in body[idx + 1 :]
+        for n in ast.walk(stmt)
+    )
+
+
+def test_no_job_reimplements_the_resend_call() -> None:
+    """One place touches the provider. Six private copies is how the contract
+    drifted into three different ones in the first place."""
+    offenders = [
+        p.name
+        for p in sorted(_JOBS_DIR.glob("*.py"))
+        if "resend.Emails.send" in p.read_text()
+    ]
+    assert not offenders, (
+        "these jobs call resend directly instead of "
+        "asxos.jobs.utils.alert_email.send_alert: " + ", ".join(offenders)
+    )
+
+
+def test_no_job_discards_a_send_outcome_on_a_run_that_stays_green() -> None:
+    """A bare `_send_alert(...)` throws the failure note away, which is what
+    made a broken alerter present as "quiet lately". Allowed only where the
+    block goes on to raise — see the comment above."""
+    offenders: list[str] = []
+    for path in sorted(_JOBS_DIR.glob("*.py")):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            body = getattr(node, "body", None)
+            if not isinstance(body, list):
+                continue
+            for idx, stmt in enumerate(body):
+                if not isinstance(stmt, ast.Expr) or not isinstance(
+                    stmt.value, ast.Call
+                ):
+                    continue
+                fn = stmt.value.func
+                name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
+                if name in {"_send_alert", "send_alert"} and not _raises_later(
+                    body, idx
+                ):
+                    offenders.append(f"{path.name}:{stmt.lineno}")
+    assert not offenders, (
+        "the return of send_alert is discarded on a path that does not raise, "
+        "so a failed alert leaves no trace in job_runs: " + ", ".join(offenders)
+    )
