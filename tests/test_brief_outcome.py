@@ -348,14 +348,16 @@ def test_section_absent_without_personal_use() -> None:
     assert _all_queries(conn) == [], "gated-out loader still hit the database"
 
 
-def test_gate_is_not_the_portfolio_or_v2_flag(personal_use: Any) -> None:
+def test_gate_is_not_the_v2_flag(personal_use: Any) -> None:
     """Parity with `_discipline_findings`: one gate, and it is already set.
 
-    `ASXOS_PORTFOLIO_BRIEF_ENABLED` gates the allocator's trade suggestions and
     `ASXOS_V2_BRIEF_ENABLED` gates the dark V2 tree (deferred to Stage 6). This
-    section depends on neither, which is what makes it shippable on V1 today.
+    section depends on it in neither direction, which is what makes it
+    shippable on V1 today. It used to be asserted against
+    `ASXOS_PORTFOLIO_BRIEF_ENABLED` too; that gate was deleted under A-34, and
+    an assertion naming a variable nothing reads proves nothing.
     """
-    env = {"ASXOS_PORTFOLIO_BRIEF_ENABLED": "0", "ASXOS_V2_BRIEF_ENABLED": "0"}
+    env = {"ASXOS_V2_BRIEF_ENABLED": "0"}
     with patch.dict(os.environ, env):
         section = _run_loader(_make_conn())
     assert section is not None

@@ -93,7 +93,7 @@ class _FakeConn:
 async def test_loader_is_behind_the_personal_use_firewall(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Parity with _discipline_findings / _news_section / _portfolio_section.
+    """Parity with _discipline_findings / _news_section.
 
     Candidate securities for this user's own portfolio are personal investment
     content whether or not they carry a price plan.
@@ -193,7 +193,6 @@ def _assemble(**over: Any) -> Any:
         "news_items": [],
         "news_status": "quiet",
         "news_error": None,
-        "portfolio_section": None,
         "computed_at": FIXED,
     }
     base.update(over)

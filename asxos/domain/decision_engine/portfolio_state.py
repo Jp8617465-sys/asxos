@@ -12,9 +12,11 @@ checks `ASXOS_PERSONAL_USE == "1"` itself — including the price and candidate
 readers, which touch no holdings today but sit one edit away from a caller
 that does — and the `asx decision` CLI checks it again before calling. A
 `security-engineer` pass (2026-09-03) found this sentence true of only two of
-the five; the gates were added rather than the sentence weakened. A future brief surface carrying a
-non-zero `SizeRange` must additionally honour `ASXOS_PORTFOLIO_BRIEF_ENABLED`
-(the portfolio conventions rule file, §Regulatory firewall).
+the five; the gates were added rather than the sentence weakened. This once also
+said that a future brief surface carrying a non-zero `SizeRange` must honour
+`ASXOS_PORTFOLIO_BRIEF_ENABLED`; that gate was deleted under A-34 (2026-09-14)
+along with the only surface behind it, so `ASXOS_PERSONAL_USE` is the gate such
+a surface must honour.
 
 **Borrowing.** asxos has no borrowing ledger and D2 pins gross leverage at
 0%, so `borrowing_aud` is reported as 0 with that reason recorded here —

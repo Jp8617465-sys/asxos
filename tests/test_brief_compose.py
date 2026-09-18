@@ -245,14 +245,14 @@ def test_review_status_surfaces_issue_no_trade_direction() -> None:
       do not sell", which is a prohibition, not an instruction, and correctly
       stays.
     * It does NOT cover the gated "Portfolio adjustments" section, which is a
-      trade *proposal* surface by design (and cannot be populated at all while
-      the allocator's candidate source is retired).
+      trade *proposal* surface by design. The portfolio section it named was
+      deleted outright under A-34 (2026-09-14 verdict), so there is no longer a
+      surface here to keep empty.
 
-    So: findings and portfolio section deliberately empty, to isolate the copy.
+    So: findings deliberately empty, to isolate the copy.
     """
     b = _brief()
     assert b.discipline_findings == []
-    assert b.portfolio_section is None
     assert b.news_items == []
     assert b.regulatory_hits == []
     assert directive_terms(render_html(b)) == ()

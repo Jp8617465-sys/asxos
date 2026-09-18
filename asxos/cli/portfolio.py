@@ -379,12 +379,17 @@ def portfolio_signoff(
     note: str = typer.Option("", "--note", help="Optional free-text note to record"),
     force: bool = typer.Option(False, "--force", help="Skip the 4-week gate check"),
 ) -> None:
-    """Record paper-trade sign-off and prompt to enable section 6 in the brief.
+    """Record paper-trade sign-off in the decisions journal.
 
     Requires ≥4 evaluable runs (≥4 weeks of build-portfolio history) unless
     --force is passed.  Inserts a decisions journal entry tagged
-    [m13_paper_signoff] and prints how to flip ASXOS_PORTFOLIO_BRIEF_ENABLED=1
-    (plan Part 0 Q3 / M13.8).
+    [m13_paper_signoff] (plan Part 0 Q3 / M13.8).
+
+    It no longer prints a next step. The brief section this sign-off used to
+    unlock, and the ASXOS_PORTFOLIO_BRIEF_ENABLED flag that gated it, were
+    deleted under A-34 — dark-launch verdict #1, 2026-09-14. The sign-off
+    record itself is kept: it is evidence about the paper-trade history, which
+    outlives the surface it once gated.
     """
     _require_personal_use()
     asyncio.run(_run_portfolio_signoff(note=note, force=force))
@@ -416,14 +421,8 @@ async def _run_portfolio_signoff(*, note: str, force: bool) -> None:
 
     console.print(f"[green]✓[/green] Sign-off recorded (decisions.id={decisions_id}).")
     console.print()
-    console.print("[bold]Next step — flip the brief flag in the workflow env block:[/bold]")
     console.print(
-        "  Add ASXOS_PORTFOLIO_BRIEF_ENABLED: \"1\" to the env: block of\n"
-        "  .github/workflows/daily-brief.yml, then git push to main — the flag\n"
-        "  takes effect on the next scheduled run."
-    )
-    console.print()
-    console.print(
-        "[dim]The next Monday brief will include section 6 "
-        "(Portfolio adjustments).[/dim]"
+        "[dim]Recorded as evidence only. The brief's portfolio-adjustments "
+        "section was deleted under A-34 (dark-launch verdict #1, 2026-09-14), "
+        "so there is no flag left to flip.[/dim]"
     )

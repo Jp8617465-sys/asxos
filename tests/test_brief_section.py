@@ -43,7 +43,6 @@ def _assemble(**overrides):  # type: ignore[no-untyped-def]
         "news_items": [],
         "news_status": "disabled",
         "news_error": None,
-        "portfolio_section": None,
         "computed_at": FIXED,
         "data_as_of": date(2026, 5, 22),
     }
@@ -60,7 +59,6 @@ def test_assemble_quiet_day_empty_not_missing() -> None:
     assert sections["outcome"].status is SectionStatus.EMPTY
     assert sections["regulatory"].status is SectionStatus.EMPTY
     assert sections["news"].status is SectionStatus.EMPTY
-    assert sections["portfolio"].status is SectionStatus.EMPTY
     assert sections["news"].error is None
 
 

@@ -31,7 +31,6 @@ SECTION_ORDER: tuple[str, ...] = (
     "outcome",
     "regulatory",
     "news",
-    "portfolio",
     "candidates",
 )
 
@@ -94,7 +93,6 @@ def assemble_sections(
     news_items: list[Any],
     news_status: str,
     news_error: str | None,
-    portfolio_section: Any,
     computed_at: datetime,
     data_as_of: Any = None,
     candidates: list[Any] | None = None,
@@ -149,7 +147,6 @@ def assemble_sections(
 
     jobs_status = SectionStatus.EMPTY if not job_failures else SectionStatus.FRESH
     reg_status = SectionStatus.EMPTY if not regulatory_hits else SectionStatus.FRESH
-    port_status = SectionStatus.EMPTY if portfolio_section is None else SectionStatus.FRESH
 
     results = (
         SectionResult(
@@ -201,13 +198,6 @@ def assemble_sections(
             computed_at=computed_at,
             source="sql:holding_news" if news_error is None else "fn:_news_section",
             error=news_err,
-        ),
-        SectionResult(
-            name="portfolio",
-            status=port_status,
-            data=portfolio_section,
-            computed_at=computed_at,
-            source="sql:portfolio_runs+gate:ASXOS_PORTFOLIO_BRIEF_ENABLED",
         ),
         SectionResult(
             name="candidates",

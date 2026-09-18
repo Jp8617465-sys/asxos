@@ -442,8 +442,16 @@ class TestSeed:
         # route=build it is one-file lane work and the picker WOULD have built it.
         # E-26 is a .claude/ handover. Only E-27 reaches the lane at all, and it is
         # skipped for overlap: its `tests/` path collides with an already-picked row.
-        assert [i.id for i in picked] == ["A-34", "E-20", "E-21"], [i.id for i in picked]
-        assert [i.id for i in skipped] == ["A-35", "E-27"], [i.id for i in skipped]
+        # Re-pinned 2026-09-19 by the daily-product fire that BUILT A-34 (dark-launch
+        # DELETE verdict #1). A-34 -> done drops out and A-35 takes its place at the
+        # head — the verdict-#3 deletion that had been skipped for overlap with A-34
+        # all along, since the two share tests/test_brief_outcome.py. The tail is
+        # unchanged, which is the shape to expect when a lane finishes a row rather
+        # than filing one.
+        assert [i.id for i in picked] == ["A-35", "E-20", "E-21"], [i.id for i in picked]
+        # A-35 left this list on 2026-09-19: it was only ever here because it overlapped
+        # A-34, and A-34 is built. E-27 still overlaps on tests/.
+        assert [i.id for i in skipped] == ["E-27"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml

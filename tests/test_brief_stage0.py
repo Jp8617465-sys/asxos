@@ -57,7 +57,6 @@ def _brief(**overrides) -> BriefData:
             news_items=defaults.get("news_items", []),
             news_status=str(defaults.get("news_status", NEWS_DISABLED)),
             news_error=defaults.get("news_error"),
-            portfolio_section=defaults.get("portfolio_section"),
             computed_at=FIXED,
             data_as_of=defaults.get("data_as_of"),
         )
@@ -101,7 +100,6 @@ def test_missing_and_empty_markers_render() -> None:
         news_items=[],
         news_status="ok",
         news_error="news section could not run: boom",
-        portfolio_section=None,
         computed_at=FIXED,
         data_as_of=None,
     )
@@ -190,13 +188,6 @@ def test_golden_four_states() -> None:
             computed_at=FIXED,
             source="test",
             error="boom",
-        ),
-        "portfolio": SectionResult(
-            name="portfolio",
-            status=SectionStatus.EMPTY,
-            data=None,
-            computed_at=FIXED,
-            source="test",
         ),
     }
     html = render_html(
