@@ -606,7 +606,7 @@ document, and fixing them means building features — deliberately out of scope.
 | `segment_map` never built (0045 unapplied) | Peer sets are GICS labels, not real segments | `build_segment_map` |
 | The value screen has no measured edge | The set is a reading list, not a signal | a registered model that passes the bar |
 | LICs/A-REITs misclassified as `au_equity` | Fund structures reach the value screen, which excludes funds by design | `universe.security_kind` reclassification (`decision-log.md:154`) |
-| `HUBS.NYSE` has 0 `rs_financial_statements` rows | Its packet fails nightly; the watchdog stays red | `sync_financial_statements --active-only` never fetches it — `is_active=FALSE` for held US names (`m14_candidate_security_kind_enum`) |
+| `HUBS.NYSE` has 0 `rs_financial_statements` rows | Its packet fails nightly until the rows exist | **Fixed in code by #328 (2026-09-18)** — `sync_financial_statements` now includes held US names. The rows land on Saturday's `weekly-research` sync; until then #327 is fixed in code and still open in fact |
 | The brief does not render the packet | `asx decision report` is the only broker-report surface | S6 — the templates exist, nothing calls them |
 
 ---
