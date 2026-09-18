@@ -23,7 +23,28 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ## Surfaces
 
-### 1. Portfolio brief — `ASXOS_PORTFOLIO_BRIEF_ENABLED=0`
+### 1. Portfolio brief — `ASXOS_PORTFOLIO_BRIEF_ENABLED` (deleted)
+
+- **✅ EXECUTED 2026-09-19 (row A-34, `daily-product` routine fire).** The verdict below is no
+  longer pending: `_portfolio_section`, `PortfolioSection`, `PortfolioTradeSummary`, the
+  `portfolio` entry in `SECTION_ORDER`, the gold decoder, both Jinja section blocks and the
+  `ASXOS_PORTFOLIO_BRIEF_ENABLED` gate are gone. `tests/test_portfolio_brief_gate_is_gone.py`
+  keeps them gone.
+
+  **Three things measured before the deletion, because a verdict is not a measurement.**
+  The flag was set in no workflow, Makefile, `.toml` or env example — it had never been `1`
+  in tracked config. `brief_section_gold` held **18 `portfolio` rows over 2026-08-24..09-18,
+  every one `EMPTY`** (against `header`/`prices`/`discipline`/`outcome` at 18 `FRESH` each),
+  so the section had never rendered and the deletion destroyed no stored record. And the
+  freshness gate remained unsatisfiable, exactly as the verdict said.
+
+  **Kept deliberately:** `asx portfolio signoff` and `paper_trade.py`'s evaluator. The
+  sign-off is evidence about the paper-trade history; it outlives the one display surface it
+  used to unlock, and now says so instead of printing a next step that no longer exists.
+
+  **Carried to James, not bundled:** `.claude/rules/portfolio-conventions.md` and
+  `.claude/agents/portfolio-invariant-guard.md` both still describe the second gate as live.
+  `.claude/**` is draft-only from a routine, so correcting them is a PR for him.
 
 - **✅ VERDICT: DELETE — issued 2026-09-14 by arbi (`/arbi` wake), 14 days past expiry.**
   Ruled by arbi, not escalated: `AGENTS.md` §2 reserves three things to James — what the

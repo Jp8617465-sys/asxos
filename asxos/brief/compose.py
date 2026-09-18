@@ -44,8 +44,7 @@ numbered it 7. Left as found; renumbering here would not fix it.)
      standalone "Tax actions" table so the fact lives on one gated surface.
      Model-independent by construction (rule #11) — the loader
      never reads `signals`/`shap_factors` and never calls
-     `resolve_production_model()`. Gated on ASXOS_PERSONAL_USE=1 only (not
-     ASXOS_PORTFOLIO_BRIEF_ENABLED, which is orthogonal — §4). Quiet when
+     `resolve_production_model()`. Gated on ASXOS_PERSONAL_USE=1 only. Quiet when
      every check is clean; a check that errors renders a loud "could not run"
      line rather than vanishing (CLAUDE.md #10).
   4. RETIRED (mission P1-04, manifest A6) — signal label changes on current
@@ -62,11 +61,15 @@ numbered it 7. Left as found; renumbering here would not fix it.)
      The two env gates omit the section entirely; the freshness gate does
      NOT — it renders an explicit "unverified" state, because silence there
      would read as "no news today". See `_news_section` for the four states.
-  7. Portfolio adjustments (M13.7) — gated by BOTH:
-       ASXOS_PERSONAL_USE=1 (Part 0 Q1 regulatory firewall)
-       ASXOS_PORTFOLIO_BRIEF_ENABLED=1 (paper-trade validation gate, plan I.6)
-     Omitted entirely when either flag is unset, or when no successful
-     build_portfolio run exists with as_of >= today - 2 (plan I.7 freshness gate).
+  7. RETIRED (A-34, dark-launch DELETE verdict #1 issued 2026-09-14) —
+     portfolio adjustments (M13.7) and the ASXOS_PORTFOLIO_BRIEF_ENABLED gate.
+     The allocator behind it was ratified deleted (Amendment F) and its
+     freshness gate had been unsatisfiable since 2026-08-01, so the section
+     never rendered once: `brief_section_gold` held 18 `portfolio` rows over
+     2026-08-24..09-18, every one EMPTY. Removed whole rather than left dark,
+     for the same reason as 4 above. The model-independent cards this gate was
+     once said to protect are gated on ASXOS_PERSONAL_USE alone and are
+     untouched — see 3 and 8.
   8. Outcome vs benchmark — per-open-lot return since acquisition, the benchmark's
      return over the same window from `portfolio_daily_snapshots.benchmark_tr_level`,
      and alpha. The only production code behind the north star's "benchmark-relative"
@@ -223,33 +226,6 @@ class JobFailure:
 
 
 @dataclass(frozen=True)
-class PortfolioTradeSummary:
-    """Minimal trade row for the brief's portfolio section."""
-
-    symbol: str
-    side: str  # 'buy' or 'sell'
-    delta_aud: Decimal
-
-
-@dataclass(frozen=True)
-class PortfolioSection:
-    """Section 6 of the brief — portfolio adjustments (M13.7).
-
-    Populated only when both ASXOS_PERSONAL_USE=1 and
-    ASXOS_PORTFOLIO_BRIEF_ENABLED=1, and a fresh build_portfolio run
-    exists (as_of >= brief_date - 2, plan I.7).
-    """
-
-    run_id: int
-    run_as_of: date
-    top_buys: list[PortfolioTradeSummary]
-    top_sells: list[PortfolioTradeSummary]
-    total_buy_aud: Decimal
-    total_sell_aud: Decimal
-    turnover_aud: Decimal
-
-
-@dataclass(frozen=True)
 class CandidateRow:
     """One machine-proposed name awaiting governance review.
 
@@ -317,7 +293,6 @@ class BriefData:
     # Which of the four news states produced `news_items`. Defaults to
     # NEWS_DISABLED so a BriefData built without news never claims a quiet day.
     news_status: NewsStatus = NEWS_DISABLED
-    portfolio_section: PortfolioSection | None = None
     # PR2a: collected, not yet rendered (PR2b adds the brief.html.j2 block).
     discipline_findings: list[DisciplineFinding] = field(default_factory=list)
     # Section 8 — per-open-lot return since acquisition, the benchmark's return
@@ -374,7 +349,6 @@ class BriefData:
             news_items=self.news_items,
             news_status=str(self.news_status),
             news_error=None,
-            portfolio_section=self.portfolio_section,
             candidates=self.candidates,
             candidates_error=self.candidates_error,
             computed_at=computed,
@@ -543,7 +517,6 @@ async def collect(as_of: date) -> BriefData:
         except Exception as exc:
             news_items, news_status = [], NEWS_UNVERIFIED
             news_error = f"news section could not run: {exc}"
-        portfolio_section = await _portfolio_section(conn, as_of)
 
         # Fail-loud isolation (CLAUDE.md #10): a broken discipline query must
         # never take down the rest of the brief. Surface it as a single loud
@@ -620,7 +593,6 @@ async def collect(as_of: date) -> BriefData:
         news_items=news_items,
         news_status=str(news_status),
         news_error=news_error,
-        portfolio_section=portfolio_section,
         candidates=candidates,
         candidates_error=candidates_error,
         computed_at=computed_at,
@@ -633,7 +605,6 @@ async def collect(as_of: date) -> BriefData:
         job_failures=job_failures,
         news_items=news_items,
         news_status=news_status,
-        portfolio_section=portfolio_section,
         discipline_findings=discipline_findings,
         outcome_section=outcome_section,
         outcome_error=outcome_error,
@@ -655,7 +626,7 @@ async def _candidates(conn: asyncpg.Connection, as_of: date) -> list[CandidateRo
     by construction unreviewed and unacted-upon.
 
     Gated on ``ASXOS_PERSONAL_USE=1`` — parity with `_discipline_findings` /
-    `_news_section` / `_portfolio_section` / `_cgt_boundary_findings`. These are
+    `_news_section` / `_cgt_boundary_findings`. These are
     candidate securities for this user's own portfolio, which is personal
     investment content whatever the absence of a price plan.
 
@@ -725,7 +696,7 @@ async def _cgt_boundary_findings(
     "Tax actions" table so the fact lives on ONE gated surface.
 
     Gated on ``ASXOS_PERSONAL_USE=1`` — parity with ``_discipline_findings`` /
-    ``_news_section`` / ``_portfolio_section``, closing the gap the old ungated
+    ``_news_section``, closing the gap the old ungated
     ``_tax_actions`` left open (portfolio-team-visibility §7/R12).
 
     s766B firewall: states the user's own acquisition date + calendar
@@ -1121,93 +1092,6 @@ async def _holding_news(
     return out
 
 
-async def _portfolio_section(conn: asyncpg.Connection, as_of: date) -> PortfolioSection | None:
-    """Return portfolio adjustments for section 6, or None if gated out.
-
-    Gating (plan I.7 + plan I.6 + Part 0 Q1):
-    - ASXOS_PERSONAL_USE must be "1" (regulatory firewall).
-    - ASXOS_PORTFOLIO_BRIEF_ENABLED must be "1" (paper-trade gate; stays 0
-      until 4 weeks of sign-off per M13.8).
-    - A successful ``build_portfolio`` job run must exist with
-      ``as_of >= as_of - 2`` (freshness gate; plan I.7 standardises on
-      24h lookback with a 2-day tolerance for the weekly cron cadence).
-
-    The section is omitted entirely when any gate fails — never partial or
-    stale (plan I.7: "If the cron failed: section 6 is omitted entirely").
-    """
-    if os.environ.get("ASXOS_PERSONAL_USE") != "1":
-        return None
-    if os.environ.get("ASXOS_PORTFOLIO_BRIEF_ENABLED") != "1":
-        return None
-
-    # Freshness gate: most recent successful build_portfolio run within 2 days.
-    # Uses as_of date arithmetic (plan H.2 QUICK-WIN-1: filter on as_of, not created_at).
-    cutoff = as_of - timedelta(days=2)
-    run_row = await conn.fetchrow(
-        """
-        SELECT r.run_id, r.as_of
-        FROM rebalance_runs r
-        JOIN job_runs j
-          ON j.job_name = 'build_portfolio'
-         AND j.as_of = r.as_of
-         AND j.status = 'success'
-        WHERE r.as_of >= $1
-        ORDER BY r.as_of DESC
-        LIMIT 1
-        """,
-        cutoff,
-    )
-    if run_row is None:
-        return None
-
-    run_id = run_row["run_id"]
-    run_as_of = run_row["as_of"]
-
-    # Top 3 buys and top 3 sells (by |delta_aud|).
-    trade_rows = await conn.fetch(
-        """
-        SELECT symbol, side, delta_aud
-        FROM proposed_trades
-        WHERE run_id = $1 AND side IN ('buy', 'sell')
-        ORDER BY ABS(delta_aud) DESC
-        """,
-        run_id,
-    )
-
-    # Single pass over trade_rows (07-18 audit: was four passes — two
-    # filtered comprehensions + two filtered sums). Rows arrive ordered by
-    # |delta_aud| DESC, so appending the first 3 per side preserves the
-    # top-3 semantics exactly.
-    top_buys: list[PortfolioTradeSummary] = []
-    top_sells: list[PortfolioTradeSummary] = []
-    total_buy_aud = Decimal("0")
-    total_sell_aud = Decimal("0")
-    for r in trade_rows:
-        delta = Decimal(str(r["delta_aud"]))
-        if r["side"] == "buy":
-            total_buy_aud += delta
-            if len(top_buys) < 3:
-                top_buys.append(
-                    PortfolioTradeSummary(symbol=r["symbol"], side="buy", delta_aud=delta)
-                )
-        else:  # side = 'sell' (query filters to buy/sell only)
-            total_sell_aud += abs(delta)
-            if len(top_sells) < 3:
-                top_sells.append(
-                    PortfolioTradeSummary(symbol=r["symbol"], side="sell", delta_aud=delta)
-                )
-
-    return PortfolioSection(
-        run_id=run_id,
-        run_as_of=run_as_of,
-        top_buys=top_buys,
-        top_sells=top_sells,
-        total_buy_aud=total_buy_aud,
-        total_sell_aud=total_sell_aud,
-        turnover_aud=total_buy_aud + total_sell_aud,
-    )
-
-
 def _thesis_discipline_inputs(
     thesis_rows: list[asyncpg.Record], prices: dict[str, Decimal]
 ) -> tuple[ThesisDisciplineInput, ...]:
@@ -1283,10 +1167,9 @@ async def _discipline_findings(conn: asyncpg.Connection, as_of: date) -> list[Di
     next to the arithmetic they govern).
 
     Gated on ``ASXOS_PERSONAL_USE=1`` only (proposal §6 acceptance criteria) —
-    deliberately not ``ASXOS_PORTFOLIO_BRIEF_ENABLED``, which gates the
-    allocator's trade suggestions and is orthogonal to this model-independent
-    digest (§4). Matches the same gate `_news_section`/`_portfolio_section`
-    already apply to their own display-only data.
+    the same gate `_news_section` applies to its own display-only data. It was
+    once also contrasted against ``ASXOS_PORTFOLIO_BRIEF_ENABLED``; that gate
+    and the allocator section it fronted were deleted under A-34.
     """
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         return []
@@ -1492,10 +1375,10 @@ async def _lot_outcomes(conn: asyncpg.Connection, as_of: date) -> OutcomeSection
 
     Gated on ``ASXOS_PERSONAL_USE=1`` only — parity with `_discipline_findings`,
     which `.github/workflows/daily-brief.yml` already sets. Deliberately NOT
-    gated on ``ASXOS_PORTFOLIO_BRIEF_ENABLED`` (that gates the allocator's trade
-    suggestions) and not on ``ASXOS_V2_BRIEF_ENABLED`` (the V2 tree is dark and
-    deferred to Stage 6; this section ships on V1 precisely so it does not wait
-    on that flag).
+    gated on ``ASXOS_V2_BRIEF_ENABLED`` (the V2 tree is dark and deferred to
+    Stage 6; this section ships on V1 precisely so it does not wait on that
+    flag). It was once also ungated from ``ASXOS_PORTFOLIO_BRIEF_ENABLED``;
+    that gate was deleted under A-34.
     """
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         return None

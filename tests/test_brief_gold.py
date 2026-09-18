@@ -91,7 +91,6 @@ def _brief(**overrides: object) -> BriefData:
             news_items=defaults.get("news_items", []),  # type: ignore[arg-type]
             news_status=str(defaults.get("news_status", NEWS_UNVERIFIED)),
             news_error=None,
-            portfolio_section=defaults.get("portfolio_section"),
             computed_at=FIXED,
             data_as_of=defaults.get("data_as_of"),
         )

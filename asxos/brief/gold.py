@@ -23,8 +23,6 @@ from asxos.brief.compose import (
     JobProblemKind,
     NewsItem,
     NewsStatus,
-    PortfolioSection,
-    PortfolioTradeSummary,
     RegulatoryHit,
 )
 from asxos.brief.deltas import BookDelta, SnapshotLevels
@@ -279,33 +277,6 @@ def _decode_reg(item: object) -> RegulatoryHit:
     )
 
 
-def _decode_trade(item: object) -> PortfolioTradeSummary:
-    raw = item if isinstance(item, Mapping) else {}
-    delta = _as_dec(raw.get("delta_aud")) or Decimal("0")
-    return PortfolioTradeSummary(
-        symbol=str(raw.get("symbol", "")),
-        side=str(raw.get("side", "")),
-        delta_aud=delta,
-    )
-
-
-def _decode_portfolio(payload: object) -> PortfolioSection | None:
-    if not isinstance(payload, Mapping):
-        return None
-    run_as_of = _as_date(payload.get("run_as_of"))
-    if run_as_of is None:
-        return None
-    return PortfolioSection(
-        run_id=int(payload.get("run_id") or 0),
-        run_as_of=run_as_of,
-        top_buys=[_decode_trade(t) for t in (payload.get("top_buys") or [])],
-        top_sells=[_decode_trade(t) for t in (payload.get("top_sells") or [])],
-        total_buy_aud=_as_dec(payload.get("total_buy_aud")) or Decimal("0"),
-        total_sell_aud=_as_dec(payload.get("total_sell_aud")) or Decimal("0"),
-        turnover_aud=_as_dec(payload.get("turnover_aud")) or Decimal("0"),
-    )
-
-
 def _decode_window(value: object) -> tuple[date, date] | None:
     if not isinstance(value, list | tuple) or len(value) != 2:
         return None
@@ -420,8 +391,6 @@ def _decode_section_data(name: str, status: SectionStatus, payload: object) -> o
         return [_decode_reg(x) for x in _seq(payload)]
     if name == "news":
         return [_decode_news(x) for x in _seq(payload)]
-    if name == "portfolio":
-        return _decode_portfolio(payload)
     return payload
 
 
@@ -508,11 +477,6 @@ def decode_brief(as_of: date, rows: Sequence[Mapping[str, Any]]) -> BriefData:
         raw_out = sections["outcome"].data
         outcome_section = raw_out if isinstance(raw_out, OutcomeSection) else None
 
-    portfolio_section: PortfolioSection | None = None
-    if sections["portfolio"].status is not SectionStatus.MISSING:
-        raw_port = sections["portfolio"].data
-        portfolio_section = raw_port if isinstance(raw_port, PortfolioSection) else None
-
     deltas: BookDelta | None = None
     deltas_row = by_name.get(DELTAS_NAME)
     if deltas_row is not None:
@@ -527,7 +491,6 @@ def decode_brief(as_of: date, rows: Sequence[Mapping[str, Any]]) -> BriefData:
         job_failures=job_failures,
         news_items=news_items,
         news_status=news_status,
-        portfolio_section=portfolio_section,
         discipline_findings=discipline_findings,
         outcome_section=outcome_section,
         outcome_error=outcome_error_s,

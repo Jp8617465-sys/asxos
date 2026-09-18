@@ -1098,7 +1098,7 @@ doc-derived, not live-probed.
 | Scheme | Where it lives | Status today | Source |
 |---|---|---|---|
 | Rebuild M1–M12 | `docs/foundation/BUILD_GUIDE.md` | **All done.** Static manual, not a tracker. | `/sprint-plan` ("M1–M12 should all be done") |
-| Portfolio M13 | `asxos/domain/portfolio/*` | **Built, dark-launched** (`ASXOS_PORTFOLIO_BRIEF_ENABLED=0`). Weekly Sat 20:00 UTC. | V2 arch audit Part A |
+| Portfolio M13 | `asxos/domain/portfolio/*` | **Built; its brief surface DELETED 2026-09-19 (A-34)** — the dark section and its gate are gone, the domain package stays (live callers). Weekly Sat 20:00 UTC cron still defined; `build_portfolio` last succeeded 2026-08-01 and cannot run while `approved_for_allocation = 0` (rule #11). | V2 arch audit Part A |
 | News/sentiment M14a/M14b | `asxos/ingestion/{news,sentiment}.py` | **Shipped, writing, but near-empty** (`ASXOS_NEWS_BRIEF_ENABLED=1` on `main` since 2026-07-11 — this row previously said `0`, which was wrong; live state wins). Corrected 2026-08-17: `holding_news` does **not** have zero rows — it has **7** (2026-08-10..13), all `HUBS.NYSE`, all sourced `finance.yahoo.com`. So the ingest path works. **The cause is not symbol mapping** (this row claimed that until 2026-08-17 and it is falsified): `jobs/ingest_news.py:186` selects `DISTINCT symbol FROM current_holdings`, and there is exactly **one open lot**, so the job is correctly ingesting news for the whole of a one-name portfolio. Coverage is bounded by portfolio breadth, not by a mapping bug. ~~`signal_sentiment` downstream remains empty.~~ **Superseded 2026-08-21 (read-only production probe): `holding_news` holds 9 rows and `signal_sentiment` holds 9 — neither is empty, so the "near-empty" label at the head of this row no longer describes the live state. A fresh SHIP verdict was issued the same day (`dark-launch-exit-plan.md` surface #2).** Ingest guard + brief gate fixed 2026-08-05 (`deea76a`). See `docs/market-trends-report-2026-08-05.md` §1. | V2 arch audit Part A |
 | Governance Phase 0 / 0.5 | model-filtering + `approved_for_allocation` gate | **Done** (PR #11). | `next-session-backlog.md` P0 |
 | Governance Phase 1 | governance schema + first Postgres trigger | **Done** (PR #11). | `next-session-backlog.md` P0 |
@@ -1424,6 +1424,39 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
   commits + 10 conflicts through main for two clean units. **Zero open PRs** as of this close.
 
 ## Ranked next-action queue
+
+> **Live as of the 2026-09-19 `daily-product` routine fire (fired 2026-09-18T17:31:38Z, held in
+> plan mode until 17:55Z — the second consecutive fire held that way).** The Stages 0→6 table at
+> the top of this file remains the only ranked queue. This block supersedes the one below it; the
+> queue is unchanged except that **A-34 is done**.
+>
+> **#0 — A-34 DONE.** Dark-launch DELETE verdict #1 executed: `_portfolio_section`,
+> `PortfolioSection`, `PortfolioTradeSummary`, the `portfolio` entry in `SECTION_ORDER`, the gold
+> decoder, both Jinja section blocks and the `ASXOS_PORTFOLIO_BRIEF_ENABLED` gate are gone. The
+> verdict was issued 2026-09-14; the fire's contribution was measuring it before executing it —
+> the flag was set in **no** tracked config, and `brief_section_gold` held **18 `portfolio` rows,
+> every one `EMPTY`**, so the section had never rendered and the deletion destroyed no stored
+> record. `tests/test_portfolio_brief_gate_is_gone.py` guards the absence as an
+> executable-reference check rather than a text search, because the string is *supposed* to
+> survive in the prose that records what was removed.
+>
+> **The scope was wider than the row said**, and that is the reusable part: the row named four
+> files, the real surface was eleven. `gold.py`'s decoder, both templates, the CLI sign-off's
+> next-step text and three docstrings all had to move. A backlog row's `paths:` list is a
+> starting point, not an inventory.
+>
+> **Next, unchanged: #1 A-35** (DELETE verdict #3, the `ASXOS_V2_BRIEF_ENABLED` branch — the same
+> shape as A-34 and now with a worked precedent) → **#2 E-20** → **#3 E-21**. The research lane's
+> E-23 → E-24 is attended and needs its own §8 sitting.
+>
+> **Yours:** two `.claude/` files now describe a gate that no longer exists —
+> `.claude/rules/portfolio-conventions.md` ("The brief's section 6 requires a SECOND gate") and
+> `.claude/agents/portfolio-invariant-guard.md`. Draft-only from a routine, so they are a PR for
+> you. Plus **#334** and **#319**, both still open, and **K-08** (`deadman=unset` again).
+>
+> **Do not re-take #327 before Saturday's data** — unchanged from the block below.
+>
+> **Superseded — the 2026-09-18 attended-close block below, carried unchanged.**
 
 > **Live as of the 2026-09-18 attended close (#332 merged `611eb9d`).** The Stages 0→6 table at the
 > top of this file remains the only ranked queue. This block supersedes the routine block below it;
@@ -2020,9 +2053,9 @@ Never aggregated before this file. Refresh with `grep -rn m14_candidate_ .`.
 
 | Gate | Guards | State |
 |---|---|---|
-| `ASXOS_PORTFOLIO_BRIEF_ENABLED` | M13 portfolio brief section | `0` — off until 4-week paper-trade sign-off (M13.8) |
+| ~~`ASXOS_PORTFOLIO_BRIEF_ENABLED`~~ | ~~M13 portfolio brief section~~ | **DELETED 2026-09-19 (A-34)** — the gate and the section it fronted are both gone (`dark-launch-exit-plan.md` surface 1, verdict issued 2026-09-14). It was never `1` in tracked config, and `brief_section_gold` recorded the section `EMPTY` on all 18 days it was materialised. `tests/test_portfolio_brief_gate_is_gone.py` keeps it deleted. |
 | `ASXOS_NEWS_BRIEF_ENABLED` | M14a/b news+sentiment brief section | `1` — set in the **executing scheduler**, `.github/workflows/daily-brief.yml:61`. *(Corrected 2026-08-13, SB0-01: this cell previously cited `render.yaml:414`; Render was deleted 2026-08-12, so `render.yaml` sets nothing live.)* ~~**Verdict reverted to UN-SHIPPED / RE-RAISED 2026-08-13** — the flag is still `1` but the surface has no valid SHIP verdict~~ → ✅ **SHIP verdict issued 2026-08-21** (arbi, `/arbi-run`), on a read-only production probe of both restated conditions: `holding_news` 9 rows, `ingest_news` last six runs 3·2·2·1·0·4 all `success`. The flag was already `1` and was **not** touched — the gap was the missing verdict, not the config. See `dark-launch-exit-plan.md` surface #2 |
-| `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`; the portfolio brief needs this **and** `ASXOS_PORTFOLIO_BRIEF_ENABLED` (`portfolio-conventions.md` §Regulatory firewall) |
+| `ASXOS_PERSONAL_USE` | s766B personal-advice firewall — gate 1 for any portfolio/brief surface (CLI `_require_personal_use()`) | must be `1`. **Since A-34 (2026-09-19) it is the ONLY gate** — the second gate and its one surface were deleted together. `.claude/rules/portfolio-conventions.md` still describes the pair and is a draft PR for James. |
 | `ASXOS_V2_BRIEF_ENABLED` (proposed) | future single master gate for V2 brief sections | not yet plumbed |
 
 ---

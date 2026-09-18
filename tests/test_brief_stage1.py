@@ -59,7 +59,6 @@ def _brief(**overrides) -> BriefData:
             news_items=defaults.get("news_items", []),
             news_status=str(defaults.get("news_status", NEWS_DISABLED)),
             news_error=defaults.get("news_error"),
-            portfolio_section=defaults.get("portfolio_section"),
             computed_at=FIXED,
             data_as_of=defaults.get("data_as_of"),
         )

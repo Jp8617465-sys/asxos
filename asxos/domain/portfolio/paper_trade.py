@@ -7,8 +7,11 @@ of doing nothing (holding cash).
 
 This is NOT a backtester — it evaluates the *directional correctness* of
 a single proposed rebalance against subsequent market outcomes. The
-purpose is to give the operator ≥4 weeks of evidence before flipping
-``ASXOS_PORTFOLIO_BRIEF_ENABLED=1`` in production (plan Part 0 Q3).
+purpose was to give the operator ≥4 weeks of evidence before flipping
+``ASXOS_PORTFOLIO_BRIEF_ENABLED=1`` in production (plan Part 0 Q3). That flag
+and the brief section it gated were deleted under A-34 (dark-launch verdict #1,
+2026-09-14); this evaluator is kept because the evidence it produces is about
+the paper-trade history, not about that one display surface.
 
 Structure
 ---------
@@ -355,18 +358,15 @@ async def record_signoff(
     Uses ``action='NOTE'`` and ``rationale='[m13_paper_signoff] ...'``.
     Returns the new decisions.id.
 
-    After calling this: flip ASXOS_PORTFOLIO_BRIEF_ENABLED to "1" in the env:
-    block of .github/workflows/daily-brief.yml and git push to main — there is
-    no Render REST API any more (Render was deleted 2026-08-12); the flag
-    takes effect on the next scheduled run.
+    There is no follow-on step. The flag this sign-off once unlocked, and the
+    brief section behind it, were deleted under A-34 (2026-09-14); the row
+    remains as the record that the paper-trade window was signed off.
     """
     if as_of is None:
         as_of = clock.today()
 
     parts = [
         "[m13_paper_signoff] Operator signed off ≥4 weeks of paper trading.",
-        "Next step: add ASXOS_PORTFOLIO_BRIEF_ENABLED=1 to the env: block of",
-        ".github/workflows/daily-brief.yml and git push to main.",
     ]
     if note:
         parts.append(note)

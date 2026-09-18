@@ -469,7 +469,7 @@ items:
     title: "Execute dark-launch DELETE verdict #1 — remove _portfolio_section and the ASXOS_PORTFOLIO_BRIEF_ENABLED gate; model-independent cards and asxos/domain/portfolio/ stay"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: build
     paths: ["asxos/brief/compose.py", "asxos/brief/section.py", "tests/test_brief_portfolio_section.py", "tests/test_brief_outcome.py"]
@@ -482,6 +482,15 @@ items:
       2026-09-16 by the first daily-product fire so the picker and roadmap-state.md's live
       block name the same next item (Amendment K: when they disagree, this file is wrong).
       Amber by shape (asxos/brief/ is investment output).
+      DONE 2026-09-19 by the daily-product fire. The surface was wider than the four paths
+      above: gold.py's decoder, both Jinja templates, the CLI sign-off next-step text and
+      three docstrings naming the gate all had to go with it. Three measurements taken before
+      writing code — the flag is set in no workflow/Makefile/toml/env-example; brief_section_gold
+      held 18 `portfolio` rows over 2026-08-24..09-18, EVERY ONE `EMPTY`, so the deletion
+      destroyed no stored record; and the freshness gate had been unsatisfiable since
+      build_portfolio last succeeded 2026-08-01. tests/test_portfolio_brief_gate_is_gone.py
+      guards the absence as an executable-reference (ast) check, not a text search, because the
+      string is supposed to survive in prose that records the removal.
 
   - id: A-35
     title: "Execute dark-launch DELETE verdict #3 — remove the ASXOS_V2_BRIEF_ENABLED branch (composer.py:94) and render_v2_html; the ten collectors stay, they are in production"
