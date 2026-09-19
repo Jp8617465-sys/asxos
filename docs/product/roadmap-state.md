@@ -1425,6 +1425,60 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-19 capability-audit session** (James: *"run all capabilities of the
+> project… how does it build me a portfolio, what should I do with my money, what is the macro…
+> where are the biggest opportunities"*, then *"build the product backlog, look at any issues and
+> let's get to work"*). The Stages 0→6 table at the top of this file remains the only ranked
+> queue. This block supersedes the 2026-09-18 block below it; the queue head is **unchanged** —
+> A-35 → E-20 → E-21.
+>
+> **The session's finding, and it reframes the product question.** arbi's opening read was that
+> asxos has "no allocation layer". `arbi-red-team` CHALLENGEd it and was right. There are **two**
+> allocation paths and conflating them misdiagnoses the product:
+> - The **old Model-A allocator** (`domain/portfolio/build.py`) is dormant by *ratified design* —
+>   Amendment F (James, 2026-08-19) ruled `build_portfolio` DELETED, and the
+>   `approved_for_allocation` gate is rule #11's enforcement point with a `DO NOT DELETE` banner
+>   over it. Last success 2026-07-11; in no workflow. **Reviving it would execute the opposite of
+>   a governor ruling.**
+> - The **current chain** (`domain/decision_engine/`: challenge → `sizer.py` → `staging.py`) is
+>   **built and tested**. It already does inverse-vol sizing with the ratified caps, and already
+>   renders a tax-aware, non-executable `StagedOrder` — the brokerage-instruction surface James
+>   asked about exists.
+>
+> **So "what should I do with my money" is gated on exactly one thing: C-13.** `derive_state`
+> returns `watch` whenever the challenge passed but `calibration is None`, and every call site
+> passes `None` because no producer exists — which is policy, not oversight (`portfolio-policy.md`:
+> *"arbi does not assume a number"*; governor ruling **F4**). The ruling-ready proposal has been on
+> `main` since 2026-09-07 (`docs/proposals/p5-01-risk-calibration-2026-09.md`, A-29/C-13).
+> **This is the single highest-value item in the repo and arbi cannot do it.**
+>
+> **Built this session (both `done`, both Amber):**
+> - **A-49** — LICs curated out of the equity sweep. Measured live: **6 of the 16** names the
+>   weekly scan surfaced to James were listed investment companies (FGG, FGX, HM1, LSF, PGF, WQG),
+>   a **38% false-positive rate on the headline output**. RI on a LIC is *circular* — its book value
+>   IS a marked securities portfolio. Also fixed the latent half: `security_kind` was written only
+>   on INSERT, so a row misclassified at first ingestion could never be corrected.
+> - **A-50** — the macro read reaches James. Three approved macro theses had been scored nightly
+>   since 2026-07-21 (29 runs) and reached no surface: `SECTION_ORDER` had no macro entry.
+>
+> **Filed:** A-51 (generalise the `security_kind` reconcile), A-52 (should RI value A-REITs? BWP
+> cleared the screen at value/price 1.45 and nobody has ruled — a valuation-DOMAIN question,
+> distinct from A-49's classification one), **E-28** (the ETF/fund lane — 487 ETFs tracked, all
+> with prices, **zero** with fundamentals, **zero** coverage by any lane; `north-star.md` names it
+> a first-class thesis flavour and moat layer 3, and at `min_position_aud` 1,000 against a ~A$8k
+> book it is the only instrument class that buys diversification inside one minimum position),
+> E-29 (re-run `/discover-macro` — all three theses were authored from a single 2026-07-03
+> snapshot and each says so in its own text; never falsified is not the same as re-examined).
+>
+> **Also recorded, not filed:** `detect_theme_stages` has not run since **2026-08-05** and
+> `compute_opportunity_cost` since **2026-08-01**. Both already have rows (C-4/D-12 and the
+> scheduler inventory); this session only confirms they are still dark.
+>
+> **#327 unchanged.** `pipeline-health` red, `weekly-research` fires Saturday 2026-09-19 16:00 UTC.
+> The session did not re-take it; the 18:30 UTC check-in still owns the first live read of the
+> proposals.
+
+
 > **Live as of the 2026-09-19 `daily-product` routine fire (fired 2026-09-18T17:31:38Z, held in
 > plan mode until 22:54Z — the second consecutive fire held that way, and this one for five
 > hours).** The Stages 0→6 table at the top of this file remains the only ranked queue. This block

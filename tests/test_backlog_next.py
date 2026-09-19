@@ -451,7 +451,14 @@ class TestSeed:
         assert [i.id for i in picked] == ["A-35", "E-20", "E-21"], [i.id for i in picked]
         # A-35 left this list on 2026-09-19: it was only ever here because it overlapped
         # A-34, and A-34 is built. E-27 still overlaps on tests/.
-        assert [i.id for i in skipped] == ["E-27"], [i.id for i in skipped]
+        # Re-pinned 2026-09-19 by the capability-audit session: six rows filed
+        # (A-49..A-52, E-28, E-29). PICKED is deliberately unchanged — A-49 and A-50 are
+        # `done` (built in that session), A-52 and E-29 are route=attended, and the two
+        # that reach the lane at all are both skipped for overlap: A-51 collides with
+        # A-35 on tests/, and E-28 with E-21 on docs/proposals/. A session that
+        # BUILDS two rows and files four more should move the skipped list and leave the
+        # head alone, which is what this asserts.
+        assert [i.id for i in skipped] == ["A-51", "E-27", "E-28"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
