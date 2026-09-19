@@ -22,6 +22,7 @@ from asxos.cli.decision import decision_app
 from asxos.cli.holdings import import_holdings
 from asxos.cli.journal import journal_app
 from asxos.cli.macro_thesis import macro_thesis_app
+from asxos.cli.mandate import mandate_app
 from asxos.cli.model import model_app
 from asxos.cli.news import news_app
 from asxos.cli.portfolio import build_portfolio, portfolio_app, propose_trades
@@ -53,6 +54,7 @@ app.command("propose-trades")(propose_trades)
 app.add_typer(model_app, name="model")
 app.add_typer(journal_app, name="journal")
 app.add_typer(profile_app, name="profile")
+app.add_typer(mandate_app, name="mandate")
 app.add_typer(news_app, name="news")
 app.add_typer(portfolio_app, name="portfolio")
 app.add_typer(position_app, name="position")

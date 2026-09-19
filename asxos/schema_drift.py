@@ -91,6 +91,7 @@ EXPECTED_UNAPPLIED: dict[str, str] = {
         "IF NOT EXISTS, applying it would be a no-op"
     ),
     "segment_map": "0045 — drafted, awaiting a governor decision to apply",
+    "mandate": "0061 — the mandate layer (PR-M, 2026-09-19); applied via the AGENTS.md §8 sequence when the PR lands",
     # 0060 thesis_revisions_packet_examined was here from draft to apply. APPLIED
     # 2026-09-17 as 20260917114415 via the AGENTS.md §8 migration sequence (A-47,
     # PR #325): migration-integration green on 8b8229b (run 35217100648),

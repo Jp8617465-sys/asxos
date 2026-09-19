@@ -8,6 +8,7 @@ his to make on system-proposed content:
     APPROVE thesis <id> <reason>
     REJECT thesis <id> <reason>
     DISPOSE <packet_id> <verdict> [note]      verdict: accept | request_revision | reject | defer
+    MANDATE approve|reject <id> <reason>      the derived mandate (0061) — ratification from a phone
 
 Only the first non-blank line of a comment is read; the rest is free text.
 Keywords are case-insensitive; ids are not. A comment that does not start with
@@ -46,9 +47,12 @@ _DISPOSE_RE: Final[re.Pattern[str]] = re.compile(
     r"^dispose\s+(?P<packet_id>dpk-[a-z0-9.\-]+)\s+(?P<verdict>[a-z_]+)(?:\s+(?P<note>\S.*))?$",
     re.IGNORECASE,
 )
+_MANDATE_RE: Final[re.Pattern[str]] = re.compile(
+    r"^mandate\s+(?P<verb>approve|reject)\s+(?P<mandate_id>\d+)\s+(?P<reason>\S.*)$", re.IGNORECASE
+)
 _VERDICTS: Final[frozenset[str]] = frozenset({"accept", "request_revision", "reject", "defer"})
 #: Words that begin a command line; anything else is data and is never reported on.
-_COMMAND_WORDS: Final[frozenset[str]] = frozenset({"approve", "reject", "dispose"})
+_COMMAND_WORDS: Final[frozenset[str]] = frozenset({"approve", "reject", "dispose", "mandate"})
 
 
 @dataclass(frozen=True)
@@ -73,7 +77,24 @@ class DisposeCommand:
         return f"DISPOSE {self.packet_id} {self.verdict}"
 
 
-Command = ThesisGovernanceCommand | DisposeCommand
+@dataclass(frozen=True)
+class MandateGovernanceCommand:
+    """`MANDATE approve|reject <id> <reason>` — ratify or refuse a derived mandate.
+
+    The comment carries only the id: the goals behind a mandate are personal
+    data and never appear on the issue; the memo James read arrived by email.
+    """
+
+    action: Literal["approve", "reject"]
+    mandate_id: int
+    reason: str
+
+    @property
+    def summary(self) -> str:
+        return f"MANDATE {self.action.upper()} {self.mandate_id}"
+
+
+Command = ThesisGovernanceCommand | DisposeCommand | MandateGovernanceCommand
 
 
 class CommandSyntaxError(ValueError):
@@ -136,6 +157,17 @@ def parse_command(body: str) -> Command | None:
         return ThesisGovernanceCommand(
             action=m.group("verb").lower(),  # type: ignore[arg-type]
             thesis_id=int(m.group("thesis_id")),
+            reason=m.group("reason").strip(),
+        )
+    if word == "mandate":
+        m = _MANDATE_RE.match(line)
+        if m is None:
+            raise CommandSyntaxError(
+                "expected `MANDATE approve|reject <id> <reason>` — the reason is required"
+            )
+        return MandateGovernanceCommand(
+            action=m.group("verb").lower(),  # type: ignore[arg-type]
+            mandate_id=int(m.group("mandate_id")),
             reason=m.group("reason").strip(),
         )
     m = _DISPOSE_RE.match(line)
