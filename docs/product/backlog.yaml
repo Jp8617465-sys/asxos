@@ -1963,3 +1963,119 @@ items:
       never have bound on any queue this system has had, and expiry discards unreviewed
       proposals rather than reviewing them. The bottleneck is review throughput; a write-side
       cap does not touch it.
+
+  - id: A-49
+    title: "LICs are curated out of the equity sweep — 6 of 16 weekly candidates were listed investment companies"
+    phase: A
+    owner: arbi
+    status: done
+    depends_on: []
+    route: build
+    paths: ["asxos/ingestion/universe.py", "tests/"]
+    source: >-
+      Session 2026-09-18/19 capability audit. Measured live: EODHD types every ASX LIC as
+      "Common Stock", so LICs landed as au_equity and entered the residual-income sweep and the
+      liquidity screen. Six of the sixteen names the 2026-09-16 scan surfaced to James were LICs
+      (FGG, FGX, HM1, LSF, PGF, WQG) — a 38% false-positive rate on the headline output. RI on a
+      LIC is CIRCULAR: the LIC's book value IS a marked securities portfolio, so "value vs price"
+      restates NTA vs price while presenting as an earnings valuation. The deferral was explicit
+      in the code ("a curated LIC/REIT reclassification is a later refinement", justified as
+      preserving Model A eligibility) and its justification died with PR #144 / rule #11.
+      Also fixed the latent half: security_kind was written ONLY on INSERT, so a row misclassified
+      at first ingestion could never be corrected. A-REITs deliberately excluded (build.py:52-53).
+
+  - id: A-50
+    title: "The macro read reaches James — regime card with falsifier state in the daily brief"
+    phase: A
+    owner: arbi
+    status: done
+    depends_on: []
+    route: build
+    paths: ["asxos/brief/compose.py", "asxos/brief/section.py", "asxos/brief/templates/brief.html.j2", "tests/"]
+    source: >-
+      Session 2026-09-18/19 capability audit. Three approved macro theses scored nightly by
+      score_macro_theses since 2026-07-21 (29 successful runs) reached no surface: SECTION_ORDER
+      had no macro entry. Renders the part that decays — falsifier tripped or not, elapsed against
+      the thesis's own horizon, authored date — not the prose, which stays behind
+      `asx macro-thesis show`. Falsified rows sort first. Band is `impersonal` (AGENTS.md §7), so
+      deliberately ungated on ASXOS_PERSONAL_USE, same as `regulatory`.
+
+  - id: A-51
+    title: "Generalise the security_kind reconcile beyond the curated LIC set"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: [A-49]
+    route: build
+    paths: ["asxos/ingestion/universe.py", "tests/"]
+    source: >-
+      A-49 fixed the reconcile narrowly on purpose: it corrects only TO 'lic', and only for a
+      curated symbol, so it cannot rewrite a hand-set us_equity/index row. That leaves the general
+      case open — if EODHD retypes an existing symbol (Common Stock -> ETF, say), the stored kind
+      still never changes, because security_kind is written only on INSERT. Needs a rule for which
+      transitions are safe to apply automatically and which need a human, since the out-of-band
+      us_equity/index rows are hand-set and must survive. Not urgent: no observed retype yet.
+
+  - id: A-52
+    title: "Should the residual-income model value A-REITs? BWP is in the passing sixteen and nobody has ruled"
+    phase: A
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["asxos/domain/valuation/", "docs/product/"]
+    source: >-
+      Session 2026-09-18/19. A-49 deliberately left A-REITs as au_equity: build.py:52-53 relies on
+      it so a genuine delisting is still force-sold, and a REIT's book is marked PROPERTY rather
+      than marked securities, so the circularity argument that removed the LICs does not carry.
+      But it does not follow that RI is the right lens for a REIT either — book is appraisal-based
+      and revalued, earnings carry revaluation gains, and BWP.AU cleared the 2026-09-16 screen at
+      value/price 1.45. This is a valuation-DOMAIN question, distinct from A-49's classification
+      question, and it is unruled rather than settled. Attended: needs live valuation_runs probing
+      across the A-REIT cohort before any change.
+
+  - id: E-28
+    title: "The ETF/fund thesis lane — 487 ETFs tracked, zero coverage by any lane, and the only instrument class an A$8k book can diversify into"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: mission
+    paths: ["asxos/domain/themes/", "asxos/domain/theses/", "docs/proposals/"]
+    source: >-
+      Session 2026-09-18/19 capability audit, measured live: 487 active etf rows, ALL with prices
+      (22,343 rows, current to 2026-09-17) and ZERO with fundamentals. north-star.md names
+      "ETF / fund — the breakdown of the fund: what it holds, its exposures, and why it earns a
+      place (e.g. real VGS/VAS coverage, not just a ticker)" as one of three first-class thesis
+      flavours, and moat layer 3 (theme stewardship). Live theme coverage is 1 approved theme and
+      1 approved theme_holding. A-41's own recommended r3 sequence puts "ASX-quoted global ETFs
+      first (zero new cost/surface)" ahead of any US path. The book-size argument is independent
+      and arguably stronger: at min_position_aud 1,000 and per_name_cap_pct 0.10, a ~A$8k book
+      cannot hold 20 names, so a fund is the only instrument that buys diversification inside one
+      minimum position. No fundamentals means the lane is holdings/exposure-based, not RI-based —
+      which is what north-star asked for anyway.
+      MEASURED BLOCKER, found before any design (2026-09-19): ETF price history is 50 rows MAX and
+      starts 2026-07-10 — avg 45.9, median 50, and **zero of the 487 have 60+ rows**. So the 60-day
+      volatility every sizing path requires (`inverse_vol_weights`, and `sizer.py` through it)
+      cannot be computed for ANY ETF today, and neither can momentum or correlation. The first
+      slice of this row is therefore a PRICE BACKFILL for security_kind='etf', not a thesis lane;
+      anything built before that backfill silently omits every candidate (the documented
+      insufficient-history silent-omit in portfolio-conventions.md). Shares its shape with E-23
+      (the delisting-inclusive equity backfill) and should probably share its §8 sitting.
+
+  - id: E-29
+    title: "Re-run /discover-macro — all three approved macro theses were authored from a single 2026-07-03 snapshot"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: [A-50]
+    route: attended
+    paths: ["docs/product/"]
+    source: >-
+      Session 2026-09-18/19. macro_theses 6, 7 and 11 were authored 2026-07-21/22 and each states
+      a single-snapshot limitation in its OWN text ("all trend claims here are inferred from one
+      day's cross-sectional divergence, not from any observed time series"). None has been
+      falsified, which is not the same as re-examined — the distinction A-50's card now prints.
+      Now that the read is visible in the brief, its age is visible too. Attended: /discover-macro
+      dispatches an agent, and every proposal reaches `approved` only through
+      `asx macro-thesis open --from-agent-run` then `asx macro-thesis approve`.

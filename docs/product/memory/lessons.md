@@ -1270,3 +1270,30 @@ the rule applied as written. A wrong clock produced a wrong decision that looked
 section boundary rather than estimating.** `_preamble.md` §4 already says the budget is wall-clock
 and to check it at every boundary; the failure was not following it, and then trusting the feeling
 of elapsed time over the instrument.
+
+## L63 — "there is no X layer" is a claim about the whole repo, and one package cannot support it (2026-09-19)
+
+I read `asxos/domain/portfolio/`, found the allocator dead at two gates and its candidate source a
+stub that raises, and concluded the product **had no allocation layer**. I then ranked a three-PR
+programme to rebuild it. `arbi-red-team` CHALLENGEd the call and was right on the decisive points.
+
+`asxos/domain/decision_engine/` had already rebuilt the whole thing, model-independently:
+`sizer.py` does Decimal-only inverse-vol sizing with the ratified caps and documents why the
+whole-book waterfall is deliberately not called; `staging.py` renders a tax-aware, non-executable
+`StagedOrder` with lot selection delegated to `domain/tax/lots`. Both were shipped slices. Worse,
+the old allocator's dormancy was a **ratified governor ruling** (Amendment F, James, 2026-08-19:
+`build_portfolio` DELETED), so the plan would have executed the opposite of a decision already
+made — and two supporting claims I wrote down were simply false (`constraints.drop_below_minimum`
+does not exist; the real `trim_min_position` has a live caller).
+
+This is **L59 one level up**. L59 was "a runbook written from the domain layer will describe work
+the scheduler already does". The same shape at repo scale: a capability claim derived from the
+package where the capability *used* to live will miss the package it moved to — and a *negative*
+claim ("there is no…") is the most dangerous kind, because the evidence for it is an absence, and
+an absence in one directory looks identical to an absence everywhere.
+
+**Before writing "the product cannot X", grep the whole package tree for X's vocabulary and open
+every hit, then check whether a governor ruling already decided X's fate.** A negative capability
+claim needs a repo-wide search and a governance check, not a reading of the obvious module. And
+run the red-team *before* the plan hardens: it cost four minutes and saved three PRs of work
+pointed the wrong way.

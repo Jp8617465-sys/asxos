@@ -19,7 +19,12 @@ from asxos.ingestion.prices import (
     to_price_rows,
     to_us_price_rows,
 )
-from asxos.ingestion.universe import _TYPE_TO_KIND, refresh_universe
+from asxos.ingestion.universe import (
+    _CURATED_LIC_SYMBOLS,
+    _TYPE_TO_KIND,
+    classify_kind,
+    refresh_universe,
+)
 
 # ---------------------------------------------------------------------------
 # _is_retryable
@@ -563,9 +568,9 @@ async def test_refresh_universe_delists_absent_active_skips_inactive_out_of_band
         {"Code": "BHP", "Name": "BHP", "Type": "Common Stock", "Sector": ""},
     ])
     conn = _mk_universe_conn(existing_rows=[
-        {"symbol": "BHP.AU", "is_active": True},     # still listed → unchanged
-        {"symbol": "CBA.AU", "is_active": True},     # active, now absent → delist
-        {"symbol": "HUBS.NYSE", "is_active": False}, # inactive out-of-band → skip
+        {"symbol": "BHP.AU", "is_active": True, "security_kind": "au_equity"},   # still listed → unchanged
+        {"symbol": "CBA.AU", "is_active": True, "security_kind": "au_equity"},   # active, now absent → delist
+        {"symbol": "HUBS.NYSE", "is_active": False, "security_kind": "us_equity"},  # inactive out-of-band → skip
     ])
 
     counts = await refresh_universe(client, conn)
@@ -589,7 +594,7 @@ async def test_refresh_universe_reactivates_relisted_symbol():
     client.exchange_symbols = AsyncMock(return_value=[
         {"Code": "TLS", "Name": "Telstra", "Type": "Common Stock", "Sector": ""},
     ])
-    conn = _mk_universe_conn(existing_rows=[{"symbol": "TLS.AU", "is_active": False}])
+    conn = _mk_universe_conn(existing_rows=[{"symbol": "TLS.AU", "is_active": False, "security_kind": "au_equity"}])
 
     counts = await refresh_universe(client, conn)
 
@@ -601,3 +606,106 @@ async def test_refresh_universe_reactivates_relisted_symbol():
     ]
     assert reactivated == ["TLS.AU"]
     assert counts["reactivated"] == 1
+
+
+# ---------------------------------------------------------------------------
+# refresh_universe — curated LIC reclassification (2026-09-18)
+#
+# EODHD types every ASX listed investment company as "Common Stock", so LICs landed as
+# au_equity and entered the residual-income sweep, whose valuation of a LIC is circular
+# (its book value IS a marked securities portfolio). Six of the sixteen names the weekly
+# scan surfaced on 2026-09-16 were LICs. These pin both halves of the fix: new rows
+# classify correctly, and — because security_kind was otherwise written ONLY on INSERT —
+# already-wrong rows are reconciled.
+# ---------------------------------------------------------------------------
+
+
+def _captured_updates(conn, needle):
+    return [c.args for c in conn.execute.await_args_list if needle in c.args[0]]
+
+
+@pytest.mark.asyncio
+async def test_curated_lic_overrides_common_stock_on_insert():
+    """A curated LIC typed "Common Stock" by EODHD is inserted as lic, not au_equity."""
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "WQG", "Name": "WCM Global Growth Ltd", "Type": "Common Stock", "Sector": ""},
+        {"Code": "LSF", "Name": "L1 Long Short Fund Ltd", "Type": "Common Stock", "Sector": ""},
+        {"Code": "BHP", "Name": "BHP Group Ltd", "Type": "Common Stock", "Sector": "Materials"},
+    ])
+    conn = _mk_universe_conn(existing_rows=[])
+
+    await refresh_universe(client, conn)
+
+    kind_by_sym = {ins[0]: ins[3] for ins in _captured_inserts(conn)}
+    assert kind_by_sym == {"WQG.AU": "lic", "LSF.AU": "lic", "BHP.AU": "au_equity"}
+
+
+@pytest.mark.asyncio
+async def test_curated_lic_reconciles_an_already_misclassified_row():
+    """The live defect: a curated LIC already stored as au_equity is corrected in place.
+
+    security_kind is written only on INSERT, so without the reconcile branch this row stays
+    au_equity forever and keeps re-entering the valuation sweep every week.
+    """
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "FGX", "Name": "Future Generation Australia Ltd", "Type": "Common Stock", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(
+        existing_rows=[{"symbol": "FGX.AU", "is_active": True, "security_kind": "au_equity"}]
+    )
+
+    counts = await refresh_universe(client, conn)
+
+    updates = _captured_updates(conn, "security_kind = 'lic'")
+    assert [u[1] for u in updates] == ["FGX.AU"]
+    assert counts["reclassified"] == 1
+    assert counts["unchanged"] == 1
+
+
+@pytest.mark.asyncio
+async def test_reclassification_is_idempotent_and_narrow():
+    """Re-running over corrected rows writes nothing; non-curated kinds are never rewritten.
+
+    The narrowness matters more than the idempotence: the branch corrects only TO 'lic' and
+    only for a curated symbol, so it cannot rewrite a hand-set us_equity/index row.
+    """
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "FGX", "Name": "Future Generation Australia Ltd", "Type": "Common Stock", "Sector": ""},
+        {"Code": "BHP", "Name": "BHP Group Ltd", "Type": "Common Stock", "Sector": "Materials"},
+    ])
+    conn = _mk_universe_conn(existing_rows=[
+        {"symbol": "FGX.AU", "is_active": True, "security_kind": "lic"},        # already correct
+        {"symbol": "BHP.AU", "is_active": True, "security_kind": "au_equity"},  # not curated
+    ])
+
+    counts = await refresh_universe(client, conn)
+
+    assert _captured_updates(conn, "security_kind") == []
+    assert counts["reclassified"] == 0
+
+
+@pytest.mark.asyncio
+async def test_areits_and_property_operators_stay_au_equity():
+    """A-REITs and property operators are deliberately NOT reclassified.
+
+    portfolio/build.py::forced_sell_inactive_symbols relies on A-REITs staying au_equity so a
+    genuine delisting is still force-sold, and a REIT's book is marked property rather than
+    marked securities, so the circularity argument does not carry. CWP is an operating
+    homebuilder that a name-based matcher would have wrongly caught.
+    """
+    for sym in ("BWP.AU", "ARF.AU", "CQR.AU", "GOZ.AU", "WPR.AU", "CWP.AU", "AXI.AU"):
+        assert sym not in _CURATED_LIC_SYMBOLS
+        assert classify_kind(sym, "Common Stock") == "au_equity"
+
+
+def test_curated_set_contains_the_six_that_reached_the_candidate_scan():
+    """The measured defect, pinned: the six LICs in the 2026-09-16 passing set of sixteen."""
+    assert {"FGG.AU", "FGX.AU", "HM1.AU", "LSF.AU", "PGF.AU", "WQG.AU"} <= _CURATED_LIC_SYMBOLS
+
+
+def test_curated_symbols_are_exchange_qualified():
+    """Every entry must carry the .AU suffix _to_symbol produces, or the override never fires."""
+    assert all(s.endswith(".AU") for s in _CURATED_LIC_SYMBOLS)

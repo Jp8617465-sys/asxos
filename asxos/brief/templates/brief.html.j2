@@ -292,6 +292,67 @@
      Nothing here derives from `signals`, `shap_factors`, `prob_up` or any model
      (rule #11) — the residual-income model is not Model A and is quarantined
      from targets, not from arithmetic. #}
+  <!-- macro:start -->
+  {% if d.macro_error %}
+  <h2>Macro</h2>
+  <div class="banner">
+    <strong>The macro read could not be loaded.</strong> {{ d.macro_error }}
+    The regime this book sits in is unknown right now — which is not the same
+    as there being no regime view.
+  </div>
+  {% elif d.macro %}
+  <h2>Macro — the regime this book sits in ({{ d.macro | length }})</h2>
+  <p class="meta">
+    Your approved macro theses, re-evaluated last night against the market
+    context feed. Each one named, in advance, the observation that would make
+    it wrong; the falsifier column is that test. A tripped falsifier asks you to
+    review the thesis — nothing is retired or changed automatically.
+    "Elapsed" is against the thesis's own stated horizon.
+  </p>
+  <table>
+    <tr><th>Thesis</th><th>Quadrant</th><th>Horizon</th><th>Elapsed</th><th>Falsifier</th><th>Authored</th></tr>
+    {% for m in d.macro %}
+    <tr>
+      <td>
+        {% if m.falsifier_triggered %}<strong>⚠ FALSIFIED</strong> — {% endif %}
+        {{ m.title }}
+      </td>
+      <td>{{ m.regime_quadrant | replace('_', ' ') if m.regime_quadrant else '—' }}</td>
+      <td>{{ m.horizon_months ~ ' mo' if m.horizon_months is not none else '—' }}</td>
+      <td>
+        {%- if m.days_elapsed is not none and m.days_to_horizon is not none -%}
+          {{ m.days_elapsed }}d of {{ m.days_elapsed + m.days_to_horizon }}d
+        {%- else -%}—{%- endif -%}
+      </td>
+      <td>{{ 'TRIPPED' if m.falsifier_triggered else 'not tripped' }}</td>
+      <td>{{ m.authored_at }}</td>
+    </tr>
+    <tr>
+      <td colspan="6" class="meta">
+        Status {{ m.status }}{% if m.scored_as_of %}, scored {{ m.scored_as_of }}{% else %}, never scored{% endif %}.
+        Read it in full: <span class="mono">asx macro-thesis show {{ m.macro_thesis_id }}</span>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="meta">
+    A macro thesis is a backdrop, not an instruction: it says which regime you
+    believe you are in, and what observation would prove you wrong. It is a
+    claim about the market and names no security. Read the authored date against
+    how much the world has moved — a regime view ages, and an old one that has
+    simply never been falsified is not the same as one that has been
+    re-examined.
+  </p>
+  {% else %}
+  <h2>Macro</h2>
+  <p class="meta">
+    No approved macro thesis. There is no written regime view behind the
+    current book — propose one with <span class="mono">/discover-macro</span>,
+    then <span class="mono">asx macro-thesis open --from-agent-run</span>.
+  </p>
+  {% endif %}
+  <!-- macro:end -->
+
   <!-- candidates:start -->
   {% if d.candidates_error %}
   <h2>Candidates</h2>

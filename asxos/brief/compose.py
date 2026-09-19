@@ -226,6 +226,48 @@ class JobFailure:
 
 
 @dataclass(frozen=True)
+class MacroRow:
+    """One approved macro thesis and last night's evaluation of it.
+
+    The regime read this system holds, with how far through its stated horizon
+    it is and whether its own falsifier has tripped. `jobs/score_macro_theses.py`
+    UPSERTs one `macro_thesis_outcomes` row per approved thesis per run,
+    idempotent on (macro_thesis_id, as_of).
+
+    `falsifier_triggered` is the load-bearing field and the reason this row is
+    worth rendering at all. A macro thesis is a pre-commitment: it names, in
+    advance and in machine-checkable terms, the observation that would make it
+    wrong. A tripped falsifier is the macro analogue of a thesis invalidation
+    and asks James to review — it NEVER auto-retires the thesis or changes its
+    governance_status (migration 0041: "system proposes, human decides").
+
+    `authored_at` is carried because all three live theses state a
+    single-snapshot limitation in their own text; a regime read's age is part
+    of the read. `catalyst_progress` is NULL whenever the thesis encoded no
+    machine-checkable catalyst predicate — an absent measurement, not zero
+    progress, and it renders as "—" rather than 0%.
+
+    Investment-output band: **impersonal** (AGENTS.md §7). Every field is a
+    market-wide regime claim; nothing here references a holding, a position
+    size or a trade direction, so this card carries no s766B personal-advice
+    surface and is not gated on ASXOS_PERSONAL_USE — the same treatment as the
+    `regulatory` section.
+    """
+
+    macro_thesis_id: int
+    title: str
+    regime_quadrant: str | None
+    horizon_months: int | None
+    status: str
+    catalyst_progress: Decimal | None
+    falsifier_triggered: bool
+    days_elapsed: int | None
+    days_to_horizon: int | None
+    authored_at: date
+    scored_as_of: date
+
+
+@dataclass(frozen=True)
 class CandidateRow:
     """One machine-proposed name awaiting governance review.
 
@@ -326,6 +368,8 @@ class BriefData:
     # week look identical to a reader and only one of them is honest.
     candidates: list[CandidateRow] = field(default_factory=list)
     candidates_error: str | None = None
+    macro: list[MacroRow] = field(default_factory=list)
+    macro_error: str | None = None
 
     @property
     def resolved_sections(self) -> dict[str, SectionResult]:
@@ -351,6 +395,8 @@ class BriefData:
             news_error=None,
             candidates=self.candidates,
             candidates_error=self.candidates_error,
+            macro=self.macro,
+            macro_error=self.macro_error,
             computed_at=computed,
             data_as_of=self.data_as_of,
         )
@@ -581,6 +627,17 @@ async def collect(as_of: date) -> BriefData:
         except Exception as exc:
             candidates_error = f"candidates section could not run: {exc}"
 
+        # Same isolation again. A macro read that could not be loaded must not
+        # render as "no macro theses" — the regime the book sits in being
+        # unknown is a different fact from there being no regime view, and only
+        # one of them is ordinary.
+        macro: list[MacroRow] = []
+        macro_error: str | None = None
+        try:
+            macro = await _macro(conn)
+        except Exception as exc:
+            macro_error = f"macro section could not run: {exc}"
+
         # Sequential on the same connection — never asyncio.gather (asyncpg #56).
         deltas = await load_book_delta(conn, as_of)
 
@@ -601,6 +658,8 @@ async def collect(as_of: date) -> BriefData:
         news_error=news_error,
         candidates=candidates,
         candidates_error=candidates_error,
+        macro=macro,
+        macro_error=macro_error,
         computed_at=computed_at,
         data_as_of=data_as_of,
     )
@@ -620,6 +679,8 @@ async def collect(as_of: date) -> BriefData:
         deltas=deltas,
         candidates=candidates,
         candidates_error=candidates_error,
+        macro=macro,
+        macro_error=macro_error,
     )
 
 
@@ -689,6 +750,64 @@ async def _candidates(conn: asyncpg.Connection, as_of: date) -> list[CandidateRo
             last_close=r["last_close"],
             model_value=r["value_per_share"],
             proposed_at=r["opened_at"].date(),
+        )
+        for r in rows
+    ]
+
+
+async def _macro(conn: asyncpg.Connection) -> list[MacroRow]:
+    """Approved macro theses with last night's evaluation, falsified first.
+
+    Ordering is the one editorial decision here and it is deliberate: a tripped
+    falsifier sorts to the top, because it is the only row that asks James to
+    do something. Everything below it is context. Within each group the order
+    is `macro_thesis_id` — stable, and not a ranking of conviction.
+
+    The outcome row is LEFT-joined on the thesis's most recent evaluation, so a
+    newly approved thesis that `score_macro_theses` has not reached yet still
+    renders, with its measurements absent rather than the row vanishing
+    (CLAUDE.md #10). `scored_as_of` is therefore per-thesis, not a single
+    brief-wide date, and the card prints it so a stale evaluation is visible
+    instead of being read as last night's.
+
+    Reads only `macro_theses` and `macro_thesis_outcomes`. Nothing here touches
+    `signals`, `model_versions` or any `asxos.domain.models` import (rule #11).
+    """
+    rows = await conn.fetch(
+        """
+        SELECT m.macro_thesis_id, m.title, m.regime_quadrant, m.horizon_months,
+               m.created_at,
+               o.as_of, o.status, o.catalyst_progress, o.falsifier_triggered,
+               o.days_elapsed, o.days_to_horizon
+        FROM macro_theses m
+        LEFT JOIN LATERAL (
+            SELECT as_of, status, catalyst_progress, falsifier_triggered,
+                   days_elapsed, days_to_horizon
+            FROM macro_thesis_outcomes
+            WHERE macro_thesis_id = m.macro_thesis_id
+            ORDER BY as_of DESC
+            LIMIT 1
+        ) o ON TRUE
+        WHERE m.governance_status = 'approved'
+          AND m.retired_at IS NULL
+        ORDER BY COALESCE(o.falsifier_triggered, FALSE) DESC, m.macro_thesis_id
+        """
+    )
+    return [
+        MacroRow(
+            macro_thesis_id=r["macro_thesis_id"],
+            title=r["title"],
+            regime_quadrant=r["regime_quadrant"],
+            horizon_months=r["horizon_months"],
+            # An un-evaluated thesis has no status of its own; say so rather
+            # than defaulting it to 'open', which would assert a measurement.
+            status=r["status"] or "unscored",
+            catalyst_progress=r["catalyst_progress"],
+            falsifier_triggered=bool(r["falsifier_triggered"]),
+            days_elapsed=r["days_elapsed"],
+            days_to_horizon=r["days_to_horizon"],
+            authored_at=r["created_at"].date(),
+            scored_as_of=r["as_of"],
         )
         for r in rows
     ]

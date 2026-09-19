@@ -31,6 +31,7 @@ SECTION_ORDER: tuple[str, ...] = (
     "outcome",
     "regulatory",
     "news",
+    "macro",
     "candidates",
 )
 
@@ -97,6 +98,8 @@ def assemble_sections(
     data_as_of: Any = None,
     candidates: list[Any] | None = None,
     candidates_error: str | None = None,
+    macro: list[Any] | None = None,
+    macro_error: str | None = None,
 ) -> dict[str, SectionResult]:
     """Pure mapper: live collect() payloads → SectionResult dict.
 
@@ -144,6 +147,10 @@ def assemble_sections(
     # EMPTY is the ordinary weekly state: "nothing new cleared the gates" — see
     # `_candidates` in compose.py.
     cand_status, cand_error = _status_for(candidates_error, has_data=bool(candidates))
+
+    # EMPTY means no approved macro thesis exists — a real and readable state,
+    # distinct from MISSING (the read failed and the regime is unknown).
+    macro_status, macro_err = _status_for(macro_error, has_data=bool(macro))
 
     jobs_status = SectionStatus.EMPTY if not job_failures else SectionStatus.FRESH
     reg_status = SectionStatus.EMPTY if not regulatory_hits else SectionStatus.FRESH
@@ -198,6 +205,14 @@ def assemble_sections(
             computed_at=computed_at,
             source="sql:holding_news" if news_error is None else "fn:_news_section",
             error=news_err,
+        ),
+        SectionResult(
+            name="macro",
+            status=macro_status,
+            data=None if macro_status is SectionStatus.MISSING else list(macro or []),
+            computed_at=computed_at,
+            source="sql:macro_theses[approved]+macro_thesis_outcomes",
+            error=macro_err,
         ),
         SectionResult(
             name="candidates",
