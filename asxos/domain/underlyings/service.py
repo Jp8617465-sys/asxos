@@ -37,7 +37,7 @@ _DEFAULTS: list[dict[str, Any]] = [
     {"code": "aud_cny", "name": "AUD/CNY Exchange Rate", "category": "currency", "unit": "AUD/CNY", "data_source": "eodhd:AUDCNY.FOREX"},
     {"code": "rba_cash_rate", "name": "RBA Cash Rate Target", "category": "rate", "unit": "%", "data_source": "fred:AUCBCNTO"},
     {"code": "aus_10y_yield", "name": "Australia 10Y Government Bond Yield", "category": "rate", "unit": "%", "data_source": "fred:IRLTLT01AUM156N"},
-    {"code": "us_hy_oas", "name": "US High-Yield OAS (FRED BAMLH0A0HYM2)", "category": "rate", "unit": "bps", "data_source": "fred:BAMLH0A0HYM2"},
+    {"code": "us_hy_oas", "name": "US High-Yield OAS (FRED BAMLH0A0HYM2)", "category": "rate", "unit": "%", "data_source": "fred:BAMLH0A0HYM2"},  # FRED publishes this in percent; "bps" was the label that made the v1.0 classifier defect look intended
     {"code": "xjo", "name": "ASX 200 Index", "category": "index", "unit": "points", "data_source": "eodhd:AXJO.INDX"},
 ]
 
