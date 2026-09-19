@@ -38,6 +38,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import asyncpg
 
+from asxos.ingestion.symbols import eodhd_symbol
+
 if TYPE_CHECKING:
     # Deliberately NOT a module-top runtime import (P2-04 Step 0): importing
     # `asxos.ingestion.eodhd` executes `asxos.config` (`config.py:108`
@@ -356,7 +358,14 @@ async def refresh_financial_statements(
                 return
             try:
                 try:
-                    fund: Any = await client.fundamentals(sym)
+                    # Request in the vendor's namespace, store under the project
+                    # symbol — the same two-step `prices.py::refresh_us_prices`
+                    # takes. `HUBS.NYSE` is `HUBS.US` to EODHD; sent unchanged it
+                    # 404s, lands in the `except` below as a counted-and-skipped
+                    # failure, and the run stays green with the symbol absent.
+                    # That is how #328's widened selection produced zero HUBS
+                    # rows on its first live run (2026-09-19, incident #327).
+                    fund: Any = await client.fundamentals(eodhd_symbol(sym))
                 except Exception:
                     fund = None
                 if fund is None:

@@ -171,8 +171,10 @@ class FakeClient:
     def __init__(self, funds: dict, errors: set | None = None) -> None:
         self._funds = funds
         self._errors = errors or set()
+        self.requested: list[str] = []
 
     async def fundamentals(self, symbol: str):
+        self.requested.append(symbol)
         if symbol in self._errors:
             raise RuntimeError("boom")
         return self._funds.get(symbol, {})
@@ -232,6 +234,43 @@ async def test_refresh_tolerates_errors_and_avoids_prod_tables():
         assert "universe" not in low
         assert " prices" not in low
     assert any("rs_financial_statements" in s.lower() for s, _ in conn.executed_many)
+
+
+@pytest.mark.asyncio
+async def test_refresh_requests_the_vendor_symbol_and_stores_the_project_symbol():
+    """Incident #327, second half. #328 widened the selection to held US names,
+    and the first live run (2026-09-19) still wrote zero HUBS rows: the fetch sent
+    `HUBS.NYSE` to EODHD, which only knows `HUBS.US`, and the resulting error was
+    counted as a failure and skipped — the run stayed green with the symbol
+    absent. Mirror of `prices.py::refresh_us_prices`: translate on the way out,
+    store under the project symbol on the way back so the FK to `universe` holds.
+    """
+    client = FakeClient({"HUBS.US": _FUND})
+    conn = FakeConn()
+    counts = await refresh_financial_statements(
+        client, conn, ["HUBS.NYSE"], as_of=D("2026-06-24"), concurrency=1
+    )
+    assert client.requested == ["HUBS.US"], "the request must be in EODHD's namespace"
+    assert counts["failed"] == 0
+    assert counts["symbols_with_statements"] == 1
+    assert counts["statements"] == 3
+    (_sql, upsert_rows), = conn.executed_many
+    assert len(upsert_rows) == 3
+    for row in upsert_rows:
+        assert "HUBS.NYSE" in row, "rows are stored under the project symbol"
+        assert "HUBS.US" not in row, "the vendor form must never reach the table"
+
+
+@pytest.mark.asyncio
+async def test_refresh_leaves_asx_symbols_untouched_on_the_way_out():
+    """`eodhd_symbol` passes `.AU` through unchanged; the pin above must not
+    have changed the request for the 4,000-odd names that were already right."""
+    client = FakeClient({"CBA.AU": _FUND})
+    conn = FakeConn()
+    await refresh_financial_statements(
+        client, conn, ["CBA.AU"], as_of=D("2026-06-24"), concurrency=1
+    )
+    assert client.requested == ["CBA.AU"]
 
 
 # --- knowledge_tier: how much the date is worth (2026-09-02, campaign node H2-A) ---
