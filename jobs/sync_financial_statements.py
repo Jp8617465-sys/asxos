@@ -59,6 +59,13 @@ async def _load_symbols(conn, *, active_only: bool, limit: int | None) -> list[s
     red. The held US names are unioned in from `holding_lots`, the one source that
     does not go through `universe.is_active`.
 
+    Selecting the symbol was half of it. On the first live run with this union
+    (2026-09-19) HUBS still landed zero rows, because `refresh_financial_statements`
+    sent the project symbol `HUBS.NYSE` to EODHD unchanged, which only knows
+    `HUBS.US`; the fetch failed, was counted and skipped, and the run stayed green.
+    The fetch now translates through `asxos.ingestion.symbols.eodhd_symbol` the way
+    the price path always has, and stores under the project symbol.
+
     `--limit` applies to the master selection only. The held set is small, bounded by
     open lots, and is the reason this function exists — capping it away under a limit
     would silently reintroduce the bug on any limited run.
