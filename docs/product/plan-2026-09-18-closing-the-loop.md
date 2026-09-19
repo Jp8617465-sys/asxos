@@ -1,6 +1,6 @@
 # Plan — closing the loop: from brief, to decision, to brokerage instruction
 
-**Status:** proposed — awaiting James
+**Status:** SUPERSEDED 2026-09-19 by `plan-2026-09-19-mandate-sleeves-paper-book.md` — James ruled the same day that sleeves pick *and* size on paper and that capital/structure derive from a mandate layer; Phase 1's verbs and Phase 2's staged order survive inside the new plan (sections D and A4). Retained as the dated diagnosis.
 **Author:** arbi
 **Date:** 2026-09-18
 **Evidence base:** `capability-atlas-2026-09-18.md` (same session, all claims re-verified live)
