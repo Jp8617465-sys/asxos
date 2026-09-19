@@ -2054,6 +2054,14 @@ items:
       cannot hold 20 names, so a fund is the only instrument that buys diversification inside one
       minimum position. No fundamentals means the lane is holdings/exposure-based, not RI-based —
       which is what north-star asked for anyway.
+      MEASURED BLOCKER, found before any design (2026-09-19): ETF price history is 50 rows MAX and
+      starts 2026-07-10 — avg 45.9, median 50, and **zero of the 487 have 60+ rows**. So the 60-day
+      volatility every sizing path requires (`inverse_vol_weights`, and `sizer.py` through it)
+      cannot be computed for ANY ETF today, and neither can momentum or correlation. The first
+      slice of this row is therefore a PRICE BACKFILL for security_kind='etf', not a thesis lane;
+      anything built before that backfill silently omits every candidate (the documented
+      insufficient-history silent-omit in portfolio-conventions.md). Shares its shape with E-23
+      (the delisting-inclusive equity backfill) and should probably share its §8 sitting.
 
   - id: E-29
     title: "Re-run /discover-macro — all three approved macro theses were authored from a single 2026-07-03 snapshot"

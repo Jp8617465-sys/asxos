@@ -219,11 +219,25 @@ The regime read exists, is governed, is scored nightly — and reaches no surfac
 | Discipline | **Real** — 27 revisions, 63 invalidation runs, the clock invariant holds |
 | Tax | **Real** — spec v1.5, the deepest test coverage in the repo, **no brief surface** |
 | Themes | **1 approved theme** (`big-4-banks`), 1 approved holding, stager stopped 2026-08-05 |
-| ETFs | **487 in universe, zero coverage by any lane** |
+| ETFs | **487 in universe, zero coverage by any lane** — and only 50 days of price history each (see §6.1) |
 | Signals (ML) | Shelved 2026-07-11, quarantined by rule #11 |
 
 The two layers named as the product's moat after the ML shelf — **themes and ETFs** — are the
 two with almost nothing in them.
+
+### 6.1 The ETF lane has a prerequisite nobody has measured until now
+
+Measured 2026-09-19: all 487 active ETFs carry prices, but the history is **50 rows at most**,
+beginning **2026-07-10** — average 45.9, median 50, and **zero of them have 60 or more rows**.
+
+That matters more than it looks. The 60-day volatility window is the input to
+`inverse_vol_weights`, and therefore to `sizer.py`, and a symbol with insufficient history is
+**silently omitted** from candidates by design (`portfolio-conventions.md`). So an ETF lane built
+today would run, report nothing, and be correct to do so — the failure mode that looks exactly
+like a working system with nothing to say.
+
+**The first slice of the ETF lane is a price backfill, not a thesis engine.** It shares its shape
+with E-23 (the delisting-inclusive equity backfill) and probably its §8 sitting.
 
 ## 7. What this means for the money
 
