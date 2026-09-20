@@ -1,0 +1,98 @@
+# AUD-base FX history backfill (Block 0 of the valuation method family, #360).
+#
+# WHY THIS EXISTS. 75 symbols are blocked on `currency_unconvertible` — they
+# report in a currency the valuation has no rate for. `fx_rates` held AUDUSD and
+# nothing else (one pair, 108 rows), so the conversion had no rates to convert
+# with. This lays down daily history for the nine pairs that cohort needs:
+#
+#   NZD 43 · CAD 15 · EUR 4 · GBP 4 · PGK 4 · SGD 2 · MYR 1 · IDR 1 · HKD 1
+#
+# WHY A BACKFILL AND NOT JUST THE DAILY PHASE. `sync_prices` now keeps these
+# pairs current, but a valuation reads the rate AT ITS CUTOFF, and the sealed
+# V/P replay runs at 2025 cutoffs. Without history those cutoffs find no rate
+# and the cohort stays blocked at exactly the dates the predictive test
+# measures. Converting a 2025 book value at today's rate would instead be a
+# look-ahead leak. History is what makes the point-in-time read honest.
+#
+# WHY DISPATCH-ONLY. It fills history, and history does not change. The ongoing
+# value arrives through sync_prices. A schedule would re-fetch four years every
+# night to change nothing.
+#
+# WHAT THIS EXPOSES (AGENTS.md §8 — a workflow edit is Amber and must record
+# which secrets, which triggers, which branches run it):
+#   - Secrets: DATABASE_URL and EODHD_API_KEY. EODHD_API_KEY is already held by
+#     `daily-brief` and `weekly-research`, which call the same client; no new
+#     secret is created and no existing workflow's scope changes. No FRED,
+#     RESEND, GitHub or Supabase token.
+#   - Trigger: workflow_dispatch only. No schedule, no repo event. This lane
+#     therefore does NOT fall in the set reserved to James by
+#     `.claude/rules/job-conventions.md` (a `schedule:` AND EODHD/RESEND), and
+#     `tests/test_workflow_dispatch_scope.py` computes that set from the files.
+#   - Branch: checks out refs/heads/main. A workflow holding a production secret
+#     must never run at a PR head.
+#
+# WHAT IT WRITES. `fx_rates` only, upserted on (pair, dt) — idempotent, so a
+# re-dispatch rewrites the same rows. It touches no valuation, no price, no
+# thesis and no capital surface. Re-running the valuation sweep afterwards is a
+# separate, deliberate act.
+#
+# COST (AGENTS.md §2). Nine requests, one per pair, regardless of how far back
+# `from` reaches — EODHD returns a full series per call. Immaterial against the
+# A$50/day cap. The ongoing daily cost is the same nine calls inside
+# `sync_prices`, which already runs.
+#
+# PARTIAL SUCCESS IS A RESULT, NOT A FAILURE. Each pair is fetched
+# independently; one EODHD does not serve is reported in `failed` and skipped.
+# PGK and IDR are the doubtful ones and are worth five symbols between them, so
+# losing either should cost five symbols rather than the other seventy.
+
+name: fx-backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Earliest date to fetch (YYYY-MM-DD)"
+        required: false
+        default: "2022-01-01"
+        type: string
+      persist:
+        description: "Fetch and write. Unchecked = dry-run, write nothing."
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: fx-backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+      ASXOS_PERSONAL_USE: "1"
+      ASXOS_TZ: "Australia/Sydney"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Fetch AUD-base FX history for the blocked currencies
+        run: |
+          python jobs/backfill_fx.py \
+            --from "${{ inputs.from }}" \
+            ${{ inputs.persist && '--persist' || '' }}

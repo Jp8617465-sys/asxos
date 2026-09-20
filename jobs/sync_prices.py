@@ -37,6 +37,7 @@ from asxos.domain.prices.coverage import (
 from asxos.domain.prices.fx import foreign_symbol_sql
 from asxos.ingestion.eodhd import get_client
 from asxos.ingestion.prices import (
+    VALUATION_FX_PAIRS,
     fetch_and_upsert_bulk,
     fetch_and_upsert_index_symbol,
     fetch_and_upsert_us_symbol,
@@ -238,6 +239,32 @@ async def _sync_fx_rates(from_date: date, client, conn) -> int:
     return n
 
 
+async def _sync_valuation_fx_rates(from_date: date, client, conn) -> int:
+    """Phase 3b: the AUD-base pairs the VALUATION needs, not the book.
+
+    Separate from `_sync_fx_rates` and UNCONDITIONAL, because the two answer
+    different questions. AUDUSD exists to value a US lot the book holds, so it
+    is correctly skipped when there are no US lots. These pairs exist to convert
+    a foreign REPORTER — 75 symbols blocked on `currency_unconvertible`, of which
+    58 are NZD and CAD — and none of them is held. Gating them on holdings would
+    mean the cohort unblocks only by coincidence.
+
+    Best-effort per pair: a pair EODHD does not serve is logged and skipped, so
+    one unavailable currency cannot cost the daily price sync. The valuation
+    then leaves that cohort blocked, which is the honest outcome.
+    """
+    total = 0
+    for pair in VALUATION_FX_PAIRS:
+        try:
+            raw = await client.daily_prices(f"{pair}.FOREX", from_date=from_date.isoformat())
+        except Exception as exc:
+            log.warning("sync_prices FX: %s unavailable — %s: %s", pair, type(exc).__name__, exc)
+            continue
+        total += await upsert_fx_rates(conn, to_fx_rows(raw, pair=pair))
+    log.info("sync_prices FX: %d valuation-pair rows from %s", total, from_date)
+    return total
+
+
 async def main(from_date: date | None) -> None:
     today = clock.today()
 
@@ -337,6 +364,11 @@ async def main(from_date: date | None) -> None:
                 fx_rows = await _sync_fx_rates(fx_from, client, conn)
         else:
             log.info("sync_prices FX: no US lots — skipping AUDUSD fetch")
+
+        # Phase 3b — the valuation's own pairs, unconditionally. History is laid
+        # down once by jobs/backfill_fx.py; this only keeps the series current.
+        async with acquire() as conn:
+            fx_rows += await _sync_valuation_fx_rates(start, client, conn)
 
         # Price-completeness classification (Batch 1 Step 2 — additive, NON-gating).
         # Classifies ASX-equity coverage from the Phase-1 AU bulk count of the

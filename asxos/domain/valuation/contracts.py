@@ -159,8 +159,18 @@ class ValuationInputs(Contract):
     pit_knowledge_date: date
     reporting_currency: str | None = Field(default=None, max_length=10)
     currency_verified: bool
+    #: The AUDUSD rate, populated ONLY for a USD reporter. Retained with its
+    #: original meaning rather than renamed to something general: `payload` is
+    #: content-addressed and append-only (0054), and a consumer reading
+    #: `fx_audusd` must never start receiving an NZD rate under that name.
+    #: `fx_rate`/`fx_pair` below are the general form — read those.
     fx_audusd: Decimal | None = Field(default=None, gt=0)
     fx_as_of: date | None = None
+    #: The AUD-base pair actually used (`AUDUSD`, `AUDNZD`, …) and its rate, in
+    #: the quoted currency's units per one AUD. Both None when the reporter is
+    #: already in AUD. `fx_as_of` is shared: it dates whichever rate was used.
+    fx_pair: str | None = Field(default=None, min_length=6, max_length=6)
+    fx_rate: Decimal | None = Field(default=None, gt=0)
     book_value_ps_native: Decimal = Field(gt=0)
     book_value_ps_aud: Decimal = Field(gt=0)
     roe_trailing: Decimal = Field(gt=0)
@@ -179,8 +189,18 @@ class ValuationInputs(Contract):
     def validate_dates(self) -> Self:
         if self.pit_knowledge_date < self.pit_as_of:
             raise ValueError("pit_knowledge_date cannot precede pit_as_of")
-        if (self.fx_audusd is None) != (self.fx_as_of is None):
-            raise ValueError("fx_audusd and fx_as_of travel together")
+        if (self.fx_rate is None) != (self.fx_as_of is None):
+            raise ValueError("fx_rate and fx_as_of travel together")
+        if (self.fx_rate is None) != (self.fx_pair is None):
+            raise ValueError("fx_rate and fx_pair travel together")
+        # The legacy field is the USD special case of the general one, so when
+        # both are present they must agree — otherwise a reader of each gets a
+        # different number for the same conversion.
+        if self.fx_audusd is not None:
+            if self.fx_pair != "AUDUSD":
+                raise ValueError("fx_audusd is only set for an AUDUSD conversion")
+            if self.fx_audusd != self.fx_rate:
+                raise ValueError("fx_audusd and fx_rate disagree on the same conversion")
         return self
 
 
