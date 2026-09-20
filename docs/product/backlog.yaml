@@ -509,7 +509,7 @@ items:
     title: "Execute dark-launch DELETE verdict #3 — remove the ASXOS_V2_BRIEF_ENABLED branch (composer.py:94) and render_v2_html; the ten collectors stay, they are in production"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: build
     paths: ["asxos/domain/brief/composer.py", "asxos/domain/brief/renderer.py", "asxos/brief/compose.py", "tests/test_brief_v2_caveat.py", "tests/test_brief_outcome.py"]
@@ -520,6 +520,19 @@ items:
       collectors are ALREADY in production (composer.py:28-36). Filed as a row 2026-09-16 by
       the first daily-product fire. Overlaps A-34 on asxos/brief/compose.py, so the picker
       takes one per fire. Amber by shape (asxos/brief/, asxos/domain/brief/).
+      DONE 2026-09-20 by the daily-product fire. Measured before deleting, per the A-34
+      precedent: ASXOS_V2_BRIEF_ENABLED was set in NO workflow, Makefile, toml or env example,
+      so the V2 template never rendered once. Surface was wider than these paths (L61 again):
+      the frozen template asxos/brief/templates/_archive/brief_v2.html.j2 and its README went
+      too — that README stated the copy existed ONLY to serve this renderer — and
+      tests/test_domain_purity.py's shrink-only allow-list had to drop renderer.py, because
+      removing the jinja2 import made the entry stale and that gate fails in BOTH directions
+      by design. One correction surfaced in passing: renderer.py's docstring claimed
+      render_html was 'used by jobs/compose_brief.py'; it is not — that job imports the
+      identically-named function from asxos.brief.compose. The domain render_html has no
+      production caller and now says so. tests/test_v2_brief_gate_is_gone.py guards the
+      absence as an executable-reference (ast) check, mutation-verified: reintroducing the
+      gate turns 2 of its 6 red.
 
   - id: A-36
     title: "F-E2E/S1 — ValuationRun + ScenarioPreregistration contracts, repository, jobs/run_valuation.py over the active ASX equity universe (both conventions, gaps as blocked rows), weekly in weekly-research.yml"
@@ -2092,3 +2105,31 @@ items:
       Now that the read is visible in the brief, its age is visible too. Attended: /discover-macro
       dispatches an agent, and every proposal reaches `approved` only through
       `asx macro-thesis open --from-agent-run` then `asx macro-thesis approve`.
+
+  - id: E-30
+    title: "check_cron_health cannot distinguish a NEW degradation from a KNOWN PERMANENT one, so pipeline-health pages nightly on a condition nobody can fix (#327)"
+    phase: E
+    owner: arbi
+    status: open
+    depends_on: []
+    route: attended
+    paths: ["jobs/check_cron_health.py", "asxos/jobs/utils/job_monitor.py"]
+    source: >-
+      Filed 2026-09-20 by the daily-product fire, replacing the remedy the 2026-09-19 fire
+      proposed off-hand. SETTLED FACT: EODHD does not serve fundamentals for HUBS.NYSE — after
+      weekly-research 35461405865 concluded success and sync_financial_statements wrote 437,031
+      rows, HUBS has ZERO rows and ZERO of 3,379 distinct symbols in rs_financial_statements are
+      non-.AU. #328's union is correct and ran; the vendor returns nothing. So build_decision_case
+      raises for it every night, the DEGRADED note recurs, and check_cron_health pages forever.
+      THE REMEDY IS NOT "make build_decision_case report instead of raise". That was my suggestion
+      on 2026-09-19 and it is wrong: it runs straight into CLAUDE.md #10 (no graceful warnings in
+      infra code, fail loudly), and the builder ALREADY reports loudly — the note is the report.
+      The defect is in the watchdog's vocabulary: it has exactly one state for "something is
+      degraded" and no way to say "this degradation is known, permanent, and already triaged".
+      A watchdog that pages nightly on an unfixable condition trains its reader to ignore it,
+      which costs more than the original gap. Route=attended because the design choice is real:
+      an acknowledge/suppress mechanism can hide a genuine regression behind a stale
+      acknowledgement, so whatever shape it takes needs a rule about expiry and re-raise —
+      closer to the dark-launch expiry discipline than to a mute button. Pass test: a permanently
+      unavailable input is visible in the brief and on the issue, and pipeline-health goes green
+      on it, WITHOUT any ability to silence a degradation that has not been triaged.

@@ -81,8 +81,9 @@ numbered it 7. Left as found; renumbering here would not fix it.)
      (`docs/product/roadmap-state.md:252-254`).
      Model-independent by construction — no `signals`, no `resolve_production_model()`.
      Gated on ASXOS_PERSONAL_USE=1 only (§3 parity), which
-     `.github/workflows/daily-brief.yml` already sets; no new flag, and explicitly
-     not `ASXOS_V2_BRIEF_ENABLED` (the V2 tree stays dark, deferred to Stage 6).
+     `.github/workflows/daily-brief.yml` already sets; no new flag. It was once
+     also contrasted against `ASXOS_V2_BRIEF_ENABLED`; that gate and the dark V2
+     rendering branch were deleted under A-35.
 """
 
 from __future__ import annotations
@@ -1499,11 +1500,11 @@ async def _lot_outcomes(conn: asyncpg.Connection, as_of: date) -> OutcomeSection
     the outcome layer's own sleeve check refuses it.
 
     Gated on ``ASXOS_PERSONAL_USE=1`` only — parity with `_discipline_findings`,
-    which `.github/workflows/daily-brief.yml` already sets. Deliberately NOT
-    gated on ``ASXOS_V2_BRIEF_ENABLED`` (the V2 tree is dark and deferred to
-    Stage 6; this section ships on V1 precisely so it does not wait on that
-    flag). It was once also ungated from ``ASXOS_PORTFOLIO_BRIEF_ENABLED``;
-    that gate was deleted under A-34.
+    which `.github/workflows/daily-brief.yml` already sets. It was once also
+    described as ungated from ``ASXOS_PORTFOLIO_BRIEF_ENABLED`` and
+    ``ASXOS_V2_BRIEF_ENABLED``; both gates have since been deleted, under A-34
+    and A-35 respectively, so ``ASXOS_PERSONAL_USE`` is the only gate left to
+    name.
     """
     if os.environ.get("ASXOS_PERSONAL_USE") != "1":
         return None
