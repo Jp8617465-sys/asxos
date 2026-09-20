@@ -21,10 +21,38 @@
 # work under a single scoped PAT, that separation bought nothing and cost two
 # job spin-ups plus a matrix of SHA re-assertions.
 #
-# WHY NO `schedule:`/`workflow_run:` YET — the old blocker (no credential
+# WHY NO `schedule:`/`workflow_run:` YET — and the reason has changed twice, so
+# read this rather than the sentence it replaced.
+#
+# SUPERSEDED 2026-09-20. This block used to read: "the old blocker (no credential
 # scopable to `claude/**`) is solved by ARBI_GITHUB_TOKEN. No trigger is armed in
 # this PR only because that secret does not exist yet; arbi arms the cadence once
-# James creates it.
+# James creates it." ARBI_GITHUB_TOKEN HAS EXISTED SINCE 2026-09-14 (James;
+# fine-grained, `asxos` only, Actions/Contents/Issues/PRs/Workflows read-write).
+# The sentence outlived its fact by six days and would send the next reader looking
+# for a secret that is already there. Corrected rather than deleted, because the
+# same claim was cited from two other places.
+#
+# THE ACTUAL BLOCKER IS A-22, and as of 2026-09-20 it is half closed (#353):
+#   PROVEN — auto mode engages in a headless run. weekly-toolwatch run 34846052898
+#     (2026-09-14) shows the installed user settings echoed with
+#     `defaultMode: auto`, `settingSources: [user, project, local]`, and a result
+#     block reading `permission_denials_count: 0` over 44 turns. Decisively, that
+#     run WROTE: it pushed `claude/toolwatch-20260914` and opened PR #259. Under a
+#     Manual fallback with `--permission-prompts none`, every one of those actions
+#     is denied with no prompt.
+#   NOT PROVEN — that `CLAUDE_PROJECT_DIR` resolves so `.claude/hooks/secrets-guard.sh`
+#     runs rather than exiting 127. The full 1,002-line job log contains zero
+#     occurrences of `secrets-guard` or `CLAUDE_PROJECT_DIR`, and the log says why
+#     itself: "Running Claude Code via SDK (full output hidden for security)". This
+#     is a measurement gap, not a negative result — the instrument cannot see it.
+#     Closing it needs either `show_full_output: true` (a secrets-surface decision
+#     on the one lane holding the PAT, so James's call) or a behavioural probe that
+#     reads the guard's EFFECT rather than its trace.
+#
+# The 2026-09-14 arming trigger — >=10 open click-list rows AND a week of product
+# PRs to triage — is now MET (42 rows; 20 PRs merged 2026-09-17..19), so it is no
+# longer what holds this lane back. A-22's second proof is.
 
 name: nightly-triage
 

@@ -296,14 +296,27 @@ items:
     source: "harness-profiles.md §Standing dispatch condition 6; roadmap-state.md 2026-09-03 item 1"
 
   - id: A-22
-    title: "Provision and red-team a branch-scoped producer credential for the three standing lanes"
+    title: "Prove secrets-guard.sh actually runs on the runner — the second half of the first-dispatch gate; auto mode is already proven"
     phase: A
     owner: james
     status: open
     depends_on: [A-21]
     route: james
     paths: []
-    source: "security-perf-mission-loop.md §9 open P1 / §10-A gate 7"
+    source: >-
+      RETITLED 2026-09-20 (#353). Was "Provision and red-team a branch-scoped producer
+      credential for the three standing lanes", which described a gate that closed on
+      2026-09-14 when James created ARBI_GITHUB_TOKEN. Half of what remained is now also
+      closed: auto mode is PROVEN to engage headlessly — weekly-toolwatch run 34846052898
+      shows defaultMode:auto installed, permission_denials_count 0 over 44 turns, and the
+      run pushed claude/toolwatch-20260914 and opened PR #259, none of which a Manual
+      fallback with --permission-prompts none would have allowed. What is left is one
+      thing: proving CLAUDE_PROJECT_DIR resolves so .claude/hooks/secrets-guard.sh runs
+      rather than exiting 127. The job log cannot show it — "Running Claude Code via SDK
+      (full output hidden for security)" — so closing this needs either show_full_output
+      (a secrets-surface call on the lane holding the PAT, James's) or a probe that reads
+      the guard's effect instead of its trace. Originally security-perf-mission-loop.md §9
+      P1 / §10-A gate 7.
 
   - id: A-23
     title: "After A-22 closes, review and merge the automatic-trigger PR — the next observed scheduled fire is ONLINE"
