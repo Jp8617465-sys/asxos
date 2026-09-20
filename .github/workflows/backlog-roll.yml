@@ -47,13 +47,24 @@
 # click-list. Kept as a corrected note rather than deleted, because the old text was cited
 # from three other places and a reader arriving from one of them needs to see it superseded.
 #
-# WHY NO `schedule:` YET — two reasons, and the credential is no longer either of them.
+# WHY NO `schedule:` YET — three reasons, and the credential is none of them.
 # (1) A-20: HC_BACKLOG_URL is unset, and STEP 0 below is fail-closed, so this lane cannot
 #     start at all — which is why it has 0 runs ever. That secret is James's to create.
-# (2) The arming trigger ruled on 2026-09-14 (decision-log): lanes stay workflow_dispatch-only
-#     until the backlog carries >=10 open click-list rows (met, 42) AND a week of product PRs
-#     exists to triage (not met). Earliest re-check 2026-09-21. A deadman is an alarm for a
-#     schedule that does not exist yet, so (1) is not urgent while (2) holds.
+#     This is the binding one for THIS lane: arming a schedule on it today would produce a
+#     red run every night and nothing else.
+# (2) A-22, half closed as of 2026-09-20 (#353): auto mode is PROVEN to engage headlessly
+#     (weekly-toolwatch run 34846052898 — `defaultMode: auto` installed,
+#     `permission_denials_count: 0` over 44 turns, a branch pushed and PR #259 opened,
+#     none of which a Manual fallback with `--permission-prompts none` would have allowed).
+#     What is NOT proven is that CLAUDE_PROJECT_DIR resolves so secrets-guard.sh runs rather
+#     than exiting 127 — the log has zero occurrences of either name, because the action
+#     hides the agent's output for security. A measurement gap, not a negative result.
+# (3) UPDATED 2026-09-20 — the arming trigger ruled 2026-09-14 (>=10 open click-list rows
+#     AND a week of product PRs to triage) said the second half was NOT met, with an
+#     earliest re-check of 2026-09-21. Both halves are now met: 42 click-list rows, and 20
+#     PRs merged 2026-09-17..19. The trigger is no longer what holds any lane back.
+# The picker itself is healthy — `python scripts/backlog_next.py` returned 6 eligible on
+# 2026-09-20, confirming #262's DENIED_FILES re-derivation still holds.
 
 name: backlog-roll
 
