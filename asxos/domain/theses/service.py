@@ -623,6 +623,30 @@ async def log_evidence(
     )
 
 
+async def get_latest_governance_event(
+    conn: asyncpg.Connection, thesis_id: int
+) -> dict[str, Any] | None:
+    """The most recent `governance_events` row for a thesis, or None.
+
+    Exists so `asx thesis show` can render *why* a row sits at its
+    `governance_status`, not only that it does. A status word on its own says a
+    transition happened; the reasoning says what the row actually is — which is
+    the whole value of the audit trail and, until this, was visible only to
+    someone who thought to query `governance_events` by hand.
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT from_status, to_status, event_at, reasoning, actor
+        FROM governance_events
+        WHERE object_type = 'thesis' AND object_id = $1
+        ORDER BY event_at DESC, event_id DESC
+        LIMIT 1
+        """,
+        thesis_id,
+    )
+    return dict(row) if row else None
+
+
 async def list_thesis_evidence(
     conn: asyncpg.Connection, thesis_id: int, *, include_superseded: bool = False
 ) -> list[dict[str, Any]]:

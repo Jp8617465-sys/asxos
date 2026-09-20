@@ -275,10 +275,13 @@ async def _show_thesis(symbol: str, full_report: bool = False) -> None:
     try:
         async with acquire() as conn:
             t = await svc.get_thesis_by_symbol(conn, symbol)
+            # Read the governance reasoning in the same connection block: a status
+            # word alone says a transition happened, not what the row actually is.
+            event = await svc.get_latest_governance_event(conn, t.thesis_id) if t else None
         if t is None:
             console.print(f"[yellow]No thesis found for {symbol}[/yellow]")
             raise typer.Exit(1)
-        _print_thesis_detail(t)
+        _print_thesis_detail(t, governance_event=event)
         if full_report:
             _print_report_sections(t)
     finally:
@@ -935,8 +938,18 @@ async def _set_earnings(symbol: str, next_earnings_date: date, notes: str) -> No
 # Display helpers
 # ---------------------------------------------------------------------------
 
-def _print_thesis_detail(t: Thesis) -> None:
-    """Print a thesis in a key-value Rich panel."""
+def _print_thesis_detail(
+    t: Thesis, *, governance_event: dict[str, Any] | None = None
+) -> None:
+    """Print a thesis in a key-value Rich panel.
+
+    `governance_event` is the latest `governance_events` row, when the caller has
+    read one. Rendering its reasoning next to the status is what makes a marking
+    legible: `retired` alone says a transition happened, while the reasoning says
+    what the row actually is — a demo fixture, an ESPP holding, a thesis that
+    served out. Only `show` passes it; the transition commands print their own
+    confirmation line and do not need it echoed back.
+    """
     deadline_str = "—"
     if t.timeline_days and t.opened_at:
         deadline = t.opened_at.date() + timedelta(days=t.timeline_days)
@@ -975,6 +988,15 @@ def _print_thesis_detail(t: Thesis) -> None:
         table.add_row(key, val)
 
     console.print(table)
+
+    if governance_event is not None:
+        console.print(
+            f"\n[bold]Governance — why:[/bold] "
+            f"[dim]{governance_event['from_status']} → {governance_event['to_status']} "
+            f"on {governance_event['event_at'].date()} "
+            f"({governance_event['actor']})[/dim]"
+        )
+        console.print(f"  {escape(governance_event['reasoning'])}")
 
     if t.invalidation_conditions:
         console.print("\n[bold]Invalidation conditions:[/bold]")
