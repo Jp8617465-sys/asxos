@@ -176,6 +176,10 @@ def test_repo_keys_are_unique_and_cover_every_file() -> None:
         "theses into approved"
     )
     assert "risk_free_pit" in keys, "0058 point-in-time risk-free series must be tracked"
+    assert "evidence_stance" in keys, (
+        "0061 must be tracked — it adds the nullable stance column that makes "
+        "'what disconfirming evidence did I record' an answerable question"
+    )
     assert "initial" in keys
 
 

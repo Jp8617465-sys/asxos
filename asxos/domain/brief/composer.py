@@ -11,15 +11,18 @@ Phase-2 parallel collectors (timeout=30s, asyncio.gather):
 
 Footer: section_health (synchronous, pure)
 
-V2 rendering gated behind ASXOS_V2_BRIEF_ENABLED=1. When 0 (default),
-falls back to V1 collect() + render_html() for backward-compat email output.
+Rendering is the V1 path, unconditionally. The dark V2 rendering branch and its
+ASXOS_V2_BRIEF_ENABLED gate were DELETED under A-35 (dark-launch verdict #3,
+issued 2026-09-14). The flag was set in no workflow, Makefile, toml or env
+example, so the V2 template never rendered once; the ten collectors above are
+unaffected and remain in production — they feed `brief_runs` and the snapshot
+regardless of which template renders the email.
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-import os
 from dataclasses import replace
 from datetime import date
 
@@ -90,17 +93,12 @@ async def compose(as_of: date) -> Brief:
 
     snapshot = build_snapshot(v2_sections)
 
-    # Rendering: V2 template if gate is on, else V1 backward-compat path
-    if os.environ.get("ASXOS_V2_BRIEF_ENABLED") == "1":
-        from asxos.domain.brief.renderer import render_v2_html
-        rendered_html = render_v2_html(
-            Brief(as_of=as_of, sections=tuple(v2_sections), snapshot=snapshot)
-        )
-    else:
-        from asxos.brief.compose import collect as v1_collect
-        from asxos.brief.compose import render_html as v1_render_html
-        v1_data = await v1_collect(as_of)
-        rendered_html = v1_render_html(v1_data)
+    # Rendering: the V1 path, unconditionally (A-35 deleted the dark V2 branch).
+    from asxos.brief.compose import collect as v1_collect
+    from asxos.brief.compose import render_html as v1_render_html
+
+    v1_data = await v1_collect(as_of)
+    rendered_html = v1_render_html(v1_data)
 
     brief = Brief(
         as_of=as_of,

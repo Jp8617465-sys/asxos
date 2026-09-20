@@ -448,7 +448,11 @@ class TestSeed:
         # all along, since the two share tests/test_brief_outcome.py. The tail is
         # unchanged, which is the shape to expect when a lane finishes a row rather
         # than filing one.
-        assert [i.id for i in picked] == ["A-35", "E-20", "E-21"], [i.id for i in picked]
+        # Re-pinned 2026-09-20 by the daily-product fire that BUILT A-35 (dark-launch
+        # DELETE verdict #3). Same shape as the A-34 -> A-35 move the night before:
+        # the built row drops out, and the row that was only ever skipped for
+        # overlapping it takes the head. A-51 collided with A-35 on tests/.
+        assert [i.id for i in picked] == ["A-51", "E-20", "E-21"], [i.id for i in picked]
         # A-35 left this list on 2026-09-19: it was only ever here because it overlapped
         # A-34, and A-34 is built. E-27 still overlaps on tests/.
         # Re-pinned 2026-09-19 by the capability-audit session: six rows filed
@@ -458,7 +462,11 @@ class TestSeed:
         # A-35 on tests/, and E-28 with E-21 on docs/proposals/. A session that
         # BUILDS two rows and files four more should move the skipped list and leave the
         # head alone, which is what this asserts.
-        assert [i.id for i in skipped] == ["A-51", "E-27", "E-28"], [i.id for i in skipped]
+        #
+        # 2026-09-20: A-51 leaves this list by being PROMOTED, not dropped — the fire that
+        # built A-35 removed the row it collided with, so it is now the head above. E-28
+        # still collides with E-21 on docs/proposals/.
+        assert [i.id for i in skipped] == ["E-27", "E-28"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml

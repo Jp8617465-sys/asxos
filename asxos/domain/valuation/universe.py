@@ -9,7 +9,8 @@ AUDUSD). Rule #11: the statements below name no Model A surface, and
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Final, Protocol
@@ -158,8 +159,51 @@ SQL_AUDUSD_LATEST: Final[str] = (
     "SELECT dt, rate FROM fx_rates WHERE pair = 'AUDUSD' AND dt <= $1 ORDER BY dt DESC LIMIT 1"
 )
 
-for _sql in (SQL_UNIVERSE_INPUTS, SQL_REPLAY_INPUTS, SQL_RISK_FREE_LATEST, SQL_AUDUSD_LATEST):
+#: Every AUD-base pair, latest at or before the cutoff — one row per pair.
+#:
+#: POINT-IN-TIME BY CONSTRUCTION, and that is the whole reason this is a
+#: `DISTINCT ON` over `dt <= $1` rather than a read of the newest row per pair.
+#: Converting a 2025 book value at today's rate is a look-ahead leak: the
+#: valuation would know an exchange rate that did not exist when its
+#: fundamentals were published. `SQL_AUDUSD_LATEST` already had this shape; this
+#: generalises it without loosening it.
+#:
+#: `AUD` is deliberately absent from the result by construction — there is no
+#: AUDAUD pair — so a pair row can never be mistaken for "no conversion needed".
+SQL_FX_LATEST_ALL: Final[str] = """
+SELECT DISTINCT ON (pair) pair, dt, rate
+FROM fx_rates
+WHERE dt <= $1
+ORDER BY pair, dt DESC
+"""
+
+for _sql in (
+    SQL_UNIVERSE_INPUTS,
+    SQL_REPLAY_INPUTS,
+    SQL_RISK_FREE_LATEST,
+    SQL_AUDUSD_LATEST,
+    SQL_FX_LATEST_ALL,
+):
     assert_valuation_sql_admissible(_sql)
+
+#: `fx_rates.pair` is stored as a six-character AUD-base code (`AUDUSD`,
+#: `AUDNZD`, …) where the rate is that currency's units per one AUD. The
+#: reporting currency is the trailing three characters.
+FX_PAIR_PREFIX: Final[str] = "AUD"
+
+
+def currency_from_pair(pair: str) -> str | None:
+    """`AUDNZD` -> `NZD`. None for anything that is not an AUD-base six-code.
+
+    Returns None rather than raising: `fx_rates` is an ingestion table and a
+    future non-AUD-base pair should be ignored by the valuation, not crash a
+    sweep of 1,836 names.
+    """
+    p = pair.strip().upper()
+    if len(p) != 6 or not p.startswith(FX_PAIR_PREFIX):
+        return None
+    quote = p[3:]
+    return None if quote == FX_PAIR_PREFIX else quote
 
 
 class Conn(Protocol):
@@ -191,12 +235,47 @@ class UniverseRow:
 
 @dataclass(frozen=True)
 class MarketInputs:
-    """The two universe-wide inputs. Either absent hard-fails the run (CLAUDE.md #10)."""
+    """The universe-wide inputs.
+
+    `risk_free` and `audusd` are REQUIRED and either absent hard-fails the run
+    (CLAUDE.md #10) — unchanged.
+
+    `fx` is the general AUD-base rate map, keyed by the reporting currency and
+    holding (rate, as_of) where the rate is that currency's units per one AUD,
+    the same convention `audusd` already uses. It is BEST-EFFORT by design: a
+    missing NZD rate must block the 43 symbols that report in NZD, not fail the
+    sweep of 1,836 that do not. Convertibility is therefore a property of this
+    map at the cutoff rather than a static list — a pair that stops being
+    ingested re-blocks its cohort instead of silently valuing on a stale rate.
+
+    `audusd` is duplicated into `fx["USD"]` so the general path and the legacy
+    field cannot disagree; `fx_for` is the only reader either should use.
+    """
 
     risk_free: Decimal
     risk_free_as_of: date
     audusd: Decimal
     audusd_as_of: date
+    fx: Mapping[str, tuple[Decimal, date]] = field(default_factory=dict)
+
+    def fx_for(self, currency: str | None) -> tuple[Decimal, date] | None:
+        """The (rate, as_of) for a reporting currency, or None when unconvertible.
+
+        AUD needs no conversion and returns None — callers treat a None rate as
+        "already in AUD", which is why this cannot be used as a convertibility
+        test on its own. `is_convertible` is that test.
+        """
+        if currency is None or currency == "AUD":
+            return None
+        if currency == "USD":
+            return (self.audusd, self.audusd_as_of)
+        return self.fx.get(currency)
+
+    def is_convertible(self, currency: str | None) -> bool:
+        """True when a valuation can express this currency in AUD at the cutoff."""
+        if currency is None:
+            return False
+        return currency == "AUD" or self.fx_for(currency) is not None
 
 
 def _opt_dec(value: object) -> Decimal | None:
@@ -256,11 +335,25 @@ async def load_market_inputs(conn: Conn, *, cutoff_date: date) -> MarketInputs:
             f"no AUDUSD rate in fx_rates at or before {cutoff_date} — USD reporters cannot be "
             "converted; run sync_prices (FX phase) before the valuation sweep"
         )
+    # AUDUSD hard-fails above and every other pair is best-effort. The asymmetry
+    # is deliberate: USD is the one currency the book itself holds (the ESPP
+    # lot), so its absence is a broken sweep, while a missing NZD rate should
+    # block the 43 names reporting in NZD and leave the other 1,793 valued.
+    rates: dict[str, tuple[Decimal, date]] = {}
+    for row in await conn.fetch(SQL_FX_LATEST_ALL, cutoff_date):
+        currency = currency_from_pair(str(row["pair"]))
+        if currency is None:
+            continue
+        rate = dec(row["rate"])
+        if rate <= 0:
+            continue  # a non-positive rate is unusable; leave the cohort blocked
+        rates[currency] = (rate, row["dt"])
     return MarketInputs(
         risk_free=dec(rf["aus_10y_yield"]) / Decimal("100"),
         risk_free_as_of=rf["as_of"],
         audusd=dec(fx["rate"]),
         audusd_as_of=fx["dt"],
+        fx=rates,
     )
 
 

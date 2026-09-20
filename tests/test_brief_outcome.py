@@ -348,18 +348,17 @@ def test_section_absent_without_personal_use() -> None:
     assert _all_queries(conn) == [], "gated-out loader still hit the database"
 
 
-def test_gate_is_not_the_v2_flag(personal_use: Any) -> None:
-    """Parity with `_discipline_findings`: one gate, and it is already set.
+def test_personal_use_is_the_only_gate(personal_use: Any) -> None:
+    """One gate, and it is already set.
 
-    `ASXOS_V2_BRIEF_ENABLED` gates the dark V2 tree (deferred to Stage 6). This
-    section depends on it in neither direction, which is what makes it
-    shippable on V1 today. It used to be asserted against
-    `ASXOS_PORTFOLIO_BRIEF_ENABLED` too; that gate was deleted under A-34, and
-    an assertion naming a variable nothing reads proves nothing.
+    This test used to assert the section was independent of
+    `ASXOS_PORTFOLIO_BRIEF_ENABLED` and `ASXOS_V2_BRIEF_ENABLED`. Both gates
+    have since been deleted (A-34, A-35), and an assertion naming a variable
+    nothing reads proves nothing — so it now asserts the positive: with
+    `ASXOS_PERSONAL_USE` set and no other flag present, the section loads.
+    `tests/test_v2_brief_gate_is_gone.py` guards the deleted names.
     """
-    env = {"ASXOS_V2_BRIEF_ENABLED": "0"}
-    with patch.dict(os.environ, env):
-        section = _run_loader(_make_conn())
+    section = _run_loader(_make_conn())
     assert section is not None
     assert len(_sleeve(section, Sleeve.global_).lots) == 1
 

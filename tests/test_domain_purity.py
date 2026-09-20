@@ -68,7 +68,6 @@ _KNOWN_VIOLATORS = frozenset(
         "asxos/domain/brief/collectors/underlying_drivers.py",
         "asxos/domain/brief/collectors/watchlist.py",
         "asxos/domain/brief/composer.py",
-        "asxos/domain/brief/renderer.py",
         "asxos/domain/decision_engine/delivery.py",
         "asxos/domain/decision_engine/renderer.py",
         "asxos/domain/governance/agent_run_guards.py",

@@ -33,6 +33,25 @@ KE = sweep.ke_band_for(MARKET, PREREG)
 CUTOFF = datetime(2026, 9, 19, 16, 0, tzinfo=UTC)
 AS_OF = CUTOFF.date()
 
+#: `FakeConn` captures positional bind args, so these tests index into
+#: `add_thesis_evidence`'s INSERT. Named here rather than inlined as bare
+#: integers: when 0061 added `stance` and `source_url`, the bare indices below
+#: silently shifted and one assertion started comparing a datetime against a
+#: JSON string. A named map fails loudly on the next reorder instead.
+_EV = {
+    "thesis_id": 0,
+    "source_agent": 1,
+    "tier": 2,
+    "claim_text": 3,
+    "source_type": 4,
+    "source_table": 5,
+    "source_as_of": 6,
+    "snapshot_data": 7,
+    "snapshot_hash": 8,
+    "source_url": 9,
+    "stance": 10,
+}
+
 
 def _run(symbol: str, close: D) -> dict[str, Any]:
     row = UniverseRow(
@@ -169,9 +188,10 @@ async def test_job_proposes_each_survivor_at_pending_review() -> None:
     # Two thesis_evidence rows, or approve_object hard-fails and James cannot
     # action the proposal at all.
     assert len(conn.evidence) == 2
-    # args are 0-indexed against add_thesis_evidence's bind order:
-    # thesis_id, source_agent, tier, claim_text, source_table, ...
-    assert {str(a[4]) for a in conn.evidence} == {"valuation_runs", "screening_runs"}
+    assert {str(a[_EV["source_table"]]) for a in conn.evidence} == {
+        "valuation_runs",
+        "screening_runs",
+    }
     assert any("INSERT INTO screening_rules" in q and "ON CONFLICT (name) DO NOTHING" in q for q, _ in conn.executed)
 
 
@@ -270,7 +290,11 @@ async def test_evidence_hash_is_over_canonical_json() -> None:
     )
     (args,) = conn.evidence
     canonical = '{"a":"x","b":"1.5"}'
-    assert args[6] == canonical and args[7] == hashlib.sha256(canonical.encode()).hexdigest()
+    assert args[_EV["snapshot_data"]] == canonical
+    assert args[_EV["snapshot_hash"]] == hashlib.sha256(canonical.encode()).hexdigest()
+    # The screen holds no opinion about the thesis it produced evidence for, so it
+    # must record no stance — NULL, not 'neutral' (migration 0061).
+    assert args[_EV["stance"]] is None
     with pytest.raises(ValueError, match="tier"):
         await thesis_service.add_thesis_evidence(
             conn, thesis_id=1, source_agent="x", tier="guess", claim_text="c",  # type: ignore[arg-type]
