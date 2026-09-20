@@ -1,49 +1,37 @@
 """
 Brief renderer — M-Brief-V2-Sections.
 
-render_html(brief) → str      (backward-compat alias, used by jobs/compose_brief.py)
-render_v2_html(brief) → str   (new V2 Jinja path, used when ASXOS_V2_BRIEF_ENABLED=1)
+render_html(brief) → str      returns the pre-rendered HTML stored on the Brief
 
-Phase 3: delegates to the stored Brief.rendered_html (populated by V1 path).
-Phase 4: render_v2_html() drives the new 10-section template.
+**The V2 rendering path was DELETED under A-35** (dark-launch verdict #3, issued
+2026-09-14). `render_v2_html()` loaded a frozen template that only ever rendered
+when `ASXOS_V2_BRIEF_ENABLED=1`, and that variable was set in no workflow,
+Makefile, `.toml` or env example — so it never rendered once. The template and
+its `_archive/` README went with it, because that README said in as many words
+that the copy existed only to serve this renderer. The ten collectors in
+`composer.py` are untouched and remain in production.
+
+One correction this deletion surfaced, worth keeping rather than silently
+fixing: the docstring here used to say `render_html` was "used by
+jobs/compose_brief.py". It is not — that job imports `render_html` from
+`asxos.brief.compose`, a different function in a different module with the same
+name. The one below has no production caller at all; it exists so a test can
+build a `Brief` directly without a Jinja environment. Said plainly rather than
+left to mislead the next reader.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import jinja2
-
 from asxos.domain.brief.types import Brief
-
-_TEMPLATE_DIR = Path(__file__).parent.parent.parent / "brief" / "templates"
-_V2_TEMPLATE = "_archive/brief_v2.html.j2"  # frozen; canonical live template is brief.html.j2
-
-_env: jinja2.Environment | None = None
-
-
-def _get_env() -> jinja2.Environment:
-    global _env
-    if _env is None:
-        _env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(str(_TEMPLATE_DIR)),
-            autoescape=True,
-        )
-    return _env
-
-
-def render_v2_html(brief: Brief) -> str:
-    """Render a Brief using the V2 Jinja2 template (10 sections + snapshot)."""
-    tpl = _get_env().get_template(_V2_TEMPLATE)
-    return tpl.render(brief=brief)
 
 
 def render_html(brief: Brief) -> str:
-    """Backward-compat alias.
+    """Return the HTML already rendered onto the Brief.
 
-    Returns the pre-rendered HTML stored in Brief.rendered_html.
-    If not set (e.g. in tests that build Brief directly), falls back to a
-    minimal template so tests don't need a full Jinja environment.
+    No production caller: `jobs/compose_brief.py` uses the identically-named
+    function in `asxos.brief.compose`. This one serves tests that construct a
+    `Brief` directly, which is why the fallback below exists — a Brief built
+    without going through `compose()` has no `rendered_html`.
     """
     if brief.rendered_html is not None:
         return brief.rendered_html

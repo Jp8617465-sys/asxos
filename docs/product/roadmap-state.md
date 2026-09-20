@@ -1425,6 +1425,49 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-20 `daily-product` routine fire** — the first of five not held in
+> plan mode, and it ran inside budget as a result. The Stages 0→6 table at the top of this file
+> remains the only ranked queue. This block supersedes the one below it.
+>
+> **#0 — A-35 DONE.** Dark-launch DELETE verdict #3 executed: the `ASXOS_V2_BRIEF_ENABLED`
+> branch, `render_v2_html()`, the frozen `_archive/brief_v2.html.j2` and its README are gone.
+> Measured before deleting, per the A-34 precedent — the flag was set in **no** tracked config,
+> so the V2 template never rendered once. The ten collectors are untouched and still in
+> production. `composer.py` renders V1 **unconditionally**: the branch was removed rather than
+> defaulted off, because an `if` that always takes the same arm is still a gate someone can flip.
+>
+> **The surface was wider than the row's `paths:` for the second night running (L61).** Three
+> things the row did not name: the frozen template plus its README (whose own text said the copy
+> existed *only* to serve this renderer); `tests/test_domain_purity.py`'s shrink-only allow-list,
+> which had to drop `renderer.py` because removing the `jinja2` import made the entry stale — that
+> gate fails in **both** directions by design and caught it; and a dead `import os`.
+>
+> **One correction surfaced in passing.** `renderer.py` claimed `render_html` was "used by
+> `jobs/compose_brief.py`". It is not — that job imports the identically-named function from
+> `asxos.brief.compose`. The domain one has **no production caller at all**; it now says so.
+>
+> **#327 is now labelled `incident`, and that is a detector fix, not bookkeeping.** It has been
+> open and **unlabelled** since 2026-09-17, so the gate's `list_issues(labels=["incident"])` probe
+> returned 0 and reported clean over an open incident on every fire since. Tomorrow's gate (b)
+> will now fail on it and force it as the one thing — correct, if it really is an incident.
+>
+> **What #327 needs, and why last night's answer was wrong.** The substance is settled: the vendor
+> does not serve `HUBS.NYSE` fundamentals (zero of 3,379 distinct symbols in
+> `rs_financial_statements` are non-`.AU`, after a successful run). My off-hand remedy then was
+> "make `build_decision_case` report rather than raise" — and that runs straight into CLAUDE.md
+> #10, *no graceful warnings in infra code*. The builder already reports loudly. What is actually
+> wrong is that `check_cron_health` cannot distinguish a **new** degradation from a **known
+> permanent** one, so a watchdog pages nightly on a condition nobody can fix. That is a
+> watchdog-semantics design question, filed as **E-30**, not a one-line softening — turning a
+> hard-fail into a warning because it is inconvenient is how watchdogs die.
+>
+> **Next: #1 A-51** (generalise the `security_kind` reconcile beyond the curated set — promoted by
+> A-35 being built, since it was only ever skipped for overlapping it) → **#2 E-20** → **#3 E-21**.
+> Unchanged above all of them in value, and still arbi-impossible: **C-13**, the calibration
+> ruling.
+>
+> **Superseded — the 2026-09-19 capability-audit block below, carried unchanged.**
+
 > **Live as of the 2026-09-19 capability-audit session** (James: *"run all capabilities of the
 > project… how does it build me a portfolio, what should I do with my money, what is the macro…
 > where are the biggest opportunities"*, then *"build the product backlog, look at any issues and
