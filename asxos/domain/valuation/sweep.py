@@ -35,7 +35,18 @@ from asxos.domain.valuation.residual_income import value_per_share
 from asxos.domain.valuation.universe import MarketInputs, UniverseRow
 
 FADING_EXCESS_PERSISTENCE: Final[Decimal] = Decimal("0.5")
-CONVERTIBLE_CURRENCIES: Final[frozenset[str]] = frozenset({"AUD", "USD"})
+
+#: The currencies convertible with NO rate lookup. AUD needs none; USD is the
+#: one pair `MarketInputs` requires, so both are convertible whenever a sweep
+#: can run at all.
+#:
+#: Every OTHER currency is convertible exactly when `fx_rates` carries an
+#: AUD-base pair for it at the cutoff — asked of `MarketInputs.is_convertible`,
+#: never of a list. The static `frozenset({"AUD", "USD"})` this replaces was a
+#: second place the truth lived: widen the ingestion and the frozenset still
+#: blocks; stop ingesting a pair and the frozenset still values, on whatever
+#: stale rate remained. A predicate over the data cannot drift from the data.
+BASE_CONVERTIBLE_CURRENCIES: Final[frozenset[str]] = frozenset({"AUD", "USD"})
 FLAG_CURRENCY_UNVERIFIED: Final[str] = "currency_unverified"
 FLAG_PAYOUT_CLIPPED: Final[str] = "payout_clipped"
 FLAG_ROE_AVERAGE_SHORT: Final[str] = "roe_average_fewer_periods"
@@ -81,8 +92,14 @@ def ke_band_for(market: MarketInputs, prereg: ScenarioPreregistration) -> KeBand
     )
 
 
-def _gaps_for(row: UniverseRow) -> tuple[Gap, ...]:
-    """Every reason this row cannot be valued, in the baseline's status order."""
+def _gaps_for(row: UniverseRow, market: MarketInputs | None = None) -> tuple[Gap, ...]:
+    """Every reason this row cannot be valued, in the baseline's status order.
+
+    `market` supplies the cutoff's FX map so convertibility is judged against
+    the rates that actually exist. It defaults to None for the callers that only
+    want the fundamental gaps; with None, convertibility falls back to the two
+    currencies that need no lookup (AUD, USD).
+    """
     gaps: list[Gap] = []
     if row.pit_as_of is None:
         gaps.append(
@@ -126,15 +143,25 @@ def _gaps_for(row: UniverseRow) -> tuple[Gap, ...]:
                 )
             )
         currency = None if is_missing(row.currency) else str(row.currency).strip().upper()
-        if currency is not None and currency not in CONVERTIBLE_CURRENCIES:
+        convertible = (
+            currency in BASE_CONVERTIBLE_CURRENCIES
+            if market is None
+            else market.is_convertible(currency)
+        )
+        if currency is not None and not convertible:
+            # `required` names what would actually unblock this row rather than
+            # the old fixed "AUD or USD": the answer now depends on which pairs
+            # the cutoff carries, so a reader of a blocked run can tell the
+            # difference between "we do not convert this currency" and "we do,
+            # but not at this date".
             gaps.append(
                 Gap(
                     "currency_unconvertible",
-                    "reports in a currency with no FX step available",
+                    "reports in a currency with no FX rate at the cutoff",
                     table="rs_fundamentals_pit",
                     column="currency",
                     observed=currency,
-                    required="AUD or USD",
+                    required=f"an AUD{currency} rate in fx_rates at or before the cutoff",
                 )
             )
     if row.last_close is None or row.last_close_dt is None:
@@ -204,7 +231,7 @@ def value_row(
         preregistration_id=prereg.preregistration_id,
         ke=ke,
     )
-    gaps = _gaps_for(row)
+    gaps = _gaps_for(row, market)
     if gaps:
         return ValuationRun(
             **base,
@@ -224,14 +251,28 @@ def value_row(
         flags.append(FLAG_CURRENCY_UNVERIFIED)
     fx_audusd: Decimal | None = None
     fx_as_of = None
+    fx_pair: str | None = None
+    fx_rate: Decimal | None = None
     with valuation_context():
-        if currency == "USD":
-            fx_audusd, fx_as_of = market.audusd, market.audusd_as_of
-            book_aud = row.book_value_ps / market.audusd
-            dividend_aud = None if row.dividend_ttm is None else row.dividend_ttm / market.audusd
-        else:
+        quoted = market.fx_for(currency)
+        if quoted is None:
+            # AUD, or an unverified currency the gaps already let through.
             book_aud = row.book_value_ps
             dividend_aud = row.dividend_ttm
+        else:
+            fx_rate, fx_as_of = quoted
+            fx_pair = f"AUD{currency}"
+            # `rate` is the currency's units per one AUD, so native / rate = AUD.
+            book_aud = row.book_value_ps / fx_rate
+            dividend_aud = None if row.dividend_ttm is None else row.dividend_ttm / fx_rate
+            # `fx_audusd` keeps its exact original meaning — the AUDUSD rate,
+            # populated only for USD reporters. `valuation_runs.payload` is
+            # content-addressed and append-only (0054), so the field is widened
+            # BESIDE rather than renamed: every stored USD row keeps its shape,
+            # and no consumer reading `fx_audusd` starts silently receiving a
+            # NZD rate under a name that says otherwise.
+            if currency == "USD":
+                fx_audusd = fx_rate
     payout, clipped = _payout(row)
     if clipped:
         flags.append(FLAG_PAYOUT_CLIPPED)
@@ -248,6 +289,8 @@ def value_row(
         currency_verified=currency_verified,
         fx_audusd=fx_audusd,
         fx_as_of=fx_as_of,
+        fx_pair=fx_pair,
+        fx_rate=fx_rate,
         book_value_ps_native=row.book_value_ps,
         book_value_ps_aud=q6(book_aud),
         roe_trailing=row.roe,

@@ -78,6 +78,31 @@ async def fetch_and_upsert_bulk(
 # FX rates — M15
 # ---------------------------------------------------------------------------
 
+#: The AUD-base pairs the valuation sweep needs to convert a foreign reporter
+#: into AUD, in descending order of how many blocked symbols each unblocks
+#: (measured 2026-09-20 over the `currency_unconvertible` cohort of 75):
+#:
+#:   NZD 43 · CAD 15 · EUR 4 · GBP 4 · PGK 4 · SGD 2 · MYR 1 · IDR 1 · HKD 1
+#:
+#: AUDUSD is NOT here — it is fetched unconditionally by the US-holdings phase
+#: and is the one pair `load_market_inputs` hard-fails without. These are
+#: additive and best-effort: a pair EODHD does not serve simply stays absent and
+#: its cohort stays blocked, with the gap naming the missing pair. PGK and IDR
+#: are the doubtful ones and are worth five symbols between them, so a failure
+#: to source either is a five-symbol shortfall, not a reason to skip the phase.
+VALUATION_FX_PAIRS: tuple[str, ...] = (
+    "AUDNZD",
+    "AUDCAD",
+    "AUDEUR",
+    "AUDGBP",
+    "AUDPGK",
+    "AUDSGD",
+    "AUDMYR",
+    "AUDIDR",
+    "AUDHKD",
+)
+
+
 def to_fx_rows(raw: list[dict[str, Any]], *, pair: str) -> list[tuple[Any, ...]]:
     """Convert EODHD per-symbol price response to fx_rates rows.
 

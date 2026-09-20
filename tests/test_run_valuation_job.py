@@ -43,9 +43,14 @@ def _record(symbol: str, **overrides: object) -> dict[str, Any]:
 
 class FakeConn:
     def __init__(self, records: list[dict[str, Any]], *, rf: D | None = D("4.831"), fx: D | None = D("0.7134"),
-                 insert_status: str = "INSERT 0 1", stored: tuple[int, int] = (0, 0)) -> None:
+                 insert_status: str = "INSERT 0 1", stored: tuple[int, int] = (0, 0),
+                 fx_pairs: list[dict[str, Any]] | None = None) -> None:
         self.records = records
         self.rf, self.fx = rf, fx
+        #: Rows for `SQL_FX_LATEST_ALL` — the AUD-base pair sweep. Empty by
+        #: default so the existing tests describe a store holding AUDUSD alone,
+        #: which is what production held before the FX step.
+        self.fx_pairs = fx_pairs if fx_pairs is not None else []
         self.insert_status = insert_status
         self.stored = stored
         self.executed: list[tuple[str, tuple[object, ...]]] = []
@@ -72,6 +77,11 @@ class FakeConn:
 
     async def fetch(self, query: str, *args: object, **kwargs: object) -> list[dict[str, Any]]:
         self.fetch_calls.append((query, args, kwargs))
+        # Routed, not blanket. `load_market_inputs` now issues a second `fetch`
+        # for the AUD-base pair sweep, and returning the universe records to it
+        # would hand `currency_from_pair` a row with no `pair` key.
+        if "FROM fx_rates" in query:
+            return self.fx_pairs
         return self.records
 
     def transaction(self) -> Any:
@@ -107,8 +117,12 @@ async def test_run_persists_the_registration_then_every_row() -> None:
     assert kinds == ["valuation_scenario_preregistrations"] + ["valuation_runs"] * 3
     # The universe read is parameterised on the cutoff date, the price window and the
     # registered ROE-average period count, and lifts the pool's 30 s command timeout.
-    query, args, kwargs = conn.fetch_calls[0]
-    assert "security_kind = 'au_equity'" in query
+    # Selected by content, not by index: `load_market_inputs` now also fetches
+    # the AUD-base pair sweep, so position 0 is no longer the universe read and
+    # an index here would pin call ORDER rather than the read it means to pin.
+    universe_reads = [c for c in conn.fetch_calls if "security_kind = 'au_equity'" in c[0]]
+    assert len(universe_reads) == 1
+    _query, args, kwargs = universe_reads[0]
     assert args == (CUTOFF.date(), CUTOFF.date() - __import__("datetime").timedelta(days=universe.PRICE_WINDOW_DAYS), 3)
     assert kwargs == {"timeout": universe.UNIVERSE_QUERY_TIMEOUT_S}
     # Row shadows: as_of is the UTC cutoff date, value NULL on the blocked rows.
