@@ -1,4 +1,4 @@
-"""Persistence and governance for the mandate layer (0061).
+"""Persistence and governance for the mandate layer (0062).
 
 Mirrors `research/registry/repository.py`: `payload` is the source of truth,
 content-addressed rows are `ON CONFLICT DO NOTHING`, mutation is refused by

@@ -21,7 +21,7 @@ from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
 mandate_app = typer.Typer(
-    help="The mandate layer (0061): goals in, a ratified mandate out. Requires ASXOS_PERSONAL_USE=1.",
+    help="The mandate layer (0062): goals in, a ratified mandate out. Requires ASXOS_PERSONAL_USE=1.",
     no_args_is_help=True,
     add_completion=False,
 )

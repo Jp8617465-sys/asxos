@@ -1,4 +1,4 @@
--- 0061_mandate.sql
+-- 0062_mandate.sql
 -- The mandate layer (James's ruling, 2026-09-19): "the financial agents should
 -- decide capital and structure from my income goals and future ambitions."
 --
@@ -165,8 +165,8 @@ REVOKE ALL ON financial_goals FROM asxos_agent_ro;
 REVOKE ALL ON mandates FROM asxos_agent_ro;
 
 COMMENT ON TABLE financial_goals IS
-    'James''s stated goals (0061). Append-only; personal data behind ASXOS_PERSONAL_USE; revoked from asxos_agent_ro.';
+    'James''s stated goals (0062). Append-only; personal data behind ASXOS_PERSONAL_USE; revoked from asxos_agent_ro.';
 COMMENT ON TABLE mandates IS
-    'Derived mandate per goals row (0061). governance_status is the only mutable column and is audited by governance_events (object_type=''mandate'').';
+    'Derived mandate per goals row (0062). governance_status is the only mutable column and is audited by governance_events (object_type=''mandate'').';
 
 COMMIT;

@@ -13,7 +13,7 @@ asxos/domain/governance/github_commands.py, and applies:
     DISPOSE <packet_id> <verdict> [note] -> disposition_for + paper_intent_for
                                            + persist_disposition
     MANDATE approve|reject <id> <reason> -> mandate/repository.approve_mandate
-                                           / reject_mandate (0061)
+                                           / reject_mandate (0062)
 
 Every command gets exactly one reply carrying a marker (applied or refused,
 with the error). A comment with a marker is never re-read, so a re-run is a

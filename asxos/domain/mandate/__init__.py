@@ -1,4 +1,4 @@
-"""The mandate layer (migration 0061).
+"""The mandate layer (migration 0062).
 
 James's ruling, 2026-09-19: *"the financial agents should decide capital and
 structure from my income goals and future ambitions."* A `Goals` contract is

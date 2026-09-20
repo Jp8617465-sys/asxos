@@ -1,7 +1,7 @@
 """Mandate contracts — `Goals` in, `Mandate` out. Content-addressed, Decimal-only.
 
 `governance_status` is deliberately NOT a field of `Mandate`: it is a column
-on `mandates` (0061) audited by `governance_events`, so ratifying a mandate
+on `mandates` (0062) audited by `governance_events`, so ratifying a mandate
 cannot change the hash of what was derived.
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ class LiquidityNeed(Contract):
 
 
 class Goals(ContentAddressedContract):
-    """What James states. Stored once per statement; never edited (0061)."""
+    """What James states. Stored once per statement; never edited (0062)."""
 
     as_of: date
     investable_assets_aud: Decimal = Field(ge=Decimal("0"), max_digits=18, decimal_places=6)

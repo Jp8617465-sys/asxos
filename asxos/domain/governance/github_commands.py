@@ -8,7 +8,7 @@ his to make on system-proposed content:
     APPROVE thesis <id> <reason>
     REJECT thesis <id> <reason>
     DISPOSE <packet_id> <verdict> [note]      verdict: accept | request_revision | reject | defer
-    MANDATE approve|reject <id> <reason>      the derived mandate (0061) — ratification from a phone
+    MANDATE approve|reject <id> <reason>      the derived mandate (0062) — ratification from a phone
 
 Only the first non-blank line of a comment is read; the rest is free text.
 Keywords are case-insensitive; ids are not. A comment that does not start with
