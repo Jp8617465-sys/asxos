@@ -40,7 +40,14 @@
 -- so there is nothing downstream to rebuild.
 --
 -- BEFORE-IMAGE at draft time (2026-09-20): thesis_evidence 26 rows,
--- agent_evidence 0 rows. Ledger at 112 rows, head 20260917114415.
+-- agent_evidence 42 rows, zero of either carrying a stance (the column did not
+-- exist). Ledger at 112 rows, head 20260917114415.
+--
+-- APPLIED 2026-09-20 as 20260920094907 via the AGENTS.md §8 sequence:
+-- migration-integration green on the branch (run 35503134757), backup.yml run
+-- 35503221429 read to `success`, then applied. Post-apply: ledger 113 rows,
+-- both columns nullable with NULL default, 26 + 42 rows and 0 marked -- the
+-- ALTER invented no judgements, which is the property the header argues for.
 
 ALTER TABLE thesis_evidence
     ADD COLUMN stance TEXT;
