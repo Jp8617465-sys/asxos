@@ -44,6 +44,17 @@ from asxos.domain.theses.types import (
 _VALID_SYMBOL_SUFFIXES = (".AU", ".US")
 _REVISIT_INTERVAL_DAYS = 30
 _STALE_EVIDENCE_DAYS = 14
+
+#: The `thesis_evidence` vocabularies, mirrored from the table's CHECK
+#: constraints so a bad call fails with a named Python error before Postgres
+#: rejects it. Public because the CLI renders them in its help text and a test
+#: pins them against the live constraints.
+EVIDENCE_TIERS = frozenset({"verified", "inferred", "speculative"})
+EVIDENCE_SOURCE_TYPES = frozenset({"db_query", "external_url"})
+#: migration 0061. NULL is deliberately NOT a member: a citation with no stance
+#: means nobody judged it, which is a different fact from 'neutral' (someone
+#: judged it and found it non-diagnostic). Callers pass None, never a sentinel.
+EVIDENCE_STANCES = frozenset({"supports", "contradicts", "neutral"})
 _REJECTABLE_FROM = {"draft", "evidence_complete", "pending_review"}
 #: Retirement is the disposal of an ALREADY-DECIDED row, which is exactly what
 #: reject_object refuses (see its docstring). The two are complements, not
@@ -256,6 +267,61 @@ async def record_system_examination(
     )
 
 
+def canonical_snapshot(snapshot_data: dict[str, Any]) -> tuple[str, str]:
+    """Return (canonical JSON, sha256 of it) for an evidence snapshot.
+
+    Sorted keys, no whitespace, `default=str` so a Decimal serialises as its
+    exact string rather than a float (CLAUDE.md #5) — the hash must never depend
+    on float formatting, or the tamper-evidence the `snapshot_hash` column exists
+    for is evidence of nothing.
+
+    Extracted so every writer of an evidence row hashes identically. Two writers
+    with two copies of this three-line body is how a corpus ends up with rows
+    whose hashes cannot be compared.
+    """
+    canonical = json.dumps(snapshot_data, sort_keys=True, separators=(",", ":"), default=str)
+    return canonical, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _validate_evidence_fields(
+    *,
+    tier: str,
+    stance: str | None,
+    source_type: str,
+    source_url: str | None,
+    snapshot_data: dict[str, Any] | None,
+) -> None:
+    """Mirror `thesis_evidence`'s CHECK constraints in Python, so a bad call names
+    itself before Postgres does — the same reason `_insert_revision` re-checks the
+    0034 provenance pair.
+
+    `stance` (migration 0061) is validated against the three-value vocabulary, and
+    None passes: NULL means nobody judged, which is a legitimate state and the
+    whole reason the column is nullable.
+    """
+    if tier not in EVIDENCE_TIERS:
+        raise ValueError(f"unknown evidence tier {tier!r}; expected one of {sorted(EVIDENCE_TIERS)}")
+    if stance is not None and stance not in EVIDENCE_STANCES:
+        raise ValueError(
+            f"unknown evidence stance {stance!r}; expected one of {sorted(EVIDENCE_STANCES)} "
+            "or None (None means nobody judged, which is not the same as 'neutral')"
+        )
+    if source_type not in EVIDENCE_SOURCE_TYPES:
+        raise ValueError(
+            f"unknown source_type {source_type!r}; expected one of {sorted(EVIDENCE_SOURCE_TYPES)}"
+        )
+    if source_url is not None and source_type != "external_url":
+        raise ValueError(
+            "source_url is only meaningful with source_type='external_url' "
+            "(thesis_evidence_url_requires_external)"
+        )
+    if tier != "speculative" and snapshot_data is None:
+        raise ValueError(
+            f"a {tier!r} citation must carry snapshot_data — only a speculative one may omit it "
+            "(thesis_evidence_snapshot_required_unless_speculative)"
+        )
+
+
 async def add_thesis_evidence(
     conn: asyncpg.Connection,
     *,
@@ -263,37 +329,53 @@ async def add_thesis_evidence(
     source_agent: str,
     tier: str,
     claim_text: str,
-    source_table: str,
-    source_as_of: datetime,
-    snapshot_data: dict[str, Any],
+    source_table: str | None = None,
+    source_as_of: datetime | None = None,
+    snapshot_data: dict[str, Any] | None = None,
+    stance: str | None = None,
+    source_type: str = "db_query",
+    source_url: str | None = None,
 ) -> int:
     """Append one `thesis_evidence` citation (migration 0033) and return its id.
 
-    `snapshot_hash` is sha256 over the canonical JSON of `snapshot_data`
-    (sorted keys, no whitespace) — the tamper-evidence the column exists for.
-    Decimals are serialised as strings so the hash never depends on float
-    formatting (CLAUDE.md #5).
+    The INSERT primitive. `log_evidence` is the public verb — it checks the thesis
+    exists and names the failure; this one assumes the caller already has.
+
+    `retrieved_at` is deliberately never passed: it takes the column DEFAULT of
+    `NOW()`, which is this row's own retrieval time. Nothing here updates an
+    existing row's `retrieved_at`, because `approve_object`'s staleness gate reads
+    that column and a write path that refreshed it would launder a stale thesis
+    into approvable.
     """
-    if tier not in ("verified", "inferred", "speculative"):
-        raise ValueError(f"unknown evidence tier {tier!r}")
-    canonical = json.dumps(snapshot_data, sort_keys=True, separators=(",", ":"), default=str)
-    snapshot_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    _validate_evidence_fields(
+        tier=tier,
+        stance=stance,
+        source_type=source_type,
+        source_url=source_url,
+        snapshot_data=snapshot_data,
+    )
+    canonical, snapshot_hash = (
+        canonical_snapshot(snapshot_data) if snapshot_data is not None else (None, None)
+    )
     row = await conn.fetchrow(
         """
         INSERT INTO thesis_evidence
             (thesis_id, source_agent, tier, claim_text, source_type, source_table,
-             source_as_of, snapshot_data, snapshot_hash)
-        VALUES ($1, $2, $3, $4, 'db_query', $5, $6, $7::jsonb, $8)
+             source_as_of, snapshot_data, snapshot_hash, source_url, stance)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
         RETURNING evidence_id
         """,
         thesis_id,
         source_agent,
         tier,
         claim_text,
+        source_type,
         source_table,
         source_as_of,
         canonical,
         snapshot_hash,
+        source_url,
+        stance,
     )
     return int(row["evidence_id"])
 
@@ -464,6 +546,127 @@ async def get_thesis_by_symbol(
         symbol,
     )
     return _row_to_thesis(row) if row else None
+
+
+async def log_evidence(
+    conn: asyncpg.Connection,
+    *,
+    thesis_id: int,
+    claim_text: str,
+    tier: str,
+    snapshot_data: dict[str, Any] | None = None,
+    stance: str | None = None,
+    source_agent: str = "human",
+    source_type: str = "db_query",
+    source_table: str | None = None,
+    source_url: str | None = None,
+    source_as_of: datetime | None = None,
+) -> int:
+    """Record one citation against an EXISTING thesis. Returns the evidence id.
+
+    WHY THIS EXISTS. Until this verb, the only writer of `thesis_evidence` was a
+    helper reachable solely from `open_thesis()` — so a citation could be recorded
+    at the moment a thesis was created and never again. Measured 2026-09-20, that
+    showed: all 26 rows in the corpus were `source_agent = 'system_screen'`, two
+    per thesis, and not one recorded a judgement a human made. Human research had
+    nowhere to land, so the evidence chain was a record of what the screen noticed
+    rather than what anyone concluded.
+
+    This does NOT revise the thesis. No `thesis_revisions` row is written, no
+    clock moves, `last_revisited_at` and `revisit_due_at` are untouched. Citing
+    something is not the same act as revisiting a thesis, and conflating them
+    would let a citation buy another revisit cadence of silence — the failure
+    migration 0060's header spells out for `packet_examined`.
+
+    `stance` (migration 0061) is `supports`, `contradicts`, `neutral`, or omitted.
+    Omitted means nobody judged, which is a different fact from `neutral` — do not
+    pass `'neutral'` to mean "I did not think about it".
+
+    `retrieved_at` takes the column DEFAULT of `NOW()` on the new row and no
+    existing row's value is touched. `approve_object()`'s staleness gate reads
+    that column, so a logging path that refreshed it would launder a stale thesis
+    into approvable; logging fresh evidence beside stale evidence therefore does
+    not clear the gate, which is correct.
+
+    Raises ValueError if the thesis does not exist, or on any vocabulary or
+    source-shape violation — each mirrored from the table's CHECK constraints so
+    the failure names itself rather than arriving as a Postgres constraint error.
+    """
+    if not claim_text or not claim_text.strip():
+        raise ValueError("claim_text is required — a citation with no claim cites nothing")
+    if not source_agent or not source_agent.strip():
+        raise ValueError("source_agent is required — every citation records who recorded it")
+    _validate_evidence_fields(
+        tier=tier,
+        stance=stance,
+        source_type=source_type,
+        source_url=source_url,
+        snapshot_data=snapshot_data,
+    )
+    existing = await conn.fetchrow(
+        "SELECT symbol FROM theses WHERE thesis_id = $1", thesis_id
+    )
+    if existing is None:
+        raise ValueError(f"Thesis {thesis_id} not found")
+    return await add_thesis_evidence(
+        conn,
+        thesis_id=thesis_id,
+        source_agent=source_agent,
+        tier=tier,
+        claim_text=claim_text,
+        source_table=source_table,
+        source_as_of=source_as_of,
+        snapshot_data=snapshot_data,
+        stance=stance,
+        source_type=source_type,
+        source_url=source_url,
+    )
+
+
+async def get_latest_governance_event(
+    conn: asyncpg.Connection, thesis_id: int
+) -> dict[str, Any] | None:
+    """The most recent `governance_events` row for a thesis, or None.
+
+    Exists so `asx thesis show` can render *why* a row sits at its
+    `governance_status`, not only that it does. A status word on its own says a
+    transition happened; the reasoning says what the row actually is — which is
+    the whole value of the audit trail and, until this, was visible only to
+    someone who thought to query `governance_events` by hand.
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT from_status, to_status, event_at, reasoning, actor
+        FROM governance_events
+        WHERE object_type = 'thesis' AND object_id = $1
+        ORDER BY event_at DESC, event_id DESC
+        LIMIT 1
+        """,
+        thesis_id,
+    )
+    return dict(row) if row else None
+
+
+async def list_thesis_evidence(
+    conn: asyncpg.Connection, thesis_id: int, *, include_superseded: bool = False
+) -> list[dict[str, Any]]:
+    """Return a thesis's citations, newest first, for `asx evidence list`.
+
+    Superseded rows are excluded by default, matching what `approve_object()`'s
+    gate counts.
+    """
+    rows = await conn.fetch(
+        f"""
+        SELECT evidence_id, cited_at, source_agent, tier, stance, claim_text,
+               source_type, source_table, source_url, source_as_of, retrieved_at,
+               snapshot_hash, superseded_at
+        FROM thesis_evidence
+        WHERE thesis_id = $1 {"" if include_superseded else "AND superseded_at IS NULL"}
+        ORDER BY cited_at DESC, evidence_id DESC
+        """,
+        thesis_id,
+    )
+    return [dict(r) for r in rows]
 
 
 async def list_theses(

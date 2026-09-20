@@ -245,6 +245,29 @@ expiry date at which arbi re-raises it). No fourth "leave it and forget" state e
 
 ### 3. V2 brief tree
 
+- **✅ EXECUTED 2026-09-20 (row A-35, `daily-product` routine fire).** The verdict below is
+  no longer pending. Gone: the `ASXOS_V2_BRIEF_ENABLED` branch in
+  `asxos/domain/brief/composer.py`, `render_v2_html()`, the frozen
+  `_archive/brief_v2.html.j2` template and its README. `composer.py` now renders the V1 path
+  unconditionally — the branch was removed, not defaulted off, because an `if` that always
+  takes the same arm is still a gate someone can flip.
+
+  **Measured before deleting, per the A-34 precedent:** `ASXOS_V2_BRIEF_ENABLED` was set in
+  **no** workflow, Makefile, `.toml` or env example — it was never `1` in tracked config, so
+  the V2 template never rendered once.
+
+  **The ten collectors stay**, exactly as the verdict said: they are in production, they feed
+  `brief_runs` and the snapshot, and none of them was touched.
+
+  **Two things the deletion surfaced.** The `_archive/README.md` said the frozen copy existed
+  *only* while the dark renderer could load it, so it went with the renderer rather than
+  being left as an archive nothing can render. And `renderer.py`'s docstring claimed
+  `render_html` was "used by `jobs/compose_brief.py`" — it is not; that job imports the
+  identically-named function from `asxos.brief.compose`. The domain one has no production
+  caller at all, and the module now says so instead of misleading the next reader.
+
+  `tests/test_v2_brief_gate_is_gone.py` keeps it deleted, mutation-verified.
+
 - **✅ VERDICT: DELETE the dark rendering path — issued 2026-09-14 by arbi, 16 days early,
   because the premise the KEEP-DARK rested on is falsified.**
 

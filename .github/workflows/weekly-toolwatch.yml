@@ -10,11 +10,31 @@
 # deleted review-gate, parts of the arbi governance set) sit exactly where
 # first-party features keep appearing.
 #
-# WHY NO `schedule:` YET — the old reason (no credential scopable to `claude/**`)
-# is solved: ARBI_GITHUB_TOKEN is a repo-scoped fine-grained PAT. No schedule is
-# armed in this PR only because that secret does not exist yet. arbi arms the
-# cadence once James creates it (AGENTS.md §8: workflow edits are Amber, and the
-# PR body records which secrets and triggers the change exposes).
+# WHY NO `schedule:` YET — and the reason has changed, so read this rather than
+# the sentence it replaced.
+#
+# SUPERSEDED 2026-09-20. This block used to read: "the old reason (no credential
+# scopable to `claude/**`) is solved: ARBI_GITHUB_TOKEN is a repo-scoped
+# fine-grained PAT. No schedule is armed in this PR only because that secret does
+# not exist yet." ARBI_GITHUB_TOKEN HAS EXISTED SINCE 2026-09-14, and this very
+# lane's run 34846052898 used it that same day to push a branch and open PR #259.
+# The comment was contradicted by the run sitting directly under it. Corrected
+# rather than deleted, because a reader arriving from the two other places that
+# cited the same claim needs to see it superseded.
+#
+# THE ACTUAL BLOCKER IS A-22, half closed as of 2026-09-20 (#353): auto mode is
+# PROVEN to engage headlessly — that run shows `defaultMode: auto` installed,
+# `permission_denials_count: 0` over 44 turns, and a branch pushed plus a PR
+# opened, none of which a Manual fallback with `--permission-prompts none` would
+# have permitted. What is NOT proven is that `CLAUDE_PROJECT_DIR` resolves so
+# `secrets-guard.sh` runs rather than exiting 127: the job log has zero
+# occurrences of either name, because "Running Claude Code via SDK (full output
+# hidden for security)" means the log structurally cannot show it.
+#
+# arbi arms the cadence once that second proof lands (AGENTS.md §8: workflow edits
+# are Amber, and the PR body records which secrets and triggers the change
+# exposes). This lane's own deadman, HC_TOOLWATCH_URL, is also unset — it skips
+# rather than failing, so it would run unwatched.
 #
 # The old "two-key property" comment lived here: .claude/settings.json used to
 # deny Edit(/.github/**) so an agent could draft YAML but not arm it. That fence

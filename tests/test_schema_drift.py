@@ -150,7 +150,7 @@ def test_epoch_boundary_is_inclusive_of_initial() -> None:
 
 def test_repo_keys_are_unique_and_cover_every_file() -> None:
     keys = repo_migration_keys()
-    assert len(keys) == 59, f"expected 59 .sql files, found {len(keys)}"
+    assert len(keys) == 60, f"expected 60 .sql files, found {len(keys)}"
     assert "thesis_revisions_packet_examined" in keys, (
         "0060 must be tracked — it admits the packet_examined revision type that A-47 "
         "writes, deliberately outside the brief's answering allowlist"
@@ -176,6 +176,10 @@ def test_repo_keys_are_unique_and_cover_every_file() -> None:
         "theses into approved"
     )
     assert "risk_free_pit" in keys, "0058 point-in-time risk-free series must be tracked"
+    assert "evidence_stance" in keys, (
+        "0061 must be tracked — it adds the nullable stance column that makes "
+        "'what disconfirming evidence did I record' an answerable question"
+    )
     assert "initial" in keys
 
 
