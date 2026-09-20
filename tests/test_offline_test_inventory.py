@@ -212,18 +212,24 @@ def test_discussion_allowlist_does_not_outlive_what_it_excuses() -> None:
 def test_every_opt_in_is_env_gated_or_justified() -> None:
     """The suite's external surface, stated as an assertion.
 
-    Two modules may reach a real endpoint, and only when
-    MIGRATION_TEST_DATABASE_URL is set: the 0043 contract and, since F-E2E r2 M1
-    (2026-09-16), the 0055-0057 contract (`test_m1_migrations_integration.py`),
-    both against the disposable database the `migration-integration` lane
-    provisions. The guard's own regression module also carries the marker, but
-    its marked test asserts the guard is disarmed and performs no egress. Any
-    further entry is a deliberate expansion of the external surface and must be
-    reviewed here.
+    Three modules may reach a real endpoint, and only when
+    MIGRATION_TEST_DATABASE_URL is set: the 0043 contract; since F-E2E r2 M1
+    (2026-09-16), the 0055-0057 contract (`test_m1_migrations_integration.py`);
+    and since 0061 (2026-09-20), the evidence-stance contract
+    (`test_migration_0061_evidence_stance_integration.py`) — all against the
+    disposable database the `migration-integration` lane provisions. The guard's
+    own regression module also carries the marker, but its marked test asserts
+    the guard is disarmed and performs no egress. Any further entry is a
+    deliberate expansion of the external surface and must be reviewed here.
+
+    0061's static half lives in `test_migration_0061_evidence_stance.py`, which
+    reads the .sql and is deliberately NOT marked — the split is what keeps the
+    marked surface to the tests that genuinely need a database.
     """
     committed = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
     assert committed["summary"]["network_marked_modules"] == [
         "tests/test_m1_migrations_integration.py",
+        "tests/test_migration_0061_evidence_stance_integration.py",
         "tests/test_network_guard.py",
         "tests/test_price_revision_migration_integration.py",
     ]
