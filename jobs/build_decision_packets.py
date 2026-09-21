@@ -61,6 +61,14 @@ SQL_APPROVED_THESES: Final[str] = (
     "WHERE governance_status = 'approved' AND closed_at IS NULL ORDER BY thesis_id"
 )
 SQL_PACKET_EXISTS: Final[str] = "SELECT 1 FROM decision_packets WHERE decision_packet_id = $1"
+#: Has the data layer EVER served a financial statement for this symbol? Not
+#: "at the cutoff" — ever. The distinction is the whole safety property of the
+#: partition below: zero-ever means the vendor does not cover the name and no
+#: run will ever build it; some-rows-but-none-admissible-at-the-cutoff is a
+#: real degradation and must still fail loudly.
+SQL_SYMBOL_HAS_STATEMENTS: Final[str] = (
+    "SELECT 1 FROM rs_financial_statements WHERE symbol = $1 LIMIT 1"
+)
 
 
 def packet_id_for(symbol: str, thesis_id: int, cutoff: datetime) -> str:
@@ -98,6 +106,7 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
     built: list[str] = []
     skipped: list[str] = []
     awaiting_plan: list[str] = []
+    no_data_coverage: list[str] = []
     failed: dict[str, str] = {}
     async with acquire() as conn:
         paper_snapshot_id = await latest_paper_snapshot_id(conn, as_of=day)
@@ -125,6 +134,26 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
             ):
                 awaiting_plan.append(f"{symbol}#{thesis_id}")
                 continue
+            # The second structural precondition, same reasoning as the first
+            # (issue #327). `build_decision_case` needs an admissible yearly
+            # income row; if the data layer has NEVER held a statement for this
+            # symbol, no run will ever produce one and calling the builder just
+            # re-raises the same ValueError every night into `monitor.note`.
+            #
+            # Measured 2026-09-19 on the first weekly-research run after #328's
+            # held-US-name union shipped: it concluded `success` and
+            # sync_financial_statements wrote 437,031 rows, yet HUBS.NYSE has
+            # ZERO and so do ALL non-.AU symbols — 0 of 3,379 distinct symbols
+            # in rs_financial_statements are non-.AU. The vendor does not serve
+            # them. That is a coverage fact, not this job's health.
+            #
+            # Deliberately "ever", not "at this cutoff": a symbol WITH history
+            # whose cutoff yields nothing admissible is a regression, stays in
+            # `failed`, and still pages. This partition can only ever quiet a
+            # name the data layer has never once covered.
+            if await conn.fetchrow(SQL_SYMBOL_HAS_STATEMENTS, symbol) is None:
+                no_data_coverage.append(f"{symbol}#{thesis_id}")
+                continue
             packet_id = packet_id_for(symbol, thesis_id, cutoff)
             if await conn.fetchrow(SQL_PACKET_EXISTS, packet_id) is not None:
                 skipped.append(packet_id)
@@ -147,6 +176,7 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         "built": built,
         "skipped_same_day": skipped,
         "awaiting_plan": awaiting_plan,
+        "no_data_coverage": no_data_coverage,
         "failed": failed,
     }
     log.info("build_decision_packets done — %s", json.dumps(summary))
@@ -156,9 +186,12 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         monitor.note = f"{len(failed)} of {len(theses)} approved theses did not build: {json.dumps(failed)}"
     elif not theses:
         monitor.note = "no approved theses — nothing to challenge"
-    # `awaiting_plan` deliberately sets NO note. It is a fact about James's
-    # review queue, not about this job's health, and the note channel is an
-    # alerting channel (job_monitor.py:139 -> check_cron_health.py:152).
+    # `awaiting_plan` and `no_data_coverage` deliberately set NO note. One is a
+    # fact about James's review queue and the other about vendor coverage;
+    # neither is about this job's health, and the note channel is an alerting
+    # channel (job_monitor.py:139 -> check_cron_health.py:152). A watchdog that
+    # pages nightly on a condition nobody can fix trains its reader to ignore
+    # it, which is the failure mode check_cron_health's own header names twice.
     return summary
 
 

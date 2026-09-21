@@ -466,7 +466,12 @@ class TestSeed:
         # 2026-09-20: A-51 leaves this list by being PROMOTED, not dropped — the fire that
         # built A-35 removed the row it collided with, so it is now the head above. E-28
         # still collides with E-21 on docs/proposals/.
-        assert [i.id for i in skipped] == ["E-27", "E-28"], [i.id for i in skipped]
+        #
+        # 2026-09-21: E-30 JOINS the list, and the reason is a route change rather than a
+        # new row. It was filed route=attended on 2026-09-20 (so the lane never saw it) and
+        # re-scoped to route=build on 2026-09-21 once opening the code showed the design
+        # question had evaporated. It reaches the lane now and is skipped for overlap.
+        assert [i.id for i in skipped] == ["E-27", "E-28", "E-30"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
