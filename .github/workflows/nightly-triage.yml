@@ -113,7 +113,7 @@ jobs:
           cp .github/runner/claude-user-settings.json ~/.claude/settings.json
 
       - name: Diagnose and fix (no PR)
-        uses: anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590  # v1.0.223, bundles Claude Code 2.1.270
+        uses: anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590  # v1.0.230, bundles Claude Code 2.1.277
         env:
           GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
