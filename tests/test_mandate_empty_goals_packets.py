@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from pydantic import ValidationError
+
 from asxos.domain.decision_engine.builder import derive_state
 from asxos.domain.decision_engine.types import ACTION_STATES, NON_ACTION_STATES
 from asxos.domain.mandate import Goals
@@ -45,7 +47,7 @@ def test_0062_does_not_seed_or_default_any_goal_or_mandate_row() -> None:
 
 def test_goals_cannot_be_constructed_from_nothing() -> None:
     """derive() has no zero-arg path. Missing any required field is a hard fail."""
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Goals()  # type: ignore[call-arg]
 
 
