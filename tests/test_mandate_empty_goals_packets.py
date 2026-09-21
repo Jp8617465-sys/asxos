@@ -16,7 +16,6 @@ import ast
 from pathlib import Path
 
 import pytest
-
 from pydantic import ValidationError
 
 from asxos.domain.decision_engine.builder import derive_state
