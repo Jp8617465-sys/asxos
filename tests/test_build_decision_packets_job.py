@@ -25,9 +25,13 @@ class FakeConn:
     #: A thesis WITH a price plan, which is what every pre-existing test here
     #: assumes. `planless` names the subset that has none, so the partition
     #: added for issue #327 can be exercised without reshaping every fixture.
-    def __init__(self, *, theses: list[tuple[int, str]], existing: set[str] = frozenset(), paper: str | None = "paper-daily-2026-09-17", planless: set[str] = frozenset()) -> None:  # type: ignore[assignment]
+    def __init__(self, *, theses: list[tuple[int, str]], existing: set[str] = frozenset(), paper: str | None = "paper-daily-2026-09-17", planless: set[str] = frozenset(), uncovered: set[str] = frozenset()) -> None:  # type: ignore[assignment]
         self.theses = theses
         self.planless = set(planless)
+        #: Symbols the data layer has NEVER held a statement for. Default empty,
+        #: so every pre-existing fixture keeps its coverage and the second
+        #: partition added for #327 is opt-in per test.
+        self.uncovered = set(uncovered)
         self.existing = set(existing)
         self.paper = paper
 
@@ -53,6 +57,8 @@ class FakeConn:
             return {"?column?": 1} if args[0] in self.existing else None
         if "FROM paper_book_snapshots" in query:
             return None if self.paper is None else {"snapshot_id": self.paper}
+        if "FROM rs_financial_statements" in query:
+            return None if args[0] in self.uncovered else {"?column?": 1}
         return None
 
 
@@ -232,4 +238,71 @@ async def test_every_approved_thesis_awaiting_a_plan_is_a_quiet_success() -> Non
     summary, monitor = await _run(conn, build)
     assert summary["built"] == [] and summary["failed"] == {}
     assert summary["awaiting_plan"] == ["A.AU#1", "B.AU#2"]
+    assert monitor.note is None
+
+
+async def test_a_symbol_the_vendor_has_never_covered_is_set_aside_not_failed() -> None:
+    """Issue #327, the second structural precondition.
+
+    `build_decision_case` needs an admissible yearly income row. When the data
+    layer has NEVER held a statement for the symbol, no run will ever produce
+    one — so calling the builder re-raises the same ValueError every night into
+    `monitor.note`, which pages through check_cron_health forever.
+
+    Measured 2026-09-19: after the first weekly-research run carrying #328's
+    held-US-name union concluded `success` and wrote 437,031 statement rows,
+    HUBS.NYSE still had zero — as did every non-.AU symbol, 0 of 3,379 distinct.
+    The vendor does not serve them. Coverage is not this job's health.
+    """
+    conn = FakeConn(theses=[(1, "CBA.AU"), (2, "HUBS.NYSE")], uncovered={"HUBS.NYSE"})
+
+    async def build(conn: Any, **kw: Any) -> Any:
+        assert kw["thesis_id"] != 2, "the builder must not be called for an uncovered name"
+        return _case(job_mod.packet_id_for("CBA.AU", kw["thesis_id"], kw["cutoff"]))
+
+    summary, monitor = await _run(conn, build)
+    assert summary["no_data_coverage"] == ["HUBS.NYSE#2"]
+    assert summary["failed"] == {}
+    assert len(summary["built"]) == 1
+    assert monitor.note is None, (
+        "a name the vendor does not cover is not a job-health problem; a note "
+        "here pages nightly on a condition nobody can fix"
+    )
+
+
+async def test_a_covered_symbol_that_fails_at_the_cutoff_still_fails_loudly() -> None:
+    """The safety property of the partition, and the reason it tests EVER not AT-CUTOFF.
+
+    A symbol WITH statement history whose cutoff yields nothing admissible is a
+    regression — vendor gap, ingestion break, a bad cutoff — and must keep
+    paging. If this test ever goes green while the one above does too on the
+    same input, the partition has become a mute button.
+    """
+    conn = FakeConn(theses=[(1, "CBA.AU"), (2, "HLI.AU")])  # both covered
+
+    async def build(conn: Any, **kw: Any) -> Any:
+        if kw["thesis_id"] == 2:
+            raise ValueError("no admissible yearly income row for HLI.AU at knowledge cutoff")
+        return _case(job_mod.packet_id_for("CBA.AU", kw["thesis_id"], kw["cutoff"]))
+
+    summary, monitor = await _run(conn, build)
+    assert summary["no_data_coverage"] == [], "a covered name must never land in the quiet bucket"
+    assert "HLI.AU#2" in summary["failed"]
+    assert monitor.note is not None and "1 of 2" in monitor.note
+
+
+async def test_coverage_is_checked_before_the_builder_not_after() -> None:
+    """Checking after would still raise, still land in `failed`, still page.
+
+    The partition only works because it happens BEFORE `build_one` is called —
+    the same shape as the price-plan partition above it.
+    """
+    conn = FakeConn(theses=[(1, "HUBS.NYSE")], uncovered={"HUBS.NYSE"})
+
+    async def build(conn: Any, **kw: Any) -> Any:
+        raise AssertionError("the builder must not be called at all")
+
+    summary, monitor = await _run(conn, build)
+    assert summary["built"] == [] and summary["failed"] == {}
+    assert summary["no_data_coverage"] == ["HUBS.NYSE#1"]
     assert monitor.note is None
