@@ -1425,6 +1425,46 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-21 `daily-product` routine fire** — second consecutive fire not held
+> in plan mode, and the first time gate (b) did its job. The Stages 0→6 table at the top of this
+> file remains the only ranked queue. This block supersedes the one below it.
+>
+> **#0 — #327's false page is fixed, and the fix was already in the repo.** Gate (b) failed on
+> #327 (labelled `incident` by last night's fire, after the same probe returned 0 for four
+> consecutive fires over an open incident). Taking it meant opening `check_cron_health` first —
+> which falsified **my own E-30 from the night before**. It is not a design ruling about watchdog
+> semantics: **`build_decision_packets.py` already carries the exact partition needed, and its
+> comment names issue #327 by number.** An approved thesis with no price plan is set aside
+> *before* the builder is called, into `awaiting_plan`, which deliberately sets no note because it
+> is "a fact about James's review queue, not about this job's health". `check_cron_health` has
+> made the same move twice more (`generate_signals` and `check_model_staleness` dropped from
+> `_EXPECTED_DAILY`; `check_us_positions` widened with the measurement inline).
+>
+> So the change was extending a shipped precedent to the **second** structural precondition: a
+> symbol the data layer has **never** held a statement for is set aside into `no_data_coverage`.
+> **"Ever", not "at this cutoff" — that is the whole safety property.** A symbol *with* history
+> whose cutoff yields nothing admissible is a regression, stays in `failed`, and still pages.
+> Mutation-checked both ways: removing the partition turns 2 red; widening it into a mute button
+> turns 3 red, two of them pre-existing.
+>
+> **#327 STAYS OPEN, and that is the honest half.** Once a name stops paging it also stops being
+> visible. `awaiting_plan` rows have a home — the candidates card renders them. A set-aside
+> *approved* thesis has none, so today HUBS.NYSE's only visibility is the issue itself. **E-30 is
+> re-scoped** from "an acknowledge/suppress subsystem, attended" to "one discipline finding so an
+> uncovered approved thesis appears in the brief, `route=build`" — the design question evaporated.
+>
+> **The pattern worth naming: L53/L61 fired three fires running.** #327's own remedy, A-34's and
+> A-35's `paths:`, and now E-30's framing — each described a shape the code did not have, each
+> caught only by opening the consumers first, each would otherwise have shipped something wrong.
+> A row is written when a defect is *found*, by someone holding one or two files; the shape is
+> discovered when it is *built*. **First action on any picked row: open the code it names and
+> check the row against it.**
+>
+> **Next: #1 A-51** → **#2 E-20** → **#3 E-21**, with **E-30** now build-shaped and close behind.
+> Unchanged above all of them, and still arbi-impossible: **C-13**.
+>
+> **Superseded — the 2026-09-20 block below, carried unchanged.**
+
 > **Live as of the 2026-09-20 `daily-product` routine fire** — the first of five not held in
 > plan mode, and it ran inside budget as a result. The Stages 0→6 table at the top of this file
 > remains the only ranked queue. This block supersedes the one below it.

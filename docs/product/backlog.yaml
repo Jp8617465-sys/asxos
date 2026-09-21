@@ -2107,29 +2107,33 @@ items:
       `asx macro-thesis open --from-agent-run` then `asx macro-thesis approve`.
 
   - id: E-30
-    title: "check_cron_health cannot distinguish a NEW degradation from a KNOWN PERMANENT one, so pipeline-health pages nightly on a condition nobody can fix (#327)"
+    title: "An approved thesis the vendor does not cover is invisible to James once it stops paging — the brief has no surface for it (follow-up to #327)"
     phase: E
     owner: arbi
     status: open
     depends_on: []
-    route: attended
-    paths: ["jobs/check_cron_health.py", "asxos/jobs/utils/job_monitor.py"]
+    route: build
+    paths: ["asxos/domain/theses/discipline.py", "tests/test_thesis_discipline.py"]
     source: >-
-      Filed 2026-09-20 by the daily-product fire, replacing the remedy the 2026-09-19 fire
-      proposed off-hand. SETTLED FACT: EODHD does not serve fundamentals for HUBS.NYSE — after
-      weekly-research 35461405865 concluded success and sync_financial_statements wrote 437,031
-      rows, HUBS has ZERO rows and ZERO of 3,379 distinct symbols in rs_financial_statements are
-      non-.AU. #328's union is correct and ran; the vendor returns nothing. So build_decision_case
-      raises for it every night, the DEGRADED note recurs, and check_cron_health pages forever.
-      THE REMEDY IS NOT "make build_decision_case report instead of raise". That was my suggestion
-      on 2026-09-19 and it is wrong: it runs straight into CLAUDE.md #10 (no graceful warnings in
-      infra code, fail loudly), and the builder ALREADY reports loudly — the note is the report.
-      The defect is in the watchdog's vocabulary: it has exactly one state for "something is
-      degraded" and no way to say "this degradation is known, permanent, and already triaged".
-      A watchdog that pages nightly on an unfixable condition trains its reader to ignore it,
-      which costs more than the original gap. Route=attended because the design choice is real:
-      an acknowledge/suppress mechanism can hide a genuine regression behind a stale
-      acknowledgement, so whatever shape it takes needs a rule about expiry and re-raise —
-      closer to the dark-launch expiry discipline than to a mute button. Pass test: a permanently
-      unavailable input is visible in the brief and on the issue, and pipeline-health goes green
-      on it, WITHOUT any ability to silence a degradation that has not been triaged.
+      RE-SCOPED 2026-09-21, and the original framing was wrong in a way worth keeping. Filed
+      2026-09-20 as "check_cron_health needs an acknowledge/suppress mechanism", route=attended,
+      on the reasoning that it was a design ruling about watchdog semantics. Opening the code
+      falsified that — L53/L61 for the third consecutive fire. check_cron_health's own header
+      names the alert-fatigue failure mode twice, and that file has ALREADY made this move twice:
+      generate_signals and check_model_staleness were removed from _EXPECTED_DAILY with dated
+      comments saying keeping them "would fire MISSING every weekday forever", and
+      check_us_positions got a widened window with the measurement inline. Better still,
+      build_decision_packets.py already carried the exact partition needed, for the exact same
+      reason, and its comment names issue #327 BY NUMBER: an approved thesis with no price plan is
+      set aside BEFORE the builder is called, into `awaiting_plan`, which deliberately sets no note
+      because it is "a fact about James's review queue, not about this job's health". So the fix
+      was never a new subsystem — it was extending a shipped precedent to the second structural
+      precondition, and that landed 2026-09-21 as the `no_data_coverage` partition.
+      WHAT REMAINS is the honest half: once a name stops paging it also stops being visible.
+      `awaiting_plan` rows have a home — the brief's candidates card renders them. A set-aside
+      APPROVED thesis has none. Today HUBS.NYSE's visibility is issue #327 itself, which is exactly
+      why that issue STAYS OPEN. Pass test: an approved thesis whose symbol the data layer has
+      never covered appears in the brief as a stated data-coverage finding (the discipline card
+      already carries `incomplete_price_data` and `data_sanity`, so the shape exists), after which
+      #327 can close. Route=build, not attended: the design question evaporated with the re-scope,
+      and what is left is one discipline check with a precedent beside it.
