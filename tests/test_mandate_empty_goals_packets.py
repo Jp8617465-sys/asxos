@@ -32,6 +32,27 @@ _BUILDER = _ROOT / "asxos" / "domain" / "decision_engine" / "builder.py"
 _PACKET_JOB = _ROOT / "jobs" / "build_decision_packets.py"
 _MANDATE_DIR = _ROOT / "asxos" / "domain" / "mandate"
 _RUNNER = CliRunner()
+_SCALAR_GOAL_VALUES = {
+    "as-of": "2026-09-22",
+    "investable": "25000",
+    "income": "100000",
+    "savings": "20000",
+    "target-wealth": "1000000",
+    "horizon-years": "15",
+    "drawdown-tolerance": "20",
+    "emergency-months": "3",
+    "account": "individual",
+    "marginal-rate": "37",
+    "brokerage": "5",
+}
+
+
+def _mandate_init_args(*, missing: str | None = None) -> list[str]:
+    args = ["mandate", "init"]
+    for option, value in _SCALAR_GOAL_VALUES.items():
+        if option != missing:
+            args.extend((f"--{option}", value))
+    return args
 
 
 def test_0062_does_not_seed_or_default_any_goal_or_mandate_row() -> None:
@@ -56,44 +77,29 @@ def test_goals_cannot_be_constructed_from_nothing() -> None:
 
 @pytest.mark.parametrize(
     "missing",
-    [
-        "as-of",
-        "investable",
-        "income",
-        "savings",
-        "target-wealth",
-        "horizon-years",
-        "drawdown-tolerance",
-        "emergency-months",
-        "account",
-        "marginal-rate",
-        "brokerage",
-    ],
+    _SCALAR_GOAL_VALUES,
 )
 def test_mandate_init_requires_every_scalar_goal_value(missing: str) -> None:
     """The CLI cannot silently fill a goal value James did not state."""
-    values = {
-        "as-of": "2026-09-22",
-        "investable": "25000",
-        "income": "100000",
-        "savings": "20000",
-        "target-wealth": "1000000",
-        "horizon-years": "15",
-        "drawdown-tolerance": "20",
-        "emergency-months": "3",
-        "account": "individual",
-        "marginal-rate": "37",
-        "brokerage": "5",
-    }
-    args = ["mandate", "init"]
-    for option, value in values.items():
-        if option != missing:
-            args.extend((f"--{option}", value))
-
-    result = _RUNNER.invoke(cli_main.app, args, env={"ASXOS_PERSONAL_USE": "1"})
+    result = _RUNNER.invoke(cli_main.app, _mandate_init_args(missing=missing), env={"ASXOS_PERSONAL_USE": "1"})
 
     assert result.exit_code == 2
     assert f"--{missing}" in unstyle(result.output)
+
+
+def test_mandate_init_allows_omitted_liquidity_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorded: list[Goals] = []
+
+    async def record(goals: Goals) -> None:
+        recorded.append(goals)
+
+    monkeypatch.setattr("asxos.cli.mandate._run_init", record)
+
+    result = _RUNNER.invoke(cli_main.app, _mandate_init_args(), env={"ASXOS_PERSONAL_USE": "1"})
+
+    assert result.exit_code == 0
+    assert len(recorded) == 1
+    assert recorded[0].liquidity_needs == ()
 
 
 def test_domain_mandate_has_no_placeholder_goals_factory() -> None:
