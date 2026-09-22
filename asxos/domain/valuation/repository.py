@@ -16,6 +16,7 @@ from typing import Any, Final, Protocol
 
 from asxos.domain.valuation.contracts import ScenarioPreregistration, ValuationRun
 from asxos.domain.valuation.inputs import assert_valuation_sql_admissible
+from asxos.domain.valuation.universe import SQL_RESIDUAL_INCOME_ELIGIBLE
 
 DEFAULT_WRITE_BATCH_SIZE: Final[int] = 200
 
@@ -55,11 +56,14 @@ SQL_COUNT_RUNS_FOR_AS_OF: Final[str] = (
     "SELECT count(*) AS n, count(*) FILTER (WHERE outcome = 'valued') AS valued "
     "FROM valuation_runs WHERE as_of = $1"
 )
-SQL_LATEST_RUNS: Final[str] = """
-SELECT DISTINCT ON (symbol) payload
-FROM valuation_runs
-WHERE as_of <= $1 AND terminal_convention = $2
-ORDER BY symbol, as_of DESC, created_at DESC
+SQL_LATEST_RUNS: Final[str] = f"""
+SELECT DISTINCT ON (v.symbol) v.payload
+FROM valuation_runs v
+JOIN universe u ON u.symbol = v.symbol
+WHERE v.as_of <= $1 AND v.terminal_convention = $2
+  AND v.method = 'residual_income'
+  AND {SQL_RESIDUAL_INCOME_ELIGIBLE}
+ORDER BY v.symbol, v.as_of DESC, v.created_at DESC
 """
 for _sql in (SQL_PREREG_BY_ID, SQL_INSERT_PREREG, SQL_INSERT_RUN, SQL_COUNT_RUNS_FOR_AS_OF, SQL_LATEST_RUNS):
     assert_valuation_sql_admissible(_sql)
@@ -163,16 +167,26 @@ async def count_runs_for(conn: RepositoryConn, as_of: date) -> tuple[int, int]:
 async def latest_runs(
     conn: RepositoryConn, *, as_of: date, terminal_convention: str = "zero_excess"
 ) -> list[ValuationRun]:
-    """The most recent run per symbol at or before `as_of`, reconstructed from payload."""
+    """The most recent *applicable* run per symbol at or before `as_of`.
+
+    Applicability is current sweep eligibility (`SQL_RESIDUAL_INCOME_ELIGIBLE`)
+    plus `method = residual_income`. A stored row for a kind the method no
+    longer applies to — the 2026-09-16 LIC valued runs after A-49 — is not
+    returned. The store stays append-only; the reader stops treating an
+    inapplicable run as current. Reconstructed from payload.
+    """
     records = await conn.fetch(SQL_LATEST_RUNS, as_of, terminal_convention)
     return [ValuationRun.model_validate(_payload(r)) for r in records]
 
 
-SQL_LATEST_RUN_FOR_SYMBOL: Final[str] = """
-SELECT payload
-FROM valuation_runs
-WHERE symbol = $1 AND as_of <= $2 AND terminal_convention = $3
-ORDER BY as_of DESC, created_at DESC
+SQL_LATEST_RUN_FOR_SYMBOL: Final[str] = f"""
+SELECT v.payload
+FROM valuation_runs v
+JOIN universe u ON u.symbol = v.symbol
+WHERE v.symbol = $1 AND v.as_of <= $2 AND v.terminal_convention = $3
+  AND v.method = 'residual_income'
+  AND {SQL_RESIDUAL_INCOME_ELIGIBLE}
+ORDER BY v.as_of DESC, v.created_at DESC
 LIMIT 1
 """
 assert_valuation_sql_admissible(SQL_LATEST_RUN_FOR_SYMBOL)
@@ -181,6 +195,10 @@ assert_valuation_sql_admissible(SQL_LATEST_RUN_FOR_SYMBOL)
 async def latest_run_for_symbol(
     conn: RepositoryConn, *, symbol: str, as_of: date, terminal_convention: str = "zero_excess"
 ) -> ValuationRun | None:
-    """The most recent run for one name at or before `as_of` — the decision builder's read (S2/S5)."""
+    """The most recent applicable run for one name — the decision builder's read (S2/S5).
+
+    Same eligibility as `latest_runs`. An excluded symbol (LIC, ETF, inactive)
+    returns None even when a residual-income row still sits in the store.
+    """
     row = await conn.fetchrow(SQL_LATEST_RUN_FOR_SYMBOL, symbol, as_of, terminal_convention)
     return None if row is None else ValuationRun.model_validate(_payload(row))
