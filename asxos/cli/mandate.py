@@ -44,10 +44,20 @@ def mandate_init(
     marginal_rate: str = typer.Option(..., "--marginal-rate", help="percent, e.g. 37"),
     brokerage: str = typer.Option(..., "--brokerage", help="AUD per side"),
     need: Annotated[list[str] | None, typer.Option("--need", help="liquidity call as DUE:AMOUNT:LABEL, repeatable")] = None,
+    no_liquidity_needs: bool = typer.Option(
+        False,
+        "--no-liquidity-needs",
+        help="Explicitly state that there are no liquidity calls.",
+    ),
 ) -> None:
     """Record a goals statement (append-only). Prints the goal_version_id."""
     _require_personal_use()
     from asxos.domain.mandate.types import Goals, LiquidityNeed
+
+    if need and no_liquidity_needs:
+        raise typer.BadParameter("--need and --no-liquidity-needs are mutually exclusive")
+    if not need and not no_liquidity_needs:
+        raise typer.BadParameter("state at least one --need or pass --no-liquidity-needs")
 
     needs = []
     for raw in need or []:

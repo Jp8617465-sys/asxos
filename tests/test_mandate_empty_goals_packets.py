@@ -47,11 +47,17 @@ _SCALAR_GOAL_VALUES = {
 }
 
 
-def _mandate_init_args(*, missing: str | None = None) -> list[str]:
+def _mandate_init_args(
+    *,
+    missing: str | None = None,
+    declare_no_liquidity_needs: bool = True,
+) -> list[str]:
     args = ["mandate", "init"]
     for option, value in _SCALAR_GOAL_VALUES.items():
         if option != missing:
             args.extend((f"--{option}", value))
+    if declare_no_liquidity_needs:
+        args.append("--no-liquidity-needs")
     return args
 
 
@@ -87,7 +93,18 @@ def test_mandate_init_requires_every_scalar_goal_value(missing: str) -> None:
     assert f"--{missing}" in unstyle(result.output)
 
 
-def test_mandate_init_allows_omitted_liquidity_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mandate_init_requires_an_explicit_liquidity_statement() -> None:
+    result = _RUNNER.invoke(
+        cli_main.app,
+        _mandate_init_args(declare_no_liquidity_needs=False),
+        env={"ASXOS_PERSONAL_USE": "1"},
+    )
+
+    assert result.exit_code == 2
+    assert "--no-liquidity-needs" in unstyle(result.output)
+
+
+def test_mandate_init_accepts_explicit_no_liquidity_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     recorded: list[Goals] = []
 
     async def record(goals: Goals) -> None:
