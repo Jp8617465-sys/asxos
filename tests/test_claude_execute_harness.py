@@ -35,10 +35,11 @@ _SETTINGS = _ROOT / ".claude" / "settings.json"
 _RUNNER_SETTINGS = _ROOT / ".github" / "runner" / "claude-user-settings.json"
 _SECRETS_GUARD = _ROOT / ".claude" / "hooks" / "secrets-guard.sh"
 
-# The exact commit all four lanes pin: v1.0.223, published 2026-09-12, bundling Claude
-# Code 2.1.270 — the version ``--permission-prompts none`` was verified against.
-_ACTION_SHA = "9cdae7f0d995e3ba7c33f226087fdf82a59cd520"
-_ACTION_RELEASE = "v1.0.223"
+# The exact commit all four lanes pin: v1.0.230 peeled (not the tag object).
+# Tag v1.0.230 is annotated (3bc13d79…); the pin is the commit it names.
+# Bundles Claude Code 2.1.277.
+_ACTION_SHA = "4036a180cf690f49529f5d8c79c998855287f590"
+_ACTION_RELEASE = "v1.0.230"
 
 AGENT_LANES = [
     "claude-execute.yml",
