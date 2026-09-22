@@ -16,7 +16,7 @@ dependencies = [
     "fastapi==0.141.1",
     "uvicorn[standard]==0.52.4",
     "asyncpg==0.31.0",
-    "psycopg2-binary==2.9.12",
+    "psycopg2-binary==2.9.13",
     "pydantic==2.13.5",
     "pydantic-settings==2.15.0",
     "httpx==0.28.1",
@@ -31,7 +31,7 @@ dependencies = [
     "click<8.6",  # typer 0.27.2 is incompatible with click 8.2+ (make_metavar signature change)
     "rich==15.0.0",
     "jinja2==3.1.6",
-    "resend==2.43.0",
+    "resend==2.44.0",
     "python-dotenv==1.2.3",
 ]
 
@@ -42,14 +42,14 @@ dependencies = [
 ml = [
     "lightgbm==4.7.0",
     "shap==0.52.0",
-    "scikit-learn==1.9.0",
+    "scikit-learn==1.9.1",
     "joblib==1.6.0",
 ]
 dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
-    "ruff==0.16.6",
+    "ruff==0.16.7",
     "mypy==2.3.1",
     "types-python-dateutil==2.9.0.20260807",
     # tests/test_corporate_actions.py reads .github/workflows/weekly-research.yml to
