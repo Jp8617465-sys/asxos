@@ -13,6 +13,16 @@ Waterfall (top-down, first match wins):
 Hard-fail inputs (must not be None): avix, us_hy_oas
 Soft-degrade inputs (may be None, skips condition):
   pct_above_50d_ma, pct_above_200d_ma, net_new_highs_lows_10d
+
+Units. ``us_hy_oas`` is FRED ``BAMLH0A0HYM2`` (ICE BofA US High Yield OAS),
+which FRED publishes in **percent** (2.70 means 270 bp), and
+``jobs/ingest_market_context.py`` stores it unscaled. The credit thresholds
+below are therefore in percent too. v1.0 carried them in basis points
+(450 / 600) against a percent input, so ``hy_oas_elevated`` and
+``hy_oas_stress`` could never fire — spreads would have needed to reach
+45,000 bp — and the regime label was breadth-and-AVIX-only in production
+for the whole of v1.0. Found 2026-09-18 (capability atlas D-1); the unit
+tests had encoded the bp scale, so CI stayed green throughout.
 """
 from __future__ import annotations
 
@@ -23,15 +33,18 @@ from asxos.domain.regime.types import Condition, RegimeLabel
 # ---------------------------------------------------------------------------
 # Threshold constants — bump CLASSIFIER_VERSION if any value changes
 # ---------------------------------------------------------------------------
-CLASSIFIER_VERSION = "v1.0"
+CLASSIFIER_VERSION = "v1.1"  # v1.1: HY OAS thresholds re-stated in percent (were bp vs a percent input)
 
 _AVIX_DISORDERLY = Decimal("30")
 _AVIX_RISK_OFF = Decimal("22")
 _AVIX_CALM = Decimal("18")
 _AVIX_VERY_CALM = Decimal("14")
 
-_HY_OAS_STRESS = Decimal("600")     # basis points
-_HY_OAS_ELEVATED = Decimal("450")
+# Percent, matching the stored FRED series (see module docstring). 6.00 % and
+# 4.50 % are the v1.0 intent (600 bp / 450 bp) expressed in the input's unit.
+_HY_OAS_UNIT = "percent"
+_HY_OAS_STRESS = Decimal("6.00")
+_HY_OAS_ELEVATED = Decimal("4.50")
 
 _BREADTH_200_BULLISH = Decimal("0.70")
 _BREADTH_200_MODERATE = Decimal("0.55")
