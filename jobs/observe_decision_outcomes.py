@@ -129,8 +129,12 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         raise RuntimeError(f"no outcome row written; every packet failed: {json.dumps(failed)}")
     if failed:
         monitor.note = f"{len(failed)} packet pass(es) failed: {json.dumps(failed)}"
-    elif not written:
-        monitor.note = "nothing to record: every packet has its t0 and no horizon is due"
+    # "nothing to record: every packet has its t0 and no horizon is due" used to
+    # be set here as a note, and that is the HEALTHY case being announced through
+    # an alerting channel — every packet observed, nothing yet due. It fired on
+    # 09-20, 09-21 and 09-22, helping hold check_cron_health red. A genuine
+    # failure still sets a note, immediately above. Nothing is lost: `success`
+    # with rows_written = 0 already says a quiet pass happened.
     return summary
 
 

@@ -184,14 +184,22 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
         raise RuntimeError(f"no packet built; every approved thesis failed: {json.dumps(failed)}")
     if failed:
         monitor.note = f"{len(failed)} of {len(theses)} approved theses did not build: {json.dumps(failed)}"
-    elif not theses:
-        monitor.note = "no approved theses — nothing to challenge"
-    # `awaiting_plan` and `no_data_coverage` deliberately set NO note. One is a
-    # fact about James's review queue and the other about vendor coverage;
-    # neither is about this job's health, and the note channel is an alerting
-    # channel (job_monitor.py:139 -> check_cron_health.py:152). A watchdog that
-    # pages nightly on a condition nobody can fix trains its reader to ignore
-    # it, which is the failure mode check_cron_health's own header names twice.
+    # An EMPTY register sets no note either, for the same reason and on measured
+    # evidence. It used to set "no approved theses — nothing to challenge", and
+    # after #352 retired the last two pre-gate theses on 2026-09-20 that fired on
+    # every run: check_cron_health was red on 09-20, 09-21 and 09-22 carrying it.
+    # Zero approved theses is a fact about the register — here, the DESIGNED state
+    # after a governance sweep — not a fault in this job. `rows_written = 0` on a
+    # `success` row already records it losslessly, and the brief's candidates card
+    # shows the queue.
+    #
+    # `awaiting_plan`, `no_data_coverage` and the empty register all set NO note.
+    # One is a fact about James's review queue, one about vendor coverage, one
+    # about governance state; none is about this job's health, and the note
+    # channel is an alerting channel (job_monitor.py:139 -> check_cron_health.py:152).
+    # A watchdog that pages nightly on a condition nobody can fix trains its
+    # reader to ignore it, which is the failure mode check_cron_health's own
+    # header names twice.
     return summary
 
 
