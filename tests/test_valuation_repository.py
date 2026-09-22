@@ -54,7 +54,7 @@ class FakeConn:
             return None if self.prereg_hash is None else {"content_hash": self.prereg_hash}
         if "count(*)" in query:
             return self.count_row
-        if "WHERE symbol = $1" in query:
+        if "symbol = $1" in query:
             return self.symbol_row
         return None
 
@@ -182,6 +182,7 @@ def test_every_repository_statement_passes_the_screen() -> None:
         repository.SQL_INSERT_RUN,
         repository.SQL_COUNT_RUNS_FOR_AS_OF,
         repository.SQL_LATEST_RUNS,
+        repository.SQL_LATEST_RUN_FOR_SYMBOL,
     ):
         assert_valuation_sql_admissible(sql)
 
@@ -194,3 +195,24 @@ async def test_latest_run_for_symbol_reads_one_payload_or_none() -> None:
     conn.symbol_row = None
     assert await repository.latest_run_for_symbol(conn, symbol="CBA.AU", as_of=date(2026, 9, 20)) is None
     assert_valuation_sql_admissible(repository.SQL_LATEST_RUN_FOR_SYMBOL)
+
+
+def test_latest_run_sql_shares_sweep_eligibility_and_cannot_resurface_an_excluded_kind() -> None:
+    """#359 §3: a LIC valued on 2026-09-16 stays in the store after A-49, but
+    must not be the current residual-income value. The reader joins `universe`
+    on the same predicate the sweep uses; dropping either the join or the
+    kind filter re-opens the hole. Sentinel blocked rows were the other
+    option — they would still be a run the builder cites as evidence.
+    """
+    from asxos.domain.valuation.universe import SQL_RESIDUAL_INCOME_ELIGIBLE, SQL_UNIVERSE_INPUTS
+
+    assert SQL_RESIDUAL_INCOME_ELIGIBLE in SQL_UNIVERSE_INPUTS
+    for sql in (repository.SQL_LATEST_RUNS, repository.SQL_LATEST_RUN_FOR_SYMBOL):
+        assert "JOIN universe u ON u.symbol = v.symbol" in sql
+        assert SQL_RESIDUAL_INCOME_ELIGIBLE in sql
+        assert "v.method = 'residual_income'" in sql
+        assert_valuation_sql_admissible(sql)
+    # Mutation: a reader that only DISTINCT ON symbol (the pre-fix shape)
+    # would still return AUI.AU's 19.74. The join is the gate.
+    assert "FROM valuation_runs\nWHERE as_of" not in repository.SQL_LATEST_RUNS
+    assert "WHERE symbol = $1 AND as_of" not in repository.SQL_LATEST_RUN_FOR_SYMBOL
