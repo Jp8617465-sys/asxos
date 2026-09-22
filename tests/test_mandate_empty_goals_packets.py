@@ -16,6 +16,7 @@ import ast
 from pathlib import Path
 
 import pytest
+from click import unstyle
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
@@ -92,7 +93,7 @@ def test_mandate_init_requires_every_scalar_goal_value(missing: str) -> None:
     result = _RUNNER.invoke(cli_main.app, args, env={"ASXOS_PERSONAL_USE": "1"})
 
     assert result.exit_code == 2
-    assert f"--{missing}" in result.output
+    assert f"--{missing}" in unstyle(result.output)
 
 
 def test_domain_mandate_has_no_placeholder_goals_factory() -> None:
