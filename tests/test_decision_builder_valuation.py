@@ -89,6 +89,17 @@ async def test_no_valuation_is_declared_missing_and_the_rule_is_unevaluated() ->
     assert "valuation_gap" in case.challenge.strongest_bear_case
 
 
+async def test_an_excluded_kind_cannot_feed_the_builder_a_stale_residual_income_value() -> None:
+    """The builder never queries the store; `latest_run_for_symbol` returning
+    None is how a LIC (or any inapplicable kind) arrives here after A-49.
+    Passing a valued run would still compute a gap — so the gate is the
+    reader, pinned by `test_latest_run_sql_shares_sweep_eligibility_*`.
+    """
+    case = await _build(context=_context(), valuation=None)
+    assert not any(i.evidence_type == "valuation_fact" for i in case.evidence.items)
+    assert not any("value_per_share=" in i.claim for i in case.evidence.items)
+
+
 async def test_context_measured_gap_wins_over_the_derived_one() -> None:
     case = await _build(context=_context(valuation_gap_pct=D("80")), valuation=_run())
     finding = next(f for f in case.challenge.findings if "above the model's registered value" in f.finding)
