@@ -29,6 +29,16 @@ PRICE_WINDOW_DAYS: Final[int] = 40
 #: `command_timeout` is sized for row lookups, not a 1,880-name sweep.
 UNIVERSE_QUERY_TIMEOUT_S: Final[float] = 300.0
 
+#: Live residual-income eligibility. The sweep population (`SQL_UNIVERSE_INPUTS`)
+#: and the "current run" readers (`repository.latest_runs` /
+#: `latest_run_for_symbol`) share this predicate so a kind the method no
+#: longer applies to cannot keep a frozen valued row as current — the A-49
+#: LIC orphan (#359 §3). A future method adds an OR branch here, not a
+#: special case in the decision builder.
+SQL_RESIDUAL_INCOME_ELIGIBLE: Final[str] = (
+    "u.security_kind = 'au_equity' AND u.is_active"
+)
+
 SQL_UNIVERSE_INPUTS: Final[str] = """
 WITH pit AS (
     SELECT DISTINCT ON (symbol)
@@ -72,7 +82,7 @@ FROM universe u
 LEFT JOIN pit     ON pit.symbol = u.symbol
 LEFT JOIN pit_avg ON pit_avg.symbol = u.symbol
 LEFT JOIN px      ON px.symbol = u.symbol
-WHERE u.security_kind = 'au_equity' AND u.is_active
+WHERE """ + SQL_RESIDUAL_INCOME_ELIGIBLE + """
 ORDER BY u.symbol
 """
 
