@@ -16,7 +16,6 @@ from typing import Annotated
 import typer
 from rich.table import Table
 
-from asxos import clock
 from asxos.cli._common import _require_personal_use, console
 from asxos.db import acquire, close_pool, init_pool
 
@@ -33,17 +32,17 @@ def _d(x: str) -> Decimal:
 
 @mandate_app.command("init")
 def mandate_init(
-    as_of: str = typer.Option("", "--as-of", help="YYYY-MM-DD (default: today)"),
+    as_of: str = typer.Option(..., "--as-of", help="YYYY-MM-DD"),
     investable: str = typer.Option(..., "--investable", help="AUD investable assets (decimal string)"),
     income: str = typer.Option(..., "--income", help="AUD income p.a."),
     savings: str = typer.Option(..., "--savings", help="AUD savings p.a. (≤ income)"),
     target_wealth: str = typer.Option(..., "--target-wealth", help="AUD target wealth"),
     horizon_years: int = typer.Option(..., "--horizon-years"),
     drawdown_tolerance: str = typer.Option(..., "--drawdown-tolerance", help="percent, e.g. 25"),
-    emergency_months: int = typer.Option(3, "--emergency-months"),
-    account: str = typer.Option("individual", "--account", help="individual | smsf"),
+    emergency_months: int = typer.Option(..., "--emergency-months"),
+    account: str = typer.Option(..., "--account", help="individual | smsf"),
     marginal_rate: str = typer.Option(..., "--marginal-rate", help="percent, e.g. 37"),
-    brokerage: str = typer.Option("5", "--brokerage", help="AUD per side"),
+    brokerage: str = typer.Option(..., "--brokerage", help="AUD per side"),
     need: Annotated[list[str] | None, typer.Option("--need", help="liquidity call as DUE:AMOUNT:LABEL, repeatable")] = None,
 ) -> None:
     """Record a goals statement (append-only). Prints the goal_version_id."""
@@ -55,7 +54,7 @@ def mandate_init(
         due, amount, label = raw.split(":", 2)
         needs.append(LiquidityNeed(due=date.fromisoformat(due), amount_aud=_d(amount), label=label))
     goals = Goals(
-        as_of=date.fromisoformat(as_of) if as_of else clock.today(),
+        as_of=date.fromisoformat(as_of),
         investable_assets_aud=_d(investable), income_aud_pa=_d(income), savings_aud_pa=_d(savings),
         target_wealth_aud=_d(target_wealth), horizon_years=horizon_years,
         drawdown_tolerance_pct=_d(drawdown_tolerance), liquidity_needs=tuple(needs),

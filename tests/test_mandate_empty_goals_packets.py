@@ -17,7 +17,9 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from typer.testing import CliRunner
 
+from asxos.cli import main as cli_main
 from asxos.domain.decision_engine.builder import derive_state
 from asxos.domain.decision_engine.types import ACTION_STATES, NON_ACTION_STATES
 from asxos.domain.mandate import Goals
@@ -28,6 +30,7 @@ _MIGRATION = _ROOT / "migrations" / "0062_mandate.sql"
 _BUILDER = _ROOT / "asxos" / "domain" / "decision_engine" / "builder.py"
 _PACKET_JOB = _ROOT / "jobs" / "build_decision_packets.py"
 _MANDATE_DIR = _ROOT / "asxos" / "domain" / "mandate"
+_RUNNER = CliRunner()
 
 
 def test_0062_does_not_seed_or_default_any_goal_or_mandate_row() -> None:
@@ -48,6 +51,48 @@ def test_goals_cannot_be_constructed_from_nothing() -> None:
     """derive() has no zero-arg path. Missing any required field is a hard fail."""
     with pytest.raises(ValidationError):
         Goals()  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "as-of",
+        "investable",
+        "income",
+        "savings",
+        "target-wealth",
+        "horizon-years",
+        "drawdown-tolerance",
+        "emergency-months",
+        "account",
+        "marginal-rate",
+        "brokerage",
+    ],
+)
+def test_mandate_init_requires_every_scalar_goal_value(missing: str) -> None:
+    """The CLI cannot silently fill a goal value James did not state."""
+    values = {
+        "as-of": "2026-09-22",
+        "investable": "25000",
+        "income": "100000",
+        "savings": "20000",
+        "target-wealth": "1000000",
+        "horizon-years": "15",
+        "drawdown-tolerance": "20",
+        "emergency-months": "3",
+        "account": "individual",
+        "marginal-rate": "37",
+        "brokerage": "5",
+    }
+    args = ["mandate", "init"]
+    for option, value in values.items():
+        if option != missing:
+            args.extend((f"--{option}", value))
+
+    result = _RUNNER.invoke(cli_main.app, args, env={"ASXOS_PERSONAL_USE": "1"})
+
+    assert result.exit_code == 2
+    assert f"--{missing}" in result.output
 
 
 def test_domain_mandate_has_no_placeholder_goals_factory() -> None:
