@@ -116,7 +116,10 @@ async def test_second_run_is_a_no_op_until_a_horizon_is_due() -> None:
     before = dict(conn.outcomes)
     summary, monitor = await _run(conn, cutoff + timedelta(days=1))
     assert conn.outcomes == before and monitor.rows_written == 0
-    assert monitor.note == "nothing to record: every packet has its t0 and no horizon is due"
+    assert monitor.note is None, (
+        "every packet has its t0 and no horizon is due is the HEALTHY case — "
+        "announcing it through the note channel pages check_cron_health on success"
+    )
     assert summary["t0_recorded"] == {}
 
 
