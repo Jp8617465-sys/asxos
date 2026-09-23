@@ -42,6 +42,7 @@ from asxos.domain.decision_engine.portfolio_state import (
 )
 from asxos.domain.decision_engine.writeback import record_packet_examination
 from asxos.domain.tax.feed import load_dividend_characterisation
+from asxos.domain.theses.coverage import SQL_SYMBOL_HAS_STATEMENTS
 from asxos.domain.theses.plan import has_price_plan
 from asxos.domain.valuation.repository import latest_run_for_symbol
 from asxos.jobs._helpers import require_personal_use_job
@@ -61,14 +62,6 @@ SQL_APPROVED_THESES: Final[str] = (
     "WHERE governance_status = 'approved' AND closed_at IS NULL ORDER BY thesis_id"
 )
 SQL_PACKET_EXISTS: Final[str] = "SELECT 1 FROM decision_packets WHERE decision_packet_id = $1"
-#: Has the data layer EVER served a financial statement for this symbol? Not
-#: "at the cutoff" — ever. The distinction is the whole safety property of the
-#: partition below: zero-ever means the vendor does not cover the name and no
-#: run will ever build it; some-rows-but-none-admissible-at-the-cutoff is a
-#: real degradation and must still fail loudly.
-SQL_SYMBOL_HAS_STATEMENTS: Final[str] = (
-    "SELECT 1 FROM rs_financial_statements WHERE symbol = $1 LIMIT 1"
-)
 
 
 def packet_id_for(symbol: str, thesis_id: int, cutoff: datetime) -> str:
@@ -140,17 +133,13 @@ async def run(*, monitor: JobMonitor, cutoff: datetime) -> dict[str, Any]:
             # symbol, no run will ever produce one and calling the builder just
             # re-raises the same ValueError every night into `monitor.note`.
             #
-            # Measured 2026-09-19 on the first weekly-research run after #328's
-            # held-US-name union shipped: it concluded `success` and
-            # sync_financial_statements wrote 437,031 rows, yet HUBS.NYSE has
-            # ZERO and so do ALL non-.AU symbols — 0 of 3,379 distinct symbols
-            # in rs_financial_statements are non-.AU. The vendor does not serve
-            # them. That is a coverage fact, not this job's health.
-            #
-            # Deliberately "ever", not "at this cutoff": a symbol WITH history
-            # whose cutoff yields nothing admissible is a regression, stays in
-            # `failed`, and still pages. This partition can only ever quiet a
-            # name the data layer has never once covered.
+            # The predicate, the "ever not at-this-cutoff" safety property and
+            # the 2026-09-19 measurement behind it all live in
+            # `asxos/domain/theses/coverage.py` — stated once, because the
+            # brief's `no_data_coverage` discipline finding (E-30) has to
+            # partition the SAME set this job does or it will either hide a
+            # thesis this job is still failing on, or announce one it is
+            # quietly handling.
             if await conn.fetchrow(SQL_SYMBOL_HAS_STATEMENTS, symbol) is None:
                 no_data_coverage.append(f"{symbol}#{thesis_id}")
                 continue

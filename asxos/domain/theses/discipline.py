@@ -147,6 +147,16 @@ class ThesisDisciplineInput:
     # (``opened_at``), i.e. confident false escalations on every old detached
     # thesis. Required means mypy names any new construction site instead.
     last_answering_revision_at: date | None
+    # True when the data layer has EVER held a financial statement for this
+    # symbol — `asxos.domain.theses.coverage`, the same predicate
+    # `jobs/build_decision_packets.py` partitions on. Feeds only
+    # :func:`no_data_coverage`.
+    #
+    # Required and undefaulted for the same reason as the field above, and the
+    # safe default here would be the WRONG way round: `True` would silence the
+    # finding for every caller that forgot it, which is precisely the
+    # invisibility E-30 exists to end.
+    data_layer_covers_symbol: bool
 
 
 @dataclass(frozen=True)
@@ -496,6 +506,48 @@ def _missing_price_legs(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
     )
 
 
+def no_data_coverage(inp: ThesisDisciplineInput) -> DisciplineFinding | None:
+    """Yellow when the data layer has never held a statement for this symbol.
+
+    **The half of issue #327 that the fix for it created.** `build_decision_packets`
+    sets such a thesis aside into ``no_data_coverage`` *before* calling the
+    builder, so it stops raising nightly into ``monitor.note`` — correct, and
+    the reason `check_cron_health` stopped paging. But once a name stops paging
+    it also stops being visible: ``awaiting_plan`` rows have a home (the brief's
+    candidates card), and a set-aside thesis had none. Its only surface was the
+    incident issue itself. This is that surface.
+
+    **Same predicate as the job, by import, not by restatement**
+    (:mod:`asxos.domain.theses.coverage`). If the brief and the builder
+    disagreed about what "covered" means, the brief would either hide a thesis
+    the builder is still failing on, or announce one it is quietly handling —
+    both worse than no finding at all.
+
+    **Yellow, not info.** ``incomplete_price_data`` is ``info`` because it
+    describes a thesis James has not finished authoring — his own queue, and
+    the candidates card already shows it. This is different in kind: the thesis
+    is complete and approved, and it is the *vendor* that will never serve it,
+    so no amount of authoring fixes it and nothing else in the brief will ever
+    mention it. It states the fact and the consequence; the decision (carry it
+    unexamined, or retire it) is James's, and naming that decision would be a
+    recommendation (s766B).
+
+    Pure: takes the flag the loader supplies, reads no DB.
+    """
+    if inp.data_layer_covers_symbol:
+        return None
+    return DisciplineFinding(
+        check="no_data_coverage",
+        level=DisciplineLevel.yellow,
+        message=(
+            f"{inp.symbol}: no financial statement has ever been stored for this symbol — "
+            "decision packets cannot be built for this thesis, and it is set aside rather "
+            "than reported as a failure"
+        ),
+        symbol=inp.symbol,
+    )
+
+
 def evaluate_thesis(
     inp: ThesisDisciplineInput, as_of: date
 ) -> list[DisciplineFinding]:
@@ -669,19 +721,25 @@ def evaluate_discipline(
     """The per-thesis check battery followed by the portfolio-level checks.
 
     **Not the complete finding set — this entry point is not sufficient on its
-    own.** Two checks are deliberately *loader-appended* rather than called from
-    here, and a caller that uses only this function will silently drop them:
+    own.** Three checks are deliberately *loader-appended* rather than called
+    from here, and a caller that uses only this function will silently drop
+    them:
 
     * :func:`unrealised_return` — an ``info`` display fact, kept out so this
       function stays quiet-by-default (a clean portfolio returns ``[]``).
     * :func:`data_sanity_escalation` — **a red**, kept out because it applies to
       ``watching`` rows too, while everything here is active-thesis scoped. Miss
       it and a stale-record escalation is computed nowhere and shown nowhere.
+    * :func:`no_data_coverage` — **a yellow**, kept out for the same scope
+      reason: the packet builder sets aside every *approved* thesis the vendor
+      does not cover, ``watching`` ones included, so a finding restricted to
+      active rows would mirror a smaller set than the job it reports on.
 
     ``asxos/brief/compose.py::_discipline_findings`` is the reference caller and
-    runs all three. A new consumer (a ``/pm-review`` feed, an ``asx thesis
-    discipline`` CLI) must do the same — dropping a red on the floor is exactly
-    the "findings computed then invisible" failure this module exists to fix.
+    runs all four. A new consumer (a ``/pm-review`` feed, an ``asx thesis
+    discipline`` CLI) must do the same — dropping a finding on the floor is
+    exactly the "findings computed then invisible" failure this module exists
+    to fix.
 
     Returns ``[]`` when every thesis is clean of the checks *it* owns and no
     portfolio-level issue fires. An ``error``-level finding in the result means a
