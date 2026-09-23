@@ -1124,6 +1124,7 @@ def _disc_conn(
     holding_rows=None,
     price_rows=None,
     fx_rows=None,
+    uncovered_symbols=(),
 ):
     # The loader's theses query also selects `status` and the derived
     # `last_answering_revision_at`; default them here so fixtures predating the
@@ -1153,6 +1154,12 @@ def _disc_conn(
             return price_rows
         if "fx_rate_audusd IS NOT NULL" in q:
             return fx_rows
+        if "FROM rs_financial_statements" in q:
+            # The loader asks which symbols ARE covered. Default: all of them —
+            # every fixture predating E-30 describes a name the vendor serves,
+            # and a fixture that means "the vendor has never served this" says
+            # so through `uncovered_symbols`.
+            return [{"symbol": sym} for sym in args[0] if sym not in uncovered_symbols]
         return []
 
     conn = MagicMock()
@@ -1838,3 +1845,85 @@ def test_collect_news_exception_is_missing_not_silent() -> None:
     html = render_html(data)
     assert 'class="sec-MISSING">MISSING</span>' in html
     assert "Integrity" in html
+
+
+# --- E-30: the uncovered approved thesis reaches the brief ------------------
+
+
+def test_an_uncovered_thesis_surfaces_through_the_loader() -> None:
+    """E-30's pass condition, and the reason #327 stayed open.
+
+    `build_decision_packets` sets aside an approved thesis whose symbol the
+    vendor has never served, so `check_cron_health` stops paging on it — right,
+    and the nightly red it caused is gone. But a name that stops paging also
+    stops being mentioned: before this, such a thesis appeared NOWHERE in the
+    brief, and its only surface was the incident issue itself.
+    """
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(symbol="HUBS.NYSE", status="active")],
+        price_rows=[{"symbol": "HUBS.NYSE", "close": Decimal("168")}],
+        uncovered_symbols=("HUBS.NYSE",),
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    gaps = [f for f in findings if f.check == "no_data_coverage"]
+    assert len(gaps) == 1
+    assert gaps[0].symbol == "HUBS.NYSE"
+    assert gaps[0].level is DisciplineLevel.yellow
+    assert gaps[0].watchlist_only is False
+
+
+def test_a_covered_thesis_produces_no_coverage_finding() -> None:
+    """The negative control that makes the test above mean something: the same
+    row, the same loader, the only difference being that the vendor serves it."""
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(status="active")],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    assert [f for f in findings if f.check == "no_data_coverage"] == []
+
+
+def test_an_uncovered_watching_thesis_is_shown_but_not_counted_as_evidence() -> None:
+    """Same `watchlist_only` stamp as the escalation pass, for the same reason:
+    the finding is real and is displayed in full, but an uninvested watchlist
+    row is not evidence that any HOLDING was examined (`BriefData.review`).
+
+    It is still emitted for watching rows at all because the packet builder
+    partitions on `governance_status='approved' AND closed_at IS NULL` — status
+    is not in that predicate, so an active-only finding would mirror a smaller
+    set than the job it reports on.
+    """
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(symbol="HUBS.NYSE", status="watching")],
+        price_rows=[{"symbol": "HUBS.NYSE", "close": Decimal("168")}],
+        uncovered_symbols=("HUBS.NYSE",),
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        findings = asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    gaps = [f for f in findings if f.check == "no_data_coverage"]
+    assert len(gaps) == 1
+    assert gaps[0].watchlist_only is True
+
+
+def test_the_loader_asks_only_about_the_symbols_it_holds_theses_for() -> None:
+    """The coverage query is scoped to the thesis set, not the universe — the
+    brief runs it on every compose."""
+    conn = _disc_conn(
+        thesis_rows=[_cba_row(status="active")],
+        price_rows=_CBA_PRICE_ROWS,
+    )
+
+    with patch.dict(os.environ, _PERSONAL_USE_ON):
+        asyncio.run(_discipline_findings(conn, date(2026, 7, 13)))
+
+    coverage_queries = [q for q in conn.captured_queries if "rs_financial_statements" in q]
+    assert len(coverage_queries) == 1
+    assert "symbol = ANY($1)" in coverage_queries[0]
