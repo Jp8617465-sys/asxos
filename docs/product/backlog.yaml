@@ -2110,7 +2110,7 @@ items:
     title: "An approved thesis the vendor does not cover is invisible to James once it stops paging — the brief has no surface for it (follow-up to #327)"
     phase: E
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: build
     paths: ["asxos/domain/theses/discipline.py", "tests/test_thesis_discipline.py"]
@@ -2137,3 +2137,21 @@ items:
       already carries `incomplete_price_data` and `data_sanity`, so the shape exists), after which
       #327 can close. Route=build, not attended: the design question evaporated with the re-scope,
       and what is left is one discipline check with a precedent beside it.
+      DONE 2026-09-24 (AEST) by the daily-product fire, as PR #369. A `no_data_coverage`
+      YELLOW discipline finding, loader-appended over watching+active like
+      data_sanity_escalation — the packet builder partitions on governance_status='approved'
+      AND closed_at IS NULL, so status is not in its predicate and an active-only finding
+      would mirror a smaller set than the job it reports on. Yellow rather than info because
+      incomplete_price_data describes James's own unfinished authoring (already on the
+      candidates card) whereas this is the VENDOR never serving the name: no authoring fixes
+      it and nothing else in the brief mentions it. The predicate moved to a new shared
+      asxos/domain/theses/coverage.py which build_decision_packets now imports, so the brief
+      and the builder cannot drift into hiding a thesis the job still fails on, or announcing
+      one it quietly handles. Mutation-checked three ways (remove the wiring -> 2 red; always
+      return None -> 4 red; let the builder restate the query -> 1 red).
+      NOT DEMONSTRABLE IN PRODUCTION TODAY, recorded deliberately: #352 retired the last
+      approved theses on 2026-09-20, so the register holds zero and this renders nothing
+      until one exists again. It is a unit-tested guard, not an observed capture — a
+      different claim from the one wrongly made on 09-21. L61 fired a fourth time: the
+      paths: above named discipline.py and its test; the change also needed the loader, the
+      packet builder, a new shared module and two fixtures.
