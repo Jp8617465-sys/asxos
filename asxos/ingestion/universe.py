@@ -1,11 +1,14 @@
 """Universe ingestion logic — separated from the job script."""
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 import asyncpg
 
 from asxos.ingestion.eodhd import EODHDClient
+
+log = logging.getLogger(__name__)
 
 
 def _to_symbol(code: str, *, exchange: str = "AU") -> str:
@@ -36,6 +39,19 @@ _TYPE_TO_KIND: dict[str, str] = {
     "Notes": "hybrid",
     "BOND": "hybrid",
 }
+
+#: The kinds EODHD's own Type field can produce, and therefore the only stored kinds the
+#: reconcile below is allowed to overwrite. Everything else in `universe.security_kind` is
+#: hand-set out of band — `us_equity` for held US names, `index` for `.INDX` rows — and no
+#: vendor feed is evidence about it.
+#:
+#: Today those rows are also unreachable for a second reason: `incoming` is built from the
+#: EODHD **AU** exchange list, so every key is a `.AU` symbol and `HUBS.NYSE` / `AXJO.INDX`
+#: are simply never iterated. That argument is true but non-local — it depends on
+#: `_to_symbol` and on this remaining a single-exchange ingest. This set states the same
+#: invariant locally, so it survives a second exchange being added by someone who has not
+#: read `_to_symbol`.
+_VENDOR_OWNED_KINDS: frozenset[str] = frozenset(_TYPE_TO_KIND.values())
 
 
 # ASX-listed investment companies and listed investment trusts (LICs/LITs), which EODHD types
@@ -133,9 +149,14 @@ async def refresh_universe(client: EODHDClient, conn: asyncpg.Connection) -> dic
     Sync universe from EODHD exchange symbol list.
     Returns counts: added, reactivated, delisted, unchanged, reclassified.
 
-    ``reclassified`` counts curated LICs corrected from a stale ``security_kind`` in place
-    (see ``_CURATED_LIC_SYMBOLS``). It is normally 0; a non-zero count on a run after the
-    first means either a newly curated symbol or a row written before the curation existed.
+    ``reclassified`` counts rows whose stored ``security_kind`` no longer matches what they
+    classify as and were corrected in place — a curated LIC written before the curation
+    existed (see ``_CURATED_LIC_SYMBOLS``), or a symbol EODHD has retyped. It is normally 0.
+    A correction that is not a LIC correction is also logged at WARNING, because no vendor
+    retype has been observed yet and the first one is worth seeing.
+
+    Only kinds in ``_VENDOR_OWNED_KINDS`` are ever overwritten, so the hand-set
+    ``us_equity``/``index`` rows cannot be rewritten by a feed that has no opinion on them.
 
     Ingests every `_TYPE_TO_KIND` instrument type (equities + ETFs/LICs/hybrids), tagging
     `security_kind` so funds are held/valued/taxed without entering Model A's universe. The
@@ -181,17 +202,39 @@ async def refresh_universe(client: EODHDClient, conn: asyncpg.Connection) -> dic
             counts["added"] += 1
         else:
             was_active, stored_kind = existing[sym]
-            # Reconcile a curated LIC whose stored kind predates the curation. security_kind is
-            # otherwise written ONLY on INSERT, so without this a row misclassified at first
-            # ingestion stays wrong permanently — which is how six LICs reached the weekly
-            # candidate scan. Deliberately narrow: it corrects only TO 'lic' and only for a
-            # curated symbol, so it can never rewrite a hand-set kind (us_equity/index) or
-            # churn a row EODHD retypes.
-            if sym in _CURATED_LIC_SYMBOLS and stored_kind != "lic":
+            # Reconcile a stored kind that no longer matches what this row classifies as.
+            # `security_kind` is otherwise written ONLY on INSERT, so without this a row
+            # misclassified at first ingestion stays wrong permanently — which is how six
+            # LICs reached the weekly candidate scan (A-49), and would equally be how a
+            # vendor retype (Common Stock -> ETF) never took effect (A-51).
+            #
+            # `stored_kind in _VENDOR_OWNED_KINDS` is the whole safety rule, and it is the
+            # rule rather than the narrowness A-49 used. A-49 corrected only TO 'lic' and
+            # only for a curated symbol, which protected the hand-set us_equity/index rows
+            # by never being general enough to reach them. That works until the first time
+            # someone wants generality. Asking instead "is the stored value one this vendor
+            # owns?" protects the same rows for the reason they actually need protecting: a
+            # feed that has no opinion about them is not evidence about them.
+            #
+            # Auto-applying a vendor retype rather than queuing it for a human is the
+            # asymmetry A-49 measured: "never update" produced permanent silent wrongness on
+            # six live rows, while following the vendor is reversible on the next run and is
+            # counted and logged here. `classify_kind` still applies the curated-LIC override
+            # first, so a curated symbol can never be retyped back to au_equity by EODHD.
+            if stored_kind != kind and stored_kind in _VENDOR_OWNED_KINDS:
+                if kind != "lic":
+                    # Never observed as of 2026-09-24 — every reclassification so far has been
+                    # the curated-LIC correction. Logged loudly because the FIRST one is the
+                    # interesting one, and a flap would otherwise be a silent weekly rewrite.
+                    log.warning(
+                        "universe retype: %s %s -> %s (EODHD Type=%r)",
+                        sym, stored_kind, kind, r.get("Type", ""),
+                    )
                 await conn.execute(
-                    "UPDATE universe SET security_kind = 'lic', updated_at = NOW() "
+                    "UPDATE universe SET security_kind = $2, updated_at = NOW() "
                     "WHERE symbol = $1",
                     sym,
+                    kind,
                 )
                 counts["reclassified"] += 1
             if not was_active:
