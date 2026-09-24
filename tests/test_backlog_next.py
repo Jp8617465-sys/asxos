@@ -452,7 +452,13 @@ class TestSeed:
         # DELETE verdict #3). Same shape as the A-34 -> A-35 move the night before:
         # the built row drops out, and the row that was only ever skipped for
         # overlapping it takes the head. A-51 collided with A-35 on tests/.
-        assert [i.id for i in picked] == ["A-51", "E-20", "E-21"], [i.id for i in picked]
+        # Re-pinned 2026-09-25 by the daily-product fire that BUILT A-51 (the generalised
+        # security_kind reconcile). Same shape as A-34 -> A-35 and A-35 -> A-51 before it:
+        # the built row drops out, the tail shifts up, and E-27 — skipped for overlapping
+        # A-51 on tests/ — is PROMOTED rather than newly filed. Third time this exact
+        # head-drops-tail-promotes shape has appeared, which is what a lane finishing rows
+        # rather than filing them looks like.
+        assert [i.id for i in picked] == ["E-20", "E-21", "E-27"], [i.id for i in picked]
         # A-35 left this list on 2026-09-19: it was only ever here because it overlapped
         # A-34, and A-34 is built. E-27 still overlaps on tests/.
         # Re-pinned 2026-09-19 by the capability-audit session: six rows filed
@@ -479,7 +485,11 @@ class TestSeed:
         # and from gate (d).1 (the carried PR #368), so the picker's own head was never
         # reached. A fire that builds a skipped-for-overlap row while leaving the head
         # alone should move this list only.
-        assert [i.id for i in skipped] == ["E-27", "E-28"], [i.id for i in skipped]
+        #
+        # 2026-09-25: E-27 leaves this list by PROMOTION — it only ever sat here for
+        # overlapping A-51 on tests/, and A-51 is built. E-28 stays: its collision is with
+        # E-21 on docs/proposals/, which A-51's departure does not touch.
+        assert [i.id for i in skipped] == ["E-28"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
