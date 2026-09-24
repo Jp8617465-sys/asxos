@@ -12,6 +12,8 @@ asxos/domain/governance/github_commands.py, and applies:
     REJECT thesis <id> <reason>         -> theses/service.reject_object
     DISPOSE <packet_id> <verdict> [note] -> disposition_for + paper_intent_for
                                            + persist_disposition
+    MANDATE approve|reject <id> <reason> -> mandate/repository.approve_mandate
+                                           / reject_mandate (0062)
 
 Every command gets exactly one reply carrying a marker (applied or refused,
 with the error). A comment with a marker is never re-read, so a re-run is a
@@ -56,11 +58,13 @@ from asxos.domain.decision_engine.delivery import (
 from asxos.domain.governance.github_commands import (
     DisposeCommand,
     IssueComment,
+    MandateGovernanceCommand,
     PendingCommand,
     ThesisGovernanceCommand,
     marker_for,
     select_commands,
 )
+from asxos.domain.mandate.repository import approve_mandate, reject_mandate
 from asxos.domain.theses.service import approve_object, reject_object
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
@@ -204,6 +208,15 @@ async def apply_one(conn: Any, pending: PendingCommand, *, recorded_at: datetime
             return (
                 f"thesis {thesis.thesis_id} ({thesis.symbol}) is now "
                 f"`governance_status={thesis.governance_status}`"
+            )
+        if isinstance(command, MandateGovernanceCommand):
+            if command.action == "approve":
+                mandate = await approve_mandate(conn, command.mandate_id, reasoning=command.reason)
+            else:
+                mandate = await reject_mandate(conn, command.mandate_id, reasoning=command.reason)
+            return (
+                f"mandate {mandate.mandate_id} (goals {mandate.goal_version_id}, "
+                f"{mandate.derivation_version}) is now `governance_status={mandate.governance_status}`"
             )
         assert isinstance(command, DisposeCommand)
         case = await repository.load_case(command.packet_id, conn=conn)

@@ -77,3 +77,27 @@ def test_marker_round_trips() -> None:
     assert marker.startswith(gc.MARKER_PREFIX)
     assert gc.parse_marker(f"{marker}\n❌ Not applied `x`") == gc.MarkerReply("refused", 123)
     assert gc.parse_marker("nothing here") is None
+
+
+# ---------------------------------------------------------------------------
+# MANDATE approve|reject <id> <reason> — the mandate layer's ratification verb
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    ("body", "action", "mandate_id", "reason"),
+    [
+        ("MANDATE approve 7 ratified after reading the memo", "approve", 7, "ratified after reading the memo"),
+        ("mandate reject 8 the drawdown tolerance is wrong\nmore context", "reject", 8, "the drawdown tolerance is wrong"),
+    ],
+)
+def test_mandate_commands_parse(body: str, action: str, mandate_id: int, reason: str) -> None:
+    cmd = gc.parse_command(body)
+    assert isinstance(cmd, gc.MandateGovernanceCommand)
+    assert (cmd.action, cmd.mandate_id, cmd.reason) == (action, mandate_id, reason)
+    assert cmd.summary == f"MANDATE {action.upper()} {mandate_id}"
+
+
+@pytest.mark.parametrize("body", ["MANDATE approve 7", "MANDATE bless 7 please", "MANDATE approve seven ok"])
+def test_a_malformed_mandate_command_is_answered_not_ignored(body: str) -> None:
+    with pytest.raises(gc.CommandSyntaxError, match=r"MANDATE approve\|reject"):
+        gc.parse_command(body)
