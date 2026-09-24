@@ -1425,6 +1425,45 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-25 (AEST) `daily-product` routine fire.** The Stages 0→6 table at
+> the top of this file remains the only ranked queue. This block supersedes the one below it.
+>
+> **#0 — the #368 proof run came back RED, and the diagnosis is the opposite of the obvious
+> one.** `pipeline-health` **35927183062** failed on `f7143dd`. Both flagged rows are
+> `as_of=2026-09-22`, written **before** the fix existed: check 4's window is
+> `started_at > NOW() - INTERVAL '36 hours'`, and those rows left it at ~08:36 UTC on 09-24.
+> The first run on the fixed head — `daily-brief` **35917018303**, 09-23 20:35 UTC — succeeded,
+> and the watchdog flagged **no `as_of=2026-09-23` row at all**. So #368 works; what was red is
+> a lookback still holding pre-fix rows.
+>
+> **#327 is NOT closed on that reasoning**, deliberately. The closing condition was a green run,
+> and arguing my way to one is precisely the move that made the 09-21 close wrong. A falsifiable
+> prediction is on the issue instead: tonight's 22:14 UTC run goes green with no further change.
+> Red instead → the reasoning is wrong and the next fire re-diagnoses rather than re-explains.
+>
+> **The general fact worth keeping:** a fix to a note-producing job cannot *show* green until the
+> pre-fix rows age out of the watchdog's lookback, however correct it is. Budget 36 hours before
+> treating such a fix as unproven.
+>
+> **The one thing — A-51, and its stated blocker made the job smaller.** The row gated
+> generalising the `security_kind` reconcile on protecting the hand-set `us_equity`/`index` rows.
+> Opening the code falsified that: `incoming` is the EODHD **AU** exchange list, so every key is
+> a `.AU` symbol and those rows were never iterated at all. Shipped as **#370** with
+> `_VENDOR_OWNED_KINDS` as the rule — overwrite a stored kind only when it is one the vendor's
+> own `Type` field can produce — kept despite being redundant today because the suffix argument
+> is non-local. Auto-applies rather than queuing, on A-49's measured asymmetry, and logs any
+> non-LIC correction at WARNING since none has ever been observed.
+>
+> **L61 has fired five consecutive fires and is no longer news.** #327's remedy, A-34's and
+> A-35's `paths:`, E-30's framing, E-30's `paths:`, A-51's blocker. **Three of the five made the
+> job smaller** — that is the point: opening the named files first is not caution, it is how the
+> work gets cheap. Standing first action on any picked row; a fire that skips it is the deviation.
+>
+> **Next: #1 E-20** → **#2 E-21** → **#3 E-27**. Unchanged above all of them, and still
+> arbi-impossible: **C-13**.
+>
+> **Superseded — the 2026-09-24 block below, carried unchanged.**
+
 > **Live as of the 2026-09-24 (AEST) `daily-product` routine fire** — the first fire in this
 > cycle to merge inside its window and then build a second item on top. The Stages 0→6 table at
 > the top of this file remains the only ranked queue. This block supersedes the one below it.
@@ -2320,6 +2359,34 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-25 (AEST) — `daily-product` routine fire (fired 2026-09-24T17:32:13Z).** `main` @
+`f7143dd` at the gate; **#370** built and landed this fire. `make check` **4832 passed / 19
+skipped**, ruff + mypy clean on 239 files. No migration (0045 absent, 0042 reserved). No capital
+action, no Model A output, no Supabase write.
+
+**Gate:** halt clean · (a) `nightly-check` **36020563525** `success` on `f7143dd` · **(b) FAILED
+on #327**, taken as the one thing · (c) clean · (d).1 no `claude/routine-*` PR → (d).2 picker
+exit 0, eligible 5, pick **A-51**; the roadmap block agreed (Amendment K).
+
+**The proof run was red and the fix is fine.** `pipeline-health` **35927183062** failed on
+`f7143dd` on two `as_of=2026-09-22` rows — written before the fix, inside a 36-hour lookback they
+left at ~08:36 UTC on 09-24. The first post-fix run (`daily-brief` **35917018303**) succeeded and
+produced no flagged row. **#327 stays open** on a falsifiable prediction rather than on reasoning:
+tonight's 22:14 UTC run goes green, or the next fire re-diagnoses.
+
+**A-51 shipped as #370.** Generalised `security_kind` reconcile; `_VENDOR_OWNED_KINDS` is the
+rule the row asked for. Mutation-checked three ways, including dropping the guard — whose failure
+output shows the exact damage (`AXJO.INDX index -> au_equity`).
+
+**Queue moved:** A-51 done → head is **E-20**, and **E-27** promoted out of the skipped list by
+A-51's departure (third time this head-drops-tail-promotes shape has appeared).
+
+Open for James: **C-13** · **#355**, **#346**, **#319** · tonight's `pipeline-health` reading ·
+the Routine binding (MCP rebuild path closed — `create_trigger` stores no connectors) · **K-08**,
+`deadman=unset`.
+
+_Prior snapshot retained below for diffing._
 
 **2026-09-24 (AEST) — `daily-product` routine fire (fired 2026-09-23T17:32:05Z).** `main` @
 `d9235f1` after **#368** merged at **T+2**, then **#369** built and landed in the same fire.

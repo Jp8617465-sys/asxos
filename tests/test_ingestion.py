@@ -4,6 +4,7 @@ No network calls — httpx client is mocked throughout.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -658,18 +659,21 @@ async def test_curated_lic_reconciles_an_already_misclassified_row():
 
     counts = await refresh_universe(client, conn)
 
-    updates = _captured_updates(conn, "security_kind = 'lic'")
-    assert [u[1] for u in updates] == ["FGX.AU"]
+    updates = _captured_updates(conn, "security_kind = $2")
+    assert [(u[1], u[2]) for u in updates] == [("FGX.AU", "lic")]
     assert counts["reclassified"] == 1
     assert counts["unchanged"] == 1
 
 
 @pytest.mark.asyncio
-async def test_reclassification_is_idempotent_and_narrow():
-    """Re-running over corrected rows writes nothing; non-curated kinds are never rewritten.
+async def test_reclassification_is_idempotent():
+    """Re-running over rows that already match writes nothing.
 
-    The narrowness matters more than the idempotence: the branch corrects only TO 'lic' and
-    only for a curated symbol, so it cannot rewrite a hand-set us_equity/index row.
+    Was ``..._and_narrow`` until A-51: the branch no longer corrects only TO 'lic', so the
+    narrowness this used to assert is gone and the guard that replaced it is
+    ``_VENDOR_OWNED_KINDS`` — see the hand-set-row tests below. What survives unchanged is
+    the idempotence: a row whose stored kind already equals its classified kind is not
+    rewritten, so a correct universe produces zero writes every week.
     """
     client = MagicMock()
     client.exchange_symbols = AsyncMock(return_value=[
@@ -685,6 +689,111 @@ async def test_reclassification_is_idempotent_and_narrow():
 
     assert _captured_updates(conn, "security_kind") == []
     assert counts["reclassified"] == 0
+
+
+# refresh_universe — generalised kind reconcile (A-51, 2026-09-24)
+#
+# A-49 fixed the reconcile narrowly on purpose: only TO 'lic', only for a curated symbol.
+# That left the general case open — `security_kind` is written only on INSERT, so a symbol
+# EODHD retypes keeps its original kind forever, exactly the permanent silent wrongness the
+# six LICs demonstrated. The generalisation needs a rule for what a vendor feed is allowed
+# to overwrite, and `_VENDOR_OWNED_KINDS` is that rule.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_vendor_retype_is_applied():
+    """The case A-51 exists for: EODHD retypes a stored au_equity as an ETF.
+
+    Before this, the row kept `au_equity` forever — no code path rewrites `security_kind`
+    after INSERT.
+    """
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "VAS", "Name": "Vanguard Australian Shares Index ETF", "Type": "ETF", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(
+        existing_rows=[{"symbol": "VAS.AU", "is_active": True, "security_kind": "au_equity"}]
+    )
+
+    counts = await refresh_universe(client, conn)
+
+    updates = _captured_updates(conn, "security_kind = $2")
+    assert [(u[1], u[2]) for u in updates] == [("VAS.AU", "etf")]
+    assert counts["reclassified"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_hand_set_kind_is_never_rewritten_by_the_feed():
+    """The safety rule, tested directly rather than via the suffix argument.
+
+    `us_equity` and `index` are hand-set out of band and are not values EODHD's Type field
+    can produce, so the feed has no opinion about them. Today such a row is ALSO unreachable
+    because `incoming` only ever holds `.AU` symbols — this test deliberately puts one in
+    `incoming` anyway, so the guard is what is being tested and not the loop's domain.
+    """
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "HUBS.NYSE", "Name": "HubSpot Inc", "Type": "Common Stock", "Sector": "Technology"},
+        {"Code": "AXJO.INDX", "Name": "S&P/ASX 200", "Type": "Common Stock", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(existing_rows=[
+        {"symbol": "HUBS.NYSE", "is_active": False, "security_kind": "us_equity"},
+        {"symbol": "AXJO.INDX", "is_active": False, "security_kind": "index"},
+    ])
+
+    counts = await refresh_universe(client, conn)
+
+    assert _captured_updates(conn, "security_kind = $2") == []
+    assert counts["reclassified"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_curated_lic_cannot_be_retyped_back_to_au_equity():
+    """Ordering that matters now that the branch is general.
+
+    `classify_kind` applies the curated override AFTER the type map, so EODHD typing a
+    curated LIC as "Common Stock" — which is exactly what it does for every ASX LIC — still
+    classifies as `lic`. Without that ordering the generalisation would undo A-49 weekly.
+    """
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "FGX", "Name": "Future Generation Australia Ltd", "Type": "Common Stock", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(
+        existing_rows=[{"symbol": "FGX.AU", "is_active": True, "security_kind": "lic"}]
+    )
+
+    counts = await refresh_universe(client, conn)
+
+    assert _captured_updates(conn, "security_kind = $2") == []
+    assert counts["reclassified"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_retype_that_is_not_a_lic_correction_is_logged(caplog):
+    """No vendor retype has ever been observed, so the first one should be visible.
+
+    A silent weekly rewrite is how a flapping vendor type would go unnoticed; the LIC
+    correction is the expected, already-understood case and stays quiet.
+    """
+    client = MagicMock()
+    client.exchange_symbols = AsyncMock(return_value=[
+        {"Code": "VAS", "Name": "Vanguard Australian Shares Index ETF", "Type": "ETF", "Sector": ""},
+        {"Code": "FGX", "Name": "Future Generation Australia Ltd", "Type": "Common Stock", "Sector": ""},
+    ])
+    conn = _mk_universe_conn(existing_rows=[
+        {"symbol": "VAS.AU", "is_active": True, "security_kind": "au_equity"},
+        {"symbol": "FGX.AU", "is_active": True, "security_kind": "au_equity"},
+    ])
+
+    with caplog.at_level(logging.WARNING, logger="asxos.ingestion.universe"):
+        counts = await refresh_universe(client, conn)
+
+    assert counts["reclassified"] == 2
+    warnings = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert len(warnings) == 1, warnings
+    assert "VAS.AU" in warnings[0] and "au_equity -> etf" in warnings[0]
 
 
 @pytest.mark.asyncio

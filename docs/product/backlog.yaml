@@ -2030,7 +2030,7 @@ items:
     title: "Generalise the security_kind reconcile beyond the curated LIC set"
     phase: A
     owner: arbi
-    status: open
+    status: done
     depends_on: [A-49]
     route: build
     paths: ["asxos/ingestion/universe.py", "tests/"]
@@ -2041,6 +2041,26 @@ items:
       still never changes, because security_kind is written only on INSERT. Needs a rule for which
       transitions are safe to apply automatically and which need a human, since the out-of-band
       us_equity/index rows are hand-set and must survive. Not urgent: no observed retype yet.
+      DONE 2026-09-25 (AEST) by the daily-product fire, as PR #370. The rule asked for is
+      `_VENDOR_OWNED_KINDS`: the reconcile may overwrite a stored kind only when that kind is
+      one EODHD's own Type field can produce, so us_equity/index — hand-set out of band — are
+      protected because a feed with no opinion about them is not evidence about them.
+      THE STATED BLOCKER DID NOT SURVIVE READING THE CODE, and it made the job smaller (L61,
+      fifth consecutive fire): `incoming` is built from the EODHD AU exchange list, so every
+      key is a .AU symbol and HUBS.NYSE / AXJO.INDX are never iterated at all. The hand-set
+      rows were ALREADY unreachable, by the loop's domain rather than by the branch's
+      narrowness. The guard is kept because that argument is non-local (it depends on
+      _to_symbol and on this staying a single-exchange ingest), and its test deliberately puts
+      a hand-set row INTO incoming so the guard is what is tested.
+      Auto-apply rather than queue-for-a-human, on the asymmetry A-49 measured: "never update"
+      produced permanent silent wrongness on six live rows, while following the vendor is
+      reversible next run, counted, and logged at WARNING when it is not the already-understood
+      LIC correction — no retype has ever been observed, so the first should be visible.
+      classify_kind still applies the curated override AFTER the type map, so EODHD typing an
+      ASX LIC as "Common Stock" cannot undo A-49 weekly. Mutation-checked three ways (drop the
+      guard -> 1 red; revert to A-49's narrow branch -> 2 red; stop the override winning -> 5
+      red). One test renamed: ..._and_narrow -> ..._idempotent, because the narrowness half
+      asserted a property this change deliberately removes.
 
   - id: A-52
     title: "Should the residual-income model value A-REITs? BWP is in the passing sixteen and nobody has ruled"
