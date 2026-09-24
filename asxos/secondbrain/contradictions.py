@@ -146,14 +146,27 @@ genuinely arrive separately. Found by hand; now mechanical.
 
 _MONOTONIC_COUNTERS: Final[tuple[tuple[str, str], ...]] = (("data.migrations", "applied_count"),)
 
+#: Every workflow carrying a `schedule:` trigger, mirrored so a lane cannot be armed
+#: without the freshness checks learning about it. `test_scheduled_lanes_mirror_the_
+#: workflows_that_carry_a_schedule_trigger` parses the YAML and fails on any divergence,
+#: in either direction — which is how the two 2026-09-20 entries below got here rather
+#: than being forgotten.
 SCHEDULED_LANES: Final[tuple[str, ...]] = (
     "backup",
     "daily-brief",
     "migration-drift",
     "nightly-check",
+    # Added 2026-09-20 with the standing-lane arming. Both are agent lanes and both
+    # are therefore expected to be QUIET most of the time, which is the opposite of
+    # the other five: `nightly-triage` runs its agent only when the gate job finds
+    # nightly-check red, and `weekly-toolwatch` fires once a week. A freshness check
+    # that treats "no recent run" as drift will be wrong about these two; they are
+    # listed because a schedule exists, not because a daily heartbeat is expected.
+    "nightly-triage",
     "pipeline-health",
     "us-positions",
     "weekly-research",
+    "weekly-toolwatch",
 )
 """The workflows that carry a `schedule:` trigger — measured from
 `.github/workflows/*.yml` (2026-09-07) and pinned by

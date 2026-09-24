@@ -43,6 +43,28 @@
 name: weekly-toolwatch
 
 on:
+  # ARMED — DO NOT MERGE UNTIL A-22's SECOND PROOF LANDS. See the PR body.
+  #
+  # Sunday 23:13 UTC = Monday 09:13 AEST (AEDT: 10:13). Three deliberate choices,
+  # in the same spirit as nightly-check's 15:17:
+  #   :13  — off the top of the hour, where GitHub's scheduler backlog concentrates.
+  #   23   — outside the existing 13:30–22:00 UTC band entirely (backup 13:30,
+  #          nightly-check 15:17, weekly-research Sat 16:00, daily-brief 20:30,
+  #          us-positions 21:30, pipeline-health 22:00). No collision, and no
+  #          contention for runners with the daily pipeline.
+  #   Sun  — the report lands at the start of James's Monday rather than in the
+  #          middle of a week it is already describing. A harness-capability read
+  #          is only worth anything if it is read before the week's work is chosen.
+  #
+  # Weekly and not daily because the harness does not change daily, and this lane's
+  # one rule is that padding is worse than silence — James switched off two prior
+  # scheduled loops for producing output not worth reading.
+  #
+  # Its deadman (HC_TOOLWATCH_URL) is still unset, so it would run unwatched: the
+  # ping step skips rather than failing. Not a blocker, but it means a silent
+  # failure is invisible until someone looks at the Actions tab.
+  schedule:
+    - cron: "13 23 * * 0"
   workflow_dispatch:
 
 concurrency:

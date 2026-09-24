@@ -57,6 +57,36 @@
 name: nightly-triage
 
 on:
+  # ARMED — DO NOT MERGE UNTIL A-22's SECOND PROOF LANDS. See the PR body.
+  #
+  # 16:04 UTC daily, 47 minutes after nightly-check's 15:17. Off the top of the
+  # hour for the same reason nightly-check is (GitHub's scheduler backlog), and
+  # outside every other lane's slot (backup 13:30, weekly-research Sat 16:00 —
+  # four minutes clear, daily-brief 20:30, us-positions 21:30, pipeline-health
+  # 22:00). nightly-check's full suite finishes in about two minutes, so 47 is a
+  # generous margin for a late scheduler rather than a tight coupling.
+  #
+  # WHY NOT `workflow_run`, WHICH IS THE OBVIOUS DESIGN AND WAS MY FIRST DRAFT.
+  # This lane is reactive, so triggering it off nightly-check's completion reads
+  # as exactly right — and `tools/workflow_inventory.py` rejected it. That module
+  # classifies `workflow_run` as a PR-head trigger
+  # (`_PR_HEAD_TRIGGERS`, line 54), and `test_live_repo_exposure_set_is_pinned`
+  # asserts the repo's exposure set is EMPTY: no workflow runs at a pull-request
+  # head with a repository secret. That is ACP phase P1's requirement, bought by
+  # stripping the `pull_request` trigger from two lanes.
+  #
+  # The classification is conservative rather than wrong. nightly-check today
+  # fires only on `schedule` and `workflow_dispatch`, so no PR can reach it — but
+  # the coupling is invisible from THIS file, and a later `pull_request` trigger
+  # added upstream would silently hand an authored PR a lane holding
+  # ARBI_GITHUB_TOKEN. Loosening the guard to fit the cadence would have inverted
+  # the control: the pin exists precisely to make this expansion a decision
+  # somebody takes on purpose. A clock costs nothing and is not coupled.
+  #
+  # The cost `workflow_run` would have saved is bought back by the `gate` job
+  # below, which is why a daily clock is affordable here.
+  schedule:
+    - cron: "04 16 * * *"
   workflow_dispatch:
     inputs:
       run_id:
@@ -70,7 +100,51 @@ concurrency:
 permissions: {}
 
 jobs:
+  # STEP 0, and the reason a daily clock is affordable. There is nothing to
+  # triage on a green night, and invoking the agent to discover that costs a run
+  # and roughly US$2.50 (measured: weekly-toolwatch run 34846052898, 44 turns,
+  # $2.52). Two prior scheduled loops in this repo were switched off for
+  # producing output not worth reading; a lane that wakes up daily to say
+  # "nothing is broken" is the same failure with a different face.
+  #
+  # This job is deterministic, carries no secret beyond the read-only default
+  # GITHUB_TOKEN, and finishes in seconds. A manual dispatch always proceeds —
+  # if a human asked for a triage, they get one.
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      red: ${{ steps.check.outputs.red }}
+    steps:
+      - name: Is the most recent nightly-check actually red?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          if [ "$MANUAL" = "true" ]; then
+            echo "manual dispatch — proceeding regardless of nightly-check's state"
+            echo "red=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          conclusion="$(gh run list --workflow nightly-check.yml --branch main \
+            --limit 1 --json conclusion --jq '.[0].conclusion // "none"')"
+          echo "most recent nightly-check on main concluded: $conclusion"
+          # Anything other than an outright success is worth a look — `failure`,
+          # `timed_out`, `cancelled`, and `none` (no run at all, which is itself
+          # a finding: the deadman that should have caught it did not).
+          if [ "$conclusion" = "success" ]; then
+            echo "red=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "red=true" >> "$GITHUB_OUTPUT"
+          fi
+
   triage:
+    needs: gate
+    if: needs.gate.outputs.red == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
