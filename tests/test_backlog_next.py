@@ -471,7 +471,15 @@ class TestSeed:
         # new row. It was filed route=attended on 2026-09-20 (so the lane never saw it) and
         # re-scoped to route=build on 2026-09-21 once opening the code showed the design
         # question had evaporated. It reaches the lane now and is skipped for overlap.
-        assert [i.id for i in skipped] == ["E-27", "E-28", "E-30"], [i.id for i in skipped]
+        #
+        # 2026-09-24: E-30 LEAVES the list by being BUILT (#369), not by being dropped —
+        # it closes the half of #327 that #366's own fix created. Note the head is
+        # unchanged, and that is the honest shape here rather than an oversight: this
+        # fire's pick came from gate (b) (an open `incident` issue outranks the picker)
+        # and from gate (d).1 (the carried PR #368), so the picker's own head was never
+        # reached. A fire that builds a skipped-for-overlap row while leaving the head
+        # alone should move this list only.
+        assert [i.id for i in skipped] == ["E-27", "E-28"], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml

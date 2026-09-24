@@ -121,6 +121,7 @@ from asxos.domain.prices.coverage import latest_complete_trading_day
 from asxos.domain.prices.fx import is_foreign_symbol
 from asxos.domain.review.status import ReviewOutcome, classify
 from asxos.domain.tax.cgt import days_to_eligibility
+from asxos.domain.theses.coverage import covered_symbols
 from asxos.domain.theses.discipline import (
     DisciplineFinding,
     DisciplineLevel,
@@ -129,6 +130,7 @@ from asxos.domain.theses.discipline import (
     ThesisDisciplineInput,
     data_sanity_escalation,
     evaluate_discipline,
+    no_data_coverage,
     unrealised_return,
 )
 
@@ -1219,7 +1221,9 @@ async def _holding_news(
 
 
 def _thesis_discipline_inputs(
-    thesis_rows: list[asyncpg.Record], prices: dict[str, Decimal]
+    thesis_rows: list[asyncpg.Record],
+    prices: dict[str, Decimal],
+    covered: set[str],
 ) -> tuple[ThesisDisciplineInput, ...]:
     """Build per-thesis inputs, native-currency-against-native throughout.
 
@@ -1232,6 +1236,12 @@ def _thesis_discipline_inputs(
     ``MAX(thesis_revisions.revised_at)`` the loader's query derives (NULL when
     the thesis carries no answering revision) — it feeds only the data-sanity
     escalation check.
+
+    ``covered`` is the set of symbols the data layer has ever held a statement
+    for (`asxos.domain.theses.coverage`, the packet builder's own predicate).
+    Membership, not absence, is passed in: a symbol missing from a set the
+    loader built is unambiguous, whereas an "uncovered" set would have to be
+    invented by the query.
     """
     return tuple(
         ThesisDisciplineInput(
@@ -1250,6 +1260,7 @@ def _thesis_discipline_inputs(
                 if r["last_answering_revision_at"] is not None
                 else None
             ),
+            data_layer_covers_symbol=r["symbol"] in covered,
         )
         for r in thesis_rows
     )
@@ -1383,10 +1394,15 @@ async def _discipline_findings(conn: asyncpg.Connection, as_of: date) -> list[Di
     # Two input sets, deliberately different in scope — the names carry that,
     # because a comment would not survive the next refactor. `active_inputs`
     # feeds the full check battery (active theses only, exactly as PR2a);
-    # `all_inputs` is watching + active and feeds ONLY the escalation pass.
-    # Running the battery over `all_inputs` would emit revisit/timeline/stop
-    # findings for uninvested watchlist rows.
-    all_inputs = _thesis_discipline_inputs(thesis_rows, prices)
+    # `all_inputs` is watching + active and feeds only the two watching-scoped
+    # passes below (escalation, data coverage). Running the battery over
+    # `all_inputs` would emit revisit/timeline/stop findings for uninvested
+    # watchlist rows.
+    # Which of these symbols has the data layer EVER held a statement for?
+    # The packet builder's own predicate, imported rather than restated, so
+    # the brief and the job cannot disagree about what is set aside (#327/E-30).
+    covered = await covered_symbols(conn, sorted({r["symbol"] for r in thesis_rows}))
+    all_inputs = _thesis_discipline_inputs(thesis_rows, prices, covered)
     active_inputs = tuple(
         ti for row, ti in zip(thesis_rows, all_inputs, strict=True) if row["status"] == "active"
     )
@@ -1420,6 +1436,29 @@ async def _discipline_findings(conn: asyncpg.Connection, as_of: date) -> list[Di
             continue
         if esc is not None:
             findings.append(replace(esc, watchlist_only=watchlist_only))
+    # Data-coverage visibility (E-30, the half issue #327 stayed open for). Runs
+    # over watching + active for the same reason the escalation pass does: the
+    # packet builder sets aside every APPROVED thesis the vendor does not cover,
+    # whatever its status, so an active-only finding would mirror a smaller set
+    # than the job it reports on. Same loud-error isolation and the same
+    # `watchlist_only` stamp, for the same reasons as the loop above.
+    for row, ti in zip(thesis_rows, all_inputs, strict=True):
+        watchlist_only = row["status"] != "active"
+        try:
+            gap = no_data_coverage(ti)
+        except Exception as exc:  # isolate a malformed thesis, fail loud (#10)
+            findings.append(
+                DisciplineFinding(
+                    check="no_data_coverage",
+                    level=DisciplineLevel.error,
+                    message=f"⚠ no_data_coverage could not run for {ti.symbol}: {exc}",
+                    symbol=ti.symbol,
+                    watchlist_only=watchlist_only,
+                )
+            )
+            continue
+        if gap is not None:
+            findings.append(replace(gap, watchlist_only=watchlist_only))
     # Per-holding unrealised return (native, broker-matching) — appended here as a
     # display fact (like the CGT-boundary line) so evaluate_discipline() stays
     # quiet-by-default. Native entry vs current price only; no cost base, no

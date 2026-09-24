@@ -1425,6 +1425,49 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-24 (AEST) `daily-product` routine fire** — the first fire in this
+> cycle to merge inside its window and then build a second item on top. The Stages 0→6 table at
+> the top of this file remains the only ranked queue. This block supersedes the one below it.
+>
+> **#0 — #327 is now fully answered, both halves.** The carried **PR #368** merged at **T+2**
+> (`d9235f1`, proven by `nightly-check` **35896435224** `success`), which removes the two
+> steady-state notes that had kept `pipeline-health` red since 09-20. With the whole budget left,
+> gate (b)'s open incident was then taken properly rather than deferred again: **E-30 shipped as
+> PR #369.**
+>
+> **The finding, and why it is yellow.** `build_decision_packets` sets aside an approved thesis
+> the vendor has never served, so it stops paging — right, and the reason the red is gone. But a
+> name that stops paging also stops being visible, and a set-aside thesis had **no brief surface
+> at all**; its only surface was the incident issue. Now it is a `no_data_coverage` **yellow**
+> discipline finding, loader-appended over watching+active (the builder partitions on
+> `governance_status='approved' AND closed_at IS NULL`, so status is not in its predicate).
+> Yellow rather than info: `incomplete_price_data` is James's own unfinished authoring, already
+> on the candidates card; this is the **vendor** never serving the name, which no authoring fixes.
+>
+> **One predicate, by import.** Both SQL forms, the "ever not at-this-cutoff" safety property and
+> the 2026-09-19 measurement now live once, in `asxos/domain/theses/coverage.py`, which
+> `build_decision_packets` imports. A drift guard fails if either consumer restates the query —
+> **scoped to the two consumers of the coverage question, not to the table.** The first draft
+> banned the table name repo-wide and failed on ten modules that ask what the statements *say*
+> rather than whether any exist; it looked more rigorous and asserted an invariant this codebase
+> does not have.
+>
+> **What this does NOT claim, deliberately.** #352 retired the last approved theses on 2026-09-20,
+> so the register holds **zero** and E-30's finding renders nothing in production today. It is a
+> unit-tested, mutation-checked **guard**, not an observed capture — the distinction got wrong on
+> 09-21, when a fix was credited for a symptom another PR had removed. The standing risk named
+> then is now half-discharged: the two quieting changes have a checkable proof due at the next
+> 22:00 UTC `pipeline-health`, and this fire's change adds visibility rather than removing it.
+>
+> **L61 fired a fourth consecutive fire.** E-30's `paths:` named `discipline.py` and its test; the
+> change also needed the loader, the packet builder, a new shared module and two fixtures. Four
+> for four now — treat a row's `paths:` as a starting point, never a scope.
+>
+> **Next: #1 A-51** → **#2 E-20** → **#3 E-21**. Unchanged above all of them, and still
+> arbi-impossible: **C-13**.
+>
+> **Superseded — the 2026-09-21 block below, carried unchanged.**
+
 > **Live as of the 2026-09-21 `daily-product` routine fire** — second consecutive fire not held
 > in plan mode, and the first time gate (b) did its job. The Stages 0→6 table at the top of this
 > file remains the only ranked queue. This block supersedes the one below it.
@@ -2277,6 +2320,37 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-24 (AEST) — `daily-product` routine fire (fired 2026-09-23T17:32:05Z).** `main` @
+`d9235f1` after **#368** merged at **T+2**, then **#369** built and landed in the same fire.
+`make check` **4828 passed / 19 skipped**, ruff + mypy clean on 240 files. No migration (0045
+absent, 0042 reserved). No capital action, no Model A output, no Supabase write.
+
+**Gate:** halt clean · (a) `nightly-check` **35881916958** `success` on `e95271a` · **(b) FAILED
+on #327**, taken as the one thing · (c) clean · (d).1 **#368**, the PR the previous fire left ready.
+
+**#327 answered on both halves.** #368 removed the two steady-state notes (`build_decision_packets`
+"no approved theses", `observe_decision_outcomes` "nothing to record") that had held
+`pipeline-health` red since 09-20 — neither a degradation, the second literally the healthy case.
+Merge proven by `nightly-check` **35896435224** `success` on `d9235f1`. Then **#369** built E-30:
+a `no_data_coverage` **yellow** discipline finding, so an approved thesis the vendor has never
+served is visible rather than merely quiet. The predicate moved to a shared
+`asxos/domain/theses/coverage.py` the packet builder now imports.
+
+**Two claims deliberately withheld.** E-30's finding **renders nothing in production today** —
+#352 retired the last approved theses on 09-20, so the register holds zero; it is a
+mutation-checked guard, not an observed capture. And #368's own proof is still **outstanding**:
+the 22:00 UTC `pipeline-health` run on `d9235f1` or later is the first thing the next fire should
+read. Both distinctions exist because the 09-21 close got them wrong.
+
+**L61 four fires running** — E-30's `paths:` under-named the surface again (loader, packet
+builder, new shared module, two fixtures). Treat `paths:` as a starting point, never a scope.
+
+Open for James: **C-13** · **#355**, **#319** and the `.claude/` drafts · the Routine binding (the
+MCP rebuild path is closed — `create_trigger` stores no connectors) · **K-08**, `deadman=unset`.
+Next: **A-51** → **E-20** → **E-21**.
+
+_Prior snapshot retained below for diffing._
 
 **2026-09-18 — attended close (`/arbi-close`) of the opportunity-scan session.** `main` @
 `611eb9d` (#332, Amber). `make check` **4725 passed / 13 skipped**, ruff + mypy clean on 237 files.

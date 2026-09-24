@@ -24,6 +24,7 @@ from asxos.domain.theses.discipline import (
     evaluate_discipline,
     evaluate_portfolio,
     evaluate_thesis,
+    no_data_coverage,
     unrealised_return,
 )
 
@@ -43,6 +44,11 @@ def _thesis(
     stop: str | None = "9",
     conviction_level: int | None = 3,
     last_answering_revision_at: date | None = None,
+    # Defaulted True here and ONLY here: the helper's job is a thesis with
+    # nothing wrong with it, and every pre-E-30 test was written against a
+    # covered symbol. The production dataclass field stays required and
+    # undefaulted so a real caller cannot silence the finding by omission.
+    data_layer_covers_symbol: bool = True,
 ) -> ThesisDisciplineInput:
     def _d(v: str | None) -> Decimal | None:
         return None if v is None else Decimal(v)
@@ -59,6 +65,7 @@ def _thesis(
         stop_price_native=_d(stop),
         conviction_level=conviction_level,
         last_answering_revision_at=last_answering_revision_at,
+        data_layer_covers_symbol=data_layer_covers_symbol,
     )
 
 
@@ -685,3 +692,53 @@ def test_module_imports_are_model_independent() -> None:
         "cache",
     ):
         assert tok not in joined, f"model-dependent import: {tok}"
+
+
+# --- E-30: an uncovered approved thesis is visible, not merely quiet ---------
+
+
+def test_uncovered_symbol_is_a_yellow_finding() -> None:
+    """#327's open half. The packet builder sets such a thesis aside and stops
+    paging; without this it also stops being mentioned anywhere James reads."""
+    finding = no_data_coverage(_thesis(symbol="HUBS.NYSE", data_layer_covers_symbol=False))
+
+    assert finding is not None
+    assert finding.check == "no_data_coverage"
+    assert finding.level is DisciplineLevel.yellow
+    assert finding.symbol == "HUBS.NYSE"
+    assert "HUBS.NYSE" in finding.message
+
+
+def test_a_covered_symbol_yields_nothing() -> None:
+    """Quiet-by-default: this fires on vendor absence, never on a served name."""
+    assert no_data_coverage(_thesis(symbol="CBA.AU", data_layer_covers_symbol=True)) is None
+
+
+def test_the_message_states_the_fact_and_not_a_decision() -> None:
+    """s766B: the consequence is arithmetic on James's own data; what to DO
+    about it (carry it unexamined, or retire it) is his call, and naming that
+    call would be a recommendation."""
+    message = no_data_coverage(_thesis(data_layer_covers_symbol=False)).message.lower()
+
+    # The two things it must say: what is absent, and what that costs.
+    assert "no financial statement has ever been stored" in message
+    assert "decision packets cannot be built" in message
+    for verb in ("sell", "trim", "exit", "retire", "buy", "should", "recommend", "consider"):
+        assert verb not in message, f"{verb!r} is a recommendation, not evidence"
+
+
+def test_the_battery_does_not_emit_it_so_the_loader_must() -> None:
+    """Pins the loader-appended contract `evaluate_discipline`'s docstring
+    states. The check is watching+active scoped, like `data_sanity_escalation`,
+    because the packet builder sets aside every APPROVED thesis the vendor does
+    not cover whatever its status — so an active-only finding would mirror a
+    smaller set than the job it reports on.
+
+    If a future change moves it into the battery, this test fails and the
+    docstring claim has to be corrected with it.
+    """
+    uncovered = _thesis(symbol="HUBS.NYSE", data_layer_covers_symbol=False)
+
+    findings = evaluate_discipline((uncovered,), _EMPTY_PORT, AS_OF)
+
+    assert "no_data_coverage" not in _checks(findings)

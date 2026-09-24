@@ -168,9 +168,26 @@ async def test_no_paper_book_is_a_hard_fail_never_the_live_book() -> None:
         await _run(conn, AsyncMock())
 
 
-async def test_no_approved_theses_is_a_noted_success() -> None:
+async def test_an_empty_register_is_a_QUIET_success() -> None:
+    """Renamed from `..._is_a_noted_success`, and the rename is the change.
+
+    An empty register used to set a note, and a note is an alert
+    (job_monitor.py -> check_cron_health.py). After #352 retired the last two
+    pre-gate theses on 2026-09-20 there were zero approved, so that note fired on
+    every run and held check_cron_health red on 09-20, 09-21 and 09-22 — measured,
+    not predicted.
+
+    Zero approved theses is a fact about the register, and here the DESIGNED state
+    after a governance sweep. `rows_written = 0` on a `success` row already records
+    the quiet pass losslessly.
+    """
     summary, monitor = await _run(FakeConn(theses=[]), AsyncMock())
-    assert summary["built"] == [] and monitor.note == "no approved theses — nothing to challenge"
+    assert summary["built"] == []
+    assert monitor.note is None, (
+        "an empty register is not a job-health problem; a note here pages nightly "
+        "for as long as James has no approved thesis"
+    )
+    assert monitor.rows_written == 0, "the quiet pass is still recorded, losslessly"
 
 
 def test_packet_id_matches_the_builder_shape() -> None:
