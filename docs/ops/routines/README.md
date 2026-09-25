@@ -27,7 +27,7 @@ that cannot happen unnoticed a third time.
 | Routine | Fires (UTC) | AEST | Model | Connectors | Budget | Trigger id | First fire | Last measured cost |
 |---|---|---|---|---|---|---|---|---|
 | `daily-product` | `30 17 * * *` daily | 03:30 | Fable 5.1 (`claude-fable-5-1`) | inherited from the bound session: GitHub + Supabase (write tool present, locked behaviourally by `_preamble.md` §2) | 120 min | **`trig_019hfSFbVCdKQA5PPxJM9MMH` → bound session `session_01HyKLpP6LMTm9wio1oL9e5m`** (repo attached, created 2026-09-16 19:33 UTC; **rebound this date — see "Rebind, 2026-09-16" below**) | readiness turn 2026-09-16 19:33 UTC: `origin/main` at `65aa21a`, GitHub MCP confirmed, Supabase write-capable and therefore locked per preamble; catch-up fire 2026-09-16 19:3x UTC | US$2.08 for the readiness turn (Fable reads expensively; budget the full body at US$10–25) |
-| `nightly-steward` | `45 19 * * *` daily | 05:45 | Sonnet 5 (`claude-sonnet-5`) | inherited from the bound session: GitHub + Supabase read-only | 45 min | `trig_01AP9VyuN8JSNt5x6eyysiMx` → bound session `session_016BZ4U8L3thJHetE54EbTS2` (the session that proved the doc on 2026-09-14) | doc proven 2026-09-14 21:42 UTC (fresh repo-attached session, 5 min); **bound path proven 2026-09-15 11:55 UTC**: START 10 s after the fire, END at 11:58 `outcome=ran`, HEALTHY, digest refreshed on #271, 3 min | US$2.22 (2026-09-14 run) and ≈US$2.94 (2026-09-15 run; session total US$5.16). Context grew ~100k tokens per fire (238k → 336k): rebind roughly weekly |
+| `nightly-steward` | `45 22 * * *` daily | 08:45 | Sonnet 5 (`claude-sonnet-5`) | inherited from the bound session: GitHub + Supabase read-only | 45 min | `trig_01AP9VyuN8JSNt5x6eyysiMx` → bound session `session_016BZ4U8L3thJHetE54EbTS2` (the session that proved the doc on 2026-09-14) | doc proven 2026-09-14 21:42 UTC (fresh repo-attached session, 5 min); **bound path proven 2026-09-15 11:55 UTC**: START 10 s after the fire, END at 11:58 `outcome=ran`, HEALTHY, digest refreshed on #271, 3 min | US$2.22 (2026-09-14 run) and ≈US$2.94 (2026-09-15 run; session total US$5.16). Context grew ~100k tokens per fire (238k → 336k): rebind roughly weekly |
 | `weekly-security` | `0 12 * * 0` Sunday | Sun 22:00 | Sonnet 5 (`claude-sonnet-5`) | inherited from the bound session: GitHub + Supabase read-only | 60 min | `trig_01FTd3jWG9JbdLEWT2g4soTz` → bound session `session_01SyWFtBsMRxkpvet5CyHTEa` (repo attached, created 2026-09-15 11:54 UTC) | readiness turn 2026-09-15 11:54 UTC: "GitHub + Supabase RO tools confirmed"; first scheduled fire Sun 2026-09-20 12:00 UTC | US$0.32 for the readiness turn |
 
 AEST = UTC+10 fixed, the repo's convention; AEDT states see each time an hour later from
@@ -85,6 +85,24 @@ path that is expected and non-fatal — the fire is a new turn in a session that
 its own tools, and the previous trigger carried the same empty `mcp_connections` while firing
 correctly. It matters only for a fresh-session routine; the remedy the warning names is to
 create the trigger from a session holding the connectors, or from the claude.ai routines UI.
+
+## Steward moved to 22:45 UTC (2026-09-25)
+
+`nightly-steward` fired at 19:45 UTC and wrote the whole digest itself. Since #384 and #386
+the mechanical lines of the digest (`AGENTS.md` §12: everything but `Risks`) are written by
+`daily-digest.yml`, a model-free job at 21:00 UTC, as a marker comment on #271 — so the
+steward now fires **after** it, reads that comment, and appends `Risks`
+(`nightly-steward.md` §1 and §6). 22:45 UTC is the first slot after 21:00 that is at least
+30 minutes from `us-positions` (21:30) and `pipeline-health` (22:00), and it puts both of
+those runs' conclusions inside the steward's health window (§2). AEST 08:45, after the 07:00
+deadline the job meets.
+
+The scheduler follows the doc, as always: once this merges, the trigger
+`trig_01AP9VyuN8JSNt5x6eyysiMx` gets `cron_expression: "45 22 * * *"` via `update_trigger`
+from a session holding the scheduler tools (or the claude.ai Routines UI), and `next_run_at`
+is read back to confirm. Between the merge and that call the trigger still fires at 19:45 UTC,
+reads this doc, finds no job comment for the day, and records that as an Incidents line — a
+visible false positive, not a silent one, which is the pressure to make the call promptly.
 
 ## Delivering an out-of-schedule fire to a bound session (2026-09-16)
 
