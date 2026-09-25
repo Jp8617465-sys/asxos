@@ -200,6 +200,21 @@ def test_ensure_pinned_is_a_no_op_when_already_pinned_and_pins_otherwise() -> No
         assert client.ensure_pinned(271) is True
 
 
+def test_create_issue_posts_title_body_labels_and_returns_the_number() -> None:
+    routes = Routes()
+    routes.add("POST", f"{REPO}/issues", {"number": 401, "title": "E-11: x"})
+    client, patched = _client(routes)
+    with patched():
+        assert (
+            client.create_issue(title="E-11: x", body="b", labels=("type:product", "needs-triage"))
+            == 401
+        )
+        assert client.create_issue(title="no labels", body="b") == 401
+    first, second = (json.loads(c.data) for c in routes.calls)
+    assert first == {"title": "E-11: x", "body": "b", "labels": ["type:product", "needs-triage"]}
+    assert second == {"title": "no labels", "body": "b"}
+
+
 def test_env_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(github_api.REPO_ENV, "Jp8617465-sys/asxos")
     assert github_api.repo_ref_from_env() == REF and REF.slug == "Jp8617465-sys/asxos"
