@@ -5,7 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Always L3.** Migrations are applied by James, never by an agent.
+        **Always L3.** A migration is applied by arbi in an attended session, after
+        `backup.yml` has concluded `success` in the same sitting — never by a headless lane
+        (AGENTS.md §8; the picker's denied set refuses `migrations/` for that reason).
         Schema drift caused four of six production bugs in one sprint — the ordering
         checklist below is the control, not a formality.
 
@@ -64,12 +66,26 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: depends_on
+    attributes:
+      label: Depends on
+      description: Issues that must close first, as "#123, #456" — or "none".
+      placeholder: "none"
+
+  - type: input
+    id: provenance
+    attributes:
+      label: Provenance
+      description: "run:<id> · decision-log:<YYYY-MM-DD> · backlog:<id> · roadmap:<id> · doc:<path>#<heading> · issue:#<n>. Required on arbi-authored issues."
+      placeholder: "decision-log:2026-09-24"
+
   - type: checkboxes
     id: dod
     attributes:
       label: Definition of done
       options:
-        - label: Migration applied by James — never the agent
+        - label: Migration applied per AGENTS.md §8 (attended; backup `success` read first) — never by a headless lane
         - label: "`make check` green, including migration-integration.yml"
         - label: Conventional commit
         - label: PR merged

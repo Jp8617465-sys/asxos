@@ -213,7 +213,8 @@ the one arbi pushes with. A refused push is the ruleset doing its job.
 3. `mcp__supabase__apply_migration`.
 4. `asxos/schema_drift.py` clean and `supabase_migrations.schema_migrations` shows the
    version.
-5. Merge the PR. Body carries the applied version and the backup run id.
+5. Merge the PR. Body carries the applied version and the backup run id, on one line the
+   digest can read: `Applied: <14-digit version> · backup run <id>`.
 
 A migration is the one thing here that **does not roll back** (§3), so the sequence is
 the control — not a prompt. A prompt at step 3 would verify nothing about step 2 while
@@ -242,6 +243,65 @@ theatre, since arbi authors the tests those gates run.
 
 **Spend.** A change that raises variable spend states the A$ estimate in the PR. Under
 the cap, proceed. Over it, §2.
+
+---
+
+## 8a. The build loop
+
+Adopted 2026-09-24 from the "Recommended Surface Configuration" research (rev 2), with
+James's four rulings and arbi's amendments recorded in
+`docs/proposals/agent-loop-surface-configuration-2026-09-24.md`. The loop is how arbi
+builds unattended: GitHub Issues are the queue (§11), a deterministic filter decides what
+may reach arbi at all, arbi decides what is ready, and a scheduled lane builds it.
+
+**The queue is Issues.** `docs/product/backlog.yaml` is archived — its ids are provenance
+targets, `scripts/backlog_to_issues.py` files its eligible rows as issues from an attended
+session, and `asxos/backlog.py` stays the authority for the denied path set. An issue enters
+through one of the three forms (`type:product`, `type:data-infra`, `type:research`) or from
+a conversational surface with `needs-triage`; the labels `ready`, `eligible`, `needs-info`,
+`needs-human`, `hold`, `capital`, `mandate` and `incident` are the vocabulary
+(`asxos/autoready.py::LABELS`).
+
+**Four layers, one of which uses a model, and that one can only narrow.**
+
+1. **Eligibility — code, no model** (`asxos/domain/governance/issue_eligibility.py`). The
+   repository is public and the lane holds a PAT, so whether an issue may reach arbi is
+   decided from facts the platform vouches for, never from what a body argues: the author
+   is the owner login; no reserved label; the form's required sections are filled; the body
+   names no reserved surface (`.claude/`, north-star, the personal-use invariant, `.env`, a
+   secret's name); the declared paths are literal and outside the denied set; no dependency
+   is open; and an arbi-authored issue (the `asxos-issue` marker) cites its provenance —
+   any of `run:<id>`, `decision-log:<date>`, `backlog:<id>`, `roadmap:<id>`,
+   `doc:<path>#<heading>`, `issue:#<n>` by the owner. The first failure names the rule in
+   a marker comment and routes the issue to `needs-info` or `needs-human`.
+2. **Readiness — arbi's judgement, inside the scheduled lane only.** For eligible issues:
+   are the acceptance criteria testable, does it fit one PR, is the class Green or Amber
+   (§6; Red is never readied). Yes applies `ready` with a readiness marker naming the
+   class, the rule-set version and the run; no becomes `needs-info` with the reasons. This
+   step runs as a step of the scheduled `backlog-roll` run or in an attended session —
+   **never on an `issues:` or `issue_comment:` event**, where a stranger's text would sit
+   next to the credential (`tools/workflow_inventory.py` pins that set empty).
+3. **Brakes — repository variables, arbi changes them by PR.** `AUTO_READY` (unset or
+   anything but `on` is off), `AUTO_READY_DAILY_CAP` (3), `AUTO_READY_WIP_LIMIT` (2, counting
+   PRs *waiting on James* — `needs-human`, `hold`, or touching `.claude/` — because arbi
+   merges its own Green and Amber PRs). An open `routines-halt` or `HALT:` issue stops
+   readiness; `hold` stops pickup; an edit after `ready` strips it.
+4. **Pickup — the label is not trusted by itself** (`asxos/backlog_issues.py`). The latest
+   `labeled ready` actor must be the owner login (James and arbi share it; a Cursor-app or
+   collaborator label is stripped); a readiness marker's body hash must still match; Layer 1
+   runs again against the current checkout. James's hand-readied issues rank first, then
+   Green before Amber; picks never overlap on declared paths; only `type:product` is built.
+
+**Identity.** There is no separate arbi login. What tells arbi's `ready` from James's is the
+readiness marker; a `ready` with no marker is his explicit ask and is left alone.
+
+**Builders.** The `daily-product` Routine keeps building until `backlog-roll` has three
+green *scheduled* runs; a gate in the routine doc stops both from building on one day.
+James then disables the Routine (the scheduler is his). `backlog-roll` is armed only after
+A-22 passes and `HC_BACKLOG_URL` exists.
+
+**Digest.** The mechanical lines of §12 are written by a model-free job on the digest
+issue; `Risks` is arbi's judgement, appended by the steward after it.
 
 ---
 
@@ -307,10 +367,15 @@ product-aware non-engineer: effect and cost of being wrong, not implementation.
 Merged     <PR #, class, one line each; Amber lines carry reversal cost>
 Applied    <migrations applied, with backup run id>
 Decided    <DECISION/TAKING/REVERSAL rows since the last digest>
+Readied    <issues arbi readied (§8a), each with its marker; declined ones and the reason>
 Yours      <anything waiting on §2 — capital, north-star PRs, spend over cap — or "nothing">
 Risks      <what a senior engineer would look at>
 Incidents  <trips and fixes, or "none">
 ```
+
+The mechanical lines — everything but `Risks` — are written by a model-free job on the
+digest issue from `gh api` and `git` alone, so every figure traces to a PR, a run or an
+issue number. `Risks` is arbi's judgement, appended by the steward Routine after it.
 
 ---
 
@@ -319,7 +384,9 @@ Incidents  <trips and fixes, or "none">
 Never print, expand or paste a secret value into a transcript, log, PR, issue, comment
 or file. Never read `.env`. Use secrets through workflows and the process environment.
 Secret scanning with push protection is on. `.claude/hooks/secrets-guard.sh` refuses
-the three shapes that would leak a value into the transcript; it refuses nothing James
+the shapes that would leak a value into the transcript or a log — reading `.env`,
+expanding a secret-named variable, dumping the environment, reading a secret-shaped
+file — and fails closed on its own preconditions; it refuses nothing James
 would ask arbi to build. It exists so a prompt-injected page or PR cannot walk James's
 tokens out through arbi.
 
