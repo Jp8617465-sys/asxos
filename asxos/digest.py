@@ -24,7 +24,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Final, Protocol
 
-from asxos.autoready import WAITING_ON_JAMES_LABELS, WAITING_ON_JAMES_PATH
+from asxos.autoready import WAITING_ON_JAMES_LABELS, WAITING_ON_JAMES_PATHS
 from asxos.backlog import click_list
 from asxos.backlog import load as load_backlog
 from asxos.domain.governance.github_commands import IssueComment
@@ -205,7 +205,7 @@ def prs_waiting_on_james(client: DigestAPI) -> list[dict[str, Any]]:
             out.append(pull)
             continue
         files = client.pull_files(int(pull["number"]))
-        if any(str(f.get("filename", "")).startswith(WAITING_ON_JAMES_PATH) for f in files):
+        if any(str(f.get("filename", "")).startswith(WAITING_ON_JAMES_PATHS) for f in files):
             out.append(pull)
     return out
 

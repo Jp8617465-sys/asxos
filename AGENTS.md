@@ -283,7 +283,8 @@ a conversational surface with `needs-triage`; the labels `ready`, `eligible`, `n
    next to the credential (`tools/workflow_inventory.py` pins that set empty).
 3. **Brakes — repository variables, arbi changes them by PR.** `AUTO_READY` (unset or
    anything but `on` is off), `AUTO_READY_DAILY_CAP` (3), `AUTO_READY_WIP_LIMIT` (2, counting
-   PRs *waiting on James* — `needs-human`, `hold`, or touching `.claude/` — because arbi
+   PRs *waiting on James* — `needs-human`, `hold`, or touching `.claude/` or
+   `docs/ops/routines/`, the two paths arbi drafts and never merges — because arbi
    merges its own Green and Amber PRs). An open `routines-halt` or `HALT:` issue stops
    readiness; `hold` stops pickup; an edit after `ready` strips it.
 4. **Pickup — the label is not trusted by itself** (`asxos/backlog_issues.py`). The latest

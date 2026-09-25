@@ -226,7 +226,9 @@ def test_wip_counts_only_prs_waiting_on_james() -> None:
     gh.add_pull(2, labels=("needs-human",))
     gh.add_pull(3, labels=("hold",))
     gh.add_pull(4, files=(".claude/settings.json", "tests/x.py"))
-    assert ar.wip_waiting_on_james(gh) == 3
+    gh.add_pull(5, files=("docs/ops/routines/nightly-steward.md",))  # draft-only for arbi
+    gh.add_pull(6, files=("docs/ops/README.md",))  # not the routines dir — arbi's to merge
+    assert ar.wip_waiting_on_james(gh) == 4
 
 
 def test_daily_cap_and_wip_limit_refuse_with_the_reason() -> None:
