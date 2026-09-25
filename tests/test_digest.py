@@ -74,7 +74,9 @@ def repo(tmp_path: Path) -> Path:
     (tmp_path / "docs/product/decision-log.md").write_text(
         "| date | title | body | status | session |\n|---|---|---|---|---|\n"
         "| 2026-09-24 | **old row** | x | done | s |\n"
-        "| 2026-09-26 | **DECISION — Cursor is IDE-only; #367's loosening reverted** | x | **done** | `s` |\n",
+        "| 2026-09-26 | **DECISION — Cursor is IDE-only; #367's loosening reverted** | x | **done** | `s` |\n"
+        # No number anywhere in this title: the row itself is the citation.
+        "| 2026-09-26 | **L64 — a lane's secret set is an import-time contract** | x | done | `s` |\n",
         encoding="utf-8",
     )
     (tmp_path / "docs/product/backlog.yaml").write_text(
@@ -175,7 +177,8 @@ def test_every_section_is_derived_and_cited(repo: Path) -> None:
         "migration-drift run 36200000010: success",
     ]
     assert built.decided == [
-        "2026-09-26 — DECISION — Cursor is IDE-only; #367's loosening reverted",
+        "decision-log:2026-09-26 — DECISION — Cursor is IDE-only; #367's loosening reverted",
+        "decision-log:2026-09-26 — L64 — a lane's secret set is an import-time contract",
         "#346: apply held for the merge sitting",
     ]
     assert built.readied == ["#7 (green) Fix the thing — run 36196000000"]
@@ -256,3 +259,20 @@ def test_class_and_reversal_parsing_tolerates_the_bodies_arbi_writes() -> None:
 def test_uncited_lines_catches_a_bare_claim() -> None:
     rendered = "**Merged**\n- something happened\n- #12 fine\n\n**Yours** nothing"
     assert dg.uncited_lines(rendered) == ["- something happened"]
+
+
+def test_a_decision_log_row_is_a_citation_but_a_bare_date_is_not() -> None:
+    """§8a names ``decision-log:<date>`` as provenance; a date on its own names nothing.
+
+    Run 36200780986 (the lane's first dry run after #390) refused ten real ``Decided``
+    lines because they were rendered as ``<date> — <title>`` and most titles carry no
+    number; the fixture's only row happened to mention #367, so the suite never saw it.
+    """
+    rendered = (
+        "**Decided**\n"
+        "- decision-log:2026-09-26 — DECISION — builder handover is an overlap, not a swap\n"
+        "- 2026-09-26 — DECISION — builder handover is an overlap, not a swap\n"
+    )
+    assert dg.uncited_lines(rendered) == [
+        "- 2026-09-26 — DECISION — builder handover is an overlap, not a swap"
+    ]
