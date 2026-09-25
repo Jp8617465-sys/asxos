@@ -20,6 +20,7 @@ functions over bytes/strings so they're easy to unit-test against fixtures.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -32,6 +33,8 @@ from defusedxml.ElementTree import (  # type: ignore[import-untyped]  # no stubs
 )
 
 from asxos import clock
+
+log = logging.getLogger(__name__)
 
 # Symbol regex — ASX tickers are 3 to 5 uppercase letters. `.AU` suffix
 # is the asxos convention; events may carry the bare ticker so we capture
@@ -86,6 +89,17 @@ def parse_rss(xml_bytes: bytes, *, source: str, default_kind: str = "other") -> 
             summary = _text(item, "description") or _text(item, f"{_ATOM_NS}summary")
 
         if not title or not link:
+            # E-20's other half: "does parse_rss filter too narrowly?" is
+            # unanswerable from a synthetic fixture and the live feed is not
+            # reachable from an agent session (egress policy denies
+            # www.rba.gov.au). This makes the next PRODUCTION run answer it —
+            # every item dropped here says so, with which leg was missing.
+            # Silent skipping is what made the question unanswerable.
+            log.warning(
+                "%s: skipped a feed item with no %s",
+                source,
+                "title" if not title else "link",
+            )
             continue
 
         out.append(
@@ -201,36 +215,89 @@ def _parse_date(s: str | None) -> date | None:
         return None
 
 
+@dataclass(frozen=True)
+class UpsertCounts:
+    """How an UPSERT batch actually landed — new rows vs rows already present.
+
+    The distinction is the whole point (E-20). ``upsert_events`` used to return
+    ``len(rows)``, i.e. how many events were *presented* to the statement, and
+    ``jobs/ingest_regulatory.py`` assigned that to ``monitor.rows_written``. So a
+    feed re-serving the same single item every night reported ``rows_written=1``
+    every night while ``regulatory_events`` did not grow — measured 2026-09-15:
+    7 rows total, ``max(ingested_at)`` 2026-09-03, yet a ``rows_written=1``
+    success row on every night from 09-07 to 09-14.
+
+    Nothing was broken; the number meant "touched", and every reader — the
+    digest, a human scanning ``job_runs`` — reads ``rows_written`` as "work
+    done". That is the same defect class as routing a steady-state fact into
+    ``monitor.note``: a channel with an established meaning carrying something
+    else.
+    """
+
+    inserted: int
+    updated: int
+
+    @property
+    def presented(self) -> int:
+        """Events handed to the statement — the old return value, kept nameable."""
+        return self.inserted + self.updated
+
+
 async def upsert_events(
     conn: asyncpg.Connection, events: list[RegulatoryEvent]
-) -> int:
-    """Idempotent UPSERT on (source, url). Returns rows affected."""
+) -> UpsertCounts:
+    """Idempotent UPSERT on (source, url). Returns new vs already-present counts.
+
+    ``RETURNING (xmax = 0)`` is the standard Postgres idiom for "did this row
+    INSERT or UPDATE": on a row the statement inserted, the system column
+    ``xmax`` is 0, while a row it updated carries the updating transaction's id.
+    It is a system-column detail rather than standard SQL, and it is used here
+    instead of a count-before/count-after pair because it is exact in one round
+    trip and cannot race a concurrent writer.
+
+    **Deduped by (source, url) before binding, which ``executemany`` did not need
+    to be.** One statement over an array cannot touch the same conflict target
+    twice — Postgres raises *"ON CONFLICT DO UPDATE command cannot affect row a
+    second time"* — whereas the previous per-row ``executemany`` would quietly
+    apply both. A feed that lists one release under two entries is a feed bug,
+    not a reason to fail the run, so the last occurrence wins and the count
+    reflects what was actually written.
+    """
     if not events:
-        return 0
-    # Single comprehension straight to bind-tuples (07-18 audit: the old
-    # two-step intermediate list re-mapped every row a second time).
-    rows = [
-        (
-            e.source,
-            e.published_at,
-            e.title,
-            e.url,
-            e.summary,
-            # relevance_tags JSONB — store symbols + kind
-            json.dumps({"symbols": e.symbols, "kind": e.kind}),
+        return UpsertCounts(inserted=0, updated=0)
+    # Last occurrence wins, insertion order preserved (dict, not a set).
+    deduped = {(e.source, e.url): e for e in events}
+    cols = list(
+        zip(
+            *[
+                (
+                    e.source,
+                    e.published_at,
+                    e.title,
+                    e.url,
+                    e.summary,
+                    # relevance_tags JSONB — store symbols + kind
+                    json.dumps({"symbols": e.symbols, "kind": e.kind}),
+                )
+                for e in deduped.values()
+            ],
+            strict=True,
         )
-        for e in events
-    ]
-    await conn.executemany(
+    )
+    landed = await conn.fetch(
         """
         INSERT INTO regulatory_events (source, published_at, title, url, summary, relevance_tags)
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+        SELECT s, p, t, u, sm, rt::jsonb
+        FROM unnest($1::text[], $2::date[], $3::text[], $4::text[], $5::text[], $6::text[])
+             AS v(s, p, t, u, sm, rt)
         ON CONFLICT (source, url) DO UPDATE SET
             published_at   = EXCLUDED.published_at,
             title          = EXCLUDED.title,
             summary        = EXCLUDED.summary,
             relevance_tags = EXCLUDED.relevance_tags
+        RETURNING (xmax = 0) AS inserted
         """,
-        rows,
+        *[list(c) for c in cols],
     )
-    return len(rows)
+    inserted = sum(1 for r in landed if r["inserted"])
+    return UpsertCounts(inserted=inserted, updated=len(landed) - inserted)

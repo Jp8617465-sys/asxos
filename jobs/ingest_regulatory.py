@@ -93,8 +93,16 @@ _CLIENT_HEADERS = {
 
 
 async def _fetch_and_upsert(client: httpx.AsyncClient, source: SourceSpec) -> int | None:
-    """Returns rows ingested on success (including 0 for "no new events"),
+    """Returns NEW rows on success (0 for "nothing we had not already stored"),
     or None on hard failure (fetch / parse exception after retry).
+
+    **New rows, not rows touched (E-20).** This used to return the number of
+    events handed to the UPSERT, which for a feed re-serving the same item every
+    night was 1 every night while `regulatory_events` did not grow — and that
+    number is what `monitor.rows_written` carries into the digest. The re-touch
+    count is still reported, at INFO, where a steady state belongs: it is a fact
+    about the feed's cadence, not about this job's health, and `monitor.note` is
+    an alerting channel (the #368 lesson).
 
     The distinction matters: 0 is a healthy outcome on a slow news day; None
     is a real upstream problem that should count against the success
@@ -124,9 +132,12 @@ async def _fetch_and_upsert(client: httpx.AsyncClient, source: SourceSpec) -> in
         log.info(f"{source.name}: 0 events")
         return 0
     async with acquire() as conn:
-        n = await upsert_events(conn, events)
-    log.info(f"{source.name}: {n} events upserted")
-    return n
+        counts = await upsert_events(conn, events)
+    log.info(
+        f"{source.name}: {counts.inserted} new, {counts.updated} re-touched "
+        f"({counts.presented} parsed)"
+    )
+    return counts.inserted
 
 
 def _degraded_note(
@@ -195,11 +206,14 @@ async def main() -> None:
                 identifiers=[s.name for s in SOURCES],
                 allow_empty=False,  # SOURCES is hardcoded; empty == bug
             )
+            # NEW rows only (E-20). A run that re-touches everything it already
+            # had now reports 0 rather than the feed's item count, so a digest
+            # cannot read a steady state as growth.
             written = sum(t for t in totals if t is not None)
             monitor.rows_written = written
             monitor.note = _degraded_note(SOURCES, totals)
             log.info(
-                f"ingest_regulatory done: {written} total events "
+                f"ingest_regulatory done: {written} new events "
                 f"across {n_ok}/{len(SOURCES)} healthy sources"
             )
     finally:

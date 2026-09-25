@@ -3,7 +3,10 @@ Parser tests for asxos.ingestion.regulatory. No HTTP — fixture bytes only.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date
+
+import pytest
 
 from asxos import clock
 from asxos.ingestion.regulatory import (
@@ -12,6 +15,7 @@ from asxos.ingestion.regulatory import (
     extract_symbols,
     parse_json_announcements,
     parse_rss,
+    upsert_events,
 )
 
 _RSS_FIXTURE = b"""<?xml version="1.0" encoding="UTF-8" ?>
@@ -191,3 +195,158 @@ def test_parse_rss_skips_items_missing_title_or_link() -> None:
 </channel></rss>"""
     events = parse_rss(fixture, source="X")
     assert len(events) == 1
+
+
+# ---------------------------------------------------------------------------
+# upsert_events — first coverage, and the reason it needed some (E-20)
+#
+# `rows_written` for this job came from `upsert_events`, which returned
+# len(rows): events PRESENTED to the statement, not rows written. A feed
+# re-serving the same item every night therefore reported rows_written=1 every
+# night while `regulatory_events` did not grow — measured 2026-09-15: 7 rows
+# total, max(ingested_at) 2026-09-03, and a rows_written=1 success row on every
+# night from 09-07 to 09-14.
+#
+# This function had NO tests before this block, which is why swapping
+# executemany for a single RETURNING statement broke nothing visible. The
+# dedupe below in particular would have shipped unexercised.
+# ---------------------------------------------------------------------------
+
+
+def _event(url: str, *, source: str = "RBA", title: str = "t") -> RegulatoryEvent:
+    return RegulatoryEvent(
+        source=source,
+        title=title,
+        url=url,
+        published_at=date(2026, 9, 25),
+        summary="s",
+        symbols=[],
+        kind="monetary_policy",
+    )
+
+
+class _FakeConn:
+    """Captures the bound arrays and replays a RETURNING result.
+
+    ``inserted_flags`` is what Postgres' ``(xmax = 0)`` would yield, one per row
+    the statement touched, in bound order.
+    """
+
+    def __init__(self, inserted_flags: list[bool]) -> None:
+        self._flags = inserted_flags
+        self.sql: str | None = None
+        self.args: tuple[object, ...] = ()
+        self.calls = 0
+
+    async def fetch(self, sql: str, *args: object) -> list[dict[str, bool]]:
+        self.calls += 1
+        self.sql = " ".join(sql.split())
+        self.args = args
+        return [{"inserted": f} for f in self._flags]
+
+
+@pytest.mark.asyncio
+async def test_upsert_counts_new_rows_separately_from_re_touched() -> None:
+    """The E-20 fix: two events, one new and one already stored."""
+    conn = _FakeConn([True, False])
+
+    counts = await upsert_events(conn, [_event("u1"), _event("u2")])
+
+    assert counts.inserted == 1
+    assert counts.updated == 1
+    assert counts.presented == 2
+
+
+@pytest.mark.asyncio
+async def test_a_wholly_re_served_feed_reports_zero_new() -> None:
+    """The live shape this row was filed on: nothing new, every night.
+
+    The old return value here was 3; `monitor.rows_written = 3` is what a digest
+    read as growth.
+    """
+    conn = _FakeConn([False, False, False])
+
+    counts = await upsert_events(conn, [_event("u1"), _event("u2"), _event("u3")])
+
+    assert counts.inserted == 0
+    assert counts.presented == 3
+
+
+@pytest.mark.asyncio
+async def test_no_events_does_not_touch_the_database() -> None:
+    conn = _FakeConn([])
+
+    counts = await upsert_events(conn, [])
+
+    assert (counts.inserted, counts.updated) == (0, 0)
+    assert conn.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_duplicated_url_within_one_batch_is_deduped_last_wins() -> None:
+    """One statement cannot touch the same conflict target twice.
+
+    Postgres raises "ON CONFLICT DO UPDATE command cannot affect row a second
+    time", where the previous per-row executemany would quietly apply both. A
+    feed listing one release under two entries is a feed bug, not a reason to
+    fail the run — so the last occurrence wins.
+    """
+    conn = _FakeConn([True])
+
+    counts = await upsert_events(
+        conn, [_event("dup", title="first"), _event("dup", title="second")]
+    )
+
+    urls, titles = conn.args[3], conn.args[2]
+    assert list(urls) == ["dup"]
+    assert list(titles) == ["second"]
+    assert counts.presented == 1
+
+
+@pytest.mark.asyncio
+async def test_same_url_from_a_different_source_is_not_deduped() -> None:
+    """The conflict target is (source, url), so the dedupe key must be too."""
+    conn = _FakeConn([True, True])
+
+    await upsert_events(conn, [_event("u", source="RBA"), _event("u", source="ASX")])
+
+    assert list(conn.args[0]) == ["RBA", "ASX"]
+
+
+@pytest.mark.asyncio
+async def test_the_statement_asks_postgres_which_rows_were_inserted() -> None:
+    """Pins the mechanism, because the counts are meaningless without it: a
+    statement that stopped RETURNING (xmax = 0) would still return *a* number.
+    """
+    conn = _FakeConn([True])
+
+    await upsert_events(conn, [_event("u1")])
+
+    assert conn.sql is not None
+    assert "RETURNING (xmax = 0) AS inserted" in conn.sql
+    assert "ON CONFLICT (source, url) DO UPDATE" in conn.sql
+
+
+def test_a_dropped_feed_item_says_so(caplog) -> None:
+    """The silent skip is what made E-20's second half unanswerable.
+
+    `parse_rss` drops any item missing a title or a link. Whether the live RBA
+    feed has such items cannot be answered from a synthetic fixture, and the
+    feed is not reachable from an agent session (egress policy denies
+    www.rba.gov.au), so the next production run has to answer it.
+    """
+    xml = b"""<?xml version="1.0"?>
+<rss version="2.0"><channel>
+  <item><title>Has both</title><link>https://example.com/a</link></item>
+  <item><link>https://example.com/b</link></item>
+  <item><title>No link</title></item>
+</channel></rss>"""
+
+    with caplog.at_level(logging.WARNING, logger="asxos.ingestion.regulatory"):
+        events = parse_rss(xml, source="RBA")
+
+    assert len(events) == 1
+    messages = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert len(messages) == 2, messages
+    assert "no title" in messages[0]
+    assert "no link" in messages[1]
