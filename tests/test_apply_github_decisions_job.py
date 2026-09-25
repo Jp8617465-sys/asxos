@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import urllib.error
+import urllib.request
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -180,11 +181,11 @@ def test_http_4xx_and_network_errors_map_to_unavailable_but_5xx_raises() -> None
     def _http(code: int) -> Any:
         return urllib.error.HTTPError("u", code, "m", {}, io.BytesIO(b""))  # type: ignore[arg-type]
 
-    with patch.object(job_mod.urllib.request, "urlopen", side_effect=_http(404)), pytest.raises(job_mod.GitHubUnavailable, match="404"):
+    with patch.object(urllib.request, "urlopen", side_effect=_http(404)), pytest.raises(job_mod.GitHubUnavailable, match="404"):
         gh.owner_login()
-    with patch.object(job_mod.urllib.request, "urlopen", side_effect=urllib.error.URLError("dns")), pytest.raises(job_mod.GitHubUnavailable, match="dns"):
+    with patch.object(urllib.request, "urlopen", side_effect=urllib.error.URLError("dns")), pytest.raises(job_mod.GitHubUnavailable, match="dns"):
         gh.owner_login()
-    with patch.object(job_mod.urllib.request, "urlopen", side_effect=_http(502)), pytest.raises(urllib.error.HTTPError):
+    with patch.object(urllib.request, "urlopen", side_effect=_http(502)), pytest.raises(urllib.error.HTTPError):
         gh.owner_login()
 
 
@@ -205,7 +206,7 @@ def test_requests_carry_the_token_as_a_bearer_and_never_log_it(caplog: pytest.Lo
         seen.append(req)
         return _Resp(json.dumps({"owner": {"login": OWNER}}).encode())
 
-    with patch.object(job_mod.urllib.request, "urlopen", _open):
+    with patch.object(urllib.request, "urlopen", _open):
         assert gh.owner_login() == OWNER
     assert seen[0].get_header("Authorization") == "Bearer secret-token-value"
     assert "secret-token-value" not in caplog.text
