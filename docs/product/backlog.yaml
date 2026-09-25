@@ -1673,6 +1673,27 @@ items:
       or parse_rss filters too narrowly. The steward flagged the table stale on 09-14 and
       09-15. Pass test: a stated count of items in the live RBA RSS vs items parsed, and
       rows_written redefined or documented so a digest cannot read a re-touch as growth.
+      HALF DONE 2026-09-26 (AEST) by the daily-product fire, as PR #371, and RE-SCOPED to the
+      remaining half. The rows_written half is SHIPPED: upsert_events now returns new vs
+      re-touched counts (RETURNING (xmax = 0)), the job assigns only INSERTS to
+      monitor.rows_written, and the re-touch count goes to INFO rather than monitor.note — a
+      feed's cadence is a fact about the feed, not about this job's health (the #368 lesson).
+      Third instance this week of one defect class: a channel with an established meaning
+      carrying something else. Also found: upsert_events had NO tests at all, which is why
+      replacing executemany with a single RETURNING statement broke nothing visible; the batch
+      form additionally needs a (source, url) dedupe, because one statement cannot touch the
+      same conflict target twice where per-row executemany quietly applied both. Seven tests
+      added, mutation-checked four ways.
+      WHAT REMAINS is the live count, and it is BLOCKED FROM AN AGENT SESSION, not skipped: the
+      egress proxy denies www.rba.gov.au (connect_rejected, organization policy), every workflow
+      that fetches it carries RESEND_API_KEY/EODHD_API_KEY on a schedule so it is James's to
+      dispatch, and the repo's RBA fixture is synthetic so it cannot say how many items the real
+      feed carries. Instead of guessing, the measurement now happens in production: the job logs
+      "N new, M re-touched (P parsed)" per source, and parse_rss logs a WARNING for every item it
+      DROPS for a missing title or link, naming which leg was missing — silent skipping is
+      exactly what made the question unanswerable. Route stays build, not attended: reading a
+      workflow log needs no human. Remaining pass test: quote the "N new, M re-touched (P
+      parsed)" line from a daily-brief run and say whether any item was dropped.
 
   - id: A-43
     title: "Level gate — open_thesis refuses governance_status='approved' when the thesis states no falsifiable number (target, stop and timeline all NULL) or a zero-width entry band"

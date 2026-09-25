@@ -1425,6 +1425,46 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-26 (AEST) `daily-product` routine fire** — the first fire in this
+> cycle whose gate (b) PASSED. The Stages 0→6 table at the top of this file remains the only
+> ranked queue. This block supersedes the one below it.
+>
+> **#0 — #327 is CLOSED, on a run.** `pipeline-health` **36066252575** concluded **`success`** on
+> `246dcf7`, the first green since 09-19, matching the dated prediction posted the night before.
+> Five consecutive fires had gate (b) fail on that issue; it now passes, and the routine's one
+> thing comes from the picker again rather than from an incident.
+>
+> **Three things #327 taught, all of which cost a wrong claim first:**
+> 1. A symptom that stops is not evidence *your* fix stopped it — check the precondition still
+>    held when the fix landed.
+> 2. A green `nightly-check` is not a green `pipeline-health`. Different code paths.
+> 3. A fix to a note-producing job cannot *show* green for up to 36 hours, because
+>    `check_cron_health`'s check-4 window is deliberately historical. This one misled me twice,
+>    in both directions.
+>
+> **The one thing — E-20, half shipped and half named as blocked (#371).** `rows_written` for
+> `ingest_regulatory` came from `upsert_events` returning events *presented*, not rows written, so
+> a feed re-serving one item reported `rows_written=1` nightly while the table did not grow. Now
+> it returns new vs re-touched (`RETURNING (xmax = 0)`), only inserts reach
+> `monitor.rows_written`, and the re-touch count goes to INFO. **Third instance this week of one
+> defect class: a channel with an established meaning carrying something else.**
+>
+> **What I could not measure, and did not guess.** E-20 also asks for a count of items in the live
+> RBA feed vs items parsed. The egress proxy denies `www.rba.gov.au` from an agent session, every
+> workflow that fetches it is James's to dispatch, and the repo's fixture is synthetic. So the
+> instrumentation shipped instead of an estimate: the job logs `N new, M re-touched (P parsed)`
+> and `parse_rss` warns on every item it DROPS. **E-20 stays open, `route=build`** — reading a
+> workflow log needs no human.
+>
+> **Also found:** `upsert_events` had **no tests at all**, which is why replacing `executemany`
+> with one `RETURNING` statement broke nothing visible. The batch form additionally needs a
+> `(source, url)` dedupe, since one statement cannot touch the same conflict target twice.
+>
+> **Next: #1 E-20** (its remaining half — quote tonight's log line) → **#2 E-21** → **#3 E-27**.
+> Unchanged above all of them, and still arbi-impossible: **C-13**.
+>
+> **Superseded — the 2026-09-25 block below, carried unchanged.**
+
 > **Live as of the 2026-09-25 (AEST) `daily-product` routine fire.** The Stages 0→6 table at
 > the top of this file remains the only ranked queue. This block supersedes the one below it.
 >
@@ -2359,6 +2399,32 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-26 (AEST) — `daily-product` routine fire (fired 2026-09-25T17:32:35Z).** `main` @
+`246dcf7` at the gate; **#371** built and landed this fire. `make check` **4839 passed / 19
+skipped**, ruff + mypy clean on 239 files. No migration (0045 absent, 0042 reserved). No capital
+action, no Model A output, no Supabase write.
+
+**Gate:** halt clean · (a) `nightly-check` **36154485184** `success` on `246dcf7` · **(b) PASSED —
+0 open `incident` issues, the first time in five fires** · (c) clean · (d).1 no `claude/routine-*`
+PR → (d).2 picker exit 0, eligible 4, pick **E-20**; roadmap agreed (Amendment K).
+
+**#327 closed on a run, not an argument.** `pipeline-health` **36066252575** `success` on
+`246dcf7` — first green since 09-19, matching the previous fire's dated prediction exactly.
+
+**E-20 half shipped (#371).** `rows_written` now counts NEW rows; the re-touch count is at INFO,
+not `monitor.note`. `upsert_events` had no tests at all before this, and the batch form needed a
+`(source, url)` dedupe. Mutation-checked four ways.
+
+**E-20's live-feed count is BLOCKED from an agent session**, and that is recorded rather than
+worked around: the egress proxy denies `www.rba.gov.au`, the workflows that fetch it are James's,
+and the repo fixture is synthetic. The instrumentation shipped instead, so **tonight's
+`daily-brief` at 20:30 UTC takes the measurement** — next fire quotes the line and closes E-20.
+
+Open for James: **C-13** · **#355**, **#346**, **#319** · the Routine binding (MCP rebuild path
+closed — `create_trigger` stores no connectors) · **K-08**, `deadman=unset`.
+
+_Prior snapshot retained below for diffing._
 
 **2026-09-25 (AEST) — `daily-product` routine fire (fired 2026-09-24T17:32:13Z).** `main` @
 `f7143dd` at the gate; **#370** built and landed this fire. `make check` **4832 passed / 19
