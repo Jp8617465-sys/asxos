@@ -39,9 +39,6 @@ import asyncio
 import json
 import logging
 import os
-import urllib.error
-import urllib.request
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
@@ -62,126 +59,51 @@ from asxos.domain.governance.github_commands import (
     select_commands,
 )
 from asxos.domain.theses.service import approve_object, reject_object
+from asxos.github_api import (
+    REPO_ENV,
+    GitHubClient,
+    GitHubUnavailable,
+    RepoRef,
+    repo_ref_from_env,
+)
 from asxos.jobs._helpers import require_personal_use_job
 from asxos.jobs.utils.job_monitor import JobMonitor
+
+__all__ = ["REPO_ENV", "GitHubIssue", "GitHubUnavailable", "RepoRef", "repo_ref_from_env"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 JOB_NAME: Final[str] = "apply_github_decisions"
-GITHUB_API: Final[str] = os.environ.get("GITHUB_API_URL", "https://api.github.com")
-GITHUB_GRAPHQL: Final[str] = os.environ.get("GITHUB_GRAPHQL_URL", "https://api.github.com/graphql")
 TOKEN_ENV: Final[str] = "ARBI_GITHUB_TOKEN"
 ISSUE_ENV: Final[str] = "ASXOS_DECISIONS_ISSUE"
-REPO_ENV: Final[str] = "GITHUB_REPOSITORY"
 SIGNATURE: Final[str] = "— arbi (`jobs/apply_github_decisions.py`)"
 
 
-class GitHubUnavailable(RuntimeError):
-    """GitHub refused (4xx) or could not be reached — noted, never fatal to the brief."""
-
-
-@dataclass(frozen=True)
-class RepoRef:
-    owner: str
-    repo: str
-
-
 class GitHubIssue:
-    """The four calls the job needs, over urllib. Never logs the token."""
+    """`asxos.github_api.GitHubClient` bound to the one decisions issue.
+
+    The four calls `run()` makes, with the issue number fixed at construction so
+    the job body never carries it. Transport, pagination and the owner-login trust
+    rule live in the shared client.
+    """
 
     def __init__(self, *, token: str, ref: RepoRef, issue_number: int) -> None:
-        self._token = token
+        self._client = GitHubClient(token=token, ref=ref, user_agent="asxos-apply-github-decisions")
         self.ref = ref
         self.issue_number = issue_number
 
-    def _request(self, method: str, url: str, payload: dict[str, Any] | None = None) -> Any:
-        data = json.dumps(payload).encode() if payload is not None else None
-        req = urllib.request.Request(
-            url,
-            data=data,
-            method=method,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {self._token}",
-                "Content-Type": "application/json",
-                "User-Agent": "asxos-apply-github-decisions",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = resp.read().decode()
-                return json.loads(body) if body else None
-        except urllib.error.HTTPError as exc:
-            if 400 <= exc.code < 500:
-                raise GitHubUnavailable(f"{method} {url} -> HTTP {exc.code}") from exc
-            raise
-        except urllib.error.URLError as exc:
-            raise GitHubUnavailable(f"{method} {url} -> {exc.reason}") from exc
-
     def owner_login(self) -> str:
-        data = self._request("GET", f"{GITHUB_API}/repos/{self.ref.owner}/{self.ref.repo}")
-        return str(data["owner"]["login"])
+        return self._client.owner_login()
 
     def comments(self) -> list[IssueComment]:
-        out: list[IssueComment] = []
-        page = 1
-        while True:
-            batch = self._request(
-                "GET",
-                f"{GITHUB_API}/repos/{self.ref.owner}/{self.ref.repo}/issues/"
-                f"{self.issue_number}/comments?per_page=100&page={page}",
-            )
-            if not batch:
-                return out
-            out.extend(
-                IssueComment(
-                    comment_id=int(c["id"]),
-                    author_login=str((c.get("user") or {}).get("login") or ""),
-                    body=str(c.get("body") or ""),
-                )
-                for c in batch
-            )
-            if len(batch) < 100:
-                return out
-            page += 1
+        return self._client.comments(self.issue_number)
 
     def post_comment(self, body: str) -> int:
-        data = self._request(
-            "POST",
-            f"{GITHUB_API}/repos/{self.ref.owner}/{self.ref.repo}/issues/{self.issue_number}/comments",
-            {"body": body},
-        )
-        return int(data["id"])
+        return self._client.post_comment(self.issue_number, body)
 
     def ensure_pinned(self) -> bool:
-        """Pin the issue (GraphQL is the only API for it). True if this call pinned it."""
-        node = self._request(
-            "GET", f"{GITHUB_API}/repos/{self.ref.owner}/{self.ref.repo}/issues/{self.issue_number}"
-        )
-        if bool(node.get("pinned")):
-            return False
-        result = self._request(
-            "POST",
-            GITHUB_GRAPHQL,
-            {
-                "query": "mutation($id: ID!) { pinIssue(input: {issueId: $id}) { issue { id } } }",
-                "variables": {"id": str(node["node_id"])},
-            },
-        )
-        errors = (result or {}).get("errors") or []
-        if errors and not any("already" in str(e.get("message", "")).lower() for e in errors):
-            raise GitHubUnavailable(f"pinIssue refused: {errors[0].get('message', errors[0])}")
-        return not errors
-
-
-def repo_ref_from_env() -> RepoRef:
-    raw = os.environ.get(REPO_ENV, "")
-    owner, sep, repo = raw.partition("/")
-    if not sep or not owner or not repo:
-        raise RuntimeError(f"{REPO_ENV} must be owner/repo (got {raw!r})")
-    return RepoRef(owner=owner, repo=repo)
+        return self._client.ensure_pinned(self.issue_number)
 
 
 def issue_number_from_env() -> int:
