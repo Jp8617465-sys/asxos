@@ -221,7 +221,7 @@ and they are distinguishable:
   `asxos/`, `jobs/` and `scripts/` by an AST guard
   (`tests/test_no_bare_date_today.py`) that fails CI on any new call; every
   former call site goes through `asxos/clock.py::today()`, which resolves the
-  date in `settings.asxos_tz` (Sydney) rather than on the UTC runner. So if a
+  date in `ASXOS_TZ` (`asxos/clock.py`, Sydney) rather than on the UTC runner. So if a
   failure here involves a wall-clock date, ask which side of that line the code
   is on: something is reaching the UTC runner's day (`date.today()`, or a
   `datetime.now()` without a zone) where it should be reaching `clock.today()`.

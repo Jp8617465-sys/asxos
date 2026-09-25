@@ -22,12 +22,14 @@ get backwards:
     resolves that through the session TimeZone. Sliding it would silently move
     the window ~10 hours off the pipeline it exists to cover.
   * **Presentation and business-day reckoning are Sydney.** That is what
-    ``settings.asxos_tz`` is for, as ``db.py``'s own comment says.
+    the reporting zone (``ClockSettings.asxos_tz``) is for, as ``db.py``'s own
+    comment says.
 
-This module is the second of those, and until now nothing implemented it:
-``asxos_tz`` was defined in ``CoreSettings`` and read by exactly zero code
-paths. Reading it here is deliberate — it retires that dead-config finding
-rather than hard-coding a second copy of the zone name.
+This module is the second of those, and until it existed nothing implemented
+it: ``asxos_tz`` was defined in ``CoreSettings`` and read by exactly zero code
+paths. It now lives here as ``ClockSettings.asxos_tz`` — the one copy of the
+zone name — because this module has to import where ``CoreSettings`` cannot
+(see ``ClockSettings``).
 
 What this is not
 ----------------
@@ -44,13 +46,34 @@ from __future__ import annotations
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from asxos.config import settings
+from pydantic_settings import BaseSettings
 
-__all__ = ["reporting_tz", "today"]
+from asxos.settings_base import MODEL_CONFIG
+
+__all__ = ["ClockSettings", "reporting_tz", "settings", "today"]
+
+
+class ClockSettings(BaseSettings):
+    """``ASXOS_TZ`` and nothing else.
+
+    Not a field on ``CoreSettings``: importing ``asxos.config`` instantiates that class,
+    which hard-fails without ``DATABASE_URL`` — correct for every job with a database and
+    fatal for the GitHub-only lanes (``daily-digest``, ``backlog-roll``'s script steps),
+    whose only secret is a PAT and whose import chain reaches this module through
+    ``asxos.backlog``. The first production run of ``daily-digest`` died exactly there
+    (incident #389); ``tests/test_github_only_lanes_need_no_database.py`` pins the fix.
+    """
+
+    model_config = MODEL_CONFIG
+
+    asxos_tz: str = "Australia/Sydney"
+
+
+settings = ClockSettings()
 
 
 def reporting_tz() -> ZoneInfo:
-    """The configured reporting timezone (``settings.asxos_tz``)."""
+    """The configured reporting timezone (``ClockSettings.asxos_tz``)."""
     return ZoneInfo(settings.asxos_tz)
 
 
