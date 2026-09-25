@@ -1,5 +1,19 @@
 # docs/product/backlog.yaml — the machine twin of the live queue.
 #
+# ARCHIVED 2026-09-26 (agent-loop plan, rev 2 adopted 2026-09-24). The queue is GitHub
+# Issues now — AGENTS.md §11 always said live work state belongs there — and the picker
+# the `backlog-roll` lane runs is `asxos/backlog_issues.py` (Layer 4), not this file.
+# Three things keep this file alive rather than deleted:
+#   1. Its ids are provenance targets: an arbi-authored issue may cite `backlog:<id>`
+#      and Layer 1 resolves that here (`asxos/domain/governance/provenance.py`).
+#   2. `scripts/backlog_to_issues.py` files its currently-eligible arbi rows as issues,
+#      a few at a time from an attended session, until nothing eligible is left here.
+#   3. `asxos/backlog.py` remains the authority for the denied path set and the overlap
+#      rule, which the Issues picker reuses unchanged — `tests/test_backlog_next.py`
+#      still pins both against AGENTS.md §2/§8.
+# Rows are not edited here any more; a row's state lives on its issue once filed. Open
+# `route: james` rows are surfaced by the digest until they have an issue of their own.
+#
 # Amendment K (James, 2026-09-05). The Stages 0→6 table in roadmap-state.md stays the
 # HUMAN queue and the only ranked one; this file is what a script can rank. It is read by
 # `asxos/backlog.py` (via `scripts/backlog_next.py`) — the picker for the `backlog-roll`
