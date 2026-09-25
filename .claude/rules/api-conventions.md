@@ -44,15 +44,17 @@ paths:
 
 ## Migrations
 
-- Numbered SQL files in `migrations/`, applied via
-  `mcp__claude_ai_supabase-ro__apply_migration` against project `gxjqezqndltaelmyctnl`.
+- Numbered SQL files in `migrations/`, applied via `mcp__supabase__apply_migration`
+  (the write-capable server) against project `gxjqezqndltaelmyctnl` — from an attended
+  arbi session, after `backup.yml` has concluded `success` in the same sitting, never
+  from a headless lane (`AGENTS.md` §8).
 - No `make migrate` runner — `make migrate` only prints the reminder.
 - After applying: bump `REQUIRED_MIGRATIONS` in `asxos/api/main.py` to the observed
   `SELECT count(*) FROM supabase_migrations.schema_migrations` (not a guessed +1).
 - **PRE-APPLY dependent-object check (required before any `ALTER`/`DROP COLUMN`/
   `DROP TABLE`).** `migrations/` is not a complete picture of the live DB — out-of-band
   objects can exist (e.g. the `stock_universe` view that tripped 0029). Before altering
-  a column or dropping an object, run via `mcp__claude_ai_supabase-ro__execute_sql` and handle any
+  a column or dropping an object, run via `mcp__supabase-ro__execute_sql` and handle any
   hit (e.g. drop+recreate the dependent view in the same migration):
   ```sql
   SELECT dependent_ns.nspname AS schema, dependent_view.relname AS view_name
