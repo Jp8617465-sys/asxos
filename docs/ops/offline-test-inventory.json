@@ -3,12 +3,12 @@
   "summary": {
     "finding_counts": {
       "env-gated-integration": 1,
-      "network-client-import": 9,
+      "network-client-import": 10,
       "network-marked": 4,
       "network-marked-without-env-gate": 3,
       "subprocess-spawns-process": 8
     },
-    "flagged_module_count": 16,
+    "flagged_module_count": 17,
     "network_marked_modules": [
       "tests/test_m1_migrations_integration.py",
       "tests/test_migration_0061_evidence_stance_integration.py",
@@ -97,6 +97,20 @@
       "network_marked_tests": [],
       "opt_in_env_vars": [],
       "path": "tests/test_decision_engine_prototype.py",
+      "spawned_commands": [],
+      "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [
+        "urllib"
+      ],
+      "findings": [
+        "network-client-import"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_github_api.py",
       "spawned_commands": [],
       "spawns_subprocess": false
     },
