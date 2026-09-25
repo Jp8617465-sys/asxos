@@ -65,13 +65,23 @@
     "GIT_COMMITTER_NAME": "arbi"
   },
   "hooks": {
-    "PreToolUse": [
+    "SessionStart": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/secrets-guard.sh"
+            "command": "printf 'A22-MARKER project_dir=%s ts=%s\\n' \"${CLAUDE_PROJECT_DIR:+set}\" \"$(date -u +%FT%TZ)\" >> \"${RUNNER_TEMP:-/tmp}/a22-hook-proof.log\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "g=\"${CLAUDE_PROJECT_DIR:-${GITHUB_WORKSPACE:-.}}/.claude/hooks/secrets-guard.sh\"; if [ -f \"$g\" ]; then bash \"$g\"; else echo \"secrets-guard.sh missing at $g\" >&2; exit 2; fi"
           }
         ]
       }
