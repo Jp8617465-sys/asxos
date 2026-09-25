@@ -21,7 +21,7 @@ writes:
 **Status:** current (routines v1, 2026-09-14)
 **Fires:** 17:30 UTC daily = 03:30 AEST, after `nightly-check` (15:17 UTC) has concluded and
 clear of `weekly-research` (Saturday 16:00 UTC, 90-minute timeout). Finishes before
-`nightly-steward` (19:45 UTC).
+`daily-brief` (20:30 UTC), `daily-digest` (21:00 UTC) and `nightly-steward` (22:45 UTC).
 **Outcome it is measured on:** product advancing without James's attention, in the repo's own
 completion test — every close carries exactly one of `renders:` / `captures:` / `defect:`
 (Amendment E, `docs/product/roadmap-state.md`).
