@@ -8,8 +8,9 @@
 # the issue body with `Risks` appended (docs/ops/routines/nightly-steward.md).
 #
 # 21:00 UTC = 07:00 Brisbane, the §12 deadline: after daily-brief (20:30 UTC Sun–Thu) so
-# a red brief is in Incidents, 30 min before us-positions, 75 min after nightly-steward's
-# current fire (tests/test_routine_docs.py forbids a cron within 30 min of a Routine).
+# a red brief is in Incidents, 30 min before us-positions, and ≥30 min from every Routine
+# cron (tests/test_routine_docs.py). The steward reads this comment on its own later fire;
+# docs/ops/routines/nightly-steward.md owns that cron.
 # No RESEND_API_KEY or EODHD_API_KEY here, so this lane is arbi's to dispatch
 # (job-conventions.md); the dispatch default is a dry run that prints and posts nothing.
 #
