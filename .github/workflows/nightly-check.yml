@@ -126,17 +126,40 @@ jobs:
       # same split `asxos/ingestion/regulatory.py` documents, so the judging
       # logic is testable against fixtures rather than against GitHub.
       #
-      # `since` bounds the fetch to the last 3 days: the longest window any
-      # routine's budget + grace can reach back is under 5 hours, so 3 days is
-      # slack, not a guess, and it keeps this off the comment-pagination path.
+      # LOOKBACK is 10 days, and it is derived, not chosen: `required_lookback_days`
+      # takes the longest cron period across the routine docs (weekly-security is
+      # 7) plus slack, and a test pins the number below against it. The first
+      # version of this step used 3 days on the reasoning that a fire's deadline is
+      # only budget + 3h away — true, and irrelevant: the FIRE can be a whole
+      # period back, so on a Saturday weekly-security's last expected START is
+      # nearly 7 days old and a 3-day fetch would have reported a healthy routine
+      # dead. Crying wolf is a watchdog's first failure mode.
+      #
+      # PAGINATION IS EXPLICIT for the same reason. 10 days of ledger comfortably
+      # exceeds one page, and a truncated fetch looks exactly like a missing START.
+      # The loop walks pages until one comes back short; it never assumes a single
+      # page was the whole ledger.
       - name: Check the routines ledger
         run: |
           set -euo pipefail
-          since="$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)"
-          curl -fsS \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/270/comments?since=${since}&per_page=100" \
-            | python scripts/check_routine_ledger.py
+          since="$(date -u -d '10 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+          page=1
+          : > /tmp/ledger-pages.json
+          while : ; do
+            curl -fsS \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/270/comments?since=${since}&per_page=100&page=${page}" \
+              > "/tmp/ledger-page-${page}.json"
+            count="$(jq 'length' "/tmp/ledger-page-${page}.json")"
+            echo "page ${page}: ${count} comments"
+            if [ "$count" -lt 100 ]; then break; fi
+            page=$((page + 1))
+            if [ "$page" -gt 20 ]; then
+              echo "more than 20 pages of ledger since ${since} — refusing to judge a partial fetch" >&2
+              exit 1
+            fi
+          done
+          jq -s 'add' /tmp/ledger-page-*.json | python scripts/check_routine_ledger.py
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
