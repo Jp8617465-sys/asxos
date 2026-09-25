@@ -149,6 +149,7 @@ _MONOTONIC_COUNTERS: Final[tuple[tuple[str, str], ...]] = (("data.migrations", "
 SCHEDULED_LANES: Final[tuple[str, ...]] = (
     "backup",
     "daily-brief",
+    "daily-digest",
     "migration-drift",
     "nightly-check",
     "pipeline-health",
@@ -156,7 +157,7 @@ SCHEDULED_LANES: Final[tuple[str, ...]] = (
     "weekly-research",
 )
 """The workflows that carry a `schedule:` trigger — measured from
-`.github/workflows/*.yml` (2026-09-07) and pinned by
+`.github/workflows/*.yml` (2026-09-07; `daily-digest` added 2026-09-26) and pinned by
 `tests/test_secondbrain_contradictions.py`, which parses the files rather than
 trusting this tuple. A scheduled lane is the one whose reds nobody is watching."""
 
