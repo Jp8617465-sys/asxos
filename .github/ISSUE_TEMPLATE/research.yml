@@ -57,6 +57,20 @@ body:
     attributes:
       label: Out of scope
 
+  - type: input
+    id: depends_on
+    attributes:
+      label: Depends on
+      description: Issues that must close first, as "#123, #456" — or "none".
+      placeholder: "none"
+
+  - type: input
+    id: provenance
+    attributes:
+      label: Provenance
+      description: "run:<id> · decision-log:<YYYY-MM-DD> · backlog:<id> · roadmap:<id> · doc:<path>#<heading> · issue:#<n>. Required on arbi-authored issues."
+      placeholder: "doc:docs/proposals/agent-loop-surface-configuration-2026-09-24.md#what-stands-from-rev-2-what-is-amended"
+
   - type: checkboxes
     id: model_bar
     attributes:

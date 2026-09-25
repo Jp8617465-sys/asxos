@@ -5,8 +5,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Definition of Ready** — all six must hold before this leaves `backlog` for `ready`.
-        Applies to agent-opened tickets without exception.
+        **Definition of Ready** is enforced, not promised. Layer 1
+        (`asxos/domain/governance/issue_eligibility.py`) checks every required section,
+        the declared paths and any dependency in code, and arbi's readiness judgement
+        (Layer 2) is what applies `ready` — AGENTS.md §8a. Applies to agent-opened
+        tickets without exception.
 
   - type: dropdown
     id: approval_tier
@@ -65,6 +68,20 @@ body:
       description: Explicit no-gos. This is the scope-drift guard — be specific.
     validations:
       required: true
+
+  - type: input
+    id: depends_on
+    attributes:
+      label: Depends on
+      description: Issues that must close first, as "#123, #456" — or "none". Layer 1 holds this at needs-info while any is open.
+      placeholder: "none"
+
+  - type: input
+    id: provenance
+    attributes:
+      label: Provenance
+      description: "Where this work came from: run:<id> · decision-log:<YYYY-MM-DD> · backlog:<id> · roadmap:<id> · doc:<docs/product|proposals/…md>#<heading> · issue:#<n>. Required on arbi-authored issues; optional on James's."
+      placeholder: "roadmap:E-20"
 
   - type: checkboxes
     id: dod
