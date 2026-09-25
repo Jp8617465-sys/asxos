@@ -127,6 +127,13 @@ class GitHubClient:
     def issue(self, number: int) -> dict[str, Any]:
         return dict(self._request("GET", self._repo_url(f"/issues/{number}")))
 
+    def create_issue(self, *, title: str, body: str, labels: Sequence[str] = ()) -> int:
+        payload: dict[str, Any] = {"title": title, "body": body}
+        if labels:
+            payload["labels"] = [str(label) for label in labels]
+        data = self._request("POST", self._repo_url("/issues"), payload)
+        return int(data["number"])
+
     def list_issues(
         self, *, labels: Sequence[str] = (), state: str = "open"
     ) -> list[dict[str, Any]]:
