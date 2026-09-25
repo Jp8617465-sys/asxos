@@ -109,4 +109,12 @@ reverted=<sha or none> elapsed_min=<n>
 Then, if the routine's frontmatter names a `deadman_env` variable and it is set, ping it:
 `curl -fsS -m 10 --retry 3 "$<deadman_env>"` (the `.github/workflows/nightly-check.yml` shape; a
 Healthchecks ping URL is write-only and nothing in it is a secret value to print). If it is
-unset, say so in the END comment (`deadman=unset`).
+unset, say so in the END comment (`deadman=unset`) — **as a fact, not as an open item.**
+
+`deadman=unset` is **not** something to list under *Yours*, and K-08 is no longer a standing
+ask (2026-09-26). The case it existed for — a fire that did not happen, or happened and never
+closed — is now caught mechanically by `nightly-check.yml`'s `routine-ledger` job, which reads
+this ledger against each routine doc's own `cron`/`budget_min` and fails the run. What the
+three healthchecks.io URLs would still add is narrow and real: that job runs on a GitHub cron,
+so it detects a dead Routine, not a dead GitHub. Say `deadman=unset` and move on; raising it
+every fire cost seven mornings and bought nothing.

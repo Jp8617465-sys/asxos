@@ -80,7 +80,7 @@ Sources, each traceable: **Merged** from the ledger's `merged=` and the merged P
 each line carrying its Amendment E field (`renders:` / `captures:` / `defect:`); **Applied**
 from `mcp__supabase-ro__list_migrations` tail versus `migrations/`; **Decided** from
 `decision-log.md` rows dated since yesterday; **Yours** from `AGENTS.md` §2 items, open
-`.claude/**` and `docs/ops/routines/**` draft PRs, and any halt or deadman ask; **Risks**
+`.claude/**` and `docs/ops/routines/**` draft PRs, and any halt ask; **Risks**
 including one line `Routines: <n> fires — <name>:<outcome> …` and, once `get_session` is
 proven in-session, the fires' `cost_usd`; **Incidents** from §2 and §3. Write it for a
 product-aware non-engineer: effect and cost of being wrong, not implementation.

@@ -37,6 +37,15 @@ is offered only for fresh-session Routines, and these are bound to persistent se
 The observation is the ledger #270 and the digest #271; subscribing to #271 in GitHub gives
 one notification per digest.
 
+**And since 2026-09-26 the ledger is read mechanically, not only by a sibling agent.**
+`nightly-check.yml`'s `routine-ledger` job checks #270 against each routine doc's own
+`cron`/`budget_min` frontmatter and fails the run when a routine did not fire, or fired and
+posted no END. Coverage is derived from the docs, so a new routine doc joins the check by
+existing; a doc whose schedule shape the check cannot read fails the check rather than
+dropping silently out of it. The limitation is stated in that workflow's header: it runs on a
+GitHub cron, so it detects a dead Routine, not a dead GitHub — which is the whole of what
+K-08's three healthchecks.io URLs would still add, and why that row is now optional.
+
 ## Rebind, 2026-09-16 — and a correction to the inheritance claim below
 
 `daily-product` was rebound from `session_016GusBoDGMihXbXHbiMTpK1` to

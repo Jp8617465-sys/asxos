@@ -28,6 +28,17 @@
 #   - HC_NIGHTLY_URL left unset skips the ping silently, matching existing
 #     JobMonitor behaviour. GitHub's own run-failure notifications cover the
 #     failure case in the interim, but NOT the never-ran case.
+#
+# The `routine-ledger` job below is a SECOND, unrelated watchdog that lives here
+# only because this is the one lane already on a daily clock with no production
+# secret. It asks whether each overnight Routine actually fired and closed (K-08),
+# and it is a separate job precisely so the failing job NAME distinguishes "the
+# suite broke on main" from "a Routine died" — two reds needing two responses.
+# Its own limitation is the one this header already states about the heartbeat:
+# if this workflow is dropped, the ledger check does not run either, and its
+# silence looks like success. It detects a dead Routine, not a dead GitHub. That
+# residual is what K-08's three healthchecks.io URLs buy, and is why K-08 stays
+# open rather than closing with this.
 
 name: nightly-check
 
@@ -85,3 +96,47 @@ jobs:
           curl -fsS -m 10 --retry 3 "$HC_NIGHTLY_URL"
         env:
           HC_NIGHTLY_URL: ${{ secrets.HC_NIGHTLY_URL }}
+
+  # Did each Routine fire, and finish, when its own doc's frontmatter says it
+  # should? `_preamble.md` §1's START comment is the detector for a session that
+  # woke and could do nothing; until now the only reader was `nightly-steward`,
+  # itself a Routine, so every agent being dead was the one case no agent could
+  # report.
+  #
+  # Separate job on purpose: it shares nothing with the suite above, needs no
+  # dependency install, and must be identifiable by name in the run list.
+  routine-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read  # read the routines ledger issue's comments; no write anywhere
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # Network I/O lives in the caller, the script is pure over its stdin — the
+      # same split `asxos/ingestion/regulatory.py` documents, so the judging
+      # logic is testable against fixtures rather than against GitHub.
+      #
+      # `since` bounds the fetch to the last 3 days: the longest window any
+      # routine's budget + grace can reach back is under 5 hours, so 3 days is
+      # slack, not a guess, and it keeps this off the comment-pagination path.
+      - name: Check the routines ledger
+        run: |
+          set -euo pipefail
+          since="$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+          curl -fsS \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/270/comments?since=${since}&per_page=100" \
+            | python scripts/check_routine_ledger.py
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
