@@ -13,6 +13,7 @@ matched, and it missed both of the genuinely exposed ones.
 
 Module-loading follows tests/test_workflow_effects.py.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -321,8 +322,98 @@ jobs:
 def test_inventory_is_json_serialisable_and_versioned(tmp_path: Path) -> None:
     _write(tmp_path, "ci.yml", "name: ci\non: [push]\njobs:\n  a:\n    steps: []\n")
     inventory = inv.build_inventory(tmp_path / ".github" / "workflows", root=tmp_path)
-    assert inventory["schema_version"] == 1
+    assert inventory["schema_version"] == 2
     json.dumps(inventory, sort_keys=True)
+
+
+# ---------------------------------------------------------------------------
+# The second criterion: an untrusted-event payload next to a lane credential
+# ---------------------------------------------------------------------------
+
+
+def test_issues_trigger_with_lane_secret_is_flagged(tmp_path: Path) -> None:
+    """An `issues:` workflow holding the PAT would put a stranger's issue body next to
+    the credential. It is not a PR-head exposure — that is a different criterion."""
+    _write(
+        tmp_path,
+        "eligibility.yml",
+        """
+name: eligibility
+on:
+  issues:
+    types: [opened, edited, labeled]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh issue view "$N"
+        env:
+          GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
+""",
+    )
+    entry = _one(tmp_path)
+    assert entry["runs_on_untrusted_event"] is True
+    assert entry["runs_at_pr_head"] is False
+    assert entry["lane_secret_refs"] == ["ARBI_GITHUB_TOKEN"]
+    assert entry["agent_on_untrusted_event"] is True
+
+
+def test_issue_comment_trigger_with_claude_action_is_flagged(tmp_path: Path) -> None:
+    """Even secretless, the agent action reading a comment payload is the shape the
+    build loop forbids: readiness runs inside the scheduled lane, never on an event."""
+    _write(
+        tmp_path,
+        "reply.yml",
+        """
+name: reply
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590
+        with:
+          prompt: read the comment
+""",
+    )
+    entry = _one(tmp_path)
+    assert entry["agent_action_uses"] == [
+        "anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590"
+    ]
+    assert entry["lane_secret_refs"] == []
+    assert entry["agent_on_untrusted_event"] is True
+
+
+def test_issues_trigger_secretless_labeler_is_not_flagged(tmp_path: Path) -> None:
+    """The safe shape: `issues:` + the default GITHUB_TOKEN + no model. This is what
+    Layer 1's eligibility workflow looks like, and it must not be flagged."""
+    _write(
+        tmp_path,
+        "labeler.yml",
+        """
+name: labeler
+on:
+  issues:
+    types: [opened, edited]
+permissions:
+  issues: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh issue edit "$N" --add-label needs-triage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+""",
+    )
+    entry = _one(tmp_path)
+    assert entry["runs_on_untrusted_event"] is True
+    assert entry["secret_refs"] == ["GITHUB_TOKEN"]
+    assert entry["lane_secret_refs"] == []
+    assert entry["agent_action_uses"] == []
+    assert entry["agent_on_untrusted_event"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -346,3 +437,7 @@ def test_live_repo_exposure_set_is_pinned() -> None:
     assert inventory["summary"]["exposed_to_authored_pr"] == []
     assert inventory["summary"]["secrets_inherit_workflows"] == []
     assert inventory["summary"]["unsafe_pin_workflows"] == []
+    # No workflow runs the agent or holds a lane credential on an issue, comment,
+    # review or discussion event. Layer 1's eligibility workflow, when it lands, is
+    # `issues:` + GITHUB_TOKEN + no model — and this pin is what keeps it that way.
+    assert inventory["summary"]["untrusted_event_agent_workflows"] == []
