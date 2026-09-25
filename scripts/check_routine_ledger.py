@@ -132,6 +132,32 @@ def previous_fire(cron: str, now: datetime) -> datetime:
     return candidate if candidate <= now else candidate - timedelta(days=7)
 
 
+def cron_period_days(cron: str) -> int:
+    """The longest possible gap between consecutive fires of this cron.
+
+    Daily is 1; weekly-on-one-day is 7. Shares `previous_fire`'s validation by
+    calling it, so an unsupported shape raises here too rather than returning a
+    lookback that would quietly under-fetch.
+    """
+    previous_fire(cron, datetime(2026, 1, 1, 12, 0, tzinfo=UTC))  # validate the shape
+    return 1 if cron.split()[4] == "*" else 7
+
+
+def required_lookback_days(routines: list[Routine], *, slack_days: int = 3) -> int:
+    """How far back a ledger fetch must reach to contain every routine's last START.
+
+    **This is why the first version of the caller was wrong.** The check's
+    *deadline* is only budget + 3h past a fire, so it is tempting to fetch a
+    couple of days of comments — but the *fire itself* can be a whole period ago.
+    `weekly-security` fires Sundays, so on a Saturday its last expected fire is
+    nearly 7 days back; a 3-day fetch would not contain its START and the check
+    would report a healthy routine dead. A watchdog's first failure mode is
+    crying wolf, so the window is derived from the crons rather than guessed, and
+    a test pins the workflow's value against this.
+    """
+    return max(cron_period_days(r.cron) for r in routines) + slack_days
+
+
 def parse_run_lines(comments_json: str) -> list[RunLine]:
     """Every ROUTINE-RUN line in a GitHub issue-comments payload.
 
@@ -190,6 +216,7 @@ def main() -> int:
     now = datetime.now(UTC)
     problems = check(routines, runs, now)
     print(f"checked {len(routines)} routines against {len(runs)} ledger lines at {now.isoformat()}")
+    print(f"  (a ledger fetch must cover >= {required_lookback_days(routines)} days)")
     for r in routines:
         print(f"  {r.name}: cron {r.cron!r}, budget {r.budget_min}min")
     if not problems:
