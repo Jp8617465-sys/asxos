@@ -251,7 +251,6 @@ def test_runner_settings_do_not_pre_approve_claude_dir_edits() -> None:
 pytestmark_jq = pytest.mark.skipif(
     shutil.which("jq") is None, reason="secrets-guard.sh needs jq on PATH"
 )
-_BASH = shutil.which("bash") or "bash"
 
 
 def _guard(
@@ -272,7 +271,7 @@ def _guard(
     if log_dir is not None:
         env["RUNNER_TEMP"] = str(log_dir)
     return subprocess.run(
-        [_BASH, str(_SECRETS_GUARD)], input=payload, capture_output=True, text=True, env=env
+        ["bash", str(_SECRETS_GUARD)], input=payload, capture_output=True, text=True, env=env
     )
 
 
@@ -375,7 +374,7 @@ def test_secrets_guard_fails_closed_without_jq(tmp_path: Path) -> None:
     it. Exit 2 is the harness's blocking error."""
     bindir = tmp_path / "bin"
     bindir.mkdir()
-    (bindir / "bash").symlink_to(_BASH)
+    (bindir / "bash").symlink_to(shutil.which("bash") or "/bin/bash")
     proc = _guard(command="cat .env", log_dir=tmp_path, path=str(bindir))
     assert proc.returncode == 2
     assert "jq is missing" in proc.stderr
@@ -399,7 +398,7 @@ def test_secrets_guard_writes_one_proof_line_per_call_without_tool_input(tmp_pat
 def test_secrets_guard_reports_project_dir_when_set(tmp_path: Path) -> None:
     payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git status"}})
     subprocess.run(
-        [_BASH, str(_SECRETS_GUARD)],
+        ["bash", str(_SECRETS_GUARD)],
         input=payload,
         capture_output=True,
         text=True,
