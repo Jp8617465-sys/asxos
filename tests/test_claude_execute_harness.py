@@ -114,11 +114,13 @@ def test_lane_denies_what_it_cannot_prompt_for(lane: str) -> None:
 
 @pytest.mark.parametrize("lane", AGENT_LANES)
 def test_lane_pins_the_action_to_one_tagged_release(lane: str) -> None:
-    """All four lanes share one 40-hex pin, and the comment names the release.
+    """Every agent step in every lane shares one 40-hex pin, and the comment names the release.
 
     A floating ``@v1`` would let the bundled CLI change under the lanes with no diff to
-    review; four pins drifting apart would make a lane-specific failure unattributable.
-    The comment carries the tag because a bare SHA tells a reader nothing.
+    review; pins drifting apart would make a lane-specific failure unattributable. The
+    comment carries the tag because a bare SHA tells a reader nothing. ``backlog-roll``
+    has two agent steps since 2026-09-26 (readiness, build — AGENTS.md §8a); the pin was
+    always the intent, never the count.
     """
     text = _lane_text(lane)
     uses = [
@@ -126,9 +128,10 @@ def test_lane_pins_the_action_to_one_tagged_release(lane: str) -> None:
         for ln in text.splitlines()
         if "claude-code-action@" in ln and not ln.strip().startswith("#")
     ]
-    assert len(uses) == 1, f"{lane} has {len(uses)} claude-code-action steps: {uses}"
-    assert _ACTION_SHA in uses[0], f"{lane} pin differs: {uses[0]}"
-    assert _ACTION_RELEASE in uses[0], f"{lane} pin does not name its release: {uses[0]}"
+    assert uses, f"{lane} has no claude-code-action step"
+    for use in uses:
+        assert _ACTION_SHA in use, f"{lane} pin differs: {use}"
+        assert _ACTION_RELEASE in use, f"{lane} pin does not name its release: {use}"
 
 
 @pytest.mark.parametrize("lane", AGENT_LANES)
@@ -146,14 +149,16 @@ def test_claude_args_comments_are_whole_line_only(lane: str) -> None:
     docstring says inline ``#`` "is left untouched". So a comment appended to the END of
     a flag line is passed to the CLI as arguments. This pins the shape the lanes rely on.
     """
-    block = _lane_text(lane).split("claude_args: |", 1)[1]
-    for raw in block.splitlines():
-        line = raw.strip()
-        if line and not raw.startswith(" " * 12):
-            break  # dedented out of the block scalar
-        if line.startswith("#"):
-            continue
-        assert "#" not in line, f"{lane}: inline comment on a flag line: {line!r}"
+    blocks = _lane_text(lane).split("claude_args: |")[1:]
+    assert blocks, f"{lane} has no claude_args block"
+    for block in blocks:
+        for raw in block.splitlines():
+            line = raw.strip()
+            if line and not raw.startswith(" " * 12):
+                break  # dedented out of the block scalar
+            if line.startswith("#"):
+                continue
+            assert "#" not in line, f"{lane}: inline comment on a flag line: {line!r}"
 
 
 # --- project settings -------------------------------------------------------------------
@@ -217,9 +222,7 @@ def test_runner_settings_do_not_pre_approve_claude_dir_edits() -> None:
     assert editing, "the workflow-editing grant vanished; AGENTS.md section 8 gives arbi that one"
     for grant in editing:
         head = grant.split("as part of the requested task.")[0]
-        assert ".claude/" not in head, (
-            f"a lane grant pre-approves editing .claude/: {grant!r}"
-        )
+        assert ".claude/" not in head, f"a lane grant pre-approves editing .claude/: {grant!r}"
 
 
 # --- secrets-guard.sh behaviour ---------------------------------------------------------
