@@ -34,8 +34,8 @@ async def init_pool() -> asyncpg.Pool:
         # ever, would have broken it. Now the pool states its requirement.
         #
         # UTC specifically, not the reporting timezone: every stored boundary in
-        # this codebase is timestamptz at UTC, and settings.asxos_tz is for
-        # presentation. Do not "improve" this to Australia/Sydney.
+        # this codebase is timestamptz at UTC, and the reporting zone
+        # (asxos/clock.py) is for presentation. Do not "improve" this to Australia/Sydney.
         server_settings={"timezone": "UTC"},
     )
     return _pool

@@ -44,7 +44,7 @@ async def test_init_pool_does_not_pin_a_reporting_timezone() -> None:
     """UTC specifically, not the reporting timezone.
 
     Every stored boundary in this codebase is ``timestamptz`` at UTC;
-    ``settings.asxos_tz`` is for presentation. Pinning the session to
+    the reporting zone (``asxos.clock``) is for presentation. Pinning the session to
     Australia/Sydney would be a plausible-looking "fix" that reintroduces the
     exact offset this guards against, so it is asserted against by name.
     """

@@ -12,18 +12,22 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from asxos import clock
-from asxos.config import settings
+from asxos.config import CoreSettings
 
 SYDNEY = ZoneInfo("Australia/Sydney")
 
 
 def test_reporting_tz_is_the_configured_zone() -> None:
-    """The helper reads settings.asxos_tz rather than hard-coding a second copy.
+    """One copy of the zone name, and it is clock's own.
 
-    Before this module existed, asxos_tz was defined in CoreSettings and read by
-    exactly zero code paths — a dead-config finding. This is what retired it.
+    Before this module existed, asxos_tz was a CoreSettings field read by exactly zero
+    code paths — a dead-config finding this module retired. It then moved out of
+    CoreSettings altogether when daily-digest, a lane with no DATABASE_URL, died importing
+    this module through CoreSettings() (incident #389). Two copies would be the old
+    finding back; the second assertion keeps it at one.
     """
-    assert settings.asxos_tz == "Australia/Sydney"
+    assert clock.settings.asxos_tz == "Australia/Sydney"
+    assert "asxos_tz" not in CoreSettings.model_fields
     assert clock.reporting_tz() == SYDNEY
 
 
