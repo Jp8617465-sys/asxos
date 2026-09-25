@@ -67,9 +67,12 @@ HALT_TITLE_PREFIX: Final[str] = "HALT:"
 TRIAGE_LABEL: Final[str] = "needs-triage"
 READY_LABEL: Final[str] = "ready"
 VERDICT_LABELS: Final[frozenset[str]] = frozenset({"eligible", "needs-info", "needs-human"})
-#: Pull requests carrying one of these, or touching this path, are waiting on James.
+#: Pull requests carrying one of these, or touching one of these paths, are waiting on
+#: James: ``.claude/`` is arbi's own permission surface (AGENTS.md §8) and
+#: ``docs/ops/routines/`` is the instructions its unattended sessions run under
+#: (``_preamble.md`` §2) — arbi drafts both and never merges either.
 WAITING_ON_JAMES_LABELS: Final[frozenset[str]] = frozenset({"needs-human", "hold"})
-WAITING_ON_JAMES_PATH: Final[str] = ".claude/"
+WAITING_ON_JAMES_PATHS: Final[tuple[str, ...]] = (".claude/", "docs/ops/routines/")
 SIGNATURE: Final[str] = "— arbi (`asxos/autoready.py`)"
 
 #: name → (colour, description). ``ensure_labels`` creates what is missing, never edits.
@@ -344,7 +347,7 @@ def eligibility_pass(
 
 
 def wip_waiting_on_james(client: IssuesAPI) -> int:
-    """Open PRs James has to act on: labelled ``needs-human``/``hold``, or touching ``.claude/``."""
+    """Open PRs James has to act on: ``needs-human``/``hold``, or a path only he merges."""
     count = 0
     for pull in client.list_pulls(state="open"):
         labels = {str(label.get("name", "")) for label in pull.get("labels") or []}
@@ -352,7 +355,7 @@ def wip_waiting_on_james(client: IssuesAPI) -> int:
             count += 1
             continue
         files = client.pull_files(int(pull["number"]))
-        if any(str(f.get("filename", "")).startswith(WAITING_ON_JAMES_PATH) for f in files):
+        if any(str(f.get("filename", "")).startswith(WAITING_ON_JAMES_PATHS) for f in files):
             count += 1
     return count
 

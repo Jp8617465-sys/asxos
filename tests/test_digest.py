@@ -149,8 +149,13 @@ def _full(repo: Path) -> tuple[FakeGitHub, dg.Digest]:
     gh.pulls = [
         {"number": 380, "title": "feat(hooks): A-22", "labels": []},
         {"number": 383, "title": "docs(agents)", "labels": []},
+        {"number": 387, "title": "docs(routines): steward", "labels": []},
     ]
-    gh.pull_file_map = {380: [".claude/settings.json"], 383: ["AGENTS.md"]}
+    gh.pull_file_map = {
+        380: [".claude/settings.json"],
+        383: ["AGENTS.md"],
+        387: ["docs/ops/routines/nightly-steward.md"],
+    }
     gh.runs = {
         "migration-drift.yml": [
             {"id": 36200000010, "conclusion": "success"},
@@ -187,6 +192,7 @@ def test_every_section_is_derived_and_cited(repo: Path) -> None:
     assert built.yours == [
         "#353 A-22 proof 2",
         "PR #380 feat(hooks): A-22",
+        "PR #387 docs(routines): steward",
         "backlog A-20 — Add secret HC_BACKLOG_URL",
     ]
     # A red scheduled run of any lane is an incident — migration-drift's earlier failure included.
