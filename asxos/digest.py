@@ -57,7 +57,13 @@ _DECISION_RE: Final[re.Pattern[str]] = re.compile(r"^DECISION:\s*(?P<text>.+)$",
 _ROW_RE: Final[re.Pattern[str]] = re.compile(
     r"^\| (?P<date>\d{4}-\d{2}-\d{2}) \| (?P<title>[^|]+) \|"
 )
-_CITES_RE: Final[re.Pattern[str]] = re.compile(r"#\d+|\brun \d+|\b[A-E]-\d+[a-z]?\b|\b\d{14}\b")
+#: What counts as a citation (§7): a PR/issue number, a run id, a backlog id, a migration
+#: version, or a decision-log row named in §8a's provenance form ``decision-log:<date>``.
+#: A bare date is not one — the first dry run of the lane (run 36200780986) refused every
+#: ``Decided`` line for exactly that reason.
+_CITES_RE: Final[re.Pattern[str]] = re.compile(
+    r"#\d+|\brun \d+|\b[A-E]-\d+[a-z]?\b|\b\d{14}\b|\bdecision-log:\d{4}-\d{2}-\d{2}\b"
+)
 
 
 class DigestAPI(Protocol):
@@ -161,7 +167,7 @@ def decided_rows(decision_log: Path, *, since: str) -> list[str]:
         m = _ROW_RE.match(line)
         if m and m.group("date") >= since:
             title = m.group("title").strip().strip("*").strip()
-            out.append(f"{m.group('date')} — {title[:140]}")
+            out.append(f"decision-log:{m.group('date')} — {title[:140]}")
     return out
 
 
