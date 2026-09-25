@@ -52,6 +52,23 @@ from pathlib import Path
 from typing import Any
 
 _PR_HEAD_TRIGGERS = frozenset({"pull_request", "pull_request_target", "workflow_run"})
+# The second criterion (build loop, 2026-09-25). These events carry a payload written by
+# anyone who can open an issue or comment on this PUBLIC repository. A workflow that
+# runs on one of them must hold no lane secret and never run the agent action: the
+# payload would be untrusted text sitting next to a PAT, which is the shape Layer 1 of
+# the build loop exists to keep model-free.
+_UNTRUSTED_EVENT_TRIGGERS = frozenset(
+    {
+        "issues",
+        "issue_comment",
+        "pull_request_review",
+        "pull_request_review_comment",
+        "discussion",
+        "discussion_comment",
+    }
+)
+_LANE_SECRETS = frozenset({"ARBI_GITHUB_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "SUPABASE_ACCESS_TOKEN"})
+_AGENT_ACTION = "anthropics/claude-code-action"
 _FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
 
 # Secret access spellings that a bare `secrets.NAME` scan does not see.
@@ -153,9 +170,7 @@ def _scan_text(document: object) -> tuple[bool, list[str]]:
 
 
 def inspect_workflow(path: Path, *, root: Path) -> dict[str, Any]:
-    document = _wf.yaml.load(
-        path.read_text(encoding="utf-8"), Loader=_wf._UniqueBaseLoader
-    )
+    document = _wf.yaml.load(path.read_text(encoding="utf-8"), Loader=_wf._UniqueBaseLoader)
     mapping = _wf._mapping(document)
     rel = path.relative_to(root).as_posix()
 
@@ -180,30 +195,37 @@ def inspect_workflow(path: Path, *, root: Path) -> dict[str, Any]:
             if uses:
                 action_uses.append({"ref": uses, "pin_state": _pin_state(uses)})
 
+    runs_on_untrusted_event = bool(_UNTRUSTED_EVENT_TRIGGERS.intersection(details["triggers"]))
+    agent_action_uses = sorted(
+        {a["ref"] for a in action_uses if a["ref"].startswith(_AGENT_ACTION)}
+    )
+    lane_secret_refs = sorted(_LANE_SECRETS.intersection(secret_refs))
+
     return {
         "workflow": path.name,
         "path": rel,
         **details,
         "runs_at_pr_head": runs_at_pr_head,
+        "runs_on_untrusted_event": runs_on_untrusted_event,
         "job_conditions": sorted(conditions),
         "secret_refs": secret_refs,
+        "lane_secret_refs": lane_secret_refs,
         "secrets_inherit": inherits,
         "secrets_context_dump": dump,
         # The criterion, computed rather than asserted.
-        "exposed_to_authored_pr": runs_at_pr_head
-        and bool(secret_refs or inherits or dump),
+        "exposed_to_authored_pr": runs_at_pr_head and bool(secret_refs or inherits or dump),
+        # The second criterion: untrusted payload next to a lane credential or the agent.
+        "agent_action_uses": agent_action_uses,
+        "agent_on_untrusted_event": runs_on_untrusted_event
+        and bool(agent_action_uses or lane_secret_refs or inherits or dump),
         "permissions": permissions,
         "write_permissions": _wf._write_permissions(permissions),
         "action_uses": action_uses,
-        "unsafe_pins": sorted(
-            {a["ref"] for a in action_uses if a["pin_state"] != "sha"}
-        ),
+        "unsafe_pins": sorted({a["ref"] for a in action_uses if a["pin_state"] != "sha"}),
         "executed_paths": executed_paths,
         # A workflow whose own path filter names its own file re-runs itself on a
         # PR that edits it — the exact "edits that workflow file" case.
-        "self_referential_path_filter": any(
-            rel in entry for entry in details["path_filters"]
-        ),
+        "self_referential_path_filter": any(rel in entry for entry in details["path_filters"]),
         "job_count": len(jobs),
     }
 
@@ -215,26 +237,23 @@ def build_inventory(workflows_dir: Path, *, root: Path) -> dict[str, Any]:
     ]
     exposed = [w["path"] for w in workflows if w["exposed_to_authored_pr"]]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "workflows_dir": workflows_dir.relative_to(root).as_posix(),
         "summary": {
             "workflow_count": len(workflows),
-            "pr_head_workflows": sorted(
-                w["path"] for w in workflows if w["runs_at_pr_head"]
-            ),
+            "pr_head_workflows": sorted(w["path"] for w in workflows if w["runs_at_pr_head"]),
             "exposed_to_authored_pr": sorted(exposed),
+            "untrusted_event_agent_workflows": sorted(
+                w["path"] for w in workflows if w["agent_on_untrusted_event"]
+            ),
             "secrets_inherit_workflows": sorted(
                 w["path"] for w in workflows if w["secrets_inherit"]
             ),
             "self_referential_path_filters": sorted(
                 w["path"] for w in workflows if w["self_referential_path_filter"]
             ),
-            "unsafe_pin_workflows": sorted(
-                w["path"] for w in workflows if w["unsafe_pins"]
-            ),
-            "all_secret_names": sorted(
-                {name for w in workflows for name in w["secret_refs"]}
-            ),
+            "unsafe_pin_workflows": sorted(w["path"] for w in workflows if w["unsafe_pins"]),
+            "all_secret_names": sorted({name for w in workflows for name in w["secret_refs"]}),
         },
         "workflows": workflows,
     }
