@@ -1,0 +1,75 @@
+# Daily digest — AGENTS.md §12's mechanical lines, written by a job with no model in it.
+#
+# Posts (or, on a same-day re-run, updates) one marker comment on the digest issue with
+# Merged / Applied / Decided / Readied / Declined / Yours / Incidents, every line derived
+# from `gh api` and the checkout and citing a PR, run, issue, backlog id or migration
+# version — scripts/post_daily_digest.py refuses to post a line that cites nothing (§7).
+# `Risks` is arbi's judgement: the nightly-steward Routine reads this comment and writes
+# the issue body with `Risks` appended (docs/ops/routines/nightly-steward.md).
+#
+# 21:00 UTC = 07:00 Brisbane, the §12 deadline: after daily-brief (20:30 UTC Sun–Thu) so
+# a red brief is in Incidents, 30 min before us-positions, 75 min after nightly-steward's
+# current fire (tests/test_routine_docs.py forbids a cron within 30 min of a Routine).
+# No RESEND_API_KEY or EODHD_API_KEY here, so this lane is arbi's to dispatch
+# (job-conventions.md); the dispatch default is a dry run that prints and posts nothing.
+#
+# Secrets: ARBI_GITHUB_TOKEN only — it writes a comment on this repository's issue and
+# reads PRs, issues and workflow runs. No database, no email, no vendor. Checks out
+# `main`, never a PR head.
+
+name: daily-digest
+
+on:
+  schedule:
+    - cron: "0 21 * * *"          # 07:00 Brisbane, daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the digest; post nothing"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/heads/main
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Post the digest
+        env:
+          GH_TOKEN: ${{ secrets.ARBI_GITHUB_TOKEN }}
+          ASXOS_DIGEST_ISSUE: "271"
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            python scripts/post_daily_digest.py --dry-run --root "$GITHUB_WORKSPACE"
+          else
+            python scripts/post_daily_digest.py --root "$GITHUB_WORKSPACE"
+          fi
