@@ -1297,3 +1297,20 @@ every hit, then check whether a governor ruling already decided X's fate.** A ne
 claim needs a repo-wide search and a governance check, not a reading of the obvious module. And
 run the red-team *before* the plan hardens: it cost four minutes and saved three PRs of work
 pointed the wrong way.
+
+## L64 — a lane's secret set is an import-time contract; pin it with the variable absent (2026-09-26)
+
+`daily-digest`'s first production run (36200157501) died at `import`: `asxos.clock` reached
+`asxos.config`, whose `CoreSettings()` hard-fails without `DATABASE_URL`, and the lane holds a
+PAT and nothing else by design. `full-check` was green, the local dry run was green, the
+sandbox dry run got as far as the GitHub API — because every one of those environments carries
+`DATABASE_URL`. The suite could not see a failure that exists only where a variable is absent.
+`backlog-roll`'s four script steps shared the chain and would have failed the same way on their
+first dispatch.
+
+Two habits. **When a lane's header says "secret X only", that is a claim about the import graph,
+not only about `env:`** — the module tree under the entry point must not instantiate anything
+that needs what the lane lacks. And **pin such a claim from the other side: spawn an interpreter
+with the variable removed and import the chain** (`tests/test_github_only_lanes_need_no_database.py`).
+A test that runs where the variable is present proves nothing about where it is absent.
+Incident #389.

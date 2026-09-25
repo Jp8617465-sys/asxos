@@ -1,14 +1,9 @@
 from pathlib import Path
 
 from pydantic import PostgresDsn, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
-_ENV_FILE = Path.home() / "Projects" / "asxos-secrets" / ".env.production"
-_MODEL_CONFIG = SettingsConfigDict(
-    env_file=_ENV_FILE,
-    env_file_encoding="utf-8",
-    extra="ignore",
-)
+from asxos.settings_base import MODEL_CONFIG as _MODEL_CONFIG
 
 
 class CoreSettings(BaseSettings):
@@ -33,7 +28,9 @@ class CoreSettings(BaseSettings):
 
     # Optional operational fields
     fred_api_key: str = ""
-    asxos_tz: str = "Australia/Sydney"
+    # The reporting timezone (ASXOS_TZ) is asxos/clock.py's own ClockSettings, not a field
+    # here: clock must import in the GitHub-only lanes, which have no DATABASE_URL and so
+    # cannot instantiate this class (incident #389).
     asxos_api_host: str = "127.0.0.1"
     asxos_api_port: int = 8788
     asxos_api_token: str = ""

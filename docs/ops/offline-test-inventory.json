@@ -6,9 +6,9 @@
       "network-client-import": 10,
       "network-marked": 4,
       "network-marked-without-env-gate": 3,
-      "subprocess-spawns-process": 8
+      "subprocess-spawns-process": 9
     },
-    "flagged_module_count": 17,
+    "flagged_module_count": 18,
     "network_marked_modules": [
       "tests/test_m1_migrations_integration.py",
       "tests/test_migration_0061_evidence_stance_integration.py",
@@ -22,6 +22,7 @@
       "tests/test_backup_script.py",
       "tests/test_claude_execute_harness.py",
       "tests/test_cursor_i56_hooks.py",
+      "tests/test_github_only_lanes_need_no_database.py",
       "tests/test_network_guard.py",
       "tests/test_nightly_triage_shell.py",
       "tests/test_results_review_import_isolation.py",
@@ -113,6 +114,20 @@
       "path": "tests/test_github_api.py",
       "spawned_commands": [],
       "spawns_subprocess": false
+    },
+    {
+      "egress_client_imports": [],
+      "findings": [
+        "subprocess-spawns-process"
+      ],
+      "network_marked": false,
+      "network_marked_tests": [],
+      "opt_in_env_vars": [],
+      "path": "tests/test_github_only_lanes_need_no_database.py",
+      "spawned_commands": [
+        "sys.executable"
+      ],
+      "spawns_subprocess": true
     },
     {
       "egress_client_imports": [

@@ -180,12 +180,12 @@ def test_network_marker_is_registered() -> None:
 def test_production_secrets_file_is_unreachable() -> None:
     """conftest points HOME at an empty temp dir before any asxos import.
 
-    asxos/config.py resolves _ENV_FILE at import time from Path.home(), so this
+    asxos/settings_base.py resolves ENV_FILE at import time from Path.home(), so this
     asserts the file pydantic-settings was pointed at does not exist. On a
     developer machine the real path DOES exist, which is what made every local
     run load production credentials before this guard landed.
     """
-    from asxos.config import _ENV_FILE
+    from asxos.settings_base import ENV_FILE as _ENV_FILE
 
     assert not Path(_ENV_FILE).exists(), (
         f"the settings env file is reachable during tests: {_ENV_FILE}. "
