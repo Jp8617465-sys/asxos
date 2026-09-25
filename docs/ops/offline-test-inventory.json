@@ -67,9 +67,7 @@
       "network_marked_tests": [],
       "opt_in_env_vars": [],
       "path": "tests/test_claude_execute_harness.py",
-      "spawned_commands": [
-        "bash"
-      ],
+      "spawned_commands": [],
       "spawns_subprocess": true
     },
     {
