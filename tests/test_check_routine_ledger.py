@@ -18,9 +18,11 @@ import pytest
 from scripts.check_routine_ledger import (
     Routine,
     check,
+    cron_period_days,
     load_routines,
     parse_run_lines,
     previous_fire,
+    required_lookback_days,
 )
 
 _PRODUCT = Routine(name="daily-product", cron="30 17 * * *", budget_min=120)
@@ -273,3 +275,60 @@ def test_the_ledger_job_holds_no_write_permission() -> None:
 
     assert perms == {"contents": "read", "issues": "read"}
     assert all(v == "read" for v in perms.values())
+
+
+# --- the lookback bug, pinned so it cannot come back ------------------------
+
+
+def test_cron_period_is_a_day_for_daily_and_a_week_for_weekly() -> None:
+    assert cron_period_days("30 17 * * *") == 1
+    assert cron_period_days("0 12 * * 0") == 7
+
+
+def test_an_unsupported_cron_has_no_period_rather_than_a_guessed_one() -> None:
+    with pytest.raises(ValueError):
+        cron_period_days("*/5 * * * *")
+
+
+def test_the_lookback_covers_the_longest_cron_period() -> None:
+    """The bug this pins, found by asking what the job would see on its first run
+    rather than by a test: the check's DEADLINE is budget + 3h past a fire, but
+    the FIRE can be a whole period back. On a Saturday `weekly-security`'s last
+    expected START is nearly 7 days old, so the original 3-day fetch would have
+    contained no START for it and reported a healthy routine dead.
+    """
+    routines = [_PRODUCT, _SECURITY]
+
+    assert required_lookback_days(routines) > cron_period_days(_SECURITY.cron)
+    assert required_lookback_days(routines, slack_days=0) == 7
+
+
+def test_the_workflow_fetches_at_least_the_required_lookback() -> None:
+    """Derived, not restated: the workflow's `since` window is pinned against
+    what the live routine docs actually need, so adding a routine with a longer
+    period fails here rather than silently under-fetching at 15:17 UTC.
+    """
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    workflow = (repo / ".github/workflows/nightly-check.yml").read_text(encoding="utf-8")
+
+    m = re.search(r"date -u -d '(\d+) days ago'", workflow)
+    assert m, "nightly-check.yml no longer computes a `since` window in days"
+
+    assert int(m.group(1)) >= required_lookback_days(load_routines()), (
+        f"the workflow fetches {m.group(1)} days of ledger but the routine docs need "
+        f"{required_lookback_days(load_routines())} — a short fetch reports live routines dead"
+    )
+
+
+def test_the_workflow_does_not_assume_one_page_is_the_whole_ledger() -> None:
+    """A truncated fetch looks exactly like a missing START, so the step must
+    paginate and must refuse rather than judge a partial ledger."""
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    workflow = (repo / ".github/workflows/nightly-check.yml").read_text(encoding="utf-8")
+
+    assert "page=${page}" in workflow, "the ledger fetch does not pass a page parameter"
+    assert "refusing to judge a partial fetch" in workflow, "no guard on runaway pagination"
