@@ -96,7 +96,12 @@ was pending. Live state today:
 | `revisit_due_at` | 2026-06-27 | **67 days overdue** |
 | `thesis_revisions` | 1 (the opening row) | never revised |
 
-The entry band is **3.5× detached** from the live price. This is the worked example in the
+The entry band is **3.5× detached** from the live price. *(Corrected 2026-09-27, E-21: that
+figure is `close / midpoint`, not the detachment ratio the `price_detached` rule uses. The
+canonical quantity — distance from the nearest band **edge** over the midpoint, defined at
+`asxos/domain/decision_engine/challenge/rules.py::detachment_ratio` — is **2.449195** on the
+2026-09-16 close. The point below is unaffected: both figures are far past the 1.0 blocking
+threshold.)* This is the worked example in the
 north star's own framing — a thesis that was correct when written and stopped being correct,
 which the discipline loop exists to catch — sitting undetected for 67 days because nothing
 computes detachment.

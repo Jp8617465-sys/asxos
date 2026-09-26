@@ -52,7 +52,7 @@ filtered out before render.
 |---|---|
 | HUBS `cost_base_normal` currency misread → false −29% | `risk-register.md` R10 |
 | `conviction_level` NULL on all 13 theses → coherence check can't run | `risk-register.md` R11 |
-| CBA thesis ladder 42/45/38/60 vs live ~168 (~4× detached) | `cleanup-backlog.md` RC2; `portfolio-outcome-ledger.md` rec-2026-07-11-CBA |
+| CBA thesis ladder 42/45/38/60 vs live ~168 (~4× detached — *corrected 2026-09-27, E-21: that is `close / upper`; the canonical detachment ratio (`rules.py::detachment_ratio`) is ~2.8 at that close*) | `cleanup-backlog.md` RC2; `portfolio-outcome-ledger.md` rec-2026-07-11-CBA |
 | market_context feed gaps (RBA/VIX null) | `cleanup-backlog.md` RC3 (**now fixed + live** 2026-07-12) |
 | CBA revisit 14 days overdue (due 2026-06-27) | computed **daily** by `active_theses.py`, dropped at `composer.py:89-98` |
 
