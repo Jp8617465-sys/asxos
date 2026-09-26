@@ -516,7 +516,33 @@ def rule_liquidity_trend(x: ChallengeInput) -> RuleOutcome:
 
 
 def detachment_ratio(*, close: Decimal, lower: Decimal, upper: Decimal) -> Decimal:
-    """Distance from the nearest band edge, as a fraction of the band midpoint. 0 inside the band."""
+    """**The canonical detachment ratio.** This function is the definition (E-21).
+
+        ratio = 0                                    when lower <= close <= upper
+        ratio = (lower - close) / midpoint           when close < lower
+        ratio = (close - upper) / midpoint           when close > upper
+        midpoint = (lower + upper) / 2
+
+    In words: **distance from the nearest band edge, as a fraction of the band midpoint, and
+    exactly 0 anywhere inside the band.** ``challenge_results`` and ``decision_packets`` store
+    this form, so it is the one every quoted "×detached" figure should mean.
+
+    **Two other arithmetically-correct forms circulated in repo docs and are NOT this one.**
+    Both measure the price against the band rather than the *gap* against the band, so both
+    are non-zero for a close sitting comfortably inside it — which makes them useless for a
+    rule whose whole job is "is the plan still describing this security":
+
+    * ``close / upper`` — for CBA on the 2026-09-16 close 151.54 against band 42–45: 3.367556
+    * ``close / midpoint`` — same inputs: 3.483678
+
+    …against **2.449195** for this function. Five different "×detached" figures for CBA were
+    circulating (3.4, 3.5, ~4, 2.449195, 2.471264) and *none* of them was bad data: one
+    formula difference plus one session's staleness. The 2.471264 a register review quoted is
+    this same function on the 2026-09-15 close of 152.50 — `(152.50 - 45) / 43.5`.
+
+    `tests/test_detachment_ratio_canonical.py` pins those worked examples, so this docstring
+    cannot drift from the arithmetic without a test going red.
+    """
     mid = (lower + upper) / Decimal(2)
     if lower <= close <= upper:
         return Decimal("0")

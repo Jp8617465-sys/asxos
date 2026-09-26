@@ -1870,7 +1870,7 @@ items:
     title: "Detachment ratio — three live formulas, all arithmetically correct, quoted interchangeably across five docs; pick one canonical definition"
     phase: E
     owner: arbi
-    status: open
+    status: done
     depends_on: []
     route: build
     paths: ["docs/proposals/", "docs/product/roadmap-state.md", "asxos/domain/decision_engine/"]
@@ -1884,6 +1884,20 @@ items:
       formula difference plus one session's staleness, not bad data. challenge_results and
       decision_packets already use the third form. Pass test: one definition named in the
       docs with its formula beside it, and the others corrected or removed.
+      DONE 2026-09-27 (AEST) by the daily-product fire, as PR #393. The definition's home is
+      the function itself: asxos/domain/decision_engine/challenge/rules.py::detachment_ratio
+      now states the formula, the 0-inside-the-band property, and BOTH rejected forms by name
+      with their CBA figures — a definition living in a dated proposal is one somebody has to
+      go looking for, which is how three formulas coexisted for months. The two wrong doc
+      figures are ANNOTATED with dated corrections rather than rewritten (the convention for a
+      historical record): governor-drafts' "3.5x" is close/midpoint, portfolio-team-visibility's
+      "~4x" is close/upper. A stale line reference in sealed-agent-numbers-wbc was fixed too.
+      Every figure was verified against the code before being attributed: 151.54 -> canonical
+      2.449195, close/upper 3.367556, close/mid 3.483678 (exactly the 09-17 dossier's three),
+      152.50 -> 2.471264, 168 -> 2.827586, inside band -> 0. Mutation-checked three ways.
+      On editing this file at all: the archive header says rows are not edited here any more,
+      because state lives on an issue once filed. E-21 predates the cutover and was never
+      filed, so marking it here is the only thing that stops (d).3 re-picking it.
 
   - id: E-22
     title: "Ten agents are invoked by no command and no skill; two have never appeared in the decision log at all"

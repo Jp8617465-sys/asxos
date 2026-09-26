@@ -58,7 +58,8 @@ quartile of its own year. P/E `16.6995` is not obviously cheap for a major Austr
 ## 3. Consequence reasoning — what each number mechanically causes
 
 **Entry band `33.500000`–`35.200000`.** The last close `34.960000` falls **inside** this band, so
-`detachment_ratio` (`challenge/rules.py:429-435`) returns exactly `0` and `rule_price_detached`
+`detachment_ratio` (`challenge/rules.py`, the canonical definition — the line number this
+once cited, 429-435, has since moved) returns exactly `0` and `rule_price_detached`
 emits no finding. This is the deliberate consequence: CBA's band `42–45` against a close of
 `160.42` measures `2.653333` from the band **edge** and blocks. A band chosen around the
 observed price is what makes this a positive control rather than a second negative one. The

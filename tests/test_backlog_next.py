@@ -458,7 +458,16 @@ class TestSeed:
         # A-51 on tests/ — is PROMOTED rather than newly filed. Third time this exact
         # head-drops-tail-promotes shape has appeared, which is what a lane finishing rows
         # rather than filing them looks like.
-        assert [i.id for i in picked] == ["E-20", "E-21", "E-27"], [i.id for i in picked]
+        # Re-pinned 2026-09-27 by the daily-product fire that BUILT E-21 (the canonical
+        # detachment ratio). Fourth time the head-drops-tail-promotes shape has appeared:
+        # E-21 leaves by being built, E-27 moves up, and E-28 is PROMOTED out of the skipped
+        # list because its only collision was with E-21 on docs/proposals/.
+        #
+        # Worth noting while re-pinning: #382 archived this file AS THE QUEUE, so this seed is
+        # now a test of the denied-path set and the overlap rule — which the Issues picker
+        # reuses unchanged — rather than of a live ranking. The live queue is Issues, and
+        # `scripts/issue_next.py` returned 0 ready / exit 3 this fire.
+        assert [i.id for i in picked] == ["E-20", "E-27", "E-28"], [i.id for i in picked]
         # A-35 left this list on 2026-09-19: it was only ever here because it overlapped
         # A-34, and A-34 is built. E-27 still overlaps on tests/.
         # Re-pinned 2026-09-19 by the capability-audit session: six rows filed
@@ -489,7 +498,9 @@ class TestSeed:
         # 2026-09-25: E-27 leaves this list by PROMOTION — it only ever sat here for
         # overlapping A-51 on tests/, and A-51 is built. E-28 stays: its collision is with
         # E-21 on docs/proposals/, which A-51's departure does not touch.
-        assert [i.id for i in skipped] == ["E-28"], [i.id for i in skipped]
+        # 2026-09-27: E-28 leaves by promotion (above) — E-21, the row it collided with on
+        # docs/proposals/, is built. Nothing is skipped for overlap any more.
+        assert [i.id for i in skipped] == [], [i.id for i in skipped]
         clicks = [i.id for i in click_list(items)]
         assert clicks[0] == "A-20", clicks
         assert "A-24" not in clicks  # done 2026-09-14: #230 retired issue-snapshot.yml
