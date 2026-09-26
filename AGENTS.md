@@ -115,6 +115,10 @@ are a preflight, not a substitute.
 - Migrations are expand-only by default. Contracting changes are a separate later PR.
 - No feature flags. Incomplete user-visible behaviour stays on its branch.
 - A behaviour change with no test delta is incomplete.
+- `asxos/domain/**` stays pure: no DB driver, HTTP client, templating engine or
+  array library. Connections arrive as a narrow `typing.Protocol` port.
+  `.claude/rules/domain-purity.md` states it; `tests/test_domain_purity.py` enforces
+  it against a shrink-only allow-list.
 - No dependency for fewer than ~50 lines you could write and test yourself.
 - No new Markdown trackers, plans or status docs when an Issue, PR body or existing
   doc already owns the state (§11). Session handoffs are the exception.
