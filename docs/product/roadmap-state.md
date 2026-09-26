@@ -1425,6 +1425,40 @@ Slice 2, with agent DB role scoping ahead of any new agents — not a signal eng
 
 ## Ranked next-action queue
 
+> **Live as of the 2026-09-27 (AEST) `daily-product` routine fire** — the first fire under the
+> §8a build loop, and the gate did not survive contact with it. The Stages 0→6 table at the top
+> of this file remains the only ranked queue. This block supersedes the one below it.
+>
+> **#0 — the queue moved and the gate did not.** Thirteen commits landed overnight, among them
+> **#382** (`backlog.yaml` archived AS THE QUEUE) and **#383** (§8a — Issues are the queue). Gate
+> (d).2 still called `scripts/backlog_next.py`, which reads that archive, whose own header says
+> *"rows are not edited here any more; a row's state lives on its issue once filed."* Drafted as
+> **#392** (draft-only path, James's to merge): (d).2 repointed at `scripts/issue_next.py`; a
+> **new (e)** implementing §8a's own sentence *"a gate in the routine doc stops both from building
+> on one day"*, which did not exist; and the note that (d).2 exiting 3 is normal today.
+>
+> **The Issues queue is empty, and that is expected.** `scripts/issue_next.py` returned
+> `ready: 0, eligible: 0`, exit 3. `AUTO_READY` is off and `backlog_to_issues.py` files the
+> archive's rows **from an attended session**, so nothing has been readied yet. A fire therefore
+> falls to (d).3 and builds from this block — legitimate under Amendment K, and the seam to
+> watch: once (d).2 returns picks, a fire still reaching (d).3 means issues are not being readied.
+>
+> **E-21 built and merged (`bc622f6`).** The detachment ratio has one definition and it now lives
+> in `detachment_ratio`'s docstring — formula, the exactly-0-inside-the-band property, and both
+> rejected forms named with their figures. Five circulating "×detached" numbers for CBA were
+> three formulas plus one day's staleness, not bad data. Every figure verified against the code
+> before being attributed.
+>
+> **A correction I owe from yesterday.** The handoff said E-20's measurement would come from
+> *"tonight's `daily-brief`"*. That cron is `30 20 * * 0-4` — **Sun–Thu** — and 2026-09-25 was a
+> Friday, so no run happened. The measurement lands **Sunday 2026-09-27 20:30Z**. Asserting a
+> schedule without reading it is the same family as the clock slips; the cron was one grep away.
+>
+> **Next: #1 E-20** (its remaining half — quote Sunday's `ingest_regulatory` log line) →
+> **#2 E-27** → **#3 E-28**. Unchanged above all of them, and still arbi-impossible: **C-13**.
+>
+> **Superseded — the 2026-09-26 block below, carried unchanged.**
+
 > **Live as of the 2026-09-26 (AEST) `daily-product` routine fire** — the first fire in this
 > cycle whose gate (b) PASSED. The Stages 0→6 table at the top of this file remains the only
 > ranked queue. This block supersedes the one below it.
@@ -2399,6 +2433,33 @@ dev/ops side.
 ---
 
 ## Last wake snapshot
+
+**2026-09-27 (AEST) — `daily-product` routine fire (fired 2026-09-26T17:32:15Z).** `main` @
+`433aaab` at the gate; **#393** built and merged (`bc622f6`), **#392** drafted for James. `make
+check` **4986 passed / 19 skipped**, ruff + mypy clean. No migration (0045 absent, 0042 reserved).
+No capital action, no Model A output, no Supabase write.
+
+**Gate:** halt clean · (a) `nightly-check` **36251938518** `success` on `433aaab` · **(b) PASSED —
+0 open `incident` issues, second fire running** · (c) clean, and the `routine-ledger` job now
+checks the same ledger mechanically · (d).1 no `claude/routine-*` PR → (d).2 **`issue_next.py`
+exit 3, 0 ready** → (d).3 the roadmap block: E-20 blocked until Sunday, so **E-21**.
+
+**The gate itself was the finding.** #382/#383 moved the queue to Issues overnight; (d).2 still
+named the archived picker. Drafted as **#392** with a new (e) for §8a's two-builder gate, which
+had never existed. Found by running the gate, not by reading the doc.
+
+**E-21 merged.** `detachment_ratio`'s docstring is now the definition, with both rejected forms
+named. Mutation-checked three ways, including that gutting the docstring breaks the docs that
+point at it.
+
+**Correction carried forward:** `daily-brief` is `30 20 * * 0-4` (Sun–Thu), so Friday 09-25 had no
+run and E-20's measurement is **Sunday 20:30Z**, not "last night" as yesterday's handoff claimed.
+
+Open for James: **C-13** · **#392** (routine doc), **#387**, **#380**, **#372**, **#355**, **#346**,
+**#319** · **K-08 is closed out as a standing ask** (#373/#374 built the mechanical half; the
+three URLs are optional).
+
+_Prior snapshot retained below for diffing._
 
 **2026-09-26 (AEST) — `daily-product` routine fire (fired 2026-09-25T17:32:35Z).** `main` @
 `246dcf7` at the gate; **#371** built and landed this fire. `make check` **4839 passed / 19
